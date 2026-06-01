@@ -1,8 +1,8 @@
 """SSM Automation mapping for approved remediation.
 
-Prefer AWS-owned runbooks where they fit the finding safely. Use Vigil custom
-runbooks where AWS has no exact runbook or where the AWS runbook is broader than
-Vigil's reviewed evidence.
+Prefer AWS-owned runbooks where they fit the finding safely. Use focused Vigil
+custom runbooks where AWS has no exact runbook or where the AWS runbook is
+broader than Vigil's reviewed evidence.
 """
 from __future__ import annotations
 
@@ -20,29 +20,32 @@ class SsmRemediationRunbook:
     note: str
 
 
-VIGIL_PLAN_DOCUMENT = "Vigil-RemediationPlanExecutor"
+VIGIL_PLAN_DOCUMENT = "Vigil-RemediationPlanExecutor"  # legacy fallback
+VIGIL_SG_DOCUMENT = "Vigil-RevokeSecurityGroupIngressExact"
+VIGIL_IAM_KEY_DOCUMENT = "Vigil-DeactivateIamAccessKey"
+VIGIL_SSM_PARAMETER_DOCUMENT = "Vigil-MigrateSsmParameterToSecureString"
 
 RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     "ec2.security_group.unrestricted_ssh": SsmRemediationRunbook(
         check_id="ec2.security_group.unrestricted_ssh",
-        document_name=VIGIL_PLAN_DOCUMENT,
+        document_name=VIGIL_SG_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Vigil custom runbook removes only the exact public ingress rule captured in finding evidence.",
+        note="Focused Vigil runbook removes only the exact public ingress rule captured in finding evidence.",
     ),
     "ec2.security_group.unrestricted_rdp": SsmRemediationRunbook(
         check_id="ec2.security_group.unrestricted_rdp",
-        document_name=VIGIL_PLAN_DOCUMENT,
+        document_name=VIGIL_SG_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Vigil custom runbook removes only the exact public ingress rule captured in finding evidence.",
+        note="Focused Vigil runbook removes only the exact public ingress rule captured in finding evidence.",
     ),
     "ssm.parameter.plaintext_secret": SsmRemediationRunbook(
         check_id="ssm.parameter.plaintext_secret",
-        document_name=VIGIL_PLAN_DOCUMENT,
+        document_name=VIGIL_SSM_PARAMETER_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="No exact AWS-owned runbook exists for same-name String to SecureString migration.",
+        note="Focused Vigil runbook rewrites the reviewed String parameter as SecureString.",
     ),
     "s3.bucket.public_access_not_blocked": SsmRemediationRunbook(
         check_id="s3.bucket.public_access_not_blocked",
@@ -53,17 +56,17 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     ),
     "iam.access_key.unused_45d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_45d",
-        document_name=VIGIL_PLAN_DOCUMENT,
+        document_name=VIGIL_IAM_KEY_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Vigil custom runbook deactivates only the reviewed access key.",
+        note="Focused Vigil runbook deactivates only the reviewed access key.",
     ),
     "iam.access_key.unused_90d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_90d",
-        document_name=VIGIL_PLAN_DOCUMENT,
+        document_name=VIGIL_IAM_KEY_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Vigil custom runbook deactivates only the reviewed access key.",
+        note="Focused Vigil runbook deactivates only the reviewed access key.",
     ),
     "cloudtrail.trail.not_enabled": SsmRemediationRunbook(
         check_id="cloudtrail.trail.not_enabled",
