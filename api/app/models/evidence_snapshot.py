@@ -27,3 +27,8 @@ class EvidenceSnapshot(Base):
     taken_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+    # Backward-compatible alias for older triage/evidence code that still
+    # orders snapshots by EvidenceSnapshot.ts. The real DB column remains
+    # evidence_snapshots.taken_at, so this does not require a migration.
+    ts = taken_at
