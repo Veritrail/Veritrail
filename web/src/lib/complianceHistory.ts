@@ -15,7 +15,10 @@ export type HistoryEventType =
   | "baseline_established"
   | "compliance_regressed"
   | "compliance_improved"
-  | "scan_with_changes";
+  | "scan_with_changes"
+  | "finding_resolved"
+  | "finding_excepted"
+  | "finding_reopened";
 
 export interface TopChange {
   control_id: string | null;
@@ -50,6 +53,9 @@ export interface HistoryEvent {
   findings_resolved: number;
   findings_discovered?: number;
   infrastructure_events_count?: number;
+  resource_arn?: string;
+  check_id?: string;
+  detail?: string;
   snapshot: SnapshotSummary;
   top_change: TopChange;
   diff: ScanDiff;
@@ -59,6 +65,7 @@ export interface PeriodSummary {
   compliance_changes: number;
   controls_regressed: number;
   controls_improved: number;
+  remediation_events?: number;
   evidence_snapshots: number;
 }
 
