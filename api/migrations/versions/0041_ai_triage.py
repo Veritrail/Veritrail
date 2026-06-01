@@ -3,7 +3,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "0041_ai_triage"
-down_revision = "0040"
+down_revision = "0040_ssm_remediation_module"
 branch_labels = None
 depends_on = None
 

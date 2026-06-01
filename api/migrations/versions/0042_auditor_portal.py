@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "0042_auditor_portal"
-down_revision = "0041"
+down_revision = "0041_ai_triage"
 branch_labels = None
 depends_on = None
 
