@@ -12,6 +12,7 @@ from app.core.ratelimit import limiter
 from app.core.mfa_lockout import check_mfa_lock, clear_mfa_lockout, record_mfa_failure
 from app.core.security import (
     current_principal,
+    current_user_principal,
     decode_mfa_challenge_token,
     decode_refresh_token,
     issue_mfa_challenge_token,
@@ -249,6 +250,17 @@ class MeOut(BaseModel):
     google_id: str | None
     totp_enabled: bool
     has_password: bool
+
+
+def get_current_user(
+    principal: dict = Depends(current_user_principal),
+    db: Session = Depends(get_db),
+) -> User:
+    """Load the authenticated user row (compliance/meta routes)."""
+    user = db.get(User, uuid.UUID(principal["sub"]))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    return user
 
 
 @router.get("/me", response_model=MeOut)
