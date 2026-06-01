@@ -19,6 +19,18 @@ from app.core.config import get_settings
 log = structlog.get_logger()
 
 
+def llm_config_error() -> str | None:
+    """Return a human-readable config problem, or None when the LLM client is ready."""
+    settings = get_settings()
+    if not settings.AI_TRIAGE_ENABLED:
+        return None
+    if not (settings.AI_TRIAGE_API_URL or "").strip():
+        return "AI_TRIAGE_API_URL is not set"
+    if not (settings.AI_TRIAGE_API_KEY or "").strip():
+        return "AI_TRIAGE_API_KEY is not set"
+    return None
+
+
 @dataclass
 class TriageResult:
     confidence_score: float
@@ -125,8 +137,9 @@ def call_llm_for_triage(finding_context: dict[str, Any]) -> TriageResult | None:
     if not settings.AI_TRIAGE_ENABLED:
         return None
 
-    if not settings.AI_TRIAGE_API_URL:
-        log.warning("ai_triage.no_api_url")
+    config_err = llm_config_error()
+    if config_err:
+        log.warning("ai_triage.not_configured", reason=config_err)
         return None
 
     import httpx

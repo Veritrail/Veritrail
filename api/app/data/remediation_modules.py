@@ -113,6 +113,16 @@ REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
 REMEDIATION_MODULE_BY_ID = {m.id: m for m in REMEDIATION_MODULES}
 DEFAULT_REMEDIATION_ROLE_NAME = "VigilRemediationAutomationRole"
 
+# One representative check per module for account-level SSM document verification.
+MODULE_SAMPLE_CHECK_ID: dict[str, str] = {
+    "security_groups": "ec2.security_group.unrestricted_ssh",
+    "s3_public_access": "s3.bucket.public_access_not_blocked",
+    "iam_access_keys": "iam.access_key.unused_45d",
+    "iam_policies": "iam.role.full_admin_policy",
+    "ssm_parameters": "ssm.parameter.plaintext_secret",
+    "cloudtrail_logging": "cloudtrail.trail.not_enabled",
+}
+
 # Finding check_id → remediation module (SSM automation).
 CHECK_TO_REMEDIATION_MODULE: dict[str, str] = {
     "ec2.security_group.unrestricted_ssh": "security_groups",

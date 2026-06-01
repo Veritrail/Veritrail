@@ -19,6 +19,9 @@ type OptionalCheck = {
 
 type SettingsData = {
   optional_checks: OptionalCheck[];
+  features: {
+    ai_finding_review_enabled: boolean;
+  };
   scanning: {
     enabled: boolean;
     interval: ScanInterval;
@@ -90,8 +93,12 @@ function buildPayload(state: {
   emailDigestEnabled: boolean;
   digestEmail: string;
   slackWebhookUrl: string;
+  aiFindingReviewEnabled: boolean;
 }) {
   return {
+    features: {
+      ai_finding_review_enabled: state.aiFindingReviewEnabled,
+    },
     scanning: {
       enabled: state.scanEnabled,
       interval: state.scanEnabled
@@ -188,6 +195,7 @@ export default function Settings() {
   const [emailDigestEnabled, setEmailDigestEnabled] = useState(false);
   const [digestEmail, setDigestEmail] = useState("");
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
+  const [aiFindingReviewEnabled, setAiFindingReviewEnabled] = useState(true);
   const [hydrated, setHydrated] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState("");
@@ -216,6 +224,7 @@ export default function Settings() {
     setEmailDigestEnabled(data.notifications.email_digest_enabled ?? false);
     setDigestEmail(data.notifications.digest_email ?? "");
     setSlackWebhookUrl(data.notifications.slack_webhook_url ?? "");
+    setAiFindingReviewEnabled(data.features?.ai_finding_review_enabled ?? true);
     lastSavedJson.current = JSON.stringify(
       buildPayload({
         scanEnabled: data.scanning.enabled,
@@ -225,6 +234,7 @@ export default function Settings() {
         emailDigestEnabled: data.notifications.email_digest_enabled ?? false,
         digestEmail: data.notifications.digest_email ?? "",
         slackWebhookUrl: data.notifications.slack_webhook_url ?? "",
+        aiFindingReviewEnabled: data.features?.ai_finding_review_enabled ?? true,
       }),
     );
     setHydrated(true);
@@ -244,6 +254,7 @@ export default function Settings() {
     mutationFn: (body: ReturnType<typeof buildPayload>) => api("/v1/settings", { method: "PATCH", body: JSON.stringify(body) }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["settings"] });
+      qc.invalidateQueries({ queryKey: ["ai-triage"] });
       lastSavedJson.current = JSON.stringify(variables);
       setSaveStatus("saved");
       setSaveError("");
@@ -255,7 +266,19 @@ export default function Settings() {
     },
   });
 
-  const formState = useMemo(() => ({ scanEnabled, freqMode, customHours, scanFailureEnabled, emailDigestEnabled, digestEmail, slackWebhookUrl }), [scanEnabled, freqMode, customHours, scanFailureEnabled, emailDigestEnabled, digestEmail, slackWebhookUrl]);
+  const formState = useMemo(
+    () => ({
+      scanEnabled,
+      freqMode,
+      customHours,
+      scanFailureEnabled,
+      emailDigestEnabled,
+      digestEmail,
+      slackWebhookUrl,
+      aiFindingReviewEnabled,
+    }),
+    [scanEnabled, freqMode, customHours, scanFailureEnabled, emailDigestEnabled, digestEmail, slackWebhookUrl, aiFindingReviewEnabled],
+  );
 
   useEffect(() => {
     if (!hydrated) return;
@@ -359,6 +382,17 @@ export default function Settings() {
               <div className="border-t border-zinc-100 bg-zinc-50/60 px-4 py-2 text-xs text-zinc-500">
                 {!data?.scan_status.account_connected ? <span>Connect an AWS account to enable scheduled scans.</span> : <span>{lastScan ? <>Last scan: {lastScan}</> : "No scan completed yet."}{scanEnabled && nextScan && <>{" · "}Next: {nextScan}</>}</span>}
               </div>
+            </div>
+          </SectionShell>
+
+          <SectionShell eyebrow="Findings" title="AI review" description="Advisory verdicts in the finding drawer. Does not change compliance scores or apply fixes automatically.">
+            <div className={settingsCardClass}>
+              <SettingRow
+                title="AI finding review"
+                description="Show AI review in finding drawers and run triage after scans when the LLM is configured."
+              >
+                <Toggle checked={aiFindingReviewEnabled} onChange={setAiFindingReviewEnabled} />
+              </SettingRow>
             </div>
           </SectionShell>
 

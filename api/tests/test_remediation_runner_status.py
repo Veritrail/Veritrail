@@ -70,7 +70,7 @@ def test_ssm_document_missing_blocker(mock_assume):
     )
     assert out["ready"] is False
     assert out["automation_region"] == "us-east-1"
-    assert any("Custom Vigil automation document" in b for b in out["blockers"])
+    assert any("Vigil runbook" in b for b in out["blockers"])
 
 
 @patch("app.services.remediation_runner_status.assume_role")
@@ -78,6 +78,12 @@ def test_ssm_document_ready(mock_assume):
     acc = MagicMock()
     acc.role_arn = "arn:aws:iam::123:role/x"
     acc.external_id = "ext"
+    acc.enable_remediation_sg = True
+    acc.enable_remediation_s3 = False
+    acc.enable_remediation_iam_keys = False
+    acc.enable_remediation_iam_policy = False
+    acc.enable_remediation_ssm_parameters = False
+    acc.enable_remediation_cloudtrail = False
 
     ssm = MagicMock()
     sess = MagicMock()
@@ -88,6 +94,7 @@ def test_ssm_document_ready(mock_assume):
     out = check_remediation_runner(acc, scanner_policy_documents=_scanner_policy_with_ssm_start())
     assert out["ready"] is True
     assert out["document"]["exists"] is True
+    ssm.describe_document.assert_called_with(Name="Vigil-RevokeSecurityGroupIngressExact")
 
 
 @patch("app.services.remediation_runner_status.assume_role")

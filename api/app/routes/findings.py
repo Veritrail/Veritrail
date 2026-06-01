@@ -367,17 +367,35 @@ class TriageResultOut(BaseModel):
         from_attributes = True
 
 
+def _triage_api_response(finding, row, *, llm_configured: bool) -> dict:
+    from app.services.ai_triage_store import triage_row_to_api
+    from app.services.ai_finding_review import heuristic_triage_payload, LOCAL_MODEL_VERSION
+
+    if row:
+        result = triage_row_to_api(row)
+        review_mode = "llm" if row.model_version != LOCAL_MODEL_VERSION else "local"
+    else:
+        result = heuristic_triage_payload(finding)
+        review_mode = "local"
+    return {
+        "ai_triage_enabled": True,
+        "llm_configured": llm_configured,
+        "review_mode": review_mode,
+        "result": result,
+    }
+
+
 @router.get("/{finding_id}/triage", response_model=TriageResultOut | dict)
 def get_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Fetch the latest AI triage result for a finding."""
     from app.models.ai_triage import AITriageResult
-    from app.core.config import get_settings as _settings
+    from app.models.org import Org
+    from app.services.ai_finding_review import llm_triage_available, org_ai_finding_review_enabled
 
-    _get_owned(db, p, finding_id)  # auth check
-
-    settings = _settings()
-    if not settings.AI_TRIAGE_ENABLED:
-        return {"ai_triage_enabled": False}
+    finding = _get_owned(db, p, finding_id)
+    org = db.get(Org, finding.org_id)
+    if not org_ai_finding_review_enabled(org):
+        return {"ai_triage_enabled": False, "llm_configured": False}
 
     row = db.scalar(
         select(AITriageResult)
@@ -385,35 +403,55 @@ def get_triage(finding_id: str, p=Depends(current_principal), db: Session = Depe
         .order_by(AITriageResult.created_at.desc())
         .limit(1)
     )
-    if not row:
-        return {"ai_triage_enabled": True, "result": None}
-
-    return TriageResultOut(
-        id=str(row.id),
-        finding_id=str(row.finding_id),
-        confidence_score=row.confidence_score,
-        rationale=row.rationale,
-        suggested_action=row.suggested_action,
-        model_version=row.model_version,
-        created_at=row.created_at,
-    )
+    llm_ready = llm_triage_available()
+    if row:
+        return _triage_api_response(finding, row, llm_configured=llm_ready)
+    if not llm_ready:
+        return _triage_api_response(finding, None, llm_configured=False)
+    return {"ai_triage_enabled": True, "llm_configured": True, "review_mode": "llm", "result": None}
 
 
 @router.post("/{finding_id}/triage", response_model=TriageTriggerResponse)
 def trigger_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Manually trigger AI triage for a single finding."""
-    from app.core.config import get_settings as _settings
+    from app.models.org import Org
+    from app.services.ai_finding_review import (
+        heuristic_triage_payload,
+        llm_triage_available,
+        org_ai_finding_review_enabled,
+        LOCAL_MODEL_VERSION,
+    )
+    from app.services.ai_triage_store import save_triage_result, triage_row_to_api
 
-    _get_owned(db, p, finding_id)  # auth check
-
-    settings = _settings()
-    if not settings.AI_TRIAGE_ENABLED:
+    finding = _get_owned(db, p, finding_id)
+    org = db.get(Org, finding.org_id)
+    if not org_ai_finding_review_enabled(org):
         return TriageTriggerResponse(queued=False, ai_triage_enabled=False)
+
+    if not llm_triage_available():
+        payload = heuristic_triage_payload(finding)
+        row = save_triage_result(
+            db,
+            finding,
+            confidence_score=payload["confidence_score"],
+            rationale=payload["rationale"],
+            suggested_action=payload["suggested_action"],
+            model_version=LOCAL_MODEL_VERSION,
+        )
+        return TriageTriggerResponse(
+            queued=False,
+            ai_triage_enabled=True,
+            result={"review_mode": "local", **triage_row_to_api(row)},
+        )
 
     from app.worker.tasks import ai_triage_single_finding
 
     task = ai_triage_single_finding.delay(finding_id)
-    return TriageTriggerResponse(queued=True, ai_triage_enabled=True, result={"task_id": task.id})
+    return TriageTriggerResponse(
+        queued=True,
+        ai_triage_enabled=True,
+        result={"task_id": task.id, "review_mode": "llm"},
+    )
 
 
 @router.post("/bulk-triage", response_model=TriageTriggerResponse)
@@ -423,11 +461,18 @@ def bulk_triage(
     db: Session = Depends(get_db),
 ):
     """Triage all un-triaged findings for an org (or a specific account)."""
-    from app.core.config import get_settings as _settings
+    from app.services.ai_finding_review import llm_triage_available, org_ai_finding_review_enabled
 
-    settings = _settings()
-    if not settings.AI_TRIAGE_ENABLED:
+    org = db.get(Org, uuid.UUID(p["org_id"]))
+    if not org_ai_finding_review_enabled(org):
         return TriageTriggerResponse(queued=False, ai_triage_enabled=False)
+
+    if not llm_triage_available():
+        return TriageTriggerResponse(
+            queued=False,
+            ai_triage_enabled=True,
+            result={"review_mode": "local", "message": "Bulk triage uses rules-based review per finding in the drawer."},
+        )
 
     if account_id:
         acc = db.get(AwsAccount, uuid.UUID(account_id))

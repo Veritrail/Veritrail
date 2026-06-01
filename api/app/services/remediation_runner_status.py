@@ -17,9 +17,8 @@ from app.services.remediation_plan import (
     resolve_automation_region,
 )
 
-DOCUMENT_NAME = "Vigil-RemediationPlanExecutor"
+DOCUMENT_NAME = "Vigil-RemediationPlanExecutor"  # legacy; new stacks use per-module runbooks
 
-# Connector role (VigilScannerRole) — not the remediation execution role.
 CONNECTOR_SSM_START_ACTIONS = (
     "ssm:DescribeDocument",
     "ssm:StartAutomationExecution",
@@ -45,15 +44,35 @@ def connector_ssm_start_blockers(scanner_policy_documents: list[dict]) -> list[s
     ]
 
 
-def check_remediation_runner(
+def _enabled_module_check_ids(acc: AwsAccount) -> list[str]:
+    from app.data.remediation_modules import MODULE_SAMPLE_CHECK_ID, REMEDIATION_MODULES
+
+    check_ids: list[str] = []
+    for spec in REMEDIATION_MODULES:
+        if not spec.runner_supported:
+            continue
+        if not getattr(acc, spec.enable_column, False):
+            continue
+        sample = MODULE_SAMPLE_CHECK_ID.get(spec.id)
+        if sample:
+            check_ids.append(sample)
+    return check_ids
+
+
+def _is_vigil_document(document_name: str, runbook_owner: str | None) -> bool:
+    if runbook_owner == "vigil":
+        return True
+    return document_name.startswith("Vigil-")
+
+
+def _check_single_runbook(
     acc: AwsAccount,
     *,
-    check_id: str | None = None,
-    resource_region: str | None = None,
-    session: Any | None = None,
-    scanner_policy_documents: list[dict] | None = None,
+    check_id: str | None,
+    resource_region: str | None,
+    session: Any,
+    scanner_policy_documents: list[dict] | None,
 ) -> dict[str, Any]:
-    """Inspect SSM Automation readiness in the remediation region (connector can describe/start)."""
     from app.services.ssm_remediation_catalog import runbook_for_check
 
     settings = get_settings()
@@ -64,18 +83,91 @@ def check_remediation_runner(
         if runbook
         else (settings.REMEDIATION_SSM_DOCUMENT_NAME or DOCUMENT_NAME)
     )
+    runbook_owner = runbook.owner if runbook else None
 
     out: dict[str, Any] = {
+        "check_id": check_id,
         "automation_region": automation_region,
         "resource_region": resource_region,
         "document": {"name": document_name, "exists": False, "status": None},
         "ready": False,
-        "rule": {"name": document_name, "exists": False, "state": None},
+        "blockers": [],
+        "warnings": [],
+        "hints": [],
+    }
+
+    ssm = session.client("ssm", region_name=automation_region)
+    try:
+        doc = ssm.describe_document(Name=document_name)
+        status = (doc.get("Document") or {}).get("Status")
+        out["document"]["exists"] = True
+        out["document"]["status"] = status
+        if status not in (None, "Active"):
+            out["blockers"].append(f"SSM document {document_name} exists but Status={status}")
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code")
+        if code in ("InvalidDocument", "InvalidDocumentOperation"):
+            if _is_vigil_document(document_name, runbook_owner):
+                home = automation_home_region()
+                out["blockers"].append(
+                    f"Vigil runbook {document_name} is not deployed in {automation_region} "
+                    f"(automation home region is {home}). Deploy vigil-remediation-ssm.yaml in that "
+                    "region with the matching Enable*Remediation parameters set to Yes."
+                )
+            else:
+                out["blockers"].append(
+                    f"AWS runbook {document_name} is not available in {automation_region}. "
+                    "AWS-owned documents are regional — enable the module and deploy in the target region."
+                )
+        elif code == "AccessDeniedException":
+            out["blockers"].append(
+                f"Connector role cannot access ssm:DescribeDocument in {automation_region}. "
+                "Update VigilAccountConnector (vigil-core-scanner.yaml) with remediation modules enabled."
+            )
+        else:
+            out["blockers"].append(f"Cannot describe SSM document {document_name}: {e}")
+
+    if scanner_policy_documents is not None:
+        if (
+            _is_vigil_document(document_name, runbook_owner)
+            and out["document"].get("exists")
+            and not connector_can_start_document_automation(scanner_policy_documents, document_name)
+        ):
+            out["blockers"].append(
+                f"Connector IAM must allow ssm:StartAutomationExecution on document/{document_name} "
+                f"in {automation_region} (update vigil-core-scanner.yaml)."
+            )
+
+    out["ready"] = not out["blockers"] and out["document"].get("exists")
+    if runbook and runbook.owner == "aws":
+        out["warnings"].append(f"AWS-owned runbook {document_name}.")
+    return out
+
+
+def check_remediation_runner(
+    acc: AwsAccount,
+    *,
+    check_id: str | None = None,
+    resource_region: str | None = None,
+    session: Any | None = None,
+    scanner_policy_documents: list[dict] | None = None,
+) -> dict[str, Any]:
+    """Inspect SSM Automation readiness (live DescribeDocument, not cached)."""
+    settings = get_settings()
+    home = automation_home_region()
+
+    out: dict[str, Any] = {
+        "automation_region": home,
+        "resource_region": resource_region,
+        "document": {"name": None, "exists": False, "status": None},
+        "ready": False,
+        "rule": {"name": None, "exists": False, "state": None},
         "lambda": {"name": None, "exists": False, "deprecated": True},
         "schema_discovery": {"enabled": None, "note": "SSM Automation only — no Lambda runner"},
         "blockers": [],
         "warnings": [],
         "hints": [],
+        "documents": [],
     }
 
     if not acc.role_arn:
@@ -96,87 +188,63 @@ def check_remediation_runner(
             out["blockers"].append(f"Cannot assume role: {exc}")
             return out
 
-    ssm = sess.client("ssm", region_name=automation_region)
-    try:
-        doc = ssm.describe_document(Name=document_name)
-        status = (doc.get("Document") or {}).get("Status")
-        out["document"]["exists"] = True
-        out["document"]["status"] = status
-        out["rule"]["exists"] = True
-        out["rule"]["state"] = status
-        if status not in (None, "Active"):
-            out["blockers"].append(f"SSM document {document_name} exists but Status={status}")
-    except ClientError as e:
-        if e.response.get("Error", {}).get("Code") in ("InvalidDocument", "InvalidDocumentOperation"):
-            if runbook and runbook.owner == "vigil":
-                home = automation_home_region()
-                out["blockers"].append(
-                    f"Custom Vigil automation document {document_name} is not deployed in the "
-                    f"automation home region {home}. Deploy vigil-remediation-ssm.yaml there once; "
-                    "PlanJson carries resource_region for changes in the target region."
-                )
-            else:
-                out["blockers"].append(
-                    f"AWS runbook {document_name} is not available in {automation_region} "
-                    "(resource region). AWS-owned documents are regional."
-                )
-        elif e.response.get("Error", {}).get("Code") == "AccessDeniedException":
-            out["blockers"].append(
-                f"Connector role cannot access ssm:DescribeDocument in {automation_region}. "
-                "Update your VigilAccountConnector CloudFormation stack with the latest "
-                "vigil-core-scanner.yaml template, or enable SSM remediation on the connector "
-                "(set EnableSsmRemediation=Yes as a stack parameter)."
-            )
-        else:
-            out["blockers"].append(f"Cannot describe SSM document: {e}")
+    if check_id:
+        checks = [check_id]
+    else:
+        checks = _enabled_module_check_ids(acc)
+        if not checks:
+            checks = [None]  # noqa: allow legacy single-doc probe when no modules flagged
 
-    if scanner_policy_documents is not None:
+    partials: list[dict[str, Any]] = []
+    for cid in checks:
+        partials.append(
+            _check_single_runbook(
+                acc,
+                check_id=cid,
+                resource_region=resource_region,
+                session=sess,
+                scanner_policy_documents=scanner_policy_documents,
+            )
+        )
+
+    if scanner_policy_documents is not None and checks != [None]:
         out["blockers"].extend(connector_ssm_start_blockers(scanner_policy_documents))
-        if (
-            runbook
-            and runbook.owner == "vigil"
-            and out["document"].get("exists")
-            and not connector_can_start_document_automation(scanner_policy_documents, document_name)
-        ):
-            out["blockers"].append(
-                "VigilSsmRemediationStart allows StartAutomationExecution on automation-definition only. "
-                f"Update VigilAccountConnector (latest vigil-core-scanner.yaml) so IAM also allows "
-                f"ssm:StartAutomationExecution on document/{document_name} in {automation_region}."
-            )
 
-    out["ready"] = not out["blockers"] and out["document"].get("exists")
-    if runbook and runbook.owner == "aws":
-        out["warnings"].append(
-            f"AWS-owned runbook {document_name} — no Vigil custom document required."
-        )
-        if check_id == "cloudtrail.trail.not_enabled":
-            out["hints"].append(
-                "CloudTrail remediation requires a pre-existing S3 bucket. "
-                "Provide S3BucketName when dispatching."
-            )
-    elif runbook and runbook.owner == "vigil":
-        home = automation_home_region()
-        out["hints"].append(
-            f"Custom Vigil document: deploy vigil-remediation-ssm.yaml once in {home} "
-            f"(REMEDIATION_AUTOMATION_REGION). Target resource region: {resource_region or 'n/a'}."
-        )
+    seen_blockers: set[str] = set()
+    for partial in partials:
+        out["documents"].append(partial["document"])
+        for b in partial["blockers"]:
+            if b not in seen_blockers:
+                seen_blockers.add(b)
+                out["blockers"].append(b)
+        out["warnings"].extend(partial["warnings"])
+
+    primary = partials[0] if partials else None
+    if primary:
+        out["automation_region"] = primary["automation_region"]
+        out["document"] = primary["document"]
+        out["rule"] = {
+            "name": primary["document"]["name"],
+            "exists": primary["document"]["exists"],
+            "state": primary["document"]["status"],
+        }
+
+    out["ready"] = bool(partials) and all(p["ready"] for p in partials) and not out["blockers"]
 
     if out["ready"]:
         out["hints"] = [
-            *out["hints"],
-            f"SSM remediation ready in {automation_region}. Approve on the finding, then start automation.",
-            "Re-scan after remediation so the next plan matches live resources.",
+            f"SSM remediation runbooks are active (checked {len(partials)} module document(s)).",
+            "Approve on the finding, then start automation. Re-scan after remediation.",
         ]
     else:
         out["hints"] = [
-            *out["hints"],
-            "Update the Vigil connector stack (vigil-stack / core scanner) with SSM remediation modules enabled.",
-            f"Connector needs ssm:DescribeDocument and ssm:StartAutomationExecution in {automation_region}.",
-            (
-                f"Set REMEDIATION_AUTOMATION_REGION={settings.REMEDIATION_AUTOMATION_REGION} "
-                f"to match where Vigil-RemediationPlanExecutor is deployed."
-                if runbook and runbook.owner == "vigil"
-                else f"AWS-owned runbook must exist in the resource region ({automation_region})."
-            ),
+            "Deploy vigil-remediation-ssm.yaml in the automation home region with Enable*Remediation=Yes.",
+            f"Automation home region: {home} (REMEDIATION_AUTOMATION_REGION).",
+            "Connector needs ssm:DescribeDocument and ssm:StartAutomationExecution.",
         ]
+        if checks == [None]:
+            out["hints"].append(
+                "Enable at least one remediation module on the connector stack, then verify again."
+            )
+
     return out

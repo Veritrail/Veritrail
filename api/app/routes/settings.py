@@ -40,6 +40,9 @@ DEFAULT_SETTINGS: dict = {
         "slack_webhook_url": None,
         "scan_failure_email_enabled": True,
     },
+    "features": {
+        "ai_finding_review_enabled": True,
+    },
 }
 
 
@@ -48,6 +51,7 @@ def _merged(stored: dict) -> dict:
     merged["checks"] = {**stored.get("checks", {})}
     merged["scanning"] = get_scanning_settings(stored)
     merged["notifications"] = {**DEFAULT_SETTINGS["notifications"], **stored.get("notifications", {})}
+    merged["features"] = {**DEFAULT_SETTINGS["features"], **stored.get("features", {})}
     return merged
 
 
@@ -60,6 +64,10 @@ class NotificationsIn(BaseModel):
     digest_email: str | None = None
     slack_webhook_url: str | None = None
     scan_failure_email_enabled: bool = True
+
+
+class FeaturesIn(BaseModel):
+    ai_finding_review_enabled: bool = True
 
 
 class ScanningIn(BaseModel):
@@ -87,6 +95,7 @@ class SettingsPatch(BaseModel):
     checks: dict[str, CheckSettingIn] | None = None
     scanning: ScanningIn | None = None
     notifications: NotificationsIn | None = None
+    features: FeaturesIn | None = None
 
 
 class OptionalCheckOut(BaseModel):
@@ -105,6 +114,7 @@ class SettingsOut(BaseModel):
     cis_benchmark_coverage: dict | None = None
     scanning: dict
     notifications: dict
+    features: dict
     scan_status: ScanStatusOut
     account_email: str | None = None
 
@@ -183,6 +193,11 @@ def patch_settings(body: SettingsPatch, p=Depends(current_principal), db: Sessio
 
     if body.notifications is not None:
         current["notifications"] = ensure_digest_unsubscribe_token(body.notifications.model_dump())
+
+    if body.features is not None:
+        features = dict(current.get("features", {}))
+        features["ai_finding_review_enabled"] = body.features.ai_finding_review_enabled
+        current["features"] = features
 
     org.settings = current
     db.add(org)

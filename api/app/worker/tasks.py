@@ -1202,9 +1202,10 @@ def ai_triage_task(account_id: str) -> dict:
     """
     from app.core.config import get_settings as _settings
 
+    from app.services.ai_finding_review import llm_triage_available
+
     settings = _settings()
-    if not settings.AI_TRIAGE_ENABLED:
-        return {"ok": True, "triaged": 0, "reason": "disabled"}
+    use_llm = llm_triage_available()
 
     db = SessionLocal()
     triaged = 0
@@ -1213,6 +1214,13 @@ def ai_triage_task(account_id: str) -> dict:
         acc = db.get(AwsAccount, acc_uuid)
         if not acc:
             return {"ok": False, "error": "account not found"}
+
+        from app.models.org import Org
+        from app.services.ai_finding_review import org_ai_finding_review_enabled
+
+        org = db.get(Org, acc.org_id)
+        if not org_ai_finding_review_enabled(org):
+            return {"ok": True, "triaged": 0, "reason": "org_disabled"}
 
         # Gather findings that are open (haven't been resolved/ignored yet)
         from sqlalchemy import select as sa_select
@@ -1228,6 +1236,7 @@ def ai_triage_task(account_id: str) -> dict:
             return {"ok": True, "triaged": 0}
 
         from app.models.ai_triage import AITriageResult
+        from app.services.ai_finding_review import apply_heuristic_triage
         from app.services.ai_triage import call_llm_for_triage
 
         model_ver = settings.AI_TRIAGE_MODEL
@@ -1307,20 +1316,24 @@ def ai_triage_task(account_id: str) -> dict:
                 },
             }
 
-            result = call_llm_for_triage(finding_context)
-            if result is None:
-                continue  # LLM call failed — skip this finding, don't block
-
-            triage_result = AITriageResult(
-                id=uuid.uuid4(),
-                finding_id=finding.id,
-                confidence_score=result.confidence_score,
-                rationale=result.rationale,
-                suggested_action=result.suggested_action,
-                findings_context=finding_context,
-                model_version=model_ver,
-            )
-            db.add(triage_result)
+            if use_llm:
+                result = call_llm_for_triage(finding_context)
+                if result is None:
+                    apply_heuristic_triage(db, finding)
+                    triaged += 1
+                    continue
+                triage_result = AITriageResult(
+                    id=uuid.uuid4(),
+                    finding_id=finding.id,
+                    confidence_score=result.confidence_score,
+                    rationale=result.rationale,
+                    suggested_action=result.suggested_action,
+                    findings_context=finding_context,
+                    model_version=model_ver,
+                )
+                db.add(triage_result)
+            else:
+                apply_heuristic_triage(db, finding)
             triaged += 1
 
         db.commit()
@@ -1343,9 +1356,10 @@ def ai_triage_single_finding(finding_id: str) -> dict:
     """Run AI triage on a single finding (triggered by manual re-triage endpoint)."""
     from app.core.config import get_settings as _settings
 
+    from app.services.ai_finding_review import apply_heuristic_triage, llm_triage_available, org_ai_finding_review_enabled
+
     settings = _settings()
-    if not settings.AI_TRIAGE_ENABLED:
-        return {"ok": True, "reason": "disabled"}
+    use_llm = llm_triage_available()
 
     db = SessionLocal()
     try:
@@ -1354,8 +1368,23 @@ def ai_triage_single_finding(finding_id: str) -> dict:
         if not finding:
             return {"ok": False, "error": "finding not found"}
 
+        from app.models.org import Org
         from app.models.ai_triage import AITriageResult
         from app.services.ai_triage import call_llm_for_triage
+
+        org = db.get(Org, finding.org_id)
+        if not org_ai_finding_review_enabled(org):
+            return {"ok": True, "reason": "org_disabled"}
+
+        if not use_llm:
+            row = apply_heuristic_triage(db, finding)
+            return {
+                "ok": True,
+                "review_mode": "local",
+                "confidence_score": row.confidence_score,
+                "rationale": row.rationale,
+                "suggested_action": row.suggested_action,
+            }
 
         evidence_snaps = db.scalars(
             select(EvidenceSnapshot).where(
@@ -1400,7 +1429,14 @@ def ai_triage_single_finding(finding_id: str) -> dict:
 
         result = call_llm_for_triage(finding_context)
         if result is None:
-            return {"ok": False, "error": "LLM call failed"}
+            row = apply_heuristic_triage(db, finding)
+            return {
+                "ok": True,
+                "review_mode": "local",
+                "confidence_score": row.confidence_score,
+                "rationale": row.rationale,
+                "suggested_action": row.suggested_action,
+            }
 
         triage_result = AITriageResult(
             id=uuid.uuid4(),

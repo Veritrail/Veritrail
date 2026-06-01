@@ -63,10 +63,10 @@ class Settings(BaseSettings):
     CFN_SCANNER_ROLE_NAME_LEGACY: str = "VigilReadOnlyScannerRole"
     CFN_REMEDIATION_AUTOMATION_ROLE_NAME: str = "VigilRemediationAutomationRole"
     CFN_REMEDIATION_TEMPLATE_URL: str = (
-        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-remediation-ssm.yaml"
+        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
     )
     CFN_REMEDIATION_SSM_TEMPLATE_URL: str = (
-        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-remediation-ssm.yaml"
+        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
     )
 
     # CloudFormation console deep links (customer deploys connector stack).
@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     TERRAFORM_VALIDATE_SKIP: bool = False
 
     # AI-assisted finding triage.
-    AI_TRIAGE_ENABLED: bool = False
+    AI_TRIAGE_ENABLED: bool = True
     AI_TRIAGE_API_URL: str = ""
     AI_TRIAGE_API_KEY: str = ""
     AI_TRIAGE_MODEL: str = "gpt-4o-mini"

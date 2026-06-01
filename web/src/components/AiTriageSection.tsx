@@ -25,6 +25,8 @@ type TriageFetchResponse =
   | TriageResultPayload
   | {
       ai_triage_enabled?: boolean;
+      llm_configured?: boolean;
+      config_error?: string | null;
       result?: TriageResultPayload | null;
     };
 
@@ -44,14 +46,20 @@ function isTriageResultPayload(value: unknown): value is TriageResultPayload {
 
 function normalizeTriageResponse(resp: TriageFetchResponse): {
   enabled: boolean;
+  llmConfigured: boolean;
+  configError: string | null;
   result: TriageResultPayload | null;
 } {
   if (isTriageResultPayload(resp)) {
-    return { enabled: true, result: resp };
+    return { enabled: true, llmConfigured: true, configError: null, result: resp };
   }
 
+  const enabled = resp.ai_triage_enabled !== false;
+  const llmConfigured = resp.llm_configured !== false;
   return {
-    enabled: resp.ai_triage_enabled !== false,
+    enabled,
+    llmConfigured,
+    configError: typeof resp.config_error === "string" ? resp.config_error : null,
     result: isTriageResultPayload(resp.result) ? resp.result : null,
   };
 }
@@ -181,11 +189,22 @@ export function AiTriageSection({
       setErrorMsg("");
       setViewState("loading");
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (!data?.queued) {
+        refetchTriage()
+          .then(({ data: refreshed }) => {
+            setViewState(refreshed?.result ? "done" : "idle");
+          })
+          .catch(() => {
+            setErrorMsg("Failed to retrieve review");
+            setViewState("error");
+          });
+        return;
+      }
       setTimeout(() => {
         refetchTriage()
-          .then(({ data }) => {
-            setViewState(data?.result ? "done" : "loading");
+          .then(({ data: refreshed }) => {
+            setViewState(refreshed?.result ? "done" : "loading");
           })
           .catch(() => {
             setErrorMsg("Failed to retrieve review");
@@ -207,6 +226,7 @@ export function AiTriageSection({
   if (triageState?.enabled === false) return null;
 
   const result = triageState?.result ?? null;
+  const isLocalReview = result?.model_version === "vigil-local-review-v1";
   const busy = loadingResult || triggerTriage.isPending || viewState === "loading";
   const verdict = result ? verdictForScore(result.confidence_score) : null;
   const action = result ? actionBadge(result.suggested_action) : null;
@@ -243,7 +263,9 @@ export function AiTriageSection({
                 </span>
               ) : (
                 <span className="mt-1 block text-xs text-zinc-500">
-                  Advisory only. It does not change compliance score unless a human applies an action.
+                  {isLocalReview
+                    ? "Rules-based review (no external LLM). Advisory only."
+                    : "Advisory only. It does not change compliance score unless a human applies an action."}
                 </span>
               )}
             </span>
