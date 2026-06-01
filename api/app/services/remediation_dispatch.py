@@ -39,19 +39,18 @@ def _dispatch_instructions(
 ) -> list[str]:
     base = [
         "Update the Vigil connector stack with the SSM remediation module for this finding family.",
-        "When execute=true, Vigil calls ssm:StartAutomationExecution in automation_region using the connector role.",
+        "When execute=true, Vigil calls ssm:StartAutomationExecution using the connector role.",
         "Plan expires — prepare again after re-scan if the resource changed.",
     ]
     if runbook and runbook.owner == "vigil":
         base.insert(
             1,
-            f"Vigil custom document: deploy Vigil-RemediationPlanExecutor once in {automation_region} "
-            f"(home region). PlanJson targets resource_region {resource_region}.",
+            f"Vigil guarded runbook runs in {automation_region}; PlanJson targets resource_region {resource_region}.",
         )
     elif runbook and runbook.owner == "aws":
         base.insert(
             1,
-            f"AWS-owned runbook {runbook.document_name} runs in {automation_region} (resource region).",
+            f"AWS-owned runbook {runbook.document_name} runs in {automation_region}.",
         )
     return base
 
@@ -71,9 +70,18 @@ def build_remediation_dispatch(
     automation_region = plan.get("automation_region") or automation_region_for_finding(finding)
     runbook = runbook_for_check(finding.check_id)
     document_name = (runbook.document_name if runbook else None) or settings.REMEDIATION_SSM_DOCUMENT_NAME
+    automation_role_arn = f"arn:aws:iam::{finding.account_id}:role/{settings.CFN_REMEDIATION_AUTOMATION_ROLE_NAME}"
 
     detail = json.dumps(plan, separators=(",", ":"))
-    parameters = automation_parameters_for_plan(detail, runbook) if runbook else {"PlanJson": [detail]}
+    parameters = (
+        automation_parameters_for_plan(
+            detail,
+            runbook,
+            automation_assume_role_arn=automation_role_arn,
+        )
+        if runbook
+        else {"PlanJson": [detail]}
+    )
     ssm_parameters = json.dumps(parameters)
     start_automation_cli = (
         f"aws ssm start-automation-execution --region {shlex.quote(automation_region)} "
@@ -103,8 +111,6 @@ def build_remediation_dispatch(
                     aws_account=acc,
                     purpose="start_remediation_automation",
                 )
-                # Execution role is set on the document (assumeRole in vigil-remediation-ssm.yaml),
-                # not via StartAutomationExecution (that API has no AutomationAssumeRole param).
                 resp = sess.client("ssm", region_name=automation_region).start_automation_execution(
                     DocumentName=document_name,
                     Parameters=parameters,
@@ -143,6 +149,7 @@ def build_remediation_dispatch(
             "automation_execution_id": automation_execution_id,
             "error": automation_error,
             "runbook": runbook_payload(runbook) if runbook else None,
+            "automation_assume_role_arn": automation_role_arn,
         },
         "automation_execution_id": automation_execution_id,
         "automation_error": automation_error,
