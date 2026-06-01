@@ -37,10 +37,10 @@ function DashboardMetric({
           ? "ring-indigo-100"
           : "ring-zinc-100";
   return (
-    <div className={`min-w-0 rounded-2xl border border-zinc-200 bg-white px-4 py-4 shadow-sm shadow-zinc-950/[0.03] ring-1 ${ringClass}`}>
-      <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
-      <p className={`mt-2 text-2xl font-bold tabular-nums tracking-tight ${toneClass}`}>{value}</p>
-      <p className="mt-1 truncate text-xs text-zinc-500">{detail}</p>
+    <div className={`min-w-0 rounded-xl border border-zinc-200 bg-white px-3.5 py-3 shadow-sm shadow-zinc-950/[0.02] ring-1 ${ringClass}`}>
+      <p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">{label}</p>
+      <p className={`mt-1.5 text-xl font-bold tabular-nums tracking-tight ${toneClass}`}>{value}</p>
+      <p className="mt-0.5 truncate text-[11px] text-zinc-500">{detail}</p>
     </div>
   );
 }
@@ -51,22 +51,22 @@ function ControlStatusRow({ summary }: { summary: CurrentSummary }) {
   const pct = (n: number) => `${((n / total) * 100).toFixed(0)}%`;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm shadow-zinc-950/[0.03]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Current control status</p>
-          <p className="mt-1 text-sm text-zinc-500">Pass/fail state for mapped controls now.</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Current control status</p>
+          <p className="mt-0.5 text-xs text-zinc-500">Pass/fail state for mapped controls now.</p>
         </div>
-        <span className="rounded-full bg-zinc-50 px-2.5 py-1 text-xs font-semibold text-zinc-600 ring-1 ring-zinc-200">
+        <span className="rounded-full bg-zinc-50 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200">
           {total} controls
         </span>
       </div>
-      <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/60">
+      <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/60">
         {summary.controls_passed > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(summary.controls_passed / total) * 100}%` }} title={`Passing: ${summary.controls_passed}`} />}
         {summary.controls_failed > 0 && <div className="bg-rose-500 transition-all" style={{ width: `${(summary.controls_failed / total) * 100}%` }} title={`Failing: ${summary.controls_failed}`} />}
         {summary.controls_no_data > 0 && <div className="bg-zinc-300 transition-all" style={{ width: `${(summary.controls_no_data / total) * 100}%` }} title={`No data: ${summary.controls_no_data}`} />}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <span><span className="font-semibold tabular-nums text-emerald-700">{summary.controls_passed}</span><span className="text-zinc-500"> passing ({pct(summary.controls_passed)})</span></span>
         <span><span className="font-semibold tabular-nums text-rose-700">{summary.controls_failed}</span><span className="text-zinc-500"> failing ({pct(summary.controls_failed)})</span></span>
         {summary.controls_no_data > 0 && <span><span className="font-semibold tabular-nums text-zinc-500">{summary.controls_no_data}</span><span className="text-zinc-400"> no data ({pct(summary.controls_no_data)})</span></span>}
@@ -78,22 +78,22 @@ function ControlStatusRow({ summary }: { summary: CurrentSummary }) {
 function TopPersistentGaps({ gaps }: { gaps: PersistentGap[] }) {
   if (gaps.length === 0) return null;
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm shadow-zinc-950/[0.03]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Persistent gaps</p>
-          <p className="mt-1 text-sm text-zinc-500">Controls with the most open findings right now.</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Persistent gaps</p>
+          <p className="mt-0.5 text-xs text-zinc-500">Controls with the most open findings right now.</p>
         </div>
-        <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-100">
+        <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-100">
           Needs attention
         </span>
       </div>
-      <ul className="mt-4 space-y-2">
+      <ul className="mt-3 space-y-1.5">
         {gaps.slice(0, 4).map((g) => (
-          <li key={g.control_id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-zinc-100 bg-zinc-50/70 px-3 py-2.5">
+          <li key={g.control_id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-zinc-100 bg-zinc-50/70 px-3 py-2">
             <div className="min-w-0">
-              <span className="font-mono text-[10px] font-semibold text-zinc-500">{g.control_id}</span>
-              <p className="mt-0.5 line-clamp-1 text-sm font-medium text-zinc-900">{g.title}</p>
+              <span className="line-clamp-1 text-sm font-medium text-zinc-900">{g.title}</span>
+              <span className="font-mono text-[10px] text-zinc-500">{g.control_id}</span>
             </div>
             <span className="shrink-0 text-xs font-semibold tabular-nums text-rose-700">{g.open_finding_count} open</span>
           </li>
@@ -110,19 +110,19 @@ function ScanCadence({ cadence, days, scanCount }: { cadence: ScanCadenceDay[]; 
   const maxScans = Math.max(1, ...visible.map((d) => d.scan_count));
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white px-5 py-4 shadow-sm shadow-zinc-950/[0.03]">
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Evidence cadence</p>
-        <p className="text-[11px] text-zinc-400">Last {Math.min(days, visible.length)} scan days</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Evidence cadence</p>
+        <p className="text-[10px] text-zinc-400">Last {Math.min(days, visible.length)} scan days</p>
       </div>
-      <div className="mt-4 grid grid-cols-[repeat(18,minmax(0,1fr))] gap-1.5">
+      <div className="mt-3 grid grid-cols-[repeat(18,minmax(0,1fr))] gap-1">
         {visible.map((d) => {
           const intensity = d.scan_count / maxScans;
           const cls = d.posture_change_count > 0 ? "bg-indigo-600" : intensity > 0.66 ? "bg-emerald-600" : intensity > 0.33 ? "bg-emerald-400" : "bg-emerald-200";
-          return <div key={d.date} className={`h-8 rounded-md ${cls}`} title={`${d.date}: ${d.scan_count} scan${d.scan_count === 1 ? "" : "s"}${d.posture_change_count > 0 ? `, ${d.posture_change_count} posture change${d.posture_change_count === 1 ? "" : "s"}` : ""}`} />;
+          return <div key={d.date} className={`h-6 rounded-md ${cls}`} title={`${d.date}: ${d.scan_count} scan${d.scan_count === 1 ? "" : "s"}${d.posture_change_count > 0 ? `, ${d.posture_change_count} posture change${d.posture_change_count === 1 ? "" : "s"}` : ""}`} />;
         })}
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-500">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-zinc-500">
         <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-emerald-400" />Scanned</span>
         <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-indigo-600" />Posture changed</span>
       </div>
@@ -138,16 +138,16 @@ function LatestChangeCard({ events }: { events: HistoryEvent[] }) {
   const title = isRemediation ? eventTypeLabel(meaningful.type) : "Latest posture change";
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-white via-white to-indigo-50/40 px-5 py-4 shadow-sm shadow-zinc-950/[0.03]">
-      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">What changed</p>
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-xl border border-zinc-200 bg-gradient-to-br from-white via-white to-indigo-50/40 px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-base font-bold tracking-tight text-zinc-950">{title}</h3>
-          <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">What changed</p>
+          <h3 className="mt-1 text-sm font-bold tracking-tight text-zinc-950">{title}</h3>
+          <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
             {cause ? <><span className="font-semibold text-zinc-800">{cause.control}</span> {cause.text}.</> : meaningful.top_change?.title || "A new evidence snapshot was recorded."}
           </p>
         </div>
-        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-zinc-600 ring-1 ring-zinc-200">
+        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-zinc-600 ring-1 ring-zinc-200">
           {scanShortDate(meaningful.timestamp)}
         </span>
       </div>
@@ -185,8 +185,8 @@ export function HistoryDashboard({
   const remediationEvents = periodSummary?.remediation_events ?? events.filter((e) => e.type === "finding_resolved" || e.type === "finding_excepted" || e.type === "finding_reopened").length;
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="space-y-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         <DashboardMetric label="Current posture" value={currentScore != null ? `${currentScore}%` : "No data"} detail={`${passed} passing, ${failing} failing`} tone={failing > 0 ? "bad" : currentScore != null ? "good" : "neutral"} />
         <DashboardMetric label="Failing controls" value={failing} detail={noData > 0 ? `${noData} controls without data` : "All mapped controls have data"} tone={failing > 0 ? "bad" : "good"} />
         <DashboardMetric label="Changes" value={changed} detail={`${improved} improved, ${regressed} regressed`} tone={regressed > 0 ? "bad" : changed > 0 ? "good" : "neutral"} />
@@ -195,8 +195,8 @@ export function HistoryDashboard({
 
       <LatestChangeCard events={events} />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)]">
-        <div className="space-y-5">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(18rem,0.95fr)]">
+        <div className="space-y-4">
           {currentSummary && <ControlStatusRow summary={currentSummary} />}
           {events.length >= 2 ? (
             <ComplianceTrendChart events={events} currentScore={currentScore} days={days} periodSummary={periodSummary} onSelectSnapshot={onSelectSnapshot} />
@@ -207,7 +207,7 @@ export function HistoryDashboard({
             </div>
           ) : null}
         </div>
-        <div className="space-y-5">
+        <div className="space-y-4">
           <TopPersistentGaps gaps={persistentGaps} />
           <ScanCadence cadence={scanCadence} days={days} scanCount={scanCount ?? 0} />
         </div>

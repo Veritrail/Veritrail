@@ -91,9 +91,11 @@ const statusExpandedBg: Record<string, string> = {
 type OpenFindingMeta = { id: string; check_id: string; severity: string; resource_arn: string };
 
 function StatusIndicator({ status }: { status: string }) {
+  const badgeClass =
+    "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium";
   if (status === "pass") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50/90 px-2.5 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200/50">
+      <span className={`${badgeClass} bg-emerald-50/90 text-emerald-700 ring-1 ring-emerald-200/50`}>
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500/90" aria-hidden />
         Pass
       </span>
@@ -101,14 +103,14 @@ function StatusIndicator({ status }: { status: string }) {
   }
   if (status === "fail") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50/80 px-2.5 py-1 text-[11px] font-medium text-red-700 ring-1 ring-red-200/45">
+      <span className={`${badgeClass} bg-red-50/80 text-red-700 ring-1 ring-red-200/45`}>
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/75" aria-hidden />
         Failing
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100/90 px-2.5 py-1 text-[11px] font-medium text-zinc-500 ring-1 ring-zinc-200/70">
+    <span className={`${badgeClass} bg-zinc-100/90 text-zinc-500 ring-1 ring-zinc-200/70`}>
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400/80" aria-hidden />
       No data
     </span>
@@ -1397,7 +1399,7 @@ export default function Controls() {
 
                 <div className="hidden grid-cols-[auto_auto_minmax(0,1fr)_3.5rem] items-center gap-4 border-b border-zinc-200 bg-zinc-50/60 px-5 py-2.5 sm:grid">
                   <span className="w-3.5" />
-                  <span className="w-[72px] text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Status</span>
+                  <span className="w-[5.5rem] text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Status</span>
                   <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Control</span>
                   <span className="text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
                     Findings
@@ -1431,7 +1433,7 @@ export default function Controls() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
 
-                          <div className="sm:w-[72px]">
+                          <div className="sm:w-[5.5rem] shrink-0">
                             <StatusIndicator status={ctrl.status} />
                           </div>
 

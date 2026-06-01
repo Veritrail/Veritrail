@@ -185,7 +185,7 @@ export function TrustCenterSettings() {
               </button>
               {slug && (
                 <a
-                  href={`${BASE}/trust/${slug}`}
+                  href={`/trust/${slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50"

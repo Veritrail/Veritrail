@@ -52,7 +52,7 @@ export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
     summary: "Block public buckets",
     bullets: ["Enforce block public access", "Tighten bucket policies when approved"],
     permissions: ["s3:PutBucketPublicAccessBlock", "s3:PutBucketPolicy"],
-    runnerSupported: false,
+    runnerSupported: true,
   },
   {
     id: "iam_access_keys",
@@ -86,7 +86,7 @@ export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
       "iam:CreatePolicyVersion",
       "iam:DeletePolicyVersion",
     ],
-    runnerSupported: false,
+    runnerSupported: true,
   },
   {
     id: "ssm_parameters",
@@ -106,7 +106,7 @@ export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
     summary: "Enable logging if disabled",
     bullets: ["Start logging on trails", "Update trail configuration when approved"],
     permissions: ["cloudtrail:UpdateTrail", "cloudtrail:StartLogging"],
-    runnerSupported: false,
+    runnerSupported: true,
   },
 ];
 

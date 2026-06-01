@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
@@ -26,9 +28,12 @@ import {
   regionsFromFindingEvidence,
   resourceDetailRowsFromFinding,
   resourceDisplayName,
+  resourceIdentifierLabel,
+  resourceIdentifierValue,
   resourceRegionForFinding,
   resourceShortName,
   resourceTypeLabel,
+  isVcsResourceIdentifier,
 } from "../lib/findingDisplay";
 import {
   applyCliPlaceholders,
@@ -206,15 +211,13 @@ function SelectedResourceInspector({
   const accountId = awsAccountIdFromArn(finding.resource_arn);
   const ev = finding.evidence;
   const isUnusedRoleFinding = finding.check_id === "iam.role.unused_services_90d";
-  const isIamRoleFinding =
-    finding.check_id.startsWith("iam.role.") && finding.resource_arn.includes(":role/");
-  const showWhatIfHint = supportsBlastRadius(finding.check_id) && isIamRoleFinding;
   const unusedCount = (ev.unused_services as string[] | undefined)?.length;
   const totalGranted = ev.total_granted_services as number | undefined;
   const thresholdDays = ev.threshold_days as number | undefined;
   const withRecordedUse =
     totalGranted != null && unusedCount != null ? Math.max(0, totalGranted - unusedCount) : null;
   const detailRows = resourceDetailRowsFromFinding(finding);
+  const fieldDetailRows = detailRows.filter((r) => r.label !== "IAM role");
   const exposingRules = Array.isArray(ev.exposing_rules) ? (ev.exposing_rules as Record<string, unknown>[]) : [];
   const affectedRegions = regionsFromFindingEvidence(ev);
   const affectedRegionsLabel =
@@ -242,7 +245,7 @@ function SelectedResourceInspector({
         attachedToList ? "border-l-2 border-l-zinc-300/45 shadow-sm shadow-zinc-900/[0.04]" : ""
       }`}
     >
-      {detailRows.length === 0 && (
+      {fieldDetailRows.length === 0 && !isVcsResourceIdentifier(finding.resource_arn) && (
         <div
           className={`border-b border-zinc-100 px-4 py-3.5 pr-5 ${attachedToList ? "bg-zinc-50/70" : "bg-white"}`}
         >
@@ -250,29 +253,6 @@ function SelectedResourceInspector({
             {resourceShortName(finding)}
           </h3>
         </div>
-      )}
-
-      {detailRows.length > 0 && (
-        <ResourceGroup className="border-t-0 bg-zinc-50/30">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {detailRows.map((row) => (
-              <div
-                key={row.label}
-                className="min-w-0 rounded-lg border border-zinc-200/80 bg-white px-2.5 py-2 shadow-sm shadow-zinc-900/[0.02]"
-              >
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  {row.label}
-                </div>
-                <div
-                  className={`mt-0.5 truncate text-[12px] font-medium text-zinc-900 ${row.mono ? "font-mono text-[11px]" : ""}`}
-                  title={row.value}
-                >
-                  {row.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </ResourceGroup>
       )}
 
       {exposingRules.length > 0 && (
@@ -308,10 +288,26 @@ function SelectedResourceInspector({
         </ResourceGroup>
       )}
 
-      <ResourceGroup className={detailRows.length > 0 ? "" : "border-t-0"}>
+      <ResourceGroup className="border-t-0">
+        {fieldDetailRows.map((row) => (
+          <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
+            {row.value}
+          </ResourceFieldRow>
+        ))}
         {accountId && <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>}
-        <ResourceFieldRow label="ARN" mono>
-          {finding.resource_arn}
+        <ResourceFieldRow label={resourceIdentifierLabel(finding.resource_arn)} mono>
+          {(() => {
+            const value = resourceIdentifierValue(finding);
+            const href = isVcsResourceIdentifier(finding.resource_arn) ? value : null;
+            if (href?.startsWith("http")) {
+              return (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-700 hover:underline">
+                  {href}
+                </a>
+              );
+            }
+            return value;
+          })()}
         </ResourceFieldRow>
       </ResourceGroup>
 
@@ -376,14 +372,6 @@ function SelectedResourceInspector({
           />
         </PostureMetricsRow>
       </ResourceGroup>
-
-      {showWhatIfHint && (
-        <p className="border-t border-zinc-100/80 bg-zinc-50/30 px-4 py-2.5 pr-5 text-[11px] leading-relaxed text-zinc-500">
-          {isUnusedRoleFinding
-            ? "Usage confidence and safe-removal analysis are on the What If tab."
-            : "Open the What If tab for used services, trust principals, and whether to proceed with caution before scoping this role."}
-        </p>
-      )}
     </div>
   );
 }
@@ -4117,6 +4105,143 @@ function PolicyCloudTrailStartAction({
   );
 }
 
+function ApplyPolicyFooter({
+  accountId,
+  roleArn,
+  data,
+  onApplied,
+}: {
+  accountId: string;
+  roleArn: string;
+  data: GeneratedPolicy;
+  onApplied: () => void;
+}) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dryRun, setDryRun] = useState(false);
+
+  if (!data.cleaned_policies || !data.has_inline_policies) return null;
+
+  const policyName = Object.keys(data.cleaned_policies)[0];
+  const cleanedPolicy = data.cleaned_policies[policyName];
+  const originalPolicy = (data.original_policies ?? {})[policyName];
+
+  async function handleApply() {
+    setApplying(true);
+    setError(null);
+    try {
+      const result = await api(
+        `/v1/accounts/${accountId}/roles/apply-policy`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            role_arn: roleArn,
+            policy_name: policyName,
+            cleaned_policy: cleanedPolicy,
+            dry_run: dryRun,
+          }),
+        },
+      );
+      if (result.dry_run) {
+        setError(null);
+        setShowConfirm(true);
+      } else {
+        setApplied(true);
+        onApplied();
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 mt-2">
+        {applied ? (
+          <span className="text-[11px] font-medium text-emerald-600">✓ Policy applied</span>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={applying}
+              className="rounded-md bg-zinc-800 px-2.5 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-60"
+            >
+              {applying ? "Applying…" : "Apply policy"}
+            </button>
+            {error && <span className="text-[11px] text-red-600">{error}</span>}
+          </>
+        )}
+      </div>
+
+      {showConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6">
+          <div
+            className="absolute inset-0 bg-zinc-950/25 backdrop-blur-[2px]"
+            onClick={() => setShowConfirm(false)}
+            aria-hidden
+          />
+          <div
+            role="dialog"
+            aria-labelledby="apply-policy-dialog-title"
+            className="relative w-full max-w-[520px] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-2xl shadow-zinc-900/15"
+          >
+            <div className="border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
+              <span className="font-semibold">⚠️ This will modify IAM.</span> The cleaned policy will replace the current inline policy on the role.
+            </div>
+            <div className="p-6">
+              <h3 id="apply-policy-dialog-title" className="text-base font-semibold text-zinc-900">
+                Confirm policy apply
+              </h3>
+              <p className="mt-2 text-sm text-zinc-600">
+                You{'\''}re about to apply the cleaned policy <span className="font-mono text-zinc-800">{policyName}</span> to role{" "}
+                <span className="font-mono text-zinc-800">{(roleArn || "").split("/").pop()}</span>.
+              </p>
+              <div className="mt-4 max-h-[200px] overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3">
+                <pre className="font-mono text-[11px] leading-relaxed text-zinc-700 whitespace-pre-wrap">
+                  {JSON.stringify(cleanedPolicy, null, 2)}
+                </pre>
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs text-zinc-600">
+                  <input
+                    type="checkbox"
+                    checked={dryRun}
+                    onChange={(e) => setDryRun(e.target.checked)}
+                    className="rounded"
+                  />
+                  Dry run (validate only)
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(false)}
+                    className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApply}
+                    disabled={applying}
+                    className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                  >
+                    {applying ? "Applying…" : dryRun ? "Validate" : "Apply"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function GeneratePolicySection({
   accountId,
   finding,
@@ -4227,6 +4352,7 @@ function GeneratePolicySection({
               Per-action usage not available yet — scoped to services with recorded activity. Run another scan to refresh.
             </p>
           )}
+          <ApplyPolicyFooter accountId={accountId} roleArn={finding.resource_arn} data={data} onApplied={() => void refetch()} />
         </div>
       )}
       </div>
@@ -4659,6 +4785,8 @@ export function FindingDrawer({
     return () => window.clearTimeout(t);
   }, [verified, finding?.id, onClose, onDismissVerifyOutcome]);
 
+  useAppScrollLock(!!finding);
+
   if (!finding) return null;
 
   const showReopenFooter =
@@ -4711,7 +4839,19 @@ export function FindingDrawer({
     !!finding.exception_reason ||
     !!finding.exception_approved_by;
 
-  return <><div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px]" onClick={onClose} /><div className={`fixed right-0 top-0 z-50 flex h-full w-full ${DRAWER_MAX_W} flex-col overflow-hidden bg-white shadow-2xl`}>
+  const overlay = (
+    <>
+      <div
+        className="fixed -inset-px z-[100] bg-zinc-950/35 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        className={`fixed top-0 right-0 bottom-0 z-[110] flex w-full ${DRAWER_MAX_W} flex-col overflow-hidden bg-white shadow-2xl`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="finding-drawer-title"
+      >
     {verified && (
       <div
         className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-gradient-to-b from-emerald-50 via-emerald-50/95 to-white px-8 text-center"
@@ -4734,10 +4874,12 @@ export function FindingDrawer({
         <p className="mt-2 text-sm leading-relaxed text-emerald-900/75">Finding is resolved.</p>
       </div>
     )}
-    <div className={`relative overflow-hidden bg-gradient-to-b ${wash} px-6 pt-5 pb-3`}>
+    <div className={`relative shrink-0 overflow-hidden bg-gradient-to-b ${wash} px-6 pt-5 pb-3`}>
       <button onClick={onClose} className="absolute right-4 top-4 rounded-md p-1 text-zinc-400 transition hover:bg-white/70 hover:text-zinc-600"><svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
       <div className="flex items-center gap-2 pr-10"><span className="text-[11px] font-medium text-zinc-600">{category}</span><span className="text-zinc-300">·</span><span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${headerBadge}`}>{finding.severity}</span></div>
-      <h2 className="mt-1.5 pr-8 text-base font-semibold leading-snug text-zinc-900">{checkLabels[finding.check_id] ?? finding.title}</h2>
+      <h2 id="finding-drawer-title" className="mt-1.5 pr-8 text-base font-semibold leading-snug text-zinc-900">
+        {checkLabels[finding.check_id] ?? finding.title}
+      </h2>
       <div className="mt-2.5 rounded-lg border border-black/[0.07] bg-white/70 px-3 py-2">
         <div className="mb-0.5 flex items-baseline justify-between gap-2">
           <div className={drawerFieldLabelBlock}>Resource</div>
@@ -4749,8 +4891,10 @@ export function FindingDrawer({
         </div>
         <div className="group relative">
           <p className="truncate font-mono text-xs text-zinc-700">{resourceDisplayName(finding)}</p>
-          <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-xs rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg group-hover:block">
-            <p className="break-all font-mono text-xs leading-relaxed text-zinc-700">{finding.resource_arn}</p>
+          <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-sm rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg group-hover:block">
+            <p className="break-all font-mono text-xs leading-relaxed text-zinc-700">
+              {isVcsResourceIdentifier(finding.resource_arn) ? resourceDisplayName(finding) : finding.resource_arn}
+            </p>
           </div>
         </div>
       </div>
@@ -4776,7 +4920,7 @@ export function FindingDrawer({
         </div>
       </div>
     </div>
-    <div className={`flex-1 ${drawerBodyGap} overflow-y-auto bg-zinc-50/80 px-6 pb-5 pt-4`}>
+    <div className={`min-h-0 flex-1 ${drawerBodyGap} overflow-y-auto bg-zinc-50/80 px-6 pb-5 pt-4`}>
       {verifyUnchanged && !verified && (
         <div
           className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3.5 text-[12px] leading-relaxed text-amber-950"
@@ -4904,7 +5048,7 @@ export function FindingDrawer({
         <BlastRadiusSection accountId={accountId!} finding={finding} />
       )}
     </div>
-    <div className="flex gap-2 border-t border-zinc-200/50 bg-white/90 px-6 py-3 shadow-[0_-1px_0_rgba(0,0,0,0.03),0_-6px_16px_-6px_rgba(0,0,0,0.04)] backdrop-blur-sm">
+    <div className="flex shrink-0 gap-2 border-t border-zinc-200/50 bg-white px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-1px_0_rgba(0,0,0,0.03),0_-6px_16px_-6px_rgba(0,0,0,0.04)]">
       {showReopenFooter ? (
         <button
           type="button"
@@ -4946,5 +5090,9 @@ export function FindingDrawer({
       )}
       <ExceptionButton findingId={finding.id} onDone={onClose} />
     </div>
-  </div></>;
+      </div>
+    </>
+  );
+
+  return createPortal(overlay, document.body);
 }

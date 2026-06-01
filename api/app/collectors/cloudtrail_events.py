@@ -16,7 +16,8 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from app.collectors.cloudtrail import _discover_trails, _get_regions
+from app.collectors.cloudtrail_shared import _get_regions
+from app.collectors.cloudtrail import _discover_trails
 from app.core.aws import assume_role
 from app.models import AwsAccount
 from app.models.cloudtrail import CloudTrailEvent
@@ -185,10 +186,14 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
         try:
             ct = sess.client("cloudtrail", region_name=region)
             paginator = ct.get_paginator("lookup_events")
+            # MaxItems is per-paginator; use the *global* remaining, not per-region.
+            remaining = _MAX_EVENTS_PER_RUN - collected
+            if remaining <= 0:
+                break
             pages = paginator.paginate(
                 StartTime=start,
                 EndTime=now,
-                PaginationConfig={"MaxItems": _MAX_EVENTS_PER_RUN - collected, "PageSize": _PAGE_SIZE},
+                PaginationConfig={"MaxItems": remaining, "PageSize": _PAGE_SIZE},
             )
             for page in pages:
                 for evt in page.get("Events", []):
@@ -239,6 +244,8 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
                     )
                     db.execute(stmt)
                     collected += 1
+                    if collected >= _MAX_EVENTS_PER_RUN:
+                        break
 
                 if collected >= _MAX_EVENTS_PER_RUN:
                     break

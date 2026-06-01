@@ -274,84 +274,42 @@ export default function DetectionCoverage() {
   }
 
   return (
-    <div className="w-full space-y-10 pb-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="w-full max-w-5xl space-y-5 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Detection coverage</h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-500">
-            Scanning domains, benchmark-backed checks, and optional operational checks for your cloud estate.
+          <h1 className="text-xl font-bold tracking-tight text-zinc-950">Detection coverage</h1>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+            Scanning domains, benchmark checks, and optional operational modules.
           </p>
         </div>
         <SaveIndicator status={saveStatus} error={saveError} />
       </div>
 
-      <section className="rounded-2xl border border-zinc-200/70 bg-white p-5 sm:p-6">
-        <h2 className="text-base font-bold text-zinc-900">Evidence classification</h2>
-        <p className="mt-1 text-sm text-zinc-500">Every check is labeled in exports and evidence packs as one of:</p>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-3">
-          {EVIDENCE_CLASS_LEGEND.map((row) => (
-            <li key={row.id} className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 px-3 py-3">
-              <p className="text-xs font-semibold text-zinc-900">{row.label}</p>
-              <p className="mt-1 text-[11px] leading-snug text-zinc-600">{row.desc}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
-        <div className="group relative overflow-hidden rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 via-white to-white p-6 shadow-sm shadow-emerald-950/[0.03] ring-1 ring-emerald-500/5 transition hover:border-emerald-300/70">
-          <div className="flex items-start justify-between gap-3">
-            <div className="rounded-xl bg-emerald-100/80 p-2.5 text-emerald-700 ring-1 ring-emerald-200/60">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-              </svg>
-            </div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-              Active
-            </span>
-          </div>
-          <p className="mt-5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Benchmark checks</p>
-          <p className="mt-1.5 text-4xl font-bold tabular-nums text-zinc-900">{BENCHMARK_CHECK_COUNT}</p>
-          <p className="mt-3 max-w-sm text-sm leading-relaxed text-zinc-500">
-            SOC 2, CIS, and ISO-mapped rules — included on every scan.
-          </p>
+      <div className="flex flex-wrap items-center gap-5 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+          </span>
+          <div><span className="text-lg font-bold tabular-nums text-zinc-950">{BENCHMARK_CHECK_COUNT}</span> <span className="text-xs text-zinc-500">benchmark checks</span></div>
         </div>
-
-        <Link
-          to="/controls"
-          className="group relative overflow-hidden rounded-2xl border border-indigo-200/50 bg-gradient-to-br from-indigo-50/40 via-white to-white p-6 shadow-sm shadow-indigo-950/[0.03] ring-1 ring-indigo-500/5 transition hover:border-indigo-300/70"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="rounded-xl bg-indigo-100/80 p-2.5 text-indigo-700 ring-1 ring-indigo-200/60">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.821 3.298c.775-.757 1.923-.997 2.927-.997 1.004 0 2.152.24 2.927.997m0 0l2.25 2.25m-2.25-2.25v4.5" />
-              </svg>
-            </div>
-            <svg
-              className="h-4 w-4 text-indigo-400 transition group-hover:translate-x-0.5 group-hover:text-indigo-600"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </div>
-          <p className="mt-5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Frameworks</p>
-          <p className="mt-1.5 text-sm font-bold leading-snug text-zinc-900">
-            {FRAMEWORKS.map((f) => f.label).join(" · ")}
-          </p>
-          <p className="mt-3 text-sm font-semibold text-indigo-600 group-hover:text-indigo-800">
-            View compliance posture →
-          </p>
-        </Link>
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.821 3.298c.775-.757 1.923-.997 2.927-.997 1.004 0 2.152.24 2.927.997m0 0l2.25 2.25m-2.25-2.25v4.5" /></svg>
+          </span>
+          <div><span className="text-sm font-semibold text-zinc-800">{FRAMEWORKS.map((f) => f.label).join(" · ")}</span> <Link to="/controls" className="text-xs font-medium text-indigo-600 hover:text-indigo-800">View posture →</Link></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-sky-100 text-sky-700">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          </span>
+          <div><span className="text-sm font-semibold text-zinc-800">{enabledOptional}</span><span className="text-xs text-zinc-500">/{optionalTotal} optional enabled</span></div>
+        </div>
       </div>
 
-      <section className="space-y-5">
-        <div className="border-b border-zinc-200/80 pb-4">
-          <h2 className="text-base font-bold text-zinc-900">Core detection domains</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+      <section className="space-y-3">
+        <div className="border-b border-zinc-200/80 pb-2">
+          <h2 className="text-sm font-bold text-zinc-900">Core detection domains</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
             Benchmark-backed modules — always active. Pass/fail on{" "}
             <Link to="/controls" className="font-medium text-indigo-600 hover:text-indigo-800">
               Compliance
@@ -360,27 +318,27 @@ export default function DetectionCoverage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {areas.map((area) => {
             const style = accentStyles[area.accent] ?? accentStyles.zinc;
             return (
               <div
                 key={area.key}
-                className={`rounded-xl border border-zinc-200/80 bg-gradient-to-b ${style.card} to-white p-4 shadow-sm shadow-zinc-950/[0.03] transition ${style.ring}`}
+                className={`rounded-lg border border-zinc-200 bg-white p-3 shadow-sm shadow-zinc-950/[0.02] transition ${style.ring}`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className={`rounded-lg p-2 ring-1 ${style.icon}`}>
+                  <div className={`rounded-md p-1.5 ring-1 ${style.icon}`}>
                     <DomainIcon areaKey={area.key} />
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold tabular-nums leading-none text-zinc-900">{area.count}</p>
+                    <p className="text-xl font-bold tabular-nums leading-none text-zinc-900">{area.count}</p>
                     <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">checks</p>
                   </div>
                 </div>
-                <h3 className="mt-3 text-sm font-semibold text-zinc-900">{area.label}</h3>
-                <p className="mt-1 text-xs leading-relaxed text-zinc-500">{area.descriptor}</p>
-                <p className="mt-3 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-600/90">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" aria-hidden />
+                <h3 className="mt-2 text-sm font-semibold text-zinc-900">{area.label}</h3>
+                <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{area.descriptor}</p>
+                <p className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
                   Scanning
                 </p>
               </div>
@@ -389,34 +347,34 @@ export default function DetectionCoverage() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-zinc-200/70 bg-zinc-50/50 p-5 sm:p-6">
-        <div>
+      <section className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+        <div className="border-b border-zinc-200/80 pb-2">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="text-base font-bold text-zinc-900">Optional security checks</h2>
+            <h2 className="text-sm font-bold text-zinc-900">Optional security checks</h2>
             <span className="text-xs font-medium text-zinc-500">
               {enabledOptional} of {optionalTotal} enabled
             </span>
           </div>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-0.5 text-xs text-zinc-500">
             Extend visibility beyond benchmark requirements.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
           {(data?.optional_checks ?? []).map((check) => {
             const enabled = optionalChecks[check.check_id] ?? check.default_enabled;
             return (
               <div
                 key={check.check_id}
-                className={`rounded-xl border p-4 transition ${
+                className={`rounded-lg border p-3 transition ${
                   enabled
-                    ? "border-sky-200/70 bg-white shadow-sm shadow-sky-950/[0.04] ring-1 ring-sky-500/5"
+                    ? "border-sky-200/70 bg-white shadow-sm shadow-sky-950/[0.03] ring-1 ring-sky-500/5"
                     : "border-dashed border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.02] hover:border-zinc-300/90"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       enabled
                         ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200/60"
                         : "bg-zinc-50 text-zinc-600 ring-1 ring-zinc-200/70"
@@ -430,14 +388,14 @@ export default function DetectionCoverage() {
                   </span>
                   <Toggle checked={enabled} onChange={() => toggleOptionalCheck(check.check_id)} />
                 </div>
-                <div className="mt-2.5 flex items-start gap-1.5">
+                <div className="mt-2 flex items-start gap-1.5">
                   <h3 className="text-sm font-semibold text-zinc-900">{check.label}</h3>
                   <InfoTip text={check.description} />
                 </div>
-                <p className="mt-1 text-xs leading-snug text-zinc-600">{check.summary}</p>
-                <p className="mt-2 font-mono text-[10px] text-zinc-400">{check.check_id}</p>
+                <p className="mt-0.5 text-xs leading-snug text-zinc-600">{check.summary}</p>
+                <p className="mt-1.5 font-mono text-[10px] text-zinc-400">{check.check_id}</p>
                 {enabled && (
-                  <p className="mt-2 text-[11px] text-sky-700/80">
+                  <p className="mt-1.5 text-[11px] text-sky-700">
                     Included in Findings and evidence on next scan.
                   </p>
                 )}

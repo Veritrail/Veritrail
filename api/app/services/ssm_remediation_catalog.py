@@ -25,6 +25,9 @@ VIGIL_SG_DOCUMENT = "Vigil-RevokeSecurityGroupIngressExact"
 VIGIL_IAM_KEY_DOCUMENT = "Vigil-DeactivateIamAccessKey"
 VIGIL_SSM_PARAMETER_DOCUMENT = "Vigil-MigrateSsmParameterToSecureString"
 
+VIGIL_S3_BUCKET_PAB_DOCUMENT = "Vigil-ConfigureS3BucketPublicAccessBlock"
+VIGIL_IAM_REMEDIATION_DOCUMENT = "Vigil-RemediateIamExcessPermissions"
+
 RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     "ec2.security_group.unrestricted_ssh": SsmRemediationRunbook(
         check_id="ec2.security_group.unrestricted_ssh",
@@ -49,10 +52,10 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     ),
     "s3.bucket.public_access_not_blocked": SsmRemediationRunbook(
         check_id="s3.bucket.public_access_not_blocked",
-        document_name="AWSConfigRemediation-ConfigureS3PublicAccessBlock",
-        owner="aws",
-        parameter_mode="aws_s3_public_access_block",
-        note="AWS-owned runbook enables all four S3 Block Public Access settings on the reviewed bucket.",
+        document_name=VIGIL_S3_BUCKET_PAB_DOCUMENT,
+        owner="vigil",
+        parameter_mode="plan_json",
+        note="Custom Vigil runbook enables all four Block Public Access settings on the specific reviewed bucket.",
     ),
     "iam.access_key.unused_45d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_45d",
@@ -72,8 +75,22 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
         check_id="cloudtrail.trail.not_enabled",
         document_name="AWS-EnableCloudTrail",
         owner="aws",
-        parameter_mode="aws_cloudtrail_manual",
-        note="AWS-owned runbook exists, but requires trail and log-bucket inputs. Vigil does not auto-run it yet.",
+        parameter_mode="aws_cloudtrail_enable_guided",
+        note="AWS-owned runbook — requires user-supplied S3BucketName and TrailName. Not auto-execed without user input.",
+    ),
+    "iam.role.full_admin_policy": SsmRemediationRunbook(
+        check_id="iam.role.full_admin_policy",
+        document_name=VIGIL_IAM_REMEDIATION_DOCUMENT,
+        owner="vigil",
+        parameter_mode="plan_json",
+        note="Custom Vigil runbook detaches customer-managed full-admin policies from the reviewed role.",
+    ),
+    "iam.policy.wildcard_resource": SsmRemediationRunbook(
+        check_id="iam.policy.wildcard_resource",
+        document_name=VIGIL_IAM_REMEDIATION_DOCUMENT,
+        owner="vigil",
+        parameter_mode="plan_json",
+        note="Custom Vigil runbook replaces wildcard inline policies on the reviewed role with scoped versions from the signed plan.",
     ),
 }
 
@@ -112,23 +129,30 @@ def automation_parameters_for_plan(
     runbook: SsmRemediationRunbook,
     *,
     automation_assume_role_arn: str | None = None,
+    parameter_overrides: dict[str, str] | None = None,
 ) -> dict[str, list[str]]:
     if runbook.parameter_mode == "plan_json":
         return {"PlanJson": [plan_json]}
 
     plan = _load_plan(plan_json)
-    if runbook.parameter_mode == "aws_s3_public_access_block":
-        return {
-            "AutomationAssumeRole": [_require_automation_role(automation_assume_role_arn)],
-            "BucketName": [_bucket_name(plan)],
-            "BlockPublicAcls": ["true"],
-            "BlockPublicPolicy": ["true"],
-            "IgnorePublicAcls": ["true"],
-            "RestrictPublicBuckets": ["true"],
+    if runbook.parameter_mode == "aws_cloudtrail_enable_guided":
+        automation_role = _require_automation_role(automation_assume_role_arn)
+        overrides = parameter_overrides or {}
+        plan_params = plan.get("parameters") or {}
+        trail_name = overrides.get("TrailName") or plan_params.get("TrailName", "VigilCloudTrail")
+        s3_bucket = overrides.get("S3BucketName") or plan_params.get("S3BucketName", "")
+        params: dict[str, list[str]] = {
+            "AutomationAssumeRole": [automation_role],
+            "TrailName": [trail_name],
+            "S3BucketName": [s3_bucket or ""],
         }
-
-    if runbook.parameter_mode == "aws_cloudtrail_manual":
-        raise ValueError("AWS-EnableCloudTrail requires S3BucketName and TrailName; Vigil does not auto-run it yet")
+        if plan_params.get("EnableLogFileValidation"):
+            params["EnableLogFileValidation"] = ["true"]
+        if plan_params.get("IncludeGlobalServiceEvents"):
+            params["IncludeGlobalServiceEvents"] = ["true"]
+        if plan_params.get("IsMultiRegionTrail"):
+            params["IsMultiRegionTrail"] = ["true"]
+        return params
 
     raise ValueError(f"unsupported SSM runbook parameter mode: {runbook.parameter_mode}")
 

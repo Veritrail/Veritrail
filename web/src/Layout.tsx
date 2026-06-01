@@ -17,9 +17,9 @@ export default function Layout() {
   }, [nav]);
 
   return (
-    <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900">
       <aside
-        className="w-64 flex-shrink-0 sticky top-0 h-screen flex flex-col overflow-y-auto"
+        className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col overflow-y-auto"
         style={{
           background:
             "linear-gradient(160deg, #0f172a 0%, #0d1424 50%, #090e1a 100%)",
@@ -125,9 +125,9 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className="flex flex-1 flex-col overflow-auto">
+      <main className="ml-64 flex min-h-screen min-w-0 flex-col">
         <RecheckNotificationsProvider>
-          <div className="flex-1 px-8 py-8">
+          <div data-app-scroll className="flex-1 overflow-auto px-8 py-8">
             <Outlet />
           </div>
         </RecheckNotificationsProvider>

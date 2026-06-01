@@ -157,8 +157,7 @@ def _finding_to_out(f: Finding) -> AuditorFindingOut:
 class AuditorFindingPage(BaseModel):
     items: list[AuditorFindingOut]
     total: int
-    offset: int
-    limit: int
+    next_cursor: str | None
 
 
 @router.get("/findings", response_model=AuditorFindingPage)
@@ -167,10 +166,12 @@ def auditor_findings(
     severity: str | None = None,
     account_id: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    cursor: str | None = Query(default=None),
     p=Depends(current_auditor_principal),
     db: Session = Depends(get_db),
 ):
+    from app.routes.findings import _encode_cursor, _decode_cursor
+
     grant = _get_auditor_grant(p, db)
 
     base_q = select(Finding).where(Finding.org_id == grant.org_id)
@@ -183,16 +184,28 @@ def auditor_findings(
 
     total = db.scalar(select(func.count()).select_from(base_q.subquery())) or 0
 
-    q = base_q.order_by(Finding.risk_score.desc(), Finding.id.desc()).offset(offset).limit(limit)
-    rows = db.scalars(q).all()
+    q = base_q.order_by(Finding.risk_score.desc(), Finding.id.desc())
+    if cursor:
+        try:
+            cur_score, cur_id = _decode_cursor(cursor)
+            q = q.where(
+                (Finding.risk_score < cur_score)
+                | ((Finding.risk_score == cur_score) & (Finding.id < cur_id))
+            )
+        except Exception:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid cursor")
+
+    rows = db.scalars(q.limit(limit + 1)).all()
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    next_cursor = _encode_cursor(items[-1].risk_score, items[-1].id) if has_more and items else None
 
     _log_audit(db, auditor_access_id=str(grant.id), action="view_findings", resource_type="finding", resource_id="list")
 
     return AuditorFindingPage(
-        items=[_finding_to_out(f) for f in rows],
+        items=[_finding_to_out(f) for f in items],
         total=total,
-        offset=offset,
-        limit=limit,
+        next_cursor=next_cursor,
     )
 
 
@@ -305,8 +318,7 @@ class AuditorEvidenceOut(BaseModel):
 class AuditorEvidencePage(BaseModel):
     items: list[AuditorEvidenceOut]
     total: int
-    offset: int
-    limit: int
+    next_cursor: str | None
 
 
 @router.get("/evidence", response_model=AuditorEvidencePage)
@@ -314,10 +326,12 @@ def auditor_evidence(
     entity_type: str | None = None,
     account_id: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
-    offset: int = Query(default=0, ge=0),
+    cursor: str | None = Query(default=None),
     p=Depends(current_auditor_principal),
     db: Session = Depends(get_db),
 ):
+    from app.routes.findings import _encode_cursor, _decode_cursor
+
     grant = _get_auditor_grant(p, db)
 
     base_q = select(EvidenceSnapshot).where(EvidenceSnapshot.org_id == grant.org_id)
@@ -328,8 +342,30 @@ def auditor_evidence(
 
     total = db.scalar(select(func.count()).select_from(base_q.subquery())) or 0
 
-    q = base_q.order_by(EvidenceSnapshot.taken_at.desc()).offset(offset).limit(limit)
-    rows = db.scalars(q).all()
+    # For evidence, cursor based on taken_at + id (descending)
+    q = base_q.order_by(EvidenceSnapshot.taken_at.desc(), EvidenceSnapshot.id.desc())
+    if cursor:
+        try:
+            cur_taken, cur_id = _decode_cursor(cursor)
+            from datetime import datetime as _dt
+            cur_dt = _dt.fromtimestamp(cur_taken, tz=timezone.utc)
+            q = q.where(
+                (EvidenceSnapshot.taken_at < cur_dt)
+                | ((EvidenceSnapshot.taken_at == cur_dt) & (EvidenceSnapshot.id < cur_id))
+            )
+        except Exception:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid cursor")
+
+    rows = db.scalars(q.limit(limit + 1)).all()
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    next_cursor = (
+        _encode_cursor(
+            int(items[-1].taken_at.timestamp()) if items[-1].taken_at else 0,
+            items[-1].id,
+        )
+        if has_more and items else None
+    )
 
     _log_audit(db, auditor_access_id=str(grant.id), action="view_evidence", resource_type="evidence_snapshot", resource_id="list")
 
@@ -342,11 +378,10 @@ def auditor_evidence(
                 taken_at=s.taken_at.isoformat() if s.taken_at else "",
                 data=s.payload_json,
             )
-            for s in rows
+            for s in items
         ],
         total=total,
-        offset=offset,
-        limit=limit,
+        next_cursor=next_cursor,
     )
 
 

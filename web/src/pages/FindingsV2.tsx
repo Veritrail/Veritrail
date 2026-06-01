@@ -181,6 +181,10 @@ export default function FindingsV2() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
   const [searchText, setSearchText] = useState(searchParams.get("q") ?? "");
+  const [searchTags, setSearchTags] = useState<string[]>(() => {
+    const raw = searchParams.get("checks");
+    return raw ? raw.split(",").filter(Boolean) : [];
+  });
   const [benchmarkFilter, setBenchmarkFilter] = useState<BenchmarkFilter>(() => {
     const fw = searchParams.get("framework");
     if (fw && FRAMEWORKS.some((f) => f.id === fw)) return fw as FrameworkId;
@@ -198,6 +202,13 @@ export default function FindingsV2() {
   const { scanRun, scanStatus, isRunning, scanTriggered, isScanActive, scanProgress, triggerScan } = useTriggeredScan(connectedId, { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) });
 
   useEffect(() => { if (isRefreshing && !q.isFetching) { const t = setTimeout(() => setIsRefreshing(false), 600); return () => clearTimeout(t); } }, [q.isFetching, isRefreshing]);
+
+  useEffect(() => {
+    const raw = searchParams.get("checks");
+    const next = raw ? raw.split(",").filter(Boolean) : [];
+    setSearchTags(next);
+    if (next.length > 0) setStatus("open");
+  }, [searchParams]);
 
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "recheck" | "reopen" }) => api(`/v1/findings/${id}/${action}`, { method: "POST", body: JSON.stringify({}) }),
@@ -234,6 +245,16 @@ export default function FindingsV2() {
     const qtext = searchText.trim().toLowerCase();
     const arr = benchmarkScopedFindings.filter((f) => {
       if (status === "open" && !matchesSeverityFilter(f, severityFilter)) return false;
+      if (searchTags.length > 0) {
+        const matchesCheck = searchTags.some((tag) => {
+          if (f.check_id === tag) return true;
+          const haystack = [f.title, f.check_id, f.resource_arn, checkLabels[f.check_id] ?? ""]
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(tag.toLowerCase());
+        });
+        if (!matchesCheck) return false;
+      }
       if (!qtext) return true;
       return [f.title, f.check_id, f.resource_arn, checkLabels[f.check_id] ?? ""].join(" ").toLowerCase().includes(qtext);
     });
@@ -245,7 +266,7 @@ export default function FindingsV2() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [benchmarkScopedFindings, searchText, severityFilter, sortKey, sortDir, status]);
+  }, [benchmarkScopedFindings, searchText, searchTags, severityFilter, sortKey, sortDir, status]);
 
   const displayGroups = useMemo(() => {
     const map = new Map<string, Finding[]>();
@@ -280,6 +301,16 @@ export default function FindingsV2() {
     setSearchParams((prev) => { const next = new URLSearchParams(prev); if (value.trim()) next.set("q", value.trim()); else next.delete("q"); return next; }, { replace: true });
   }
 
+  function handleTagsChange(tags: string[]) {
+    setSearchTags(tags);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tags.length > 0) next.set("checks", tags.join(","));
+      else next.delete("checks");
+      return next;
+    }, { replace: true });
+  }
+
   const downloadCsv = useCallback(async () => {
     const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
     const t = token();
@@ -303,10 +334,8 @@ export default function FindingsV2() {
       <header className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.04]">
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-100 bg-gradient-to-br from-zinc-50 via-white to-indigo-50/30 px-6 py-5">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-indigo-500">Risk workbench</p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-950">Findings</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-500">Prioritized issues grouped by check, resource impact, and remediation path.</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Findings</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
               {scanRun.data?.finished_at && <span>Last scan {lastScanLabel(scanRun.data.finished_at)}</span>}
               {benchmarkFilter !== "all" && <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-semibold text-indigo-700 ring-1 ring-indigo-100">{frameworkLabel(benchmarkFilter)} scope</span>}
             </div>
@@ -325,6 +354,35 @@ export default function FindingsV2() {
       {scanStatus === "error" && scanRun.data?.error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><span className="font-semibold">Last scan failed.</span><div className="mt-1 line-clamp-3 break-words text-xs text-red-700/90">{scanRun.data.error}</div></div>}
 
       <section className={`overflow-hidden rounded-3xl border bg-white shadow-sm shadow-zinc-950/[0.04] ${criticalHigh > 0 ? "border-red-200/70" : "border-zinc-200"}`}>
+        {searchTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-indigo-100/80 bg-indigo-50/40 px-4 py-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-indigo-800/70">Check filter</span>
+            {searchTags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex max-w-[14rem] items-center gap-1.5 rounded-full border border-indigo-200/80 bg-white px-2.5 py-1 text-xs font-medium text-indigo-900 shadow-sm"
+              >
+                <span className="truncate">{checkLabels[tag] ?? tag}</span>
+                <button
+                  type="button"
+                  className="shrink-0 text-indigo-400 hover:text-indigo-800"
+                  aria-label={`Remove ${checkLabels[tag] ?? tag} filter`}
+                  onClick={() => handleTagsChange(searchTags.filter((t) => t !== tag))}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={() => handleTagsChange([])}
+              className="text-xs font-semibold text-indigo-700 hover:text-indigo-900"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 border-b border-zinc-100 bg-zinc-50/70 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
           <StatusTabs status={status} onChange={setStatus} />
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 xl:justify-end">
@@ -338,7 +396,7 @@ export default function FindingsV2() {
         </div>
 
         {q.isLoading && <div className="px-4 py-12 text-center text-sm text-zinc-400">Loading…</div>}
-        {!q.isLoading && rows.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-zinc-700">{benchmarkFilter !== "all" ? `No findings for ${frameworkLabel(benchmarkFilter)}` : emptyFindingsLabel(status)}</p><p className="mt-1 text-xs text-zinc-400">{status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}</p></div>}
+        {!q.isLoading && rows.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-zinc-700">{searchTags.length > 0 ? "No findings match the selected checks" : benchmarkFilter !== "all" ? `No findings for ${frameworkLabel(benchmarkFilter)}` : emptyFindingsLabel(status)}</p><p className="mt-1 text-xs text-zinc-400">{status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}</p></div>}
         {rows.length > 0 && <div className="grid gap-3 bg-zinc-50/60 p-4">{displayGroups.map(([checkId, items]) => <FindingIssueCard key={checkId} checkId={checkId} items={items} onReview={openReview} />)}</div>}
       </section>
 

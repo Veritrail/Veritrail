@@ -1,4 +1,5 @@
 import copy
+import json
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,8 @@ from app.services.access_analyzer_policy import (
     placeholder_resources_from_statements,
     start_policy_generation,
     statements_have_concrete_resources,
+    validate_policy,
+    security_findings_only,
 )
 from app.core.config import get_settings
 from app.core.db import get_db
@@ -678,6 +681,107 @@ def _allow_actions_from_policy_doc(doc: dict) -> list[str]:
     return out
 
 
+def _build_policy_doc_from_statements(statements: list[dict]) -> dict:
+    """Wrap cleaned statements into a full IAM policy document."""
+    return {
+        "Version": "2012-10-17",
+        "Statement": copy.deepcopy(statements),
+    }
+
+
+def _clean_managed_policies(
+    attached_policies: list[dict],
+    unused_set: set[str],
+    used_set: set[str],
+    used_actions: list[str],
+    aa_statements: list[dict] | None = None,
+) -> dict:
+    """Clean attached managed policies. Returns cleaned_policies dict keyed by policy_name."""
+    cleaned: dict = {}
+    total_removed = 0
+    total_modified = 0
+
+    for pol in attached_policies:
+        pname = pol["policy_name"]
+        ptype = pol.get("policy_type", "customer_managed")
+        statements = pol.get("statements", [])
+        if not isinstance(statements, list):
+            statements = [statements]
+
+        # Wrap statements into full policy doc for _clean_policy_doc
+        doc = _build_policy_doc_from_statements(statements)
+
+        cleaned_doc, removed, modified = _clean_policy_doc(doc, unused_set, used_set, used_actions)
+
+        if aa_statements:
+            cleaned_doc = apply_aa_resources_to_policy_doc(cleaned_doc, aa_statements)
+
+        cleaned[pname] = {
+            "policy_arn": pol["policy_arn"],
+            "policy_name": pname,
+            "policy_type": ptype,
+            "original_statements": statements,
+            "cleaned_statements": cleaned_doc.get("Statement", []),
+            "statements_removed": removed,
+            "statements_modified": modified,
+        }
+        total_removed += removed
+        total_modified += modified
+
+    cleaned["_summary"] = {
+        "total_policies": len(attached_policies),
+        "total_statements_removed": total_removed,
+        "total_statements_modified": total_modified,
+    }
+    return cleaned
+
+
+def _validate_cleaned_policies(acc: AwsAccount, cleaned_policies: dict[str, dict]) -> dict:
+    """Validate generated policies via IAM ValidatePolicy API.
+
+    Returns {"checked": bool, "policies": {name: {findings: [...]}} | None, "note": str | None}.
+    Gracefully handles missing AWS access, empty policies, and API errors.
+    """
+    if not cleaned_policies:
+        return {"checked": False, "note": "no policies to validate"}
+    try:
+        sess = assume_role(
+            acc.role_arn,
+            acc.external_id,
+            session_name="vigil-policy-validate",
+            aws_account=acc,
+            purpose="validate_generated_policy",
+        )
+    except (ClientError, BotoCoreError):
+        return {"checked": False, "note": "AWS API unreachable — cannot validate generated policy"}
+    try:
+        client = sess.client("iam")
+    except Exception:
+        return {"checked": False, "note": "AWS API unreachable — cannot validate generated policy"}
+    import json as _json
+    policy_validations: dict[str, dict] = {}
+    any_findings = False
+    for name, doc in cleaned_policies.items():
+        try:
+            policy_json = _json.dumps(doc)
+            findings = validate_policy(client, policy_json)
+            security_findings = security_findings_only(findings)
+            policy_validations[name] = {
+                "findings": findings,
+                "security_findings": security_findings,
+                "security_finding_count": len(security_findings),
+            }
+            if security_findings:
+                any_findings = True
+        except (ClientError, BotoCoreError, Exception):
+            policy_validations[name] = {"findings": [], "security_findings": [], "security_finding_count": 0, "error": "AWS API unreachable"}
+    return {
+        "checked": True,
+        "policies": policy_validations,
+        "has_security_findings": any_findings,
+    }
+
+
 def _granted_allow_actions_for_role(role: IamRole) -> list[str]:
     granted: list[str] = []
     for doc in (role.inline_policies or {}).values():
@@ -1092,40 +1196,89 @@ def generate_role_policy(
         "policy_warnings": policy_warnings,
     }
 
-    if not inline:
+    attached = role.attached_policies or []
+    has_managed = len(attached) > 0
+
+    if not inline and not has_managed:
         return {
             "role_arn": role_arn,
             "has_inline_policies": False,
+            "has_managed_policies": False,
             "unused_services": sorted(unused_set),
             "used_actions": used_actions,
             "granularity": granularity,
-            "note": "Role has no inline policies. Permissions come from attached managed policies — review with list-attached-role-policies.",
+            "note": "Role has no inline policies or attached managed policies. Generate a policy suggestion from IAM last-accessed data.",
             **base_out,
             **meta,
         }
 
+    # Clean inline policies (existing logic)
     cleaned_policies: dict = {}
     total_removed = 0
     total_modified = 0
-    for policy_name, doc in inline.items():
-        cleaned, removed, modified = _clean_policy_doc(doc, unused_set, used_set, used_actions)
-        if aa_statements:
-            cleaned = apply_aa_resources_to_policy_doc(cleaned, aa_statements)
-        cleaned_policies[policy_name] = cleaned
-        total_removed += removed
-        total_modified += modified
+    if inline:
+        for policy_name, doc in inline.items():
+            cleaned, removed, modified = _clean_policy_doc(doc, unused_set, used_set, used_actions)
+            if aa_statements:
+                cleaned = apply_aa_resources_to_policy_doc(cleaned, aa_statements)
+            cleaned_policies[policy_name] = cleaned
+            total_removed += removed
+            total_modified += modified
+
+    # Clean managed policies (new)
+    cleaned_managed: dict = {}
+    managed_total_removed = 0
+    managed_total_modified = 0
+    if attached:
+        cleaned_managed = _clean_managed_policies(
+            attached, unused_set, used_set, used_actions, aa_statements
+        )
+        summary = cleaned_managed.pop("_summary", {})
+        managed_total_removed = summary.get("total_statements_removed", 0)
+        managed_total_modified = summary.get("total_statements_modified", 0)
+
+    # Validate inline policies
+    validation = _validate_cleaned_policies(acc, cleaned_policies) if inline else None
+
+    # Validate managed policy documents
+    managed_validation = None
+    if attached:
+        managed_docs_for_validation = {}
+        for pname, pdata in cleaned_managed.items():
+            managed_docs_for_validation[pname] = _build_policy_doc_from_statements(
+                pdata["cleaned_statements"]
+            )
+        managed_validation = _validate_cleaned_policies(acc, managed_docs_for_validation)
 
     return {
         "role_arn": role_arn,
-        "has_inline_policies": True,
+        "has_inline_policies": bool(inline),
+        "has_managed_policies": has_managed,
         "unused_services": sorted(unused_set),
         "used_actions": used_actions,
         "granularity": granularity,
         "threshold_days": threshold_days,
-        "statements_removed": total_removed,
-        "statements_modified": total_modified,
-        "original_policies": inline,
-        "cleaned_policies": cleaned_policies,
+        "statements_removed": total_removed + managed_total_removed,
+        "statements_modified": total_modified + managed_total_modified,
+        # Inline policy fields (present when inline policies exist)
+        "original_policies": inline if inline else None,
+        "cleaned_policies": cleaned_policies if inline else None,
+        "validation": validation,
+        # Managed policy fields (present when managed policies exist)
+        "managed_policies": cleaned_managed if attached else None,
+        "managed_policies_summary": {
+            "total": len(attached),
+            "customer_managed": sum(1 for p in attached if p.get("policy_type") != "aws_managed"),
+            "aws_managed": sum(1 for p in attached if p.get("policy_type") == "aws_managed"),
+            "statements_removed": managed_total_removed,
+            "statements_modified": managed_total_modified,
+        } if attached else None,
+        "managed_validation": managed_validation,
+        "note": (
+            None
+            if (inline or attached)
+            else "Role has no inline policies or attached managed policies."
+        ),
         **base_out,
         **meta,
     }
@@ -2418,6 +2571,127 @@ def blast_radius(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"invalid identity resource_arn: {resource_arn}")
 
     raise HTTPException(status.HTTP_400_BAD_REQUEST, f"blast radius not supported for check: {check_id}")
+
+
+class ApplyPolicyIn(BaseModel):
+    role_arn: str
+    policy_name: str
+    cleaned_policy: dict
+    dry_run: bool = False
+
+
+@router.post("/{account_id}/roles/apply-policy")
+def apply_role_policy(
+    account_id: str,
+    body: ApplyPolicyIn,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Apply a generated IAM policy to a role.
+
+    - For inline policies: PUT via iam:PutRolePolicy.
+    - For managed policies: create a new version via iam:CreatePolicyVersion.
+    - dry_run=True: validate without applying (IAM ValidatePolicy only).
+
+    Logs the action to FindingEvent when a finding_id is provided.
+    """
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != p["org_id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+    if acc.status != "connected" or not acc.role_arn:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "account not connected or role not verified")
+
+    try:
+        sess = assume_role(
+            acc.role_arn,
+            acc.external_id,
+            session_name="vigil-apply-policy",
+            aws_account=acc,
+            purpose="apply_role_policy",
+        )
+    except (ClientError, BotoCoreError) as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"Cannot assume role: {e}")
+
+    iam = sess.client("iam")
+
+    # Extract role name from ARN
+    role_name = body.role_arn.split("/")[-1] if "/" in body.role_arn else body.role_arn
+
+    # Determine if this is a managed policy or inline policy
+    is_managed = body.policy_name.startswith("arn:") or "/" in body.policy_name
+
+    # Validate the policy document first
+    policy_json = json.dumps(body.cleaned_policy)
+    try:
+        validation = validate_policy(iam, policy_json)
+        security_issues = security_findings_only(validation)
+    except Exception as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Policy validation failed: {e}")
+
+    if dry_run := body.dry_run:
+        return {
+            "applied": False,
+            "dry_run": True,
+            "role_arn": body.role_arn,
+            "policy_name": body.policy_name,
+            "is_managed": is_managed,
+            "validation": {
+                "findings": validation,
+                "security_findings": security_issues,
+                "security_finding_count": len(security_issues),
+            },
+        }
+
+    # Apply the policy
+    try:
+        if is_managed:
+            # Managed policy — create a new version
+            policy_arn = body.policy_name
+            resp = iam.create_policy_version(
+                PolicyArn=policy_arn,
+                PolicyDocument=policy_json,
+                SetAsDefault=True,
+            )
+            result = {
+                "action": "create_policy_version",
+                "policy_arn": policy_arn,
+                "version_id": resp.get("PolicyVersion", {}).get("VersionId"),
+                "is_default": resp.get("PolicyVersion", {}).get("IsDefaultVersion", False),
+            }
+        else:
+            # Inline policy — PUT to role
+            iam.put_role_policy(
+                RoleName=role_name,
+                PolicyName=body.policy_name,
+                PolicyDocument=policy_json,
+            )
+            result = {
+                "action": "put_role_policy",
+                "role_name": role_name,
+                "policy_name": body.policy_name,
+            }
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "ClientError")
+        msg = e.response.get("Error", {}).get("Message", str(e))
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"AWS API error ({code}): {msg}",
+        ) from e
+    except BotoCoreError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"AWS API unreachable: {e}")
+
+    return {
+        "applied": True,
+        "dry_run": False,
+        "role_arn": body.role_arn,
+        "policy_name": body.policy_name,
+        "is_managed": is_managed,
+        "validation": {
+            "security_findings": security_issues,
+            "security_finding_count": len(security_issues),
+        },
+        **result,
+    }
 
 
 @router.get("/{account_id}/timeline")

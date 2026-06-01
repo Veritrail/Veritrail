@@ -173,8 +173,10 @@
     "control_id": "1.1",
     "title": "Maintain current contact details",
     "description": "AWS account contact information must be current for billing and security notifications.",
-    "guidance": "Complete primary contact in AWS Console → Account → Contact information.",
-    "checks": ["aws.account.contact_incomplete"]
+    "guidance": "Complete primary contact in AWS Console \u2192 Account \u2192 Contact information.",
+    "checks": [
+      "aws.account.contact_incomplete"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -182,7 +184,9 @@
     "title": "Ensure security contact information is registered",
     "description": "A security alternate contact receives security notifications from AWS.",
     "guidance": "Register SECURITY alternate contact with email and phone in Account settings.",
-    "checks": ["aws.account.security_contact_missing"]
+    "checks": [
+      "aws.account.security_contact_missing"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -190,7 +194,9 @@
     "title": "Ensure no root user access key exists",
     "description": "The root account is the most privileged AWS account. Access keys provide programmatic access and should not exist on root.",
     "guidance": "Delete any root access keys. Use IAM roles for programmatic access.",
-    "checks": ["iam.root.has_access_keys"]
+    "checks": [
+      "iam.root.has_access_keys"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -198,7 +204,9 @@
     "title": "Ensure MFA is enabled for the root user",
     "description": "Multi-factor authentication adds an extra layer of protection on the root account.",
     "guidance": "Enable MFA on the root account (hardware MFA preferred for root).",
-    "checks": ["iam.root.no_mfa"]
+    "checks": [
+      "iam.root.no_mfa"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -214,7 +222,9 @@
     "title": "Eliminate use of the root user for administrative tasks",
     "description": "Root user activity should be rare and auditable.",
     "guidance": "Use IAM users and roles for daily operations; monitor CloudTrail for root usage.",
-    "checks": ["iam.root.usage"]
+    "checks": [
+      "iam.root.usage"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -222,7 +232,9 @@
     "title": "Ensure IAM password policy requires minimum length of 14 or greater",
     "description": "IAM password policies enforce complexity and minimum length for console users.",
     "guidance": "Set MinimumPasswordLength to 14 or greater in the account password policy.",
-    "checks": ["iam.account.password_policy_weak"]
+    "checks": [
+      "iam.account.password_policy_weak"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -695,8 +707,10 @@
     "control_id": "1.18",
     "title": "Ensure expired SSL/TLS certificates in IAM are removed",
     "description": "IAM server certificates past expiration should be removed.",
-    "guidance": "Delete expired server certificates in IAM → Server certificates.",
-    "checks": ["iam.server_certificate.expired"]
+    "guidance": "Delete expired server certificates in IAM \u2192 Server certificates.",
+    "checks": [
+      "iam.server_certificate.expired"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -704,7 +718,9 @@
     "title": "Ensure IAM password policy expires passwords within 90 days",
     "description": "Password maximum age limits credential lifetime.",
     "guidance": "Set MaxPasswordAge to 90 or fewer days in the account password policy.",
-    "checks": ["iam.account.password_policy_weak"]
+    "checks": [
+      "iam.account.password_policy_weak"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -712,7 +728,9 @@
     "title": "Ensure access to AWSCloudShellFullAccess is restricted",
     "description": "CloudShell full access should not be attached broadly to users or roles.",
     "guidance": "Detach AWSCloudShellFullAccess except break-glass principals.",
-    "checks": ["iam.cloudshell_full_access_granted"]
+    "checks": [
+      "iam.cloudshell_full_access_granted"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -720,7 +738,9 @@
     "title": "Ensure no customer-managed policy allows full admin (*:*)",
     "description": "Customer-managed policies must not grant Action:* with Resource:*.",
     "guidance": "Replace full-admin customer policies with scoped permissions.",
-    "checks": ["iam.role.full_admin_policy"]
+    "checks": [
+      "iam.role.full_admin_policy"
+    ]
   },
   {
     "framework": "iso27001",
@@ -742,6 +762,284 @@
     "guidance": "Evidence: RDS instances are deployed with Multi-AZ for automatic failover and high availability. Single-AZ deployments create a single point of failure.",
     "checks": [
       "rds.instance.no_multi_az"
+    ]
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC7.1",
+    "title": "Security Event Detection \u2014 Continuous Monitoring",
+    "description": "The entity uses detection and monitoring procedures to identify security events, including changes to infrastructure, access, and security controls.",
+    "guidance": "Evidence: CloudTrail event analysis detects root API calls, trail tampering, GuardDuty deletion, Config recorder stoppage, EC2 modifications, RDS creations, Lambda changes, and anomalous API activity.",
+    "checks": [
+      "cloudtrail.event.root_activity",
+      "cloudtrail.event.trail_tampering",
+      "cloudtrail.event.guardduty_disabled",
+      "cloudtrail.event.config_recorder_stopped",
+      "cloudtrail.event.ec2_instance_tampering",
+      "cloudtrail.event.iam_role_policy_mutation",
+      "cloudtrail.event.lambda_function_created_or_modified"
+    ]
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC7.2",
+    "title": "Monitoring Anomalies \u2014 Baseline Deviation",
+    "description": "The entity monitors system activity for anomalies and suspicious behavior against established baselines.",
+    "guidance": "Evidence: API call volume is compared against 90-day baseline to detect anomalous spikes that may indicate compromise, scanning activity, or misconfiguration.",
+    "checks": [
+      "cloudtrail.event.anomalous_api_volume"
+    ]
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC6.1",
+    "title": "Logical Access \u2014 Access Control Events",
+    "description": "The entity monitors changes to access control mechanisms, including IAM policy changes, S3 bucket policy modifications, KMS key lifecycle events, and access key creation.",
+    "guidance": "Evidence: CloudTrail event checks detect IAM policy attachments, S3 bucket policy/ACL changes, KMS key disabling/deletion, IAM access key creation, and S3 public access block disabling.",
+    "checks": [
+      "cloudtrail.event.iam_user_policy_attachment",
+      "cloudtrail.event.s3_bucket_policy_change",
+      "cloudtrail.event.kms_key_disabled_or_deleted",
+      "cloudtrail.event.iam_access_key_created",
+      "cloudtrail.event.s3_public_access_block_disabled",
+      "cloudtrail.event.rds_instance_created_or_modified"
+    ]
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC6.6",
+    "title": "External Threat Controls \u2014 Perimeter Events",
+    "description": "The entity monitors changes to network perimeter controls and detects exposure to external threats.",
+    "guidance": "Evidence: CloudTrail analysis detects security group ingress rules opening to the entire internet (0.0.0.0/0 or ::/0), especially for sensitive ports.",
+    "checks": [
+      "cloudtrail.event.security_group_open_to_world"
+    ]
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC6.3",
+    "title": "Separation of Duties \u2014 Privilege Escalation",
+    "description": "The entity monitors for privilege escalation and lateral movement through IAM role and policy changes.",
+    "guidance": "Evidence: CloudTrail analysis detects creation/deletion of IAM roles and policies, inline policy modifications, and trust policy updates.",
+    "checks": [
+      "cloudtrail.event.iam_user_policy_attachment",
+      "cloudtrail.event.iam_role_policy_mutation"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "1.7",
+    "title": "Eliminate use of the root user for administrative and daily tasks",
+    "description": "The root user must not be used for everyday administrative tasks. Root API calls should only occur in emergency break-glass scenarios.",
+    "guidance": "Evidence: CloudTrail event analysis detects root actor API calls over the last 90 days, excluding CheckMfa and GetAccountSummary.",
+    "checks": [
+      "cloudtrail.event.root_activity"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "1.12",
+    "title": "Ensure credentials unused for 45 days or greater are disabled",
+    "description": "Monitor for new access key creation and activation as potential persistence mechanisms.",
+    "guidance": "Evidence: CloudTrail event tracking detects CreateAccessKey and UpdateAccessKey API calls on IAM users.",
+    "checks": [
+      "cloudtrail.event.iam_access_key_created"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "1.16",
+    "title": "Ensure IAM policies are attached only to groups or roles",
+    "description": "IAM policies should be attached to groups and roles, not directly to individual IAM users, to maintain segregation of duties.",
+    "guidance": "Evidence: CloudTrail event tracking detects AttachUserPolicy and PutUserPolicy calls that bypass the group/role model.",
+    "checks": [
+      "cloudtrail.event.iam_user_policy_attachment"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "1.22",
+    "title": "Ensure IAM policies that allow full administrative privileges are not created",
+    "description": "Monitor for IAM role and policy mutations that could grant privileged access, including role creation, policy creation, and inline policy changes.",
+    "guidance": "Evidence: CloudTrail event analysis tracks CreateRole, DeleteRole, CreatePolicy, DeletePolicy, PutRolePolicy, DeleteRolePolicy, and UpdateAssumeRolePolicy calls.",
+    "checks": [
+      "cloudtrail.event.iam_role_policy_mutation"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "3.8",
+    "title": "Ensure GuardDuty is enabled",
+    "description": "Monitor for GuardDuty detector deletion as an indicator of an attacker attempting to disable threat detection.",
+    "guidance": "Evidence: CloudTrail event analysis detects DeleteDetector API calls.",
+    "checks": [
+      "cloudtrail.event.guardduty_disabled"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "3.9",
+    "title": "Ensure AWS Config is enabled in all regions",
+    "description": "Monitor for Config recorder stoppage as an indicator of an attacker attempting to disable resource compliance monitoring.",
+    "guidance": "Evidence: CloudTrail event analysis detects StopConfigurationRecorder API calls.",
+    "checks": [
+      "cloudtrail.event.config_recorder_stopped"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "3.x",
+    "title": "CloudTrail Integrity \u2014 Trail Tampering Detection",
+    "description": "CloudTrail trails must not be stopped, deleted, or reconfigured to reduce logging. Monitor for StopLogging, DeleteTrail, and UpdateTrail events.",
+    "guidance": "Evidence: CloudTrail event analysis detects StopLogging, DeleteTrail, and UpdateTrail API calls with parameter inspection to filter benign configuration changes.",
+    "checks": [
+      "cloudtrail.event.trail_tampering"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "3.x",
+    "title": "KMS Key Lifecycle \u2014 Disable/Delete Detection",
+    "description": "Monitor for KMS key disabling or scheduled deletion as indicators of crypto-ransomware or destructive attack patterns.",
+    "guidance": "Evidence: CloudTrail event analysis detects DisableKey and ScheduleKeyDeletion API calls.",
+    "checks": [
+      "cloudtrail.event.kms_key_disabled_or_deleted"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "4.1",
+    "title": "Ensure S3 Block Public Access is enabled at bucket level",
+    "description": "Monitor for S3 bucket public access block removal or reduction as a potential data exposure vector.",
+    "guidance": "Evidence: CloudTrail event analysis detects DeleteBucketPublicAccessBlock and PutBucketPublicAccessBlock calls with configuration inspection.",
+    "checks": [
+      "cloudtrail.event.s3_public_access_block_disabled"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "4.x",
+    "title": "S3 Bucket Policy and ACL Monitoring",
+    "description": "Monitor for S3 bucket policy and ACL modifications that could expose data to unintended access.",
+    "guidance": "Evidence: CloudTrail event analysis detects PutBucketPolicy, DeleteBucketPolicy, and PutBucketAcl calls.",
+    "checks": [
+      "cloudtrail.event.s3_bucket_policy_change"
+    ]
+  },
+  {
+    "framework": "cis_aws_l1",
+    "control_id": "5.x",
+    "title": "Network Security \u2014 Security Group Open-to-World Detection",
+    "description": "Monitor for security group ingress rules that open ports to the entire internet (0.0.0.0/0 or ::/0), especially for sensitive services.",
+    "guidance": "Evidence: CloudTrail event analysis detects AuthorizeSecurityGroupIngress calls with world-accessible CIDR ranges, with port sensitivity detection.",
+    "checks": [
+      "cloudtrail.event.security_group_open_to_world"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.9.2.3",
+    "title": "Management of Privileged Access Rights",
+    "description": "The allocation and use of privileged access rights should be restricted and controlled. Root API calls must be exceptional and reviewed.",
+    "guidance": "Evidence: CloudTrail event analysis detects root actor API calls. Direct user policy attachments bypassing group/role model are also monitored.",
+    "checks": [
+      "cloudtrail.event.root_activity",
+      "cloudtrail.event.iam_user_policy_attachment"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.9.2.4",
+    "title": "Management of Secret Authentication Information of Users",
+    "description": "The allocation and management of secret authentication information (access keys) shall be controlled through a formal management process.",
+    "guidance": "Evidence: CloudTrail event analysis detects CreateAccessKey and UpdateAccessKey calls to track credential lifecycle.",
+    "checks": [
+      "cloudtrail.event.iam_access_key_created"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.9.2.5",
+    "title": "Review of User Access Rights",
+    "description": "Asset owners shall review users access rights at regular intervals. IAM role/policy mutations must be monitored for unauthorized privilege escalation.",
+    "guidance": "Evidence: CloudTrail event analysis detects IAM role and policy creation, deletion, and modification.",
+    "checks": [
+      "cloudtrail.event.iam_role_policy_mutation"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.9.4.1",
+    "title": "Information Access Restriction",
+    "description": "Access to information and application system functions shall be restricted in accordance with the access control policy. S3 bucket policy/ACL changes and public access block removal must be monitored.",
+    "guidance": "Evidence: CloudTrail event analysis detects S3 bucket policy changes, public access block removal, and other data exposure events.",
+    "checks": [
+      "cloudtrail.event.s3_bucket_policy_change",
+      "cloudtrail.event.s3_public_access_block_disabled"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.10.1.1",
+    "title": "Policy on the Use of Cryptographic Controls",
+    "description": "A policy on the use of cryptographic controls for the protection of information shall be developed and implemented. KMS key disabling and scheduled deletion must be monitored.",
+    "guidance": "Evidence: CloudTrail event analysis detects DisableKey and ScheduleKeyDeletion calls that threaten encryption availability.",
+    "checks": [
+      "cloudtrail.event.kms_key_disabled_or_deleted"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.12.1.2",
+    "title": "Change Management",
+    "description": "The organization shall control changes to information processing facilities, including Lambda function creation/modification.",
+    "guidance": "Evidence: CloudTrail event analysis detects CreateFunction and UpdateFunctionConfiguration calls alongside other infrastructure changes.",
+    "checks": [
+      "cloudtrail.event.lambda_function_created_or_modified"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.12.4.1",
+    "title": "Event Logging",
+    "description": "Event logs recording user activities, exceptions, faults and information security events shall be produced, kept and regularly reviewed.",
+    "guidance": "Evidence: CloudTrail event analysis detects changes to logging infrastructure (StopLogging, DeleteTrail, UpdateTrail) and compliance monitoring (StopConfigurationRecorder, DeleteDetector).",
+    "checks": [
+      "cloudtrail.event.trail_tampering",
+      "cloudtrail.event.config_recorder_stopped",
+      "cloudtrail.event.anomalous_api_volume"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.12.4.2",
+    "title": "Protection of Log Information",
+    "description": "Logging facilities and log information shall be protected against tampering and unauthorized access.",
+    "guidance": "Evidence: CloudTrail event analysis detects StopLogging, DeleteTrail, and suspicious UpdateTrail events that could compromise audit logging integrity.",
+    "checks": [
+      "cloudtrail.event.trail_tampering"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.12.6.1",
+    "title": "Management of Technical Vulnerabilities",
+    "description": "Information about technical vulnerabilities of information systems being used shall be obtained in a timely fashion, and appropriate measures taken.",
+    "guidance": "Evidence: CloudTrail event analysis detects EC2 instance termination/modification, RDS instance creation/modification, and GuardDuty detector deletion.",
+    "checks": [
+      "cloudtrail.event.guardduty_disabled",
+      "cloudtrail.event.ec2_instance_tampering",
+      "cloudtrail.event.rds_instance_created_or_modified"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.13.1.1",
+    "title": "Network Controls",
+    "description": "Networks shall be managed and controlled to protect information in systems and applications. Security group changes opening to the world must be monitored.",
+    "guidance": "Evidence: CloudTrail event analysis detects AuthorizeSecurityGroupIngress to 0.0.0.0/0 and ::/0 with sensitive port detection.",
+    "checks": [
+      "cloudtrail.event.security_group_open_to_world"
     ]
   }
 ]

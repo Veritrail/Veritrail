@@ -86,45 +86,45 @@ function IntegrationCardView({ card, emphasis = false }: { card: IntegrationCard
         : "bg-zinc-100 text-zinc-500 ring-zinc-200";
 
   return (
-    <article className={`flex min-h-full flex-col rounded-2xl border bg-white shadow-sm shadow-zinc-950/[0.04] transition ${emphasis ? "border-zinc-300 ring-1 ring-indigo-100" : card.comingSoon ? "border-dashed border-zinc-200 opacity-75" : "border-zinc-200"}`}>
-      <div className="flex flex-1 flex-col p-5">
+    <article className={`flex flex-col rounded-xl border bg-white shadow-sm shadow-zinc-950/[0.02] transition ${emphasis ? "border-zinc-300 ring-1 ring-indigo-100" : card.comingSoon ? "border-dashed border-zinc-200 opacity-75" : "border-zinc-200"}`}>
+      <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3.5">
-            <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${card.iconBg} ${card.comingSoon ? "opacity-50 grayscale" : ""}`}>{card.icon}</span>
+          <div className="flex min-w-0 items-start gap-3">
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${card.iconBg}`}>{card.icon}</span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-bold text-zinc-950">{card.name}</h3>
+                <h3 className="text-sm font-bold text-zinc-950">{card.name}</h3>
                 <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{card.group}</span>
               </div>
-              <p className="mt-1 text-sm leading-relaxed text-zinc-500">{card.description}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{card.description}</p>
             </div>
           </div>
-          <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ${statusClass}`}>
+          <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ${statusClass}`}>
             {card.syncing && <Spinner className="h-3 w-3" />}
             {statusLabel}
           </span>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {card.capabilities.map((cap) => <span key={cap} className="rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 ring-1 ring-zinc-200/60">{cap}</span>)}
+        <div className="mt-3 flex flex-wrap gap-1">
+          {card.capabilities.map((cap) => <span key={cap} className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">{cap}</span>)}
         </div>
 
         {card.stats && card.stats.length > 0 && !card.comingSoon && (
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {card.stats.map((s) => <div key={s.label} className="rounded-xl border border-zinc-100 bg-zinc-50/80 px-2.5 py-2 text-center"><div className="text-lg font-bold tabular-nums text-zinc-900">{s.value}</div><div className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{s.label}</div></div>)}
+          <div className="mt-3 grid grid-cols-3 gap-1.5">
+            {card.stats.map((s) => <div key={s.label} className="rounded-lg border border-zinc-100 bg-zinc-50/80 px-2 py-1.5 text-center"><div className="text-base font-bold tabular-nums text-zinc-900">{s.value}</div><div className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{s.label}</div></div>)}
           </div>
         )}
 
         {card.status && card.status.length > 0 && !card.comingSoon && (
-          <div className="mt-4 space-y-2 rounded-xl border border-zinc-100 bg-zinc-50/70 p-3">
-            {card.status.map((s) => <div key={s.label} className="flex items-center justify-between gap-3 text-xs"><span className="text-zinc-500">{s.label}</span><span className="flex items-center gap-1.5 font-medium text-zinc-800"><StatusDot tone={s.tone} />{s.value}</span></div>)}
+          <div className="mt-3 grid grid-cols-1 gap-1.5 rounded-lg border border-zinc-100 bg-zinc-50/70 p-2.5">
+            {card.status.map((s) => <div key={s.label} className="flex items-center justify-between gap-2 text-xs"><span className="text-zinc-500">{s.label}</span><span className="flex items-center gap-1.5 font-medium text-zinc-800"><StatusDot tone={s.tone} />{s.value}</span></div>)}
           </div>
         )}
 
-        {card.syncing && <div className="mt-4 flex items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-800"><Spinner className="h-3.5 w-3.5 shrink-0" />Collecting evidence…</div>}
+        {card.syncing && <div className="mt-3 flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-2.5 py-1.5 text-xs text-indigo-800"><Spinner className="h-3.5 w-3.5 shrink-0" />Collecting evidence…</div>}
       </div>
-      <div className="border-t border-zinc-100 p-4">
-        {card.comingSoon ? <button type="button" disabled className="flex w-full cursor-not-allowed items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold text-zinc-400">Coming soon</button> : card.href ? <a href={card.href} className="flex w-full items-center justify-center rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800">{card.cta ?? (connected ? "Manage" : "Connect")}</a> : null}
+      <div className="border-t border-zinc-100 p-3">
+        {card.comingSoon ? <button type="button" disabled className="flex w-full cursor-not-allowed items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-semibold text-zinc-400">Coming soon</button> : card.href ? <a href={card.href} className="flex w-full items-center justify-center rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800">{card.cta ?? (connected ? "Manage" : "Connect")}</a> : null}
       </div>
     </article>
   );
@@ -240,28 +240,50 @@ export default function Integrations() {
   ];
 
   return (
-    <div className="w-full space-y-9 pb-10">
-      <header className="overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.04]">
-        <div className="flex flex-wrap items-start justify-between gap-6 border-b border-zinc-100 bg-gradient-to-br from-zinc-50 via-white to-indigo-50/30 px-6 py-5">
+    <div className="w-full max-w-5xl space-y-5 pb-10">
+      <header className="rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03]">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-100 bg-gradient-to-br from-zinc-50 via-white to-indigo-50/30 px-4 py-3">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-indigo-500">Evidence fabric</p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-950">Integrations</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-500">Active evidence sources first. Planned integrations stay quiet until they are ready to configure.</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Evidence fabric</p>
+            <h1 className="mt-0.5 text-xl font-bold tracking-tight text-zinc-950">Integrations</h1>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[{ label: "Active", value: connectedCards, icon: <IconShield className="h-4 w-4 text-emerald-600" /> }, { label: "Sources", value: [awsAccount?.status === "connected", !!github.data, !!gitlab.data].filter(Boolean).length, icon: <IconSync className="h-4 w-4 text-sky-600" /> }, { label: "Alerts", value: slackConnected ? 1 : 0, icon: <IconWebhook className="h-4 w-4 text-indigo-600" /> }].map((stat) => <div key={stat.label} className="min-w-[7rem] rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.03]"><div className="flex items-center gap-2">{stat.icon}<div className="text-lg font-bold tabular-nums text-zinc-950">{stat.value}</div></div><div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{stat.label}</div></div>)}
+          <div className="flex items-center gap-3 text-xs">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-500" /><span className="font-semibold text-zinc-700">{connectedCards}</span><span className="text-zinc-400">active</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-500" /><span className="font-semibold text-zinc-700">{[awsAccount?.status === "connected", !!github.data, !!gitlab.data].filter(Boolean).length}</span><span className="text-zinc-400">sources</span></span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-indigo-500" /><span className="font-semibold text-zinc-700">{slackConnected ? 1 : 0}</span><span className="text-zinc-400">alert</span></span>
           </div>
         </div>
-        {showActivity && <div className="border-b border-indigo-100 bg-indigo-50/80 px-6 py-3 text-sm text-indigo-800"><div className="flex flex-wrap items-center gap-x-3 gap-y-2"><Spinner className="h-4 w-4 shrink-0 text-indigo-500" /><span className="font-semibold">{[githubSync.isSyncing && "GitHub sync", gitlabSync.isSyncing && "GitLab sync", awsScanRunning && "AWS scan"].filter(Boolean).join(" · ")} in progress</span><span className="text-indigo-600/75">findings refresh when complete</span></div></div>}
+        {showActivity && <div className="bg-indigo-50/80 px-4 py-2 text-xs text-indigo-800"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Spinner className="h-3.5 w-3.5 shrink-0 text-indigo-500" /><span className="font-semibold">{[githubSync.isSyncing && "GitHub sync", gitlabSync.isSyncing && "GitLab sync", awsScanRunning && "AWS scan"].filter(Boolean).join(" · ")} in progress</span><span className="text-indigo-600/75">findings refresh when complete</span></div></div>}
       </header>
 
-      <Section title="Active integrations" description="Connected systems and the evidence they currently feed into Vigil.">
-        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">{activeCards.map((card) => <IntegrationCardView key={card.name} card={card} emphasis={!!card.connected} />)}</div>
-      </Section>
+      <section>
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">Active integrations</h2>
+            <p className="mt-0.5 text-xs text-zinc-500">Connected systems and the evidence they feed into Vigil.</p>
+          </div>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-2">{activeCards.map((card) => <IntegrationCardView key={card.name} card={card} emphasis={!!card.connected} />)}</div>
+      </section>
 
-      <Section title="Planned integrations" description="Future evidence sources. Kept intentionally quiet so they do not compete with active setup.">
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">{plannedCards.map((card) => <IntegrationCardView key={card.name} card={card} />)}</div>
-      </Section>
+      <section>
+        <div className="mb-3">
+          <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">Planned integrations</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">Future evidence sources. Will activate when ready.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {plannedCards.map((card) => (
+            <div key={card.name} className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${card.iconBg}`}>{card.icon}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-zinc-800">{card.name}</p>
+                <p className="text-[11px] text-zinc-500">{card.description}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Planned</span>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

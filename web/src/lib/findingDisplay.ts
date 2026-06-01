@@ -50,6 +50,77 @@ export function awsRegionFromArn(arn: string): string | null {
   return parts[3] || null;
 }
 
+export function isVcsResourceIdentifier(arn: string): boolean {
+  return arn.startsWith("github://") || arn.startsWith("gitlab://");
+}
+
+function vcsProviderFromArn(arn: string): "github" | "gitlab" | null {
+  if (arn.startsWith("github://")) return "github";
+  if (arn.startsWith("gitlab://")) return "gitlab";
+  return null;
+}
+
+function gitlabHostFromEvidence(e: Record<string, unknown>): string {
+  const raw = evidenceString(e, "base_url", "gitlab_url") ?? "https://gitlab.com";
+  return raw.replace(/\/$/, "");
+}
+
+/** Readable path for github:// or gitlab:// resource identifiers (not AWS ARNs). */
+export function vcsResourcePath(arn: string): string {
+  const rest = arn.replace(/^github:\/\//, "").replace(/^gitlab:\/\//, "").replace(/^\/+/, "");
+  const normalized = rest.replace(/^(repo|org)\//, "");
+  if (!normalized) return arn;
+  return normalized.startsWith("/") ? normalized : `/${normalized}`;
+}
+
+function vcsRepoSlug(f: FindingLike): string | null {
+  const repo = evidenceString(f.evidence, "repo", "repo_name", "full_name");
+  if (repo) return repo.replace(/^\/+/, "");
+  const path = vcsResourcePath(f.resource_arn).replace(/^\/+/, "");
+  return path || null;
+}
+
+function vcsOrgSlug(f: FindingLike): string | null {
+  const org = evidenceString(f.evidence, "source", "org", "organization");
+  if (org) return org.replace(/^\/+/, "");
+  if (f.resource_arn.includes("://org/")) {
+    const match = f.resource_arn.match(/:\/\/org\/([^/?#]+)/);
+    if (match?.[1]) return match[1];
+  }
+  const slug = vcsRepoSlug(f);
+  if (!slug) return null;
+  return slug.split("/")[0] ?? null;
+}
+
+/** https://github.com/org/repo or GitLab project URL for a VCS finding. */
+export function vcsResourceWebUrl(f: FindingLike): string | null {
+  const provider = vcsProviderFromArn(f.resource_arn);
+  if (!provider) return null;
+
+  if (f.check_id.includes(".org.")) {
+    const org = vcsOrgSlug(f);
+    if (!org) return null;
+    if (provider === "github") return `https://github.com/${org}`;
+    return `${gitlabHostFromEvidence(f.evidence)}/${org}`;
+  }
+
+  const slug = vcsRepoSlug(f);
+  if (!slug) return null;
+  if (provider === "github") return `https://github.com/${slug}`;
+  return `${gitlabHostFromEvidence(f.evidence)}/${slug}`;
+}
+
+export function resourceIdentifierLabel(arn: string): string {
+  if (!isVcsResourceIdentifier(arn)) return "ARN";
+  if (arn.includes("://org/")) return "Organization";
+  return "Repository";
+}
+
+export function resourceIdentifierValue(f: FindingLike): string {
+  if (!isVcsResourceIdentifier(f.resource_arn)) return f.resource_arn;
+  return vcsResourceWebUrl(f) ?? vcsResourcePath(f.resource_arn);
+}
+
 export type ResourceDetailRow = {
   label: string;
   value: string;
@@ -92,7 +163,6 @@ export function resourceDetailRowsFromFinding(f: FindingLike): ResourceDetailRow
   }
 
   if (cid.startsWith("iam.role.")) {
-    push("IAM role", evidenceString(e, "role_name", "role_arn"));
     return rows;
   }
 
@@ -178,6 +248,10 @@ export function resourceDetailRowsFromFinding(f: FindingLike): ResourceDetailRow
     return rows;
   }
 
+  if (cid.startsWith("github.") || cid.startsWith("gitlab.")) {
+    return rows;
+  }
+
   push("Region", evidenceString(e, "region", "home_region") ?? awsRegionFromArn(f.resource_arn), true);
   return rows;
 }
@@ -198,6 +272,9 @@ export function resourceShortName(f: FindingLike): string {
 
 export function resourceDisplayName(f: FindingLike): string {
   const e = f.evidence;
+  if (isVcsResourceIdentifier(f.resource_arn)) {
+    return vcsResourceWebUrl(f) ?? vcsResourcePath(f.resource_arn);
+  }
   const regions = regionsFromFindingEvidence(e);
   if (regions.length > 0) {
     const n = typeof e.region_count === "number" ? e.region_count : regions.length;

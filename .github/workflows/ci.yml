@@ -21,6 +21,24 @@ jobs:
           docker compose run --rm api alembic upgrade head
           docker compose run --rm api pytest -q
 
+  api-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mypy
+        run: pip install mypy
+
+      - name: Run mypy
+        working-directory: api
+        run: |
+          pip install -r requirements.txt
+          mypy app/ --ignore-missing-imports --check-untyped-defs || echo "::warning ::mypy found issues (non-blocking)"
+
   web-build:
     runs-on: ubuntu-latest
     steps:
@@ -39,6 +57,11 @@ jobs:
             npm install
           fi
           npm run build
+
+      - name: Lint frontend
+        working-directory: web
+        run: |
+          npm run lint || echo "::warning ::ESLint found issues (non-blocking)"
 
   secret-scan:
     runs-on: ubuntu-latest

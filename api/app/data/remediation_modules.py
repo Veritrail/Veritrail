@@ -47,7 +47,7 @@ REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
             "s3:PutBucketPublicAccessBlock",
             "s3:PutBucketPolicy",
         ),
-        runner_supported=False,
+        runner_supported=True,
     ),
     RemediationModuleSpec(
         id="iam_access_keys",
@@ -78,7 +78,7 @@ REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
             "iam:CreatePolicyVersion",
             "iam:DeletePolicyVersion",
         ),
-        runner_supported=False,
+        runner_supported=True,
     ),
     RemediationModuleSpec(
         id="ssm_parameters",
@@ -106,7 +106,7 @@ REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
             "cloudtrail:UpdateTrail",
             "cloudtrail:StartLogging",
         ),
-        runner_supported=False,
+        runner_supported=True,
     ),
 )
 
@@ -122,6 +122,9 @@ CHECK_TO_REMEDIATION_MODULE: dict[str, str] = {
     "iam.access_key.unused_90d": "iam_access_keys",
     "ssm.parameter.plaintext_secret": "ssm_parameters",
     "cloudtrail.trail.not_enabled": "cloudtrail_logging",
+    "iam.policy.wildcard_resource": "iam_policies",
+    "iam.role.full_admin_policy": "iam_policies",
+    # kms.key.no_rotation — no dedicated KMS remediation module; covered by IaC PR auto-patching
 }
 
 

@@ -120,6 +120,13 @@ def check_remediation_runner(
                     f"AWS runbook {document_name} is not available in {automation_region} "
                     "(resource region). AWS-owned documents are regional."
                 )
+        elif e.response.get("Error", {}).get("Code") == "AccessDeniedException":
+            out["blockers"].append(
+                f"Connector role cannot access ssm:DescribeDocument in {automation_region}. "
+                "Update your VigilAccountConnector CloudFormation stack with the latest "
+                "vigil-core-scanner.yaml template, or enable SSM remediation on the connector "
+                "(set EnableSsmRemediation=Yes as a stack parameter)."
+            )
         else:
             out["blockers"].append(f"Cannot describe SSM document: {e}")
 
@@ -142,6 +149,11 @@ def check_remediation_runner(
         out["warnings"].append(
             f"AWS-owned runbook {document_name} — no Vigil custom document required."
         )
+        if check_id == "cloudtrail.trail.not_enabled":
+            out["hints"].append(
+                "CloudTrail remediation requires a pre-existing S3 bucket. "
+                "Provide S3BucketName when dispatching."
+            )
     elif runbook and runbook.owner == "vigil":
         home = automation_home_region()
         out["hints"].append(

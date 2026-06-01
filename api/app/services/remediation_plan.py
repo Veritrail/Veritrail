@@ -28,7 +28,13 @@ IAM_ACCESS_KEY_CHECKS = frozenset(
 )
 
 # Custom Vigil document runs from one automation home region; PlanJson carries resource_region.
-VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS
+VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS | frozenset(
+    {
+        "s3.bucket.public_access_not_blocked",
+        "iam.role.full_admin_policy",
+        "iam.policy.wildcard_resource",
+    }
+)
 # Back-compat alias (was IAM-only before SG/SSM used home region too).
 IAM_GLOBAL_SSM_CHECKS = IAM_ACCESS_KEY_CHECKS
 
@@ -81,6 +87,10 @@ def _supported_action(check_id: str) -> str | None:
         return "migrate_ssm_string_to_secure_string"
     if check_id in IAM_ACCESS_KEY_CHECKS:
         return "deactivate_access_key"
+    if check_id == "iam.role.full_admin_policy":
+        return "detach_full_admin"
+    if check_id == "iam.policy.wildcard_resource":
+        return "replace_wildcard_inline"
     return None
 
 
@@ -110,11 +120,12 @@ def build_remediation_plan_body(
     automation_region = automation_region_for_finding(finding)
     ev = finding.evidence or {}
 
-    return {
+    body: dict[str, Any] = {
         "plan_id": plan_id,
         "schema": PLAN_SCHEMA,
         "created_at": now.isoformat(),
         "expires_at": expires.isoformat(),
+        "expires_in_minutes": ttl,
         "finding_id": str(finding.id),
         "check_id": finding.check_id,
         "resource_arn": finding.resource_arn,
@@ -138,6 +149,19 @@ def build_remediation_plan_body(
         "steps": _steps_for_check(finding),
         "rollback_hint": "Revert via CloudFormation stack change set or restore prior policy version in IAM.",
     }
+
+    # CloudTrail guided manual: add parameter hints and requires_user_input
+    if finding.check_id == "cloudtrail.trail.not_enabled":
+        body["parameters"] = {
+            "TrailName": "VigilCloudTrail",
+            "S3BucketName": "",
+            "EnableLogFileValidation": True,
+            "IsMultiRegionTrail": True,
+            "IncludeGlobalServiceEvents": True,
+        }
+        body["requires_user_input"] = ["S3BucketName"]
+
+    return body
 
 
 def build_remediation_plan(
@@ -168,17 +192,53 @@ def build_approved_remediation_plan(
     return _seal_remediation_plan(body)
 
 
+def validate_plan_expiry(plan: dict[str, Any]) -> bool:
+    """Return True if the plan is still valid (not expired).
+
+    A plan's expires_at field is checked against the current UTC time.
+    Plans without an expires_at field (pre-TTL) pass validation.
+    """
+    raw_expires = plan.get("expires_at")
+    if not raw_expires:
+        return True
+    try:
+        expires_at = datetime.fromisoformat(raw_expires.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return True
+    return datetime.now(timezone.utc) <= expires_at
+
+
 def _steps_for_check(finding: Finding) -> list[dict[str, str]]:
     cid = finding.check_id
     if cid.startswith("s3."):
         return [
             {"action": "review", "detail": "Apply bucket policy / encryption from Finding drawer generated policy"},
-            {"action": "execute", "detail": "Use customer automation only when an SSM document exists for this check"},
+            {"action": "execute", "detail": "SSM Automation blocks all four public access settings on this specific bucket"},
+        ]
+    if cid == "iam.policy.wildcard_resource":
+        return [
+            {"action": "review", "detail": "Review the generated least-privilege policy in the Vigil drawer before replacing"},
+            {"action": "execute", "detail": "SSM Automation replaces the inline policy with the scoped version"},
+        ]
+    if cid == "iam.role.full_admin_policy":
+        return [
+            {"action": "review", "detail": "Confirm the customer-managed full-admin policy can be safely detached"},
+            {"action": "execute", "detail": "SSM Automation detaches the listed policies from the role"},
+        ]
+    if cid.startswith("iam.access_key"):
+        return [
+            {"action": "review", "detail": "Confirm no workload still uses this access key (check last-used service in evidence)"},
+            {"action": "execute", "detail": "SSM Automation sets the key status to Inactive (deactivate)"},
         ]
     if cid.startswith("iam."):
         return [
             {"action": "review", "detail": "Use generated least-privilege policy or detach unused policy"},
             {"action": "execute", "detail": "Use customer automation only when an SSM document exists for this check"},
+        ]
+    if cid == "cloudtrail.trail.not_enabled":
+        return [
+            {"action": "review", "detail": "Create or identify an S3 bucket for CloudTrail log delivery and apply a compatible bucket policy"},
+            {"action": "execute", "detail": "SSM Automation creates a multi-region trail with logging enabled (requires S3BucketName)"},
         ]
     if cid in SG_CHECKS:
         return [

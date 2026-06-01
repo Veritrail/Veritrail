@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     GITLAB_CLIENT_ID: str = ""
     GITLAB_CLIENT_SECRET: str = ""
     GITLAB_INTEGRATION_CALLBACK_PATH: str = "/v1/integrations/gitlab/callback"
+    # Shared secret for verifying inbound GitLab webhook tokens (X-Gitlab-Token header) on the
+    # IaC push/MR scan trigger. Empty => the webhook endpoint rejects everything (fail closed).
+    GITLAB_WEBHOOK_SECRET: str = ""
 
     RESEND_API_KEY: str = ""
     DIGEST_FROM: str = "hygiene@example.com"

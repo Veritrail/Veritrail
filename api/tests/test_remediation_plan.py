@@ -172,12 +172,33 @@ def test_access_key_unused_plan_enables_automation():
     assert out["apply_paths"]["customer_automation"] is True
 
 
-def test_resolve_automation_region_aws_runbook_uses_resource_region():
+def test_resolve_automation_region_vigil_custom_uses_home_region():
     from app.services.remediation_plan import resolve_automation_region
 
+    # S3 PAB is now a Vigil custom doc — uses home region
     assert (
         resolve_automation_region("s3.bucket.public_access_not_blocked", "eu-west-1")
+        == "us-east-1"
+    )
+    # SSM parameter — Vigil custom, uses home
+    assert (
+        resolve_automation_region("ssm.parameter.plaintext_secret", "eu-west-1")
+        == "us-east-1"
+    )
+    # IAM keys — Vigil custom, uses home
+    assert (
+        resolve_automation_region("iam.access_key.unused_45d", "eu-west-1")
+        == "us-east-1"
+    )
+    # Unknown check — falls through to resource region
+    assert (
+        resolve_automation_region("some.unknown.check", "eu-west-1")
         == "eu-west-1"
+    )
+    # Unknown check, no resource region — falls through to home
+    assert (
+        resolve_automation_region("some.unknown.check", None)
+        == "us-east-1"
     )
 
 

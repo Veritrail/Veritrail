@@ -130,9 +130,9 @@ export default function NotificationsBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-[min(28rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-zinc-200/90 bg-white shadow-lg shadow-zinc-900/10">
-          <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-3 py-2">
-            <p className="text-[13px] font-semibold text-zinc-900">Notifications</p>
+        <div className="absolute right-0 z-50 mt-2 w-[min(36rem,calc(100vw-2rem))] rounded-xl border border-zinc-200/90 bg-white shadow-lg shadow-zinc-900/10">
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-2.5">
+            <p className="text-sm font-semibold text-zinc-900">Notifications</p>
             {notificationHistory.length > 0 && (
               <button
                 type="button"
@@ -143,17 +143,17 @@ export default function NotificationsBell() {
               </button>
             )}
           </div>
-          <div className="max-h-[min(24rem,70vh)] overflow-y-auto p-2.5">
+          <div className="max-h-[min(28rem,75vh)] overflow-y-auto p-3">
             {!hasItems && (
-              <p className="px-1 py-4 text-center text-xs text-zinc-500">No notifications right now.</p>
+              <p className="px-1 py-5 text-center text-[13px] text-zinc-500">No notifications right now.</p>
             )}
             {pendingRecheck && (
-              <div className="mb-1.5 rounded-md border border-indigo-100 bg-indigo-50/80 px-2.5 py-2">
+              <div className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5">
                 <div className="flex items-start gap-2">
                   <Spinner />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-indigo-950">Verifying</p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-indigo-900/80">
+                    <p className="text-sm font-medium text-indigo-950">Verifying</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-indigo-900/80">
                       {checkLabels[pendingRecheck.checkId] ?? pendingRecheck.checkId}
                     </p>
                   </div>
@@ -161,19 +161,19 @@ export default function NotificationsBell() {
                 <button
                   type="button"
                   onClick={() => viewFinding(pendingRecheck.findingId)}
-                  className="mt-1.5 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900"
+                  className="mt-2 text-[13px] font-semibold text-indigo-700 hover:text-indigo-900"
                 >
                   View finding
                 </button>
               </div>
             )}
             {pendingCloudTrail && (
-              <div className="mb-1.5 rounded-md border border-indigo-100 bg-indigo-50/80 px-2.5 py-2">
+              <div className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5">
                 <div className="flex items-start gap-2">
                   <Spinner />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-indigo-950">CloudTrail Analyzes</p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-indigo-900/80">
+                    <p className="text-sm font-medium text-indigo-950">CloudTrail Analyzes</p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-indigo-900/80">
                       ~15 min · checking AWS job status
                     </p>
                   </div>
@@ -181,7 +181,7 @@ export default function NotificationsBell() {
                 <button
                   type="button"
                   onClick={() => viewFinding(pendingCloudTrail.findingId)}
-                  className="mt-1.5 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900"
+                  className="mt-2 text-[13px] font-semibold text-indigo-700 hover:text-indigo-900"
                 >
                   View finding
                 </button>
@@ -221,19 +221,19 @@ function NotificationRow({
   onDismiss: () => void;
 }) {
   return (
-    <div className={`mb-1.5 rounded-md border px-2.5 py-2 last:mb-0 ${itemStyles(item)} ${item.readAt ? "opacity-70" : ""}`}>
-      <div className="flex items-start justify-between gap-2">
-        <p className={`text-[13px] font-semibold leading-snug ${titleColor(item)}`}>{itemTitle(item)}</p>
-        <span className="shrink-0 text-[10px] font-medium text-zinc-500">{formatWhen(item.completedAt)}</span>
+    <div className={`mb-2 rounded-lg border px-3 py-2.5 last:mb-0 ${itemStyles(item)} ${item.readAt ? "opacity-70" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className={`text-sm font-semibold leading-snug ${titleColor(item)}`}>{itemTitle(item)}</p>
+        <span className="shrink-0 pt-0.5 text-[11px] font-medium text-zinc-500">{formatWhen(item.completedAt)}</span>
       </div>
-      <p className="mt-0.5 line-clamp-3 text-xs leading-snug text-zinc-600 break-words">{itemBody(item)}</p>
-      <p className="mt-1 text-xs font-medium text-zinc-800">{itemSubtitle(item)}</p>
-      <div className="mt-1.5 flex items-center gap-2.5">
-        <button type="button" onClick={onView} className="text-[11px] font-semibold text-zinc-800 underline hover:text-zinc-950">
+      <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-600 break-words">{itemBody(item)}</p>
+      <p className="mt-2 text-[13px] font-medium text-zinc-800">{itemSubtitle(item)}</p>
+      <div className="mt-2.5 flex flex-wrap items-center gap-3 pb-0.5">
+        <button type="button" onClick={onView} className="text-[13px] font-semibold text-zinc-800 underline hover:text-zinc-950">
           View finding
         </button>
         {!item.readAt && (
-          <button type="button" onClick={onDismiss} className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800">
+          <button type="button" onClick={onDismiss} className="text-[13px] font-medium text-zinc-500 hover:text-zinc-800">
             Dismiss
           </button>
         )}

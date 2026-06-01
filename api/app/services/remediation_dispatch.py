@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import shlex
+from datetime import datetime, timezone
 from typing import Any
 
 import uuid
@@ -29,6 +30,32 @@ from app.services.ssm_remediation_catalog import (
     runbook_for_check,
     runbook_payload,
 )
+
+
+def _validate_plan_not_expired(plan: dict[str, Any]) -> None:
+    """Validate that a remediation plan has not expired.
+
+    Checks the plan's expires_at field against the current UTC time.
+    Raises ValueError with a clear message if the plan has expired.
+    """
+    raw_expires = plan.get("expires_at")
+    if not raw_expires:
+        # Plans without expires_at are pre-TTL schemas; allow for back-compat.
+        return
+
+    try:
+        expires_at = datetime.fromisoformat(raw_expires.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        # Cannot parse — allow through (corrupted data shouldn't block dispatch).
+        return
+
+    now = datetime.now(timezone.utc)
+    if expires_at < now:
+        plan_id = plan.get("plan_id", "unknown")
+        raise ValueError(
+            f"Remediation plan has expired (expired at {expires_at.isoformat()}, "
+            f"now {now.isoformat()}). Generate a new plan before dispatching."
+        )
 
 
 def _dispatch_instructions(
@@ -62,9 +89,14 @@ def build_remediation_dispatch(
     db: Session | None = None,
     org_id: uuid.UUID | None = None,
     execute: bool = False,
+    parameter_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Return approved plan; start SSM Automation only when execute=True."""
     plan = build_approved_remediation_plan(finding, approved_by=approved_by)
+
+    # Reject expired plans before any side effects
+    _validate_plan_not_expired(plan)
+
     settings = get_settings()
     resource_region = plan.get("resource_region") or resource_region_for_finding(finding)
     automation_region = plan.get("automation_region") or automation_region_for_finding(finding)
@@ -78,6 +110,7 @@ def build_remediation_dispatch(
             detail,
             runbook,
             automation_assume_role_arn=automation_role_arn,
+            parameter_overrides=parameter_overrides,
         )
         if runbook
         else {"PlanJson": [detail]}
@@ -139,7 +172,7 @@ def build_remediation_dispatch(
         "automation_region": automation_region,
         "document_name": document_name,
         "resource_region": resource_region,
-        "iam_inline_policy": inline_policy_document(finding.check_id),
+        "iam_inline_policy": inline_policy_document(finding.check_id, resource_arn=finding.resource_arn),
         "signing_public_key_base64": (plan.get("signature") or {}).get("public_key_base64"),
         "ssm": {
             "document_name": document_name,

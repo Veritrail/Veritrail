@@ -1,5 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Customer-owned Vigil remediation runbooks using AWS Systems Manager Automation.
+Description: >-
+  Customer-owned Vigil remediation runbooks using AWS Systems Manager
+  Automation. Each document verifies a signed remediation plan
+  (vigil_remediation_plan/v2 schema), validates expiry and content
+  integrity, then executes the specific remediation action.
 
 Parameters:
   AutomationRoleName:
@@ -39,6 +43,12 @@ Conditions:
   CloudTrailModule: !Equals [!Ref EnableCloudTrailRemediation, "Yes"]
 
 Resources:
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # IAM Role — assumed by SSM Automation to execute all remediation steps.
+  # Permissions are gated behind conditions so only enabled modules get
+  # their required IAM statements at deploy time.
+  # ═══════════════════════════════════════════════════════════════════════
   RemediationAutomationRole:
     Type: AWS::IAM::Role
     Properties:
@@ -72,7 +82,7 @@ Resources:
                   Action:
                     - s3:PutBucketPublicAccessBlock
                     - s3:GetBucketPublicAccessBlock
-                  Resource: "*"
+                  Resource: "arn:aws:s3:::*"
                 - !Ref AWS::NoValue
               - !If
                 - SsmParameterModule
@@ -99,9 +109,10 @@ Resources:
                   Action:
                     - iam:PutRolePolicy
                     - iam:DetachRolePolicy
-                    - iam:AttachRolePolicy
-                    - iam:CreatePolicyVersion
-                    - iam:DeletePolicyVersion
+                    - iam:GetRolePolicy
+                    - iam:GetRole
+                    - iam:GetPolicy
+                    - iam:ListAttachedRolePolicies
                   Resource: "*"
                 - !Ref AWS::NoValue
               - !If
@@ -109,11 +120,31 @@ Resources:
                 - Sid: CloudTrailRemediation
                   Effect: Allow
                   Action:
+                    - cloudtrail:CreateTrail
                     - cloudtrail:UpdateTrail
                     - cloudtrail:StartLogging
+                    - cloudtrail:DescribeTrails
                   Resource: "*"
                 - !Ref AWS::NoValue
+              - !If
+                - CloudTrailModule
+                - Sid: CloudTrailS3BucketPolicy
+                  Effect: Allow
+                  Action:
+                    - s3:GetBucketPolicy
+                    - s3:PutBucketPolicy
+                  Resource: "arn:aws:s3:::*"
+                - !Ref AWS::NoValue
 
+  # ═══════════════════════════════════════════════════════════════════════
+  # Vigil-RevokeSecurityGroupIngressExact
+  # ═══════════════════════════════════════════════════════════════════════
+  # Remediates:  ec2.security_group.unrestricted_ssh
+  #              ec2.security_group.unrestricted_rdp
+  # Action:      Revokes only the specific public 0.0.0.0/0 or ::/0 ingress
+  #              rule authorized in the signed plan. No other rules are
+  #              affected. Matches on IP protocol, port range, and CIDR.
+  # ═══════════════════════════════════════════════════════════════════════
   RevokeSecurityGroupIngressExact:
     Type: AWS::SSM::Document
     Condition: SecurityGroupModule
@@ -123,12 +154,17 @@ Resources:
       DocumentFormat: YAML
       Content:
         schemaVersion: "0.3"
-        description: "Vigil: remove only the public security-group ingress rules approved in a signed plan."
+        description: >
+          Vigil: Remove only the public security-group ingress rules
+          authorized in a signed remediation plan. Revokes specific
+          0.0.0.0/0 or ::/0 ingress rules that match the approved plan.
         assumeRole: !GetAtt RemediationAutomationRole.Arn
         parameters:
           PlanJson:
             type: String
-            description: Signed Vigil remediation plan JSON.
+            description: >
+              Signed Vigil remediation plan JSON (vigil_remediation_plan/v2).
+              Contains the exact security group rule and CIDR to revoke.
         mainSteps:
           - name: RevokeIngress
             action: aws:executeScript
@@ -139,34 +175,55 @@ Resources:
               InputPayload:
                 PlanJson: "{{ PlanJson }}"
               Script: |
-                import datetime, hashlib, json, boto3
+                import datetime, hashlib, json
+                import boto3
+
                 PLAN_SCHEMA = "vigil_remediation_plan/v2"
-                ALLOWED = {"ec2.security_group.unrestricted_ssh", "ec2.security_group.unrestricted_rdp"}
+                ALLOWED = {
+                  "ec2.security_group.unrestricted_ssh",
+                  "ec2.security_group.unrestricted_rdp",
+                }
+
 
                 def finish(plan, result):
                     result["plan_id"] = plan.get("plan_id")
                     return result
+
 
                 def verify(plan):
                     if plan.get("schema") != PLAN_SCHEMA:
                         return "unsupported schema"
                     if plan.get("check_id") not in ALLOWED:
                         return "unsupported check_id"
-                    exp = datetime.datetime.fromisoformat(plan["expires_at"].replace("Z", "+00:00"))
+                    exp = datetime.datetime.fromisoformat(
+                      plan["expires_at"].replace("Z", "+00:00")
+                    )
                     if exp.tzinfo is None:
                         exp = exp.replace(tzinfo=datetime.timezone.utc)
                     if datetime.datetime.now(datetime.timezone.utc) > exp:
                         return "plan_expired"
                     expected = plan.get("content_sha256")
                     if expected:
-                        body = {k: v for k, v in plan.items() if k not in ("content_sha256", "signature")}
-                        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
+                        body = {
+                          k: v
+                          for k, v in plan.items()
+                          if k not in ("content_sha256", "signature")
+                        }
+                        canonical = json.dumps(
+                          body, sort_keys=True, separators=(",", ":")
+                        )
                         if hashlib.sha256(canonical.encode()).hexdigest() != expected:
                             return "content_sha256_mismatch"
                     return None
 
+
                 def region(plan):
-                    return plan.get("resource_region") or (plan.get("evidence") or {}).get("region") or "us-east-1"
+                    return (
+                      plan.get("resource_region")
+                      or (plan.get("evidence") or {}).get("region")
+                      or "us-east-1"
+                    )
+
 
                 def group_id(plan):
                     ev = plan.get("evidence") or {}
@@ -177,50 +234,90 @@ Resources:
                         return arn.split("/security-group/")[-1]
                     return arn.rsplit("/", 1)[-1]
 
+
                 def rule_matches(perm, rule, cidr):
                     if cidr != rule.get("cidr"):
                         return False
                     proto = str(perm.get("IpProtocol", ""))
                     wanted = rule.get("protocol")
-                    if wanted not in ("all", proto, "-1") and proto not in ("-1", str(wanted)):
+                    if (
+                      wanted not in ("all", proto, "-1")
+                      and proto not in ("-1", str(wanted))
+                    ):
                         return False
                     for key in ("from_port", "to_port"):
-                        if rule.get(key) is None and perm.get(key[0].upper() + key[1:].replace("_", "")) is None:
+                        if (
+                          rule.get(key) is None
+                          and perm.get(key[0].upper() + key[1:].replace("_", ""))
+                          is None
+                        ):
                             continue
                         pkey = "FromPort" if key == "from_port" else "ToPort"
                         if int(rule.get(key)) != int(perm.get(pkey)):
                             return False
                     return True
 
+
                 def handler(event, context):
                     plan = json.loads(event["PlanJson"])
                     err = verify(plan)
                     if err:
                         return finish(plan, {"ok": False, "error": err})
+
                     sg_id = group_id(plan)
                     rules = plan.get("exact_match_rules") or []
                     if not sg_id or not rules:
                         return finish(plan, {"ok": False, "error": "stale_plan"})
+
                     ec2 = boto3.client("ec2", region_name=region(plan))
-                    sg = ec2.describe_security_groups(GroupIds=[sg_id])["SecurityGroups"][0]
+                    sg = ec2.describe_security_groups(
+                      GroupIds=[sg_id]
+                    )["SecurityGroups"][0]
+
                     revoked = 0
                     for perm in sg.get("IpPermissions", []):
-                        for key, cidr_key, public in (("IpRanges", "CidrIp", "0.0.0.0/0"), ("Ipv6Ranges", "CidrIpv6", "::/0")):
+                        for key, cidr_key, public in (
+                          ("IpRanges", "CidrIp", "0.0.0.0/0"),
+                          ("Ipv6Ranges", "CidrIpv6", "::/0"),
+                        ):
                             for rng in perm.get(key, []):
                                 cidr = rng.get(cidr_key)
                                 if cidr != public:
                                     continue
-                                if not any(rule_matches(perm, rule, cidr) for rule in rules):
+                                if not any(
+                                  rule_matches(perm, rule, cidr) for rule in rules
+                                ):
                                     continue
+
                                 ip_perm = {"IpProtocol": perm.get("IpProtocol")}
                                 if perm.get("IpProtocol") != "-1":
                                     ip_perm["FromPort"] = perm.get("FromPort")
                                     ip_perm["ToPort"] = perm.get("ToPort")
                                 ip_perm[key] = [{cidr_key: cidr}]
-                                ec2.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=[ip_perm])
-                                revoked += 1
-                    return finish(plan, {"ok": revoked > 0, "action": "revoke_exact_ingress", "group_id": sg_id, "revoked": revoked})
 
+                                ec2.revoke_security_group_ingress(
+                                  GroupId=sg_id, IpPermissions=[ip_perm]
+                                )
+                                revoked += 1
+
+                    return finish(
+                      plan,
+                      {
+                        "ok": revoked > 0,
+                        "action": "revoke_exact_ingress",
+                        "group_id": sg_id,
+                        "revoked": revoked,
+                      },
+                    )
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Vigil-DeactivateIamAccessKey
+  # ═══════════════════════════════════════════════════════════════════════
+  # Remediates:  iam.access_key.unused_45d
+  #              iam.access_key.unused_90d
+  # Action:      Deactivates only the IAM access key identified in the
+  #              signed plan by calling UpdateAccessKey with Status=Inactive.
+  # ═══════════════════════════════════════════════════════════════════════
   DeactivateIamAccessKey:
     Type: AWS::SSM::Document
     Condition: IamAccessKeyModule
@@ -230,12 +327,17 @@ Resources:
       DocumentFormat: YAML
       Content:
         schemaVersion: "0.3"
-        description: "Vigil: deactivate only the IAM access key approved in a signed plan."
+        description: >
+          Vigil: Deactivate only the IAM access key approved in a signed
+          remediation plan. Validates plan integrity and expiry before
+          setting the key status to Inactive.
         assumeRole: !GetAtt RemediationAutomationRole.Arn
         parameters:
           PlanJson:
             type: String
-            description: Signed Vigil remediation plan JSON.
+            description: >
+              Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)
+              containing the user ARN and access key ID to deactivate.
         mainSteps:
           - name: DeactivateAccessKey
             action: aws:executeScript
@@ -246,28 +348,44 @@ Resources:
               InputPayload:
                 PlanJson: "{{ PlanJson }}"
               Script: |
-                import datetime, hashlib, json, boto3
-                ALLOWED = {"iam.access_key.unused_45d", "iam.access_key.unused_90d"}
+                import datetime, hashlib, json
+                import boto3
+
+                ALLOWED = {
+                  "iam.access_key.unused_45d",
+                  "iam.access_key.unused_90d",
+                }
+
 
                 def finish(plan, result):
                     result["plan_id"] = plan.get("plan_id")
                     return result
 
+
                 def verify(plan):
                     if plan.get("check_id") not in ALLOWED:
                         return "unsupported check_id"
-                    exp = datetime.datetime.fromisoformat(plan["expires_at"].replace("Z", "+00:00"))
+                    exp = datetime.datetime.fromisoformat(
+                      plan["expires_at"].replace("Z", "+00:00")
+                    )
                     if exp.tzinfo is None:
                         exp = exp.replace(tzinfo=datetime.timezone.utc)
                     if datetime.datetime.now(datetime.timezone.utc) > exp:
                         return "plan_expired"
                     expected = plan.get("content_sha256")
                     if expected:
-                        body = {k: v for k, v in plan.items() if k not in ("content_sha256", "signature")}
-                        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
+                        body = {
+                          k: v
+                          for k, v in plan.items()
+                          if k not in ("content_sha256", "signature")
+                        }
+                        canonical = json.dumps(
+                          body, sort_keys=True, separators=(",", ":")
+                        )
                         if hashlib.sha256(canonical.encode()).hexdigest() != expected:
                             return "content_sha256_mismatch"
                     return None
+
 
                 def key_context(plan):
                     ev = plan.get("evidence") or {}
@@ -276,20 +394,51 @@ Resources:
                         raw = plan.get("resource_arn") or ""
                         if "#" in raw:
                             user_arn, key_id = raw.split("#", 1)
-                    user_name = user_arn.split("/")[-1] if user_arn and "/" in user_arn else user_arn
+                    user_name = (
+                      user_arn.split("/")[-1]
+                      if user_arn and "/" in user_arn
+                      else user_arn
+                    )
                     return user_name, key_id
+
 
                 def handler(event, context):
                     plan = json.loads(event["PlanJson"])
                     err = verify(plan)
                     if err:
                         return finish(plan, {"ok": False, "error": err})
+
                     user_name, key_id = key_context(plan)
                     if not user_name or not key_id:
-                        return finish(plan, {"ok": False, "error": "missing user or key"})
-                    boto3.client("iam").update_access_key(UserName=user_name, AccessKeyId=key_id, Status="Inactive")
-                    return finish(plan, {"ok": True, "action": "deactivate_access_key", "user_name": user_name, "key_id": key_id, "status": "Inactive"})
+                        return finish(
+                          plan, {"ok": False, "error": "missing user or key"}
+                        )
 
+                    boto3.client("iam").update_access_key(
+                      UserName=user_name,
+                      AccessKeyId=key_id,
+                      Status="Inactive",
+                    )
+
+                    return finish(
+                      plan,
+                      {
+                        "ok": True,
+                        "action": "deactivate_access_key",
+                        "user_name": user_name,
+                        "key_id": key_id,
+                        "status": "Inactive",
+                      },
+                    )
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Vigil-MigrateSsmParameterToSecureString
+  # ═══════════════════════════════════════════════════════════════════════
+  # Remediates:  ssm.parameter.plaintext_secret
+  # Action:      Reads a plaintext String parameter, then rewrites it as a
+  #              SecureString with the same value. If it is already
+  #              SecureString, no change is made.
+  # ═══════════════════════════════════════════════════════════════════════
   MigrateSsmParameterToSecureString:
     Type: AWS::SSM::Document
     Condition: SsmParameterModule
@@ -299,12 +448,18 @@ Resources:
       DocumentFormat: YAML
       Content:
         schemaVersion: "0.3"
-        description: "Vigil: rewrite a reviewed plaintext SSM String parameter as SecureString."
+        description: >
+          Vigil: Rewrite a reviewed plaintext SSM String parameter as
+          SecureString. Verifies plan integrity and expiry, reads current
+          value, and performs the migration only when the parameter is
+          still a plaintext String.
         assumeRole: !GetAtt RemediationAutomationRole.Arn
         parameters:
           PlanJson:
             type: String
-            description: Signed Vigil remediation plan JSON.
+            description: >
+              Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)
+              identifying the SSM parameter to migrate.
         mainSteps:
           - name: MigrateParameter
             action: aws:executeScript
@@ -315,27 +470,39 @@ Resources:
               InputPayload:
                 PlanJson: "{{ PlanJson }}"
               Script: |
-                import datetime, hashlib, json, boto3
+                import datetime, hashlib, json
+                import boto3
+
 
                 def finish(plan, result):
                     result["plan_id"] = plan.get("plan_id")
                     return result
 
+
                 def verify(plan):
                     if plan.get("check_id") != "ssm.parameter.plaintext_secret":
                         return "unsupported check_id"
-                    exp = datetime.datetime.fromisoformat(plan["expires_at"].replace("Z", "+00:00"))
+                    exp = datetime.datetime.fromisoformat(
+                      plan["expires_at"].replace("Z", "+00:00")
+                    )
                     if exp.tzinfo is None:
                         exp = exp.replace(tzinfo=datetime.timezone.utc)
                     if datetime.datetime.now(datetime.timezone.utc) > exp:
                         return "plan_expired"
                     expected = plan.get("content_sha256")
                     if expected:
-                        body = {k: v for k, v in plan.items() if k not in ("content_sha256", "signature")}
-                        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
+                        body = {
+                          k: v
+                          for k, v in plan.items()
+                          if k not in ("content_sha256", "signature")
+                        }
+                        canonical = json.dumps(
+                          body, sort_keys=True, separators=(",", ":")
+                        )
                         if hashlib.sha256(canonical.encode()).hexdigest() != expected:
                             return "content_sha256_mismatch"
                     return None
+
 
                 def parameter_name(plan):
                     ev = plan.get("evidence") or {}
@@ -348,25 +515,353 @@ Resources:
                         return arn.split(":parameter", 1)[-1]
                     return ""
 
+
                 def region(plan):
-                    return plan.get("resource_region") or (plan.get("evidence") or {}).get("region") or "us-east-1"
+                    return (
+                      plan.get("resource_region")
+                      or (plan.get("evidence") or {}).get("region")
+                      or "us-east-1"
+                    )
+
 
                 def handler(event, context):
                     plan = json.loads(event["PlanJson"])
                     err = verify(plan)
                     if err:
                         return finish(plan, {"ok": False, "error": err})
+
                     name = parameter_name(plan)
                     if not name:
-                        return finish(plan, {"ok": False, "error": "missing parameter name"})
+                        return finish(
+                          plan, {"ok": False, "error": "missing parameter name"}
+                        )
+
                     ssm = boto3.client("ssm", region_name=region(plan))
-                    current = ssm.get_parameter(Name=name, WithDecryption=False)["Parameter"]
+                    current = ssm.get_parameter(
+                      Name=name, WithDecryption=False
+                    )["Parameter"]
+
                     if current.get("Type") == "SecureString":
-                        return finish(plan, {"ok": True, "changed": False, "parameter_name": name, "parameter_type": "SecureString"})
+                        return finish(
+                          plan,
+                          {
+                            "ok": True,
+                            "changed": False,
+                            "parameter_name": name,
+                            "parameter_type": "SecureString",
+                          },
+                        )
+
                     if current.get("Type") != "String":
-                        return finish(plan, {"ok": False, "error": f"unsupported parameter type {current.get('Type')}"})
-                    ssm.put_parameter(Name=name, Type="SecureString", Value=current["Value"], Overwrite=True)
-                    return finish(plan, {"ok": True, "changed": True, "action": "migrate_ssm_string_to_secure_string", "parameter_name": name, "parameter_type": "SecureString"})
+                        return finish(
+                          plan,
+                          {
+                            "ok": False,
+                            "error": (
+                              f"unsupported parameter type {current.get('Type')}"
+                            ),
+                          },
+                        )
+
+                    ssm.put_parameter(
+                      Name=name,
+                      Type="SecureString",
+                      Value=current["Value"],
+                      Overwrite=True,
+                    )
+
+                    return finish(
+                      plan,
+                      {
+                        "ok": True,
+                        "changed": True,
+                        "action": "migrate_ssm_string_to_secure_string",
+                        "parameter_name": name,
+                        "parameter_type": "SecureString",
+                      },
+                    )
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Vigil-ConfigureS3BucketPublicAccessBlock
+  # ═══════════════════════════════════════════════════════════════════════
+  # Remediates:  s3.bucket.public_access_not_blocked
+  # Action:      Enables all four Block Public Access settings on the
+  #              specific S3 bucket identified in the signed plan:
+  #              BlockPublicAcls, IgnorePublicAcls, BlockPublicPolicy,
+  #              and RestrictPublicBuckets.
+  # ═══════════════════════════════════════════════════════════════════════
+  ConfigureS3BucketPublicAccessBlock:
+    Type: AWS::SSM::Document
+    Condition: S3Module
+    Properties:
+      Name: Vigil-ConfigureS3BucketPublicAccessBlock
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Content:
+        schemaVersion: "0.3"
+        description: >
+          Vigil: Enable all four Block Public Access settings on a specific
+          S3 bucket approved in a signed remediation plan. Verifies plan
+          integrity, extracts the bucket name, and applies the full
+          PublicAccessBlockConfiguration.
+        assumeRole: !GetAtt RemediationAutomationRole.Arn
+        parameters:
+          PlanJson:
+            type: String
+            description: >
+              Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)
+              identifying the S3 bucket to lock down.
+        mainSteps:
+          - name: ConfigureBucketPublicAccessBlock
+            action: aws:executeScript
+            timeoutSeconds: 120
+            inputs:
+              Runtime: python3.11
+              Handler: handler
+              InputPayload:
+                PlanJson: "{{ PlanJson }}"
+              Script: |
+                import datetime, hashlib, json
+                import boto3
+
+                ALLOWED = {"s3.bucket.public_access_not_blocked"}
+
+
+                def finish(plan, result):
+                    result["plan_id"] = plan.get("plan_id")
+                    return result
+
+
+                def verify(plan):
+                    if plan.get("check_id") not in ALLOWED:
+                        return "unsupported check_id"
+                    exp = datetime.datetime.fromisoformat(
+                      plan["expires_at"].replace("Z", "+00:00")
+                    )
+                    if exp.tzinfo is None:
+                        exp = exp.replace(tzinfo=datetime.timezone.utc)
+                    if datetime.datetime.now(datetime.timezone.utc) > exp:
+                        return "plan_expired"
+                    expected = plan.get("content_sha256")
+                    if expected:
+                        body = {
+                          k: v
+                          for k, v in plan.items()
+                          if k not in ("content_sha256", "signature")
+                        }
+                        canonical = json.dumps(
+                          body, sort_keys=True, separators=(",", ":")
+                        )
+                        if hashlib.sha256(canonical.encode()).hexdigest() != expected:
+                            return "content_sha256_mismatch"
+                    return None
+
+
+                def bucket_name(plan):
+                    ev = plan.get("evidence") or {}
+                    if ev.get("bucket_name"):
+                        return str(ev["bucket_name"])
+                    arn = plan.get("resource_arn") or ""
+                    prefix = "arn:aws:s3:::"
+                    if arn.startswith(prefix):
+                        return arn[len(prefix):].split("/", 1)[0]
+                    return ""
+
+
+                def handler(event, context):
+                    plan = json.loads(event["PlanJson"])
+                    err = verify(plan)
+                    if err:
+                        return finish(plan, {"ok": False, "error": err})
+
+                    name = bucket_name(plan)
+                    if not name:
+                        return finish(
+                          plan, {"ok": False, "error": "missing bucket name"}
+                        )
+
+                    s3 = boto3.client("s3")
+                    s3.put_public_access_block(
+                      Bucket=name,
+                      PublicAccessBlockConfiguration={
+                        "BlockPublicAcls": True,
+                        "IgnorePublicAcls": True,
+                        "BlockPublicPolicy": True,
+                        "RestrictPublicBuckets": True,
+                      },
+                    )
+
+                    return finish(
+                      plan,
+                      {
+                        "ok": True,
+                        "action": "block_public_access",
+                        "bucket_name": name,
+                      },
+                    )
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Vigil-RemediateIamExcessPermissions
+  # ═══════════════════════════════════════════════════════════════════════
+  # Remediates:  iam.policy.wildcard_resource
+  #              iam.role.full_admin_policy
+  # Action:      Detaches full-admin managed policies or replaces wildcard
+  #              inline policies on the IAM role identified in the signed
+  #              plan. The specific action (detach_full_admin or
+  #              replace_wildcard_inline) is driven by the plan's
+  #              supported_action field.
+  # ═══════════════════════════════════════════════════════════════════════
+  RemediateIamExcessPermissions:
+    Type: AWS::SSM::Document
+    Condition: IamPolicyModule
+    Properties:
+      Name: Vigil-RemediateIamExcessPermissions
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Content:
+        schemaVersion: "0.3"
+        description: >
+          Vigil: Detach full-admin managed policies or replace wildcard
+          inline policies per a signed remediation plan. Supports two
+          actions — detach_full_admin and replace_wildcard_inline — both
+          scoped to the specific role and policies in the plan.
+        assumeRole: !GetAtt RemediationAutomationRole.Arn
+        parameters:
+          PlanJson:
+            type: String
+            description: >
+              Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)
+              with policy details and the approved remediation action
+              (detach_full_admin or replace_wildcard_inline).
+        mainSteps:
+          - name: RemediateExcessPermissions
+            action: aws:executeScript
+            timeoutSeconds: 180
+            inputs:
+              Runtime: python3.11
+              Handler: handler
+              InputPayload:
+                PlanJson: "{{ PlanJson }}"
+              Script: |
+                import datetime, hashlib, json
+                import boto3
+
+                ALLOWED = {
+                  "iam.policy.wildcard_resource",
+                  "iam.role.full_admin_policy",
+                }
+
+
+                def finish(plan, result):
+                    result["plan_id"] = plan.get("plan_id")
+                    return result
+
+
+                def verify(plan):
+                    if plan.get("check_id") not in ALLOWED:
+                        return "unsupported check_id"
+                    exp = datetime.datetime.fromisoformat(
+                      plan["expires_at"].replace("Z", "+00:00")
+                    )
+                    if exp.tzinfo is None:
+                        exp = exp.replace(tzinfo=datetime.timezone.utc)
+                    if datetime.datetime.now(datetime.timezone.utc) > exp:
+                        return "plan_expired"
+                    expected = plan.get("content_sha256")
+                    if expected:
+                        body = {
+                          k: v
+                          for k, v in plan.items()
+                          if k not in ("content_sha256", "signature")
+                        }
+                        canonical = json.dumps(
+                          body, sort_keys=True, separators=(",", ":")
+                        )
+                        if hashlib.sha256(canonical.encode()).hexdigest() != expected:
+                            return "content_sha256_mismatch"
+                    return None
+
+
+                def role_name(arn):
+                    return arn.split("/")[-1] if "/" in arn else arn
+
+
+                def handler(event, context):
+                    plan = json.loads(event["PlanJson"])
+                    err = verify(plan)
+                    if err:
+                        return finish(plan, {"ok": False, "error": err})
+
+                    ev = plan.get("evidence") or {}
+                    role_arn = (
+                      plan.get("resource_arn") or ev.get("role_arn") or ""
+                    )
+                    rname = role_name(role_arn)
+                    action = plan.get("supported_action", "detach_full_admin")
+
+                    iam = boto3.client("iam")
+                    results = []
+
+                    if action == "detach_full_admin":
+                        policies = ev.get("attached_policies_full_admin", [])
+                        for policy_name in policies:
+                            account_id = (
+                              boto3.client("sts")
+                              .get_caller_identity()["Account"]
+                            )
+                            policy_arn = (
+                              f"arn:aws:iam::{account_id}:policy/{policy_name}"
+                            )
+                            iam.detach_role_policy(
+                              RoleName=rname, PolicyArn=policy_arn
+                            )
+                            results.append(
+                              {"policy": policy_name, "action": "detached"}
+                            )
+                        return finish(
+                          plan,
+                          {
+                            "ok": True,
+                            "action": "detach_full_admin",
+                            "role_name": rname,
+                            "results": results,
+                          },
+                        )
+
+                    if action == "replace_wildcard_inline":
+                        replacement = plan.get("replacement_policy")
+                        if not replacement:
+                            return finish(
+                              plan,
+                              {
+                                "ok": False,
+                                "error": "missing replacement_policy in plan",
+                              },
+                            )
+                        inline_names = ev.get("policy_names", [])
+                        for pname in inline_names:
+                            iam.put_role_policy(
+                              RoleName=rname,
+                              PolicyName=pname,
+                              PolicyDocument=json.dumps(replacement),
+                            )
+                            results.append(
+                              {"inline_policy": pname, "action": "replaced"}
+                            )
+                        return finish(
+                          plan,
+                          {
+                            "ok": True,
+                            "action": "replace_wildcard_inline",
+                            "role_name": rname,
+                            "results": results,
+                          },
+                        )
+
+                    return finish(
+                      plan,
+                      {"ok": False, "error": f"unsupported action: {action}"},
+                    )
 
 Outputs:
   AutomationDocumentName:
@@ -380,6 +875,12 @@ Outputs:
   SsmParameterRunbookName:
     Condition: SsmParameterModule
     Value: !Ref MigrateSsmParameterToSecureString
+  S3BucketPabRunbookName:
+    Condition: S3Module
+    Value: !Ref ConfigureS3BucketPublicAccessBlock
+  IamExcessPermissionsRunbookName:
+    Condition: IamPolicyModule
+    Value: !Ref RemediateIamExcessPermissions
   AutomationRoleArn:
     Value: !GetAtt RemediationAutomationRole.Arn
   RemediationRoleArn:
