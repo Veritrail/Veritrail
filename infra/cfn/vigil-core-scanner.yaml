@@ -304,6 +304,7 @@ Resources:
                     - ssm:GetDocument
                   Resource:
                     - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/${RemediationAutomationDocumentName}"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Vigil-*"
                     - !Sub "arn:${AWS::Partition}:ssm:*::document/AWS-*"
                     - !Sub "arn:${AWS::Partition}:ssm:*::document/AWSConfigRemediation-*"
                 - Sid: StartApprovedSsmAutomation
@@ -313,9 +314,10 @@ Resources:
                     - ssm:GetAutomationExecution
                     - ssm:DescribeAutomationExecutions
                   Resource:
-                    # StartAutomationExecution is authorized on document ARNs (not automation-definition alone).
                     - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/${RemediationAutomationDocumentName}"
                     - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-definition/${RemediationAutomationDocumentName}:*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Vigil-*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-definition/Vigil-*:*"
                     - !Sub "arn:${AWS::Partition}:ssm:*::document/AWS-*"
                     - !Sub "arn:${AWS::Partition}:ssm:*::automation-definition/AWS-*:*"
                     - !Sub "arn:${AWS::Partition}:ssm:*::document/AWSConfigRemediation-*"
@@ -338,9 +340,8 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RoleName: !Sub "${RoleName}AccessAnalyzerMonitor"
-      Description: >
-        Assumed by access-analyzer.amazonaws.com to read CloudTrail logs during IAM policy
-        generation. Not assumed by Vigil directly.
+      Description: IAM Access Analyzer policy-generation monitor role for Vigil.
+      MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -349,88 +350,48 @@ Resources:
               Service: access-analyzer.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: AccessAnalyzerCloudTrailRead
+        - PolicyName: VigilAccessAnalyzerMonitorRead
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              Fn::If:
-                - HasCloudTrailBucket
-                - Fn::If:
-                    - HasCloudTrailKmsKey
-                    - - Sid: CloudTrailDiscovery
-                        Effect: Allow
-                        Action:
-                          - cloudtrail:DescribeTrails
-                          - cloudtrail:GetTrailStatus
-                        Resource: "*"
-                      - Sid: CloudTrailLogRead
-                        Effect: Allow
-                        Action:
-                          - s3:GetObject
-                          - s3:ListBucket
-                        Resource:
-                          - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
-                          - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}/${CloudTrailLogsBucketPrefix}*"
-                      - Sid: CloudTrailLogDecrypt
-                        Effect: Allow
-                        Action:
-                          - kms:Decrypt
-                          - kms:DescribeKey
-                        Resource: !Ref CloudTrailLogsKmsKeyArn
-                    - - Sid: CloudTrailDiscovery
-                        Effect: Allow
-                        Action:
-                          - cloudtrail:DescribeTrails
-                          - cloudtrail:GetTrailStatus
-                        Resource: "*"
-                      - Sid: CloudTrailLogRead
-                        Effect: Allow
-                        Action:
-                          - s3:GetObject
-                          - s3:ListBucket
-                        Resource:
-                          - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
-                          - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}/${CloudTrailLogsBucketPrefix}*"
-                - - Sid: CloudTrailDiscovery
-                    Effect: Allow
-                    Action:
-                      - cloudtrail:DescribeTrails
-                      - cloudtrail:GetTrailStatus
-                    Resource: "*"
-                  - Sid: CloudTrailLogRead
-                    Effect: Allow
-                    Action:
-                      - s3:GetObject
-                      - s3:ListBucket
-                    Resource: "*"
+              - Sid: CloudTrailDiscovery
+                Effect: Allow
+                Action:
+                  - cloudtrail:DescribeTrails
+                  - cloudtrail:GetTrailStatus
+                Resource: "*"
+              - Sid: CloudTrailLogRead
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource: "*"
+              - !If
+                - HasCloudTrailKmsKey
+                - Sid: CloudTrailKmsDecrypt
+                  Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                  Resource: !Ref CloudTrailLogsKmsKeyArn
+                - !Ref AWS::NoValue
 
-  VigilAdvancedPolicyGenerationPolicy:
+  AdvancedPolicyGenerationPolicy:
     Type: AWS::IAM::Policy
     Condition: CreateAdvancedPolicyGeneration
-    DependsOn:
-      - VigilRole
-      - VigilAccessAnalyzerMonitorRole
     Properties:
       PolicyName: VigilAdvancedPolicyGeneration
-      Roles:
-        - !Ref VigilRole
+      Roles: [!Ref VigilRole]
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: IamServiceLastAccessedGenerate
-            Effect: Allow
-            Action:
-              - iam:GenerateServiceLastAccessedDetails
-              - iam:GetServiceLastAccessedDetails
-            Resource: "*"
           - Sid: AccessAnalyzerPolicyGeneration
             Effect: Allow
             Action:
-              - access-analyzer:ListAnalyzers
+              - iam:GenerateServiceLastAccessedDetails
               - access-analyzer:StartPolicyGeneration
               - access-analyzer:GetGeneratedPolicy
-              - access-analyzer:ListPolicyGenerations
               - access-analyzer:CancelPolicyGeneration
+              - access-analyzer:ListPolicyGenerations
             Resource: "*"
           - Sid: PassAccessAnalyzerMonitorRole
             Effect: Allow
@@ -442,11 +403,12 @@ Resources:
 
 Outputs:
   RoleArn:
-    Description: Paste this ARN into Vigil to finish onboarding.
     Value: !GetAtt VigilRole.Arn
-  ExternalId:
-    Value: !Ref ExternalId
+  RoleName:
+    Value: !Ref VigilRole
+  AdvancedPolicyGenerationRoleArn:
+    Condition: CreateAdvancedPolicyGeneration
+    Value: !GetAtt VigilRole.Arn
   AccessAnalyzerMonitorRoleArn:
     Condition: CreateMonitorRole
-    Description: IAM role Access Analyzer assumes to read CloudTrail during policy generation.
     Value: !GetAtt VigilAccessAnalyzerMonitorRole.Arn
