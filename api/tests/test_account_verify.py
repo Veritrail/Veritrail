@@ -18,6 +18,7 @@ def connected_acc():
     acc.role_arn = "arn:aws:iam::123456789012:role/VigilReadOnlyScannerRole"
     acc.account_id = "123456789012"
     acc.external_id = "ext-1"
+    acc.cfn_stack_name = ""
     acc.last_error = None
     return acc
 
@@ -68,7 +69,7 @@ def test_verify_account_requires_real_assume_role(mock_assume):
 
 
 @patch("app.worker.tasks.run_scan.delay")
-@patch("app.routes.accounts.apply_capability_verification", return_value={})
+@patch("app.services.account_capabilities.apply_capability_verification", return_value={})
 @patch("app.routes.accounts.verify_account", return_value=(True, "123456789012", "MyAcct", None))
 def test_verify_role_update_does_not_auto_scan(mock_verify, mock_apply, mock_delay, connected_acc):
     db = MagicMock()
@@ -83,7 +84,7 @@ def test_verify_role_update_does_not_auto_scan(mock_verify, mock_apply, mock_del
 
 
 @patch("app.worker.tasks.run_scan.delay")
-@patch("app.routes.accounts.apply_capability_verification", return_value={})
+@patch("app.services.account_capabilities.apply_capability_verification", return_value={})
 @patch("app.routes.accounts.verify_account", return_value=(True, "123456789012", "MyAcct", None))
 def test_verify_first_connect_still_auto_scans(mock_verify, mock_apply, mock_delay):
     acc = MagicMock()
@@ -93,6 +94,7 @@ def test_verify_first_connect_still_auto_scans(mock_verify, mock_apply, mock_del
     acc.role_arn = None
     acc.account_id = None
     acc.external_id = "ext-1"
+    acc.cfn_stack_name = ""
     acc.last_error = None
     acc.label = "New"
 

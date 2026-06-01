@@ -46,7 +46,7 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
     fake_acc = MagicMock()
     fake_acc.id = uuid.uuid4()
     fake_acc.org_id = uuid.uuid4()
-    fake_acc.role_arn = "arn:role"
+    fake_acc.role_arn = "arn:aws:iam::123456789012:role/VigilReadOnlyScannerRole"
     fake_acc.external_id = "ext"
 
     fake_run = MagicMock()
@@ -59,7 +59,7 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
 
     # Stub every collector. collect_iam/vpc/ec2 must return dicts; the rest
     # return ints (matching production signatures).
-    dict_collectors = {"collect_iam", "collect_vpc", "collect_ec2"}
+    dict_collectors = {"collect_iam", "collect_account_governance", "collect_vpc", "collect_ec2"}
     int_collectors = {
         "collect_s3_account_public_access_block",
         "collect_s3",
@@ -78,6 +78,7 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
         "collect_lambda",
         "collect_secrets",
         "collect_ssm_parameters",
+        "collect_iam_server_certificates",
         "collect_elb",
         "collect_dynamodb",
         "collect_sns",
@@ -105,11 +106,12 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
     monkeypatch.setattr(tasks, "ScanRun", lambda **kw: fake_run)
     monkeypatch.setattr(tasks.collect_perm_usage_task, "delay", lambda *a, **kw: None)
 
-    with patch.object(tasks, "SessionLocal", return_value=fake_db):
+    with patch("app.core.aws.assume_role", return_value=MagicMock()), \
+         patch.object(tasks, "SessionLocal", return_value=fake_db):
         result = tasks.run_scan(str(fake_acc.id))
 
     assert result["ok"] is True
     # The scan completed; the failing check is recorded in stats.check_errors
-    assert fake_run.status == "ok"
+    assert fake_run.status == "degraded"
     assert "check_errors" in fake_run.stats
     assert any(e["check_id"] == "test.bad" for e in fake_run.stats["check_errors"])

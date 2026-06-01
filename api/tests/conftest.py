@@ -8,6 +8,14 @@ from unittest.mock import MagicMock
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _disable_assume_role_audit_db_writes(request, monkeypatch):
+    """CI uses a real Postgres; MagicMock org/account IDs must not write assume_role_audit."""
+    if request.node.fspath and "test_assume_role_audit.py" in str(request.node.fspath):
+        return
+    monkeypatch.setattr("app.core.aws._audit_assume_role", lambda **_kwargs: None)
+
+
 def make_account(
     role_arn: str = "arn:aws:iam::123456789012:role/VigilScannerRole",
     external_id: str = "test-external-id",

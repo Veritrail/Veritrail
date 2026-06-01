@@ -20,8 +20,8 @@ def test_cis_reference_security_hub():
     bundle = check_control_bundle("iam.root.no_mfa")
     cis = next((c for c in bundle["controls"] if c["framework"] == "cis_aws_l1"), None)
     assert cis is not None
-    assert cis["control_id"] == "1.5"
-    assert "iam-9" in cis["reference_url"]
+    assert cis["control_id"] == "1.4"
+    assert "iam-4" in cis["reference_url"]
 
 
 def test_iso_reference_27002_obp():
