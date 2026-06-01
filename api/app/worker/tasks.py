@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.checks.persist import persist_findings
 from app.checks.registry import ALL_CHECKS
