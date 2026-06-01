@@ -1,10 +1,12 @@
 """SSM Automation mapping for approved remediation.
 
-Prefer AWS-owned runbooks where they fit the finding exactly. Use the Vigil custom
-document only where we need extra guardrails such as exact security-group rule matching.
+Prefer AWS-owned runbooks where they fit the finding safely. Use Vigil custom
+runbooks where AWS has no exact runbook or where the AWS runbook is broader than
+Vigil's reviewed evidence.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,49 +28,49 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
         document_name=VIGIL_PLAN_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Custom document preserves exact-match rule revocation from finding evidence.",
+        note="Vigil custom runbook removes only the exact public ingress rule captured in finding evidence.",
     ),
     "ec2.security_group.unrestricted_rdp": SsmRemediationRunbook(
         check_id="ec2.security_group.unrestricted_rdp",
         document_name=VIGIL_PLAN_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Custom document preserves exact-match rule revocation from finding evidence.",
+        note="Vigil custom runbook removes only the exact public ingress rule captured in finding evidence.",
     ),
     "ssm.parameter.plaintext_secret": SsmRemediationRunbook(
         check_id="ssm.parameter.plaintext_secret",
         document_name=VIGIL_PLAN_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Custom document rewrites a sensitive String parameter as SecureString after approval.",
+        note="No exact AWS-owned runbook exists for same-name String to SecureString migration.",
     ),
     "s3.bucket.public_access_not_blocked": SsmRemediationRunbook(
         check_id="s3.bucket.public_access_not_blocked",
         document_name="AWSConfigRemediation-ConfigureS3PublicAccessBlock",
         owner="aws",
-        parameter_mode="aws_owned",
-        note="Prefer AWS-owned S3 public access block remediation when parameters are wired.",
+        parameter_mode="aws_s3_public_access_block",
+        note="AWS-owned runbook enables all four S3 Block Public Access settings on the reviewed bucket.",
     ),
     "iam.access_key.unused_45d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_45d",
         document_name=VIGIL_PLAN_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Vigil plan executor deactivates the access key via iam:UpdateAccessKey.",
+        note="Vigil custom runbook deactivates only the reviewed access key.",
     ),
     "iam.access_key.unused_90d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_90d",
         document_name=VIGIL_PLAN_DOCUMENT,
         owner="vigil",
         parameter_mode="plan_json",
-        note="Same deactivate flow as the 45-day CIS check (legacy finding id).",
+        note="Vigil custom runbook deactivates only the reviewed access key.",
     ),
     "cloudtrail.trail.not_enabled": SsmRemediationRunbook(
         check_id="cloudtrail.trail.not_enabled",
         document_name="AWS-EnableCloudTrail",
         owner="aws",
-        parameter_mode="aws_owned",
-        note="Prefer AWS-owned CloudTrail enablement when parameters are wired.",
+        parameter_mode="aws_cloudtrail_manual",
+        note="AWS-owned runbook exists, but requires trail and log-bucket inputs. Vigil does not auto-run it yet.",
     ),
 }
 
@@ -77,10 +79,55 @@ def runbook_for_check(check_id: str) -> SsmRemediationRunbook | None:
     return RUNBOOKS.get(check_id)
 
 
-def automation_parameters_for_plan(plan_json: str, runbook: SsmRemediationRunbook) -> dict[str, list[str]]:
+def _load_plan(plan_json: str) -> dict[str, Any]:
+    return json.loads(plan_json)
+
+
+def _bucket_name(plan: dict[str, Any]) -> str:
+    evidence = plan.get("evidence") or {}
+    for key in ("bucket_name", "bucket", "name"):
+        if evidence.get(key):
+            return str(evidence[key])
+
+    arn = plan.get("resource_arn") or ""
+    prefix = "arn:aws:s3:::"
+    if arn.startswith(prefix):
+        return arn[len(prefix):].split("/", 1)[0]
+    if arn and ":" not in arn and "/" not in arn:
+        return arn
+    raise ValueError("missing S3 bucket name")
+
+
+def _require_automation_role(automation_assume_role_arn: str | None) -> str:
+    if not automation_assume_role_arn:
+        raise ValueError("missing AutomationAssumeRole ARN for AWS-owned runbook")
+    return automation_assume_role_arn
+
+
+def automation_parameters_for_plan(
+    plan_json: str,
+    runbook: SsmRemediationRunbook,
+    *,
+    automation_assume_role_arn: str | None = None,
+) -> dict[str, list[str]]:
     if runbook.parameter_mode == "plan_json":
         return {"PlanJson": [plan_json]}
-    raise ValueError(f"{runbook.check_id} uses AWS-owned runbook parameters that are not wired yet")
+
+    plan = _load_plan(plan_json)
+    if runbook.parameter_mode == "aws_s3_public_access_block":
+        return {
+            "AutomationAssumeRole": [_require_automation_role(automation_assume_role_arn)],
+            "BucketName": [_bucket_name(plan)],
+            "BlockPublicAcls": ["true"],
+            "BlockPublicPolicy": ["true"],
+            "IgnorePublicAcls": ["true"],
+            "RestrictPublicBuckets": ["true"],
+        }
+
+    if runbook.parameter_mode == "aws_cloudtrail_manual":
+        raise ValueError("AWS-EnableCloudTrail requires S3BucketName and TrailName; Vigil does not auto-run it yet")
+
+    raise ValueError(f"unsupported SSM runbook parameter mode: {runbook.parameter_mode}")
 
 
 def runbook_payload(runbook: SsmRemediationRunbook) -> dict[str, Any]:
