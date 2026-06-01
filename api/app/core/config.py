@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
 
     # Fernet key for encrypting role_arn + external_id at rest.
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    ENCRYPTION_KEY: str = "IqebDQNnegvXTO6n5gdTpVcZGXXE35Fcdh2hwT7oQxM="
+    ENCRYPTION_KEY: str = ""
 
     # Public URL of the read-only CloudFormation template a customer launches
     # in their own AWS account. Must be fetchable by CloudFormation in the
@@ -94,6 +95,25 @@ class Settings(BaseSettings):
     HCLPATCH_BIN: str = "/usr/local/bin/hclpatch"
     # Skip terraform fmt/validate when binary missing (dev only).
     TERRAFORM_VALIDATE_SKIP: bool = False
+
+    # AI-assisted finding triage.
+    AI_TRIAGE_ENABLED: bool = False
+    AI_TRIAGE_API_URL: str = ""
+    AI_TRIAGE_API_KEY: str = ""
+    AI_TRIAGE_MODEL: str = "gpt-4o-mini"
+
+
+    @model_validator(mode="after")
+    def _validate_secrets_not_default(self):
+        if self.APP_ENV == "dev":
+            return self
+        if self.APP_SECRET == "dev-secret":
+            raise ValueError("APP_SECRET must not be the dev default in non-dev environments")
+        if self.JWT_SECRET == "dev-jwt":
+            raise ValueError("JWT_SECRET must not be the dev default in non-dev environments")
+        if not self.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY is required in non-dev environments")
+        return self
 
 
 @lru_cache

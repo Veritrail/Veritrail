@@ -125,9 +125,14 @@ def cloudtrail_monitor_role_exists(session, connector_role_arn: str | None) -> b
     name = cloudtrail_monitor_role_name(connector_role_arn)
     if not name:
         return False
+    iam = session.client("iam")
     try:
-        session.client("iam").get_role(RoleName=name)
-        return True
+        # Connector has iam:ListRoles, not iam:GetRole (see vigil-core-scanner.yaml).
+        for page in iam.get_paginator("list_roles").paginate():
+            for role in page.get("Roles") or []:
+                if role.get("RoleName") == name:
+                    return True
+        return False
     except Exception:  # noqa: BLE001
         return False
 

@@ -1,10 +1,24 @@
 export const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
 
 const ACCESS_KEY = "vigil_access_token";
+const AUDITOR_KEY = "vigil_auditor_token";
 
 /** Short-lived access token in sessionStorage (refresh is HttpOnly cookie). */
 export function token(): string | null {
   return sessionStorage.getItem(ACCESS_KEY);
+}
+
+/** Auditor JWT token. */
+export function auditorToken(): string | null {
+  return sessionStorage.getItem(AUDITOR_KEY);
+}
+
+export function storeAuditorToken(access: string) {
+  sessionStorage.setItem(AUDITOR_KEY, access);
+}
+
+export function clearAuditorToken() {
+  sessionStorage.removeItem(AUDITOR_KEY);
 }
 
 export function storeAccessToken(access: string) {
@@ -126,4 +140,26 @@ export async function logout(): Promise<void> {
   } finally {
     clearTokens();
   }
+}
+
+/** Auditor-scoped API call using auditor JWT. Does not auto-refresh. */
+export async function auditorApi<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  const t = auditorToken();
+  if (t) headers["Authorization"] = `Bearer ${t}`;
+  const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
+  if (res.status === 401) {
+    clearAuditorToken();
+    window.location.href = "/auditor/login";
+    throw new Error("auditor session expired");
+  }
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(parseApiError(res.status, body));
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
 }

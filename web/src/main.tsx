@@ -21,6 +21,14 @@ import Security from "./pages/Security";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
 import Layout from "./Layout";
+import AuditorLogin from "./pages/AuditorLogin";
+import AuditorLayout from "./pages/AuditorLayout";
+import AuditorDashboard from "./pages/AuditorDashboard";
+import AuditorFindings from "./pages/AuditorFindings";
+import AuditorControls from "./pages/AuditorControls";
+import AuditorEvidence from "./pages/AuditorEvidence";
+import AuditorExport from "./pages/AuditorExport";
+import TrustCenter from "./pages/TrustCenter";
 
 const qc = new QueryClient();
 
@@ -29,6 +37,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={qc}>
       <BrowserRouter>
         <Routes>
+          {/* Public trust center */}
+          <Route path="/trust/:slug" element={<TrustCenter />} />
+
+          {/* User auth routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/security" element={<Security />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -53,6 +65,17 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/github/edit" element={<GitHubIntegrationEdit />} />
             <Route path="/integrations/gitlab" element={<GitLabIntegration />} />
             <Route path="/integrations/gitlab/edit" element={<GitLabIntegrationEdit />} />
+          </Route>
+
+          {/* Auditor routes */}
+          <Route path="/auditor/verify/:token" element={<AuditorLogin />} />
+          <Route path="/auditor/login" element={<AuditorLogin />} />
+          <Route element={<AuditorLayout />}>
+            <Route path="/auditor/dashboard" element={<AuditorDashboard />} />
+            <Route path="/auditor/findings" element={<AuditorFindings />} />
+            <Route path="/auditor/controls" element={<AuditorControls />} />
+            <Route path="/auditor/evidence" element={<AuditorEvidence />} />
+            <Route path="/auditor/export" element={<AuditorExport />} />
           </Route>
         </Routes>
       </BrowserRouter>

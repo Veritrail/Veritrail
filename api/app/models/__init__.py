@@ -14,6 +14,8 @@ from app.models.github import IdentityProvider, IdentityUser, Repo, RepoProtecti
 from app.models.cloudtrail import CloudTrailEvent
 from app.models.remediation_execution import RemediationExecution
 from app.models.evidence_export import EvidenceExport
+from app.models.ai_triage import AITriageResult
+from app.models.auditor import AuditorAccess, AuditActivityLog, TrustCenterConfig
 
 __all__ = [
     "Org", "User",
@@ -31,4 +33,6 @@ __all__ = [
     "CloudTrailEvent",
     "RemediationExecution",
     "EvidenceExport",
+    "AITriageResult",
+    "AuditorAccess", "AuditActivityLog", "TrustCenterConfig",
 ]

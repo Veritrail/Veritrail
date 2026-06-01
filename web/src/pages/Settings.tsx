@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { settingsCardClass, Toggle } from "../components/SettingsUi";
+import { AuditorManagement } from "../components/AuditorManagement";
+import { TrustCenterSettings } from "../components/TrustCenterSettings";
 
 type ScanInterval = "daily" | "weekly" | "custom" | "manual";
 type FreqMode = "daily" | "weekly" | "custom";
@@ -562,6 +564,13 @@ export default function Settings() {
               )}
             </div>
           </div>
+
+          {/* Trust Center + Auditor Access */}
+          <div className="lg:col-span-2 space-y-8">
+            <TrustCenterSettings />
+            <AuditorManagement />
+          </div>
+
         </div>
       </div>
     </div>

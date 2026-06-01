@@ -10,11 +10,25 @@ settings = get_settings()
 bearer = HTTPBearer(auto_error=False)
 
 
-def issue_token(sub: str, org_id: str, ttl_hours: int = 24) -> str:
+def issue_token(sub: str, org_id: str, ttl_hours: int = 24, scope: str = "user") -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": sub,
         "org_id": org_id,
+        "scope": scope,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(hours=ttl_hours)).timestamp()),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
+
+
+def issue_auditor_token(auditor_access_id: str, org_id: str, ttl_hours: int = 24) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": f"auditor:{auditor_access_id}",
+        "org_id": org_id,
+        "scope": "auditor",
+        "auditor_access_id": auditor_access_id,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(hours=ttl_hours)).timestamp()),
     }
@@ -77,3 +91,19 @@ def current_principal(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> 
         return payload
     except JWTError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"bad token: {e}")
+
+
+def current_user_principal(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
+    """Like current_principal but rejects auditor scopes."""
+    principal = current_principal(creds)
+    if principal.get("scope") == "auditor":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Auditor scope not permitted for this endpoint")
+    return principal
+
+
+def current_auditor_principal(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
+    """Requires auditor scope JWT."""
+    principal = current_principal(creds)
+    if principal.get("scope") != "auditor":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Auditor scope required")
+    return principal

@@ -18,6 +18,8 @@ celery_app.conf.update(
     task_default_queue="default",
     worker_prefetch_multiplier=1,
     timezone="UTC",
+    task_soft_time_limit=900,   # 15 min global soft limit
+    task_time_limit=1200,        # 20 min global hard limit
     beat_schedule={
         "daily-scan-all-accounts": {
             "task": "app.worker.tasks.scan_all_accounts",

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -36,6 +36,7 @@ from app.services.access_analyzer_policy import (
 )
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.ratelimit import limiter
 from app.core.iam_usage import (
     augment_used_actions_with_granted_for_service_only,
     filter_stale_wildcard_preservation_warnings,
@@ -542,7 +543,8 @@ def delete_account(account_id: str, p=Depends(current_principal), db: Session = 
 
 
 @router.post("/{account_id}/scan")
-def trigger_scan(account_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+@limiter.limit("3/hour")
+def trigger_scan(account_id: str, request: Request, p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.worker.tasks import run_scan
     acc = db.get(AwsAccount, uuid.UUID(account_id))
     if not acc or str(acc.org_id) != p["org_id"]:

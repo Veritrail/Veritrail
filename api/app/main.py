@@ -16,6 +16,7 @@ from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
 from app.routes import accounts, findings, auth, auth_oauth, github_integration, gitlab_integration, iac, settings as settings_router
 from app.routes import controls, exports, meta, public
+from app.routes import auditor, auditor_portal, trust_center
 
 log = structlog.get_logger()
 settings = get_settings()
@@ -151,5 +152,8 @@ app.include_router(controls.router, prefix="/v1/controls", tags=["controls"])
 app.include_router(exports.router, prefix="/v1/exports", tags=["exports"])
 app.include_router(meta.router, prefix="/v1/meta", tags=["meta"])
 app.include_router(public.router, prefix="/v1/public", tags=["public"])
+app.include_router(auditor.router, prefix="/v1/auditor", tags=["auditor"])
+app.include_router(auditor_portal.router, prefix="/auditor", tags=["auditor-portal"])
+app.include_router(trust_center.router, prefix="/trust", tags=["trust-center"])
 app.include_router(github_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(gitlab_integration.router, prefix="/v1/integrations", tags=["integrations"])

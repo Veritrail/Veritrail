@@ -348,6 +348,115 @@ def remediation_dispatch(
     )
 
 
+class TriageTriggerResponse(BaseModel):
+    queued: bool = False
+    result: dict | None = None
+    ai_triage_enabled: bool = False
+
+
+class TriageResultOut(BaseModel):
+    id: str
+    finding_id: str
+    confidence_score: float
+    rationale: str
+    suggested_action: str
+    model_version: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/{finding_id}/triage", response_model=TriageResultOut | dict)
+def get_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+    """Fetch the latest AI triage result for a finding."""
+    from app.models.ai_triage import AITriageResult
+    from app.core.config import get_settings as _settings
+
+    _get_owned(db, p, finding_id)  # auth check
+
+    settings = _settings()
+    if not settings.AI_TRIAGE_ENABLED:
+        return {"ai_triage_enabled": False}
+
+    row = db.scalar(
+        select(AITriageResult)
+        .where(AITriageResult.finding_id == uuid.UUID(finding_id))
+        .order_by(AITriageResult.created_at.desc())
+        .limit(1)
+    )
+    if not row:
+        return {"ai_triage_enabled": True, "result": None}
+
+    return TriageResultOut(
+        id=str(row.id),
+        finding_id=str(row.finding_id),
+        confidence_score=row.confidence_score,
+        rationale=row.rationale,
+        suggested_action=row.suggested_action,
+        model_version=row.model_version,
+        created_at=row.created_at,
+    )
+
+
+@router.post("/{finding_id}/triage", response_model=TriageTriggerResponse)
+def trigger_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+    """Manually trigger AI triage for a single finding."""
+    from app.core.config import get_settings as _settings
+
+    _get_owned(db, p, finding_id)  # auth check
+
+    settings = _settings()
+    if not settings.AI_TRIAGE_ENABLED:
+        return TriageTriggerResponse(queued=False, ai_triage_enabled=False)
+
+    from app.worker.tasks import ai_triage_single_finding
+
+    task = ai_triage_single_finding.delay(finding_id)
+    return TriageTriggerResponse(queued=True, ai_triage_enabled=True, result={"task_id": task.id})
+
+
+@router.post("/bulk-triage", response_model=TriageTriggerResponse)
+def bulk_triage(
+    account_id: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Triage all un-triaged findings for an org (or a specific account)."""
+    from app.core.config import get_settings as _settings
+
+    settings = _settings()
+    if not settings.AI_TRIAGE_ENABLED:
+        return TriageTriggerResponse(queued=False, ai_triage_enabled=False)
+
+    if account_id:
+        acc = db.get(AwsAccount, uuid.UUID(account_id))
+        if not acc or str(acc.org_id) != p["org_id"]:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+
+    from app.worker.tasks import ai_triage_task
+
+    org_id = uuid.UUID(p["org_id"])
+    accounts = db.scalars(
+        select(AwsAccount).where(
+            AwsAccount.org_id == org_id,
+            AwsAccount.status == "connected",
+            *([AwsAccount.id == uuid.UUID(account_id)] if account_id else []),
+        )
+    ).all()
+
+    task_ids = []
+    for acc in accounts:
+        task = ai_triage_task.delay(str(acc.id))
+        task_ids.append(task.id)
+
+    return TriageTriggerResponse(
+        queued=len(accounts) > 0,
+        ai_triage_enabled=True,
+        result={"task_ids": task_ids, "accounts_queued": len(accounts)},
+    )
+
+
 @router.post("/{finding_id}/recheck")
 def recheck(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.services.fast_finding_recheck import try_fast_finding_recheck

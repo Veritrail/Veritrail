@@ -13,6 +13,7 @@ from app.core.db import get_db
 from app.core.security import current_principal
 from app.models.org import Org, User
 from app.models import AwsAccount, Finding
+from app.models.auditor import TrustCenterConfig
 from app.services.check_evidence import all_evidence_classes
 from app.checks.optional_checks import OPTIONAL_LINKED
 from app.services.check_settings import hidden_check_ids, optional_checks_for_ui
@@ -320,3 +321,85 @@ def test_slack(body: SlackTestBody = SlackTestBody(), p=Depends(current_principa
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Slack request failed: {e}")
 
     return {"ok": True}
+
+
+# ── Trust Center Settings ──────────────────────────────────────────
+
+class TrustCenterSettingsIn(BaseModel):
+    is_enabled: bool = False
+    subdomain_slug: str
+    company_name: str
+    company_logo_url: str | None = None
+    frameworks_to_show: list[str] = ["soc2", "cis_aws_l1"]
+    custom_message: str | None = None
+
+
+class TrustCenterSettingsOut(BaseModel):
+    model_config = {"from_attributes": True}
+
+    is_enabled: bool
+    subdomain_slug: str | None
+    company_name: str | None
+    company_logo_url: str | None
+    frameworks_to_show: list[str]
+    custom_message: str | None
+    configured: bool
+
+
+@router.get("/trust-center", response_model=TrustCenterSettingsOut)
+def get_trust_center_settings(p=Depends(current_principal), db: Session = Depends(get_db)):
+    org = _get_org(p, db)
+    config = db.scalar(
+        select(TrustCenterConfig).where(TrustCenterConfig.org_id == org.id)
+    )
+    if not config:
+        return TrustCenterSettingsOut(
+            is_enabled=False,
+            subdomain_slug=None,
+            company_name=None,
+            company_logo_url=None,
+            frameworks_to_show=["soc2", "cis_aws_l1"],
+            custom_message=None,
+            configured=False,
+        )
+    return TrustCenterSettingsOut(
+        is_enabled=config.is_enabled,
+        subdomain_slug=config.subdomain_slug,
+        company_name=config.company_name,
+        company_logo_url=config.company_logo_url,
+        frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
+        custom_message=config.custom_message,
+        configured=True,
+    )
+
+
+@router.put("/trust-center", response_model=TrustCenterSettingsOut)
+def update_trust_center_settings(body: TrustCenterSettingsIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+    org = _get_org(p, db)
+
+    config = db.scalar(
+        select(TrustCenterConfig).where(TrustCenterConfig.org_id == org.id)
+    )
+
+    if not config:
+        config = TrustCenterConfig(org_id=org.id)
+        db.add(config)
+
+    config.is_enabled = body.is_enabled
+    config.subdomain_slug = body.subdomain_slug
+    config.company_name = body.company_name
+    config.company_logo_url = body.company_logo_url
+    config.frameworks_to_show = body.frameworks_to_show
+    config.custom_message = body.custom_message
+    db.commit()
+    db.refresh(config)
+
+    return TrustCenterSettingsOut(
+        is_enabled=config.is_enabled,
+        subdomain_slug=config.subdomain_slug,
+        company_name=config.company_name,
+        company_logo_url=config.company_logo_url,
+        frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
+        custom_message=config.custom_message,
+        configured=True,
+    )

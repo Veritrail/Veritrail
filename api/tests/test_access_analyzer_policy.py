@@ -18,6 +18,7 @@ from app.services.access_analyzer_policy import (
     CONFIDENCE_LOW,
     CONFIDENCE_MEDIUM,
     apply_aa_resources_to_policy_doc,
+    cloudtrail_monitor_role_exists,
     confidence_for,
     derive_advanced_role_arn,
     derive_cloudtrail_access_role_arn,
@@ -411,3 +412,33 @@ def test_latest_policy_generation_status_returns_newest():
         row = latest_policy_generation_status(client, principal)
     assert row["job_id"] == "new"
     assert row["status"] == "IN_PROGRESS"
+
+
+def test_cloudtrail_monitor_role_exists_uses_list_roles_not_get_role():
+    """Connector has ListRoles but not GetRole — monitor presence must not call get_role."""
+    from unittest.mock import MagicMock
+
+    connector = "arn:aws:iam::946796614687:role/VigilScannerRole"
+    client = boto3.client("iam", region_name="us-east-1")
+    stub = Stubber(client)
+    created = datetime(2024, 5, 31, tzinfo=timezone.utc)
+    stub.add_response(
+        "list_roles",
+        {
+            "Roles": [
+                {
+                    "Path": "/",
+                    "RoleName": "VigilScannerRoleAccessAnalyzerMonitor",
+                    "RoleId": "AROA5Y4LZ2QPXRQHVSPSH",
+                    "Arn": "arn:aws:iam::946796614687:role/VigilScannerRoleAccessAnalyzerMonitor",
+                    "CreateDate": created,
+                },
+            ]
+        },
+        {},
+    )
+    session = MagicMock()
+    session.client.return_value = client
+    with stub:
+        assert cloudtrail_monitor_role_exists(session, connector) is True
+    stub.assert_no_pending_responses()

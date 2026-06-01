@@ -693,7 +693,11 @@ def _write_evidence_snapshots(db, acc: AwsAccount, run: ScanRun) -> int:
     return len(snaps)
 
 
-@celery_app.task(name="app.worker.tasks.run_scan")
+@celery_app.task(
+    name="app.worker.tasks.run_scan",
+    soft_time_limit=900,  # 15 min — worker gets a SoftTimeLimitExceeded signal
+    time_limit=1200,      # 20 min — hard kill if still running after this
+)
 def run_scan(account_id: str) -> dict:
     """Run a full scan for the given AwsAccount.
 
@@ -832,15 +836,17 @@ def run_scan(account_id: str) -> dict:
         step = "write_evidence_snapshots"
         snap_count = _write_evidence_snapshots(db, acc, run)
 
-        run.status = "ok"
+        run.status = "degraded" if check_errors else "ok"
         run.finished_at = datetime.now(timezone.utc)
         final_stats = stats | {
             "checks_run": list(check_ids_run),
             "drafts": len(drafts),
             "snapshots": snap_count,
+            "checks_total": len(ALL_CHECKS),
         }
         if check_errors:
             final_stats["check_errors"] = check_errors
+            final_stats["checks_failed"] = len(check_errors)
         run.stats = final_stats
         run.findings_opened = opened
         run.findings_resolved = resolved
@@ -856,6 +862,7 @@ def run_scan(account_id: str) -> dict:
         )
 
         collect_perm_usage_task.delay(account_id)
+        ai_triage_task.delay(account_id)
 
         return {"ok": True, "opened": opened, "resolved": resolved, "snapshots": snap_count}
     except Exception as e:  # noqa: BLE001
@@ -1174,6 +1181,249 @@ def send_weekly_digests() -> dict:
         return {"sent": sent, "skipped": skipped}
     except Exception as e:  # noqa: BLE001
         log.exception("digests.failed")
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.worker.tasks.ai_triage_task",
+    soft_time_limit=120,  # 2 min — LLM calls should be fast
+    time_limit=180,       # 3 min hard kill
+)
+def ai_triage_task(account_id: str) -> dict:
+    """Run AI triage on new/updated findings for an account after a scan.
+
+    Gathers context for each finding (finding details + evidence snapshots +
+    account info + recent history of the same check), sends it to the LLM,
+    and stores the result in ai_triage_results.
+
+    Runs fire-and-forget — failures are logged but never block the scan.
+    """
+    from app.core.config import get_settings as _settings
+
+    settings = _settings()
+    if not settings.AI_TRIAGE_ENABLED:
+        return {"ok": True, "triaged": 0, "reason": "disabled"}
+
+    db = SessionLocal()
+    triaged = 0
+    try:
+        acc_uuid = uuid.UUID(account_id)
+        acc = db.get(AwsAccount, acc_uuid)
+        if not acc:
+            return {"ok": False, "error": "account not found"}
+
+        # Gather findings that are open (haven't been resolved/ignored yet)
+        from sqlalchemy import select as sa_select
+
+        open_findings = db.scalars(
+            sa_select(Finding).where(
+                Finding.account_id == acc_uuid,
+                Finding.status.in_(("open", "snoozed")),
+            )
+        ).all()
+
+        if not open_findings:
+            return {"ok": True, "triaged": 0}
+
+        from app.models.ai_triage import AITriageResult
+        from app.services.ai_triage import call_llm_for_triage
+
+        model_ver = settings.AI_TRIAGE_MODEL
+
+        for finding in open_findings:
+            # Check if already triaged recently (within last 24h)
+            from datetime import timedelta
+            existing = db.scalars(
+                sa_select(AITriageResult)
+                .where(
+                    AITriageResult.finding_id == finding.id,
+                    AITriageResult.created_at >= func.now() - timedelta(hours=24),
+                )
+                .order_by(AITriageResult.created_at.desc())
+                .limit(1)
+            ).first()
+            if existing:
+                continue  # already triaged recently
+
+            # Build context for the LLM
+            evidence_snaps = db.scalars(
+                sa_select(EvidenceSnapshot).where(
+                    EvidenceSnapshot.account_id == acc_uuid,
+                ).order_by(EvidenceSnapshot.ts.desc()).limit(20)
+            ).all()
+
+            # Recent history of same check
+            history_count = db.scalar(
+                sa_select(func.count()).select_from(
+                    sa_select(Finding).where(
+                        Finding.account_id == acc_uuid,
+                        Finding.check_id == finding.check_id,
+                    ).subquery()
+                )
+            ) or 0
+
+            # Resolved count for the same check
+            resolved_same_check = db.scalar(
+                sa_select(func.count()).select_from(
+                    sa_select(Finding).where(
+                        Finding.account_id == acc_uuid,
+                        Finding.check_id == finding.check_id,
+                        Finding.status == "resolved",
+                    ).subquery()
+                )
+            ) or 0
+
+            finding_context = {
+                "finding": {
+                    "check_id": finding.check_id,
+                    "title": finding.title,
+                    "severity": finding.severity,
+                    "risk_score": finding.risk_score,
+                    "status": finding.status,
+                    "resource_arn": finding.resource_arn,
+                    "evidence": finding.evidence,
+                    "first_seen": finding.first_seen.isoformat() if finding.first_seen else None,
+                    "last_seen": finding.last_seen.isoformat() if finding.last_seen else None,
+                },
+                "account": {
+                    "account_id": acc.account_id,
+                    "label": acc.label,
+                    "status": acc.status,
+                    "last_scan_at": acc.last_scan_at.isoformat() if acc.last_scan_at else None,
+                },
+                "evidence_snapshots": [
+                    {
+                        "entity_type": s.entity_type,
+                        "entity_id": s.entity_id,
+                        "payload": s.payload_json,
+                    }
+                    for s in evidence_snaps
+                ],
+                "history": {
+                    "total_findings_for_check": history_count,
+                    "resolved_same_check": resolved_same_check,
+                },
+            }
+
+            result = call_llm_for_triage(finding_context)
+            if result is None:
+                continue  # LLM call failed — skip this finding, don't block
+
+            triage_result = AITriageResult(
+                id=uuid.uuid4(),
+                finding_id=finding.id,
+                confidence_score=result.confidence_score,
+                rationale=result.rationale,
+                suggested_action=result.suggested_action,
+                findings_context=finding_context,
+                model_version=model_ver,
+            )
+            db.add(triage_result)
+            triaged += 1
+
+        db.commit()
+        log.info("ai_triage.task_complete", account_id=account_id, triaged=triaged)
+        return {"ok": True, "triaged": triaged}
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.exception("ai_triage.task_failed", account_id=account_id)
+        return {"ok": False, "error": str(e), "triaged": triaged}
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.worker.tasks.ai_triage_single_finding",
+    soft_time_limit=60,
+    time_limit=90,
+)
+def ai_triage_single_finding(finding_id: str) -> dict:
+    """Run AI triage on a single finding (triggered by manual re-triage endpoint)."""
+    from app.core.config import get_settings as _settings
+
+    settings = _settings()
+    if not settings.AI_TRIAGE_ENABLED:
+        return {"ok": True, "reason": "disabled"}
+
+    db = SessionLocal()
+    try:
+        fid = uuid.UUID(finding_id)
+        finding = db.get(Finding, fid)
+        if not finding:
+            return {"ok": False, "error": "finding not found"}
+
+        from app.models.ai_triage import AITriageResult
+        from app.services.ai_triage import call_llm_for_triage
+
+        evidence_snaps = db.scalars(
+            select(EvidenceSnapshot).where(
+                EvidenceSnapshot.account_id == finding.account_id,
+            ).order_by(EvidenceSnapshot.ts.desc()).limit(20)
+        ).all()
+
+        history_count = db.scalar(
+            select(func.count()).select_from(
+                select(Finding).where(
+                    Finding.account_id == finding.account_id,
+                    Finding.check_id == finding.check_id,
+                ).subquery()
+            )
+        ) or 0
+
+        acc = db.get(AwsAccount, finding.account_id)
+
+        finding_context = {
+            "finding": {
+                "check_id": finding.check_id,
+                "title": finding.title,
+                "severity": finding.severity,
+                "risk_score": finding.risk_score,
+                "status": finding.status,
+                "resource_arn": finding.resource_arn,
+                "evidence": finding.evidence,
+                "first_seen": finding.first_seen.isoformat() if finding.first_seen else None,
+                "last_seen": finding.last_seen.isoformat() if finding.last_seen else None,
+            },
+            "account": {
+                "account_id": acc.account_id if acc else None,
+                "label": acc.label if acc else None,
+                "status": acc.status if acc else None,
+            },
+            "evidence_snapshots": [
+                {"entity_type": s.entity_type, "entity_id": s.entity_id, "payload": s.payload_json}
+                for s in evidence_snaps
+            ],
+            "history": {"total_findings_for_check": history_count},
+        }
+
+        result = call_llm_for_triage(finding_context)
+        if result is None:
+            return {"ok": False, "error": "LLM call failed"}
+
+        triage_result = AITriageResult(
+            id=uuid.uuid4(),
+            finding_id=finding.id,
+            confidence_score=result.confidence_score,
+            rationale=result.rationale,
+            suggested_action=result.suggested_action,
+            findings_context=finding_context,
+            model_version=settings.AI_TRIAGE_MODEL,
+        )
+        db.add(triage_result)
+        db.commit()
+
+        log.info("ai_triage.single_complete", finding_id=finding_id)
+        return {
+            "ok": True,
+            "confidence_score": result.confidence_score,
+            "rationale": result.rationale,
+            "suggested_action": result.suggested_action,
+        }
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.exception("ai_triage.single_failed", finding_id=finding_id)
         return {"ok": False, "error": str(e)}
     finally:
         db.close()

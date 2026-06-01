@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import { IaCRemediationSection } from "./IaCRemediationSection";
+import { AiTriageSection } from "./AiTriageSection";
 import { drawerPanel } from "./drawerStyles";
 import {
   credentialUnusedFrameworkImpact,
@@ -4603,6 +4604,7 @@ export function FindingDrawer({
   onDismissVerifyOutcome?: () => void;
 }) {
   const prevCheckId = useRef<string | null>(null);
+  const [aiTriageExpanded, setAiTriageExpanded] = useState(false);
 
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
@@ -4796,15 +4798,31 @@ export function FindingDrawer({
         </div>
       )}
       {tab === "overview" && (
-        <OverviewTabContent
-          impact={ops.impact}
-          risk={ops.risk}
-          fix={ops.fix}
-          finding={finding}
-          hasException={hasException}
-          documentation={checkDoc}
-          accountId={accountId}
-        />
+        <>
+          <AiTriageSection
+            findingId={finding.id}
+            expanded={aiTriageExpanded}
+            onToggle={() => setAiTriageExpanded((v) => !v)}
+            onApplyAction={(action) => {
+              // Map suggested action to the appropriate handler
+              if (action === "snooze") {
+                // UI would need to show snooze dialog; for now just close
+                onClose();
+              } else if (action === "resolve") {
+                onAction(finding.id, "recheck");
+              }
+            }}
+          />
+          <OverviewTabContent
+            impact={ops.impact}
+            risk={ops.risk}
+            fix={ops.fix}
+            finding={finding}
+            hasException={hasException}
+            documentation={checkDoc}
+            accountId={accountId}
+          />
+        </>
       )}
       {tab === "resources" && (
         <div className="space-y-2.5">
