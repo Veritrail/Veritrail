@@ -17,6 +17,7 @@ import {
 } from "../data/remediationModules";
 import ScanProgressBar from "../components/ScanProgressBar";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { isAccountConnected } from "../lib/accountConnection";
@@ -1444,6 +1445,7 @@ function AccountDetailsPanel({
   scanError,
   showManageCapabilities,
   onManageCapabilities,
+  onUpdateConnector,
   showUpdateArn,
   roleArn,
   setRoleArn,
@@ -1459,6 +1461,7 @@ function AccountDetailsPanel({
   scanError: string | null;
   showManageCapabilities: boolean;
   onManageCapabilities: () => void;
+  onUpdateConnector: () => void;
   showUpdateArn: boolean;
   roleArn: string;
   setRoleArn: (v: string) => void;
@@ -1538,6 +1541,14 @@ function AccountDetailsPanel({
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200/60 px-4 py-3">
         <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            onClick={onUpdateConnector}
+            disabled={isScanActive}
+            className={ghostBtn}
+          >
+            Update connector
+          </button>
           <button
             type="button"
             onClick={onManageCapabilities}
@@ -2255,6 +2266,7 @@ function AccountCard({
   const [showUpdateArn, setShowUpdateArn] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [showManageCapabilities, setShowManageCapabilities] = useState(false);
+  const [showConnectorUpdate, setShowConnectorUpdate] = useState(false);
   const [setupConnectionOptions, setSetupConnectionOptions] = useState(() =>
     accountConnectionOptions(acc),
   );
@@ -2556,6 +2568,7 @@ function AccountCard({
                 }
                 showManageCapabilities={showManageCapabilities}
                 onManageCapabilities={() => setShowManageCapabilities((v) => !v)}
+                onUpdateConnector={() => setShowConnectorUpdate(true)}
                 showUpdateArn={showUpdateArn}
                 roleArn={roleArn}
                 setRoleArn={setRoleArn}
@@ -2607,6 +2620,12 @@ function AccountCard({
           initialStep={setupInitialStep}
         />
       )}
+
+      <ConnectorUpdateModal
+        acc={acc}
+        open={showConnectorUpdate}
+        onClose={() => setShowConnectorUpdate(false)}
+      />
 
       <ConfirmDialog
         open={showRemoveConfirm}

@@ -130,6 +130,30 @@ class VerifyIn(BaseModel):
     role_arn: str
 
 
+class ConnectorVersionOut(BaseModel):
+    tag: str
+    label: str
+    status: str
+    notes: str
+    template_url: str
+
+
+class ConnectorVersionsListOut(BaseModel):
+    recommended_version_tag: str
+    versions: list[ConnectorVersionOut]
+
+
+class ConnectorUpdateArtifactsOut(BaseModel):
+    version_tag: str
+    version_label: str
+    template_url: str
+    stack_name: str
+    console_stack_url: str
+    update_cli_command: str
+    current_version_tag: str | None
+    recommended_version_tag: str
+
+
 def _yes_no(flag: bool) -> str:
     return "Yes" if flag else "No"
 
@@ -241,24 +265,15 @@ def _update_cli_command(
     enable_advanced_policy_generation: bool,
     remediation_modules: dict[str, bool],
 ) -> str:
-    s = get_settings()
-    region = s.CFN_CONSOLE_REGION or "us-east-1"
-    lines = [
-        f"aws cloudformation update-stack --region {region} \\",
-        f"  --stack-name {stack_name} \\",
-        f"  --template-url {s.CFN_TEMPLATE_URL} \\",
-        "  --parameters \\",
-        f"    ParameterKey=ExternalId,ParameterValue={external_id} \\",
-        f"    ParameterKey=VigilAccountPrincipal,ParameterValue={s.TRUST_PRINCIPAL_ARN} \\",
-        f"    ParameterKey=RoleName,ParameterValue={s.CFN_SCANNER_ROLE_NAME} \\",
-        f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
-    ]
-    for spec in REMEDIATION_MODULES:
-        lines.append(
-            f"    ParameterKey={spec.cfn_parameter},ParameterValue={_yes_no(remediation_modules.get(spec.id, False))} \\"
-        )
-    lines.append("  --capabilities CAPABILITY_NAMED_IAM")
-    return "\n".join(lines)
+    from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, update_cli_command
+
+    return update_cli_command(
+        external_id=external_id,
+        stack_name=stack_name,
+        version_tag=RECOMMENDED_CONNECTOR_VERSION,
+        enable_advanced_policy_generation=enable_advanced_policy_generation,
+        remediation_modules=remediation_modules,
+    )
 
 
 def _remediation_launch_url() -> str:
@@ -405,6 +420,64 @@ def _heal_established_account_after_failed_reverify(acc: AwsAccount) -> bool:
         acc.status = "connected"
         return True
     return False
+
+
+@router.get("/connector-versions", response_model=ConnectorVersionsListOut)
+def list_connector_versions(p=Depends(current_principal)):
+    from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, allowed_connector_versions
+
+    _ = p
+    return ConnectorVersionsListOut(
+        recommended_version_tag=RECOMMENDED_CONNECTOR_VERSION,
+        versions=[ConnectorVersionOut(**row) for row in allowed_connector_versions()],
+    )
+
+
+@router.get("/{account_id}/connector-update", response_model=ConnectorUpdateArtifactsOut)
+def get_connector_update_artifacts(
+    account_id: str,
+    version_tag: str = Query(..., min_length=1, max_length=16),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.services.cfn_versions import (
+        CONNECTOR_VERSIONS,
+        RECOMMENDED_CONNECTOR_VERSION,
+        cloudformation_stack_url,
+        connector_template_url,
+        update_cli_command,
+        validate_connector_version_tag,
+    )
+
+    try:
+        tag = validate_connector_version_tag(version_tag.strip())
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != p["org_id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+
+    modules = remediation_modules_dict(acc)
+    version = next(v for v in CONNECTOR_VERSIONS if v.tag == tag)
+    stack_name = _update_stack_name(acc)
+
+    return ConnectorUpdateArtifactsOut(
+        version_tag=tag,
+        version_label=version.label,
+        template_url=connector_template_url(tag),
+        stack_name=stack_name,
+        console_stack_url=cloudformation_stack_url(stack_name),
+        update_cli_command=update_cli_command(
+            external_id=acc.external_id,
+            stack_name=stack_name,
+            version_tag=tag,
+            enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
+            remediation_modules=modules,
+        ),
+        current_version_tag=getattr(acc, "connector_version_tag", None),
+        recommended_version_tag=RECOMMENDED_CONNECTOR_VERSION,
+    )
 
 
 @router.get("", response_model=list[AccountOut])
