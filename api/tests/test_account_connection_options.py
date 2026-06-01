@@ -130,5 +130,6 @@ def test_account_out_update_uses_db_stack_name():
     acc = _mock_account(status="connected", cfn_stack_name=settings.CFN_STACK_NAME_LEGACY)
     out = _account_out(acc)
     assert out.cfn_stack_name == settings.CFN_STACK_NAME_LEGACY
+    assert out.cfn_template_version == settings.CFN_TEMPLATE_VERSION
     assert f"filteringText={settings.CFN_STACK_NAME_LEGACY}" in out.cfn_update_launch_url
     assert f"--stack-name {settings.CFN_STACK_NAME_LEGACY}" in out.cfn_update_cli_command

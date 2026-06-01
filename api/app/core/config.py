@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     CFN_TEMPLATE_URL: str = (
         "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-stack.yaml"
     )
+    # Current version of the Vigil connector template (bumped with each release).
+    # Used by the UI to label CloudFormation update actions.
+    CFN_TEMPLATE_VERSION: str = "2026.06"
     # Parent connector stack + IAM role names (nested child templates).
     CFN_STACK_NAME: str = "VigilAccountConnector"
     CFN_STACK_NAME_LEGACY: str = "VigilReadOnly"

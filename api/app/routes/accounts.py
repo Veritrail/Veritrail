@@ -121,6 +121,7 @@ class AccountOut(BaseModel):
     remediation_cfn_launch_url: str | None = None
     remediation_cfn_template_url: str | None = None
     remediation_cfn_cli_command: str | None = None
+    cfn_template_version: str | None = None
     last_scan_at: datetime | None = None
     last_error: str | None = None
 
@@ -329,6 +330,7 @@ def _account_out(acc: AwsAccount) -> AccountOut:
         remediation_cfn_launch_url=_remediation_launch_url() if any_remediation_enabled(modules) else None,
         remediation_cfn_template_url=get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL,
         remediation_cfn_cli_command=_remediation_cli_command() if any_remediation_enabled(modules) else None,
+        cfn_template_version=get_settings().CFN_TEMPLATE_VERSION,
         last_scan_at=acc.last_scan_at,
     )
 

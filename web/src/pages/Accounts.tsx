@@ -47,6 +47,7 @@ type Account = {
   remediation_cfn_launch_url: string | null;
   remediation_cfn_template_url: string | null;
   remediation_cfn_cli_command: string | null;
+  cfn_template_version: string | null;
   last_scan_at: string | null;
   last_error: string | null;
 };
@@ -847,6 +848,18 @@ const dangerGhostBtn =
 const ssmRemediationBadgeClass =
   "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-amber-200/60";
 
+function ConnectorTemplateBadge({ version }: { version: string | null }) {
+  if (!version) return null;
+  return (
+    <span
+      className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-800 ring-1 ring-sky-200/70"
+      title="Latest Vigil connector CloudFormation template version"
+    >
+      CFN v{version}
+    </span>
+  );
+}
+
 function remediationBadgesCollapsed(
   acc: Account,
   modules: RemediationModules,
@@ -963,6 +976,7 @@ function ManageCapabilitiesPanel({
             IAM policy-generation jobs (no resource changes); remediation adds scoped write.
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <ConnectorTemplateBadge version={acc.cfn_template_version} />
             <span className="text-[11px] text-zinc-500">After deploy:</span>
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
               Core Scanner
@@ -2417,6 +2431,23 @@ function AccountCard({
             <div className="hidden md:block">
               <MetricPills stats={stats} />
             </div>
+          )}
+
+          {connected && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!expanded) onToggle();
+                setShowManageCapabilities(true);
+                setDraftCapabilities(accountConnectionOptions(acc));
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-semibold text-sky-800 transition hover:border-sky-300 hover:bg-sky-100"
+            >
+              <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-3M19 5A9 9 0 005 8" />
+              </svg>
+              Update CFN
+            </button>
           )}
 
           {connected && (
