@@ -2398,6 +2398,9 @@ function AccountCard({
   };
 
   const hasStats = connected && hasScanned && !!stats;
+  const updateCfnLabel = anyRemediationEnabled(acc.remediation_modules)
+    ? "Update CFN / SSM"
+    : "Update CFN";
 
   return (
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
@@ -2446,7 +2449,7 @@ function AccountCard({
               <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v6h6M20 20v-6h-6M5 19a9 9 0 0014-3M19 5A9 9 0 005 8" />
               </svg>
-              Update CFN
+              {updateCfnLabel}
             </button>
           )}
 
