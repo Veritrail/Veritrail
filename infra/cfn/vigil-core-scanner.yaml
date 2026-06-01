@@ -1,7 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Vigil connector IAM role (nested child). CIS / SOC 2 / ISO checks, evidence packs, and optional
-  IAM Access Analyzer policy generation (extra inline policy when enabled). Deploy via vigil-stack.yaml.
+  Vigil Core Scanner v2026.06 — read-only AWS access + optional narrow-scoped
+  remediation IAM policies. Managed via vigit.cclab infra.
+
+Metadata:
+  VigilVersion: "2026.06"
+  VigilTemplate: vigil-core-scanner
 
 Parameters:
   VigilAccountPrincipal:

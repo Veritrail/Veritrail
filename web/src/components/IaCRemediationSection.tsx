@@ -37,7 +37,7 @@ type SsmRemediationMeta = {
   automation_role_name: string;
   resource_region: string;
   automation_region: string;
-  runbook?: { document_name: string; owner: string; note?: string } | null;
+  runbook?: { document_name: string; owner: string; note?: string; source_url?: string } | null;
   requires_vigil_document: boolean;
 };
 
@@ -125,6 +125,23 @@ function versionControlPrLabel(providers: string[]): string {
   return "Git PR";
 }
 
+function RunbookSourceLink({ href, title }: { href: string; title: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={title}
+      aria-label={title}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-indigo-600"
+    >
+      <span className="text-[15px] leading-none" aria-hidden>
+        ↗
+      </span>
+    </a>
+  );
+}
+
 function SsmPlanRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[7.5rem_1fr] gap-x-4 gap-y-0.5 px-4 py-2.5 sm:grid-cols-[8.5rem_1fr]">
@@ -142,6 +159,7 @@ function SsmAutomationPlan({
   documentName,
   documentOwner,
   roleName,
+  runbookSourceUrl,
 }: {
   actionLabel: string;
   executionRegion: string;
@@ -150,6 +168,7 @@ function SsmAutomationPlan({
   documentName: string;
   documentOwner: string;
   roleName: string;
+  runbookSourceUrl?: string | null;
 }) {
   const regionsDiffer = Boolean(targetRegion && executionRegion && targetRegion !== executionRegion);
 
@@ -174,7 +193,21 @@ function SsmAutomationPlan({
       </div>
       <dl className="divide-y divide-zinc-100/90">
         <SsmPlanRow label="Runbook">
-          <span title={documentOwner === "AWS-owned" ? documentName : documentName}>{runbookLabel}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="min-w-0 flex-1" title={documentName}>
+              {runbookLabel}
+            </span>
+            {runbookSourceUrl ? (
+              <RunbookSourceLink
+                href={runbookSourceUrl}
+                title={
+                  documentOwner === "AWS-owned"
+                    ? "View AWS runbook documentation"
+                    : "View runbook in public CloudFormation template"
+                }
+              />
+            ) : null}
+          </div>
         </SsmPlanRow>
         <SsmPlanRow label="IAM role">
           <span className="break-all font-mono text-[12px]" title={roleName}>
@@ -406,6 +439,7 @@ function SsmRemediationPanel({
                 documentName={documentName}
                 documentOwner={documentOwner}
                 roleName={ssm.automation_role_name}
+                runbookSourceUrl={ssm.runbook?.source_url}
               />
               <p className="text-[12px] leading-relaxed text-zinc-500">
                 You start each run manually — Vigil does not apply fixes without your click. Use Console or CLI when you

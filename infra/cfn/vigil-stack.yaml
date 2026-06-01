@@ -44,10 +44,10 @@ Parameters:
     AllowedValues: ["Yes", "No"]
   CoreScannerTemplateURL:
     Type: String
-    Default: "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-core-scanner.yaml"
+    Default: "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-core-scanner.yaml"
   RemediationTemplateURL:
     Type: String
-    Default: "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-remediation-ssm.yaml"
+    Default: "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
 
 Conditions:
   RemediationSg: !Equals [!Ref EnableSecurityGroupRemediation, "Yes"]
@@ -70,6 +70,11 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Ref CoreScannerTemplateURL
+      Tags:
+        - Key: vigil-template
+          Value: vigil-core-scanner
+        - Key: vigil-version
+          Value: "2026.06"
       Parameters:
         VigilAccountPrincipal: !Ref VigilAccountPrincipal
         ExternalId: !Ref ExternalId
@@ -87,6 +92,11 @@ Resources:
     Condition: CreateRemediation
     Properties:
       TemplateURL: !Ref RemediationTemplateURL
+      Tags:
+        - Key: vigil-template
+          Value: vigil-remediation-ssm
+        - Key: vigil-version
+          Value: "2026.06"
       Parameters:
         EnableSecurityGroupRemediation: !Ref EnableSecurityGroupRemediation
         EnableS3Remediation: !Ref EnableS3Remediation

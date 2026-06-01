@@ -21,6 +21,8 @@ from app.services.ssm_remediation_catalog import (
     SsmRemediationRunbook,
     automation_parameters_for_plan,
     runbook_for_check,
+    runbook_payload,
+    runbook_source_url,
 )
 
 
@@ -80,6 +82,22 @@ def test_s3_runbook_is_vigil_custom_plan_json():
     assert rb.owner == "vigil"
     assert rb.document_name == "Vigil-ConfigureS3BucketPublicAccessBlock"
     assert rb.parameter_mode == "plan_json"
+
+
+def test_runbook_payload_includes_public_source_url():
+    rb = runbook_for_check("ec2.security_group.unrestricted_ssh")
+    assert rb is not None
+    payload = runbook_payload(rb)
+    assert payload["source_url"] == runbook_source_url(rb)
+    assert payload["source_url"].endswith("vigil-remediation-ssm.yaml")
+
+
+def test_aws_runbook_source_url_is_docs():
+    rb = runbook_for_check("cloudtrail.trail.not_enabled")
+    assert rb is not None
+    url = runbook_source_url(rb)
+    assert "docs.aws.amazon.com" in url
+    assert "enablecloudtrail" in url.lower()
 
 
 def test_s3_automation_parameters_plan_json():

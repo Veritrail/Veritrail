@@ -99,6 +99,19 @@ def runbook_for_check(check_id: str) -> SsmRemediationRunbook | None:
     return RUNBOOKS.get(check_id)
 
 
+def runbook_source_url(runbook: SsmRemediationRunbook) -> str:
+    """Public template or AWS runbook docs — readable without signing in."""
+    if runbook.owner == "aws":
+        slug = runbook.document_name.lower().replace("_", "-")
+        return (
+            "https://docs.aws.amazon.com/systems-manager-automation-runbooks/latest/userguide/"
+            f"automation-{slug}.html"
+        )
+    from app.core.config import get_settings
+
+    return get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL
+
+
 def _load_plan(plan_json: str) -> dict[str, Any]:
     return json.loads(plan_json)
 
@@ -164,4 +177,5 @@ def runbook_payload(runbook: SsmRemediationRunbook) -> dict[str, Any]:
         "owner": runbook.owner,
         "parameter_mode": runbook.parameter_mode,
         "note": runbook.note,
+        "source_url": runbook_source_url(runbook),
     }
