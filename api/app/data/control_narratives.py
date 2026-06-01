@@ -254,10 +254,28 @@ NARRATIVES: dict[str, str] = {
         "Vigil verifies server access logging is enabled on CloudTrail delivery buckets."
     ),
     "CIS 3.8": (
-        "Vigil verifies customer-managed KMS keys have automatic annual rotation enabled."
+        "Vigil verifies customer-managed KMS keys have automatic rotation enabled. "
+        "CloudTrail event analysis also flags attempts to disable GuardDuty detectors."
+    ),
+    "CIS 3.9": (
+        "Vigil monitors CloudTrail for StopConfigurationRecorder and related calls that "
+        "may indicate an attempt to disable AWS Config compliance recording."
+    ),
+    "CIS 3.x": (
+        "Vigil analyzes CloudTrail management events for logging and key-management tampering, "
+        "including trail stop/delete/update, KMS key disable, and scheduled key deletion."
     ),
     "CIS 4.1": (
-        "Vigil flags security groups allowing SSH (port 22) from 0.0.0.0/0 or ::/0."
+        "Vigil flags security groups allowing SSH (port 22) or RDP (port 3389) from the internet. "
+        "CloudTrail event analysis detects weakening or removal of S3 Block Public Access settings."
+    ),
+    "CIS 4.x": (
+        "Vigil monitors CloudTrail for S3 bucket policy and ACL changes that could expose data "
+        "to unintended principals."
+    ),
+    "CIS 5.x": (
+        "Vigil monitors CloudTrail for security group ingress changes that open sensitive ports "
+        "to 0.0.0.0/0 or ::/0."
     ),
     "CIS 4.2": (
         "Vigil flags security groups allowing RDP (port 3389) from 0.0.0.0/0 or ::/0."
@@ -289,6 +307,10 @@ NARRATIVES: dict[str, str] = {
         "Vigil flags access keys and role assumptions inactive for 90+ days, supporting "
         "timely revocation of access rights for leavers and role cleanup."
     ),
+    "A.9.4.1": (
+        "Vigil restricts and monitors access to information assets by flagging S3 public exposure "
+        "risks and analyzing CloudTrail for bucket policy and public-access-block changes."
+    ),
     "A.9.4.2": (
         "Vigil verifies MFA enrollment for all console-access IAM users and GitHub/GitLab organization members."
     ),
@@ -299,6 +321,10 @@ NARRATIVES: dict[str, str] = {
     "A.10.1.2": (
         "Vigil verifies that key management policies are in place: KMS key rotation enabled, "
         "CloudTrail delivery encrypted, S3 buckets using SSE-KMS where required."
+    ),
+    "A.12.1.2": (
+        "Vigil supports change management by collecting CloudTrail evidence of Lambda function "
+        "creation and configuration updates alongside other infrastructure mutations."
     ),
     "A.12.4.1": (
         "Vigil verifies that event logging is active: CloudTrail enabled with all-regions coverage, "

@@ -4,7 +4,11 @@ from app.services.cis_benchmark_coverage import CIS_V5_LEVEL1_TOTAL, cis_benchma
 def test_cis_coverage_is_subset_of_v5():
     cov = cis_benchmark_coverage()
     assert cov["mapped_control_count"] > 0
-    assert cov["mapped_control_count"] <= CIS_V5_LEVEL1_TOTAL
+    v5_ids = {c["id"] for c in cov["cis_v5_matrix"]["controls"]}
+    mapped_on_v5_matrix = sum(1 for c in cov["controls"] if c["control_id"] in v5_ids)
+    assert mapped_on_v5_matrix <= CIS_V5_LEVEL1_TOTAL
+    # CloudTrail-event placeholders (3.9, 3.x, 4.x, 5.x) sit outside the 42-row v5 matrix.
+    assert cov["mapped_control_count"] <= CIS_V5_LEVEL1_TOTAL + 4
     assert cov["cis_v5_level1_total"] == CIS_V5_LEVEL1_TOTAL
     assert "disclaimer" in cov
     matrix = cov["cis_v5_matrix"]

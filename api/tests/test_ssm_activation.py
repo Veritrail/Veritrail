@@ -247,26 +247,35 @@ def test_cloudtrail_plan_has_parameters_and_requires_user_input():
 
 # ── IAM Inline Policy Scoping ────────────────────────────────────────
 
+def _actions_in_statements(statements: list) -> set[str]:
+    out: set[str] = set()
+    for stmt in statements:
+        raw = stmt.get("Action") or []
+        if isinstance(raw, str):
+            out.add(raw)
+        else:
+            out.update(raw)
+    return out
+
+
 def test_iam_remediation_inline_policy_full_admin():
     from app.services.remediation_iam import inline_policy_for_check
 
     statements = inline_policy_for_check("iam.role.full_admin_policy")
-    assert len(statements) == 1
-    stmt = statements[0]
-    assert "iam:DetachRolePolicy" in stmt["Action"]
-    assert "iam:ListAttachedRolePolicies" in stmt["Action"]
-    assert stmt["Sid"] == "IamDetachFullAdmin"
+    actions = _actions_in_statements(statements)
+    assert "iam:DetachRolePolicy" in actions
+    assert "iam:ListAttachedRolePolicies" in actions
+    assert any(s["Sid"] == "IamDetachFullAdmin" for s in statements)
 
 
 def test_iam_remediation_inline_policy_wildcard():
     from app.services.remediation_iam import inline_policy_for_check
 
     statements = inline_policy_for_check("iam.policy.wildcard_resource")
-    assert len(statements) == 1
-    stmt = statements[0]
-    assert "iam:PutRolePolicy" in stmt["Action"]
-    assert "iam:GetRolePolicy" in stmt["Action"]
-    assert stmt["Sid"] == "IamReplaceWildcardInline"
+    actions = _actions_in_statements(statements)
+    assert "iam:PutRolePolicy" in actions
+    assert "iam:GetRolePolicy" in actions
+    assert any(s["Sid"] == "IamReplaceWildcardInline" for s in statements)
 
 
 def test_s3_remediation_inline_policy_scoped():
@@ -283,11 +292,11 @@ def test_cloudtrail_inline_policy():
     from app.services.remediation_iam import inline_policy_for_check
 
     statements = inline_policy_for_check("cloudtrail.trail.not_enabled")
-    assert len(statements) == 1
-    stmt = statements[0]
-    assert "cloudtrail:CreateTrail" in stmt["Action"]
-    assert "cloudtrail:DescribeTrails" in stmt["Action"]
-    assert "s3:GetBucketPolicy" in stmt["Action"]
+    actions = _actions_in_statements(statements)
+    assert "cloudtrail:CreateTrail" in actions
+    assert "cloudtrail:DescribeTrails" in actions
+    assert "s3:GetBucketPolicy" in actions
+    assert "s3:PutBucketPolicy" in actions
 
 
 # ── IaC Automation Checks Integration ────────────────────────────────
