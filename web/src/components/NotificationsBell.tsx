@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   useRecheckNotifications,
@@ -69,7 +70,9 @@ function titleColor(item: NotificationItem): string {
 export default function NotificationsBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
   const {
     pendingRecheck,
     pendingCloudTrail,
@@ -79,12 +82,32 @@ export default function NotificationsBell() {
     clearAll,
   } = useRecheckNotifications();
 
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) {
+      setPanelPos(null);
+      return;
+    }
+    const update = () => {
+      const rect = buttonRef.current!.getBoundingClientRect();
+      setPanelPos({ top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right) });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      const panel = document.getElementById("vigil-notifications-panel");
+      if (panel?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -106,9 +129,88 @@ export default function NotificationsBell() {
 
   const hasItems = pendingRecheck || pendingCloudTrail || historyVisible.length > 0;
 
+  const panel =
+    open && panelPos
+      ? createPortal(
+          <div
+            id="vigil-notifications-panel"
+            className="fixed z-[200] w-[min(38rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200/90 bg-white shadow-xl shadow-zinc-900/15"
+            style={{ top: panelPos.top, right: panelPos.right }}
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3">
+              <p className="text-sm font-semibold text-zinc-900">Notifications</p>
+              {notificationHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => clearAll()}
+                  className="text-xs font-medium text-zinc-500 hover:text-zinc-800"
+                >
+                  Clear log
+                </button>
+              )}
+            </div>
+            <div className="min-h-[16rem] max-h-[min(36rem,calc(100vh-6rem))] overflow-y-auto overscroll-contain px-4 py-4">
+              {!hasItems && (
+                <p className="px-1 py-8 text-center text-sm text-zinc-500">No notifications right now.</p>
+              )}
+              {pendingRecheck && (
+                <div className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/80 px-4 py-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <Spinner />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-indigo-950">Verifying</p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-indigo-900/85">
+                        {checkLabels[pendingRecheck.checkId] ?? pendingRecheck.checkId}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => viewFinding(pendingRecheck.findingId)}
+                    className="mt-3 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+                  >
+                    View finding
+                  </button>
+                </div>
+              )}
+              {pendingCloudTrail && (
+                <div className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/80 px-4 py-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <Spinner />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-indigo-950">CloudTrail Analyzes</p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-indigo-900/85">
+                        ~15 min · checking AWS job status
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => viewFinding(pendingCloudTrail.findingId)}
+                    className="mt-3 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+                  >
+                    View finding
+                  </button>
+                </div>
+              )}
+              {historyVisible.map((item) => (
+                <NotificationRow
+                  key={item.id}
+                  item={item}
+                  onView={() => viewFinding(item.findingId)}
+                  onDismiss={() => dismissNotification(item.id)}
+                />
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative" ref={rootRef}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-zinc-600 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
@@ -128,76 +230,7 @@ export default function NotificationsBell() {
           </span>
         )}
       </button>
-
-      {open && (
-        <div className="absolute right-0 z-50 mt-2 w-[min(36rem,calc(100vw-2rem))] rounded-xl border border-zinc-200/90 bg-white shadow-lg shadow-zinc-900/10">
-          <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-2.5">
-            <p className="text-sm font-semibold text-zinc-900">Notifications</p>
-            {notificationHistory.length > 0 && (
-              <button
-                type="button"
-                onClick={() => clearAll()}
-                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800"
-              >
-                Clear log
-              </button>
-            )}
-          </div>
-          <div className="max-h-[min(28rem,75vh)] overflow-y-auto p-3">
-            {!hasItems && (
-              <p className="px-1 py-5 text-center text-[13px] text-zinc-500">No notifications right now.</p>
-            )}
-            {pendingRecheck && (
-              <div className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5">
-                <div className="flex items-start gap-2">
-                  <Spinner />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-indigo-950">Verifying</p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-indigo-900/80">
-                      {checkLabels[pendingRecheck.checkId] ?? pendingRecheck.checkId}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => viewFinding(pendingRecheck.findingId)}
-                  className="mt-2 text-[13px] font-semibold text-indigo-700 hover:text-indigo-900"
-                >
-                  View finding
-                </button>
-              </div>
-            )}
-            {pendingCloudTrail && (
-              <div className="mb-2 rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5">
-                <div className="flex items-start gap-2">
-                  <Spinner />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-indigo-950">CloudTrail Analyzes</p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-indigo-900/80">
-                      ~15 min · checking AWS job status
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => viewFinding(pendingCloudTrail.findingId)}
-                  className="mt-2 text-[13px] font-semibold text-indigo-700 hover:text-indigo-900"
-                >
-                  View finding
-                </button>
-              </div>
-            )}
-            {historyVisible.map((item) => (
-              <NotificationRow
-                key={item.id}
-                item={item}
-                onView={() => viewFinding(item.findingId)}
-                onDismiss={() => dismissNotification(item.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {panel}
     </div>
   );
 }
@@ -221,19 +254,19 @@ function NotificationRow({
   onDismiss: () => void;
 }) {
   return (
-    <div className={`mb-2 rounded-lg border px-3 py-2.5 last:mb-0 ${itemStyles(item)} ${item.readAt ? "opacity-70" : ""}`}>
+    <div className={`mb-3 rounded-lg border px-4 py-3.5 last:mb-0 ${itemStyles(item)} ${item.readAt ? "opacity-70" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <p className={`text-sm font-semibold leading-snug ${titleColor(item)}`}>{itemTitle(item)}</p>
-        <span className="shrink-0 pt-0.5 text-[11px] font-medium text-zinc-500">{formatWhen(item.completedAt)}</span>
+        <span className="shrink-0 pt-0.5 text-xs font-medium text-zinc-500">{formatWhen(item.completedAt)}</span>
       </div>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-600 break-words">{itemBody(item)}</p>
-      <p className="mt-2 text-[13px] font-medium text-zinc-800">{itemSubtitle(item)}</p>
-      <div className="mt-2.5 flex flex-wrap items-center gap-3 pb-0.5">
-        <button type="button" onClick={onView} className="text-[13px] font-semibold text-zinc-800 underline hover:text-zinc-950">
+      <p className="mt-2 text-sm leading-relaxed text-zinc-600 break-words">{itemBody(item)}</p>
+      <p className="mt-2.5 text-sm font-medium leading-snug text-zinc-800">{itemSubtitle(item)}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">
           View finding
         </button>
         {!item.readAt && (
-          <button type="button" onClick={onDismiss} className="text-[13px] font-medium text-zinc-500 hover:text-zinc-800">
+          <button type="button" onClick={onDismiss} className="text-sm font-medium text-zinc-500 hover:text-zinc-800">
             Dismiss
           </button>
         )}
