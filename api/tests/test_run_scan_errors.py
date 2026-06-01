@@ -106,7 +106,9 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
     monkeypatch.setattr(tasks, "ScanRun", lambda **kw: fake_run)
     monkeypatch.setattr(tasks.collect_perm_usage_task, "delay", lambda *a, **kw: None)
 
+    # CI uses APP_ENV=dev from .env.example; ensure_vigil_role_trust calls STS without creds.
     with patch("app.core.aws.assume_role", return_value=MagicMock()), \
+         patch("app.core.aws.ensure_vigil_role_trust", return_value=False), \
          patch.object(tasks, "SessionLocal", return_value=fake_db):
         result = tasks.run_scan(str(fake_acc.id))
 
