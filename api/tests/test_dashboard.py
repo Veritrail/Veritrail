@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
@@ -9,9 +10,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import func, select
 
-from app.routes.meta import (
-    _domain_for_check,
+from app.services.compliance_score import (
     _compute_compliance_score,
+    _domain_for_check,
 )
 
 
@@ -172,7 +173,9 @@ class TestDriftDetection:
         mock_db.scalars.return_value.first.return_value = None  # no scan
         mock_session_local.return_value = mock_db
 
-        monkeypatch.setattr("app.worker.tasks.SessionLocal", mock_session_local)
+        tasks_mod = MagicMock()
+        tasks_mod.SessionLocal = mock_session_local
+        monkeypatch.setitem(sys.modules, "app.worker.tasks", tasks_mod)
 
         # The task would return early with "no previous full scan"
         # We verify the logic by checking what the drift_detect_task would do

@@ -125,11 +125,63 @@ function versionControlPrLabel(providers: string[]): string {
   return "Git PR";
 }
 
-function SsmDetail({ label, children }: { label: string; children: React.ReactNode }) {
+function SsmPlanRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0 rounded-lg border border-zinc-200/70 bg-zinc-50/70 px-3 py-2">
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{label}</dt>
-      <dd className="mt-1 truncate text-[12px] font-medium text-zinc-800">{children}</dd>
+    <div className="grid grid-cols-[7.5rem_1fr] gap-x-4 gap-y-0.5 px-4 py-2.5 sm:grid-cols-[8.5rem_1fr]">
+      <dt className="text-[12px] font-medium text-zinc-500">{label}</dt>
+      <dd className="min-w-0 text-[13px] leading-snug text-zinc-800">{children}</dd>
+    </div>
+  );
+}
+
+function SsmAutomationPlan({
+  actionLabel,
+  executionRegion,
+  targetRegion,
+  runbookLabel,
+  documentName,
+  documentOwner,
+  roleName,
+}: {
+  actionLabel: string;
+  executionRegion: string;
+  targetRegion: string;
+  runbookLabel: string;
+  documentName: string;
+  documentOwner: string;
+  roleName: string;
+}) {
+  const regionsDiffer = Boolean(targetRegion && executionRegion && targetRegion !== executionRegion);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white ring-1 ring-zinc-950/[0.03]">
+      <div className="border-b border-zinc-100 bg-gradient-to-b from-zinc-50/90 to-white px-4 py-3.5">
+        <p className="text-[11px] font-medium text-zinc-500">Planned change</p>
+        <p className="mt-1 text-[15px] font-semibold leading-snug text-zinc-900">{actionLabel}</p>
+        {regionsDiffer ? (
+          <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+            Automation home{" "}
+            <span className="font-mono text-[12px] font-medium text-zinc-800">{executionRegion}</span>
+            <span className="text-zinc-400"> · </span>
+            resource in{" "}
+            <span className="font-mono text-[12px] font-medium text-zinc-800">{targetRegion}</span>
+          </p>
+        ) : targetRegion ? (
+          <p className="mt-1.5 text-[13px] text-zinc-600">
+            Region <span className="font-mono text-[12px] font-medium text-zinc-800">{targetRegion}</span>
+          </p>
+        ) : null}
+      </div>
+      <dl className="divide-y divide-zinc-100/90">
+        <SsmPlanRow label="Runbook">
+          <span title={documentOwner === "AWS-owned" ? documentName : documentName}>{runbookLabel}</span>
+        </SsmPlanRow>
+        <SsmPlanRow label="IAM role">
+          <span className="break-all font-mono text-[12px]" title={roleName}>
+            {roleName}
+          </span>
+        </SsmPlanRow>
+      </dl>
     </div>
   );
 }
@@ -279,8 +331,6 @@ function SsmRemediationPanel({
     documentOwner === "AWS-owned" ? documentName : "Vigil guarded runbook";
   const executionRegion = ssm.automation_region;
   const targetRegion = ssm.resource_region;
-  const regionsDiffer =
-    Boolean(targetRegion && executionRegion && targetRegion !== executionRegion);
 
   return (
     <div className="space-y-3">
@@ -347,66 +397,38 @@ function SsmRemediationPanel({
           )}
 
           {!runnerLoading && ready && !started && !startFailed && !execSuccess && (
-            <>
-              <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/60 px-3 py-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">What will run</p>
-                <p className="mt-1 text-[12px] leading-relaxed text-zinc-700">
-                  Signed remediation plan via {ssm.execution || "AWS Systems Manager Automation"}. You start execution
-                  explicitly; Vigil will not auto-run fixes.
-                  {regionsDiffer && (
-                    <>
-                      {" "}
-                      Automation starts in{" "}
-                      <span className="font-mono font-medium">{executionRegion}</span>; the plan targets resources in{" "}
-                      <span className="font-mono font-medium">{targetRegion}</span>.
-                    </>
-                  )}
-                </p>
-              </div>
-
-              <dl className="grid grid-cols-2 gap-2">
-                <SsmDetail label="Action">{ssm.action_label}</SsmDetail>
-                <SsmDetail label="Execution region">
-                  <span className="font-mono">{executionRegion}</span>
-                </SsmDetail>
-                <SsmDetail label="Target resource region">
-                  <span className="font-mono">{targetRegion}</span>
-                </SsmDetail>
-                <SsmDetail label="Runbook">
-                  <span title={documentOwner === "AWS-owned" ? documentName : documentName}>
-                    {runbookLabel}
-                  </span>
-                </SsmDetail>
-                <SsmDetail label="Role">
-                  <span className="font-mono" title={ssm.automation_role_name}>
-                    {ssm.automation_role_name}
-                  </span>
-                </SsmDetail>
-              </dl>
-
-              <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  type="button"
-                  disabled={running || !accountId}
-                  onClick={() => {
-                    setAttemptedStart(true);
-                    startMutation.mutate();
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-[12px] font-semibold text-white shadow-sm shadow-zinc-900/10 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {running && (
-                    <span
-                      className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                      aria-hidden
-                    />
-                  )}
-                  {running ? "Starting…" : "Start remediation"}
-                </button>
-                <p className="text-[11px] leading-relaxed text-zinc-500 sm:max-w-[16rem] sm:text-right">
-                  Review Console or CLI first when the change needs human context.
-                </p>
-              </div>
-            </>
+            <div className="space-y-3">
+              <SsmAutomationPlan
+                actionLabel={ssm.action_label}
+                executionRegion={executionRegion}
+                targetRegion={targetRegion}
+                runbookLabel={runbookLabel}
+                documentName={documentName}
+                documentOwner={documentOwner}
+                roleName={ssm.automation_role_name}
+              />
+              <p className="text-[12px] leading-relaxed text-zinc-500">
+                You start each run manually — Vigil does not apply fixes without your click. Use Console or CLI when you
+                want to review the change first.
+              </p>
+              <button
+                type="button"
+                disabled={running || !accountId}
+                onClick={() => {
+                  setAttemptedStart(true);
+                  startMutation.mutate();
+                }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm shadow-zinc-900/10 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              >
+                {running && (
+                  <span
+                    className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                    aria-hidden
+                  />
+                )}
+                {running ? "Starting…" : "Start remediation"}
+              </button>
+            </div>
           )}
 
           {started && !execSuccess && (
