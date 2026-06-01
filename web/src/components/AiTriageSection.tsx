@@ -327,7 +327,7 @@ export function AiTriageSection({
 
         {expanded && !result && !busy && viewState !== "error" && (
           <div className="mt-3">
-            <FlowCallout tone="caution">
+            <FlowCallout title="AI review" tone="neutral">
               No AI review yet for this finding. Click “Run review” to generate one.
             </FlowCallout>
           </div>

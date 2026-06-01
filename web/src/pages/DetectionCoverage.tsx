@@ -69,6 +69,15 @@ const COVERAGE_AREAS = [
   },
 ] as const;
 
+type CoverageAreaRow = {
+  key: string;
+  label: string;
+  descriptor: string;
+  prefix: RegExp;
+  accent: keyof typeof accentStyles;
+  count: number;
+};
+
 const accentStyles: Record<string, { icon: string; ring: string; card: string }> = {
   indigo: {
     icon: "bg-indigo-50 text-indigo-600 ring-indigo-100",
@@ -105,7 +114,7 @@ const accentStyles: Record<string, { icon: string; ring: string; card: string }>
 function areaCounts() {
   const ids = Object.keys(CHECK_FRAMEWORK_MAP);
   const used = new Set<string>();
-  const rows = COVERAGE_AREAS.map((area) => {
+  const rows: CoverageAreaRow[] = COVERAGE_AREAS.map((area) => {
     const matched = ids.filter((id) => area.prefix.test(id));
     matched.forEach((id) => used.add(id));
     return { ...area, count: matched.length };

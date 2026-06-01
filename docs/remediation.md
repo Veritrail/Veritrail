@@ -12,12 +12,15 @@ Vigil stays **read-only** for scanning. Remediation execution runs in the custom
 
 ## Customer Infrastructure
 
-Launch `infra/cfn/vigil-remediation-ssm.yaml` in the automation home region. It creates:
+Deploy or update the parent `VigilAccountConnector` CloudFormation stack with the remediation modules enabled. The parent stack launches `infra/cfn/vigil-remediation-ssm.yaml` as a nested stack in the automation home region. It creates:
 
 - `VigilRemediationAutomationRole`
-- `Vigil-RemediationPlanExecutor` SSM Automation document
+- `Vigil-RevokeSecurityGroupIngressExact`
+- `Vigil-DeactivateIamAccessKey`
+- `Vigil-MigrateSsmParameterToSecureString`
+- `Vigil-RemediateIamExcessPermissions`
 
-The document currently supports exact-match security-group ingress revocation and plaintext SSM parameter migration to `SecureString`.
+Do not deploy SSM documents with direct `aws ssm create-document` commands for customer installs; the supported path is CloudFormation through the connector stack.
 
 ## IaC / PRs
 

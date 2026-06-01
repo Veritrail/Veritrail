@@ -353,7 +353,7 @@ function SsmRemediationPanel({
     } else if (persistedExecution.status === "failed" && persistedExecution.error) {
       setAttemptedStart(true);
       setDispatch((prev) => {
-        if (prev?.automation_error === persistedExecution.error && !prev.automation_execution_id) return prev;
+        if (prev?.automation_error === persistedExecution.error && !prev?.automation_execution_id) return prev;
         return {
           ...(prev ?? {}),
           plan_id: persistedExecution.plan_id,

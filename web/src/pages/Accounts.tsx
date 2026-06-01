@@ -2115,11 +2115,11 @@ function InCardAccountSetupWizard({
             >
               {verify.isPending ? "Verifying…" : "Verify connection"}
             </button>
-            {verify.error && (
+            {verify.error ? (
               <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
                 {formatApiError(verify.error)}
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>

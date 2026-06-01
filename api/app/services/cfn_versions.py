@@ -17,20 +17,14 @@ class ConnectorVersion:
 
 CONNECTOR_VERSIONS: tuple[ConnectorVersion, ...] = (
     ConnectorVersion(
-        tag="v1",
-        label="v1 stable",
-        status="stable",
-        notes="Stable connector template.",
-    ),
-    ConnectorVersion(
-        tag="v2",
-        label="v2 remediation + SSM updates",
+        tag="2026.06",
+        label="CFN v2026.06",
         status="recommended",
-        notes="Recommended connector update with current remediation and SSM improvements.",
+        notes="Recommended connector release with current remediation and SSM document updates.",
     ),
 )
 
-RECOMMENDED_CONNECTOR_VERSION = "v2"
+RECOMMENDED_CONNECTOR_VERSION = "2026.06"
 
 _ALLOWED_TAGS = frozenset(v.tag for v in CONNECTOR_VERSIONS)
 

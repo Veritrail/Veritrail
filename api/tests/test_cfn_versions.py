@@ -5,8 +5,8 @@ from app.services import cfn_versions as cv
 
 
 def test_connector_template_url_versioned():
-    url = cv.connector_template_url("v2")
-    assert "/infra/v2/vigil-stack.yaml" in url
+    url = cv.connector_template_url("2026.06")
+    assert "/infra/2026.06/vigil-stack.yaml" in url
 
 
 def test_rejects_unknown_tag():
@@ -18,13 +18,13 @@ def test_update_cli_includes_capabilities_and_modules():
     cmd = cv.update_cli_command(
         external_id="ext-123",
         stack_name="VigilAccountConnector",
-        version_tag="v2",
+        version_tag="2026.06",
         enable_advanced_policy_generation=True,
         remediation_modules={"security_groups": True, "s3_public_access": False},
     )
     assert "update-stack" in cmd
     assert "VigilAccountConnector" in cmd
-    assert "/infra/v2/vigil-stack.yaml" in cmd
+    assert "/infra/2026.06/vigil-stack.yaml" in cmd
     assert "CAPABILITY_NAMED_IAM" in cmd
     assert "EnableAdvancedPolicyGeneration,ParameterValue=Yes" in cmd
     assert "EnableSecurityGroupRemediation,ParameterValue=Yes" in cmd
@@ -33,7 +33,7 @@ def test_update_cli_includes_capabilities_and_modules():
 
 def test_allowed_versions_only_approved_tags():
     tags = {v["tag"] for v in cv.allowed_connector_versions()}
-    assert tags == {"v1", "v2"}
+    assert tags == {"2026.06"}
 
 
 def test_stack_url_filters_by_name():

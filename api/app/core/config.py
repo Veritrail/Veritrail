@@ -106,7 +106,7 @@ class Settings(BaseSettings):
     TERRAFORM_VALIDATE_SKIP: bool = False
 
     # AI-assisted finding triage.
-    AI_TRIAGE_ENABLED: bool = True
+    AI_TRIAGE_ENABLED: bool = False
     AI_TRIAGE_API_URL: str = ""
     AI_TRIAGE_API_KEY: str = ""
     AI_TRIAGE_MODEL: str = "gpt-4o-mini"

@@ -21,8 +21,6 @@ interface Account {
   status: string;
 }
 
-type FindingPage = { items: { id: string }[] };
-
 const FRAMEWORKS = [
   { value: "soc2", label: "SOC 2" },
   { value: "cis_aws_l1", label: "CIS" },
@@ -85,32 +83,27 @@ function RemediationRollupCard({
   events: HistoryEvent[];
   onExpand: () => void;
 }) {
-  const samples = events.map(remediationLabel).slice(0, 4);
+  const samples = events.map(remediationLabel).slice(0, 3);
   const more = count - samples.length;
 
   return (
-    <article className="border-l-2 border-emerald-400/80 py-1 pl-2.5">
-      <div className="rounded-md border border-zinc-200 bg-white px-2.5 py-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold text-zinc-900">
-            {count} remediation{count === 1 ? "" : "s"} verified
-          </p>
-          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">{count}</span>
-        </div>
-        {samples.length > 0 && (
-          <ul className="mt-1.5 space-y-0.5 text-[11px] text-zinc-600">
-            {samples.map((s) => (
-              <li key={s} className="truncate">
-                {s}
-              </li>
-            ))}
-            {more > 0 && <li className="text-zinc-400">+{more} more</li>}
-          </ul>
-        )}
-        <button type="button" onClick={onExpand} className="mt-1.5 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">
-          Show details
-        </button>
-      </div>
+    <article className="border-l-2 border-emerald-500/50 py-0.5 pl-2">
+      <p className="text-xs font-semibold text-zinc-900">
+        {count} remediation{count === 1 ? "" : "s"} verified
+      </p>
+      {samples.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-600">
+          {samples.map((s) => (
+            <li key={s} className="truncate">
+              {s}
+            </li>
+          ))}
+          {more > 0 && <li className="text-zinc-400">+{more} more</li>}
+        </ul>
+      )}
+      <button type="button" onClick={onExpand} className="mt-1 text-[11px] text-indigo-600 hover:text-indigo-800">
+        Show details
+      </button>
     </article>
   );
 }
@@ -143,55 +136,49 @@ function TimelineEventCompact({
           ? "border-rose-400/60"
           : "border-indigo-300/70";
 
-  const bg = baseline ? "bg-zinc-50/60" : isResolved ? "bg-white" : "bg-white";
-
   return (
-    <article className={`border-l-2 ${accent} py-1 pl-2.5`}>
-      <div className={`rounded-md border border-zinc-200 px-2.5 py-2 ${bg}`}>
-        <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-zinc-500">
-          <span className="font-semibold text-zinc-700">{eventTypeLabel(event.type)}</span>
-          <time>{scanShortDate(event.timestamp)}</time>
-        </div>
+    <article className={`border-l-2 ${accent} py-0.5 pl-2`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-1">
+        <span className="text-[11px] font-medium text-zinc-800">{baseline ? pres.headline : eventTypeLabel(event.type)}</span>
+        {!baseline && <time className="text-[10px] text-zinc-400">{scanShortDate(event.timestamp)}</time>}
+      </div>
 
-        {baseline ? (
-          <p className="mt-0.5 text-xs font-medium text-zinc-900">{pres.headline}</p>
-        ) : (
-          <p className="mt-0.5 text-xs text-zinc-700">
-            {event.posture_before != null && event.posture_after != null && event.posture_before !== event.posture_after ? (
-              <>
-                <span className="tabular-nums text-zinc-500">{event.posture_before}%</span>
-                <span className="text-zinc-300"> → </span>
-                <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after}%</span>
-              </>
-            ) : (
-              <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after ?? "—"}%</span>
-            )}
-          </p>
-        )}
+      {!baseline && (
+        <p className="mt-0.5 text-[11px] text-zinc-600">
+          {event.posture_before != null && event.posture_after != null && event.posture_before !== event.posture_after ? (
+            <>
+              <span className="tabular-nums">{event.posture_before}%</span>
+              <span className="text-zinc-300"> → </span>
+              <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after}%</span>
+            </>
+          ) : isResolved ? (
+            <span className="line-clamp-1">{pres.subline}</span>
+          ) : (
+            <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after ?? "—"}%</span>
+          )}
+        </p>
+      )}
 
-        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">{pres.subline}</p>
+      {cause && !baseline && !isResolved && (
+        <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
+          {cause.control} {cause.text}
+        </p>
+      )}
 
-        {cause && !baseline && (
-          <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-600">
-            <span className="font-medium text-zinc-800">{cause.control}</span> {cause.text}
-          </p>
-        )}
-
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px]">
-          <button type="button" onClick={onOpen} className="font-medium text-indigo-600 hover:text-indigo-800">
-            View evidence
+      <div className="mt-1 flex flex-wrap gap-x-2 text-[11px]">
+        <button type="button" onClick={onOpen} className="text-indigo-600 hover:text-indigo-800">
+          View evidence
+        </button>
+        {previous && !baseline && (
+          <button type="button" onClick={onCompare} className="text-zinc-500 hover:text-zinc-700">
+            Compare
           </button>
-          {previous && !baseline && (
-            <button type="button" onClick={onCompare} className="text-zinc-500 hover:text-zinc-700">
-              Compare
-            </button>
-          )}
-          {infraCount > 0 && (
-            <button type="button" onClick={onInfra} className="text-zinc-400 hover:text-zinc-600">
-              Supporting ({infraCount})
-            </button>
-          )}
-        </div>
+        )}
+        {infraCount > 0 && (
+          <button type="button" onClick={onInfra} className="text-zinc-400 hover:text-zinc-600">
+            Supporting ({infraCount})
+          </button>
+        )}
       </div>
     </article>
   );
@@ -218,10 +205,7 @@ function HistoryTimeline({
   if (dayGroups.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Timeline</p>
-      <p className="mt-0.5 text-[11px] text-zinc-500">Latest movement, grouped by day.</p>
-      <div className="mt-2.5 space-y-3">
+    <div className="space-y-3">
         {dayGroups.map((group) => {
           const remediations = group.events.filter((e) => e.type === "finding_resolved");
           const others = group.events.filter((e) => e.type !== "finding_resolved");
@@ -265,7 +249,6 @@ function HistoryTimeline({
             </div>
           );
         })}
-      </div>
     </div>
   );
 }
@@ -293,13 +276,6 @@ export default function HistoryV2() {
     enabled: !!effectiveAccountId,
   });
 
-  const openFindingsQ = useQuery({
-    queryKey: ["findings", "open", "history-summary"],
-    queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500"),
-    enabled: !!effectiveAccountId,
-    staleTime: 60_000,
-  });
-
   const events = historyQ.data?.events ?? [];
   const previousById = useMemo(() => {
     const map = new Map<string, HistoryEvent | null>();
@@ -308,7 +284,6 @@ export default function HistoryV2() {
   }, [events]);
 
   const dayGroups = useMemo(() => groupEventsByDay(events), [events]);
-  const openFindingsCount = openFindingsQ.data?.items?.length ?? 0;
   const resolvedInPeriod = sumFindingsResolvedInPeriod(events);
   const onlyBaseline = events.length === 1 && events[0]?.type === "baseline_established";
 
@@ -362,6 +337,7 @@ export default function HistoryV2() {
   return (
     <>
       <PageShell
+        variant="compact"
         eyebrow="SECURITY PROGRESS"
         title="History"
         description="Posture, findings, controls, and remediation movement over time."
@@ -389,7 +365,6 @@ export default function HistoryV2() {
               scanCount={historyQ.data.scan_count}
               scanCadence={historyQ.data.scan_cadence}
               persistentGaps={historyQ.data.persistent_gaps}
-              openFindingsCount={openFindingsCount}
               resolvedInPeriod={resolvedInPeriod}
               onSelectSnapshot={(id) => {
                 const evt = events.find((e) => e.scan_run_id === id);
@@ -429,7 +404,7 @@ export default function HistoryV2() {
               }
             />
 
-            <section className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+            <section className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5">
               <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Compliance by framework</p>
               <p className="mt-0.5 text-[11px] text-zinc-500">
                 Based on the latest completed scan in this window.

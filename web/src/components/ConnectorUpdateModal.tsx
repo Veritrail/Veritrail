@@ -56,12 +56,12 @@ export function ConnectorUpdateModal({
     staleTime: 60_000,
   });
 
-  const recommended = versionsQuery.data?.recommended_version_tag ?? "v2";
+  const recommended = versionsQuery.data?.recommended_version_tag ?? "2026.06";
   const [selectedTag, setSelectedTag] = useState(recommended);
 
   useEffect(() => {
     if (!open) return;
-    setSelectedTag(versionsQuery.data?.recommended_version_tag ?? "v2");
+    setSelectedTag(versionsQuery.data?.recommended_version_tag ?? "2026.06");
   }, [open, versionsQuery.data?.recommended_version_tag]);
 
   const artifactsQuery = useQuery({

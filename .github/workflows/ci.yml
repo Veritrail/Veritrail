@@ -60,8 +60,7 @@ jobs:
 
       - name: Lint frontend
         working-directory: web
-        run: |
-          npm run lint || echo "::warning ::ESLint found issues (non-blocking)"
+        run: npm run lint
 
   secret-scan:
     runs-on: ubuntu-latest

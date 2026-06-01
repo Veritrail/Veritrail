@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { PageCard, PageShell } from "../components/PageShell";
+import { ProductShell } from "../components/ProductShell";
 import { settingsCardClass, Toggle } from "../components/SettingsUi";
 import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
@@ -171,6 +172,7 @@ export default function Settings() {
   const [saveError, setSaveError] = useState("");
   const [slackTestState, setSlackTestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [slackTestError, setSlackTestError] = useState("");
+  const [experimentalOpen, setExperimentalOpen] = useState(false);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const lastSavedJson = useRef<string>("");
@@ -289,12 +291,14 @@ export default function Settings() {
   const alertsOn = scanFailureEnabled || emailDigestEnabled;
 
   return (
+    <ProductShell>
     <PageShell
+      variant="compact"
       eyebrow="Workspace controls"
       title="Settings"
       description="Scan cadence, alerts, detection scope, evidence records, and auditor-facing pages."
       actions={<SaveIndicator status={saveStatus} error={saveError} />}
-      width="max-w-none"
+      width="w-full"
     >
       <PageCard>
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
@@ -400,7 +404,15 @@ export default function Settings() {
             </Link>
           </PageCard>
 
-          <TrustCenterSettings />
+          <PageCard
+            title="Trust Center"
+            description="Customer-facing compliance and security page for auditors and prospects."
+            className="border-indigo-200/60 bg-indigo-50/[0.15]"
+          >
+            <div className="px-1 pb-1">
+              <TrustCenterSettings />
+            </div>
+          </PageCard>
         </div>
 
         <div className="space-y-5 lg:col-span-5">
@@ -477,18 +489,32 @@ export default function Settings() {
 
           <AuditorManagement />
 
-          <PageCard title="Experimental" description="Optional features that do not change compliance scores.">
-            <div className={settingsCardClass + " border-0 shadow-none rounded-none"}>
-              <SettingRow
-                title="AI finding review"
-                description="Advisory summaries in finding drawers when an LLM is configured. Does not auto-remediate."
-              >
-                <Toggle checked={aiFindingReviewEnabled} onChange={setAiFindingReviewEnabled} />
-              </SettingRow>
-            </div>
-          </PageCard>
+          <section className="rounded-lg border border-zinc-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setExperimentalOpen((o) => !o)}
+              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left"
+            >
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Experimental</p>
+                <p className="text-[11px] text-zinc-500">Optional features; no compliance score impact.</p>
+              </div>
+              <span className="text-xs text-zinc-400">{experimentalOpen ? "Hide" : "Show"}</span>
+            </button>
+            {experimentalOpen && (
+              <div className={`border-t border-zinc-100 ${settingsCardClass} border-0 shadow-none rounded-none`}>
+                <SettingRow
+                  title="AI finding review"
+                  description="Advisory summaries in finding drawers when an LLM is configured."
+                >
+                  <Toggle checked={aiFindingReviewEnabled} onChange={setAiFindingReviewEnabled} />
+                </SettingRow>
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </PageShell>
+    </ProductShell>
   );
 }

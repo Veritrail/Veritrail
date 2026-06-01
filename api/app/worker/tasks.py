@@ -38,6 +38,7 @@ from app.collectors.access_analyzer import collect_access_analyzer
 from app.collectors.config_service import collect_config_service
 from app.collectors.securityhub import collect_securityhub
 from app.core.aws import assume_role
+from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.models import AssumeRoleAudit, AwsAccount, ScanRun, EvidenceSnapshot, Finding
 from app.models.iam import IamUser, IamAccessKey, IamRole
@@ -108,6 +109,22 @@ _COLLECTOR_FOR_CHECK = {
 _CHECK_BY_ID = {mod.CHECK_ID: mod for mod in ALL_CHECKS}
 
 log = structlog.get_logger()
+
+
+def _enqueue_post_scan_tasks(account_id: str) -> None:
+    """Queue non-critical follow-up work without changing scan outcome."""
+    try:
+        collect_perm_usage_task.delay(account_id)
+    except Exception:  # noqa: BLE001
+        log.exception("scan.followup_enqueue_failed", account_id=account_id, task="collect_perm_usage")
+
+    settings = get_settings()
+    if not settings.AI_TRIAGE_ENABLED:
+        return
+    try:
+        ai_triage_task.delay(account_id)
+    except Exception:  # noqa: BLE001
+        log.exception("scan.followup_enqueue_failed", account_id=account_id, task="ai_triage")
 
 def _write_evidence_snapshots(db, acc: AwsAccount, run: ScanRun) -> int:
     """Snapshot all collected entities for this scan run into evidence_snapshots."""
@@ -861,8 +878,7 @@ def run_scan(account_id: str) -> dict:
             check_errors=len(check_errors),
         )
 
-        collect_perm_usage_task.delay(account_id)
-        ai_triage_task.delay(account_id)
+        _enqueue_post_scan_tasks(account_id)
 
         return {"ok": True, "opened": opened, "resolved": resolved, "snapshots": snap_count}
     except Exception as e:  # noqa: BLE001

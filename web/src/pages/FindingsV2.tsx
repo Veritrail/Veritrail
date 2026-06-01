@@ -32,7 +32,7 @@ type Finding = {
 };
 
 type FindingPage = { items: Finding[]; total: number; next_cursor: string | null };
-type Account = { id: string; status: string; cfn_launch_url?: string };
+type Account = { id: string; status: string; account_id: string | null; cfn_launch_url?: string };
 type StatusTab = "open" | "excepted" | "resolved" | "all";
 type SeverityFilter = "all" | "critical_high" | "medium" | "low";
 type SortKey = "severity" | "score" | "first_seen";

@@ -72,9 +72,7 @@ export function TrustCenterSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Trust Center</h3>
-
+    <div className="space-y-4 px-3 pb-3">
       <div className={`${settingsCardClass} p-5 space-y-4`}>
         {/* Enable toggle */}
         <div className="flex items-center justify-between">

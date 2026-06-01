@@ -16,7 +16,7 @@ Vigil UI -> review -> explicit Start remediation -> ssm:StartAutomationExecution
 
 - **No dynamic IAM attach**: write permissions are static on the customer-owned automation role.
 - **AWS-native execution**: execution history and output live in Systems Manager.
-- **Regions**: `resource_region` is where the affected resource lives. `automation_region` is where `StartAutomationExecution` runs. **AWS-owned runbooks** use `resource_region`. **Vigil custom document** (`Vigil-RemediationPlanExecutor`) uses `REMEDIATION_AUTOMATION_REGION` once; `PlanJson` includes `resource_region` for regional API calls (EC2, SSM, IAM).
+- **Regions**: `resource_region` is where the affected resource lives. `automation_region` is where `StartAutomationExecution` runs. **AWS-owned runbooks** use `resource_region`. **Vigil custom documents** deploy through the remediation nested CloudFormation stack in `REMEDIATION_AUTOMATION_REGION`; `PlanJson` includes `resource_region` for regional API calls (EC2, SSM, IAM).
 - **Exact-match revoke**: security-group fixes only remove tuples from `exact_match_rules`; returns `stale_plan` if live rules drifted.
 - **No custom Lambda runner**: SSM owns execution, audit trail, and output.
 
@@ -27,27 +27,15 @@ Vigil UI -> review -> explicit Start remediation -> ssm:StartAutomationExecution
    `ssm:StartAutomationExecution`, `ssm:GetAutomationExecution`, and `iam:PassRole` for
    `VigilRemediationAutomationRole` only.
 
-2. **Publish handler scripts to S3** (required before CFN — documents attach `.py` files from `infra/<release>/ssm-scripts/`):
+2. **Publish templates and handler scripts to S3** before deploying or updating the customer stack:
 
 ```bash
 ./scripts/upload-cfn.sh
 ```
 
-3. **Custom Vigil SSM documents** (SG exact-match, IAM access keys, SSM parameters, IAM policy) — deploy **once** in the automation home region (`REMEDIATION_AUTOMATION_REGION`, default `us-east-1`):
+3. **Deploy or update the parent connector stack** (`VigilAccountConnector`) with the desired `Enable*Remediation` parameters. The parent stack creates the remediation nested stack, which creates the customer-owned automation role and the Vigil SSM documents via `AWS::SSM::Document`.
 
-```bash
-aws cloudformation deploy \
-  --region us-east-1 \
-  --stack-name Vigil-Remediation-SSM \
-  --template-file infra/cfn/vigil-remediation-ssm.yaml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    SsmScriptsRelease=2026.06 \
-    EnableIamAccessKeyRemediation=Yes \
-    EnableSecurityGroupRemediation=Yes
-```
-
-AWS-owned runbooks (S3 public access, CloudTrail) do not require this stack.
+AWS-owned runbooks (S3 public access, CloudTrail) do not create Vigil documents, but the connector still needs the remediation permissions and `iam:PassRole` for the customer-owned automation role.
 
 Set Vigil `REMEDIATION_AUTOMATION_REGION=us-east-1` to the automation home region.
 
@@ -74,7 +62,7 @@ wizard stops on **Specify template** with that red banner.
 - `cloudformation:GetTemplateSummary`
 - `cloudformation:UpdateStack`
 
-Templates on S3 must stay in sync: run `./scripts/upload-cfn.sh` (incremental `aws s3 sync` per folder) to publish `infra/cfn/` under `infra/<release>/`, connector tags `infra/v1|v2/`, and latest aliases. Upload all three files under `infra/cfn/` with
+Templates on S3 must stay in sync: run `./scripts/upload-cfn.sh` (incremental `aws s3 sync` per folder) to publish `infra/cfn/` under `infra/<release>/`, SSM handler scripts under `infra/<release>/ssm-scripts/`, and latest aliases. Upload templates with
 `Content-Type: text/yaml` (see `.env.example`).
 
 ## Supported Actions
@@ -111,12 +99,12 @@ Those should become plan inputs before being automated.
 ## Execute
 
 `POST /v1/findings/{id}/remediation/dispatch` starts SSM Automation when the connected
-role has the optional remediation permissions. The UI also shows a CLI fallback:
+role has the optional remediation permissions and the CloudFormation-managed SSM document exists. The UI also shows a CLI fallback:
 
 ```bash
 aws ssm start-automation-execution \
   --region us-east-1 \
-  --document-name Vigil-RemediationPlanExecutor \
+  --document-name Vigil-RevokeSecurityGroupIngressExact \
   --parameters '{"PlanJson":["{...approved plan json...}"]}'
 ```
 

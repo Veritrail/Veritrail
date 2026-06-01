@@ -2081,6 +2081,12 @@ type AttachedPolicyAnalysis = {
   action: "detach_and_replace" | "edit";
 };
 
+type UserAttachedPolicy = {
+  policy_arn: string;
+  policy_name: string;
+  policy_type?: string;
+};
+
 function iamPolicyConsoleUrl(policyArn: string): string {
   return `https://console.aws.amazon.com/iam/home#/policies/details/${encodeURIComponent(policyArn)}`;
 }
@@ -2118,14 +2124,13 @@ type BlastRadiusData = {
   active_service_count?: number;
   unused_service_count?: number;
   has_inline_policies?: boolean;
-  attached_policies?: AttachedPolicyAnalysis[];
+  attached_policies?: (AttachedPolicyAnalysis | UserAttachedPolicy)[];
   // access key fields
   keys?: { key_id: string; last_used: string | null; days_ago: number | null; last_used_service: string | null; last_used_region: string | null; active: boolean }[];
   // user fields
   has_console_password?: boolean;
   days_inactive?: number | null;
   active_key_count?: number;
-  attached_policies?: { policy_arn: string; policy_name: string; policy_type?: string }[];
   inline_policy_names?: string[];
   // security group fields
   group_id?: string;
@@ -2745,7 +2750,7 @@ function BlastRadiusSection({
 
         {data.resource_type === "iam_role" && data.attached_policies && data.attached_policies.length > 0 && (
           <RolePoliciesAnalysis
-            policies={data.attached_policies}
+            policies={data.attached_policies.filter((pol): pol is AttachedPolicyAnalysis => "action" in pol)}
             renderConsoleLink={(pol) => (
               <ConsoleLink
                 href={
@@ -4131,7 +4136,7 @@ function ApplyPolicyFooter({
     setApplying(true);
     setError(null);
     try {
-      const result = await api(
+      const result = await api<{ dry_run?: boolean }>(
         `/v1/accounts/${accountId}/roles/apply-policy`,
         {
           method: "POST",

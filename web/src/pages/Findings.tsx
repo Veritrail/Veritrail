@@ -46,7 +46,7 @@ type FindingPage = {
   next_cursor: string | null;
 };
 
-type Account = { id: string; status: string; cfn_launch_url?: string };
+type Account = { id: string; status: string; account_id: string | null; cfn_launch_url?: string };
 
 const COLLAPSED_FINDINGS_KEY = "vigil.findings.collapsedGroups";
 

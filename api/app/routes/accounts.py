@@ -475,7 +475,7 @@ def get_connector_update_artifacts(
             enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
             remediation_modules=modules,
         ),
-        current_version_tag=getattr(acc, "connector_version_tag", None),
+        current_version_tag=get_settings().CFN_TEMPLATE_VERSION,
         recommended_version_tag=RECOMMENDED_CONNECTOR_VERSION,
     )
 

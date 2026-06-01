@@ -321,7 +321,7 @@ function defaultCopy(checkId: string, s: RemediationSummary): CheckComplianceCop
   );
 }
 
-const BUILDERS: Record<string, (s: RemediationSummary) => CheckComplianceCopy> = {
+const BUILDERS: Record<string, (checkId: string, s: RemediationSummary) => CheckComplianceCopy> = {
   "iam.access_key.": iamAccessKey,
   "iam.user.": iamUser,
   "iam.role.": iamRole,

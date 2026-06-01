@@ -1,16 +1,28 @@
 #!/usr/bin/env bash
-# deploy-ssm-docs.sh — Deploy Vigil SSM Automation documents directly
-# using aws ssm create-document / update-document with --attachments
-# pointing to S3-hosted Python handler scripts.
+# deploy-ssm-docs.sh — Debug-only direct SSM document deployment.
 #
-# This bypasses CloudFormation for SSM documents, avoiding the problem
-# where CFN silently fails on UPDATE_ROLLBACK_COMPLETE with opaque errors.
+# Customer installs must deploy SSM documents through CloudFormation via
+# infra/cfn/vigil-remediation-ssm.yaml. This script is kept only for manual
+# comparison/debugging during development.
 #
 # Usage:
 #   Uses upload-cfn.credentials.sh (same as upload-cfn.sh)
 #   ./scripts/deploy-ssm-docs.sh
 
 set -euo pipefail
+
+if [ "${VIGIL_ALLOW_DIRECT_SSM_DOC_DEPLOY:-}" != "1" ]; then
+  cat >&2 <<'EOF'
+ERROR: Direct SSM document deployment is disabled.
+
+Vigil's supported customer path is CloudFormation:
+  1. ./scripts/upload-cfn.sh
+  2. Update/recreate the VigilAccountConnector stack with remediation modules enabled.
+
+For development-only debugging, set VIGIL_ALLOW_DIRECT_SSM_DOC_DEPLOY=1.
+EOF
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"

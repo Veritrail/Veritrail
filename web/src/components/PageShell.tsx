@@ -7,6 +7,7 @@ export function PageShell({
   actions,
   children,
   width = "max-w-5xl",
+  variant = "default",
 }: {
   eyebrow?: string;
   title: string;
@@ -14,7 +15,26 @@ export function PageShell({
   actions?: ReactNode;
   children: ReactNode;
   width?: string;
+  variant?: "default" | "compact";
 }) {
+  if (variant === "compact") {
+    return (
+      <div className={`w-full min-w-0 ${width} space-y-4 pb-6`}>
+        <header className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-200/80 pb-3">
+          <div className="min-w-0">
+            {eyebrow && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">{eyebrow}</p>
+            )}
+            <h1 className="mt-0.5 text-lg font-bold tracking-tight text-zinc-950">{title}</h1>
+            {description && <p className="mt-0.5 max-w-xl text-sm text-zinc-500">{description}</p>}
+          </div>
+          {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+        </header>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className={`w-full min-w-0 ${width} space-y-5 pb-8`}>
       <header className="rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03]">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import { eventDisplayName, eventVerb, parseActor, primaryResourceName } from "../lib/timelineDisplay";
+import { eventDisplayName, eventVerb, parseActor, primaryResourceName, type TimelineEvent } from "../lib/timelineDisplay";
 
 interface InfraEvent {
   event_id: string;
@@ -20,7 +20,7 @@ function fmtTime(iso: string) {
 function InfraEventRow({ evt }: { evt: InfraEvent }) {
   const title = eventDisplayName(evt.event_name, evt.event_source);
   const actor = parseActor(evt.actor).label;
-  const resource = primaryResourceName(evt);
+  const resource = primaryResourceName({ ...evt, type: "cloudtrail", source_ip: null } satisfies TimelineEvent);
   const region = evt.region ?? "—";
   const verb = eventVerb(evt.event_name);
 
