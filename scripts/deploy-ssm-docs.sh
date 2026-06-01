@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+# deploy-ssm-docs.sh — Deploy Vigil SSM Automation documents directly
+# using aws ssm create-document / update-document with --attachments
+# pointing to S3-hosted Python handler scripts.
+#
+# This bypasses CloudFormation for SSM documents, avoiding the problem
+# where CFN silently fails on UPDATE_ROLLBACK_COMPLETE with opaque errors.
+#
+# Usage:
+#   ./scripts/deploy-ssm-docs.sh   # uploads scripts to S3 then deploys docs
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SCRIPTS_SRC="${REPO_DIR}/infra/cfn/ssm-scripts"
+
+REGION="us-east-1"
+BUCKET="amzn-s3-vigil"
+S3_PREFIX="s3://${BUCKET}/infra/ssm-scripts"
+S3_URL_BASE="https://${BUCKET}.s3.${REGION}.amazonaws.com/infra/ssm-scripts"
+
+# ── AWS credentials (source from upload-cfn.sh or export manually) ───────
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "${SCRIPT_DIR}/../upload-cfn.sh" ]; then
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/../upload-cfn.sh"
+fi
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+  echo "ERROR: AWS credentials not set. Run upload-cfn.sh first or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY." >&2
+  exit 1
+fi
+export AWS_REGION="${AWS_REGION:-${REGION}}"
+
+# ── Role ARN (used by assumeRole in each document) ────────────────────────
+ROLE_NAME="${VIGIL_ROLE_NAME:-VigilRemediationAutomationRole}"
+ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/${ROLE_NAME}"
+
+# ── Step 1: Upload Python handlers to S3 ─────────────────────────────────
+echo "→ Uploading SSM handler scripts to ${S3_PREFIX}/ …"
+echo ""
+
+declare -A SCRIPT_FILES=(
+  [configure_s3_pab.py]="1"
+  [deactivate_access_key.py]="1"
+  [migrate_to_secure_string.py]="1"
+  [remediate_excess_permissions.py]="1"
+  [revoke_sg_ingress.py]="1"
+)
+
+for sname in "${!SCRIPT_FILES[@]}"; do
+  path="${SCRIPTS_SRC}/${sname}"
+  if [ ! -f "${path}" ]; then
+    echo "⚠  Skipping ${sname} — not found at ${path}" >&2
+    continue
+  fi
+  printf "  %-42s" "${sname} …"
+  aws s3api put-object \
+    --bucket "${BUCKET}" \
+    --key "infra/ssm-scripts/${sname}" \
+    --body "${path}" \
+    --acl public-read \
+    --content-type "text/plain" \
+    --region "${REGION}" \
+    > /dev/null
+  echo " ✅"
+done
+
+echo ""
+echo "→ Deploying SSM Automation documents …"
+echo ""
+
+# ── Helper: deploy a single SSM document ─────────────────────────────────
+deploy_doc() {
+  local name="$1"
+  local description="$2"
+  local handler_script="$3"
+  local extra_params="$4"   # JSON string of extra parameters (or "{}")
+
+  local s3_url="${S3_URL_BASE}/${handler_script}"
+
+  # Build the document content as JSON (SSM uses JSON for document content)
+  local content
+  content=$(jq -n \
+    --arg desc "$description" \
+    --arg roleArn "$ROLE_ARN" \
+    --argjson extraParams "$extra_params" \
+    '{
+      schemaVersion: "0.3",
+      description: $desc,
+      assumeRole: $roleArn,
+      parameters: (
+        if ($extraParams | length > 0) then
+          { PlanJson: { type: "String", description: "Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)" } } * $extraParams
+        else
+          { PlanJson: { type: "String", description: "Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)" } }
+        end
+      ),
+      mainSteps: []
+    }')
+
+  # Check if document already exists
+  local existing
+  existing=$(aws ssm describe-document --name "$name" --query "Document.Name" --output text 2>/dev/null || echo "")
+
+  if [ "$existing" = "$name" ]; then
+    # Document exists — compare content
+    local current_version
+    current_version=$(aws ssm describe-document --name "$name" --query "Document.DocumentVersion" --output text)
+
+    # Update the document with attachments
+    echo "  Updating ${name} (v${current_version}) …"
+    local result
+    result=$(aws ssm update-document \
+      --name "$name" \
+      --content "$content" \
+      --document-version "\$LATEST" \
+      --attachments "Key=${handler_script},Values=[${s3_url}]" \
+      --document-format JSON \
+      2>&1) || true
+
+    if echo "$result" | grep -qi "error"; then
+      echo "    ❌ Update failed: ${result}"
+      return 1
+    fi
+
+    local new_version
+    new_version=$(aws ssm describe-document --name "$name" --query "Document.DocumentVersion" --output text)
+    if [ "$new_version" != "$current_version" ]; then
+      echo "    ✅ Updated (v${current_version} → v${new_version})"
+    else
+      echo "    ⚪ Unchanged (v${current_version})"
+    fi
+  else
+    # Document doesn't exist — create it
+    echo "  Creating ${name} …"
+    local result
+    result=$(aws ssm create-document \
+      --name "$name" \
+      --content "$content" \
+      --document-type "Automation" \
+      --document-format JSON \
+      --attachments "Key=${handler_script},Values=[${s3_url}]" \
+      2>&1) || true
+
+    if echo "$result" | grep -qi "error"; then
+      echo "    ❌ Create failed: ${result}"
+      return 1
+    fi
+    echo "    ✅ Created (v1)"
+  fi
+}
+
+# ── Document definitions ─────────────────────────────────────────────────
+
+echo "── SSM Automation Documents ──"
+echo ""
+
+# 1. Vigil-RevokeSecurityGroupIngressExact
+deploy_doc \
+  "Vigil-RevokeSecurityGroupIngressExact" \
+  "Vigil: Remove only the public security-group ingress rules authorized in a signed remediation plan. Revokes specific 0.0.0.0/0 or ::/0 ingress rules that match the approved plan." \
+  "revoke_sg_ingress.py" \
+  '{}'
+
+echo ""
+
+# 2. Vigil-DeactivateIamAccessKey
+deploy_doc \
+  "Vigil-DeactivateIamAccessKey" \
+  "Vigil: Deactivate only the IAM access key approved in a signed remediation plan. Validates plan integrity and expiry before setting the key status to Inactive." \
+  "deactivate_access_key.py" \
+  '{}'
+
+echo ""
+
+# 3. Vigil-MigrateSsmParameterToSecureString
+deploy_doc \
+  "Vigil-MigrateSsmParameterToSecureString" \
+  "Vigil: Rewrite a reviewed plaintext SSM String parameter as SecureString. Verifies plan integrity and expiry, reads current value, and performs the migration only when the parameter is still a plaintext String." \
+  "migrate_to_secure_string.py" \
+  '{}'
+
+echo ""
+
+# 4. Vigil-ConfigureS3BucketPublicAccessBlock
+deploy_doc \
+  "Vigil-ConfigureS3BucketPublicAccessBlock" \
+  "Vigil: Enable all four Block Public Access settings on a specific S3 bucket approved in a signed remediation plan. Verifies plan integrity, extracts the bucket name, and applies the full PublicAccessBlockConfiguration." \
+  "configure_s3_pab.py" \
+  '{}'
+
+echo ""
+
+# 5. Vigil-RemediateIamExcessPermissions
+deploy_doc \
+  "Vigil-RemediateIamExcessPermissions" \
+  "Vigil: Detach full-admin managed policies or replace wildcard inline policies per a signed remediation plan. Supports two actions — detach_full_admin and replace_wildcard_inline — both scoped to the specific role and policies in the plan." \
+  "remediate_excess_permissions.py" \
+  '{}'
+
+echo ""
+echo "── Done ──"
+echo ""
+echo "Document URLs:"
+echo "  https://${REGION}.console.aws.amazon.com/systems-manager/documents"

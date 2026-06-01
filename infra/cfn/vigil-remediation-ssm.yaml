@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  Customer-owned Vigil remediation runbooks using AWS Systems Manager
+  Vigil Remediation SSM v2026.06 — IAM role for customer-account SSM Automation
+  runbooks. SSM documents themselves are deployed via scripts/deploy-ssm-docs.sh.
+
+Metadata:
+  VigilVersion: "2026.06"
+  VigilTemplate: vigil-remediation-ssm
   Automation. This stack deploys the IAM Role for SSM Automation;
   the SSM documents themselves are deployed via scripts/deploy-ssm-docs.sh
   (which uses S3-hosted Python handlers with --attachments).
