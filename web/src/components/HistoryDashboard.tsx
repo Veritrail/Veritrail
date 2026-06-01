@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   CurrentSummary,
   HistoryEvent,
@@ -5,11 +6,9 @@ import type {
   PersistentGap,
   ScanCadenceDay,
 } from "../lib/complianceHistory";
-import { scanShortDate } from "../lib/complianceHistory";
-import { causeSentence, eventTypeLabel } from "../lib/historyPresentation";
 import { ComplianceTrendChart } from "./ComplianceTrendChart";
 
-function DashboardMetric({
+function MetricCard({
   label,
   value,
   detail,
@@ -18,84 +17,203 @@ function DashboardMetric({
   label: string;
   value: string | number;
   detail: string;
-  tone?: "neutral" | "good" | "bad" | "indigo";
+  tone?: "neutral" | "good" | "bad";
 }) {
-  const toneClass =
-    tone === "good"
-      ? "text-emerald-700"
-      : tone === "bad"
-        ? "text-rose-700"
-        : tone === "indigo"
-          ? "text-indigo-700"
-          : "text-zinc-950";
-  const ringClass =
-    tone === "good"
-      ? "ring-emerald-100"
-      : tone === "bad"
-        ? "ring-rose-100"
-        : tone === "indigo"
-          ? "ring-indigo-100"
-          : "ring-zinc-100";
+  const valueClass =
+    tone === "good" ? "text-emerald-700" : tone === "bad" ? "text-rose-700" : "text-zinc-950";
   return (
-    <div className={`min-w-0 rounded-xl border border-zinc-200 bg-white px-3.5 py-3 shadow-sm shadow-zinc-950/[0.02] ring-1 ${ringClass}`}>
-      <p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">{label}</p>
-      <p className={`mt-1.5 text-xl font-bold tabular-nums tracking-tight ${toneClass}`}>{value}</p>
-      <p className="mt-0.5 truncate text-[11px] text-zinc-500">{detail}</p>
+    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{label}</p>
+      <p className={`mt-1 text-xl font-bold tabular-nums ${valueClass}`}>{value}</p>
+      <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{detail}</p>
     </div>
   );
 }
 
-function ControlStatusRow({ summary }: { summary: CurrentSummary }) {
+function buildInsightCopy(
+  events: HistoryEvent[],
+  currentScore: number | null | undefined,
+  days: number,
+  resolvedInPeriod: number,
+  periodSummary?: PeriodSummary,
+): { headline: string; subline: string; previous: number | null; current: number | null; delta: number | null } {
+  const chronological = [...events].reverse();
+  const scores = chronological.map((e) => e.posture_after).filter((v): v is number => v != null);
+  const current = currentScore ?? scores[scores.length - 1] ?? null;
+  const previous = scores.length >= 2 ? scores[0] : null;
+  const delta = previous != null && current != null ? current - previous : null;
+
+  if (scores.length < 2) {
+    if (resolvedInPeriod > 0) {
+      return {
+        headline: `${resolvedInPeriod} finding${resolvedInPeriod === 1 ? "" : "s"} verified in this window`,
+        subline: `Resolved in the last ${days} days. Run another scan to chart posture movement.`,
+        previous,
+        current,
+        delta: null,
+      };
+    }
+    if (events.length === 1 && events[0]?.type === "baseline_established") {
+      return {
+        headline: "Baseline recorded",
+        subline: "History starts with your first completed scan. Remediations, exceptions, and control changes will appear here.",
+        previous: null,
+        current,
+        delta: null,
+      };
+    }
+    return {
+      headline: "Not enough completed scans to calculate movement",
+      subline: "Trend and posture delta appear after two completed scans in this window.",
+      previous,
+      current,
+      delta: null,
+    };
+  }
+
+  if (delta != null && delta !== 0) {
+    const improved = delta > 0;
+    return {
+      headline: `Posture ${improved ? "increased" : "decreased"} ${Math.abs(delta)} points in this window`,
+      subline: previous != null && current != null ? `${previous}% → ${current}% for the selected framework` : "",
+      previous,
+      current,
+      delta,
+    };
+  }
+
+  const improved = periodSummary?.controls_improved ?? 0;
+  const regressed = periodSummary?.controls_regressed ?? 0;
+  if (resolvedInPeriod > 0) {
+    return {
+      headline: `${resolvedInPeriod} finding${resolvedInPeriod === 1 ? "" : "s"} verified as resolved in this window`,
+      subline: "Posture score held steady while findings closed.",
+      previous,
+      current,
+      delta: 0,
+    };
+  }
+  if (improved > 0 || regressed > 0) {
+    return {
+      headline: "Posture held steady in this window",
+      subline: `${improved} control${improved === 1 ? "" : "s"} improved · ${regressed} regressed`,
+      previous,
+      current,
+      delta: 0,
+    };
+  }
+
+  return {
+    headline: current != null ? `Posture steady at ${current}%` : "Posture steady in this window",
+    subline: `No material score change in the last ${days} days.`,
+    previous,
+    current,
+    delta: 0,
+  };
+}
+
+function MainInsightCard({
+  events,
+  currentScore,
+  days,
+  resolvedInPeriod,
+  periodSummary,
+}: {
+  events: HistoryEvent[];
+  currentScore: number | null | undefined;
+  days: number;
+  resolvedInPeriod: number;
+  periodSummary?: PeriodSummary;
+}) {
+  const insight = buildInsightCopy(events, currentScore, days, resolvedInPeriod, periodSummary);
+  const deltaTone =
+    insight.delta == null
+      ? "text-zinc-500"
+      : insight.delta > 0
+        ? "text-emerald-700"
+        : insight.delta < 0
+          ? "text-rose-700"
+          : "text-zinc-700";
+
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3.5 shadow-sm shadow-zinc-950/[0.02]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Window summary</p>
+          <h2 className="mt-1 text-base font-bold tracking-tight text-zinc-950">{insight.headline}</h2>
+          {insight.subline && <p className="mt-1 text-sm leading-relaxed text-zinc-500">{insight.subline}</p>}
+        </div>
+        {insight.current != null && (
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Current</p>
+            <p className="text-2xl font-bold tabular-nums text-zinc-950">{insight.current}%</p>
+            {insight.previous != null && insight.delta != null && insight.delta !== 0 && (
+              <p className={`text-xs font-semibold tabular-nums ${deltaTone}`}>
+                from {insight.previous}% ({insight.delta > 0 ? "+" : "−"}
+                {Math.abs(insight.delta)} pts)
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
   const total = summary.controls_passed + summary.controls_failed + summary.controls_no_data;
   if (total === 0) return null;
-  const pct = (n: number) => `${((n / total) * 100).toFixed(0)}%`;
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Current control status</p>
-          <p className="mt-0.5 text-xs text-zinc-500">Pass/fail state for mapped controls now.</p>
-        </div>
-        <span className="rounded-full bg-zinc-50 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200">
-          {total} controls
+    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Current control status</p>
+      <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/60">
+        {summary.controls_passed > 0 && (
+          <div className="bg-emerald-500" style={{ width: `${(summary.controls_passed / total) * 100}%` }} />
+        )}
+        {summary.controls_failed > 0 && (
+          <div className="bg-rose-500" style={{ width: `${(summary.controls_failed / total) * 100}%` }} />
+        )}
+        {summary.controls_no_data > 0 && (
+          <div className="bg-zinc-300" style={{ width: `${(summary.controls_no_data / total) * 100}%` }} />
+        )}
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-3 text-[11px] text-zinc-600">
+        <span>
+          <span className="font-semibold tabular-nums text-emerald-700">{summary.controls_passed}</span> passing
         </span>
-      </div>
-      <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/60">
-        {summary.controls_passed > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(summary.controls_passed / total) * 100}%` }} title={`Passing: ${summary.controls_passed}`} />}
-        {summary.controls_failed > 0 && <div className="bg-rose-500 transition-all" style={{ width: `${(summary.controls_failed / total) * 100}%` }} title={`Failing: ${summary.controls_failed}`} />}
-        {summary.controls_no_data > 0 && <div className="bg-zinc-300 transition-all" style={{ width: `${(summary.controls_no_data / total) * 100}%` }} title={`No data: ${summary.controls_no_data}`} />}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        <span><span className="font-semibold tabular-nums text-emerald-700">{summary.controls_passed}</span><span className="text-zinc-500"> passing ({pct(summary.controls_passed)})</span></span>
-        <span><span className="font-semibold tabular-nums text-rose-700">{summary.controls_failed}</span><span className="text-zinc-500"> failing ({pct(summary.controls_failed)})</span></span>
-        {summary.controls_no_data > 0 && <span><span className="font-semibold tabular-nums text-zinc-500">{summary.controls_no_data}</span><span className="text-zinc-400"> no data ({pct(summary.controls_no_data)})</span></span>}
+        <span>
+          <span className="font-semibold tabular-nums text-rose-700">{summary.controls_failed}</span> failing
+        </span>
+        {summary.controls_no_data > 0 && (
+          <span>
+            <span className="font-semibold tabular-nums text-zinc-500">{summary.controls_no_data}</span> no data
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function TopPersistentGaps({ gaps }: { gaps: PersistentGap[] }) {
-  if (gaps.length === 0) return null;
-  return (
-    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Persistent gaps</p>
-          <p className="mt-0.5 text-xs text-zinc-500">Controls with the most open findings right now.</p>
-        </div>
-        <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-100">
-          Needs attention
-        </span>
+function PersistentGapsCompact({ gaps }: { gaps: PersistentGap[] }) {
+  if (gaps.length === 0) {
+    return (
+      <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Persistent gaps</p>
+        <p className="mt-1 text-xs text-zinc-500">No failing controls with open findings right now.</p>
       </div>
-      <ul className="mt-3 space-y-1.5">
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Persistent gaps</p>
+      <p className="mt-0.5 text-[11px] text-zinc-500">Controls with the most open findings.</p>
+      <ul className="mt-2 space-y-1">
         {gaps.slice(0, 4).map((g) => (
-          <li key={g.control_id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-zinc-100 bg-zinc-50/70 px-3 py-2">
-            <div className="min-w-0">
-              <span className="line-clamp-1 text-sm font-medium text-zinc-900">{g.title}</span>
-              <span className="font-mono text-[10px] text-zinc-500">{g.control_id}</span>
-            </div>
-            <span className="shrink-0 text-xs font-semibold tabular-nums text-rose-700">{g.open_finding_count} open</span>
+          <li key={g.control_id} className="flex items-baseline justify-between gap-2 text-xs">
+            <span className="min-w-0 truncate font-medium text-zinc-800">{g.title}</span>
+            <span className="shrink-0 tabular-nums font-semibold text-rose-700">{g.open_finding_count} open</span>
           </li>
         ))}
       </ul>
@@ -103,54 +221,51 @@ function TopPersistentGaps({ gaps }: { gaps: PersistentGap[] }) {
   );
 }
 
-function ScanCadence({ cadence, days, scanCount }: { cadence: ScanCadenceDay[]; days: number; scanCount: number }) {
-  if (scanCount < 2) return null;
-  const visible = cadence.slice(-18);
-  if (visible.length < 2) return null;
+function EvidenceCadenceCompact({
+  cadence,
+  days,
+  scanCount,
+}: {
+  cadence: ScanCadenceDay[];
+  days: number;
+  scanCount: number;
+}) {
+  const visible = cadence.slice(-14);
   const maxScans = Math.max(1, ...visible.map((d) => d.scan_count));
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">Evidence cadence</p>
-        <p className="text-[10px] text-zinc-400">Last {Math.min(days, visible.length)} scan days</p>
+    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Evidence cadence</p>
+        <p className="text-[10px] text-zinc-400">{scanCount} scan{scanCount === 1 ? "" : "s"}</p>
       </div>
-      <div className="mt-3 grid grid-cols-[repeat(18,minmax(0,1fr))] gap-1">
-        {visible.map((d) => {
-          const intensity = d.scan_count / maxScans;
-          const cls = d.posture_change_count > 0 ? "bg-indigo-600" : intensity > 0.66 ? "bg-emerald-600" : intensity > 0.33 ? "bg-emerald-400" : "bg-emerald-200";
-          return <div key={d.date} className={`h-6 rounded-md ${cls}`} title={`${d.date}: ${d.scan_count} scan${d.scan_count === 1 ? "" : "s"}${d.posture_change_count > 0 ? `, ${d.posture_change_count} posture change${d.posture_change_count === 1 ? "" : "s"}` : ""}`} />;
-        })}
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-zinc-500">
-        <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-emerald-400" />Scanned</span>
-        <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-indigo-600" />Posture changed</span>
-      </div>
-    </div>
-  );
-}
-
-function LatestChangeCard({ events }: { events: HistoryEvent[] }) {
-  const meaningful = events.find((e) => e.type !== "baseline_established") ?? events[0];
-  if (!meaningful) return null;
-  const cause = causeSentence(meaningful);
-  const isRemediation = meaningful.type === "finding_resolved" || meaningful.type === "finding_excepted" || meaningful.type === "finding_reopened";
-  const title = isRemediation ? eventTypeLabel(meaningful.type) : "Latest posture change";
-
-  return (
-    <div className="rounded-xl border border-zinc-200 bg-gradient-to-br from-white via-white to-indigo-50/40 px-4 py-3 shadow-sm shadow-zinc-950/[0.02]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">What changed</p>
-          <h3 className="mt-1 text-sm font-bold tracking-tight text-zinc-950">{title}</h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-            {cause ? <><span className="font-semibold text-zinc-800">{cause.control}</span> {cause.text}.</> : meaningful.top_change?.title || "A new evidence snapshot was recorded."}
-          </p>
-        </div>
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-zinc-600 ring-1 ring-zinc-200">
-          {scanShortDate(meaningful.timestamp)}
-        </span>
-      </div>
+      {visible.length < 2 ? (
+        <p className="mt-1.5 text-xs text-zinc-500">Cadence appears after two scan days.</p>
+      ) : (
+        <>
+          <div className="mt-2 grid grid-cols-[repeat(14,minmax(0,1fr))] gap-0.5">
+            {visible.map((d) => {
+              const intensity = d.scan_count / maxScans;
+              const cls =
+                d.posture_change_count > 0
+                  ? "bg-indigo-500"
+                  : intensity > 0.66
+                    ? "bg-emerald-500"
+                    : intensity > 0.33
+                      ? "bg-emerald-300"
+                      : "bg-emerald-100";
+              return (
+                <div
+                  key={d.date}
+                  className={`h-4 rounded-sm ${cls}`}
+                  title={`${d.date}: ${d.scan_count} scan${d.scan_count === 1 ? "" : "s"}`}
+                />
+              );
+            })}
+          </div>
+          <p className="mt-1 text-[10px] text-zinc-500">Last {Math.min(days, visible.length)} scan days</p>
+        </>
+      )}
     </div>
   );
 }
@@ -164,7 +279,10 @@ export function HistoryDashboard({
   scanCount,
   scanCadence = [],
   persistentGaps = [],
+  openFindingsCount,
+  resolvedInPeriod,
   onSelectSnapshot,
+  timeline,
 }: {
   events: HistoryEvent[];
   days: number;
@@ -174,52 +292,79 @@ export function HistoryDashboard({
   scanCount?: number;
   scanCadence?: ScanCadenceDay[];
   persistentGaps?: PersistentGap[];
+  openFindingsCount?: number;
+  resolvedInPeriod?: number;
   onSelectSnapshot?: (scanRunId: string) => void;
+  timeline?: ReactNode;
 }) {
-  const failing = currentSummary?.controls_failed ?? 0;
-  const passed = currentSummary?.controls_passed ?? 0;
-  const noData = currentSummary?.controls_no_data ?? 0;
   const improved = periodSummary?.controls_improved ?? 0;
   const regressed = periodSummary?.controls_regressed ?? 0;
   const changed = improved + regressed;
-  const remediationEvents = periodSummary?.remediation_events ?? events.filter((e) => e.type === "finding_resolved" || e.type === "finding_excepted" || e.type === "finding_reopened").length;
+  const openFindings = openFindingsCount ?? 0;
+  const resolved = resolvedInPeriod ?? 0;
+  const scans = scanCount ?? 0;
+  const hasTrend = events.length >= 2;
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardMetric label="Current posture" value={currentScore != null ? `${currentScore}%` : "No data"} detail={`${passed} passing, ${failing} failing`} tone={failing > 0 ? "bad" : currentScore != null ? "good" : "neutral"} />
-        <DashboardMetric label="Failing controls" value={failing} detail={noData > 0 ? `${noData} controls without data` : "All mapped controls have data"} tone={failing > 0 ? "bad" : "good"} />
-        <DashboardMetric label="Changes" value={changed} detail={`${improved} improved, ${regressed} regressed`} tone={regressed > 0 ? "bad" : changed > 0 ? "good" : "neutral"} />
-        <DashboardMetric label="Remediations" value={remediationEvents} detail={`In the last ${days} days`} tone={remediationEvents > 0 ? "indigo" : "neutral"} />
+    <div className="space-y-3">
+      <MainInsightCard
+        events={events}
+        currentScore={currentScore}
+        days={days}
+        resolvedInPeriod={resolved}
+        periodSummary={periodSummary}
+      />
+
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Open findings"
+          value={openFindings}
+          detail="Active in Findings now"
+          tone={openFindings > 0 ? "bad" : "good"}
+        />
+        <MetricCard
+          label="Resolved"
+          value={resolved}
+          detail={`Verified in the last ${days} days`}
+          tone={resolved > 0 ? "good" : "neutral"}
+        />
+        <MetricCard
+          label="Controls changed"
+          value={changed}
+          detail={`${improved} improved · ${regressed} regressed`}
+          tone={regressed > 0 ? "bad" : changed > 0 ? "good" : "neutral"}
+        />
+        <MetricCard label="Scans" value={scans} detail={`Completed in ${days}-day window`} />
       </div>
 
-      <LatestChangeCard events={events} />
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(18rem,0.95fr)]">
-        <div className="space-y-4">
-          {currentSummary && <ControlStatusRow summary={currentSummary} />}
-          {events.length >= 2 ? (
-            <ComplianceTrendChart events={events} currentScore={currentScore} days={days} periodSummary={periodSummary} onSelectSnapshot={onSelectSnapshot} />
-          ) : events.length === 1 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/50 px-5 py-5 text-sm text-zinc-600">
-              <p className="font-semibold text-zinc-800">Trend needs another scan</p>
-              <p className="mt-1 leading-relaxed">History already has one evidence snapshot. The chart becomes useful after the next scan or verified remediation event.</p>
-            </div>
-          ) : null}
+      <div className="grid gap-3 lg:grid-cols-12">
+        <div className="space-y-3 lg:col-span-7">
+          <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Posture trend</p>
+            {hasTrend ? (
+              <div className="mt-2">
+                <ComplianceTrendChart
+                  compact
+                  events={events}
+                  currentScore={currentScore}
+                  days={days}
+                  periodSummary={periodSummary}
+                  onSelectSnapshot={onSelectSnapshot}
+                />
+              </div>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-zinc-500">Trend appears after two completed scans.</p>
+            )}
+          </div>
+          {timeline}
         </div>
-        <div className="space-y-4">
-          <TopPersistentGaps gaps={persistentGaps} />
-          <ScanCadence cadence={scanCadence} days={days} scanCount={scanCount ?? 0} />
+
+        <div className="space-y-3 lg:col-span-5">
+          {currentSummary && <ControlStatusCompact summary={currentSummary} />}
+          <PersistentGapsCompact gaps={persistentGaps} />
+          <EvidenceCadenceCompact cadence={scanCadence} days={days} scanCount={scans} />
         </div>
       </div>
-
-      {events.length === 0 && currentScore != null && (
-        <div className="rounded-2xl border border-zinc-200/90 bg-white px-5 py-5 shadow-sm shadow-zinc-950/[0.04]">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Compliance posture</p>
-          <p className="mt-3 text-4xl font-bold tabular-nums tracking-tight text-zinc-950">{currentScore}%</p>
-          <p className="mt-2 text-sm text-zinc-500">Posture held steady — {scanCount ?? 0} scan{(scanCount ?? 0) === 1 ? "" : "s"} in the last {days} days with no control pass/fail changes.</p>
-        </div>
-      )}
     </div>
   );
 }

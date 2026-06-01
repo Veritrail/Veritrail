@@ -39,6 +39,11 @@ type SsmRemediationMeta = {
   automation_region: string;
   runbook?: { document_name: string; owner: string; note?: string; source_url?: string } | null;
   requires_vigil_document: boolean;
+  automation_provider?: "aws-owned" | "vigil";
+  aws_document_name?: string | null;
+  automation_confidence?: string | null;
+  automation_note?: string | null;
+  aws_runbook_docs_url?: string | null;
 };
 
 type DispatchResponse = {
@@ -89,6 +94,20 @@ function formatAutomationStartError(message: string): string {
     return (
       "The API sent an invalid StartAutomationExecution parameter (AutomationAssumeRole). " +
       "Restart the Vigil API to pick up the latest build, then Retry."
+    );
+  }
+  if (/cross-account pass role/i.test(message)) {
+    return (
+      "SSM could not use the remediation role in your AWS account (cross-account PassRole). " +
+      "Restart the Vigil API to pick up the latest fix, then Retry. If it persists, confirm " +
+      "VigilRemediationAutomationRole exists and the connector stack allows iam:PassRole to it."
+    );
+  }
+  if (/PutPublicAccessBlock/i.test(message) && /VigilRemediationAutomationRole/i.test(message)) {
+    return (
+      "The AWS runbook started, but VigilRemediationAutomationRole cannot change bucket public access settings. " +
+      "Update your connector with EnableS3Remediation=Yes (this updates the nested vigil-remediation-ssm stack), " +
+      "wait for UPDATE_COMPLETE, then Start again."
     );
   }
   return message;
@@ -151,31 +170,49 @@ function SsmPlanRow({ label, children }: { label: string; children: React.ReactN
   );
 }
 
+function RunbookProviderBadge({ provider }: { provider: "aws-owned" | "vigil" }) {
+  const isAws = provider === "aws-owned";
+  return (
+    <span
+      className={
+        isAws
+          ? "inline-flex shrink-0 items-center rounded-md border border-sky-200/90 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-900"
+          : "inline-flex shrink-0 items-center rounded-md border border-indigo-200/90 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-900"
+      }
+    >
+      {isAws ? "AWS-owned runbook" : "Vigil exact-match runbook"}
+    </span>
+  );
+}
+
 function SsmAutomationPlan({
   actionLabel,
   executionRegion,
   targetRegion,
   runbookLabel,
-  documentName,
-  documentOwner,
+  provider,
   roleName,
   runbookSourceUrl,
+  automationNote,
 }: {
   actionLabel: string;
   executionRegion: string;
   targetRegion: string;
   runbookLabel: string;
-  documentName: string;
-  documentOwner: string;
+  provider: "aws-owned" | "vigil";
   roleName: string;
   runbookSourceUrl?: string | null;
+  automationNote?: string | null;
 }) {
   const regionsDiffer = Boolean(targetRegion && executionRegion && targetRegion !== executionRegion);
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white ring-1 ring-zinc-950/[0.03]">
       <div className="border-b border-zinc-100 bg-gradient-to-b from-zinc-50/90 to-white px-4 py-3.5">
-        <p className="text-[11px] font-medium text-zinc-500">Planned change</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[11px] font-medium text-zinc-500">Planned change</p>
+          <RunbookProviderBadge provider={provider} />
+        </div>
         <p className="mt-1 text-[15px] font-semibold leading-snug text-zinc-900">{actionLabel}</p>
         {regionsDiffer ? (
           <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
@@ -194,20 +231,23 @@ function SsmAutomationPlan({
       <dl className="divide-y divide-zinc-100/90">
         <SsmPlanRow label="Runbook">
           <div className="flex items-center gap-1.5">
-            <span className="min-w-0 flex-1" title={documentName}>
+            <span className="min-w-0 flex-1 break-words" title={runbookLabel}>
               {runbookLabel}
             </span>
             {runbookSourceUrl ? (
               <RunbookSourceLink
                 href={runbookSourceUrl}
                 title={
-                  documentOwner === "AWS-owned"
+                  provider === "aws-owned"
                     ? "View AWS runbook documentation"
                     : "View runbook in public CloudFormation template"
                 }
               />
             ) : null}
           </div>
+          {automationNote ? (
+            <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-500">{automationNote}</p>
+          ) : null}
         </SsmPlanRow>
         <SsmPlanRow label="IAM role">
           <span className="break-all font-mono text-[12px]" title={roleName}>
@@ -270,7 +310,7 @@ function SsmRemediationPanel({
     staleTime: 60_000,
   });
 
-  const { data: persistedExecution } = useRemediationExecution(findingId);
+  const { data: persistedExecution, isFetching: executionFetching } = useRemediationExecution(findingId);
 
   const startMutation = useMutation({
     mutationFn: () =>
@@ -352,16 +392,36 @@ function SsmRemediationPanel({
   const execStatus = persistedExecution?.status;
   const execSuccess =
     execStatus === "success" || Boolean((persistedExecution?.result as { ok?: boolean } | undefined)?.ok);
-  const execInProgress = execStatus === "running" || execStatus === "dispatched";
   const execFailedPersisted = execStatus === "failed" && Boolean(persistedExecution?.error);
+  const execInProgress =
+    (execStatus === "running" || execStatus === "dispatched") && !execSuccess && !execFailedPersisted;
+  const statusSyncError = persistedExecution?.status_sync?.error ?? null;
+  const automationExecutionId =
+    dispatch?.automation_execution_id ?? persistedExecution?.automation_execution_id ?? null;
+  const automationError =
+    dispatch?.automation_error ?? persistedExecution?.error ?? null;
+  const failedPlanId = dispatch?.plan_id ?? persistedExecution?.plan_id ?? null;
+
+  const hasAutomationError = Boolean(automationError);
+  const executionStartFailed = hasAutomationError && !automationExecutionId;
+  const executionRunFailed =
+    hasAutomationError && Boolean(automationExecutionId) && !execInProgress && !execSuccess;
+
   const started =
-    Boolean(dispatch?.automation_execution_id) || execInProgress || execSuccess;
-  const startFailed = Boolean(dispatch?.automation_error) || (execFailedPersisted && !execInProgress && !execSuccess);
+    Boolean(automationExecutionId) || execInProgress || execSuccess;
+  const showFailedState = executionStartFailed || executionRunFailed;
   const usesCustomDoc = ssm.requires_vigil_document;
-  const documentName = ssm.runbook?.document_name ?? "Vigil-RemediationPlanExecutor";
-  const documentOwner = ssm.runbook?.owner === "aws" ? "AWS-owned" : "Vigil";
+  const provider: "aws-owned" | "vigil" =
+    ssm.automation_provider ??
+    (ssm.runbook?.owner === "aws" ? "aws-owned" : "vigil");
   const runbookLabel =
-    documentOwner === "AWS-owned" ? documentName : "Vigil guarded runbook";
+    provider === "aws-owned"
+      ? ssm.aws_document_name ?? ssm.runbook?.document_name ?? "AWS runbook"
+      : ssm.runbook?.document_name ?? "Vigil exact-match runbook";
+  const runbookSourceUrl =
+    provider === "aws-owned"
+      ? ssm.aws_runbook_docs_url ?? ssm.runbook?.source_url
+      : ssm.runbook?.source_url;
   const executionRegion = ssm.automation_region;
   const targetRegion = ssm.resource_region;
 
@@ -379,7 +439,7 @@ function SsmRemediationPanel({
             <SsmStatusBadge tone="loading">Checking</SsmStatusBadge>
           ) : execSuccess ? (
             <SsmStatusBadge tone="completed">Completed</SsmStatusBadge>
-          ) : startFailed ? (
+          ) : showFailedState ? (
             <SsmStatusBadge tone="failed">Failed</SsmStatusBadge>
           ) : execInProgress || started ? (
             <SsmStatusBadge tone="running">Running</SsmStatusBadge>
@@ -429,17 +489,17 @@ function SsmRemediationPanel({
             </div>
           )}
 
-          {!runnerLoading && ready && !started && !startFailed && !execSuccess && (
+          {!runnerLoading && ready && !started && !showFailedState && !execSuccess && (
             <div className="space-y-3">
               <SsmAutomationPlan
                 actionLabel={ssm.action_label}
                 executionRegion={executionRegion}
                 targetRegion={targetRegion}
                 runbookLabel={runbookLabel}
-                documentName={documentName}
-                documentOwner={documentOwner}
+                provider={provider}
                 roleName={ssm.automation_role_name}
-                runbookSourceUrl={ssm.runbook?.source_url}
+                runbookSourceUrl={runbookSourceUrl}
+                automationNote={ssm.automation_note}
               />
               <p className="text-[12px] leading-relaxed text-zinc-500">
                 You start each run manually — Vigil does not apply fixes without your click. Use Console or CLI when you
@@ -465,44 +525,76 @@ function SsmRemediationPanel({
             </div>
           )}
 
-          {started && !execSuccess && (
+          {started && !execSuccess && !executionRunFailed && (
             <div className="space-y-2 text-[12px]">
               <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-3 py-2.5">
-                <p className="font-semibold text-emerald-950">Execution dispatched</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-emerald-950">Execution dispatched</p>
+                  {execInProgress && (
+                    <button
+                      type="button"
+                      disabled={executionFetching}
+                      onClick={() => void refreshRemediationExecution(qc, findingId)}
+                      className="shrink-0 text-[11px] font-medium text-indigo-700 underline disabled:opacity-50"
+                    >
+                      {executionFetching ? "Refreshing…" : "Refresh status"}
+                    </button>
+                  )}
+                </div>
                 <p className="mt-1 break-all font-mono text-[11px] text-zinc-700">
-                  {dispatch!.automation_execution_id}
+                  {automationExecutionId}
                 </p>
                 <p className="mt-1 text-zinc-600">
-                  In progress in {executionRegion}. Refresh below or re-scan to verify the finding.
+                  {execInProgress
+                    ? `In progress in ${executionRegion}. Refresh to pull status from AWS, or re-scan to verify the finding.`
+                    : `Started in ${executionRegion}.`}
                 </p>
+                {execInProgress && statusSyncError && (
+                  <p className="mt-2 rounded-lg border border-amber-200/80 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-relaxed text-amber-950">
+                    Could not read execution status from AWS ({statusSyncError}). Update the connector so
+                    VigilScannerRole allows ssm:GetAutomationExecution on automation-execution/*, then refresh
+                    again.
+                  </p>
+                )}
               </div>
-              <button
-                type="button"
-                disabled={running}
-                onClick={() => {
-                  setAttemptedStart(true);
-                  startMutation.mutate();
-                }}
-                className="text-[11px] font-medium text-indigo-700 underline disabled:opacity-50"
-              >
-                Start again
-              </button>
+              {!execInProgress && (
+                <button
+                  type="button"
+                  disabled={running}
+                  onClick={() => {
+                    setAttemptedStart(true);
+                    startMutation.mutate();
+                  }}
+                  className="text-[11px] font-medium text-indigo-700 underline disabled:opacity-50"
+                >
+                  Start again
+                </button>
+              )}
             </div>
           )}
 
-          {startFailed && (
+          {showFailedState && (
             <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-[12px] text-amber-950">
-              <p className="font-semibold">Could not start SSM Automation</p>
-              <p className="mt-1.5 leading-relaxed">
-                {formatAutomationStartError(dispatch!.automation_error ?? "")}
+              <p className="font-semibold">
+                {executionRunFailed ? "SSM Automation run failed" : "Could not start SSM Automation"}
               </p>
-              {dispatch!.plan_id && (
+              {executionRunFailed && automationExecutionId && (
+                <p className="mt-1 break-all font-mono text-[11px] text-amber-900/80">
+                  {automationExecutionId}
+                </p>
+              )}
+              <p className="mt-1.5 leading-relaxed">
+                {formatAutomationStartError(automationError ?? "")}
+              </p>
+              {failedPlanId && (
                 <p className="mt-2 font-mono text-[11px] text-amber-900/75">
-                  Plan {dispatch.plan_id.slice(0, 8)}… (saved; not executed)
+                  Plan {failedPlanId.slice(0, 8)}…
+                  {executionRunFailed ? " (execution failed in AWS)" : " (saved; not executed)"}
                 </p>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                {dispatch!.automation_error?.includes("StartAutomationExecution") && (
+                {(automationError?.includes("StartAutomationExecution") ||
+                  automationError?.includes("PutPublicAccessBlock")) && (
                   <Link
                     to="/accounts"
                     className="inline-flex rounded-lg border border-indigo-200 bg-white px-3.5 py-2 text-[12px] font-semibold text-indigo-800 shadow-sm hover:bg-indigo-50"
@@ -533,12 +625,17 @@ function SsmRemediationPanel({
         </div>
       </section>
 
-      {!attemptedStart && !startFailed && !execSuccess && (
+      {!attemptedStart && !showFailedState && !execSuccess && (
         <PreviousExecutionNote findingId={findingId} />
       )}
 
-      {!startFailed && !execSuccess && (
-        <ExecutionStatus findingId={findingId} showStaleFailures={attemptedStart} />
+      {!showFailedState && !execSuccess && (
+        <ExecutionStatus
+          findingId={findingId}
+          showStaleFailures={attemptedStart}
+          onRefresh={() => void refreshRemediationExecution(qc, findingId)}
+          isRefreshing={executionFetching}
+        />
       )}
     </div>
   );
@@ -663,19 +760,30 @@ type RemediationExecutionRow = {
   plan_id?: string;
   completed_at?: string;
   error?: string;
-  result?: { ok?: boolean };
+  result?: { ok?: boolean; ssm_status?: string };
   automation_execution_id?: string | null;
+  ssm_status?: string | null;
+  status_sync?: { polled?: boolean; ssm_status?: string | null; error?: string | null; region?: string | null };
 };
 
 function useRemediationExecution(findingId: string) {
   return useQuery({
     queryKey: ["remediation-execution", findingId],
     queryFn: () => api<RemediationExecutionRow>(`/v1/findings/${findingId}/remediation-execution`),
+    staleTime: 0,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === "running" || status === "dispatched" ? 5_000 : false;
+      return status === "running" || status === "dispatched" ? 4_000 : false;
     },
   });
+}
+
+async function refreshRemediationExecution(
+  qc: ReturnType<typeof useQueryClient>,
+  findingId: string,
+) {
+  await qc.invalidateQueries({ queryKey: ["remediation-execution", findingId] });
+  await qc.refetchQueries({ queryKey: ["remediation-execution", findingId], type: "active" });
 }
 
 /** Prior failed run when the panel is Ready again (not this session). */
@@ -696,12 +804,16 @@ function PreviousExecutionNote({ findingId }: { findingId: string }) {
 function ExecutionStatus({
   findingId,
   showStaleFailures,
+  onRefresh,
+  isRefreshing,
 }: {
   findingId: string;
   /** When false, hide terminal failed records from before this drawer session. */
   showStaleFailures: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }) {
-  const { data, refetch } = useRemediationExecution(findingId);
+  const { data } = useRemediationExecution(findingId);
   if (!data || data.status === "none") return null;
   const ok = data.status === "success" || data.result?.ok;
   const failed = data.status === "failed";
@@ -751,13 +863,14 @@ function ExecutionStatus({
             </span>
           )}
         </p>
-        {inProgress && (
+        {inProgress && onRefresh && (
           <button
             type="button"
-            onClick={() => void refetch()}
-            className="shrink-0 text-[11px] font-medium text-indigo-700 underline"
+            disabled={isRefreshing}
+            onClick={onRefresh}
+            className="shrink-0 text-[11px] font-medium text-indigo-700 underline disabled:opacity-50"
           >
-            Refresh status
+            {isRefreshing ? "Refreshing…" : "Refresh status"}
           </button>
         )}
       </div>

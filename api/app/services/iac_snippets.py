@@ -12,7 +12,11 @@ from app.data.remediation_modules import REMEDIATION_MODULE_BY_ID, remediation_m
 from app.models import AwsAccount, Finding
 from app.models.github import IdentityProvider, Repo
 from app.services.remediation_plan import _supported_action
-from app.services.ssm_remediation_catalog import runbook_for_check, runbook_payload
+from app.services.ssm_remediation_catalog import (
+    runbook_for_check,
+    runbook_payload,
+    runbook_source_url,
+)
 
 IAC_NOT_AVAILABLE = "iac_not_available"
 IAC_SNIPPETS = "iac_snippets"
@@ -106,11 +110,22 @@ def _ssm_remediation_panel(db: Session, finding: Finding) -> dict[str, Any] | No
         deployed = bool(getattr(acc, spec.deployed_column))
     action = _supported_action(cid)
     runbook = runbook_for_check(cid)
+    from app.data.aws_owned_runbooks import remediation_automation_metadata
     from app.services.remediation_plan import automation_region_for_finding, resource_region_for_finding
 
     settings = get_settings()
     resource_region = resource_region_for_finding(finding)
     automation_region = automation_region_for_finding(finding)
+    automation_meta = remediation_automation_metadata(
+        cid, evidence=finding.evidence or {}
+    )
+    if runbook and runbook.owner == "aws":
+        automation_meta = {
+            **automation_meta,
+            "automation_provider": "aws-owned",
+            "aws_document_name": runbook.document_name,
+            "aws_runbook_docs_url": runbook_source_url(runbook),
+        }
     return {
         "module_id": module_id,
         "module_label": spec.label,
@@ -124,6 +139,7 @@ def _ssm_remediation_panel(db: Session, finding: Finding) -> dict[str, Any] | No
         "automation_region": automation_region,
         "runbook": runbook_payload(runbook) if runbook else None,
         "requires_vigil_document": bool(runbook and runbook.owner == "vigil"),
+        **automation_meta,
     }
 
 

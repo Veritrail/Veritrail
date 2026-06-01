@@ -5024,7 +5024,8 @@ export function FindingDrawer({
             </div>
           </div>
           <FlowCallout tone="positive" title="Validate after remediation">
-            Click Verify to confirm the fix in AWS. Supported checks resolve in seconds; others queue a full re-scan.
+            Click Verify to confirm the fix in AWS. Most AWS resource checks refresh that resource and resolve in seconds;
+            GitHub/GitLab and historical CloudTrail event findings queue a background recheck.
           </FlowCallout>
         </div>
       )}

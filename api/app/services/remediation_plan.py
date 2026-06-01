@@ -30,7 +30,6 @@ IAM_ACCESS_KEY_CHECKS = frozenset(
 # Custom Vigil document runs from one automation home region; PlanJson carries resource_region.
 VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS | frozenset(
     {
-        "s3.bucket.public_access_not_blocked",
         "iam.role.full_admin_policy",
         "iam.policy.wildcard_resource",
     }

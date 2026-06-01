@@ -32,6 +32,26 @@ from app.services.ssm_remediation_catalog import (
 )
 
 
+def _aws_account_id_from_role_arn(role_arn: str | None) -> str | None:
+    if not role_arn:
+        return None
+    parts = role_arn.split(":")
+    if len(parts) > 4 and parts[4] and parts[4].isdigit():
+        return parts[4]
+    return None
+
+
+def remediation_automation_role_arn(acc: AwsAccount) -> str:
+    """Customer-account IAM role passed to SSM as AutomationAssumeRole."""
+    settings = get_settings()
+    aws_account_id = acc.account_id or _aws_account_id_from_role_arn(acc.role_arn)
+    if not aws_account_id:
+        raise ValueError(
+            "AWS account ID unknown — open Accounts and run Verify capabilities"
+        )
+    return f"arn:aws:iam::{aws_account_id}:role/{settings.CFN_REMEDIATION_AUTOMATION_ROLE_NAME}"
+
+
 def _validate_plan_not_expired(plan: dict[str, Any]) -> None:
     """Validate that a remediation plan has not expired.
 
@@ -102,14 +122,20 @@ def build_remediation_dispatch(
     automation_region = plan.get("automation_region") or automation_region_for_finding(finding)
     runbook = runbook_for_check(finding.check_id)
     document_name = (runbook.document_name if runbook else None) or settings.REMEDIATION_SSM_DOCUMENT_NAME
-    automation_role_arn = f"arn:aws:iam::{finding.account_id}:role/{settings.CFN_REMEDIATION_AUTOMATION_ROLE_NAME}"
+
+    acc: AwsAccount | None = db.get(AwsAccount, finding.account_id) if db is not None else None
+    automation_role_arn = ""
+    if runbook and runbook.owner == "aws":
+        if acc is None:
+            raise ValueError("AWS account record required for AWS-owned SSM runbooks")
+        automation_role_arn = remediation_automation_role_arn(acc)
 
     detail = json.dumps(plan, separators=(",", ":"))
     parameters = (
         automation_parameters_for_plan(
             detail,
             runbook,
-            automation_assume_role_arn=automation_role_arn,
+            automation_assume_role_arn=automation_role_arn or None,
             parameter_overrides=parameter_overrides,
         )
         if runbook

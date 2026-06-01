@@ -153,3 +153,33 @@ def test_ssm_ready_false_when_connector_cannot_start(mock_assume):
     out = check_remediation_runner(acc, scanner_policy_documents=docs)
     assert out["ready"] is False
     assert any("StartAutomationExecution" in b for b in out["blockers"])
+
+
+@patch("app.services.remediation_runner_status.load_role_policy_documents")
+@patch("app.services.remediation_runner_status.assume_role")
+def test_s3_ready_false_when_automation_role_missing_pab(mock_assume, mock_load_policies):
+    acc = MagicMock()
+    acc.role_arn = "arn:aws:iam::123:role/x"
+    acc.external_id = "ext"
+
+    ssm = MagicMock()
+    sess = MagicMock()
+
+    def client_factory(svc, **kwargs):
+        return {"ssm": ssm, "iam": MagicMock()}[svc]
+
+    sess.client.side_effect = client_factory
+    mock_assume.return_value = sess
+    ssm.describe_document.return_value = {"Document": {"Status": "Active"}}
+    mock_load_policies.return_value = [
+        {"Statement": [{"Effect": "Allow", "Action": "ec2:RevokeSecurityGroupIngress", "Resource": "*"}]}
+    ]
+
+    out = check_remediation_runner(
+        acc,
+        check_id="s3.bucket.public_access_not_blocked",
+        resource_region="us-east-1",
+        scanner_policy_documents=_scanner_policy_with_ssm_start(),
+    )
+    assert out["ready"] is False
+    assert any("PutBucketPublicAccessBlock" in b for b in out["blockers"])

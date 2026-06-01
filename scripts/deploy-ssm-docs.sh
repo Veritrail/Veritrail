@@ -7,64 +7,48 @@
 # where CFN silently fails on UPDATE_ROLLBACK_COMPLETE with opaque errors.
 #
 # Usage:
-#   ./scripts/deploy-ssm-docs.sh   # uploads scripts to S3 then deploys docs
+#   Uses upload-cfn.credentials.sh (same as upload-cfn.sh)
+#   ./scripts/deploy-ssm-docs.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib/aws-session.sh"
 SCRIPTS_SRC="${REPO_DIR}/infra/cfn/ssm-scripts"
 
-REGION="us-east-1"
-BUCKET="amzn-s3-vigil"
-S3_PREFIX="s3://${BUCKET}/infra/ssm-scripts"
-S3_URL_BASE="https://${BUCKET}.s3.${REGION}.amazonaws.com/infra/ssm-scripts"
+REGION="${AWS_REGION:-us-east-1}"
+BUCKET="${VIGIL_CFN_BUCKET:-amzn-s3-vigil}"
+RELEASE="${RELEASE:-2026.06}"
+SSM_KEY="infra/${RELEASE}/ssm-scripts"
+S3_PREFIX="s3://${BUCKET}/${SSM_KEY}"
+S3_URL_BASE="https://${BUCKET}.s3.${REGION}.amazonaws.com/${SSM_KEY}"
 
-# ── AWS credentials (source from upload-cfn.sh or export manually) ───────
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-if [ -f "${SCRIPT_DIR}/../upload-cfn.sh" ]; then
-  # shellcheck disable=SC1091
-  source "${SCRIPT_DIR}/../upload-cfn.sh"
-fi
-if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
-  echo "ERROR: AWS credentials not set. Run upload-cfn.sh first or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY." >&2
-  exit 1
-fi
 export AWS_REGION="${AWS_REGION:-${REGION}}"
+
+require_aws_session
 
 # ── Role ARN (used by assumeRole in each document) ────────────────────────
 ROLE_NAME="${VIGIL_ROLE_NAME:-VigilRemediationAutomationRole}"
-ROLE_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/${ROLE_NAME}"
+ROLE_ARN="arn:aws:iam::$(aws_cli sts get-caller-identity --query Account --output text):role/${ROLE_NAME}"
 
-# ── Step 1: Upload Python handlers to S3 ─────────────────────────────────
-echo "→ Uploading SSM handler scripts to ${S3_PREFIX}/ …"
+# ── Step 1: Upload Python handlers to S3 (incremental) ─────────────────────
+SSM_S3_PREFIX="${S3_PREFIX#s3://${BUCKET}/}"
+echo "→ Syncing SSM handler scripts (incremental) to s3://${BUCKET}/${SSM_S3_PREFIX}/ …"
 echo ""
 
-declare -A SCRIPT_FILES=(
-  [configure_s3_pab.py]="1"
-  [deactivate_access_key.py]="1"
-  [migrate_to_secure_string.py]="1"
-  [remediate_excess_permissions.py]="1"
-  [revoke_sg_ingress.py]="1"
-)
+if [ ! -d "${SCRIPTS_SRC}" ]; then
+  echo "ERROR: SSM scripts directory not found: ${SCRIPTS_SRC}" >&2
+  exit 1
+fi
 
-for sname in "${!SCRIPT_FILES[@]}"; do
-  path="${SCRIPTS_SRC}/${sname}"
-  if [ ! -f "${path}" ]; then
-    echo "⚠  Skipping ${sname} — not found at ${path}" >&2
-    continue
-  fi
-  printf "  %-42s" "${sname} …"
-  aws s3api put-object \
-    --bucket "${BUCKET}" \
-    --key "infra/ssm-scripts/${sname}" \
-    --body "${path}" \
-    --acl public-read \
-    --content-type "text/plain" \
-    --region "${REGION}" \
-    > /dev/null
-  echo " ✅"
-done
+aws_cli s3 sync "${SCRIPTS_SRC}" "s3://${BUCKET}/${SSM_S3_PREFIX}/" \
+  --region "${REGION}" \
+  --acl public-read \
+  --content-type "text/plain" \
+  --exclude "*" \
+  --include "*.py"
 
 echo ""
 echo "→ Deploying SSM Automation documents …"
@@ -101,17 +85,17 @@ deploy_doc() {
 
   # Check if document already exists
   local existing
-  existing=$(aws ssm describe-document --name "$name" --query "Document.Name" --output text 2>/dev/null || echo "")
+  existing=$(aws_cli ssm describe-document --name "$name" --query "Document.Name" --output text 2>/dev/null || echo "")
 
   if [ "$existing" = "$name" ]; then
     # Document exists — compare content
     local current_version
-    current_version=$(aws ssm describe-document --name "$name" --query "Document.DocumentVersion" --output text)
+    current_version=$(aws_cli ssm describe-document --name "$name" --query "Document.DocumentVersion" --output text)
 
     # Update the document with attachments
     echo "  Updating ${name} (v${current_version}) …"
     local result
-    result=$(aws ssm update-document \
+    result=$(aws_cli ssm update-document \
       --name "$name" \
       --content "$content" \
       --document-version "\$LATEST" \
@@ -125,7 +109,7 @@ deploy_doc() {
     fi
 
     local new_version
-    new_version=$(aws ssm describe-document --name "$name" --query "Document.DocumentVersion" --output text)
+    new_version=$(aws_cli ssm describe-document --name "$name" --query "Document.DocumentVersion" --output text)
     if [ "$new_version" != "$current_version" ]; then
       echo "    ✅ Updated (v${current_version} → v${new_version})"
     else
@@ -135,7 +119,7 @@ deploy_doc() {
     # Document doesn't exist — create it
     echo "  Creating ${name} …"
     local result
-    result=$(aws ssm create-document \
+    result=$(aws_cli ssm create-document \
       --name "$name" \
       --content "$content" \
       --document-type "Automation" \

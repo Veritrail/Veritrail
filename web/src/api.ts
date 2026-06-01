@@ -68,6 +68,13 @@ export function formatApiError(error: unknown): string {
 
 let _refreshing: Promise<string | null> | null = null;
 
+/** Restore session from HttpOnly refresh cookie when access token is gone. */
+export async function restoreSession(): Promise<boolean> {
+  if (token()) return true;
+  const refreshed = await tryRefresh();
+  return Boolean(refreshed);
+}
+
 async function tryRefresh(): Promise<string | null> {
   if (_refreshing) return _refreshing;
   _refreshing = (async () => {

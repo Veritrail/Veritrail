@@ -11,6 +11,7 @@ from app.models import AwsAccount
 from app.services.iam_permission_check import (
     check_actions_on_documents,
     connector_can_start_document_automation,
+    load_role_policy_documents,
 )
 from app.services.remediation_plan import (
     automation_home_region,
@@ -23,6 +24,11 @@ CONNECTOR_SSM_START_ACTIONS = (
     "ssm:DescribeDocument",
     "ssm:StartAutomationExecution",
     "ssm:GetAutomationExecution",
+)
+
+S3_PAB_AUTOMATION_ACTIONS = (
+    "s3:GetBucketPublicAccessBlock",
+    "s3:PutBucketPublicAccessBlock",
 )
 
 
@@ -57,6 +63,31 @@ def _enabled_module_check_ids(acc: AwsAccount) -> list[str]:
         if sample:
             check_ids.append(sample)
     return check_ids
+
+
+def _remediation_role_s3_blockers(session: Any, check_id: str | None) -> list[str]:
+    if check_id != "s3.bucket.public_access_not_blocked":
+        return []
+    settings = get_settings()
+    role_name = settings.CFN_REMEDIATION_AUTOMATION_ROLE_NAME
+    iam = session.client("iam")
+    try:
+        docs = load_role_policy_documents(iam, role_name)
+        granted = check_actions_on_documents(docs, S3_PAB_AUTOMATION_ACTIONS)
+    except Exception as exc:  # noqa: BLE001
+        return [
+            "Cannot read VigilRemediationAutomationRole IAM policies "
+            f"({exc}). Update the connector stack, then Verify capabilities."
+        ]
+    missing = [action for action, ok in granted.items() if not ok]
+    if missing:
+        return [
+            "VigilRemediationAutomationRole is missing: "
+            + ", ".join(missing)
+            + ". Update the connector (EnableS3Remediation=Yes), wait for the nested "
+            "vigil-remediation-ssm stack UPDATE_COMPLETE, then Verify capabilities on Accounts."
+        ]
+    return []
 
 
 def _is_vigil_document(document_name: str, runbook_owner: str | None) -> bool:
@@ -137,6 +168,11 @@ def _check_single_runbook(
                 f"Connector IAM must allow ssm:StartAutomationExecution on document/{document_name} "
                 f"in {automation_region} (update vigil-core-scanner.yaml)."
             )
+
+    if out["document"].get("exists"):
+        for blocker in _remediation_role_s3_blockers(session, check_id):
+            if blocker not in out["blockers"]:
+                out["blockers"].append(blocker)
 
     out["ready"] = not out["blockers"] and out["document"].get("exists")
     if runbook and runbook.owner == "aws":

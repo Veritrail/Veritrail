@@ -20,12 +20,11 @@ class SsmRemediationRunbook:
     note: str
 
 
-VIGIL_PLAN_DOCUMENT = "Vigil-RemediationPlanExecutor"  # legacy fallback
 VIGIL_SG_DOCUMENT = "Vigil-RevokeSecurityGroupIngressExact"
 VIGIL_IAM_KEY_DOCUMENT = "Vigil-DeactivateIamAccessKey"
 VIGIL_SSM_PARAMETER_DOCUMENT = "Vigil-MigrateSsmParameterToSecureString"
 
-VIGIL_S3_BUCKET_PAB_DOCUMENT = "Vigil-ConfigureS3BucketPublicAccessBlock"
+AWS_S3_BUCKET_PAB_DOCUMENT = "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
 VIGIL_IAM_REMEDIATION_DOCUMENT = "Vigil-RemediateIamExcessPermissions"
 
 RUNBOOKS: dict[str, SsmRemediationRunbook] = {
@@ -52,10 +51,10 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     ),
     "s3.bucket.public_access_not_blocked": SsmRemediationRunbook(
         check_id="s3.bucket.public_access_not_blocked",
-        document_name=VIGIL_S3_BUCKET_PAB_DOCUMENT,
-        owner="vigil",
-        parameter_mode="plan_json",
-        note="Custom Vigil runbook enables all four Block Public Access settings on the specific reviewed bucket.",
+        document_name=AWS_S3_BUCKET_PAB_DOCUMENT,
+        owner="aws",
+        parameter_mode="aws_s3_bucket_pab",
+        note="AWS-owned runbook enables all four Block Public Access settings on the bucket named in the approved plan.",
     ),
     "iam.access_key.unused_45d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_45d",
@@ -148,6 +147,18 @@ def automation_parameters_for_plan(
         return {"PlanJson": [plan_json]}
 
     plan = _load_plan(plan_json)
+    if runbook.parameter_mode == "aws_s3_bucket_pab":
+        automation_role = _require_automation_role(automation_assume_role_arn)
+        bucket = _bucket_name(plan)
+        return {
+            "AutomationAssumeRole": [automation_role],
+            "BucketName": [bucket],
+            "BlockPublicAcls": ["true"],
+            "BlockPublicPolicy": ["true"],
+            "IgnorePublicAcls": ["true"],
+            "RestrictPublicBuckets": ["true"],
+        }
+
     if runbook.parameter_mode == "aws_cloudtrail_enable_guided":
         automation_role = _require_automation_role(automation_assume_role_arn)
         overrides = parameter_overrides or {}

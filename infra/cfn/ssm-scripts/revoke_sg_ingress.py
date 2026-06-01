@@ -1,4 +1,7 @@
-import datetime, hashlib, json
+import datetime
+import hashlib
+import json
+
 import boto3
 
 PLAN_SCHEMA = "vigil_remediation_plan/v2"
@@ -18,11 +21,15 @@ def verify(plan):
         return "unsupported schema"
     if plan.get("check_id") not in ALLOWED:
         return "unsupported check_id"
-    exp = datetime.datetime.fromisoformat(
-        plan["expires_at"].replace("Z", "+00:00")
-    )
-    if exp.tzinfo is None:
-        exp = exp.replace(tzinfo=datetime.timezone.utc)
+    expires = plan.get("expires_at")
+    if not expires:
+        return "missing expires_at"
+    try:
+        exp = datetime.datetime.fromisoformat(expires.replace("Z", "+00:00"))
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return "invalid expires_at"
     if datetime.datetime.now(datetime.timezone.utc) > exp:
         return "plan_expired"
     expected = plan.get("content_sha256")
@@ -32,20 +39,23 @@ def verify(plan):
             for k, v in plan.items()
             if k not in ("content_sha256", "signature")
         }
-        canonical = json.dumps(
-            body, sort_keys=True, separators=(",", ":")
-        )
+        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
         if hashlib.sha256(canonical.encode()).hexdigest() != expected:
             return "content_sha256_mismatch"
     return None
 
 
 def region(plan):
-    return (
-        plan.get("resource_region")
-        or (plan.get("evidence") or {}).get("region")
-        or "us-east-1"
-    )
+    if plan.get("resource_region"):
+        return plan["resource_region"]
+    ev = plan.get("evidence") or {}
+    if ev.get("region"):
+        return ev["region"]
+    arn = plan.get("resource_arn") or ""
+    parts = arn.split(":")
+    if len(parts) > 3 and parts[3]:
+        return parts[3]
+    return "us-east-1"
 
 
 def group_id(plan):
@@ -63,20 +73,14 @@ def rule_matches(perm, rule, cidr):
         return False
     proto = str(perm.get("IpProtocol", ""))
     wanted = rule.get("protocol")
-    if (
-        wanted not in ("all", proto, "-1")
-        and proto not in ("-1", str(wanted))
-    ):
+    if wanted not in ("all", proto, "-1") and proto not in ("-1", str(wanted)):
         return False
     for key in ("from_port", "to_port"):
-        if (
-            rule.get(key) is None
-            and perm.get(key[0].upper() + key[1:].replace("_", ""))
-            is None
-        ):
-            continue
         pkey = "FromPort" if key == "from_port" else "ToPort"
-        if int(rule.get(key)) != int(perm.get(pkey)):
+        rv, pv = rule.get(key), perm.get(pkey)
+        if rv is None and pv is None:
+            continue
+        if rv is None or pv is None or int(rv) != int(pv):
             return False
     return True
 
@@ -93,9 +97,7 @@ def handler(event, context):
         return finish(plan, {"ok": False, "error": "stale_plan"})
 
     ec2 = boto3.client("ec2", region_name=region(plan))
-    sg = ec2.describe_security_groups(
-        GroupIds=[sg_id]
-    )["SecurityGroups"][0]
+    sg = ec2.describe_security_groups(GroupIds=[sg_id])["SecurityGroups"][0]
 
     revoked = 0
     for perm in sg.get("IpPermissions", []):
@@ -107,27 +109,36 @@ def handler(event, context):
                 cidr = rng.get(cidr_key)
                 if cidr != public:
                     continue
-                if not any(
-                    rule_matches(perm, rule, cidr) for rule in rules
-                ):
+                if not any(rule_matches(perm, rule, cidr) for rule in rules):
                     continue
-
                 ip_perm = {"IpProtocol": perm.get("IpProtocol")}
                 if perm.get("IpProtocol") != "-1":
                     ip_perm["FromPort"] = perm.get("FromPort")
                     ip_perm["ToPort"] = perm.get("ToPort")
                 ip_perm[key] = [{cidr_key: cidr}]
-
                 ec2.revoke_security_group_ingress(
                     GroupId=sg_id, IpPermissions=[ip_perm]
                 )
                 revoked += 1
 
+    if revoked == 0:
+        return finish(
+            plan,
+            {
+                "ok": False,
+                "error": "stale_plan",
+                "region": region(plan),
+                "group_id": sg_id,
+                "revoked": 0,
+            },
+        )
+
     return finish(
         plan,
         {
-            "ok": revoked > 0,
+            "ok": True,
             "action": "revoke_exact_ingress",
+            "region": region(plan),
             "group_id": sg_id,
             "revoked": revoked,
         },

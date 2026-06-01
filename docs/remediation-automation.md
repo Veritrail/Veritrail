@@ -27,15 +27,24 @@ Vigil UI -> review -> explicit Start remediation -> ssm:StartAutomationExecution
    `ssm:StartAutomationExecution`, `ssm:GetAutomationExecution`, and `iam:PassRole` for
    `VigilRemediationAutomationRole` only.
 
-2. **Custom Vigil document** (SG exact-match, IAM access keys, SSM parameters) — deploy **once** in the automation home region (`REMEDIATION_AUTOMATION_REGION`, default `us-east-1`):
+2. **Publish handler scripts to S3** (required before CFN — documents attach `.py` files from `infra/<release>/ssm-scripts/`):
+
+```bash
+./scripts/upload-cfn.sh
+```
+
+3. **Custom Vigil SSM documents** (SG exact-match, IAM access keys, SSM parameters, IAM policy) — deploy **once** in the automation home region (`REMEDIATION_AUTOMATION_REGION`, default `us-east-1`):
 
 ```bash
 aws cloudformation deploy \
-  --region us-east-2 \
+  --region us-east-1 \
   --stack-name Vigil-Remediation-SSM \
   --template-file infra/cfn/vigil-remediation-ssm.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides EnableIamAccessKeyRemediation=Yes EnableSecurityGroupRemediation=Yes
+  --parameter-overrides \
+    SsmScriptsRelease=2026.06 \
+    EnableIamAccessKeyRemediation=Yes \
+    EnableSecurityGroupRemediation=Yes
 ```
 
 AWS-owned runbooks (S3 public access, CloudTrail) do not require this stack.
@@ -65,7 +74,7 @@ wizard stops on **Specify template** with that red banner.
 - `cloudformation:GetTemplateSummary`
 - `cloudformation:UpdateStack`
 
-Templates on S3 must stay in sync: upload all three files under `infra/cfn/` with
+Templates on S3 must stay in sync: run `./scripts/upload-cfn.sh` (incremental `aws s3 sync` per folder) to publish `infra/cfn/` under `infra/<release>/`, connector tags `infra/v1|v2/`, and latest aliases. Upload all three files under `infra/cfn/` with
 `Content-Type: text/yaml` (see `.env.example`).
 
 ## Supported Actions

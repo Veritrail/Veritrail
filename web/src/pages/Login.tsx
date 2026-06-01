@@ -11,6 +11,7 @@ interface LoginResponse {
 }
 
 const MFA_STORAGE_KEY = "vigil_mfa_token";
+const REMEMBER_STORAGE_KEY = "vigil_remember_me";
 
 function oauthErrorMessage(code: string): string {
   switch (code) {
@@ -60,6 +61,9 @@ export default function Login() {
   const [err, setErr] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(
+    () => localStorage.getItem(REMEMBER_STORAGE_KEY) === "1",
+  );
 
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
@@ -142,7 +146,10 @@ export default function Login() {
     setLoading(true);
     try {
       const path = mode === "login" ? "/v1/auth/login" : "/v1/auth/signup";
-      const body = mode === "login" ? { email, password } : { email, password, org_name: orgName };
+      const body =
+        mode === "login"
+          ? { email, password, remember_me: rememberMe }
+          : { email, password, org_name: orgName };
       const res = await api<LoginResponse>(path, { method: "POST", body: JSON.stringify(body) });
       await completeLogin(res);
     } catch (e) {
@@ -297,6 +304,22 @@ export default function Login() {
               ) : null}
             </div>
 
+            {mode === "login" && (
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+                  checked={rememberMe}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setRememberMe(checked);
+                    localStorage.setItem(REMEMBER_STORAGE_KEY, checked ? "1" : "0");
+                  }}
+                />
+                Remember me for 30 days
+              </label>
+            )}
+
             {err && (
               <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 text-sm text-red-600">
                 {err}
@@ -318,7 +341,7 @@ export default function Login() {
             </div>
 
             <a
-              href={`${BASE}/v1/auth/google`}
+              href={`${BASE}/v1/auth/google${rememberMe ? "" : "?remember=0"}`}
               className="w-full flex items-center justify-center gap-2.5 border border-zinc-200 rounded-lg py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -331,7 +354,7 @@ export default function Login() {
             </a>
 
             <a
-              href={`${BASE}/v1/auth/github`}
+              href={`${BASE}/v1/auth/github${rememberMe ? "" : "?remember=0"}`}
               className="w-full flex items-center justify-center gap-2.5 border border-zinc-200 rounded-lg py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -341,7 +364,7 @@ export default function Login() {
             </a>
 
             <a
-              href={`${BASE}/v1/auth/gitlab`}
+              href={`${BASE}/v1/auth/gitlab${rememberMe ? "" : "?remember=0"}`}
               className="w-full flex items-center justify-center gap-2.5 border border-zinc-200 rounded-lg py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
             >
               <svg className="w-4 h-4 text-[#e24329]" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">

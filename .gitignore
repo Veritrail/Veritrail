@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 upload-cfn.sh
+upload-cfn.credentials.sh
 __pycache__/
 *.pyc
 .venv/

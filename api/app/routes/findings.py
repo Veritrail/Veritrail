@@ -309,8 +309,9 @@ def get_remediation_execution(finding_id: str, p=Depends(current_principal), db:
     if not row:
         return {"status": "none"}
     acc = db.get(AwsAccount, row.account_id)
+    sync_meta: dict = {}
     if acc and acc.role_arn:
-        row = sync_remediation_execution_from_ssm(db, row=row, account=acc)
+        row, sync_meta = sync_remediation_execution_from_ssm(db, row=row, account=acc)
     result = row.result_json if isinstance(row.result_json, dict) else {}
     return {
         "plan_id": row.plan_id,
@@ -320,6 +321,8 @@ def get_remediation_execution(finding_id: str, p=Depends(current_principal), db:
         "result": row.result_json,
         "error": row.error,
         "automation_execution_id": result.get("automation_execution_id"),
+        "ssm_status": sync_meta.get("ssm_status") or result.get("ssm_status"),
+        "status_sync": sync_meta or None,
     }
 
 

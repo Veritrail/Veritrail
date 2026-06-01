@@ -10,14 +10,20 @@ settings = get_settings()
 bearer = HTTPBearer(auto_error=False)
 
 
-def issue_token(sub: str, org_id: str, ttl_hours: int = 24, scope: str = "user") -> str:
+def issue_token(
+    sub: str,
+    org_id: str,
+    ttl_hours: int | None = None,
+    scope: str = "user",
+) -> str:
+    hours = ttl_hours if ttl_hours is not None else settings.AUTH_ACCESS_TOKEN_HOURS
     now = datetime.now(timezone.utc)
     payload = {
         "sub": sub,
         "org_id": org_id,
         "scope": scope,
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(hours=ttl_hours)).timestamp()),
+        "exp": int((now + timedelta(hours=hours)).timestamp()),
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
@@ -35,14 +41,19 @@ def issue_auditor_token(auditor_access_id: str, org_id: str, ttl_hours: int = 24
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 
-def issue_refresh_token(sub: str, org_id: str) -> str:
+def issue_refresh_token(sub: str, org_id: str, *, remember_me: bool = False) -> str:
     now = datetime.now(timezone.utc)
+    if remember_me:
+        expires = now + timedelta(days=settings.AUTH_REFRESH_REMEMBER_DAYS)
+    else:
+        expires = now + timedelta(hours=settings.AUTH_REFRESH_SESSION_HOURS)
     payload = {
         "type": "refresh",
         "sub": sub,
         "org_id": org_id,
+        "remember_me": remember_me,
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(days=30)).timestamp()),
+        "exp": int(expires.timestamp()),
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
@@ -59,12 +70,13 @@ def decode_refresh_token(token: str) -> dict:
     return payload
 
 
-def issue_mfa_challenge_token(sub: str, org_id: str) -> str:
+def issue_mfa_challenge_token(sub: str, org_id: str, *, remember_me: bool = False) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "type": "mfa_challenge",
         "sub": sub,
         "org_id": org_id,
+        "remember_me": remember_me,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=5)).timestamp()),
     }

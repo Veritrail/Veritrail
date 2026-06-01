@@ -48,7 +48,8 @@ function buildStory(events: HistoryEvent[], summary?: PeriodSummary): ImpactItem
 }
 
 const CHART_W = 560;
-const CHART_H = 160;
+const CHART_H_DEFAULT = 160;
+const CHART_H_COMPACT = 96;
 const PAD_X = 36;
 const PAD_Y = 10;
 const Y_TICKS = [0, 25, 50, 75, 100];
@@ -117,12 +118,14 @@ export function ComplianceTrendChart({
   days,
   periodSummary,
   onSelectSnapshot,
+  compact = false,
 }: {
   events: HistoryEvent[];
   currentScore: number | null | undefined;
   days: number;
   periodSummary?: PeriodSummary;
   onSelectSnapshot?: (scanRunId: string) => void;
+  compact?: boolean;
 }) {
   const points = buildPoints(events);
   const [hover, setHover] = useState<number | null>(null);
@@ -133,6 +136,7 @@ export function ComplianceTrendChart({
   const earliest = scoreVals[0] ?? null;
   const delta = earliest != null && latest != null ? latest - earliest : null;
   const story = buildStory(events, periodSummary);
+  const CHART_H = compact ? CHART_H_COMPACT : CHART_H_DEFAULT;
 
   const innerW = CHART_W - PAD_X * 2;
   const xAt = (i: number) =>
@@ -152,10 +156,86 @@ export function ComplianceTrendChart({
     setSelected(selected === i ? null : i);
   }
 
+  if (compact) {
+    return (
+      <div className="w-full">
+        {points.length >= 1 ? (
+          <>
+            <div className="relative overflow-visible" style={{ height: CHART_H }}>
+              <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="absolute inset-0 h-full w-full" style={{ overflow: "visible" }}>
+                <defs>
+                  <linearGradient id="scoreFillCompact" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgb(99 102 241)" stopOpacity={0.14} />
+                    <stop offset="100%" stopColor="rgb(99 102 241)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                {Y_TICKS.filter((t) => t % 50 === 0).map((t) => {
+                  const y = yScore(t);
+                  return (
+                    <g key={t}>
+                      <line x1={PAD_X} x2={CHART_W - 8} y1={y} y2={y} stroke="rgb(244 244 245)" strokeWidth={1} />
+                      <text x={PAD_X - 6} y={y + 3} textAnchor="end" fill="rgb(161 161 170)" style={{ fontSize: 8 }}>
+                        {t}
+                      </text>
+                    </g>
+                  );
+                })}
+                {area && <polygon points={area} fill="url(#scoreFillCompact)" />}
+                {line && (
+                  <polyline points={line} fill="none" stroke="rgb(79 70 229)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                )}
+                {points.map((p, i) => {
+                  const c = coords[i];
+                  return (
+                    <g key={p.scanRunId}>
+                      <rect
+                        x={xAt(i) - innerW / Math.max(1, points.length) / 2}
+                        y={0}
+                        width={innerW / Math.max(1, points.length)}
+                        height={CHART_H}
+                        fill="transparent"
+                        className="cursor-pointer"
+                        onMouseEnter={() => setHover(i)}
+                        onMouseLeave={() => setHover(null)}
+                        onClick={() => setSelected(selected === i ? null : i)}
+                      />
+                      {c && (
+                        <circle cx={c.x} cy={c.y} r={hover === i || selected === i ? 5 : 3.5} fill="white" stroke="rgb(79 70 229)" strokeWidth={2} />
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+            <div className="mt-1 flex justify-between pl-8 pr-1 text-[10px] tabular-nums text-zinc-400">
+              <span>{fmtDay(points[0].date)}</span>
+              {points.length > 1 && <span>{fmtDay(points[points.length - 1].date)}</span>}
+            </div>
+            {selected != null && points[selected] && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-zinc-600">
+                  {fmtDay(points[selected].date)} · <span className="font-semibold tabular-nums text-zinc-900">{points[selected].score ?? "—"}%</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onSelectSnapshot?.(points[selected].scanRunId)}
+                  className="font-medium text-indigo-600 hover:text-indigo-800"
+                >
+                  View evidence
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-zinc-500">Run more scans to see posture trend.</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <section className="w-full rounded-2xl border border-zinc-200/90 bg-white px-5 py-5 shadow-sm shadow-zinc-950/[0.04] sm:px-6 sm:py-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        {/* Left: hero score + story */}
         <div className="lg:w-[280px] lg:shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
             Compliance posture · last {days} days

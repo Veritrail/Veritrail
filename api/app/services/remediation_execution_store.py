@@ -59,7 +59,8 @@ def record_execution_result(
         return None
     ok = bool(result.get("ok"))
     row.status = "success" if ok else "failed"
-    row.result_json = result
+    prior = row.result_json if isinstance(row.result_json, dict) else {}
+    row.result_json = {**prior, **result}
     row.error = None if ok else str(result.get("error") or result.get("hint") or "failed")
     row.completed_at = datetime.now(timezone.utc)
     db.commit()

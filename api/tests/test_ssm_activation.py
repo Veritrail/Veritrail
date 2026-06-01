@@ -66,7 +66,7 @@ def test_cloudtrail_logging_runner_supported():
 # ── VIGIL_CUSTOM_SSM_CHECKS ──────────────────────────────────────────
 
 def test_vigil_custom_ssm_checks_includes_activated_modules():
-    assert "s3.bucket.public_access_not_blocked" in VIGIL_CUSTOM_SSM_CHECKS
+    assert "s3.bucket.public_access_not_blocked" not in VIGIL_CUSTOM_SSM_CHECKS
     assert "iam.role.full_admin_policy" in VIGIL_CUSTOM_SSM_CHECKS
     assert "iam.policy.wildcard_resource" in VIGIL_CUSTOM_SSM_CHECKS
     # Existing checks still there
@@ -74,14 +74,14 @@ def test_vigil_custom_ssm_checks_includes_activated_modules():
     assert "iam.access_key.unused_45d" in VIGIL_CUSTOM_SSM_CHECKS
 
 
-# ── S3 Module: Custom Vigil Document ─────────────────────────────────
+# ── S3 Module: AWS-owned runbook ─────────────────────────────────────
 
-def test_s3_runbook_is_vigil_custom_plan_json():
+def test_s3_runbook_is_aws_owned():
     rb = runbook_for_check("s3.bucket.public_access_not_blocked")
     assert rb is not None
-    assert rb.owner == "vigil"
-    assert rb.document_name == "Vigil-ConfigureS3BucketPublicAccessBlock"
-    assert rb.parameter_mode == "plan_json"
+    assert rb.owner == "aws"
+    assert rb.document_name == "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
+    assert rb.parameter_mode == "aws_s3_bucket_pab"
 
 
 def test_runbook_payload_includes_public_source_url():
@@ -100,22 +100,36 @@ def test_aws_runbook_source_url_is_docs():
     assert "enablecloudtrail" in url.lower()
 
 
-def test_s3_automation_parameters_plan_json():
+def test_s3_automation_parameters_bucket_pab():
     import json
 
     rb = runbook_for_check("s3.bucket.public_access_not_blocked")
-    plan_json = json.dumps({"plan_id": "test-1", "check_id": "s3.bucket.public_access_not_blocked"})
-    params = automation_parameters_for_plan(plan_json, rb)
-    assert params == {"PlanJson": [plan_json]}
+    plan_json = json.dumps(
+        {
+            "plan_id": "test-1",
+            "check_id": "s3.bucket.public_access_not_blocked",
+            "evidence": {"bucket_name": "my-bucket"},
+        }
+    )
+    params = automation_parameters_for_plan(
+        plan_json,
+        rb,
+        automation_assume_role_arn="arn:aws:iam::123456789012:role/VigilRemediationAutomationRole",
+    )
+    assert params["BucketName"] == ["my-bucket"]
+    assert params["AutomationAssumeRole"] == [
+        "arn:aws:iam::123456789012:role/VigilRemediationAutomationRole"
+    ]
+    assert params["BlockPublicAcls"] == ["true"]
 
 
-def test_s3_uses_home_automation_region(monkeypatch):
+def test_s3_uses_resource_automation_region(monkeypatch):
     monkeypatch.setenv("REMEDIATION_AUTOMATION_REGION", "us-east-1")
     from app.core.config import get_settings
 
     get_settings.cache_clear()
     region = resolve_automation_region("s3.bucket.public_access_not_blocked", "eu-west-1")
-    assert region == "us-east-1"
+    assert region == "eu-west-1"
 
 
 # ── IAM Policies Module ──────────────────────────────────────────────
@@ -321,16 +335,19 @@ def test_action_labels_have_new_actions():
 # ── Dispatch parameter_overrides ─────────────────────────────────────
 
 def test_dispatch_accepts_parameter_overrides(monkeypatch):
+    from unittest.mock import MagicMock
+
     monkeypatch.setenv("REMEDIATION_AUTOMATION_REGION", "us-east-1")
     from app.core.config import get_settings
 
     get_settings.cache_clear()
 
     now = datetime.now(timezone.utc)
+    acc_id = uuid.uuid4()
     f = Finding(
         id=uuid.uuid4(),
         org_id=uuid.uuid4(),
-        account_id=uuid.uuid4(),
+        account_id=acc_id,
         check_id="cloudtrail.trail.not_enabled",
         resource_arn="arn:aws:cloudtrail:*:123456789012:trail",
         title="No multi-region trail",
@@ -341,9 +358,15 @@ def test_dispatch_accepts_parameter_overrides(monkeypatch):
         first_seen=now,
         last_seen=now,
     )
+    acc = MagicMock()
+    acc.account_id = "123456789012"
+    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    db = MagicMock()
+    db.get.return_value = acc
     out = build_remediation_dispatch(
         f,
         approved_by="test-user",
+        db=db,
         execute=False,
         parameter_overrides={"S3BucketName": "my-bucket"},
     )

@@ -886,6 +886,7 @@ function useFrameworkStats(framework: string, accountId: string | undefined, ena
 function FrameworkNav({
   selectedId,
   statsById,
+  currentStats,
   framework,
   topBlocker,
   onSelect,
@@ -894,13 +895,14 @@ function FrameworkNav({
 }: {
   selectedId: string;
   statsById: Record<string, FrameworkStats | undefined>;
+  currentStats?: FrameworkStats;
   framework: (typeof FRAMEWORKS)[number];
   topBlocker: ControlRow | null;
   onSelect: (id: string) => void;
   onOpenTopBlocker: () => void;
   exportControl?: ReactNode;
 }) {
-  const stats = statsById[selectedId];
+  const stats = currentStats ?? statsById[selectedId];
   const passRate = stats?.passRate ?? null;
 
   return (
@@ -1052,7 +1054,7 @@ export default function Controls() {
   }, [controls.data, urlControl, framework]);
 
   const openFindingsMeta = useQuery({
-    queryKey: ["findings", "open", connectedAccount?.id, "controls-meta"],
+    queryKey: ["findings", "open", activeAccount?.id, "controls-meta"],
     queryFn: () =>
       api<{ items: OpenFindingMeta[] }>(`/v1/findings?status=open&limit=500`),
     enabled: !!activeAccount && hasScanned,
@@ -1111,9 +1113,9 @@ export default function Controls() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [exportOpen]);
 
-  const soc2Stats = useFrameworkStats("soc2", connectedAccount?.id, hasScanned);
-  const cisStats = useFrameworkStats("cis_aws_l1", connectedAccount?.id, hasScanned);
-  const isoStats = useFrameworkStats("iso27001", connectedAccount?.id, hasScanned);
+  const soc2Stats = useFrameworkStats("soc2", activeAccount?.id, hasScanned);
+  const cisStats = useFrameworkStats("cis_aws_l1", activeAccount?.id, hasScanned);
+  const isoStats = useFrameworkStats("iso27001", activeAccount?.id, hasScanned);
 
   const frameworkStatsById: Record<string, FrameworkStats | undefined> = {
     soc2: soc2Stats.data,
@@ -1127,6 +1129,7 @@ export default function Controls() {
   const noData = rows.filter((r) => r.status === "no_data").length;
   const total = rows.length;
   const passRate = total > 0 ? Math.round((passed / total) * 100) : null;
+  const currentFrameworkStats: FrameworkStats = { passRate, failed, passed, total };
 
   const filteredRows = useMemo(
     () => (statusFilter === "all" ? rows : rows.filter((r) => r.status === statusFilter)),
@@ -1189,11 +1192,11 @@ export default function Controls() {
       <div className={`mb-4 ${exportOpen ? "relative z-[100]" : ""}`}>
         <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
         <p className="mt-1.5 text-sm text-zinc-500">
-          {connectedAccount?.account_id && <span>Account {connectedAccount.account_id}</span>}
-          {connectedAccount?.last_scan_at && (
+          {activeAccount?.account_id && <span>Account {activeAccount.account_id}</span>}
+          {activeAccount?.last_scan_at && (
             <span className="text-zinc-400">
-              {connectedAccount?.account_id ? " · " : ""}
-              Last scan {lastScanLabel(connectedAccount.last_scan_at)}
+              {activeAccount?.account_id ? " · " : ""}
+              Last scan {lastScanLabel(activeAccount.last_scan_at)}
             </span>
           )}
         </p>
@@ -1211,6 +1214,7 @@ export default function Controls() {
         <FrameworkNav
           selectedId={framework}
           statsById={frameworkStatsById}
+          currentStats={currentFrameworkStats}
           framework={activeFramework}
           topBlocker={topBlocker}
           onSelect={(id) => {

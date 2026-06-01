@@ -12,20 +12,27 @@ def refresh_cookie_enabled() -> bool:
     return get_settings().APP_ENV != "test"
 
 
-def attach_refresh_cookie(response: Response, refresh_token: str) -> None:
+def attach_refresh_cookie(
+    response: Response,
+    refresh_token: str,
+    *,
+    remember_me: bool = False,
+) -> None:
     if not refresh_cookie_enabled():
         return
     settings = get_settings()
     secure = settings.APP_ENV != "dev"
-    response.set_cookie(
-        key=REFRESH_COOKIE,
-        value=refresh_token,
-        httponly=True,
-        secure=secure,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 30,
-        path="/v1/auth",
-    )
+    cookie_kwargs: dict = {
+        "key": REFRESH_COOKIE,
+        "value": refresh_token,
+        "httponly": True,
+        "secure": secure,
+        "samesite": "lax",
+        "path": "/v1/auth",
+    }
+    if remember_me:
+        cookie_kwargs["max_age"] = 60 * 60 * 24 * settings.AUTH_REFRESH_REMEMBER_DAYS
+    response.set_cookie(**cookie_kwargs)
 
 
 def clear_refresh_cookie(response: Response) -> None:

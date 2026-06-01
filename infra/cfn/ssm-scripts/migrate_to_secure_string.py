@@ -1,5 +1,11 @@
-import datetime, hashlib, json
+import datetime
+import hashlib
+import json
+
 import boto3
+
+PLAN_SCHEMA = "vigil_remediation_plan/v2"
+ALLOWED = {"ssm.parameter.plaintext_secret"}
 
 
 def finish(plan, result):
@@ -8,13 +14,19 @@ def finish(plan, result):
 
 
 def verify(plan):
-    if plan.get("check_id") != "ssm.parameter.plaintext_secret":
+    if plan.get("schema") != PLAN_SCHEMA:
+        return "unsupported schema"
+    if plan.get("check_id") not in ALLOWED:
         return "unsupported check_id"
-    exp = datetime.datetime.fromisoformat(
-        plan["expires_at"].replace("Z", "+00:00")
-    )
-    if exp.tzinfo is None:
-        exp = exp.replace(tzinfo=datetime.timezone.utc)
+    expires = plan.get("expires_at")
+    if not expires:
+        return "missing expires_at"
+    try:
+        exp = datetime.datetime.fromisoformat(expires.replace("Z", "+00:00"))
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return "invalid expires_at"
     if datetime.datetime.now(datetime.timezone.utc) > exp:
         return "plan_expired"
     expected = plan.get("content_sha256")
@@ -24,9 +36,7 @@ def verify(plan):
             for k, v in plan.items()
             if k not in ("content_sha256", "signature")
         }
-        canonical = json.dumps(
-            body, sort_keys=True, separators=(",", ":")
-        )
+        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
         if hashlib.sha256(canonical.encode()).hexdigest() != expected:
             return "content_sha256_mismatch"
     return None
@@ -45,11 +55,12 @@ def parameter_name(plan):
 
 
 def region(plan):
-    return (
-        plan.get("resource_region")
-        or (plan.get("evidence") or {}).get("region")
-        or "us-east-1"
-    )
+    if plan.get("resource_region"):
+        return plan["resource_region"]
+    ev = plan.get("evidence") or {}
+    if ev.get("region"):
+        return ev["region"]
+    return "us-east-1"
 
 
 def handler(event, context):
@@ -60,16 +71,13 @@ def handler(event, context):
 
     name = parameter_name(plan)
     if not name:
-        return finish(
-            plan, {"ok": False, "error": "missing parameter name"}
-        )
+        return finish(plan, {"ok": False, "error": "missing SSM parameter name"})
 
     ssm = boto3.client("ssm", region_name=region(plan))
-    current = ssm.get_parameter(
-        Name=name, WithDecryption=False
-    )["Parameter"]
+    current = ssm.get_parameter(Name=name, WithDecryption=False)["Parameter"]
+    ptype = current.get("Type")
 
-    if current.get("Type") == "SecureString":
+    if ptype == "SecureString":
         return finish(
             plan,
             {
@@ -80,14 +88,18 @@ def handler(event, context):
             },
         )
 
-    if current.get("Type") != "String":
+    if ptype == "StringList":
+        return finish(
+            plan,
+            {"ok": False, "error": "unsupported parameter type StringList"},
+        )
+
+    if ptype != "String":
         return finish(
             plan,
             {
                 "ok": False,
-                "error": (
-                    f"unsupported parameter type {current.get('Type')}"
-                ),
+                "error": "unsupported parameter type {}".format(ptype),
             },
         )
 

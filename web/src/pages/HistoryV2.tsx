@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
 
 import { api } from "../api";
 import { HistoryDashboard } from "../components/HistoryDashboard";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
-import { HistoryPeriodSummary } from "../components/HistoryPeriodSummary";
-import { ImpactList } from "../components/ImpactList";
-import { type ComplianceHistoryResponse, type HistoryEvent, scanShortDate } from "../lib/complianceHistory";
-import { causeSentence, eventPresentation, eventTypeLabel, impactItems } from "../lib/historyPresentation";
+import { PageShell } from "../components/PageShell";
+import {
+  type ComplianceHistoryResponse,
+  type HistoryEvent,
+  scanShortDate,
+} from "../lib/complianceHistory";
+import { groupEventsByDay, sumFindingsResolvedInPeriod } from "../lib/historyTimeline";
+import { causeSentence, eventPresentation, eventTypeLabel } from "../lib/historyPresentation";
 
 interface Account {
   id: string;
@@ -17,32 +21,101 @@ interface Account {
   status: string;
 }
 
+type FindingPage = { items: { id: string }[] };
+
 const FRAMEWORKS = [
   { value: "soc2", label: "SOC 2" },
-  { value: "cis_aws_l1", label: "CIS AWS L1" },
-  { value: "iso27001", label: "ISO 27001" },
+  { value: "cis_aws_l1", label: "CIS" },
+  { value: "iso27001", label: "ISO" },
 ] as const;
 
 const PERIODS = [30, 90, 180] as const;
 
-function ScoreDelta({ before, after }: { before: number | null; after: number | null }) {
-  if (after == null) return null;
-  if (before == null || before === after) return <span className="text-2xl font-bold tabular-nums text-zinc-950">{after}%</span>;
-  const down = after < before;
-  const diff = after - before;
+function remediationLabel(event: HistoryEvent): string {
+  return event.detail || event.top_change?.title || event.check_id || event.resource_arn || "Remediation verified";
+}
+
+function FrameworkMovementRow({ accountId, days }: { accountId: string; days: number }) {
+  const queries = useQueries({
+    queries: FRAMEWORKS.map((f) => ({
+      queryKey: ["history-framework", accountId, f.value, days],
+      queryFn: () =>
+        api<ComplianceHistoryResponse>(
+          `/v1/accounts/${accountId}/compliance-timeline?framework=${f.value}&days=${days}&limit=1`,
+        ),
+      enabled: !!accountId,
+      staleTime: 120_000,
+    })),
+  });
+
   return (
-    <span className="flex flex-wrap items-baseline gap-2">
-      <span className="text-xl font-bold tabular-nums text-zinc-300">{before}%</span>
-      <span className="text-zinc-300">→</span>
-      <span className={`text-2xl font-bold tabular-nums ${down ? "text-rose-700" : "text-emerald-700"}`}>{after}%</span>
-      <span className={`rounded-md px-1.5 py-0.5 text-xs font-bold tabular-nums ${down ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
-        {diff > 0 ? "+" : "−"}{Math.abs(diff)} pts
-      </span>
-    </span>
+    <div className="grid gap-2 sm:grid-cols-3">
+      {FRAMEWORKS.map((f, i) => {
+        const data = queries[i]?.data;
+        const loading = queries[i]?.isLoading;
+        const score = data?.current_posture_score;
+        const improved = data?.period_summary?.controls_improved ?? 0;
+        const regressed = data?.period_summary?.controls_regressed ?? 0;
+        return (
+          <div key={f.value} className="rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{f.label}</p>
+            {loading ? (
+              <p className="mt-1 text-sm text-zinc-400">…</p>
+            ) : score != null ? (
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-zinc-950">{score}%</p>
+            ) : (
+              <p className="mt-0.5 text-sm text-zinc-500">No data</p>
+            )}
+            <p className="mt-0.5 text-[11px] text-zinc-500">
+              {improved > 0 || regressed > 0 ? `${improved} up · ${regressed} down` : "Steady"}
+            </p>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
-function TimelineCard({
+function RemediationRollupCard({
+  count,
+  events,
+  onExpand,
+}: {
+  count: number;
+  events: HistoryEvent[];
+  onExpand: () => void;
+}) {
+  const samples = events.map(remediationLabel).slice(0, 4);
+  const more = count - samples.length;
+
+  return (
+    <article className="border-l-2 border-emerald-400/80 py-1 pl-2.5">
+      <div className="rounded-md border border-zinc-200 bg-white px-2.5 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-zinc-900">
+            {count} remediation{count === 1 ? "" : "s"} verified
+          </p>
+          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">{count}</span>
+        </div>
+        {samples.length > 0 && (
+          <ul className="mt-1.5 space-y-0.5 text-[11px] text-zinc-600">
+            {samples.map((s) => (
+              <li key={s} className="truncate">
+                {s}
+              </li>
+            ))}
+            {more > 0 && <li className="text-zinc-400">+{more} more</li>}
+          </ul>
+        )}
+        <button type="button" onClick={onExpand} className="mt-1.5 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">
+          Show details
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function TimelineEventCompact({
   event,
   previous,
   onOpen,
@@ -57,33 +130,143 @@ function TimelineCard({
 }) {
   const pres = eventPresentation(event);
   const cause = causeSentence(event);
-  const impacts = impactItems(event);
   const baseline = event.type === "baseline_established";
+  const isResolved = event.type === "finding_resolved";
+  const infraCount = event.infrastructure_events_count ?? 0;
+
+  const accent =
+    baseline
+      ? "border-zinc-300"
+      : isResolved
+        ? "border-emerald-400/70"
+        : event.type === "compliance_regressed" || event.type === "finding_reopened"
+          ? "border-rose-400/60"
+          : "border-indigo-300/70";
+
+  const bg = baseline ? "bg-zinc-50/60" : isResolved ? "bg-white" : "bg-white";
 
   return (
-    <article className={`relative rounded-xl border px-4 py-3 pl-7 shadow-sm shadow-zinc-950/[0.02] ${pres.cardClass}`}>
-      <span className={`absolute left-3 top-4 h-2.5 w-2.5 rounded-full ring-3 ring-white ${pres.dotClass}`} />
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-zinc-500">
-        <div className="flex items-center gap-1.5">
-          <time className="font-semibold text-zinc-700">{scanShortDate(event.timestamp)}</time>
-          <span className="text-zinc-300">·</span>
-          <span>{eventTypeLabel(event.type)}</span>
+    <article className={`border-l-2 ${accent} py-1 pl-2.5`}>
+      <div className={`rounded-md border border-zinc-200 px-2.5 py-2 ${bg}`}>
+        <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-zinc-500">
+          <span className="font-semibold text-zinc-700">{eventTypeLabel(event.type)}</span>
+          <time>{scanShortDate(event.timestamp)}</time>
         </div>
-        <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 ring-1 ring-zinc-200/70">{event.framework}</span>
-      </div>
 
-      {baseline ? <h3 className="mt-1.5 text-base font-semibold tracking-tight text-zinc-950">{pres.headline}</h3> : <div className="mt-1.5"><ScoreDelta before={event.posture_before} after={event.posture_after} /></div>}
-      <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">{pres.subline}</p>
+        {baseline ? (
+          <p className="mt-0.5 text-xs font-medium text-zinc-900">{pres.headline}</p>
+        ) : (
+          <p className="mt-0.5 text-xs text-zinc-700">
+            {event.posture_before != null && event.posture_after != null && event.posture_before !== event.posture_after ? (
+              <>
+                <span className="tabular-nums text-zinc-500">{event.posture_before}%</span>
+                <span className="text-zinc-300"> → </span>
+                <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after}%</span>
+              </>
+            ) : (
+              <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after ?? "—"}%</span>
+            )}
+          </p>
+        )}
 
-      {cause && !baseline && <p className="mt-1.5 text-sm text-zinc-900"><span className="font-semibold">{cause.control}</span> <span className={cause.tone === "bad" ? "text-rose-600" : cause.tone === "good" ? "text-emerald-600" : "text-zinc-500"}>{cause.text}</span></p>}
-      {impacts.length > 0 && <div className="mt-2"><ImpactList items={impacts} size="sm" /></div>}
+        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">{pres.subline}</p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
-        <button type="button" onClick={onOpen} className="font-semibold text-indigo-700 hover:text-indigo-900">View evidence</button>
-        {previous && !baseline && <button type="button" onClick={onCompare} className="font-medium text-zinc-500 hover:text-zinc-900">Compare</button>}
-        {(event.infrastructure_events_count ?? 0) > 0 && <button type="button" onClick={onInfra} className="font-medium text-zinc-500 hover:text-zinc-900">{event.infrastructure_events_count} supporting event{event.infrastructure_events_count === 1 ? "" : "s"}</button>}
+        {cause && !baseline && (
+          <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-600">
+            <span className="font-medium text-zinc-800">{cause.control}</span> {cause.text}
+          </p>
+        )}
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px]">
+          <button type="button" onClick={onOpen} className="font-medium text-indigo-600 hover:text-indigo-800">
+            View evidence
+          </button>
+          {previous && !baseline && (
+            <button type="button" onClick={onCompare} className="text-zinc-500 hover:text-zinc-700">
+              Compare
+            </button>
+          )}
+          {infraCount > 0 && (
+            <button type="button" onClick={onInfra} className="text-zinc-400 hover:text-zinc-600">
+              Supporting ({infraCount})
+            </button>
+          )}
+        </div>
       </div>
     </article>
+  );
+}
+
+function HistoryTimeline({
+  dayGroups,
+  previousById,
+  expandedRollups,
+  setExpandedRollups,
+  onDrawer,
+}: {
+  dayGroups: ReturnType<typeof groupEventsByDay>;
+  previousById: Map<string, HistoryEvent | null>;
+  expandedRollups: Record<string, boolean>;
+  setExpandedRollups: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  onDrawer: (payload: {
+    event: HistoryEvent;
+    previous: HistoryEvent | null;
+    tab: "snapshot" | "compare";
+    infra: boolean;
+  }) => void;
+}) {
+  if (dayGroups.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Timeline</p>
+      <p className="mt-0.5 text-[11px] text-zinc-500">Latest movement, grouped by day.</p>
+      <div className="mt-2.5 space-y-3">
+        {dayGroups.map((group) => {
+          const remediations = group.events.filter((e) => e.type === "finding_resolved");
+          const others = group.events.filter((e) => e.type !== "finding_resolved");
+          const expanded = expandedRollups[group.day] ?? false;
+          const rollupRemediations = remediations.length >= 2 && !expanded;
+
+          return (
+            <div key={group.day}>
+              <h3 className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{group.label}</h3>
+              <div className="mt-1.5 space-y-1.5">
+                {rollupRemediations && (
+                  <RemediationRollupCard
+                    count={remediations.length}
+                    events={remediations}
+                    onExpand={() => setExpandedRollups((p) => ({ ...p, [group.day]: true }))}
+                  />
+                )}
+                {(rollupRemediations ? others : [...remediations, ...others]).map((evt) => {
+                  const previous = previousById.get(evt.scan_run_id) ?? null;
+                  return (
+                    <TimelineEventCompact
+                      key={evt.scan_run_id}
+                      event={evt}
+                      previous={previous}
+                      onOpen={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: false })}
+                      onCompare={() => onDrawer({ event: evt, previous, tab: "compare", infra: false })}
+                      onInfra={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: true })}
+                    />
+                  );
+                })}
+                {expanded && remediations.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedRollups((p) => ({ ...p, [group.day]: false }))}
+                    className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800"
+                  >
+                    Hide remediation details
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -91,8 +274,13 @@ export default function HistoryV2() {
   const [days, setDays] = useState(90);
   const [framework, setFramework] = useState("soc2");
   const [accountId, setAccountId] = useState("");
-  const [expanded, setExpanded] = useState(true);
-  const [drawer, setDrawer] = useState<{ event: HistoryEvent; previous: HistoryEvent | null; tab: "snapshot" | "compare"; infra: boolean } | null>(null);
+  const [expandedRollups, setExpandedRollups] = useState<Record<string, boolean>>({});
+  const [drawer, setDrawer] = useState<{
+    event: HistoryEvent;
+    previous: HistoryEvent | null;
+    tab: "snapshot" | "compare";
+    infra: boolean;
+  } | null>(null);
 
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
   const connected = accountsQ.data?.filter((a) => a.status === "connected") ?? [];
@@ -100,8 +288,16 @@ export default function HistoryV2() {
 
   const historyQ = useQuery<ComplianceHistoryResponse>({
     queryKey: ["history", effectiveAccountId, framework, days],
-    queryFn: () => api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=40`),
+    queryFn: () =>
+      api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=40`),
     enabled: !!effectiveAccountId,
+  });
+
+  const openFindingsQ = useQuery({
+    queryKey: ["findings", "open", "history-summary"],
+    queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500"),
+    enabled: !!effectiveAccountId,
+    staleTime: 60_000,
   });
 
   const events = historyQ.data?.events ?? [];
@@ -111,51 +307,152 @@ export default function HistoryV2() {
     return map;
   }, [events]);
 
+  const dayGroups = useMemo(() => groupEventsByDay(events), [events]);
+  const openFindingsCount = openFindingsQ.data?.items?.length ?? 0;
+  const resolvedInPeriod = sumFindingsResolvedInPeriod(events);
+  const onlyBaseline = events.length === 1 && events[0]?.type === "baseline_established";
+
   if (accountsQ.data && connected.length === 0) return <Navigate to="/accounts" replace />;
 
-  return (
-    <div className={`w-full max-w-5xl space-y-4 ${drawer ? "xl:pr-[26rem]" : ""}`}>
-      <header className="rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03]">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-100 bg-gradient-to-br from-zinc-50 via-white to-indigo-50/40 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Audit narrative</p>
-            <h1 className="mt-0.5 text-xl font-bold tracking-tight text-zinc-950">Posture history</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <select value={effectiveAccountId} onChange={(e) => setAccountId(e.target.value)} className="h-9 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-700 shadow-sm" aria-label="Account">
-              {connected.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-            </select>
-            <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/60 p-0.5">
-              {FRAMEWORKS.map((f) => <button key={f.value} type="button" onClick={() => setFramework(f.value)} className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${framework === f.value ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`}>{f.label}</button>)}
-            </div>
-            <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/60 p-0.5">
-              {PERIODS.map((p) => <button key={p} type="button" onClick={() => setDays(p)} className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${days === p ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"}`}>{p}d</button>)}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {historyQ.isLoading && <p className="rounded-2xl border border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-500">Loading compliance dashboard…</p>}
-      {historyQ.error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-700">Could not load timeline.</p>}
-
-      {!historyQ.isLoading && !historyQ.error && historyQ.data && <HistoryDashboard events={events} days={days} currentScore={historyQ.data.current_posture_score} currentSummary={historyQ.data.current_summary} periodSummary={historyQ.data.period_summary} scanCount={historyQ.data.scan_count} scanCadence={historyQ.data.scan_cadence} persistentGaps={historyQ.data.persistent_gaps} onSelectSnapshot={(id) => { const evt = events.find((e) => e.scan_run_id === id); if (evt) setDrawer({ event: evt, previous: previousById.get(id) ?? null, tab: "snapshot", infra: false }); }} />}
-
-      {!historyQ.isLoading && !historyQ.error && events.length === 0 && (historyQ.data?.scan_count ?? 0) === 0 && <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-12 text-sm text-zinc-500">No scans in this window. Run a scan after connecting your account.</p>}
-
-      {!historyQ.isLoading && events.length > 0 && (
-        <section className="rounded-xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03]">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div><h2 className="text-sm font-bold text-zinc-900">Audit timeline</h2><HistoryPeriodSummary summary={historyQ.data?.period_summary} /></div>
-            <button type="button" onClick={() => setExpanded((v) => !v)} className="rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100">{expanded ? "Collapse" : `Show ${events.length} event${events.length === 1 ? "" : "s"}`}</button>
-          </div>
-          {expanded ? <div className="grid gap-2.5 border-t border-zinc-100 bg-zinc-50/50 p-3">{events.map((evt) => {
-            const previous = previousById.get(evt.scan_run_id) ?? null;
-            return <TimelineCard key={evt.scan_run_id} event={evt} previous={previous} onOpen={() => setDrawer({ event: evt, previous, tab: "snapshot", infra: false })} onCompare={() => setDrawer({ event: evt, previous, tab: "compare", infra: false })} onInfra={() => setDrawer({ event: evt, previous, tab: "snapshot", infra: true })} />;
-          })}</div> : <div className="border-t border-zinc-100 px-4 py-3 text-sm text-zinc-500">Latest event: {scanShortDate(events[0].timestamp)} · {eventTypeLabel(events[0].type)}</div>}
-        </section>
-      )}
-
-      {drawer && <HistorySnapshotDrawer event={drawer.event} previousEvent={drawer.previous} accountId={effectiveAccountId} periodDays={days} initialTab={drawer.tab} expandInfrastructure={drawer.infra} onClose={() => setDrawer(null)} />}
+  const headerActions = (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <select
+        value={effectiveAccountId}
+        onChange={(e) => setAccountId(e.target.value)}
+        className="h-8 max-w-[11rem] truncate rounded-lg border border-zinc-200 bg-white px-2 text-xs font-semibold text-zinc-700"
+        aria-label="Account"
+      >
+        {connected.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.label}
+          </option>
+        ))}
+      </select>
+      <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/60 p-0.5" role="group" aria-label="Framework">
+        {FRAMEWORKS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setFramework(f.value)}
+            className={`rounded-md px-2 py-1 text-xs font-semibold transition ${
+              framework === f.value ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/60 p-0.5" role="group" aria-label="Period">
+        {PERIODS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setDays(p)}
+            className={`rounded-md px-2 py-1 text-xs font-semibold transition ${
+              days === p ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
+            }`}
+          >
+            {p}d
+          </button>
+        ))}
+      </div>
     </div>
+  );
+
+  return (
+    <>
+      <PageShell
+        eyebrow="SECURITY PROGRESS"
+        title="History"
+        description="Posture, findings, controls, and remediation movement over time."
+        actions={headerActions}
+        width="w-full"
+      >
+        {historyQ.isLoading && (
+          <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-500">Loading history…</p>
+        )}
+
+        {historyQ.isError && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-6 text-center text-sm text-amber-900">
+            History is temporarily unavailable. Try again in a moment.
+          </p>
+        )}
+
+        {!historyQ.isLoading && !historyQ.isError && historyQ.data && (
+          <>
+            <HistoryDashboard
+              events={events}
+              days={days}
+              currentScore={historyQ.data.current_posture_score}
+              currentSummary={historyQ.data.current_summary}
+              periodSummary={historyQ.data.period_summary}
+              scanCount={historyQ.data.scan_count}
+              scanCadence={historyQ.data.scan_cadence}
+              persistentGaps={historyQ.data.persistent_gaps}
+              openFindingsCount={openFindingsCount}
+              resolvedInPeriod={resolvedInPeriod}
+              onSelectSnapshot={(id) => {
+                const evt = events.find((e) => e.scan_run_id === id);
+                if (evt) {
+                  setDrawer({
+                    event: evt,
+                    previous: previousById.get(id) ?? null,
+                    tab: "snapshot",
+                    infra: false,
+                  });
+                }
+              }}
+              timeline={
+                onlyBaseline ? (
+                  <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
+                    <p className="text-xs font-medium text-zinc-800">Baseline recorded</p>
+                    <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
+                      History starts with your first completed scan. Remediations, exceptions, and control changes will appear here.
+                    </p>
+                  </div>
+                ) : events.length > 0 ? (
+                  <HistoryTimeline
+                    dayGroups={dayGroups}
+                    previousById={previousById}
+                    expandedRollups={expandedRollups}
+                    setExpandedRollups={setExpandedRollups}
+                    onDrawer={setDrawer}
+                  />
+                ) : (
+                  <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
+                    <p className="text-xs font-medium text-zinc-800">No events in this window</p>
+                    <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
+                      Run a scan or verify a remediation from Findings to populate this timeline.
+                    </p>
+                  </div>
+                )
+              }
+            />
+
+            <section className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Compliance by framework</p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                Based on the latest completed scan in this window.
+              </p>
+              <div className="mt-2">
+                <FrameworkMovementRow accountId={effectiveAccountId} days={days} />
+              </div>
+            </section>
+          </>
+        )}
+      </PageShell>
+
+      {drawer && (
+        <HistorySnapshotDrawer
+          event={drawer.event}
+          previousEvent={drawer.previous}
+          accountId={effectiveAccountId}
+          periodDays={days}
+          initialTab={drawer.tab}
+          expandInfrastructure={drawer.infra}
+          onClose={() => setDrawer(null)}
+        />
+      )}
+    </>
   );
 }

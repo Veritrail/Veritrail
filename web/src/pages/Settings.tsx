@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, formatApiError } from "../api";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
+import { PageCard, PageShell } from "../components/PageShell";
 import { settingsCardClass, Toggle } from "../components/SettingsUi";
 import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
@@ -117,19 +118,6 @@ function buildPayload(state: {
   };
 }
 
-function SectionShell({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: ReactNode }) {
-  return (
-    <section>
-      <div className="mb-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">{eyebrow}</p>
-        <h2 className="mt-0.5 text-sm font-bold tracking-tight text-zinc-950">{title}</h2>
-        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{description}</p>
-      </div>
-      {children}
-    </section>
-  );
-}
-
 function SettingRow({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -138,24 +126,6 @@ function SettingRow({ title, description, children }: { title: string; descripti
         <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{description}</p>
       </div>
       <div className="shrink-0">{children}</div>
-    </div>
-  );
-}
-
-function OverviewCard({ label, value, detail, tone = "neutral" }: { label: string; value: string | number; detail: string; tone?: "neutral" | "green" | "indigo" | "amber" }) {
-  const toneClass =
-    tone === "green"
-      ? "from-emerald-50 to-white ring-emerald-100"
-      : tone === "indigo"
-        ? "from-indigo-50 to-white ring-indigo-100"
-        : tone === "amber"
-          ? "from-amber-50 to-white ring-amber-100"
-          : "from-zinc-50 to-white ring-zinc-100";
-  return (
-    <div className={`rounded-2xl border border-zinc-200 bg-gradient-to-br ${toneClass} p-4 shadow-sm shadow-zinc-950/[0.03] ring-1`}>
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
-      <p className="mt-2 truncate text-xl font-bold tracking-tight text-zinc-950">{value}</p>
-      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500">{detail}</p>
     </div>
   );
 }
@@ -262,7 +232,7 @@ export default function Settings() {
     },
     onError: (err) => {
       setSaveStatus("error");
-      setSaveError((err as Error).message);
+      setSaveError(formatApiError(err));
     },
   });
 
@@ -303,7 +273,7 @@ export default function Settings() {
       setTimeout(() => setSlackTestState("idle"), 3000);
     } catch (e) {
       setSlackTestState("error");
-      setSlackTestError((e as Error).message);
+      setSlackTestError(formatApiError(e));
       setTimeout(() => setSlackTestState("idle"), 4000);
     }
   }
@@ -316,48 +286,77 @@ export default function Settings() {
   const deliveryPlaceholder = data?.account_email ?? "you@company.com";
   const vaultLabel = vaultStatus.data?.enabled ? "Enabled" : vaultStatus.data?.configured ? "Configured" : "Not configured";
 
+  const alertsOn = scanFailureEnabled || emailDigestEnabled;
+
   return (
-    <div className="w-full max-w-5xl space-y-5 pb-10">
-      <header className="rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03]">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-100 bg-gradient-to-br from-zinc-50 via-white to-indigo-50/30 px-4 py-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Workspace controls</p>
-            <h1 className="mt-0.5 text-xl font-bold tracking-tight text-zinc-950">Settings</h1>
-          </div>
-          <SaveIndicator status={saveStatus} error={saveError} />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+    <PageShell
+      eyebrow="Workspace controls"
+      title="Settings"
+      description="Scan cadence, alerts, detection scope, evidence records, and auditor-facing pages."
+      actions={<SaveIndicator status={saveStatus} error={saveError} />}
+      width="max-w-none"
+    >
+      <PageCard>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="rounded-lg bg-indigo-100 p-1.5 text-indigo-700">
-              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </span>
-            <div><span className="text-sm font-semibold text-zinc-800">{scanScheduleLabel}</span><span className="ml-1.5 text-xs text-zinc-400">{nextScan ? `Next scan ${nextScan}` : lastScan ? `Last scan ${lastScan}` : "No scan yet"}</span></div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-zinc-900">{scanScheduleLabel}</p>
+              <p className="truncate text-[11px] text-zinc-500">
+                {nextScan ? `Next scan ${nextScan}` : lastScan ? `Last scan ${lastScan}` : "No scan yet"}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-lg bg-emerald-100 p-1.5 text-emerald-700">
-              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
             </span>
-            <div><span className="text-sm font-semibold text-zinc-800">{BENCHMARK_CHECK_COUNT} checks</span><span className="ml-1.5 text-xs text-zinc-400">{enabledOptional}/{optionalTotal} optional enabled</span></div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-zinc-900">{BENCHMARK_CHECK_COUNT} benchmark checks</p>
+              <p className="truncate text-[11px] text-zinc-500">
+                {enabledOptional}/{optionalTotal} optional modules enabled
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`rounded-lg p-1.5 ${scanFailureEnabled ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-500"}`}>
-              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+            <span className={`rounded-lg p-1.5 ${alertsOn ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-600"}`}>
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+              </svg>
             </span>
-            <div><span className="text-sm font-semibold text-zinc-800">{scanFailureEnabled ? "Alerts on" : "Alerts off"}</span><span className="ml-1.5 text-xs text-zinc-400">{emailDigestEnabled ? "Digest enabled" : "Digest off"}</span></div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-zinc-900">{alertsOn ? "Delivery enabled" : "Delivery off"}</p>
+              <p className="truncate text-[11px] text-zinc-500">
+                {scanFailureEnabled ? "Scan failure email" : "No failure email"}
+                {emailDigestEnabled ? " · Weekly digest" : ""}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className={`rounded-lg p-1.5 ${vaultStatus.data?.enabled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+              </svg>
             </span>
-            <div><span className="text-sm font-semibold text-zinc-800">{vaultLabel}</span><span className="ml-1.5 text-xs text-zinc-400">{vaultStatus.data?.s3_uri ?? "Immutable archive"}</span></div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-zinc-900">{vaultLabel}</p>
+              <p className="truncate text-[11px] text-zinc-500">{vaultStatus.data?.enabled ? "Evidence vault active" : "Evidence vault not enabled"}</p>
+            </div>
           </div>
         </div>
-      </header>
+      </PageCard>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <div className="space-y-5">
-          <SectionShell eyebrow="Operations" title="Scan schedule" description="Keep evidence fresh without making this page feel like an airplane dashboard.">
-            <div className={settingsCardClass}>
+      <div className="grid gap-5 lg:grid-cols-12">
+        <div className="space-y-5 lg:col-span-7">
+          <PageCard title="Operations" description="Automated scans refresh findings and compliance evidence.">
+            <div className={settingsCardClass + " border-0 shadow-none rounded-none"}>
               <SettingRow title="Automated scans" description="Runs evidence collection on a schedule and refreshes findings/compliance."><Toggle checked={scanEnabled} onChange={setScanEnabled} /></SettingRow>
               {scanEnabled && (
                 <div className="grid gap-3 border-t border-zinc-100 px-4 py-3 sm:grid-cols-[1fr_10rem]">
@@ -383,89 +382,113 @@ export default function Settings() {
                 {!data?.scan_status.account_connected ? <span>Connect an AWS account to enable scheduled scans.</span> : <span>{lastScan ? <>Last scan: {lastScan}</> : "No scan completed yet."}{scanEnabled && nextScan && <>{" · "}Next: {nextScan}</>}</span>}
               </div>
             </div>
-          </SectionShell>
+          </PageCard>
 
-          <SectionShell eyebrow="Findings" title="AI review" description="Advisory verdicts in the finding drawer. Does not change compliance scores or apply fixes automatically.">
-            <div className={settingsCardClass}>
-              <SettingRow
-                title="AI finding review"
-                description="Show AI review in finding drawers and run triage after scans when the LLM is configured."
-              >
-                <Toggle checked={aiFindingReviewEnabled} onChange={setAiFindingReviewEnabled} />
-              </SettingRow>
-            </div>
-          </SectionShell>
-
-          <SectionShell eyebrow="Scope" title="Detection coverage" description="Benchmark checks are always active. Optional modules extend visibility beyond audit minimums.">
-            <Link to="/detection" className="group block rounded-xl border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/[0.02] ring-1 ring-indigo-500/[0.06] transition hover:border-indigo-200 hover:ring-indigo-500/10">
-              <div className="flex items-start justify-between gap-3">
-                <div><p className="text-sm font-bold text-zinc-950">Detection coverage</p><p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Manage benchmark mapping and optional operational checks.</p></div>
-                <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100">Subsystem</span>
+          <PageCard title="Scope" description="Benchmark checks are always on. Optional modules add visibility without changing pass/fail unless enabled.">
+            <Link to="/detection" className="group block p-4 transition hover:bg-zinc-50/80">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-zinc-950">Detection coverage</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">See what Vigil scans and what counts toward compliance.</p>
+                </div>
+                <span className="text-xs font-semibold text-indigo-600 group-hover:text-indigo-800">Manage →</span>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                <div className="rounded-lg bg-zinc-50 p-2.5 ring-1 ring-zinc-100"><p className="text-lg font-bold tabular-nums text-zinc-950">{BENCHMARK_CHECK_COUNT}</p><p className="text-xs font-medium text-zinc-500">Benchmark checks</p></div>
-                <div className="rounded-lg bg-zinc-50 p-2.5 ring-1 ring-zinc-100"><p className="text-lg font-bold tabular-nums text-zinc-950">{optionalTotal}</p><p className="text-xs font-medium text-zinc-500">Optional modules</p></div>
-                <div className="rounded-lg bg-indigo-50/70 p-2.5 ring-1 ring-indigo-100"><p className="text-lg font-bold tabular-nums text-indigo-700">{enabledOptional}</p><p className="text-xs font-medium text-indigo-700/70">Enabled</p></div>
+              <div className="mt-3 flex flex-wrap gap-4 text-xs text-zinc-600">
+                <span><strong className="font-semibold text-zinc-900">{BENCHMARK_CHECK_COUNT}</strong> benchmark</span>
+                <span><strong className="font-semibold text-zinc-900">{enabledOptional}</strong>/{optionalTotal} optional enabled</span>
               </div>
-              <p className="mt-3 text-xs font-semibold text-indigo-600 transition group-hover:text-indigo-800">Manage coverage →</p>
             </Link>
-          </SectionShell>
+          </PageCard>
+
+          <TrustCenterSettings />
         </div>
 
-        <div className="space-y-5">
-          <SectionShell eyebrow="Delivery" title="Alerts and reports" description="One delivery address, two jobs: failed-scan alerts and weekly posture summaries.">
-            <div className={settingsCardClass}>
+        <div className="space-y-5 lg:col-span-5">
+          <PageCard title="Delivery" description="Failed-scan alerts and weekly posture summaries share one delivery address.">
+            <div className={settingsCardClass + " border-0 shadow-none rounded-none"}>
               <SettingRow title="Scan failure email" description="Notify when a scan fails or loses AWS access."><Toggle checked={scanFailureEnabled} onChange={setScanFailureEnabled} /></SettingRow>
-              <SettingRow title="Weekly email digest" description="Scheduled findings summary every Monday at 9am UTC."><Toggle checked={emailDigestEnabled} onChange={setEmailDigestEnabled} /></SettingRow>
-              {(scanFailureEnabled || emailDigestEnabled) && <div className="border-t border-zinc-100 px-4 py-3"><TextField id="delivery-email" label="Delivery email" type="email" value={digestEmail} onChange={setDigestEmail} placeholder={deliveryPlaceholder} /></div>}
+              <SettingRow title="Weekly email digest" description="Findings summary every Monday at 9:00 UTC."><Toggle checked={emailDigestEnabled} onChange={setEmailDigestEnabled} /></SettingRow>
+              {(scanFailureEnabled || emailDigestEnabled) && (
+                <div className="border-t border-zinc-100 px-4 py-3">
+                  <TextField id="delivery-email" label="Delivery email" type="email" value={digestEmail} onChange={setDigestEmail} placeholder={deliveryPlaceholder} />
+                </div>
+              )}
             </div>
-          </SectionShell>
+          </PageCard>
 
-          <SectionShell eyebrow="Integrations" title="Slack delivery" description="Webhook delivery for reports and operational notifications.">
-            <div className={settingsCardClass}>
+          <PageCard title="Integrations" description="Slack webhook for operational notifications.">
+            <div className={settingsCardClass + " border-0 shadow-none rounded-none"}>
               <div className="flex items-center gap-3 border-b border-zinc-100 px-4 py-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4A154B]/10 text-[#4A154B] ring-1 ring-[#4A154B]/15"><span className="text-sm font-black">#</span></div>
-                <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-zinc-900">Slack</p><p className="text-xs text-zinc-500">Incoming webhook</p></div>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${slackConnected ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60" : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200/80"}`}>{slackConnected ? "Connected" : "Not connected"}</span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#4A154B]/10 text-[#4A154B] ring-1 ring-[#4A154B]/15">
+                  <span className="text-sm font-black">#</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-zinc-900">Slack</p>
+                  <p className="text-xs text-zinc-500">Incoming webhook</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${slackConnected ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60" : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200/80"}`}>
+                  {slackConnected ? "Connected" : "Not connected"}
+                </span>
               </div>
               <div className="space-y-2.5 px-4 py-3">
                 <TextField id="slack-webhook" label="Webhook URL" type="url" value={slackWebhookUrl} onChange={setSlackWebhookUrl} placeholder="https://hooks.slack.com/services/…" monospace />
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" onClick={sendSlackTest} disabled={slackTestState === "sending" || !slackWebhookUrl.trim()} className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 disabled:opacity-50">{slackTestState === "sending" ? "Sending…" : "Send test"}</button>
+                  <button type="button" onClick={sendSlackTest} disabled={slackTestState === "sending" || !slackWebhookUrl.trim()} className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 disabled:opacity-50">
+                    {slackTestState === "sending" ? "Sending…" : "Send test"}
+                  </button>
                   {slackTestState === "sent" && <span className="text-xs font-medium text-emerald-600">Delivered</span>}
-                  {slackTestState === "error" && <span className="text-xs text-red-500">{slackTestError}</span>}
+                  {slackTestState === "error" && <span className="text-xs text-red-600">{slackTestError}</span>}
                 </div>
               </div>
             </div>
-          </SectionShell>
+          </PageCard>
 
-          <SectionShell eyebrow="Records" title="Evidence vault" description="Immutable storage target for evidence packs.">
-            <div className={settingsCardClass}>
-              {vaultStatus.isLoading && <p className="px-4 py-3 text-xs text-zinc-400">Loading vault status…</p>}
+          <PageCard title="Records" description="Immutable archive for signed evidence packs.">
+            <div className="px-4 py-3 text-sm">
+              {vaultStatus.isLoading && <p className="text-xs text-zinc-400">Loading vault status…</p>}
               {vaultStatus.data && (
-                <div className="space-y-2.5 px-4 py-3 text-sm">
+                <div className="space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className={`text-sm font-semibold ${vaultStatus.data.enabled ? "text-emerald-700" : "text-amber-700"}`}>{vaultLabel}</span>
-                    {vaultStatus.data.enabled && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200/60">Object Lock</span>}
+                    {vaultStatus.data.enabled && (
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200/60">
+                        Object Lock
+                      </span>
+                    )}
                   </div>
-                  {vaultStatus.data.s3_uri && <p className="break-all rounded-lg bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-700 ring-1 ring-zinc-100">{vaultStatus.data.s3_uri}</p>}
-                  {vaultStatus.data.enabled && vaultStatus.data.retention_days != null && <p className="text-xs text-zinc-500">{vaultStatus.data.object_lock_mode} · {vaultStatus.data.retention_days} day retention · auditor mode: {vaultStatus.data.auditor_access_mode}</p>}
-                  {!vaultStatus.data.enabled ? (
-                    <p className="text-xs leading-relaxed text-zinc-500">Set <span className="font-mono text-zinc-700">EVIDENCE_VAULT_ENABLED</span> and <span className="font-mono text-zinc-700">EVIDENCE_VAULT_S3_URI</span> in the operator environment to activate immutable evidence storage.</p>
-                  ) : (
-                    <p className="text-xs leading-relaxed text-zinc-500">Evidence vault is active. Configuration is managed in the operator environment.</p>
+                  {vaultStatus.data.s3_uri && (
+                    <p className="break-all rounded-lg bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-700 ring-1 ring-zinc-100">{vaultStatus.data.s3_uri}</p>
                   )}
+                  {vaultStatus.data.enabled && vaultStatus.data.retention_days != null && (
+                    <p className="text-xs text-zinc-500">
+                      {vaultStatus.data.retention_days}-day retention
+                      {vaultStatus.data.object_lock_mode ? ` · ${vaultStatus.data.object_lock_mode}` : ""}
+                    </p>
+                  )}
+                  <p className="text-xs leading-relaxed text-zinc-500">
+                    {vaultStatus.data.enabled
+                      ? "Evidence packs can be written to your immutable vault. Contact your Vigil operator to change retention or access."
+                      : "Immutable evidence storage is not active for this workspace. Your operator can enable the evidence vault in deployment settings."}
+                  </p>
                 </div>
               )}
             </div>
-          </SectionShell>
+          </PageCard>
+
+          <AuditorManagement />
+
+          <PageCard title="Experimental" description="Optional features that do not change compliance scores.">
+            <div className={settingsCardClass + " border-0 shadow-none rounded-none"}>
+              <SettingRow
+                title="AI finding review"
+                description="Advisory summaries in finding drawers when an LLM is configured. Does not auto-remediate."
+              >
+                <Toggle checked={aiFindingReviewEnabled} onChange={setAiFindingReviewEnabled} />
+              </SettingRow>
+            </div>
+          </PageCard>
         </div>
       </div>
-
-      <div className="grid gap-8 xl:grid-cols-2">
-        <TrustCenterSettings />
-        <AuditorManagement />
-      </div>
-    </div>
+    </PageShell>
   );
 }

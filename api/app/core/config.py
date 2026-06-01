@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     APP_SECRET: str = "dev-secret"
     JWT_SECRET: str = "dev-jwt"
     JWT_ALG: str = "HS256"
+    AUTH_ACCESS_TOKEN_HOURS: int = 24
+    AUTH_REFRESH_REMEMBER_DAYS: int = 30
+    AUTH_REFRESH_SESSION_HOURS: int = 24
 
     DATABASE_URL: str = "postgresql+psycopg://hygiene:hygiene@db:5432/hygiene"
     REDIS_URL: str = "redis://redis:6379/0"

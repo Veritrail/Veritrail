@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { logout, token } from "./api";
+import { useEffect, useState } from "react";
+import { logout, restoreSession, token } from "./api";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
@@ -12,9 +12,32 @@ const navItem = ({ isActive }: { isActive: boolean }) =>
 
 export default function Layout() {
   const nav = useNavigate();
+  const [authReady, setAuthReady] = useState(false);
+
   useEffect(() => {
-    if (!token()) nav("/login");
+    let cancelled = false;
+    void (async () => {
+      if (token()) {
+        if (!cancelled) setAuthReady(true);
+        return;
+      }
+      const ok = await restoreSession();
+      if (cancelled) return;
+      if (!ok) nav("/login");
+      else setAuthReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [nav]);
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 text-sm text-zinc-500">
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">

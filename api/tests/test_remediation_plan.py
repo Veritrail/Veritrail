@@ -138,8 +138,85 @@ def test_iac_includes_ssm_remediation_panel():
     db.scalar.return_value = None
     db.scalars.return_value.all.return_value = []
     out = build_iac_remediation(db, f, f.org_id)
-    assert out["ssm_remediation"]["module_id"] == "security_groups"
-    assert out["ssm_remediation"]["module_enabled"] is True
+    ssm = out["ssm_remediation"]
+    assert ssm["module_id"] == "security_groups"
+    assert ssm["module_enabled"] is True
+    assert ssm["automation_provider"] == "vigil"
+    assert ssm["aws_document_name"] is None
+    assert ssm["runbook"]["document_name"] == "Vigil-RevokeSecurityGroupIngressExact"
+
+
+def test_iac_ssm_panel_s3_shows_aws_owned_metadata_execution_unchanged():
+    from unittest.mock import MagicMock
+
+    from app.services.iac_snippets import build_iac_remediation
+    from app.services.ssm_remediation_catalog import runbook_for_check
+
+    now = datetime.now(timezone.utc)
+    f = Finding(
+        id=uuid.uuid4(),
+        org_id=uuid.uuid4(),
+        account_id=uuid.uuid4(),
+        check_id="s3.bucket.public_access_not_blocked",
+        resource_arn="arn:aws:s3:::my-bucket",
+        title="Public bucket",
+        severity="high",
+        risk_score=70,
+        status="open",
+        evidence={"bucket_name": "my-bucket"},
+        first_seen=now,
+        last_seen=now,
+    )
+    db = MagicMock()
+    acc = MagicMock()
+    acc.enable_remediation_s3 = True
+    acc.remediation_s3_deployed = True
+    db.get.return_value = acc
+    db.scalar.return_value = None
+    db.scalars.return_value.all.return_value = []
+    out = build_iac_remediation(db, f, f.org_id)
+    ssm = out["ssm_remediation"]
+    assert ssm["automation_provider"] == "aws-owned"
+    assert ssm["aws_document_name"] == "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
+    assert ssm["automation_confidence"] == "high"
+    exec_rb = runbook_for_check("s3.bucket.public_access_not_blocked")
+    assert exec_rb is not None
+    assert exec_rb.owner == "aws"
+    assert ssm["runbook"]["document_name"] == "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
+    assert ssm["requires_vigil_document"] is False
+
+
+def test_iac_ssm_panel_iam_key_shows_vigil_metadata():
+    from unittest.mock import MagicMock
+
+    from app.services.iac_snippets import build_iac_remediation
+
+    now = datetime.now(timezone.utc)
+    f = Finding(
+        id=uuid.uuid4(),
+        org_id=uuid.uuid4(),
+        account_id=uuid.uuid4(),
+        check_id="iam.access_key.unused_90d",
+        resource_arn="arn:aws:iam::123456789012:user/alice#AKIAEXAMPLE",
+        title="Unused key",
+        severity="high",
+        risk_score=80,
+        status="open",
+        evidence={"user_arn": "arn:aws:iam::123456789012:user/alice", "key_id": "AKIAEXAMPLE"},
+        first_seen=now,
+        last_seen=now,
+    )
+    db = MagicMock()
+    acc = MagicMock()
+    acc.enable_remediation_iam_keys = True
+    acc.remediation_iam_keys_deployed = True
+    db.get.return_value = acc
+    db.scalar.return_value = None
+    db.scalars.return_value.all.return_value = []
+    out = build_iac_remediation(db, f, f.org_id)
+    ssm = out["ssm_remediation"]
+    assert ssm["automation_provider"] == "vigil"
+    assert ssm["runbook"]["document_name"] == "Vigil-DeactivateIamAccessKey"
 
 
 def test_access_key_unused_plan_enables_automation():
@@ -175,10 +252,10 @@ def test_access_key_unused_plan_enables_automation():
 def test_resolve_automation_region_vigil_custom_uses_home_region():
     from app.services.remediation_plan import resolve_automation_region
 
-    # S3 PAB is now a Vigil custom doc — uses home region
+    # S3 uses AWS-owned runbook in the resource region
     assert (
         resolve_automation_region("s3.bucket.public_access_not_blocked", "eu-west-1")
-        == "us-east-1"
+        == "eu-west-1"
     )
     # SSM parameter — Vigil custom, uses home
     assert (
