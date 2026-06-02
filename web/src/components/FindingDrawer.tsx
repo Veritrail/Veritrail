@@ -374,7 +374,7 @@ function SelectedResourceInspector({
       )}
 
       <ResourceGroup title="Finding timeline">
-        <PostureMetricsRow variant="compact">
+        <PostureMetricsRow>
           <PostureMetricCell
             label="Risk score"
             value={finding.risk_score}
