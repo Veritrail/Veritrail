@@ -50,20 +50,22 @@ function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
   if (total === 0) return null;
 
   return (
-    <div className="rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-[0_16px_45px_-34px_rgba(15,23,42,0.35)]">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Control status</p>
-          <p className="mt-1 text-xs text-zinc-500">Pass/fail state for mapped controls.</p>
+    <div className="flex min-h-[12rem] flex-col justify-between rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-[0_16px_45px_-34px_rgba(15,23,42,0.35)]">
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Control status</p>
+            <p className="mt-1 text-xs text-zinc-500">Pass/fail state for mapped controls.</p>
+          </div>
+          <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
+            {summary.controls_failed} failing
+          </span>
         </div>
-        <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700">
-          {summary.controls_failed} failing
-        </span>
-      </div>
-      <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/70">
-        {summary.controls_passed > 0 && <div className="bg-emerald-500" style={{ width: `${(summary.controls_passed / total) * 100}%` }} />}
-        {summary.controls_failed > 0 && <div className="bg-rose-500" style={{ width: `${(summary.controls_failed / total) * 100}%` }} />}
-        {summary.controls_no_data > 0 && <div className="bg-zinc-300" style={{ width: `${(summary.controls_no_data / total) * 100}%` }} />}
+        <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-zinc-100 ring-1 ring-zinc-200/70">
+          {summary.controls_passed > 0 && <div className="bg-emerald-500" style={{ width: `${(summary.controls_passed / total) * 100}%` }} />}
+          {summary.controls_failed > 0 && <div className="bg-rose-500" style={{ width: `${(summary.controls_failed / total) * 100}%` }} />}
+          {summary.controls_no_data > 0 && <div className="bg-zinc-300" style={{ width: `${(summary.controls_no_data / total) * 100}%` }} />}
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
         <span><span className="font-semibold tabular-nums text-emerald-700">{summary.controls_passed}</span> passing</span>
@@ -76,7 +78,7 @@ function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
 
 function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
   return (
-    <div className="rounded-3xl border border-rose-100 bg-gradient-to-br from-white via-white to-rose-50/70 p-5 shadow-[0_16px_45px_-34px_rgba(244,63,94,0.45)]">
+    <div className="flex min-h-[22rem] flex-col rounded-3xl border border-rose-100 bg-gradient-to-br from-white via-white to-rose-50/70 p-5 shadow-[0_16px_45px_-34px_rgba(244,63,94,0.45)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-400">Still open</p>
@@ -87,7 +89,7 @@ function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
       {gaps.length === 0 ? (
         <p className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">No failing controls with open findings.</p>
       ) : (
-        <ul className="mt-5 space-y-3">
+        <ul className="mt-5 flex-1 space-y-3">
           {gaps.slice(0, 4).map((g, index) => (
             <li key={g.control_id} className="flex items-center gap-3 rounded-2xl bg-white/85 px-3 py-3 ring-1 ring-zinc-200/70">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-xs font-bold tabular-nums text-rose-600">
@@ -178,8 +180,8 @@ export function HistoryDashboard({
       <ProgressHero resolved={resolved} improved={improved} regressed={regressed} currentScore={currentScore} />
       <MetricStrip open={open} resolved={resolved} scans={scans} currentScore={currentScore} improved={improved} regressed={regressed} />
 
-      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_25rem] 2xl:items-start">
-        <section className="relative overflow-hidden rounded-[1.75rem] border border-zinc-200/80 bg-white p-5 shadow-[0_20px_70px_-45px_rgba(15,23,42,0.45)]">
+      <div className="grid items-stretch gap-5 2xl:grid-cols-[minmax(0,1fr)_25rem]">
+        <section className="relative h-full overflow-hidden rounded-[1.75rem] border border-zinc-200/80 bg-white p-5 shadow-[0_20px_70px_-45px_rgba(15,23,42,0.45)]">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-indigo-500 to-rose-400" />
           <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-4">
             <div>
@@ -192,7 +194,7 @@ export function HistoryDashboard({
           <div className="mt-4">{timeline}</div>
         </section>
 
-        <aside className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-1">
+        <aside className="grid h-full gap-5 lg:grid-cols-2 2xl:grid-cols-1 2xl:grid-rows-[minmax(0,1fr)_auto]">
           <NeedsAttentionCompact gaps={persistentGaps} />
           {currentSummary && <ControlStatusCompact summary={currentSummary} />}
         </aside>
