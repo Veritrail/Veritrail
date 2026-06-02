@@ -91,6 +91,7 @@ export function HistoryDashboard({
   currentSummary,
   periodSummary,
   scanCount,
+  scanCadence,
   persistentGaps = [],
   openFindingsCount,
   resolvedInPeriod,
@@ -102,6 +103,7 @@ export function HistoryDashboard({
   currentSummary?: CurrentSummary | null;
   periodSummary?: PeriodSummary;
   scanCount?: number;
+  scanCadence?: unknown;
   persistentGaps?: PersistentGap[];
   openFindingsCount?: number;
   resolvedInPeriod?: number;
@@ -113,6 +115,7 @@ export function HistoryDashboard({
   const resolved = resolvedInPeriod ?? 0;
   const scans = scanCount ?? 0;
   const open = openFindingsCount ?? 0;
+  void scanCadence;
 
   return (
     <div className="space-y-4">

@@ -862,12 +862,12 @@ type FrameworkStats = {
 
 function useFrameworkStats(framework: string, accountId: string | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: ["controls", framework, accountId],
+    queryKey: ["controls-framework-stats", framework, accountId],
     queryFn: () =>
       api<ControlRow[]>(
         `/v1/controls?framework=${framework}${accountId ? `&account_id=${accountId}` : ""}`
       ),
-    enabled,
+    enabled: enabled && !!accountId,
     select: (rows): FrameworkStats => {
       const total = rows.length;
       const passed = rows.filter((r) => r.status === "pass").length;
@@ -914,7 +914,7 @@ function FrameworkNav({
       >
         {FRAMEWORKS.map((fw) => {
           const isActive = selectedId === fw.id;
-          const tabStats = statsById[fw.id];
+          const tabStats = isActive ? currentStats : statsById[fw.id];
           const tabPct = tabStats?.passRate;
           return (
             <button
