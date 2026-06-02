@@ -4,7 +4,8 @@ import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
-import { IaCRemediationSection, useRemediationExecution } from "./IaCRemediationSection";
+import { IaCRemediationSection } from "./IaCRemediationSection";
+import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import {
   drawerBody,
   drawerFieldLabel,
