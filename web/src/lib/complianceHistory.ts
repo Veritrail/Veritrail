@@ -67,12 +67,14 @@ export interface PeriodSummary {
   controls_improved: number;
   remediation_events?: number;
   evidence_snapshots: number;
+  findings_resolved: number;
 }
 
 export interface CurrentSummary {
   controls_passed: number;
   controls_failed: number;
   controls_no_data: number;
+  open_findings_count?: number;
 }
 
 export interface ScanCadenceDay {
