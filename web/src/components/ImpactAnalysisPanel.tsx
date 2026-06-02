@@ -22,7 +22,7 @@ export function ImpactAnalysisEmpty({ onRun }: { onRun: () => void }) {
           </p>
         </div>
         <button type="button" onClick={onRun} className="impact-analyse-button">
-          Run analysis
+          Scan
         </button>
       </div>
     </div>
