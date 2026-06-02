@@ -163,14 +163,14 @@ export function HistoryDashboard({
 
       <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_25rem]">
         <section className="relative overflow-hidden rounded-[1.75rem] border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-zinc-200" />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-indigo-500 to-rose-400" />
           <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Activity timeline</p>
               <h3 className="mt-1 text-lg font-semibold tracking-tight text-zinc-950">What changed</h3>
               <p className="mt-1 text-xs text-zinc-500">Scans, remediations, and control movement.</p>
             </div>
-            {resolved > 0 && <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">{resolved} verified</span>}
+            {resolved > 0 && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">{resolved} verified</span>}
           </div>
           <div className="mt-4">{timeline}</div>
         </section>
