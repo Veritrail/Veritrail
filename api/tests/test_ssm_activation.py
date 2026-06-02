@@ -84,12 +84,13 @@ def test_s3_runbook_is_aws_owned():
     assert rb.parameter_mode == "aws_s3_bucket_pab"
 
 
-def test_runbook_payload_includes_public_source_url():
+def test_runbook_payload_includes_ssm_console_source_url():
     rb = runbook_for_check("ec2.security_group.unrestricted_ssh")
     assert rb is not None
-    payload = runbook_payload(rb)
-    assert payload["source_url"] == runbook_source_url(rb)
-    assert payload["source_url"].endswith("vigil-remediation-ssm.yaml")
+    payload = runbook_payload(rb, automation_region="us-east-1")
+    assert payload["source_url"] == runbook_source_url(rb, automation_region="us-east-1")
+    assert "console.aws.amazon.com/systems-manager/documents" in payload["source_url"]
+    assert "Vigil-RevokeSecurityGroupIngressExact" in payload["source_url"]
 
 
 def test_aws_runbook_source_url_is_docs():

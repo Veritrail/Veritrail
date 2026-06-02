@@ -580,8 +580,10 @@ export default function Findings() {
     startRecheck,
     applyRecheckResult,
     failRecheck,
+    reportScanFailure,
     clearDrawerVerifyFlash,
   } = useRecheckNotifications();
+  const lastScanFailureKeyRef = useRef<string>("");
   const [searchTags, setSearchTags] = useState<string[]>(() => {
     const raw = searchParams.get("checks");
     return raw ? raw.split(",").filter(Boolean) : [];
@@ -625,6 +627,20 @@ export default function Findings() {
   } = useTriggeredScan(connectedId, {
     onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }),
   });
+
+  useEffect(() => {
+    if (!(scanStatus === "error" && scanRun.data?.error)) return;
+    const failureKey = `${connectedId ?? "unknown"}:${scanRun.data.failed_at ?? ""}:${scanRun.data.error_type ?? ""}:${scanRun.data.error}`;
+    if (lastScanFailureKeyRef.current === failureKey) return;
+    lastScanFailureKeyRef.current = failureKey;
+    reportScanFailure({
+      accountId: connectedId ?? null,
+      message: scanRun.data.error,
+      failedAt: scanRun.data.failed_at ?? null,
+      errorType: scanRun.data.error_type ?? null,
+      step: null,
+    });
+  }, [connectedId, scanRun.data, scanStatus, reportScanFailure]);
 
   useEffect(() => {
     try {
@@ -903,20 +919,6 @@ export default function Findings() {
             progressStep={scanProgress.progressStep}
             progressTotal={scanProgress.progressTotal}
           />
-        </div>
-      )}
-
-      {scanStatus === "error" && scanRun.data?.error && (
-        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          <div>
-            <span className="font-semibold">Last scan failed</span>
-            {scanRun.data.failed_at && (
-              <> at step <code className="rounded bg-red-100 px-1 py-0.5 font-mono text-xs">{scanRun.data.failed_at}</code></>
-            )}
-            {scanRun.data.error_type && <> ({scanRun.data.error_type})</>}
-            :
-          </div>
-          <div className="mt-1 line-clamp-3 break-words text-xs text-red-700/90">{scanRun.data.error}</div>
         </div>
       )}
 

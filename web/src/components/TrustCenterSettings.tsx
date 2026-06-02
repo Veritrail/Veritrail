@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, BASE } from "../api";
+import { api } from "../api";
+import { trustCenterPublicUrl } from "../lib/appOrigin";
 import { settingsCardClass, Toggle } from "./SettingsUi";
 
 type TrustCenterSettings = {
@@ -97,7 +98,7 @@ export function TrustCenterSettings() {
                   className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
                 />
                 <p className="mt-1 text-[11px] text-zinc-400">
-                  {slug ? `${BASE}/trust/${slug}` : "e.g. your-company → /trust/your-company"}
+                  {slug ? trustCenterPublicUrl(slug) : "e.g. your-company → /trust/your-company"}
                 </p>
               </div>
 

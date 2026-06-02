@@ -862,7 +862,10 @@ type FrameworkStats = {
 
 function useFrameworkStats(framework: string, accountId: string | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: ["controls-framework-stats", framework, accountId],
+    // Share the ["controls", ...] cache key (same endpoint) so this is covered by every
+    // existing ["controls"] invalidation. A dedicated key here was never invalidated after
+    // scans/rechecks, so the tab percentages went stale until a hard refresh.
+    queryKey: ["controls", framework, accountId],
     queryFn: () =>
       api<ControlRow[]>(
         `/v1/controls?framework=${framework}${accountId ? `&account_id=${accountId}` : ""}`

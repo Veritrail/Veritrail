@@ -9,8 +9,10 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.security import current_principal, issue_auditor_token
+from app.services.auditor_invite_email import send_auditor_invite_email
 from app.models.auditor import AuditorAccess, AuditActivityLog
 from app.models.org import Org
 
@@ -50,6 +52,11 @@ class AuditorAccessOut(BaseModel):
     last_accessed_at: str | None
 
 
+class AuditorInviteOut(AuditorAccessOut):
+    email_sent: bool
+    verify_url: str
+
+
 def _to_out(a: AuditorAccess) -> AuditorAccessOut:
     return AuditorAccessOut(
         id=str(a.id),
@@ -63,9 +70,10 @@ def _to_out(a: AuditorAccess) -> AuditorAccessOut:
     )
 
 
-@router.post("/invite", response_model=AuditorAccessOut)
+@router.post("/invite", response_model=AuditorInviteOut)
 def invite_auditor(body: AuditorInviteIn, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
+    settings = get_settings()
 
     access_token = uuid.uuid4().hex + uuid.uuid4().hex  # 64-char hex token
     expires_at = datetime.now(timezone.utc) + timedelta(days=body.expiry_days)
@@ -82,7 +90,18 @@ def invite_auditor(body: AuditorInviteIn, p=Depends(current_principal), db: Sess
     db.add(grant)
     db.commit()
     db.refresh(grant)
-    return _to_out(grant)
+
+    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/auditor/verify/{access_token}"
+    email_sent = send_auditor_invite_email(
+        to=body.email,
+        org_name=org.name or "Your organization",
+        auditor_name=body.name,
+        verify_url=verify_url,
+        expires_at=expires_at,
+    )
+
+    base = _to_out(grant)
+    return AuditorInviteOut(**base.model_dump(), email_sent=email_sent, verify_url=verify_url)
 
 
 @router.get("/list", response_model=list[AuditorAccessOut])

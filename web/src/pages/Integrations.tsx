@@ -8,9 +8,13 @@ import { useAccountScanRun } from "../hooks/useAccountScanRun";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import {
   AwsMark,
+  AzureMark,
   formatSync,
+  GcpMark,
   GitHubMark,
   GitLabMark,
+  OktaMark,
+  PagerDutyMark,
   SlackMark,
   Spinner,
 } from "../components/IntegrationsUi";
@@ -56,11 +60,78 @@ type IntegrationCard = {
   healthLabel: string;
 };
 
+type PlannedIntegration = {
+  name: string;
+  valueProp: string;
+  icon: React.ReactNode;
+  iconBg: string;
+};
+
+const PLANNED_INTEGRATIONS: PlannedIntegration[] = [
+  {
+    name: "Google Cloud",
+    valueProp: "GCP posture, IAM, and storage evidence for multi-cloud compliance.",
+    icon: <GcpMark className="h-4 w-4" />,
+    iconBg: "bg-[#4285F4]",
+  },
+  {
+    name: "Microsoft Azure",
+    valueProp: "Azure RBAC and resource posture for enterprise audit programs.",
+    icon: <AzureMark className="h-4 w-4" />,
+    iconBg: "bg-[#0078D4]",
+  },
+  {
+    name: "Okta",
+    valueProp: "Identity and SSO policy evidence alongside cloud access reviews.",
+    icon: <OktaMark className="h-4 w-4" />,
+    iconBg: "bg-[#007DC1]",
+  },
+  {
+    name: "PagerDuty",
+    valueProp: "Incident routing and on-call evidence for operational controls.",
+    icon: <PagerDutyMark className="h-4 w-4" />,
+    iconBg: "bg-[#06AC38]",
+  },
+];
+
 function syncHealth(lastAt: string | null): { label: string; tone: Tone } {
   if (!lastAt) return { label: "Pending", tone: "idle" };
   const age = Date.now() - new Date(lastAt).getTime();
   if (age > 7 * 24 * 60 * 60 * 1000) return { label: "Stale", tone: "warn" };
   return { label: "Healthy", tone: "ok" };
+}
+
+function integrationCta(connected: boolean): string {
+  return connected ? "Manage" : "Connect";
+}
+
+function integrationStatus(card: IntegrationCard): { label: string; tone: Tone } {
+  if (card.loading) return { label: "Loading", tone: "idle" };
+  if (card.syncing) return { label: "Syncing", tone: "sync" };
+  if (card.connected) return { label: "Connected", tone: "ok" };
+  return { label: "Not connected", tone: "idle" };
+}
+
+function CardTitleRow({
+  name,
+  status,
+  suffix,
+  size = "lg",
+}: {
+  name: string;
+  status: { label: string; tone: Tone };
+  suffix?: React.ReactNode;
+  size?: "lg" | "sm";
+}) {
+  const Title = size === "lg" ? "h2" : "h3";
+  const titleCls = size === "lg" ? "text-base font-bold text-zinc-950" : "text-sm font-bold text-zinc-950";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Title className={titleCls}>{name}</Title>
+      <StatusPill label={status.label} tone={status.tone} />
+      {suffix}
+    </div>
+  );
 }
 
 function StatusPill({ label, tone }: { label: string; tone: Tone }) {
@@ -83,27 +154,26 @@ function StatusPill({ label, tone }: { label: string; tone: Tone }) {
 }
 
 function HealthRows({ card }: { card: IntegrationCard }) {
+  const rows: { label: string; value: string }[] = [
+    { label: 'Last collection', value: card.lastSync },
+    { label: 'Sync', value: card.healthLabel },
+    { label: 'Permissions', value: card.permissionsLabel },
+  ];
   return (
-    <div className="mt-2 space-y-0.5 text-[11px]">
-      <div className="flex justify-between gap-2">
-        <span className="text-zinc-500">Last collection</span>
-        <span className="font-medium text-zinc-800">{card.lastSync}</span>
-      </div>
-      <div className="flex justify-between gap-2">
-        <span className="text-zinc-500">Sync</span>
-        <span className="font-medium text-zinc-800">{card.healthLabel}</span>
-      </div>
-      <div className="flex justify-between gap-2">
-        <span className="text-zinc-500">Permissions</span>
-        <span className="truncate font-medium text-zinc-800">{card.permissionsLabel}</span>
-      </div>
+    <div className="mt-3 space-y-1 border-t border-zinc-100 pt-3 text-[11px] leading-snug">
+      {rows.map(({ label, value }) => (
+        <p key={label}>
+          <span className="text-zinc-500">{label}:</span>{' '}
+          <span className="font-medium text-zinc-800">{value}</span>
+        </p>
+      ))}
     </div>
   );
 }
 
 function EvidenceChips({ types }: { types: string[] }) {
   return (
-    <div className="mt-2 flex flex-wrap gap-1">
+    <div className="mt-3 flex flex-wrap gap-1">
       {types.map((t) => (
         <span key={t} className="rounded border border-zinc-200/80 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
           {t}
@@ -113,66 +183,104 @@ function EvidenceChips({ types }: { types: string[] }) {
   );
 }
 
-function AwsPrimaryCard({ card }: { card: IntegrationCard }) {
-  const statusLabel = card.loading ? "Loading" : card.syncing ? "Syncing" : card.connected ? "Connected" : "Not connected";
-  const statusTone: Tone = card.syncing ? "sync" : card.connected ? "ok" : "idle";
-
+function IntegrationAction({ href, label }: { href: string; label: string }) {
   return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="flex min-w-0 flex-1 gap-3">
-          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white ${card.iconBg}`}>
-            {card.icon}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-bold text-zinc-950">{card.name}</h2>
-              <StatusPill label={statusLabel} tone={statusTone} />
-              <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Primary source</span>
-            </div>
-            <p className="mt-1 text-sm text-zinc-600">{card.valueProp}</p>
-            <HealthRows card={card} />
-            <EvidenceChips types={card.evidenceTypes} />
-          </div>
-        </div>
-        <Link
-          to={card.href}
-          className="inline-flex shrink-0 items-center justify-center self-start rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 sm:mt-1"
-        >
-          {card.cta}
-        </Link>
-      </div>
-    </article>
+    <Link
+      to={href}
+      className="inline-flex items-center rounded-md px-2.5 py-1.5 text-xs font-semibold text-zinc-600 ring-1 ring-inset ring-zinc-200/90 transition hover:bg-zinc-50 hover:text-zinc-900"
+    >
+      {label}
+    </Link>
   );
 }
 
-function SecondaryIntegrationCard({ card }: { card: IntegrationCard }) {
-  const statusLabel = card.loading ? "Loading" : card.syncing ? "Syncing" : card.connected ? "Connected" : "Not connected";
-  const statusTone: Tone = card.syncing ? "sync" : card.connected ? "ok" : "idle";
+function IntegrationCardFooter({
+  href,
+  label,
+  className = "",
+}: {
+  href: string;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div className={`mt-3 border-t border-zinc-100 pt-2.5 ${className}`}>
+      <IntegrationAction href={href} label={label} />
+    </div>
+  );
+}
+
+function IntegrationCard({ card, primary = false }: { card: IntegrationCard; primary?: boolean }) {
+  const status = integrationStatus(card);
 
   return (
-    <article className="flex h-full flex-col rounded-lg border border-zinc-200 bg-white p-3.5">
-      <div className="flex items-start gap-2.5">
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white ${card.iconBg}`}>
+    <article
+      className={`flex h-full flex-col rounded-lg border border-zinc-200 bg-white ${primary ? "p-4 sm:p-5" : "p-4"}`}
+    >
+      <div className={`flex items-start ${primary ? "gap-3 sm:gap-4" : "gap-3"}`}>
+        <span
+          className={`flex shrink-0 items-center justify-center text-white ${card.iconBg} ${
+            primary ? "h-11 w-11 rounded-lg" : "h-8 w-8 rounded-md"
+          }`}
+        >
           {card.icon}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-sm font-bold text-zinc-950">{card.name}</h3>
-            <StatusPill label={statusLabel} tone={statusTone} />
-          </div>
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-600">{card.valueProp}</p>
+          <CardTitleRow
+            name={card.name}
+            status={status}
+            size={primary ? "lg" : "sm"}
+            suffix={
+              primary ? (
+                <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Primary source</span>
+              ) : undefined
+            }
+          />
+          <p
+            className={
+              primary
+                ? "mt-1 text-sm text-zinc-600"
+                : "mt-1 line-clamp-2 text-[11px] leading-snug text-zinc-600"
+            }
+          >
+            {card.valueProp}
+          </p>
         </div>
       </div>
       <HealthRows card={card} />
       <EvidenceChips types={card.evidenceTypes} />
-      <div className="mt-3 border-t border-zinc-100 pt-2.5">
-        <Link
-          to={card.href}
-          className="inline-flex rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+      <IntegrationCardFooter href={card.href} label={card.cta} className="mt-auto" />
+    </article>
+  );
+}
+
+function PlannedIntegrationCard({ item }: { item: PlannedIntegration }) {
+  return (
+    <article
+      aria-label={`${item.name} — coming soon`}
+      className="flex h-full flex-col rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white opacity-40 grayscale ${item.iconBg}`}
         >
-          {card.cta}
-        </Link>
+          {item.icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-bold text-zinc-400">{item.name}</h3>
+            <span className="inline-flex shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-500 ring-1 ring-zinc-200">
+              Planned
+            </span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-zinc-400">{item.valueProp}</p>
+        </div>
+      </div>
+      <p className="mt-3 border-t border-zinc-200/80 pt-3 text-xs font-medium text-zinc-400">Coming soon!</p>
+      <div className="mt-auto border-t border-zinc-200/80 pt-2.5">
+        <span className="inline-flex cursor-not-allowed rounded-md px-2.5 py-1.5 text-xs font-semibold text-zinc-400 ring-1 ring-inset ring-zinc-200/70">
+          Connect
+        </span>
       </div>
     </article>
   );
@@ -211,11 +319,11 @@ function IntegrationsContent() {
 
   const awsCard: IntegrationCard = {
     name: "AWS",
-    valueProp: "Core cloud evidence for posture, controls, and automated remediation.",
+    valueProp: "Continuous cloud compliance monitoring—posture scans, controls, and audit-ready evidence.",
     icon: <AwsMark className="h-6 w-6" />,
     iconBg: "bg-[#232F3E]",
     href: "/accounts",
-    cta: awsAccount?.status === "connected" ? "Manage AWS" : "Connect AWS",
+    cta: integrationCta(awsAccount?.status === "connected"),
     connected: awsAccount?.status === "connected",
     syncing: awsScanRunning,
     loading: accounts.isLoading,
@@ -232,7 +340,7 @@ function IntegrationsContent() {
       icon: <GitHubMark className="h-4 w-4" />,
       iconBg: "bg-zinc-950",
       href: "/integrations/github",
-      cta: github.data ? "Manage" : "Connect",
+      cta: integrationCta(!!github.data),
       connected: !!github.data,
       syncing: githubSync.isSyncing,
       loading: github.isLoading,
@@ -247,7 +355,7 @@ function IntegrationsContent() {
       icon: <GitLabMark className="h-4 w-4" />,
       iconBg: "bg-[#e24329]",
       href: "/integrations/gitlab",
-      cta: gitlab.data ? "Manage" : "Connect",
+      cta: integrationCta(!!gitlab.data),
       connected: !!gitlab.data,
       syncing: gitlabSync.isSyncing,
       loading: gitlab.isLoading,
@@ -262,7 +370,7 @@ function IntegrationsContent() {
       icon: <SlackMark className="h-3.5 w-3.5" />,
       iconBg: "bg-[#4A154B]",
       href: "/settings",
-      cta: slackConnected ? "Manage" : "Configure",
+      cta: integrationCta(slackConnected),
       connected: slackConnected,
       loading: settings.isLoading,
       evidenceTypes: ["Digest", "Alerts"],
@@ -271,8 +379,6 @@ function IntegrationsContent() {
       permissionsLabel: slackConnected ? "Webhook configured" : "Not configured",
     },
   ];
-
-  const planned = ["Google Cloud", "Microsoft Azure", "Okta", "PagerDuty"];
 
   return (
     <PageShell
@@ -299,18 +405,23 @@ function IntegrationsContent() {
         </div>
       )}
 
-      <AwsPrimaryCard card={awsCard} />
+      <IntegrationCard card={awsCard} primary />
 
       <div className="grid gap-3 sm:grid-cols-2">
         {secondary.map((card) => (
-          <SecondaryIntegrationCard key={card.name} card={card} />
+          <IntegrationCard key={card.name} card={card} />
         ))}
       </div>
 
-      <p className="border-t border-dashed border-zinc-200 pt-3 text-xs text-zinc-500">
-        <span className="font-semibold text-zinc-400">Planned: </span>
-        {planned.join(", ")}
-      </p>
+      <section className="border-t border-dashed border-zinc-200 pt-4">
+        <h2 className="text-[11px] font-bold uppercase tracking-wide text-zinc-400">Planned</h2>
+        <p className="mt-0.5 text-xs text-zinc-500">More evidence sources on the roadmap.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {PLANNED_INTEGRATIONS.map((item) => (
+            <PlannedIntegrationCard key={item.name} item={item} />
+          ))}
+        </div>
+      </section>
     </PageShell>
   );
 }

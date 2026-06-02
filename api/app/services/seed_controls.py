@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections import Counter
 from pathlib import Path
 
 from sqlalchemy import delete, select
@@ -15,11 +16,21 @@ _MAPPINGS_PATH = Path(__file__).parent.parent.parent / "data" / "control_mapping
 
 def seed_controls(db: Session) -> int:
     raw = json.loads(_MAPPINGS_PATH.read_text())
+
+    # Guard: a (framework, control_id) must appear once. Duplicates silently
+    # collide on the unique index (last-write-wins), dropping the loser's checks.
+    counts = Counter((e["framework"], e["control_id"]) for e in raw)
+    dupes = sorted(k for k, n in counts.items() if n > 1)
+    if dupes:
+        raise ValueError(f"control_mappings.json has duplicate (framework, control_id): {dupes}")
+
     upserted = 0
+    desired_keys: set[tuple[str, str]] = set()
 
     for entry in raw:
         framework = entry["framework"]
         control_id_str = entry["control_id"]
+        desired_keys.add((framework, control_id_str))
 
         ctrl = db.scalars(
             select(Control).where(
@@ -63,6 +74,12 @@ def seed_controls(db: Session) -> int:
                     CheckControl.check_id.in_(stale),
                 )
             )
+
+    # Prune controls that no longer exist in the mappings file (e.g. renumbered
+    # control_ids). check_controls rows cascade-delete via the FK.
+    for ctrl in db.scalars(select(Control)).all():
+        if (ctrl.framework, ctrl.control_id) not in desired_keys:
+            db.delete(ctrl)
 
     db.commit()
     return upserted

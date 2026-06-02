@@ -98,17 +98,27 @@ def runbook_for_check(check_id: str) -> SsmRemediationRunbook | None:
     return RUNBOOKS.get(check_id)
 
 
-def runbook_source_url(runbook: SsmRemediationRunbook) -> str:
-    """Public template or AWS runbook docs — readable without signing in."""
+def ssm_document_console_url(document_name: str, region: str) -> str:
+    """Deep link to the SSM Automation document in the AWS console (customer account)."""
+    from urllib.parse import quote
+
+    doc = quote(document_name, safe="")
+    reg = quote(region, safe="")
+    return (
+        f"https://{reg}.console.aws.amazon.com/systems-manager/documents/"
+        f"{doc}/description?region={reg}"
+    )
+
+
+def runbook_source_url(runbook: SsmRemediationRunbook, *, automation_region: str = "us-east-1") -> str:
+    """AWS runbook docs (public) or SSM document console link for Vigil-owned documents."""
     if runbook.owner == "aws":
         slug = runbook.document_name.lower().replace("_", "-")
         return (
             "https://docs.aws.amazon.com/systems-manager-automation-runbooks/latest/userguide/"
             f"automation-{slug}.html"
         )
-    from app.core.config import get_settings
-
-    return get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL
+    return ssm_document_console_url(runbook.document_name, automation_region)
 
 
 def _load_plan(plan_json: str) -> dict[str, Any]:
@@ -181,12 +191,12 @@ def automation_parameters_for_plan(
     raise ValueError(f"unsupported SSM runbook parameter mode: {runbook.parameter_mode}")
 
 
-def runbook_payload(runbook: SsmRemediationRunbook) -> dict[str, Any]:
+def runbook_payload(runbook: SsmRemediationRunbook, *, automation_region: str = "us-east-1") -> dict[str, Any]:
     return {
         "check_id": runbook.check_id,
         "document_name": runbook.document_name,
         "owner": runbook.owner,
         "parameter_mode": runbook.parameter_mode,
         "note": runbook.note,
-        "source_url": runbook_source_url(runbook),
+        "source_url": runbook_source_url(runbook, automation_region=automation_region),
     }

@@ -40,7 +40,22 @@ export type CloudTrailNotification = {
   message?: string;
 };
 
-export type NotificationItem = VerifyNotification | CloudTrailNotification;
+export type ScanFailureNotification = {
+  id: string;
+  kind: "scan_failure";
+  findingId: string;
+  checkId: string;
+  status: "failed";
+  completedAt: number;
+  readAt?: number;
+  accountId?: string;
+  message: string;
+  failedAt?: string | null;
+  errorType?: string | null;
+  step?: string | null;
+};
+
+export type NotificationItem = VerifyNotification | CloudTrailNotification | ScanFailureNotification;
 
 /** @deprecated Use VerifyNotification — kept for drawer verify flash typing */
 export type RecheckOutcome = VerifyNotification;
@@ -97,6 +112,22 @@ function newNotificationId(): string {
 export function roleLabelFromArn(roleArn: string): string {
   const slash = roleArn.lastIndexOf("/");
   return slash >= 0 ? roleArn.slice(slash + 1) : roleArn;
+}
+
+function scanFailureNotificationId({
+  accountId,
+  message,
+  failedAt,
+  errorType,
+  step,
+}: {
+  accountId?: string | null;
+  message: string;
+  failedAt?: string | null;
+  errorType?: string | null;
+  step?: string | null;
+}) {
+  return `scan_failure:${accountId ?? "unknown"}:${failedAt ?? "unknown"}:${errorType ?? ""}:${step ?? ""}:${message.slice(0, 120)}`;
 }
 
 function isTerminalPolicyGenStatus(status: string | undefined): boolean {
@@ -218,6 +249,13 @@ type RecheckNotificationsContextValue = {
     roleArn: string;
     message: string;
   }) => void;
+  reportScanFailure: (args: {
+    accountId?: string | null;
+    message: string;
+    failedAt?: string | null;
+    errorType?: string | null;
+    step?: string | null;
+  }) => void;
   clearDrawerVerifyFlash: () => void;
   dismissNotification: (id: string) => void;
   clearAll: () => void;
@@ -325,6 +363,32 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
     [],
   );
 
+  const reportScanFailure = useCallback(
+    ({ accountId, message, failedAt, errorType, step }: {
+      accountId?: string | null;
+      message: string;
+      failedAt?: string | null;
+      errorType?: string | null;
+      step?: string | null;
+    }) => {
+      const entry: ScanFailureNotification = {
+        id: scanFailureNotificationId({ accountId, message, failedAt, errorType, step }),
+        kind: "scan_failure",
+        findingId: "scan-failure",
+        checkId: "scan.error",
+        status: "failed",
+        completedAt: Date.now(),
+        accountId: accountId ?? undefined,
+        message,
+        failedAt,
+        errorType,
+        step,
+      };
+      setNotificationHistory((prev) => pushHistory(prev, entry));
+    },
+    [],
+  );
+
   const openMetricsQ = useQuery({
     queryKey: ["findings", "open"],
     queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500"),
@@ -348,6 +412,9 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
         status: result.resolved ? "verified" : "unchanged",
       });
       void qc.invalidateQueries({ queryKey: ["findings"] });
+      // A recheck changes findings, which changes compliance pass/fail — refresh the
+      // Controls page queries (control list + framework tab percentages) too.
+      void qc.invalidateQueries({ queryKey: ["controls"] });
       return true;
     },
     [qc, recordVerifyOutcome],
@@ -400,6 +467,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
       if (items && !items.some((f) => f.id === findingId)) {
         completeRecheck({ findingId, checkId, status: "verified" });
         void qc.invalidateQueries({ queryKey: ["findings"] });
+        void qc.invalidateQueries({ queryKey: ["controls"] });
       }
     };
 
@@ -469,6 +537,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
       failRecheck,
       startCloudTrailAnalysis,
       failCloudTrailAnalysis,
+      reportScanFailure,
       clearDrawerVerifyFlash,
       dismissNotification,
       clearAll,
@@ -485,6 +554,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
       failRecheck,
       startCloudTrailAnalysis,
       failCloudTrailAnalysis,
+      reportScanFailure,
       clearDrawerVerifyFlash,
       dismissNotification,
       clearAll,

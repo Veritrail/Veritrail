@@ -170,9 +170,11 @@ def _period_summary(events: list[dict[str, Any]]) -> dict[str, int]:
     controls_regressed = 0
     controls_improved = 0
     remediations = 0
+    findings_resolved = 0
     for e in change_events:
         controls_regressed += len(e.get("diff", {}).get("newly_failed", []))
         controls_improved += len(e.get("diff", {}).get("newly_passed", []))
+        findings_resolved += int(e.get("findings_resolved") or 0)
         if e.get("type") in {"finding_resolved", "finding_excepted"}:
             remediations += 1
     return {
@@ -181,6 +183,7 @@ def _period_summary(events: list[dict[str, Any]]) -> dict[str, int]:
         "controls_improved": controls_improved,
         "remediation_events": remediations,
         "evidence_snapshots": len(events),
+        "findings_resolved": findings_resolved,
     }
 
 
@@ -410,6 +413,7 @@ def build_compliance_scan_timeline(
                 "controls_improved": 0,
                 "remediation_events": 0,
                 "evidence_snapshots": 0,
+                "findings_resolved": 0,
             },
             "current_summary": None,
             "current_posture_score": None,
@@ -565,6 +569,11 @@ def build_compliance_scan_timeline(
         current_summary = _counts(last_snap)
         current_posture_score = _posture_score(current_summary)
         total_failing = current_summary["controls_failed"]
+        if scan_runs:
+            as_of = scan_runs[-1].finished_at or scan_runs[-1].started_at
+            current_summary["open_findings_count"] = _open_findings_count(
+                findings, events_by_finding, as_of
+            )
 
     return {
         "framework": framework,

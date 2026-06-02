@@ -15,8 +15,6 @@ from app.models.auditor import TrustCenterConfig
 from app.models.control import Control, CheckControl
 from app.models.org import Org
 from app.services.finding_history import finding_open_for_control
-from app.services.check_frameworks import framework_catalog
-
 router = APIRouter()
 
 
@@ -30,6 +28,14 @@ class TrustFrameworkScore(BaseModel):
     score_pct: float
 
 
+class TrustControlGap(BaseModel):
+    control_id: str
+    title: str
+    framework: str
+    framework_label: str
+    open_findings: int
+
+
 class TrustCenterData(BaseModel):
     company_name: str
     company_logo_url: str | None
@@ -39,6 +45,9 @@ class TrustCenterData(BaseModel):
     last_scan_at: str | None
     connected_accounts: int
     recent_activity: dict
+    open_findings_count: int
+    controls_evaluated: int
+    top_gaps: list[TrustControlGap]
 
 
 def _framework_label(framework_key: str) -> str:
@@ -75,11 +84,25 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
 
     last_scan = max((a.last_scan_at for a in accounts if a.last_scan_at), default=None)
 
+    acc_id = accounts[0].id if accounts else None
+    open_findings: list[Finding] = []
+    if acc_id:
+        open_findings = db.scalars(
+            select(Finding).where(
+                Finding.account_id == acc_id,
+                Finding.status == "open",
+            )
+        ).all()
+
+    open_by_check: dict[str, list[Finding]] = {}
+    for f in open_findings:
+        open_by_check.setdefault(f.check_id, []).append(f)
+
     # Compute framework scores
     frameworks_to_show = config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"]
-    catalog = framework_catalog()
 
     framework_scores = []
+    gap_candidates: list[tuple[int, Control, str, str]] = []
     for fw_key in frameworks_to_show:
         controls = db.scalars(
             select(Control).where(Control.framework == fw_key).order_by(Control.control_id)
@@ -87,20 +110,6 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
 
         if not controls:
             continue
-
-        acc_id = accounts[0].id if accounts else None
-        open_findings: list[Finding] = []
-        if acc_id:
-            open_findings = db.scalars(
-                select(Finding).where(
-                    Finding.account_id == acc_id,
-                    Finding.status == "open",
-                )
-            ).all()
-
-        open_by_check: dict[str, list[Finding]] = {}
-        for f in open_findings:
-            open_by_check.setdefault(f.check_id, []).append(f)
 
         passed = 0
         failed = 0
@@ -119,6 +128,7 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
                 hits.extend(open_by_check.get(cid, []))
             if any(finding_open_for_control(f, f.status) for f in hits):
                 failed += 1
+                gap_candidates.append((len(hits), ctrl, fw_key, _framework_label(fw_key)))
             elif acc_id:
                 passed += 1
             else:
@@ -137,11 +147,27 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
             score_pct=score,
         ))
 
+    gap_candidates.sort(key=lambda row: row[0], reverse=True)
+    top_gaps = [
+        TrustControlGap(
+            control_id=ctrl.control_id,
+            title=ctrl.title,
+            framework=fw_key,
+            framework_label=fw_label,
+            open_findings=count,
+        )
+        for count, ctrl, fw_key, fw_label in gap_candidates[:8]
+    ]
+
+    open_findings_count = len(open_findings) if acc_id else 0
+    controls_evaluated = sum(fw.control_count for fw in framework_scores)
+
     # Recent activity summary
     recent_activity: dict = {}
     if last_scan:
         recent_activity["last_scan_at"] = last_scan.isoformat()
     recent_activity["connected_accounts"] = len(accounts)
+    recent_activity["open_findings_count"] = open_findings_count
 
     return TrustCenterData(
         company_name=config.company_name or org_name,
@@ -152,6 +178,9 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
         last_scan_at=last_scan.isoformat() if last_scan else None,
         connected_accounts=len(accounts),
         recent_activity=recent_activity,
+        open_findings_count=open_findings_count,
+        controls_evaluated=controls_evaluated,
+        top_gaps=top_gaps,
     )
 
 

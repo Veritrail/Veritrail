@@ -7,6 +7,7 @@ import {
   type NotificationItem,
 } from "../context/RecheckNotificationsContext";
 import { friendlyPolicyGenerationError } from "../lib/policyGenerationErrors";
+import { friendlyScanFailureMessage, SCAN_FAILURE_USER_ACTION } from "../lib/scanFailureMessages";
 import { checkLabels } from "../data/checkLabels";
 
 function formatWhen(ts: number): string {
@@ -33,6 +34,7 @@ function cloudTrailBody(item: CloudTrailNotification): string {
 }
 
 function itemStyles(item: NotificationItem): string {
+  if (item.kind === "scan_failure") return "border-red-100 bg-red-50/90";
   if (item.kind === "cloudtrail") {
     if (item.status === "running") return "border-indigo-100 bg-indigo-50/80";
     if (item.status === "succeeded") return "border-emerald-100 bg-emerald-50/90";
@@ -42,11 +44,13 @@ function itemStyles(item: NotificationItem): string {
 }
 
 function itemTitle(item: NotificationItem): string {
+  if (item.kind === "scan_failure") return "Scan could not complete";
   if (item.kind === "cloudtrail") return cloudTrailTitle(item);
   return item.status === "verified" ? "Verified" : "Still open";
 }
 
 function itemBody(item: NotificationItem): string {
+  if (item.kind === "scan_failure") return friendlyScanFailureMessage(item.message);
   if (item.kind === "cloudtrail") return cloudTrailBody(item);
   return item.status === "verified"
     ? "Re-check passed — finding resolved."
@@ -54,11 +58,13 @@ function itemBody(item: NotificationItem): string {
 }
 
 function itemSubtitle(item: NotificationItem): string {
+  if (item.kind === "scan_failure") return SCAN_FAILURE_USER_ACTION;
   if (item.kind === "cloudtrail") return item.roleLabel;
   return checkLabels[item.checkId] ?? item.checkId;
 }
 
 function titleColor(item: NotificationItem): string {
+  if (item.kind === "scan_failure") return "text-red-950";
   if (item.kind === "cloudtrail") {
     if (item.status === "running") return "text-indigo-950";
     if (item.status === "succeeded") return "text-emerald-950";
@@ -197,7 +203,14 @@ export default function NotificationsBell() {
                 <NotificationRow
                   key={item.id}
                   item={item}
-                  onView={() => viewFinding(item.findingId)}
+                  onView={() => {
+                    if (item.kind === "scan_failure") {
+                      setOpen(false);
+                      navigate("/accounts");
+                      return;
+                    }
+                    viewFinding(item.findingId);
+                  }}
                   onDismiss={() => dismissNotification(item.id)}
                 />
               ))}
@@ -262,9 +275,15 @@ function NotificationRow({
       <p className="mt-2 text-sm leading-relaxed text-zinc-600 break-words">{itemBody(item)}</p>
       <p className="mt-2.5 text-sm font-medium leading-snug text-zinc-800">{itemSubtitle(item)}</p>
       <div className="mt-3 flex flex-wrap items-center gap-4">
-        <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">
-          View finding
-        </button>
+        {item.kind === "scan_failure" ? (
+          <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">
+            Open Accounts
+          </button>
+        ) : (
+          <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">
+            View finding
+          </button>
+        )}
         {!item.readAt && (
           <button type="button" onClick={onDismiss} className="text-sm font-medium text-zinc-500 hover:text-zinc-800">
             Dismiss

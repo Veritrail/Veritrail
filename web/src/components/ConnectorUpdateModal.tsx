@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { parseCfnLaunchMeta } from "../lib/cfnDeployCommands";
 import { CONNECTOR_STACK_NAME } from "../lib/connectionPosture";
-import type { RemediationModules } from "../data/remediationModules";
+import { REMEDIATION_MODULE_SPECS, type RemediationModules } from "../data/remediationModules";
 
 type ConnectorUpdateAccount = {
   id: string;
   cfn_stack_name: string;
   cfn_template_version: string | null;
+  cfn_launch_url: string;
+  external_id: string;
   enable_advanced_policy_generation: boolean;
   remediation_modules: RemediationModules;
 };
@@ -36,6 +39,99 @@ type ConnectorUpdateArtifacts = {
   recommended_version_tag: string;
 };
 
+type WhatChangedRow = {
+  label: string;
+  detail: string;
+};
+
+function formatConnectorVersion(tag: string | null | undefined): string {
+  if (!tag?.trim()) return "Not recorded";
+  const t = tag.trim();
+  return t.startsWith("v") ? t : `v${t}`;
+}
+
+function normalizeVersionTag(tag: string | null | undefined): string | null {
+  if (!tag?.trim()) return null;
+  return tag.trim().replace(/^v/i, "");
+}
+
+function truncateToken(value: string, head = 20, tail = 8): string {
+  if (value.length <= head + tail + 1) return value;
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
+}
+
+function buildWhatChangedRows(
+  acc: ConnectorUpdateAccount,
+  selectedTag: string,
+  opts: {
+    enable_advanced_policy_generation: boolean;
+    remediation_modules: RemediationModules;
+  },
+): WhatChangedRow[] {
+  const deployed = normalizeVersionTag(acc.cfn_template_version);
+  const selected = normalizeVersionTag(selectedTag);
+  const sameVersion = deployed != null && selected != null && deployed === selected;
+  const rows: WhatChangedRow[] = [];
+
+  if (sameVersion) {
+    rows.push({
+      label: "Configuration sync",
+      detail:
+        "Same connector version — updated configuration required to sync IAM permissions and SSM documents with your Vigil settings.",
+    });
+  } else if (deployed && selected && deployed !== selected) {
+    rows.push({
+      label: "Connector template",
+      detail: `Updates from ${formatConnectorVersion(deployed)} to ${formatConnectorVersion(selected)}.`,
+    });
+  } else {
+    rows.push({
+      label: "Connector template",
+      detail: `Applies ${formatConnectorVersion(selectedTag)} CloudFormation template to your stack.`,
+    });
+  }
+
+  rows.push({
+    label: "Remediation modules",
+    detail: "Updated to match your current Vigil settings.",
+  });
+
+  const anyRemediation = REMEDIATION_MODULE_SPECS.some((m) => opts.remediation_modules[m.id]);
+  if (anyRemediation) {
+    rows.push({
+      label: "SSM remediation support",
+      detail: "Adds the permissions and documents required for remediation workflows.",
+    });
+  }
+
+  rows.push({
+    label: "Advanced policy generation",
+    detail: opts.enable_advanced_policy_generation
+      ? "Enabled for this connector version."
+      : "Not enabled for this account in this update.",
+  });
+
+  rows.push({
+    label: "Template URL",
+    detail: `Updated to the ${formatConnectorVersion(selectedTag)} template release.`,
+  });
+
+  rows.push({
+    label: "CloudFormation capability",
+    detail: "Uses CAPABILITY_NAMED_IAM because the stack updates IAM resources.",
+  });
+
+  return rows;
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 export function ConnectorUpdateModal({
   acc,
   open,
@@ -49,6 +145,7 @@ export function ConnectorUpdateModal({
     enable_advanced_policy_generation: acc.enable_advanced_policy_generation,
     remediation_modules: acc.remediation_modules,
   };
+
   const versionsQuery = useQuery({
     queryKey: ["connector-versions"],
     queryFn: () => api<ConnectorVersionsResponse>("/v1/accounts/connector-versions"),
@@ -58,10 +155,14 @@ export function ConnectorUpdateModal({
 
   const recommended = versionsQuery.data?.recommended_version_tag ?? "2026.06";
   const [selectedTag, setSelectedTag] = useState(recommended);
+  const [cmdExpanded, setCmdExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setSelectedTag(versionsQuery.data?.recommended_version_tag ?? "2026.06");
+    setCmdExpanded(false);
+    setCopied(false);
   }, [open, versionsQuery.data?.recommended_version_tag]);
 
   const artifactsQuery = useQuery({
@@ -85,7 +186,22 @@ export function ConnectorUpdateModal({
     [versions, selectedTag],
   );
 
-  const [copied, setCopied] = useState(false);
+  const deployedVersionTag = acc.cfn_template_version?.trim() || null;
+  const currentDisplay = formatConnectorVersion(deployedVersionTag);
+  const targetDisplay = formatConnectorVersion(selectedTag);
+  const sameVersion =
+    normalizeVersionTag(deployedVersionTag) != null &&
+    normalizeVersionTag(selectedTag) != null &&
+    normalizeVersionTag(deployedVersionTag) === normalizeVersionTag(selectedTag);
+
+  const whatChanged = useMemo(
+    () => buildWhatChangedRows(acc, selectedTag, opts),
+    [acc, selectedTag, acc.enable_advanced_policy_generation, acc.remediation_modules],
+  );
+
+  const launchMeta = useMemo(() => parseCfnLaunchMeta(acc.cfn_launch_url), [acc.cfn_launch_url]);
+  const trustPrincipal = launchMeta.trustPrincipalArn;
+  const roleName = launchMeta.scannerRoleName || CONNECTOR_STACK_NAME;
 
   async function copyCli() {
     const cmd = artifactsQuery.data?.update_cli_command;
@@ -107,16 +223,9 @@ export function ConnectorUpdateModal({
       <div className="flex max-h-[min(90vh,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl shadow-zinc-900/15">
         <div className="border-b border-zinc-100 px-5 py-4">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 id="connector-update-title" className="text-base font-semibold text-zinc-900">
-                Update connector
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed text-zinc-600">
-                Update stack{" "}
-                <span className="font-mono text-zinc-800">{acc.cfn_stack_name || CONNECTOR_STACK_NAME}</span>{" "}
-                in place — same stack name and <span className="font-mono">{CONNECTOR_STACK_NAME}</span> role.
-              </p>
-            </div>
+            <h2 id="connector-update-title" className="text-base font-semibold text-zinc-900">
+              Update connector
+            </h2>
             <button
               type="button"
               onClick={onClose}
@@ -130,86 +239,104 @@ export function ConnectorUpdateModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Current</p>
-              <p className="mt-1 text-sm font-semibold text-zinc-900">
-                {artifactsQuery.data?.current_version_tag
-                  ? artifactsQuery.data.current_version_tag
-                  : "Not recorded"}
-              </p>
-              {acc.cfn_template_version && (
-                <p className="mt-0.5 text-xs text-zinc-500">Release {acc.cfn_template_version}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Current version</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-zinc-900">{currentDisplay}</p>
+              {sameVersion && (
+                <p className="mt-1 text-[11px] leading-snug text-amber-800/90">
+                  Same as target — configuration sync required
+                </p>
               )}
             </div>
             <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 px-3 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">Recommended</p>
-              <p className="mt-1 text-sm font-semibold text-indigo-950">{recommended}</p>
-              <p className="mt-0.5 text-xs text-indigo-900/70">
-                {versions.find((v) => v.tag === recommended)?.label ?? "Latest approved connector"}
+              <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">Target version</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-indigo-950">{targetDisplay}</p>
+              <p className="mt-0.5 text-[11px] text-indigo-900/70">
+                {selectedVersion?.label ?? "Approved connector release"}
               </p>
             </div>
           </div>
 
-          <div>
-            <p className="text-xs font-semibold text-zinc-700">Approved version</p>
-            {versionsQuery.isLoading && (
-              <p className="mt-2 text-sm text-zinc-500">Loading versions…</p>
-            )}
-            {versionsQuery.isError && (
-              <p className="mt-2 text-sm text-red-600">Could not load approved versions.</p>
-            )}
-            <div className="mt-2 space-y-2">
-              {versions.map((v) => (
-                <label
-                  key={v.tag}
-                  className={`flex cursor-pointer gap-3 rounded-lg border px-3 py-3 transition ${
-                    selectedTag === v.tag
-                      ? "border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200/80"
-                      : "border-zinc-200 hover:border-zinc-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="connector-version"
-                    className="mt-1"
-                    checked={selectedTag === v.tag}
-                    onChange={() => setSelectedTag(v.tag)}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-zinc-900">{v.label}</span>
-                      <span className="font-mono text-xs text-zinc-500">{v.tag}</span>
+          {versions.length > 1 && (
+            <div>
+              <p className="text-xs font-semibold text-zinc-700">Version to apply</p>
+              {versionsQuery.isLoading && (
+                <p className="mt-2 text-sm text-zinc-500">Loading versions…</p>
+              )}
+              {versionsQuery.isError && (
+                <p className="mt-2 text-sm text-red-600">Could not load approved versions.</p>
+              )}
+              <div className="mt-2 space-y-2">
+                {versions.map((v) => (
+                  <label
+                    key={v.tag}
+                    className={`flex cursor-pointer gap-3 rounded-lg border px-3 py-2.5 transition ${
+                      selectedTag === v.tag
+                        ? "border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200/80"
+                        : "border-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="connector-version"
+                      className="mt-0.5"
+                      checked={selectedTag === v.tag}
+                      onChange={() => setSelectedTag(v.tag)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-mono text-sm font-semibold text-zinc-900">
+                        {formatConnectorVersion(v.tag)}
+                      </span>
                       {v.status === "recommended" && (
-                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-800">
+                        <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase text-indigo-800">
                           Recommended
                         </span>
                       )}
+                      <p className="mt-0.5 text-xs leading-relaxed text-zinc-600">{v.notes}</p>
                     </span>
-                    <p className="mt-1 text-xs leading-relaxed text-zinc-600">{v.notes}</p>
-                  </span>
-                </label>
-              ))}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-
-          {selectedVersion && (
-            <p className="text-[11px] leading-relaxed text-zinc-500 break-all">
-              Template: <span className="font-mono text-zinc-700">{selectedVersion.template_url}</span>
-            </p>
           )}
 
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 py-2.5 text-xs text-zinc-600">
-            <p className="font-semibold text-zinc-800">Parameters included in CLI</p>
-            <ul className="mt-1.5 list-inside list-disc space-y-0.5">
-              <li>ExternalId, trust principal, RoleName={CONNECTOR_STACK_NAME}</li>
-              <li>
-                Advanced policy generation: {opts.enable_advanced_policy_generation ? "Yes" : "No"}
-              </li>
-              <li>Remediation modules match your current Vigil settings</li>
-              <li>CAPABILITY_NAMED_IAM</li>
+          <div>
+            <p className="text-xs font-semibold text-zinc-800">What changed in this update</p>
+            <ul className="mt-2.5 space-y-2.5">
+              {whatChanged.map((row) => (
+                <li key={row.label} className="flex gap-2.5">
+                  <CheckIcon />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-zinc-800">{row.label}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-zinc-600">{row.detail}</p>
+                  </div>
+                </li>
+              ))}
             </ul>
+          </div>
+
+          <div className="rounded-lg border border-zinc-100 bg-zinc-50/40 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Unchanged</p>
+            <dl className="mt-2 space-y-2 text-xs">
+              <div>
+                <dt className="font-medium text-zinc-500">External ID</dt>
+                <dd className="mt-0.5 font-mono text-zinc-600" title={acc.external_id}>
+                  {truncateToken(acc.external_id)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-zinc-500">Trusted principal</dt>
+                <dd className="mt-0.5 break-all font-mono text-zinc-600" title={trustPrincipal || undefined}>
+                  {trustPrincipal ? truncateToken(trustPrincipal, 28, 12) : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-zinc-500">Connector role name</dt>
+                <dd className="mt-0.5 font-mono text-zinc-600">{roleName}</dd>
+              </div>
+            </dl>
           </div>
 
           {artifactsQuery.isError && (
@@ -217,9 +344,41 @@ export function ConnectorUpdateModal({
           )}
 
           {artifactsQuery.data?.update_cli_command && (
-            <pre className="max-h-40 overflow-auto rounded-lg border border-zinc-200 bg-zinc-900 p-3 text-[11px] leading-relaxed text-zinc-100">
-              {artifactsQuery.data.update_cli_command}
-            </pre>
+            <div className="overflow-hidden rounded-lg border border-zinc-200">
+              <div className="flex items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50/80 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setCmdExpanded((v) => !v)}
+                  className="min-w-0 flex-1 text-left text-xs font-semibold text-zinc-800"
+                  aria-expanded={cmdExpanded}
+                >
+                  Generated update command
+                  <span className="ml-1.5 font-normal text-zinc-500">
+                    {cmdExpanded ? "Hide" : "Show"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={copyCli}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-50"
+                  title={copied ? "Copied" : "Copy command"}
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"
+                    />
+                  </svg>
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              {cmdExpanded && (
+                <pre className="max-h-[140px] overflow-auto bg-zinc-900 p-3 text-[11px] leading-relaxed text-zinc-100">
+                  {artifactsQuery.data.update_cli_command}
+                </pre>
+              )}
+            </div>
           )}
         </div>
 
@@ -229,7 +388,7 @@ export function ConnectorUpdateModal({
             onClick={onClose}
             className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
           >
-            Close
+            Cancel
           </button>
           <button
             type="button"
@@ -237,7 +396,7 @@ export function ConnectorUpdateModal({
             disabled={!artifactsQuery.data?.update_cli_command}
             className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
           >
-            {copied ? "Copied" : "Copy CLI command"}
+            {copied ? "Copied" : "Copy command"}
           </button>
           <a
             href={artifactsQuery.data?.console_stack_url ?? "#"}
@@ -250,7 +409,7 @@ export function ConnectorUpdateModal({
               if (!artifactsQuery.data?.console_stack_url) e.preventDefault();
             }}
           >
-            Open stack in AWS
+            Open CloudFormation
           </a>
         </div>
       </div>

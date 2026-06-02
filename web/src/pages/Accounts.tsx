@@ -21,6 +21,7 @@ import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { isAccountConnected } from "../lib/accountConnection";
+import { friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import { CONNECTOR_STACK_NAME, SCANNER_ROLE_NAME } from "../lib/connectionPosture";
 
 type ConnectionOptions = {
@@ -1088,14 +1089,18 @@ function ConnectionCapabilitiesPicker({
       </div>
 
       <div className="rounded-lg border border-l-4 border-l-emerald-500 border-emerald-200/60 bg-emerald-50/30 px-3 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <CapabilityVerifiedMark className="mt-0" />
-          <p className="text-sm font-medium text-zinc-900">Core compliance scanner</p>
-          <CapabilityAccessBadge kind="read-only" />
+        <div className="flex items-start gap-2.5">
+          <CapabilityVerifiedMark className="mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium leading-snug text-zinc-900">Core compliance scanner</p>
+              <CapabilityAccessBadge kind="read-only" />
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
+              Read-only · CIS / SOC 2 / ISO checks
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-          Read-only · CIS / SOC 2 / ISO checks
-        </p>
       </div>
 
       <AdvancedPolicyGenerationCard
@@ -1390,10 +1395,6 @@ function RemediationAutomationSection({
                   <div className="space-y-4 border-t border-zinc-100 bg-zinc-50/50 px-3 py-3">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                        Execution
-                      </p>
-                      <p className="mt-0.5 text-xs text-zinc-600">AWS Systems Manager Automation</p>
-                      <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                         What Vigil can do
                       </p>
                       <ul className="mt-1 space-y-0.5">
@@ -1517,8 +1518,8 @@ function AccountDetailsPanel({
     <div className="divide-y divide-zinc-200/60">
       {scanError && (
         <div className="bg-red-50/80 px-4 py-2.5 text-xs text-red-700">
-          <span className="font-medium">Last scan failed</span>
-          <div className="mt-0.5 break-words">{scanError}</div>
+          <span className="font-medium">Scan could not complete</span>
+          <div className="mt-0.5 break-words leading-relaxed">{friendlyScanFailureMessage(scanError)}</div>
         </div>
       )}
 
@@ -2510,14 +2511,10 @@ function AccountCard({
 
       {connected && !isScanActive && scanStatus === "error" && scanRun.data?.error && (
         <div className="border-t border-red-100/80 bg-red-50/60 px-4 py-2.5 text-xs text-red-700">
-          <span className="font-semibold">Last scan failed</span>
-          {scanRun.data.failed_at && (
-            <>
-              {" "}
-              at <code className="rounded bg-red-100 px-1 font-mono">{scanRun.data.failed_at}</code>
-            </>
-          )}
-          <div className="mt-1 line-clamp-2 break-words text-red-700/90">{scanRun.data.error}</div>
+          <span className="font-semibold">Scan could not complete</span>
+          <div className="mt-1 line-clamp-3 break-words leading-relaxed text-red-700/90">
+            {friendlyScanFailureMessage(scanRun.data.error)}
+          </div>
         </div>
       )}
 

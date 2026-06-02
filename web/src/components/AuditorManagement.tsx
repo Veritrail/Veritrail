@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, BASE } from "../api";
+import { api } from "../api";
+import { auditorVerifyUrl } from "../lib/appOrigin";
 import { settingsCardClass } from "./SettingsUi";
 
 type AuditorAccessEntry = {
@@ -14,6 +15,11 @@ type AuditorAccessEntry = {
   last_accessed_at: string | null;
 };
 
+type AuditorInviteResult = AuditorAccessEntry & {
+  email_sent?: boolean;
+  verify_url?: string;
+};
+
 export function AuditorManagement() {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
@@ -21,6 +27,7 @@ export function AuditorManagement() {
   const [expiryDays, setExpiryDays] = useState(30);
   const [error, setError] = useState("");
   const [copyMsg, setCopyMsg] = useState("");
+  const [inviteNote, setInviteNote] = useState("");
 
   const { data: auditors, isLoading } = useQuery<AuditorAccessEntry[]>({
     queryKey: ["auditor-list"],
@@ -28,16 +35,25 @@ export function AuditorManagement() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: () =>
-      api("/v1/auditor/invite", {
+    mutationFn: (): Promise<AuditorInviteResult> =>
+      api<AuditorInviteResult>("/v1/auditor/invite", {
         method: "POST",
         body: JSON.stringify({ email, name: name || null, expiry_days: expiryDays }),
       }),
-    onSuccess: () => {
+    onSuccess: (data: AuditorInviteResult) => {
       qc.invalidateQueries({ queryKey: ["auditor-list"] });
       setEmail("");
       setName("");
       setError("");
+      copyLink(data.access_token);
+      if (data.email_sent) {
+        setInviteNote(`Invite email sent to ${data.email}. Link also copied to clipboard.`);
+      } else {
+        setInviteNote(
+          "No invite email sent (set RESEND_API_KEY on the API). Auditor link copied to clipboard — share it manually.",
+        );
+      }
+      setTimeout(() => setInviteNote(""), 8000);
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -57,7 +73,7 @@ export function AuditorManagement() {
   });
 
   function copyLink(token: string) {
-    navigator.clipboard.writeText(`${BASE}/v1/auditor/verify/${token}`).catch(() => {});
+    navigator.clipboard.writeText(auditorVerifyUrl(token)).catch(() => {});
     setCopyMsg(token);
     setTimeout(() => setCopyMsg(""), 2000);
   }
@@ -110,6 +126,11 @@ export function AuditorManagement() {
           </button>
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}
+        {inviteNote && <p className="text-xs text-zinc-600">{inviteNote}</p>}
+        <p className="text-[11px] text-zinc-400">
+          Copy link opens the app at{" "}
+          <span className="font-mono text-zinc-500">{auditorVerifyUrl("…")}</span> — not the API.
+        </p>
       </div>
 
       {/* Auditor list */}

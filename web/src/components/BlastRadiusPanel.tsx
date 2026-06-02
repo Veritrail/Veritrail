@@ -5,6 +5,8 @@ import {
   type BlastRadiusService,
 } from "../lib/blastRadiusDisplay";
 import { ServiceAccessExplorer, type ExplorerBucket } from "./ServiceAccessExplorer";
+import { ImpactUsageStats } from "./ImpactAnalysisPanel";
+import "../styles/impact-analysis.css";
 
 const PREVIEW_LIMIT = 5;
 
@@ -169,33 +171,6 @@ function ServiceUsageRow({ service, emphasis }: { service: BlastRadiusService; e
   );
 }
 
-function UsageMetricsRow({
-  granted,
-  recent,
-  historical,
-  safe,
-}: {
-  granted: number;
-  recent: number;
-  historical: number;
-  safe: number;
-}) {
-  return (
-    <div className="grid grid-cols-4 gap-px overflow-hidden rounded-lg border border-zinc-200/80 bg-zinc-200/80">
-      {[
-        { label: "Granted", value: granted, valueClass: "text-zinc-900" },
-        { label: "Recent", value: recent, valueClass: "text-amber-700" },
-        { label: "Historical", value: historical, valueClass: "text-zinc-800" },
-        { label: "Likely safe", value: safe, valueClass: "text-emerald-700" },
-      ].map((m) => (
-        <div key={m.label} className="bg-white px-2 py-2.5 text-center">
-          <div className={`text-base font-semibold tabular-nums leading-none ${m.valueClass}`}>{m.value}</div>
-          <div className="mt-1 text-[10px] font-medium text-zinc-500">{m.label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 type DecisionTone = "danger" | "caution" | "safe";
 
@@ -230,7 +205,7 @@ const DECISION_TONE: Record<
     headerHover: "hover:from-zinc-100/80 hover:to-zinc-50",
     badge: "bg-zinc-200/70 text-zinc-800",
     tag: "bg-zinc-100 text-zinc-700 ring-zinc-200/80",
-    tagText: "Verify first",
+    tagText: "Verify",
     divider: "border-zinc-100",
     list: "bg-white",
     moreText: "text-zinc-500",
@@ -311,8 +286,6 @@ function DecisionSection({
 
 export function RoleServiceUsageAnalysis({
   services,
-  activeCount,
-  unusedCount,
 }: {
   services: BlastRadiusService[];
   activeCount?: number;
@@ -325,41 +298,34 @@ export function RoleServiceUsageAnalysis({
   return (
     <>
       <div className="space-y-2.5">
-        <UsageMetricsRow
+        <ImpactUsageStats
           granted={services.length}
           recent={recentlyActive.length}
           historical={historicallyUsed.length}
           safe={likelySafe.length}
         />
-        {activeCount != null && unusedCount != null && (
-          <p className="text-center text-[10px] text-zinc-400">
-            Scan snapshot · {activeCount} active · {unusedCount} unused
-          </p>
-        )}
 
         <div className="space-y-2">
-          <p className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            Service usage
-          </p>
+          <p className="impact-section-label px-0.5">Service usage</p>
           <DecisionSection
-            label="Recently active"
-            description="Dangerous to remove — used in the last 30 days"
+            label="Active usage"
+            description="Used in the last 30 days"
             services={recentlyActive}
             emphasis="high"
             defaultOpen={false}
             tone="danger"
           />
           <DecisionSection
-            label="Historically used"
-            description="Verify before removing — used 31–90 days ago"
+            label="Historical usage"
+            description="Used 31–90 days ago"
             services={historicallyUsed}
             emphasis="low"
             defaultOpen={false}
             tone="caution"
           />
           <DecisionSection
-            label="Likely safe to remove"
-            description="No recorded use in 90+ days — best cleanup candidates"
+            label="Safe cleanup candidates"
+            description="No recorded use in 90+ days"
             services={likelySafe}
             emphasis="muted"
             defaultOpen={false}
@@ -526,18 +492,17 @@ export function RolePoliciesAnalysis({
 export function RoleTrustPrincipals({ principals }: { principals: string[] }) {
   if (principals.length === 0) return null;
   return (
-    <BlastRadiusCollapsible
-      title="Trusted by"
-      subtitle={`${principals.length} principal${principals.length !== 1 ? "s" : ""} can assume this role`}
-      defaultOpen={principals.length <= 3}
-    >
-      <ul className="space-y-1">
-        {principals.map((p, i) => (
-          <li key={i} className="truncate font-mono text-[11px] text-zinc-600 py-0.5">
-            {p}
-          </li>
-        ))}
-      </ul>
-    </BlastRadiusCollapsible>
+    <div>
+      <p className="impact-section-label mb-1.5 px-0.5">Trusted by</p>
+      <div className="impact-trusted">
+        <ul className="space-y-1">
+          {principals.map((p, i) => (
+            <li key={i} title={p}>
+              {p}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }

@@ -124,7 +124,7 @@ def _ssm_remediation_panel(db: Session, finding: Finding) -> dict[str, Any] | No
             **automation_meta,
             "automation_provider": "aws-owned",
             "aws_document_name": runbook.document_name,
-            "aws_runbook_docs_url": runbook_source_url(runbook),
+            "aws_runbook_docs_url": runbook_source_url(runbook, automation_region=automation_region),
         }
     return {
         "module_id": module_id,
@@ -137,7 +137,7 @@ def _ssm_remediation_panel(db: Session, finding: Finding) -> dict[str, Any] | No
         "automation_role_name": settings.CFN_REMEDIATION_AUTOMATION_ROLE_NAME,
         "resource_region": resource_region,
         "automation_region": automation_region,
-        "runbook": runbook_payload(runbook) if runbook else None,
+        "runbook": runbook_payload(runbook, automation_region=automation_region) if runbook else None,
         "requires_vigil_document": bool(runbook and runbook.owner == "vigil"),
         **automation_meta,
     }

@@ -207,7 +207,7 @@ def build_remediation_dispatch(
             "started": automation_execution_id is not None,
             "automation_execution_id": automation_execution_id,
             "error": automation_error,
-            "runbook": runbook_payload(runbook) if runbook else None,
+            "runbook": runbook_payload(runbook, automation_region=automation_region) if runbook else None,
             "automation_assume_role_arn": automation_role_arn,
         },
         "automation_execution_id": automation_execution_id,
