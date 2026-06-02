@@ -6,44 +6,6 @@ import type {
   PersistentGap,
 } from "../lib/complianceHistory";
 
-function MetricStrip({
-  open,
-  resolved,
-  scans,
-  currentScore,
-  improved,
-  regressed,
-}: {
-  open: number;
-  resolved: number;
-  scans: number;
-  currentScore: number | null | undefined;
-  improved: number;
-  regressed: number;
-}) {
-  const metrics = [
-    { label: "Posture", value: `${currentScore ?? "—"}%`, detail: "Current score", tone: "text-zinc-950" },
-    { label: "Resolved", value: resolved, detail: `${improved} improved · ${regressed} regressed`, tone: "text-emerald-600" },
-    { label: "Open findings", value: open || "—", detail: "Active now", tone: "text-rose-600" },
-    { label: "Scans", value: scans, detail: "In this window", tone: "text-zinc-950" },
-  ];
-
-  return (
-    <div className="grid overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-sm shadow-zinc-950/[0.02] sm:grid-cols-4">
-      {metrics.map((metric, index) => (
-        <div
-          key={metric.label}
-          className={`relative min-h-24 px-6 py-5 ${index < metrics.length - 1 ? "border-b border-zinc-100 sm:border-b-0 sm:border-r" : ""}`}
-        >
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">{metric.label}</p>
-          <p className={`mt-2 text-3xl font-semibold tracking-tight tabular-nums ${metric.tone}`}>{metric.value}</p>
-          <p className="mt-1 text-xs text-zinc-500">{metric.detail}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
   const total = summary.controls_passed + summary.controls_failed + summary.controls_no_data;
   if (total === 0) return null;
@@ -81,7 +43,7 @@ function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-400">Still open</p>
-          <h3 className="mt-1 text-base font-semibold text-zinc-950">Largest unresolved controls</h3>
+          <h3 className="mt-1 text-base font-semibold text-zinc-950">Controls with the most findings</h3>
         </div>
         {gaps.length > 0 && <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 ring-1 ring-rose-100">Top {Math.min(gaps.length, 4)}</span>}
       </div>
@@ -117,21 +79,25 @@ function ProgressSummary({
   improved,
   regressed,
   currentScore,
+  open,
+  scans,
 }: {
   resolved: number;
   improved: number;
   regressed: number;
   currentScore: number | null | undefined;
+  open: number;
+  scans: number;
 }) {
   return (
     <section className="rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Window summary</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">{resolved} findings verified</h2>
           <p className="mt-1 text-sm text-zinc-500">Remediation movement in this audit window.</p>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:min-w-[26rem]">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 xl:min-w-[38rem]">
           <div className="rounded-2xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-100">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-600">Improved</p>
             <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-700">{improved}</p>
@@ -139,6 +105,14 @@ function ProgressSummary({
           <div className="rounded-2xl bg-rose-50 px-4 py-3 ring-1 ring-rose-100">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose-600">Regressed</p>
             <p className="mt-1 text-xl font-semibold tabular-nums text-rose-700">{regressed}</p>
+          </div>
+          <div className="rounded-2xl bg-zinc-50 px-4 py-3 ring-1 ring-zinc-200/80">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">Open</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{open || "—"}</p>
+          </div>
+          <div className="rounded-2xl bg-zinc-50 px-4 py-3 ring-1 ring-zinc-200/80">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">Scans</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{scans}</p>
           </div>
           <div className="rounded-2xl bg-zinc-50 px-4 py-3 ring-1 ring-zinc-200/80">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">Posture</p>
@@ -183,8 +157,7 @@ export function HistoryDashboard({
 
   return (
     <div className="space-y-5">
-      <ProgressSummary resolved={resolved} improved={improved} regressed={regressed} currentScore={currentScore} />
-      <MetricStrip open={open} resolved={resolved} scans={scans} currentScore={currentScore} improved={improved} regressed={regressed} />
+      <ProgressSummary resolved={resolved} improved={improved} regressed={regressed} currentScore={currentScore} open={open} scans={scans} />
 
       <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_25rem]">
         <section className="relative overflow-hidden rounded-[1.75rem] border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
