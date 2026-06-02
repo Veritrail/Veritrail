@@ -22,23 +22,23 @@ function MetricStrip({
   regressed: number;
 }) {
   return (
-    <div className="grid overflow-hidden rounded-2xl border border-zinc-200 bg-white sm:grid-cols-4">
-      <div className="border-b border-zinc-100 px-4 py-3 sm:border-b-0 sm:border-r">
+    <div className="grid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.02] sm:grid-cols-4">
+      <div className="border-b border-zinc-100 px-5 py-3.5 sm:border-b-0 sm:border-r">
         <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Posture</p>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{currentScore ?? "—"}%</p>
+        <p className="mt-1 text-2xl font-semibold tabular-nums text-zinc-950">{currentScore ?? "—"}%</p>
       </div>
-      <div className="border-b border-zinc-100 px-4 py-3 sm:border-b-0 sm:border-r">
+      <div className="border-b border-zinc-100 px-5 py-3.5 sm:border-b-0 sm:border-r">
         <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Resolved</p>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-600">{resolved}</p>
-        <p className="mt-0.5 text-[11px] text-zinc-500">{improved} controls improved · {regressed} regressed</p>
+        <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600">{resolved}</p>
+        <p className="mt-0.5 text-[11px] text-zinc-500">{improved} improved · {regressed} regressed</p>
       </div>
-      <div className="border-b border-zinc-100 px-4 py-3 sm:border-b-0 sm:border-r">
+      <div className="border-b border-zinc-100 px-5 py-3.5 sm:border-b-0 sm:border-r">
         <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Open findings</p>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-rose-600">{open || "—"}</p>
+        <p className="mt-1 text-2xl font-semibold tabular-nums text-rose-600">{open || "—"}</p>
       </div>
-      <div className="px-4 py-3">
+      <div className="px-5 py-3.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Scans</p>
-        <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{scans}</p>
+        <p className="mt-1 text-2xl font-semibold tabular-nums text-zinc-950">{scans}</p>
       </div>
     </div>
   );
@@ -49,7 +49,7 @@ function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
   if (total === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/[0.02]">
       <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Control status</p>
       <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-zinc-100">
         {summary.controls_passed > 0 && <div className="bg-emerald-500" style={{ width: `${(summary.controls_passed / total) * 100}%` }} />}
@@ -67,7 +67,7 @@ function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
 
 function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/[0.02]">
       <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Needs attention</p>
       <p className="mt-1 text-xs text-zinc-500">Controls with the most open findings.</p>
       {gaps.length === 0 ? (
@@ -118,12 +118,12 @@ export function HistoryDashboard({
   void scanCadence;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <MetricStrip open={open} resolved={resolved} scans={scans} currentScore={currentScore} improved={improved} regressed={regressed} />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-        <section className="rounded-2xl border border-zinc-200 bg-white p-4">
-          <div className="flex items-start justify-between gap-3">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
+          <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Timeline</p>
               <p className="mt-1 text-xs text-zinc-500">Scans, remediations, and control movement.</p>
@@ -133,7 +133,7 @@ export function HistoryDashboard({
           <div className="mt-4">{timeline}</div>
         </section>
 
-        <aside className="space-y-4">
+        <aside className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
           <NeedsAttentionCompact gaps={persistentGaps} />
           {currentSummary && <ControlStatusCompact summary={currentSummary} />}
         </aside>
