@@ -60,6 +60,7 @@ import {
 import {
   ImpactAnalysisEmpty,
   ImpactAnalysisShell,
+  ImpactRemediationHint,
   ImpactVerdictCard,
 } from "./ImpactAnalysisPanel";
 import {
@@ -2715,8 +2716,13 @@ function BlastRadiusSection({
         title={verdictCopy.title}
         subtitle={verdictCopy.subtitle}
         detail={verdictCopy.detail}
-        pill={impactPill}
+        pill={visualTone === "safe" ? undefined : impactPill}
       />
+      {rootSafeMinimal && (
+        <ImpactRemediationHint>
+          Apply the fix in the <strong>Remediation</strong> tab, then verify below.
+        </ImpactRemediationHint>
+      )}
 
       <div className="space-y-3">
         {data.resource_type === "vpc" && (
@@ -4974,16 +4980,21 @@ export function FindingDrawer({
 
         if (isShortResourceLabel(resourceLabel)) {
           return (
-            <div className="mt-2.5 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Resource</div>
-                <p
-                  className="mt-0.5 truncate font-mono text-[13px] font-medium text-zinc-800"
+            <div className="mt-2.5 flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-[12px] leading-snug text-zinc-600">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Resource
+                </span>
+                <span className="mx-1.5 text-zinc-300" aria-hidden>
+                  ·
+                </span>
+                <span
+                  className="font-mono text-[13px] font-medium text-zinc-800"
                   title={finding.resource_arn}
                 >
                   {resourceLabel}
-                </p>
-              </div>
+                </span>
+              </p>
               {resourceNav}
             </div>
           );
