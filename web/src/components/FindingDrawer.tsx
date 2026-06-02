@@ -350,7 +350,7 @@ function SelectedResourceInspector({
 
       {isUnusedRoleFinding && totalGranted != null && (
         <ResourceGroup title="Permission usage">
-          <PostureMetricsRow variant="compact">
+          <PostureMetricsRow>
             <PostureMetricCell label="Granted" value={totalGranted} variant="compact" />
             <PostureMetricCell
               label="In use"

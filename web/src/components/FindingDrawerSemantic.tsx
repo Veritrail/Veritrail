@@ -1,11 +1,16 @@
 import { useState, type ReactNode } from "react";
+import {
+  drawerSectionHead,
+  drawerSectionTitle,
+  drawerSummaryLabel,
+  drawerSummaryValue,
+  drawerSummaryValueStrong,
+} from "./drawerStyles";
 
 /** Shared workflow primitives. Same rhythm as What If, reusable across drawer tabs. */
 
 export function DrawerFlowLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{children}</p>
-  );
+  return <p className={`${drawerSummaryLabel} px-0.5`}>{children}</p>;
 }
 
 type SemanticTone = "neutral" | "caution" | "action" | "positive";
@@ -86,44 +91,41 @@ export function PostureMetricCell({
   valueClassName?: string;
   variant?: PostureMetricVariant;
 }) {
+  const numericValue = typeof value === "number";
+
   if (variant === "status") {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg bg-white px-2.5 py-3.5 text-center ring-1 ring-zinc-100/80">
-        <div className={`text-lg font-semibold tabular-nums leading-tight tracking-tight ${valueClassName}`}>
+      <div className="min-w-0 bg-white px-3 py-2.5">
+        {label ? <p className="text-[11px] font-medium leading-none text-zinc-500">{label}</p> : null}
+        <div
+          className={`mt-1 text-[15px] font-semibold leading-snug ${numericValue ? "tabular-nums" : ""} ${valueClassName}`}
+        >
           {value}
         </div>
-        {sub ? (
-          <div className="mt-2 text-[11px] font-normal leading-snug tabular-nums text-zinc-400">{sub}</div>
-        ) : null}
-        {label ? (
-          <div className={`text-[11px] font-medium text-zinc-400 ${sub ? "mt-2.5" : "mt-1.5"}`}>{label}</div>
-        ) : null}
+        {sub ? <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{sub}</p> : null}
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[4.75rem] flex-col items-center justify-center rounded-lg bg-white px-2.5 py-3.5 text-center ring-1 ring-zinc-100/80">
-      <div className={`text-base font-semibold tabular-nums leading-tight ${valueClassName}`}>{value}</div>
-      {sub ? <div className="mt-1.5 text-[11px] font-normal leading-snug tabular-nums text-zinc-400">{sub}</div> : null}
-      {label ? (
-        <div className={`text-[11px] font-medium text-zinc-400 ${sub ? "mt-2" : "mt-1.5"}`}>{label}</div>
-      ) : null}
+    <div className="min-w-0 bg-white px-3 py-2.5">
+      {label ? <p className="text-[11px] font-medium leading-none text-zinc-500">{label}</p> : null}
+      <div
+        className={`mt-1 text-[13px] font-semibold leading-snug ${numericValue ? "tabular-nums" : ""} ${valueClassName}`}
+      >
+        {value}
+      </div>
+      {sub ? <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{sub}</p> : null}
     </div>
   );
 }
 
-export function PostureMetricsRow({
-  children,
-  variant = "compact",
-}: {
-  children: ReactNode;
-  variant?: PostureMetricVariant;
-}) {
-  if (variant === "status") {
-    return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{children}</div>;
-  }
-  return <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">{children}</div>;
+export function PostureMetricsRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-lg bg-zinc-200/90 ring-1 ring-zinc-200/80">
+      <div className="grid grid-cols-2 gap-px sm:grid-cols-4">{children}</div>
+    </div>
+  );
 }
 
 export function FlowCallout({
@@ -246,16 +248,25 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-/** Semantic group. Whitespace plus divider only, no section heading. */
+/** Semantic group — field rows or nested content inside resource inspector. */
 export function ResourceGroup({
   children,
   className = "",
+  title,
 }: {
   children: ReactNode;
   className?: string;
+  title?: string;
 }) {
   return (
-    <div className={`border-t border-zinc-100/70 px-4 py-3.5 pr-5 ${className}`}>{children}</div>
+    <div className={`border-t border-[#eef2f6] ${className}`}>
+      {title ? (
+        <div className="border-b border-[#eef2f6] bg-[#f8fafc]/60 px-4 py-2">
+          <p className={drawerSectionTitle}>{title}</p>
+        </div>
+      ) : null}
+      <div className="bg-white px-4 py-1">{children}</div>
+    </div>
   );
 }
 
@@ -268,14 +279,13 @@ export function ResourceFieldRow({
   children: ReactNode;
   mono?: boolean;
 }) {
+  const valueClass = mono
+    ? `${drawerSummaryValue} font-mono text-[12px] break-all text-[#111827]`
+    : drawerSummaryValue;
   return (
-    <div className="flex gap-3 py-2 first:pt-0 last:pb-0">
-      <span className="w-[4.75rem] shrink-0 pt-0.5 text-[11px] font-medium text-zinc-500">{label}</span>
-      <div
-        className={`min-w-0 flex-1 text-[13px] leading-relaxed text-zinc-800 ${mono ? "font-mono text-[12px] break-all" : ""}`}
-      >
-        {children}
-      </div>
+    <div className="grid grid-cols-[6.75rem_1fr] gap-x-4 border-b border-[#eef2f6] py-3 last:border-b-0 sm:grid-cols-[7.25rem_1fr]">
+      <dt className={drawerSummaryLabel}>{label}</dt>
+      <dd className={`min-w-0 ${valueClass}`}>{children}</dd>
     </div>
   );
 }
@@ -293,17 +303,17 @@ export function ResourceGroupBlock({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-zinc-100/70 first:border-t-0">
+    <div className="border-t border-[#eef2f6] first:border-t-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-4 py-2.5 pr-5 text-left text-zinc-500 hover:bg-zinc-50/50"
+        className={`flex w-full items-center gap-2 ${drawerSectionHead} text-left hover:bg-[#f8fafc]`}
       >
         <Chevron open={open} />
-        <span className="text-[10px] font-semibold uppercase tracking-wider">{tag}</span>
-        <span className="text-[11px] font-medium text-zinc-600">{title}</span>
+        <span className={drawerSummaryLabel}>{tag}</span>
+        <span className={`${drawerSummaryValueStrong} normal-case tracking-normal`}>{title}</span>
       </button>
-      {open && <div className="px-4 pb-3 pr-5 pt-0">{children}</div>}
+      {open && <div className="border-t border-[#eef2f6] bg-white px-4 py-3">{children}</div>}
     </div>
   );
 }
