@@ -76,7 +76,6 @@ import {
   FlowCallout,
   PostureMetricCell,
   PostureMetricsRow,
-  ResourceArnBlock,
   ResourceFieldRow,
   ResourceGroup,
   ResourceInspectorHero,
@@ -288,21 +287,15 @@ function SelectedResourceInspector({
       />
 
       {showFieldList && (
-        <div className="space-y-3 border-b border-zinc-100 bg-white px-4 py-3.5">
-          {fieldDetailRows.length > 0 && (
-            <dl>
-              {fieldDetailRows.map((row) => (
-                <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
-                  {row.value}
-                </ResourceFieldRow>
-              ))}
-            </dl>
-          )}
-          {accountId && shortName.toLowerCase() !== "root" && (
-            <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>
-          )}
-          {identifierHref?.startsWith("http") ? (
-            <ResourceArnBlock label={resourceIdentifierLabel(finding.resource_arn)}>
+        <dl className="border-b border-zinc-100 bg-white px-4 py-1">
+          {fieldDetailRows.map((row) => (
+            <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
+              {row.value}
+            </ResourceFieldRow>
+          ))}
+          {accountId && <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>}
+          <ResourceFieldRow label={resourceIdentifierLabel(finding.resource_arn)} mono>
+            {identifierHref?.startsWith("http") ? (
               <a
                 href={identifierHref}
                 target="_blank"
@@ -311,13 +304,11 @@ function SelectedResourceInspector({
               >
                 {identifierHref}
               </a>
-            </ResourceArnBlock>
-          ) : (
-            <ResourceArnBlock label={resourceIdentifierLabel(finding.resource_arn)}>
-              {identifierValue}
-            </ResourceArnBlock>
-          )}
-        </div>
+            ) : (
+              identifierValue
+            )}
+          </ResourceFieldRow>
+        </dl>
       )}
 
       {exposingRules.length > 0 && (

@@ -127,17 +127,6 @@ export function ResourceInspectorHero({
   );
 }
 
-export function ResourceArnBlock({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <p className="text-[11px] font-medium text-zinc-500">{label}</p>
-      <div className="mt-1.5 rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-zinc-800 break-all">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 export function FindingTimelineGrid({ children }: { children: ReactNode }) {
   return <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">{children}</div>;
 }
