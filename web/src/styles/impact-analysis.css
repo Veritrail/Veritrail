@@ -133,17 +133,6 @@
   color: var(--ia-muted);
 }
 
-.impact-next-step {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ia-subtitle);
-}
-
-.impact-next-step strong {
-  font-weight: 650;
-  color: var(--ia-title);
-}
-
 .impact-confidence-pill {
   display: inline-flex;
   align-items: center;

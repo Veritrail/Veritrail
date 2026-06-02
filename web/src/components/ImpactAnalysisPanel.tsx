@@ -56,10 +56,6 @@ export function ImpactVerdictCard({
   );
 }
 
-export function ImpactRemediationHint({ children }: { children: ReactNode }) {
-  return <p className="impact-next-step">{children}</p>;
-}
-
 export function ImpactUsageStats({
   granted,
   recent,

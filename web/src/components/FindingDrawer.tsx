@@ -60,7 +60,6 @@ import {
 import {
   ImpactAnalysisEmpty,
   ImpactAnalysisShell,
-  ImpactRemediationHint,
   ImpactVerdictCard,
 } from "./ImpactAnalysisPanel";
 import {
@@ -77,8 +76,10 @@ import {
   FlowCallout,
   PostureMetricCell,
   PostureMetricsRow,
+  ResourceArnBlock,
   ResourceFieldRow,
   ResourceGroup,
+  ResourceInspectorHero,
   SemanticNarrativeBlock,
 } from "./FindingDrawerSemantic";
 
@@ -268,48 +269,55 @@ function SelectedResourceInspector({
     accountId != null ||
     !isVcsResourceIdentifier(finding.resource_arn);
 
+  const shortName = resourceShortName(finding);
+  const heroTitle =
+    shortName.toLowerCase() === "root" && accountId ? `Account ${accountId}` : shortName;
+  const identifierValue = resourceIdentifierValue(finding);
+  const identifierHref = isVcsResourceIdentifier(finding.resource_arn) ? identifierValue : null;
+
   return (
     <div
       className={`${drawerPanel} overflow-hidden ${
         attachedToList ? "border-l-2 border-l-zinc-400/30 shadow-sm shadow-zinc-950/[0.04]" : ""
       }`}
     >
-      <div className={drawerSectionHead}>
-        <h3 className={`${drawerSectionTitle} break-words`}>
-          {fieldDetailRows.length === 0 && !isVcsResourceIdentifier(finding.resource_arn)
-            ? resourceShortName(finding)
-            : "Resource details"}
-        </h3>
-      </div>
+      <ResourceInspectorHero
+        badge={resourceTypeLabel(finding.check_id)}
+        title={heroTitle}
+        severity={finding.severity}
+      />
 
       {showFieldList && (
-        <dl className="bg-white px-4 py-1">
-          {fieldDetailRows.map((row) => (
-            <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
-              {row.value}
-            </ResourceFieldRow>
-          ))}
-          {accountId && <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>}
-          <ResourceFieldRow label={resourceIdentifierLabel(finding.resource_arn)} mono>
-            {(() => {
-              const value = resourceIdentifierValue(finding);
-              const href = isVcsResourceIdentifier(finding.resource_arn) ? value : null;
-              if (href?.startsWith("http")) {
-                return (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-[#1f4e79] hover:underline"
-                  >
-                    {href}
-                  </a>
-                );
-              }
-              return value;
-            })()}
-          </ResourceFieldRow>
-        </dl>
+        <div className="space-y-3 border-b border-zinc-100 bg-white px-4 py-3.5">
+          {fieldDetailRows.length > 0 && (
+            <dl>
+              {fieldDetailRows.map((row) => (
+                <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
+                  {row.value}
+                </ResourceFieldRow>
+              ))}
+            </dl>
+          )}
+          {accountId && shortName.toLowerCase() !== "root" && (
+            <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>
+          )}
+          {identifierHref?.startsWith("http") ? (
+            <ResourceArnBlock label={resourceIdentifierLabel(finding.resource_arn)}>
+              <a
+                href={identifierHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[#1f4e79] hover:underline"
+              >
+                {identifierHref}
+              </a>
+            </ResourceArnBlock>
+          ) : (
+            <ResourceArnBlock label={resourceIdentifierLabel(finding.resource_arn)}>
+              {identifierValue}
+            </ResourceArnBlock>
+          )}
+        </div>
       )}
 
       {exposingRules.length > 0 && (
@@ -373,23 +381,22 @@ function SelectedResourceInspector({
         </ResourceGroup>
       )}
 
-      <ResourceGroup title="Finding timeline">
+      <div className="border-t border-zinc-100 bg-zinc-50/40 px-4 py-3.5">
+        <p className="mb-2.5 text-[11px] font-semibold text-zinc-700">Finding timeline</p>
         <PostureMetricsRow>
           <PostureMetricCell
             label="Risk score"
             value={finding.risk_score}
             valueClassName={riskTone}
-            variant="compact"
           />
           <PostureMetricCell
             label="Status"
             value={<span className="capitalize">{statusLabel}</span>}
-            variant="compact"
           />
-          <PostureMetricCell label="First seen" value={daysAgo(finding.first_seen)} variant="compact" />
-          <PostureMetricCell label="Last seen" value={daysAgo(finding.last_seen)} variant="compact" />
+          <PostureMetricCell label="First seen" value={daysAgo(finding.first_seen)} />
+          <PostureMetricCell label="Last seen" value={daysAgo(finding.last_seen)} />
         </PostureMetricsRow>
-      </ResourceGroup>
+      </div>
     </div>
   );
 }
@@ -2718,11 +2725,6 @@ function BlastRadiusSection({
         detail={verdictCopy.detail}
         pill={visualTone === "safe" ? undefined : impactPill}
       />
-      {rootSafeMinimal && (
-        <ImpactRemediationHint>
-          Apply the fix in the <strong>Remediation</strong> tab, then verify below.
-        </ImpactRemediationHint>
-      )}
 
       <div className="space-y-3">
         {data.resource_type === "vpc" && (
@@ -4883,7 +4885,7 @@ export function FindingDrawer({
     { id: "resources", label: "Resources" },
     { id: "compliance", label: "Compliance" },
     { id: "remediation", label: "Remediation" },
-    ...(showBlastRadius ? [{ id: "whatif" as Tab, label: "Impact analysis" }] : []),
+    ...(showBlastRadius ? [{ id: "whatif" as Tab, label: "What if" }] : []),
   ];
   const hasException =
     finding.status === "excepted" ||

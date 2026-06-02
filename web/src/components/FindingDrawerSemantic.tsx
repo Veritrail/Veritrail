@@ -83,7 +83,6 @@ export function PostureMetricCell({
   value,
   sub,
   valueClassName = "text-zinc-900",
-  variant = "compact",
 }: {
   label?: string;
   value: ReactNode;
@@ -91,39 +90,79 @@ export function PostureMetricCell({
   valueClassName?: string;
   variant?: PostureMetricVariant;
 }) {
-  const numericValue = typeof value === "number";
+  if (!label) return null;
+  return <FindingTimelineStat label={label} value={value} sub={sub} valueClassName={valueClassName} />;
+}
 
-  if (variant === "status") {
-    return (
-      <div className="min-w-0 bg-white px-3 py-2.5">
-        {label ? <p className="text-[11px] font-medium leading-none text-zinc-500">{label}</p> : null}
-        <div
-          className={`mt-1 text-[15px] font-semibold leading-snug ${numericValue ? "tabular-nums" : ""} ${valueClassName}`}
-        >
-          {value}
-        </div>
-        {sub ? <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{sub}</p> : null}
-      </div>
-    );
-  }
+export function PostureMetricsRow({ children }: { children: ReactNode }) {
+  return <FindingTimelineGrid>{children}</FindingTimelineGrid>;
+}
 
+/** Resource tab hero — type + name with severity accent. */
+export function ResourceInspectorHero({
+  badge,
+  title,
+  severity,
+}: {
+  badge: string;
+  title: string;
+  severity?: string;
+}) {
+  const accent =
+    severity === "critical" || severity === "high"
+      ? "bg-red-500"
+      : severity === "medium"
+        ? "bg-amber-400"
+        : "bg-zinc-300";
   return (
-    <div className="min-w-0 bg-white px-3 py-2.5">
-      {label ? <p className="text-[11px] font-medium leading-none text-zinc-500">{label}</p> : null}
-      <div
-        className={`mt-1 text-[13px] font-semibold leading-snug ${numericValue ? "tabular-nums" : ""} ${valueClassName}`}
-      >
-        {value}
+    <div className="flex gap-3 border-b border-zinc-100 bg-gradient-to-br from-white via-white to-zinc-50/70 px-4 py-3.5">
+      <div className={`mt-0.5 h-9 w-1 shrink-0 rounded-full ${accent}`} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium text-zinc-500">{badge}</p>
+        <h3 className="mt-0.5 text-[15px] font-semibold leading-snug tracking-normal text-zinc-900">
+          {title}
+        </h3>
       </div>
-      {sub ? <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{sub}</p> : null}
     </div>
   );
 }
 
-export function PostureMetricsRow({ children }: { children: ReactNode }) {
+export function ResourceArnBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg bg-zinc-200/90 ring-1 ring-zinc-200/80">
-      <div className="grid grid-cols-2 gap-px sm:grid-cols-4">{children}</div>
+    <div>
+      <p className="text-[11px] font-medium text-zinc-500">{label}</p>
+      <div className="mt-1.5 rounded-lg border border-zinc-200/80 bg-zinc-50/90 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-zinc-800 break-all">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function FindingTimelineGrid({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">{children}</div>;
+}
+
+export function FindingTimelineStat({
+  label,
+  value,
+  sub,
+  valueClassName = "text-zinc-900",
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  valueClassName?: string;
+}) {
+  const numericValue = typeof value === "number";
+  return (
+    <div className="rounded-xl border border-zinc-200/90 bg-white px-3 py-2.5 shadow-sm shadow-zinc-950/[0.03]">
+      <p className="text-[11px] font-medium leading-none text-zinc-500">{label}</p>
+      <div
+        className={`mt-1.5 text-[14px] font-semibold leading-snug ${numericValue ? "tabular-nums" : ""} ${valueClassName}`}
+      >
+        {value}
+      </div>
+      {sub ? <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{sub}</p> : null}
     </div>
   );
 }
@@ -261,11 +300,11 @@ export function ResourceGroup({
   return (
     <div className={`border-t border-[#eef2f6] ${className}`}>
       {title ? (
-        <div className="border-b border-[#eef2f6] bg-[#f8fafc]/60 px-4 py-2">
-          <p className={drawerSectionTitle}>{title}</p>
+        <div className="border-b border-zinc-100 bg-white px-4 pt-3 pb-0">
+          <p className="text-[11px] font-semibold text-zinc-700">{title}</p>
         </div>
       ) : null}
-      <div className="bg-white px-4 py-1">{children}</div>
+      <div className="bg-white px-4 py-3">{children}</div>
     </div>
   );
 }
@@ -284,7 +323,7 @@ export function ResourceFieldRow({
     : drawerSummaryValue;
   return (
     <div className="grid grid-cols-[6.75rem_1fr] gap-x-4 border-b border-[#eef2f6] py-3 last:border-b-0 sm:grid-cols-[7.25rem_1fr]">
-      <dt className={drawerSummaryLabel}>{label}</dt>
+      <dt className="pt-0.5 text-[11px] font-medium text-zinc-500">{label}</dt>
       <dd className={`min-w-0 ${valueClass}`}>{children}</dd>
     </div>
   );
