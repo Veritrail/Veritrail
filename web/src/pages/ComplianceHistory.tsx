@@ -5,7 +5,6 @@ import { Navigate } from "react-router-dom";
 import { api } from "../api";
 import { HistoryDashboard } from "../components/HistoryDashboard";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
-import { HistoryPeriodSummary } from "../components/HistoryPeriodSummary";
 import {
   type ComplianceHistoryResponse,
   type HistoryEvent,
@@ -28,8 +27,8 @@ interface Account {
 
 const FRAMEWORKS = [
   { value: "soc2", label: "SOC 2" },
-  { value: "cis_aws_l1", label: "CIS AWS L1" },
-  { value: "iso27001", label: "ISO 27001" },
+  { value: "cis_aws_l1", label: "CIS" },
+  { value: "iso27001", label: "ISO" },
 ] as const;
 
 const PERIOD_OPTIONS = [
@@ -41,15 +40,15 @@ const PERIOD_OPTIONS = [
 function HeroDelta({ before, after }: { before: number | null; after: number | null }) {
   if (after == null) return null;
   if (before == null || before === after) {
-    return <span className="text-3xl font-bold tabular-nums tracking-tight text-zinc-950">{after}%</span>;
+    return <span className="text-2xl font-bold tabular-nums tracking-tight text-zinc-950">{after}%</span>;
   }
   const down = after < before;
   const pts = after - before;
   return (
-    <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-      <span className="flex items-baseline gap-2 text-3xl font-bold tabular-nums tracking-tight">
+    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span className="flex items-baseline gap-1.5 text-2xl font-bold tabular-nums tracking-tight">
         <span className="text-zinc-300">{before}%</span>
-        <span className="text-xl font-normal text-zinc-300">→</span>
+        <span className="text-base font-normal text-zinc-300">→</span>
         <span className={down ? "text-rose-700" : "text-emerald-700"}>{after}%</span>
       </span>
       <span
@@ -61,6 +60,86 @@ function HeroDelta({ before, after }: { before: number | null; after: number | n
         {Math.abs(pts)} pts
       </span>
     </span>
+  );
+}
+
+function HistoryFilters({
+  accounts,
+  accountId,
+  framework,
+  days,
+  onAccountChange,
+  onFrameworkChange,
+  onDaysChange,
+}: {
+  accounts: Account[];
+  accountId: string;
+  framework: string;
+  days: number;
+  onAccountChange: (value: string) => void;
+  onFrameworkChange: (value: string) => void;
+  onDaysChange: (value: number) => void;
+}) {
+  return (
+    <div className="mt-5 rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm shadow-zinc-950/[0.02]">
+      <div className="grid gap-2 lg:grid-cols-[minmax(14rem,1fr)_auto_auto] lg:items-center">
+        <label className="flex min-w-0 items-center gap-2 rounded-xl bg-zinc-50 px-3 py-2 ring-1 ring-zinc-200/70">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Account</span>
+          <select
+            value={accountId}
+            onChange={(e) => onAccountChange(e.target.value)}
+            className="min-w-0 flex-1 appearance-none bg-transparent text-sm font-semibold text-zinc-900 outline-none"
+            aria-label="Account"
+          >
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-2 py-1.5 ring-1 ring-zinc-200/70">
+          <span className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 sm:inline">Framework</span>
+          <div className="inline-flex rounded-lg bg-white p-0.5 ring-1 ring-zinc-200/80" role="group" aria-label="Framework">
+            {FRAMEWORKS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => onFrameworkChange(f.value)}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                  framework === f.value
+                    ? "bg-zinc-950 text-white shadow-sm"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-2 py-1.5 ring-1 ring-zinc-200/70">
+          <span className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 sm:inline">Window</span>
+          <div className="inline-flex rounded-lg bg-white p-0.5 ring-1 ring-zinc-200/80" role="group" aria-label="Period">
+            {PERIOD_OPTIONS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => onDaysChange(p.value)}
+                className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
+                  days === p.value
+                    ? "bg-zinc-950 text-white shadow-sm"
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -83,70 +162,98 @@ function TimelineEventCard({
   const isBaseline = event.type === "baseline_established";
 
   return (
-    <article className="relative pl-7">
-      <span
-        className={`absolute left-0 top-2 h-3 w-3 rounded-full ring-4 ring-white ${pres.dotClass}`}
-        aria-hidden
-      />
+    <article className="relative pl-8">
+      <span className="absolute left-0 top-2 h-3.5 w-3.5 rounded-full bg-white ring-4 ring-white" aria-hidden>
+        <span className={`block h-3.5 w-3.5 rounded-full ${pres.dotClass}`} />
+      </span>
 
-      <div className="flex items-center gap-2 text-[13px] text-zinc-500">
-        <time className="font-medium text-zinc-700">{scanShortDate(event.timestamp)}</time>
-        <span className="text-zinc-300">·</span>
-        <span className="font-medium">{eventTypeLabel(event.type)}</span>
-      </div>
-
-      {isBaseline ? (
-        <h3 className="mt-1.5 text-xl font-semibold tracking-tight text-zinc-950">{pres.headline}</h3>
-      ) : (
-        <div className="mt-1.5">
-          <HeroDelta before={event.posture_before} after={event.posture_after} />
+      <div className="rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.02] transition hover:border-zinc-300 hover:shadow-md hover:shadow-zinc-950/[0.04]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+              <time>{scanShortDate(event.timestamp)}</time>
+              <span className="text-zinc-300">·</span>
+              <span>{eventTypeLabel(event.type)}</span>
+            </div>
+            {isBaseline ? (
+              <h3 className="mt-1.5 text-base font-semibold tracking-tight text-zinc-950">{pres.headline}</h3>
+            ) : (
+              <div className="mt-1.5">
+                <HeroDelta before={event.posture_before} after={event.posture_after} />
+              </div>
+            )}
+          </div>
+          {(event.findings_resolved ?? 0) > 0 && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-100">
+              {event.findings_resolved} resolved
+            </span>
+          )}
         </div>
-      )}
 
-      {cause && !isBaseline && (
-        <p className="mt-2 text-base text-zinc-900">
-          <span className="font-semibold">{cause.control}</span>{" "}
-          <span className={cause.tone === "bad" ? "text-rose-600" : cause.tone === "good" ? "text-emerald-600" : "text-zinc-500"}>
-            {cause.text}
-          </span>
-        </p>
-      )}
+        {cause && !isBaseline && (
+          <p className="mt-2 text-sm text-zinc-900">
+            <span className="font-semibold">{cause.control}</span>{" "}
+            <span className={cause.tone === "bad" ? "text-rose-600" : cause.tone === "good" ? "text-emerald-600" : "text-zinc-500"}>
+              {cause.text}
+            </span>
+          </p>
+        )}
 
-      {impacts.length > 0 && (
-        <div className="mt-3">
-          <ImpactList items={impacts} size="sm" />
+        {impacts.length > 0 && (
+          <div className="mt-3 rounded-xl bg-zinc-50/80 px-3 py-2 ring-1 ring-zinc-100">
+            <ImpactList items={impacts} size="sm" />
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+          <button type="button" onClick={onViewEvidence} className="font-medium text-indigo-700 hover:text-indigo-900">
+            View evidence
+          </button>
+          {hasPrevious && !isBaseline && (
+            <button type="button" onClick={onCompare} className="font-medium text-zinc-500 hover:text-zinc-900">
+              Compare
+            </button>
+          )}
+          {(event.infrastructure_events_count ?? 0) > 0 && (
+            <button type="button" onClick={onInfrastructure} className="font-medium text-zinc-500 hover:text-zinc-900">
+              {event.infrastructure_events_count} infrastructure event{event.infrastructure_events_count === 1 ? "" : "s"}
+            </button>
+          )}
         </div>
-      )}
-
-      <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
-        <button
-          type="button"
-          onClick={onViewEvidence}
-          className="font-medium text-indigo-700 hover:text-indigo-900"
-        >
-          View evidence
-        </button>
-        {hasPrevious && !isBaseline && (
-          <button
-            type="button"
-            onClick={onCompare}
-            className="font-medium text-zinc-500 hover:text-zinc-900"
-          >
-            Compare
-          </button>
-        )}
-        {(event.infrastructure_events_count ?? 0) > 0 && (
-          <button
-            type="button"
-            onClick={onInfrastructure}
-            className="font-medium text-zinc-500 hover:text-zinc-900"
-          >
-            {event.infrastructure_events_count} infrastructure event
-            {event.infrastructure_events_count === 1 ? "" : "s"}
-          </button>
-        )}
       </div>
     </article>
+  );
+}
+
+function CompactTimeline({
+  events,
+  previousByScanId,
+  openDrawer,
+}: {
+  events: HistoryEvent[];
+  previousByScanId: Map<string, HistoryEvent | null>;
+  openDrawer: (event: HistoryEvent, tab: "snapshot" | "compare", expandInfrastructure?: boolean) => void;
+}) {
+  if (events.length === 0) {
+    return <p className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-sm text-zinc-500">No timeline events in this window.</p>;
+  }
+
+  return (
+    <div className="relative space-y-5 before:absolute before:left-[6px] before:top-3 before:bottom-8 before:w-px before:bg-gradient-to-b before:from-emerald-200 before:via-zinc-200 before:to-transparent">
+      {events.slice(0, 8).map((evt) => (
+        <TimelineEventCard
+          key={evt.scan_run_id}
+          event={evt}
+          hasPrevious={!!previousByScanId.get(evt.scan_run_id)}
+          onViewEvidence={() => openDrawer(evt, "snapshot")}
+          onCompare={() => openDrawer(evt, "compare")}
+          onInfrastructure={() => openDrawer(evt, "snapshot", true)}
+        />
+      ))}
+      {events.length > 8 && (
+        <div className="pl-8 text-sm text-zinc-500">+{events.length - 8} older event{events.length - 8 === 1 ? "" : "s"}</div>
+      )}
+    </div>
   );
 }
 
@@ -154,7 +261,6 @@ export default function ComplianceHistory() {
   const [days, setDays] = useState(90);
   const [framework, setFramework] = useState("soc2");
   const [accountId, setAccountId] = useState("");
-  const [showTimeline, setShowTimeline] = useState(false);
   const [drawer, setDrawer] = useState<{
     event: HistoryEvent;
     tab: "snapshot" | "compare";
@@ -189,74 +295,40 @@ export default function ComplianceHistory() {
     return map;
   }, [events]);
 
+  const openDrawer = (event: HistoryEvent, tab: "snapshot" | "compare", expandInfrastructure = false) => {
+    setDrawer({
+      event,
+      tab,
+      previous: previousByScanId.get(event.scan_run_id) ?? null,
+      expandInfrastructure,
+    });
+  };
+
   if (accounts && connected.length === 0) {
     return <Navigate to="/accounts" replace />;
   }
 
   return (
-    <div className={`w-full ${drawer ? "xl:pr-[26rem]" : ""}`}>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200/80 pb-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Posture history</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            How compliance changed over time — control pass/fail, evidence snapshots, and remediation context.
-            CloudTrail is supporting detail only, not the main story.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={effectiveAccountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            className="h-9 appearance-none rounded-lg border border-zinc-200/90 bg-white px-3 text-xs font-semibold text-zinc-700 shadow-sm"
-            aria-label="Account"
-          >
-            {connected.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-          <div
-            className="inline-flex rounded-lg border border-zinc-200/80 bg-zinc-100/60 p-0.5"
-            role="group"
-            aria-label="Framework"
-          >
-            {FRAMEWORKS.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setFramework(f.value)}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                  framework === f.value
-                    ? "bg-white text-zinc-900 shadow-sm"
-                    : "text-zinc-600 hover:text-zinc-900"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <div
-            className="inline-flex rounded-lg border border-zinc-200/80 bg-zinc-100/60 p-0.5"
-            role="group"
-            aria-label="Period"
-          >
-            {PERIOD_OPTIONS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setDays(p.value)}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                  days === p.value
-                    ? "bg-white text-zinc-900 shadow-sm"
-                    : "text-zinc-600 hover:text-zinc-900"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+    <div className={`w-full ${drawer ? "xl:pr-[28rem]" : ""}`}>
+      <header className="mb-5 border-b border-zinc-200/80 pb-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">Security progress</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-950">History</h1>
+            <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+              Posture, findings, controls, and remediation movement over time.
+            </p>
           </div>
         </div>
+        <HistoryFilters
+          accounts={connected}
+          accountId={effectiveAccountId}
+          framework={framework}
+          days={days}
+          onAccountChange={setAccountId}
+          onFrameworkChange={setFramework}
+          onDaysChange={setDays}
+        />
       </header>
 
       {isLoading && <p className="text-sm text-zinc-500">Loading compliance dashboard…</p>}
@@ -272,15 +344,12 @@ export default function ComplianceHistory() {
           scanCount={data.scan_count}
           scanCadence={data.scan_cadence}
           persistentGaps={data.persistent_gaps}
+          openFindingsCount={data.current_summary?.open_findings_count}
+          resolvedInPeriod={data.period_summary?.findings_resolved}
+          timeline={<CompactTimeline events={events} previousByScanId={previousByScanId} openDrawer={openDrawer} />}
           onSelectSnapshot={(scanRunId) => {
             const evt = events.find((e) => e.scan_run_id === scanRunId);
-            if (!evt) return;
-            setDrawer({
-              event: evt,
-              tab: "snapshot",
-              previous: previousByScanId.get(scanRunId) ?? null,
-              expandInfrastructure: false,
-            });
+            if (evt) openDrawer(evt, "snapshot");
           }}
         />
       )}
@@ -289,63 +358,6 @@ export default function ComplianceHistory() {
         <p className="mt-6 rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-12 text-sm text-zinc-500">
           No scans in this window. Run a scan after connecting your account to populate the dashboard.
         </p>
-      )}
-
-      {!isLoading && events.length > 0 && (
-        <section className="mt-6 w-full rounded-lg border border-zinc-200 bg-white">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
-            <div className="min-w-0">
-              <h2 className="text-sm font-bold text-zinc-900">Audit timeline</h2>
-              <HistoryPeriodSummary summary={data?.period_summary} />
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowTimeline((v) => !v)}
-              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
-            >
-              {showTimeline ? "Hide timeline" : `Show ${events.length} snapshot${events.length === 1 ? "" : "s"}`}
-            </button>
-          </div>
-          {showTimeline ? (
-            <div className="relative mx-4 min-w-0 space-y-8 border-t border-zinc-100 py-5 before:absolute before:left-[5px] before:top-7 before:bottom-8 before:w-px before:bg-zinc-200">
-              {events.map((evt) => (
-                <TimelineEventCard
-                  key={evt.scan_run_id}
-                  event={evt}
-                  hasPrevious={!!previousByScanId.get(evt.scan_run_id)}
-                  onViewEvidence={() =>
-                    setDrawer({
-                      event: evt,
-                      tab: "snapshot",
-                      previous: previousByScanId.get(evt.scan_run_id) ?? null,
-                      expandInfrastructure: false,
-                    })
-                  }
-                  onCompare={() =>
-                    setDrawer({
-                      event: evt,
-                      tab: "compare",
-                      previous: previousByScanId.get(evt.scan_run_id) ?? null,
-                      expandInfrastructure: false,
-                    })
-                  }
-                  onInfrastructure={() =>
-                    setDrawer({
-                      event: evt,
-                      tab: "snapshot",
-                      previous: previousByScanId.get(evt.scan_run_id) ?? null,
-                      expandInfrastructure: true,
-                    })
-                  }
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="border-t border-zinc-100 px-4 py-3 text-sm text-zinc-500">
-              Latest snapshot: {scanShortDate(events[0].timestamp)} · {eventTypeLabel(events[0].type)}
-            </div>
-          )}
-        </section>
       )}
 
       {drawer && (
