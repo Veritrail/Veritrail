@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
 
 import { api } from "../api";
@@ -33,47 +33,6 @@ function remediationLabel(event: HistoryEvent): string {
   return event.detail || event.top_change?.title || event.check_id || event.resource_arn || "Remediation verified";
 }
 
-function FrameworkMovementRow({ accountId, days }: { accountId: string; days: number }) {
-  const queries = useQueries({
-    queries: FRAMEWORKS.map((f) => ({
-      queryKey: ["history-framework", accountId, f.value, days],
-      queryFn: () =>
-        api<ComplianceHistoryResponse>(
-          `/v1/accounts/${accountId}/compliance-timeline?framework=${f.value}&days=${days}&limit=1`,
-        ),
-      enabled: !!accountId,
-      staleTime: 120_000,
-    })),
-  });
-
-  return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      {FRAMEWORKS.map((f, i) => {
-        const data = queries[i]?.data;
-        const loading = queries[i]?.isLoading;
-        const score = data?.current_posture_score;
-        const improved = data?.period_summary?.controls_improved ?? 0;
-        const regressed = data?.period_summary?.controls_regressed ?? 0;
-        return (
-          <div key={f.value} className="rounded-lg border border-zinc-200 bg-zinc-50/50 px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{f.label}</p>
-            {loading ? (
-              <p className="mt-1 text-sm text-zinc-400">…</p>
-            ) : score != null ? (
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-zinc-950">{score}%</p>
-            ) : (
-              <p className="mt-0.5 text-sm text-zinc-500">No data</p>
-            )}
-            <p className="mt-0.5 text-[11px] text-zinc-500">
-              {improved > 0 || regressed > 0 ? `${improved} up · ${regressed} down` : "Steady"}
-            </p>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function RemediationRollupCard({
   count,
   events,
@@ -87,12 +46,12 @@ function RemediationRollupCard({
   const more = count - samples.length;
 
   return (
-    <article className="border-l-2 border-emerald-500/50 py-0.5 pl-2">
-      <p className="text-xs font-semibold text-zinc-900">
+    <article className="rounded-xl border border-emerald-200 bg-emerald-50/40 px-3 py-2">
+      <p className="text-sm font-semibold text-zinc-900">
         {count} remediation{count === 1 ? "" : "s"} verified
       </p>
       {samples.length > 0 && (
-        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-600">
+        <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
           {samples.map((s) => (
             <li key={s} className="truncate">
               {s}
@@ -101,7 +60,7 @@ function RemediationRollupCard({
           {more > 0 && <li className="text-zinc-400">+{more} more</li>}
         </ul>
       )}
-      <button type="button" onClick={onExpand} className="mt-1 text-[11px] text-indigo-600 hover:text-indigo-800">
+      <button type="button" onClick={onExpand} className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-800">
         Show details
       </button>
     </article>
@@ -137,14 +96,14 @@ function TimelineEventCompact({
           : "border-indigo-300/70";
 
   return (
-    <article className={`border-l-2 ${accent} py-0.5 pl-2`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-1">
-        <span className="text-[11px] font-medium text-zinc-800">{baseline ? pres.headline : eventTypeLabel(event.type)}</span>
-        {!baseline && <time className="text-[10px] text-zinc-400">{scanShortDate(event.timestamp)}</time>}
+    <article className={`border-l-2 ${accent} py-1 pl-3`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-sm font-semibold text-zinc-900">{baseline ? pres.headline : eventTypeLabel(event.type)}</span>
+        {!baseline && <time className="text-xs text-zinc-400">{scanShortDate(event.timestamp)}</time>}
       </div>
 
       {!baseline && (
-        <p className="mt-0.5 text-[11px] text-zinc-600">
+        <p className="mt-1 text-xs text-zinc-600">
           {event.posture_before != null && event.posture_after != null && event.posture_before !== event.posture_after ? (
             <>
               <span className="tabular-nums">{event.posture_before}%</span>
@@ -160,13 +119,13 @@ function TimelineEventCompact({
       )}
 
       {cause && !baseline && !isResolved && (
-        <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
+        <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
           {cause.control} {cause.text}
         </p>
       )}
 
-      <div className="mt-1 flex flex-wrap gap-x-2 text-[11px]">
-        <button type="button" onClick={onOpen} className="text-indigo-600 hover:text-indigo-800">
+      <div className="mt-2 flex flex-wrap gap-x-3 text-xs">
+        <button type="button" onClick={onOpen} className="font-medium text-indigo-600 hover:text-indigo-800">
           View evidence
         </button>
         {previous && !baseline && (
@@ -205,50 +164,50 @@ function HistoryTimeline({
   if (dayGroups.length === 0) return null;
 
   return (
-    <div className="space-y-3">
-        {dayGroups.map((group) => {
-          const remediations = group.events.filter((e) => e.type === "finding_resolved");
-          const others = group.events.filter((e) => e.type !== "finding_resolved");
-          const expanded = expandedRollups[group.day] ?? false;
-          const rollupRemediations = remediations.length >= 2 && !expanded;
+    <div className="space-y-5">
+      {dayGroups.map((group) => {
+        const remediations = group.events.filter((e) => e.type === "finding_resolved");
+        const others = group.events.filter((e) => e.type !== "finding_resolved");
+        const expanded = expandedRollups[group.day] ?? false;
+        const rollupRemediations = remediations.length >= 2 && !expanded;
 
-          return (
-            <div key={group.day}>
-              <h3 className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{group.label}</h3>
-              <div className="mt-1.5 space-y-1.5">
-                {rollupRemediations && (
-                  <RemediationRollupCard
-                    count={remediations.length}
-                    events={remediations}
-                    onExpand={() => setExpandedRollups((p) => ({ ...p, [group.day]: true }))}
+        return (
+          <div key={group.day}>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-400">{group.label}</h3>
+            <div className="mt-2 space-y-2">
+              {rollupRemediations && (
+                <RemediationRollupCard
+                  count={remediations.length}
+                  events={remediations}
+                  onExpand={() => setExpandedRollups((p) => ({ ...p, [group.day]: true }))}
+                />
+              )}
+              {(rollupRemediations ? others : [...remediations, ...others]).map((evt) => {
+                const previous = previousById.get(evt.scan_run_id) ?? null;
+                return (
+                  <TimelineEventCompact
+                    key={evt.scan_run_id}
+                    event={evt}
+                    previous={previous}
+                    onOpen={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: false })}
+                    onCompare={() => onDrawer({ event: evt, previous, tab: "compare", infra: false })}
+                    onInfra={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: true })}
                   />
-                )}
-                {(rollupRemediations ? others : [...remediations, ...others]).map((evt) => {
-                  const previous = previousById.get(evt.scan_run_id) ?? null;
-                  return (
-                    <TimelineEventCompact
-                      key={evt.scan_run_id}
-                      event={evt}
-                      previous={previous}
-                      onOpen={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: false })}
-                      onCompare={() => onDrawer({ event: evt, previous, tab: "compare", infra: false })}
-                      onInfra={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: true })}
-                    />
-                  );
-                })}
-                {expanded && remediations.length >= 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setExpandedRollups((p) => ({ ...p, [group.day]: false }))}
-                    className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800"
-                  >
-                    Hide remediation details
-                  </button>
-                )}
-              </div>
+                );
+              })}
+              {expanded && remediations.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => setExpandedRollups((p) => ({ ...p, [group.day]: false }))}
+                  className="text-xs font-medium text-zinc-500 hover:text-zinc-800"
+                >
+                  Hide remediation details
+                </button>
+              )}
             </div>
-          );
-        })}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -290,11 +249,11 @@ export default function HistoryV2() {
   if (accountsQ.data && connected.length === 0) return <Navigate to="/accounts" replace />;
 
   const headerActions = (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl border border-zinc-200 bg-white p-1 shadow-sm shadow-zinc-950/[0.02]">
       <select
         value={effectiveAccountId}
         onChange={(e) => setAccountId(e.target.value)}
-        className="h-8 max-w-[11rem] truncate rounded-lg border border-zinc-200 bg-white px-2 text-xs font-semibold text-zinc-700"
+        className="h-8 max-w-[12rem] truncate rounded-lg border-0 bg-zinc-50 px-2 text-xs font-semibold text-zinc-700 outline-none ring-1 ring-inset ring-zinc-200"
         aria-label="Account"
       >
         {connected.map((a) => (
@@ -303,7 +262,8 @@ export default function HistoryV2() {
           </option>
         ))}
       </select>
-      <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/60 p-0.5" role="group" aria-label="Framework">
+      <div className="h-6 w-px bg-zinc-200" />
+      <div className="inline-flex rounded-lg bg-zinc-100 p-0.5" role="group" aria-label="Framework">
         {FRAMEWORKS.map((f) => (
           <button
             key={f.value}
@@ -317,7 +277,7 @@ export default function HistoryV2() {
           </button>
         ))}
       </div>
-      <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/60 p-0.5" role="group" aria-label="Period">
+      <div className="inline-flex rounded-lg bg-zinc-100 p-0.5" role="group" aria-label="Period">
         {PERIODS.map((p) => (
           <button
             key={p}
@@ -342,7 +302,7 @@ export default function HistoryV2() {
         title="History"
         description="Posture, findings, controls, and remediation movement over time."
         actions={headerActions}
-        width="w-full"
+        width="w-full max-w-[1280px]"
       >
         {historyQ.isLoading && (
           <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-500">Loading history…</p>
@@ -355,65 +315,53 @@ export default function HistoryV2() {
         )}
 
         {!historyQ.isLoading && !historyQ.isError && historyQ.data && (
-          <>
-            <HistoryDashboard
-              events={events}
-              days={days}
-              currentScore={historyQ.data.current_posture_score}
-              currentSummary={historyQ.data.current_summary}
-              periodSummary={historyQ.data.period_summary}
-              scanCount={historyQ.data.scan_count}
-              scanCadence={historyQ.data.scan_cadence}
-              persistentGaps={historyQ.data.persistent_gaps}
-              resolvedInPeriod={resolvedInPeriod}
-              onSelectSnapshot={(id) => {
-                const evt = events.find((e) => e.scan_run_id === id);
-                if (evt) {
-                  setDrawer({
-                    event: evt,
-                    previous: previousById.get(id) ?? null,
-                    tab: "snapshot",
-                    infra: false,
-                  });
-                }
-              }}
-              timeline={
-                onlyBaseline ? (
-                  <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
-                    <p className="text-xs font-medium text-zinc-800">Baseline recorded</p>
-                    <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-                      History starts with your first completed scan. Remediations, exceptions, and control changes will appear here.
-                    </p>
-                  </div>
-                ) : events.length > 0 ? (
-                  <HistoryTimeline
-                    dayGroups={dayGroups}
-                    previousById={previousById}
-                    expandedRollups={expandedRollups}
-                    setExpandedRollups={setExpandedRollups}
-                    onDrawer={setDrawer}
-                  />
-                ) : (
-                  <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
-                    <p className="text-xs font-medium text-zinc-800">No events in this window</p>
-                    <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-                      Run a scan or verify a remediation from Findings to populate this timeline.
-                    </p>
-                  </div>
-                )
+          <HistoryDashboard
+            events={events}
+            days={days}
+            currentScore={historyQ.data.current_posture_score}
+            currentSummary={historyQ.data.current_summary}
+            periodSummary={historyQ.data.period_summary}
+            scanCount={historyQ.data.scan_count}
+            scanCadence={historyQ.data.scan_cadence}
+            persistentGaps={historyQ.data.persistent_gaps}
+            resolvedInPeriod={resolvedInPeriod}
+            onSelectSnapshot={(id) => {
+              const evt = events.find((e) => e.scan_run_id === id);
+              if (evt) {
+                setDrawer({
+                  event: evt,
+                  previous: previousById.get(id) ?? null,
+                  tab: "snapshot",
+                  infra: false,
+                });
               }
-            />
-
-            <section className="rounded-lg border border-zinc-200 bg-white px-3 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Compliance by framework</p>
-              <p className="mt-0.5 text-[11px] text-zinc-500">
-                Based on the latest completed scan in this window.
-              </p>
-              <div className="mt-2">
-                <FrameworkMovementRow accountId={effectiveAccountId} days={days} />
-              </div>
-            </section>
-          </>
+            }}
+            timeline={
+              onlyBaseline ? (
+                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
+                  <p className="text-xs font-medium text-zinc-800">Baseline recorded</p>
+                  <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
+                    History starts with your first completed scan. Remediations, exceptions, and control changes will appear here.
+                  </p>
+                </div>
+              ) : events.length > 0 ? (
+                <HistoryTimeline
+                  dayGroups={dayGroups}
+                  previousById={previousById}
+                  expandedRollups={expandedRollups}
+                  setExpandedRollups={setExpandedRollups}
+                  onDrawer={setDrawer}
+                />
+              ) : (
+                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
+                  <p className="text-xs font-medium text-zinc-800">No events in this window</p>
+                  <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
+                    Run a scan or verify a remediation from Findings to populate this timeline.
+                  </p>
+                </div>
+              )
+            }
+          />
         )}
       </PageShell>
 
