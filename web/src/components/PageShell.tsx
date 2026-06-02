@@ -6,7 +6,7 @@ export function PageShell({
   description,
   actions,
   children,
-  width = "max-w-5xl",
+  width = "max-w-7xl",
   variant = "default",
 }: {
   eyebrow?: string;
@@ -26,7 +26,7 @@ export function PageShell({
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">{eyebrow}</p>
             )}
             <h1 className="mt-0.5 text-lg font-bold tracking-tight text-zinc-950">{title}</h1>
-            {description && <p className="mt-0.5 max-w-xl text-sm text-zinc-500">{description}</p>}
+            {description && <p className="mt-0.5 max-w-2xl text-sm text-zinc-500">{description}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </header>
@@ -44,7 +44,7 @@ export function PageShell({
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">{eyebrow}</p>
             )}
             <h1 className="mt-0.5 text-xl font-bold tracking-tight text-zinc-950">{title}</h1>
-            {description && <p className="mt-1 max-w-2xl text-sm leading-relaxed text-zinc-500">{description}</p>}
+            {description && <p className="mt-1 max-w-3xl text-sm leading-relaxed text-zinc-500">{description}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </div>
