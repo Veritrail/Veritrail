@@ -27,21 +27,12 @@ function WindowSummaryCard({
   const hasTrend = scanCount >= 2 || events.length >= 2;
   const primary =
     resolved > 0
-      ? `${resolved} finding${resolved === 1 ? "" : "s"} verified`
+      ? `${resolved} findings verified`
       : improved > 0
-        ? `${improved} control${improved === 1 ? "" : "s"} improved`
+        ? `${improved} controls improved`
         : events.length === 1 && events[0]?.type === "baseline_established"
           ? "Baseline recorded"
-          : currentScore != null
-            ? `Posture at ${currentScore}%`
-            : "No movement yet";
-
-  const supporting =
-    resolved > 0
-      ? `Resolved in the last ${days} days.`
-      : events.length === 1 && events[0]?.type === "baseline_established"
-        ? "History starts after your first completed scan."
-        : `Window: last ${days} days.`;
+          : "No movement yet";
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
@@ -49,66 +40,51 @@ function WindowSummaryCard({
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Window summary</p>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950">{primary}</p>
-          <p className="mt-1 text-sm text-zinc-500">{supporting}</p>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">
-              {improved} improved
-            </span>
-            <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 font-medium text-rose-700">
-              {regressed} regressed
-            </span>
-          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            {resolved > 0
+              ? `Resolved in the last ${days} days.`
+              : hasTrend
+                ? `Movement in the last ${days} days.`
+                : "Run another scan after remediation to chart posture movement."}
+          </p>
+          <p className="mt-3 text-xs text-zinc-500">
+            <span className="font-semibold text-emerald-700">{improved}</span> controls improved
+            <span className="px-2 text-zinc-300">·</span>
+            <span className="font-semibold text-rose-700">{regressed}</span> regressed
+          </p>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-right">
           <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Current posture</p>
           <p className="mt-1 text-3xl font-semibold tabular-nums text-zinc-950">{currentScore ?? "—"}%</p>
-          {!hasTrend && (
-            <p className="mt-1 max-w-[13rem] text-[11px] leading-snug text-zinc-500">
-              Run another scan to chart posture movement.
-            </p>
-          )}
         </div>
       </div>
     </div>
   );
 }
 
-function MiniMetric({ label, value, hint, tone = "zinc" }: { label: string; value: number | string; hint: string; tone?: "zinc" | "rose" | "emerald" | "indigo" }) {
-  const toneClass =
-    tone === "rose"
-      ? "text-rose-600"
-      : tone === "emerald"
-        ? "text-emerald-600"
-        : tone === "indigo"
-          ? "text-indigo-600"
-          : "text-zinc-950";
+function MetricStrip({
+  open,
+  resolved,
+  scans,
+}: {
+  open: number;
+  resolved: number;
+  scans: number;
+}) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white px-3 py-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{label}</p>
-      <p className={`mt-1 text-xl font-semibold tabular-nums ${toneClass}`}>{value}</p>
-      <p className="mt-0.5 truncate text-[11px] text-zinc-500">{hint}</p>
-    </div>
-  );
-}
-
-function PostureTrendCard({ scanCount }: { scanCount: number }) {
-  return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Posture trend</p>
-          <p className="mt-1 text-sm text-zinc-500">Score movement across completed scans.</p>
-        </div>
-        <span className="rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-semibold text-zinc-500">{scanCount} scans</span>
+    <div className="grid overflow-hidden rounded-2xl border border-zinc-200 bg-white sm:grid-cols-3">
+      <div className="border-b border-zinc-100 px-4 py-3 sm:border-b-0 sm:border-r">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Open findings</p>
+        <p className="mt-1 text-xl font-semibold tabular-nums text-rose-600">{open || "—"}</p>
       </div>
-      {scanCount < 2 ? (
-        <div className="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-6 text-center">
-          <p className="text-sm font-medium text-zinc-800">Trend appears after two completed scans.</p>
-          <p className="mt-1 text-xs text-zinc-500">Run another scan after remediation to see posture movement.</p>
-        </div>
-      ) : (
-        <div className="mt-4 h-28 rounded-xl bg-gradient-to-b from-zinc-50 to-white" />
-      )}
+      <div className="border-b border-zinc-100 px-4 py-3 sm:border-b-0 sm:border-r">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Resolved</p>
+        <p className="mt-1 text-xl font-semibold tabular-nums text-emerald-600">{resolved}</p>
+      </div>
+      <div className="px-4 py-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">Scans</p>
+        <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{scans}</p>
+      </div>
     </div>
   );
 }
@@ -142,7 +118,6 @@ function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Needs attention</p>
           <p className="mt-1 text-xs text-zinc-500">Controls with the most open findings.</p>
         </div>
-        {gaps.length > 0 && <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-600">Top {Math.min(4, gaps.length)}</span>}
       </div>
       {gaps.length === 0 ? (
         <p className="mt-4 text-sm text-zinc-500">No failing controls with open findings.</p>
@@ -223,21 +198,13 @@ export function HistoryDashboard({
     <div className="space-y-4">
       <WindowSummaryCard resolved={resolved} days={days} improved={improved} regressed={regressed} currentScore={currentScore} scanCount={scans} events={events} />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MiniMetric label="Open findings" value={open || "—"} hint="Active in findings now" tone="rose" />
-        <MiniMetric label="Resolved" value={resolved} hint={`Verified in ${days} days`} tone="emerald" />
-        <MiniMetric label="Controls changed" value={improved + regressed} hint={`${improved} improved · ${regressed} regressed`} tone="indigo" />
-        <MiniMetric label="Scans" value={scans} hint={`Completed in ${days}-day window`} />
-      </div>
+      <MetricStrip open={open} resolved={resolved} scans={scans} />
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-        <div className="space-y-4 lg:col-span-7">
-          <PostureTrendCard scanCount={scans} />
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Recent movement</p>
-            <p className="mt-1 text-xs text-zinc-500">Latest movement, grouped by day.</p>
-            <div className="mt-4">{timeline}</div>
-          </div>
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 lg:col-span-7">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Recent movement</p>
+          <p className="mt-1 text-xs text-zinc-500">Latest movement, grouped by day.</p>
+          <div className="mt-4">{timeline}</div>
         </div>
         <div className="space-y-4 lg:col-span-5">
           <NeedsAttentionCompact gaps={persistentGaps} />
