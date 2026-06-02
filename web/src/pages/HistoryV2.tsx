@@ -302,7 +302,7 @@ export default function HistoryV2() {
         title="History"
         description="Posture, findings, controls, and remediation movement over time."
         actions={headerActions}
-        width="w-full max-w-[1280px]"
+        width="w-full max-w-none"
       >
         {historyQ.isLoading && (
           <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-500">Loading history…</p>
