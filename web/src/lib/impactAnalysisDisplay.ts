@@ -75,7 +75,7 @@ export function impactVerdictCopy(
 
   if (data.resource_type === "iam_role") {
     const recent = data.active_service_count ?? 0;
-    if (recent > 0 && tone !== "safe") {
+    if (recent > 0) {
       const svc = recent === 1 ? "service was" : "services were";
       const line = `${recent} ${svc} used in the last 30 days. Review usage before reducing permissions.`;
       return {
