@@ -96,7 +96,7 @@ export default function Layout() {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5"
+                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
               />
             </svg>
             History
@@ -151,7 +151,9 @@ export default function Layout() {
       <main className="ml-64 flex min-h-screen min-w-0 flex-col">
         <RecheckNotificationsProvider>
           <div data-app-scroll className="flex-1 overflow-auto px-8 py-8">
-            <Outlet />
+            <div className="w-full min-w-0">
+              <Outlet />
+            </div>
           </div>
         </RecheckNotificationsProvider>
       </main>
