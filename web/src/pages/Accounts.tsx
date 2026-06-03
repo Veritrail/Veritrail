@@ -2644,6 +2644,40 @@ function AccountCard({
   );
 }
 
+function PostureGlyphCloud() {
+  return (
+    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+    </svg>
+  );
+}
+
+function PostureGlyphFlag() {
+  return (
+    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+    </svg>
+  );
+}
+
+function PostureGlyphShield() {
+  return (
+    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Zm0 13.036h.008v.008H12v-.008Z" />
+    </svg>
+  );
+}
+
+function PostureGlyphUsers() {
+  return (
+    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+    </svg>
+  );
+}
+
+type PostureTone = "good" | "warn" | "bad" | "muted";
+
 function PostureSummary({
   accounts,
   statsMap,
@@ -2652,6 +2686,7 @@ function PostureSummary({
   statsMap: Map<string, FindingStats>;
 }) {
   const connected = accounts.filter((a) => isAccountConnected(a));
+  const pending = accounts.length - connected.length;
 
   let totalOpen = 0;
   let totalCrit = 0;
@@ -2664,42 +2699,77 @@ function PostureSummary({
     if (s.critHigh > 0) needsAttention += 1;
   }
 
-  const metricTiles: { label: string; value: number; gradient: string }[] = [
+  const tiles: {
+    label: string;
+    value: number;
+    tint: string;
+    icon: ReactNode;
+    sub: string;
+    tone: PostureTone;
+  }[] = [
     {
       label: "Connected",
       value: connected.length,
-      gradient: "from-white to-sky-50/40",
+      tint: "bg-sky-50 text-sky-500",
+      icon: <PostureGlyphCloud />,
+      sub: pending > 0 ? `${pending} pending setup` : "All active",
+      tone: pending > 0 ? "warn" : "good",
     },
     {
       label: "Open findings",
       value: totalOpen,
-      gradient: "from-white to-zinc-50/90",
+      tint: "bg-orange-50 text-orange-500",
+      icon: <PostureGlyphFlag />,
+      sub: `Across ${connected.length} account${connected.length === 1 ? "" : "s"}`,
+      tone: "muted",
     },
     {
       label: "Critical + high",
       value: totalCrit,
-      gradient: "from-white to-zinc-50/90",
+      tint: "bg-red-50 text-red-500",
+      icon: <PostureGlyphShield />,
+      sub: totalCrit > 0 ? "Needs attention" : "All clear",
+      tone: totalCrit > 0 ? "bad" : "good",
     },
     {
       label: "Accounts at risk",
       value: needsAttention,
-      gradient: "from-white to-zinc-50/90",
+      tint: "bg-amber-50 text-amber-500",
+      icon: <PostureGlyphUsers />,
+      sub: needsAttention > 0 ? `of ${connected.length} connected` : "None at risk",
+      tone: needsAttention > 0 ? "warn" : "good",
     },
   ];
 
+  const toneText: Record<PostureTone, string> = {
+    good: "text-emerald-600",
+    warn: "text-amber-600",
+    bad: "text-red-600",
+    muted: "text-zinc-400",
+  };
+  const toneDot: Record<PostureTone, string> = {
+    good: "bg-emerald-500",
+    warn: "bg-amber-500",
+    bad: "bg-red-500",
+    muted: "bg-zinc-300",
+  };
+
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {metricTiles.map((t) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {tiles.map((t) => (
         <div
           key={t.label}
-          className={`rounded-xl border border-zinc-200 bg-gradient-to-br px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-200 hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] ${t.gradient}`}
+          className="flex items-center gap-4 rounded-2xl border border-zinc-200/80 bg-white px-5 py-5 shadow-sm shadow-zinc-950/[0.03] transition duration-200 hover:border-zinc-300 hover:shadow-md"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            {t.label}
-          </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-zinc-900">
-            {t.value}
-          </p>
+          <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${t.tint}`}>{t.icon}</span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{t.label}</p>
+            <p className="mt-0.5 text-3xl font-bold leading-none tracking-tight tabular-nums text-zinc-900">{t.value}</p>
+            <p className={`mt-2 flex items-center gap-1.5 text-[11px] font-medium ${toneText[t.tone]}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${toneDot[t.tone]}`} aria-hidden />
+              {t.sub}
+            </p>
+          </div>
         </div>
       ))}
     </div>
