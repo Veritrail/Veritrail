@@ -2462,26 +2462,44 @@ function ScanPhaseBlock({
           style={indeterminate ? undefined : { width: `${pct}%` }}
         />
       </div>
-      <div className="mt-3.5 grid w-full grid-cols-3 gap-x-3 gap-y-3 sm:grid-cols-6 sm:gap-x-2 sm:gap-y-0">
+      <div className="mt-4 flex items-start">
         {SCAN_PHASES.map((label, i) => {
           const done = i < activeIdx;
           const active = i === activeIdx;
+          const last = i === SCAN_PHASES.length - 1;
           return (
-            <div key={label} className="flex min-w-0 flex-col items-center gap-1 px-0.5 text-center">
-              <span
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
-                  done ? "bg-emerald-500 text-white" : active ? "bg-indigo-600 text-white" : "bg-zinc-200 text-zinc-500"
-                }`}
-              >
-                {done ? (
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
+            <div key={label} className="flex min-w-0 flex-1 flex-col items-center text-center">
+              {/* circle + connecting rails */}
+              <div className="flex w-full items-center">
+                <div
+                  className={`h-0.5 flex-1 rounded-full ${i === 0 ? "opacity-0" : i <= activeIdx ? "bg-emerald-400/80" : "bg-zinc-200"}`}
+                  aria-hidden
+                />
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
+                    done
+                      ? "bg-emerald-500 text-white"
+                      : active
+                        ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
+                        : "bg-zinc-200 text-zinc-500"
+                  }`}
+                >
+                  {done ? (
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <div
+                  className={`h-0.5 flex-1 rounded-full ${last ? "opacity-0" : i < activeIdx ? "bg-emerald-400/80" : "bg-zinc-200"}`}
+                  aria-hidden
+                />
+              </div>
+              <span className={`mt-1.5 px-1 text-[11px] leading-tight ${active ? "font-semibold text-indigo-700" : done ? "text-zinc-600" : "text-zinc-400"}`}>
+                {label}
               </span>
-              <span className={`text-[11px] leading-tight ${active ? "font-semibold text-indigo-700" : done ? "text-zinc-600" : "text-zinc-400"}`}>{label}</span>
               <span className="text-[10px] text-zinc-400">{done ? "Completed" : active ? "In progress" : "Pending"}</span>
             </div>
           );
