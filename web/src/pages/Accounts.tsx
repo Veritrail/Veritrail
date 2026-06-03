@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
@@ -15,7 +16,6 @@ import {
   countRemediationEnabled,
   type RemediationModules,
 } from "../data/remediationModules";
-import ScanProgressBar from "../components/ScanProgressBar";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
@@ -2161,30 +2161,6 @@ function FindingsSeverityStrip({ stats }: { stats: FindingStats }) {
 }
 
 
-function MetricPills({ stats }: { stats: FindingStats }) {
-  const pills = [
-    { value: stats.critHigh, label: "Critical", accent: stats.critHigh > 0 },
-    { value: stats.medium, label: "Medium", accent: false },
-    { value: stats.open, label: "Open", accent: false },
-  ];
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {pills.map((p) => (
-        <span
-          key={p.label}
-          className="inline-flex items-baseline gap-1 rounded-full bg-zinc-100/90 px-2.5 py-1 text-xs"
-        >
-          <span className={`font-semibold tabular-nums ${p.accent ? "text-orange-600" : "text-zinc-800"}`}>
-            {p.value}
-          </span>
-          <span className="text-zinc-500">{p.label}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
 const cardClass =
   "overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-200 hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_20px_rgba(0,0,0,0.05)]";
 
@@ -2249,6 +2225,276 @@ function ScanFreshnessBadge({
   );
 }
 
+type ScanScheduleData = {
+  scanning: { enabled: boolean; interval: "daily" | "weekly" | "custom" | "manual"; custom_hours: number | null };
+  scan_status: { next_scan_at: string | null };
+};
+
+function scanScheduleText(s?: ScanScheduleData): string {
+  if (!s || !s.scanning.enabled || s.scanning.interval === "manual") return "Manual only";
+  if (s.scanning.interval === "weekly") return "Weekly";
+  if (s.scanning.interval === "custom") return s.scanning.custom_hours ? `Every ${s.scanning.custom_hours}h` : "Custom";
+  return "Daily";
+}
+
+function formatScanDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function formatElapsed(ms: number | null | undefined): string | null {
+  if (ms == null || ms < 0) return null;
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const r = total % 60;
+  return m > 0 ? `${m}m ${r}s` : `${r}s`;
+}
+
+const SCAN_PHASES = [
+  "Initializing",
+  "Collecting assets",
+  "Analyzing resources",
+  "Policy evaluation",
+  "Risk assessment",
+  "Reporting",
+] as const;
+
+function CopyIdButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard blocked — no-op */
+        }
+      }}
+      title="Copy account ID"
+      className="inline-flex h-5 w-5 items-center justify-center rounded text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
+    >
+      {copied ? (
+        <svg className="h-3.5 w-3.5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75h-6a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function SeverityCounts({ stats }: { stats: FindingStats }) {
+  const items = [
+    { value: stats.critHigh, label: "Critical", cls: stats.critHigh > 0 ? "text-red-600" : "text-zinc-400" },
+    { value: stats.medium, label: "Medium", cls: stats.medium > 0 ? "text-amber-600" : "text-zinc-400" },
+    { value: stats.open, label: "Open", cls: "text-zinc-700" },
+  ];
+  return (
+    <div className="flex items-stretch divide-x divide-zinc-200">
+      {items.map((it) => (
+        <div key={it.label} className="px-3.5 text-center first:pl-0 last:pr-0">
+          <p className={`text-xl font-bold leading-none tabular-nums ${it.cls}`}>{it.value}</p>
+          <p className="mt-1 text-[11px] text-zinc-500">{it.label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AccountMenu({
+  onViewFindings,
+  onManage,
+  onRemove,
+}: {
+  onViewFindings: () => void;
+  onManage: () => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="More actions"
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition hover:bg-zinc-50 hover:text-zinc-600"
+      >
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 6.75a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm0 6.75a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm0 6.75a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <button type="button" aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
+          <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
+            <button role="menuitem" onClick={() => { setOpen(false); onViewFindings(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50">View findings</button>
+            <button role="menuitem" onClick={() => { setOpen(false); onManage(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50">Manage capabilities</button>
+            <button role="menuitem" onClick={() => { setOpen(false); onRemove(); }} className="block w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50">Remove account</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ScanPhaseBlock({
+  progress,
+  elapsedMs,
+  progressStep,
+  progressTotal,
+  indeterminate,
+}: {
+  progress: number;
+  elapsedMs: number | null;
+  progressStep: number | null;
+  progressTotal: number | null;
+  indeterminate: boolean;
+}) {
+  const pct = Math.max(0, Math.min(100, Math.round((progress ?? 0) * 100)));
+  const elapsed = formatElapsed(elapsedMs);
+  const frac = progressTotal && progressStep != null ? progressStep / progressTotal : progress ?? 0;
+  const activeIdx = indeterminate ? 0 : Math.min(SCAN_PHASES.length - 1, Math.floor(frac * SCAN_PHASES.length));
+  return (
+    <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-5 py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <svg className="h-5 w-5 shrink-0 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle className="opacity-20" cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" />
+            <path className="opacity-90" d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+          <p className="truncate text-sm font-semibold text-zinc-900">
+            Scanning account
+            <span className="ml-1.5 font-normal text-zinc-500">
+              {progressStep != null && progressTotal ? `— Step ${progressStep} of ${progressTotal}` : ""}
+              {elapsed ? ` · ${elapsed} elapsed` : ""}
+            </span>
+          </p>
+        </div>
+        {!indeterminate && <span className="shrink-0 text-sm font-bold tabular-nums text-indigo-600">{pct}%</span>}
+      </div>
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70">
+        <div
+          className={`h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 ${indeterminate ? "w-1/3 animate-pulse" : "transition-[width] duration-500"}`}
+          style={indeterminate ? undefined : { width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-3.5 grid grid-cols-3 gap-y-3 sm:grid-cols-6">
+        {SCAN_PHASES.map((label, i) => {
+          const done = i < activeIdx;
+          const active = i === activeIdx;
+          return (
+            <div key={label} className="flex flex-col items-center gap-1 px-1 text-center">
+              <span
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
+                  done ? "bg-emerald-500 text-white" : active ? "bg-indigo-600 text-white" : "bg-zinc-200 text-zinc-500"
+                }`}
+              >
+                {done ? (
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+                  </svg>
+                ) : (
+                  i + 1
+                )}
+              </span>
+              <span className={`text-[11px] leading-tight ${active ? "font-semibold text-indigo-700" : done ? "text-zinc-600" : "text-zinc-400"}`}>{label}</span>
+              <span className="text-[10px] text-zinc-400">{done ? "Completed" : active ? "In progress" : "Pending"}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FooterStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-zinc-300">{icon}</span>
+      <div className="leading-tight">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{label}</p>
+        <p className="text-xs font-medium text-zinc-600">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function SplitScanButton({
+  onRescan,
+  onHistory,
+  disabled,
+  running,
+}: {
+  onRescan: () => void;
+  onHistory: () => void;
+  disabled: boolean;
+  running: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative flex">
+      <button
+        type="button"
+        onClick={onRescan}
+        disabled={disabled}
+        className="inline-flex h-9 items-center gap-1.5 rounded-l-lg bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <svg className={`h-4 w-4 ${running ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        {running ? "Scanning…" : "Rescan"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Scan options"
+        className="inline-flex h-9 items-center rounded-r-lg bg-gradient-to-r from-[#8b5cf6] to-[#8b5cf6] px-1.5 text-white shadow-[inset_1px_0_0_rgba(255,255,255,0.25)] transition hover:brightness-110"
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <button type="button" aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
+          <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
+            <button role="menuitem" disabled={disabled} onClick={() => { setOpen(false); onRescan(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50">Rescan now</button>
+            <button role="menuitem" onClick={() => { setOpen(false); onHistory(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50">View scan history</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const FOOTER_ICON_CLOCK = (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+  </svg>
+);
+const FOOTER_ICON_REPEAT = (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-4.14-3.36-7.5-7.5-7.5-2.3 0-4.36 1.04-5.74 2.67M4.5 12c0 4.14 3.36 7.5 7.5 7.5 2.3 0 4.36-1.04 5.74-2.67M16.5 7.5h3v-3M7.5 16.5h-3v3" />
+  </svg>
+);
+const FOOTER_ICON_CALENDAR = (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+  </svg>
+);
+
 function AccountCard({
   acc,
   stats,
@@ -2294,7 +2540,6 @@ function AccountCard({
   const {
     scanRun,
     scanStatus,
-    isRunning,
     isScanActive,
     scanProgress,
     triggerScan,
@@ -2306,6 +2551,15 @@ function AccountCard({
       qc.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
+
+  const navigate = useNavigate();
+  const settings = useQuery<ScanScheduleData>({
+    queryKey: ["settings"],
+    queryFn: () => api("/v1/settings"),
+    enabled: connected,
+  });
+  const scheduleLabel = scanScheduleText(settings.data);
+  const nextScanLabel = settings.data ? formatScanDate(settings.data.scan_status.next_scan_at) : "—";
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -2414,15 +2668,18 @@ function AccountCard({
 
   return (
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
-      <div className="flex items-center gap-4 px-4 py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FF9900]/10">
-            <AwsIcon className="h-6 w-6 object-contain" />
+      <div className="flex items-start gap-4 px-5 py-4">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white shadow-sm">
+            <AwsIcon className="h-7 w-7 object-contain" />
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold text-zinc-900">{acc.label}</h2>
+            <h2 className="truncate text-base font-bold text-zinc-900">{acc.label}</h2>
             {connected && acc.account_id ? (
-              <p className="font-mono text-xs tabular-nums text-zinc-500">{acc.account_id}</p>
+              <div className="flex items-center gap-1">
+                <p className="font-mono text-xs tabular-nums text-zinc-500">{acc.account_id}</p>
+                <CopyIdButton text={acc.account_id} />
+              </div>
             ) : (
               <p className="text-xs text-zinc-500">Setup required</p>
             )}
@@ -2439,74 +2696,53 @@ function AccountCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {hasStats && stats && (
-            <div className="hidden md:block">
-              <MetricPills stats={stats} />
-            </div>
-          )}
-
-          {connected && (
-            <button
-              onClick={() => triggerScan(acc.id)}
-              disabled={isScanActive}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <svg
-                className={`h-3.5 w-3.5 ${isScanActive ? "animate-spin" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              {isScanActive ? (isRunning ? "Scanning…" : "Starting…") : "Scan"}
+        {connected ? (
+          <div className="flex shrink-0 items-center gap-3">
+            {hasStats && stats && (
+              <div className="hidden sm:block">
+                <SeverityCounts stats={stats} />
+              </div>
+            )}
+            <AccountMenu
+              onViewFindings={() => navigate("/findings")}
+              onManage={() => {
+                if (!expanded) onToggle();
+                setShowManageCapabilities(true);
+              }}
+              onRemove={requestRemove}
+            />
+          </div>
+        ) : (
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={onToggle} className={ghostBtn}>
+              {expanded ? "Hide setup" : "Continue setup"}
             </button>
-          )}
-
-          {!connected && (
-            <>
-              <button type="button" onClick={onToggle} className={ghostBtn}>
-                {expanded ? "Hide setup" : "Continue setup"}
-              </button>
-              <button
-                type="button"
-                onClick={requestRemove}
-                disabled={remove.isPending}
-                className={dangerGhostBtn}
-              >
-                Remove account
-              </button>
-            </>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={requestRemove}
+              disabled={remove.isPending}
+              className={dangerGhostBtn}
+            >
+              Remove account
+            </button>
+          </div>
+        )}
       </div>
 
       {hasStats && stats && (
-        <div className="border-t border-zinc-100/80 px-4 py-2 md:hidden">
-          <MetricPills stats={stats} />
+        <div className="border-t border-zinc-100/80 px-5 py-2.5 sm:hidden">
+          <SeverityCounts stats={stats} />
         </div>
       )}
 
       {connected && isScanActive && (
-        <div className="border-t border-zinc-100/80 px-4 pb-3 pt-2">
-          <ScanProgressBar
-            phase={isRunning ? "running" : "starting"}
-            progress={scanProgress.progress}
-            elapsedMs={scanProgress.elapsedMs}
-            remainingMs={scanProgress.remainingMs}
-            finishing={scanProgress.finishing}
-            indeterminate={scanProgress.indeterminate}
-            progressStep={scanProgress.progressStep}
-            progressTotal={scanProgress.progressTotal}
-            className="mb-0"
-          />
-        </div>
+        <ScanPhaseBlock
+          progress={scanProgress.progress}
+          elapsedMs={scanProgress.elapsedMs}
+          progressStep={scanProgress.progressStep}
+          progressTotal={scanProgress.progressTotal}
+          indeterminate={scanProgress.indeterminate}
+        />
       )}
 
       {connected && !isScanActive && scanStatus === "error" && scanRun.data?.error && (
@@ -2525,26 +2761,46 @@ function AccountCard({
       )}
 
       {connected && (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={expanded}
-          className={`flex w-full items-center justify-between border-t px-4 py-2 text-left transition ${
-            expanded
-              ? "border-zinc-200/80 bg-zinc-100/50"
-              : "border-zinc-100/80 bg-zinc-50/30 hover:bg-zinc-50/60"
-          }`}
-        >
-          <span className="text-xs font-medium text-zinc-600">Details</span>
-          <svg
-            className={`h-4 w-4 text-zinc-400 transition-transform duration-300 ease-out ${expanded ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 bg-zinc-50/50 px-5 py-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <FooterStat icon={FOOTER_ICON_CLOCK} label="Last scan" value={formatScanDate(acc.last_scan_at)} />
+            <FooterStat icon={FOOTER_ICON_REPEAT} label="Scheduled" value={scheduleLabel} />
+            <FooterStat icon={FOOTER_ICON_CALENDAR} label="Next scan" value={nextScanLabel} />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={expanded}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+            >
+              <svg className="h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+              </svg>
+              View details
+              <svg className={`h-3.5 w-3.5 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/findings")}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+            >
+              <svg className="h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              </svg>
+              View findings
+            </button>
+            <SplitScanButton
+              onRescan={() => triggerScan(acc.id)}
+              onHistory={() => navigate("/history")}
+              disabled={isScanActive}
+              running={isScanActive}
+            />
+          </div>
+        </div>
       )}
 
       <div
