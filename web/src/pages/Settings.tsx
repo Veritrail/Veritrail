@@ -1,22 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { PageCard, PageShell } from "../components/PageShell";
 import { ProductShell } from "../components/ProductShell";
-import { Toggle } from "../components/SettingsUi";
+import { InfoTip, Toggle } from "../components/SettingsUi";
 import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
-import { SamlSettings } from "../components/SamlSettings";
 
 type ScanInterval = "daily" | "weekly" | "custom" | "manual";
 type FreqMode = "daily" | "weekly" | "custom";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type SectionId = "scanning" | "notifications" | "detection" | "trust" | "auditors" | "sso" | "records" | "advanced";
+type SectionId = "scanning" | "notifications" | "detection" | "trust" | "auditors" | "records" | "advanced";
 
 type OptionalCheck = {
   check_id: string;
+  label: string;
+  summary: string;
+  description: string;
   enabled: boolean;
   default_enabled: boolean;
 };
@@ -176,8 +177,6 @@ const SECTION_ICONS: Record<SectionId, string> = {
     "M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z",
   advanced:
     "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5",
-  sso:
-    "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z",
 };
 
 function SectionHeader({ title, description }: { title: string; description: string }) {
@@ -209,6 +208,43 @@ export default function Settings() {
     queryKey: ["auditor-list"],
     queryFn: () => api("/v1/auditor/list"),
   });
+
+  // Optional-check toggles (moved here from the old Detection page). Optimistic local
+  // state, debounced PATCH /v1/settings { checks } so a quick double-toggle saves once.
+  const [optionalChecks, setOptionalChecks] = useState<Record<string, boolean>>({});
+  const [checksHydrated, setChecksHydrated] = useState(false);
+  const checksTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!data || checksHydrated) return;
+    const map: Record<string, boolean> = {};
+    for (const c of data.optional_checks ?? []) map[c.check_id] = c.enabled;
+    setOptionalChecks(map);
+    setChecksHydrated(true);
+  }, [data, checksHydrated]);
+
+  const checksMutation = useMutation({
+    mutationFn: (checks: Record<string, { enabled: boolean }>) =>
+      api("/v1/settings", { method: "PATCH", body: JSON.stringify({ checks }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["settings"] }),
+  });
+
+  function toggleOptionalCheck(checkId: string) {
+    setOptionalChecks((prev) => {
+      const fallback = data?.optional_checks.find((c) => c.check_id === checkId)?.default_enabled ?? false;
+      const current = prev[checkId] ?? fallback;
+      const next = { ...prev, [checkId]: !current };
+      clearTimeout(checksTimer.current);
+      checksTimer.current = setTimeout(() => {
+        const payload: Record<string, { enabled: boolean }> = {};
+        for (const [id, en] of Object.entries(next)) payload[id] = { enabled: en };
+        checksMutation.mutate(payload);
+      }, 450);
+      return next;
+    });
+  }
+
+  useEffect(() => () => clearTimeout(checksTimer.current), []);
 
   const [scanEnabled, setScanEnabled] = useState(true);
   const [freqMode, setFreqMode] = useState<FreqMode>("daily");
@@ -275,7 +311,10 @@ export default function Settings() {
   }, [data, canDaily]);
 
   const optionalTotal = data?.optional_checks.length ?? 0;
-  const enabledOptional = useMemo(() => (data?.optional_checks ?? []).filter((c) => c.enabled).length, [data]);
+  const enabledOptional = useMemo(
+    () => (data?.optional_checks ?? []).filter((c) => optionalChecks[c.check_id] ?? c.enabled).length,
+    [data, optionalChecks],
+  );
 
   const scanScheduleLabel = useMemo(() => {
     if (!scanEnabled) return "Manual only";
@@ -370,7 +409,6 @@ export default function Settings() {
     { id: "detection", label: "Detection scope", badge: `${enabledOptional}/${optionalTotal}` },
     { id: "trust", label: "Trust Center", badge: trustCenter.data?.is_enabled ? "Live" : "Off" },
     { id: "auditors", label: "Auditor access", badge: activeAuditors ? String(activeAuditors) : undefined },
-    { id: "sso", label: "SSO (SAML)", badge: undefined },
     { id: "records", label: "Evidence records", badge: vaultStatus.data?.enabled ? "On" : vaultStatus.data?.configured ? "Set" : "Off" },
     { id: "advanced", label: "Advanced", badge: aiFindingReviewEnabled ? "On" : "Off" },
   ];
@@ -502,22 +540,65 @@ export default function Settings() {
             )}
 
             {active === "detection" && (
-              <section>
+              <section className="space-y-5">
                 <SectionHeader title="Detection scope" description="What Vigil scans and what counts toward your compliance score." />
-                <PageCard>
-                  <Link to="/detection" className="group block p-4 transition hover:bg-zinc-50/80">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-zinc-950">Detection coverage</p>
-                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Benchmark checks are always on. Optional modules add visibility without changing pass/fail unless enabled.</p>
-                      </div>
-                      <span className="text-xs font-semibold text-indigo-600 group-hover:text-indigo-800">Manage →</span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-zinc-600">
-                      <span><strong className="font-semibold text-zinc-900">{BENCHMARK_CHECK_COUNT}</strong> benchmark</span>
-                      <span><strong className="font-semibold text-zinc-900">{enabledOptional}</strong>/{optionalTotal} optional enabled</span>
-                    </div>
-                  </Link>
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-zinc-600">
+                  <span><strong className="font-semibold text-zinc-900">{BENCHMARK_CHECK_COUNT}</strong> benchmark checks · always on</span>
+                  <span><strong className="font-semibold text-zinc-900">{enabledOptional}</strong>/{optionalTotal} optional enabled</span>
+                </div>
+                <PageCard
+                  title="Optional security checks"
+                  description="Optional modules are not included in compliance scoring unless enabled. Changes apply after the next scan."
+                  action={
+                    <span className="text-xs font-medium text-zinc-500">
+                      {enabledOptional} of {optionalTotal} enabled
+                    </span>
+                  }
+                >
+                  <div className="grid grid-cols-1 gap-2.5 p-4 lg:grid-cols-2">
+                    {(data?.optional_checks ?? []).map((check) => {
+                      const enabled = optionalChecks[check.check_id] ?? check.default_enabled;
+                      return (
+                        <div
+                          key={check.check_id}
+                          className={`rounded-lg border p-3 transition ${
+                            enabled
+                              ? "border-sky-200/70 bg-white shadow-sm shadow-sky-950/[0.03] ring-1 ring-sky-500/5"
+                              : "border-dashed border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.02] hover:border-zinc-300/90"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                                enabled
+                                  ? "bg-sky-50 text-sky-700 ring-1 ring-sky-200/60"
+                                  : "bg-zinc-50 text-zinc-600 ring-1 ring-zinc-200/70"
+                              }`}
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-sky-500" : "bg-zinc-300"}`} aria-hidden />
+                              {enabled ? "On" : "Off"}
+                            </span>
+                            <Toggle checked={enabled} onChange={() => toggleOptionalCheck(check.check_id)} />
+                          </div>
+                          <div className="mt-2 flex items-start gap-1.5">
+                            <h3 className="text-sm font-semibold text-zinc-900">{check.label}</h3>
+                            <InfoTip text={check.description} />
+                          </div>
+                          <p className="mt-0.5 text-xs leading-snug text-zinc-600">{check.summary}</p>
+                          <p className="mt-1.5 font-mono text-[10px] text-zinc-400">{check.check_id}</p>
+                          {enabled ? (
+                            <p className="mt-1.5 text-[11px] text-sky-700">Shows in Findings. Compliance pass/fail unchanged unless benchmark-mapped.</p>
+                          ) : (
+                            <p className="mt-1.5 text-[11px] text-zinc-400">Off — not scanned.</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {(data?.optional_checks ?? []).length === 0 && (
+                    <p className="py-8 text-center text-sm text-zinc-400">No optional capabilities available.</p>
+                  )}
                 </PageCard>
               </section>
             )}
@@ -537,13 +618,6 @@ export default function Settings() {
               <section>
                 <SectionHeader title="Auditor access" description="Invite external auditors with scoped, time-boxed read access." />
                 <AuditorManagement />
-              </section>
-            )}
-
-            {active === "sso" && (
-              <section>
-                <SectionHeader title="SAML SSO" description="Enterprise single sign-on through your identity provider (Okta, Azure AD, etc.)." />
-                <SamlSettings />
               </section>
             )}
 
