@@ -662,20 +662,17 @@ export default function FindingsV2() {
                   disabled={scanTriggered || isRunning}
                   className="findings-v2-scan-btn"
                 >
-                  <span
-                    className="findings-v2-scan-radar"
-                    data-active={isRunning || scanTriggered ? "true" : undefined}
-                    aria-hidden
-                  >
-                    <span className="findings-v2-scan-ping" />
-                    <span className="findings-v2-scan-ping findings-v2-scan-ping--delay" />
-                    <svg className="findings-v2-scan-radar-glyph" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9.348 14.652a3.75 3.75 0 0 1 0-5.304m5.304 0a3.75 3.75 0 0 1 0 5.304M12 12h.008v.008H12V12Z"
-                      />
-                    </svg>
+                  <span className="findings-v2-scan-btn-icon" aria-hidden>
+                    {isRunning || scanTriggered ? (
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                      </svg>
+                    )}
                   </span>
                   <span className="findings-v2-scan-btn-label">
                     {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
