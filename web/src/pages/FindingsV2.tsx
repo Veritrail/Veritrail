@@ -490,7 +490,7 @@ export default function FindingsV2() {
                 disabled={scanTriggered || isRunning}
                 className="findings-v2-toolbar-btn-primary shrink-0"
               >
-                {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Re-scan"}
+                {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan Now"}
               </button>
             )}
           </div>

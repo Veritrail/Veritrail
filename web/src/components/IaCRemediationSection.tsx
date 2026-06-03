@@ -414,7 +414,7 @@ function SsmRemediationFlowHint({ phase }: { phase: "running" | "done" }) {
               : "bg-zinc-100 text-zinc-500"
           }`}
         >
-          2 Verify remediation
+          2 Verify fix
         </span>
       </div>
     </div>

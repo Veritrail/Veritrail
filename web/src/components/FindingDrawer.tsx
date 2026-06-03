@@ -4553,7 +4553,7 @@ function ExceptionButton({
         onClick={() => setOpen(true)}
         className={`${className ?? drawerFooterException} ${done ? "!border-emerald-200/80 !bg-emerald-50/80 !text-emerald-800 hover:!bg-emerald-50" : ""}`}
       >
-        {done ? "Approved" : "Request exception"}
+        {done ? "Approved" : "Exception"}
       </button>
       {open && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6">
@@ -5156,7 +5156,7 @@ export function FindingDrawer({
           </div>
           {remTab !== "automation" && (
             <FlowCallout tone="positive" title="Validate after remediation">
-              Click Verify remediation below to confirm the fix in AWS. Most resource checks refresh in seconds; GitHub,
+              Click Verify fix below to confirm it in AWS. Most resource checks refresh in seconds; GitHub,
               GitLab, and historical CloudTrail findings queue a background recheck.
             </FlowCallout>
           )}
@@ -5191,7 +5191,7 @@ export function FindingDrawer({
           } relative inline-flex min-h-[38px] min-w-[7.5rem] shrink-0 items-center justify-center gap-2`}
         >
           <span className={verifying ? "invisible" : ""} aria-hidden={verifying}>
-            {verified ? "Verified" : "Verify remediation"}
+            {verified ? "Verified" : "Verify fix"}
           </span>
           {verifying && (
             <span className="absolute inset-0 flex items-center justify-center gap-2">
