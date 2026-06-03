@@ -221,7 +221,7 @@ function FindingRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-center">
+      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-end sm:pr-1">
         <RiskScoreDisplay score={topRisk} severity={sev} />
       </div>
 
@@ -233,6 +233,101 @@ function FindingRow({
         </span>
       </div>
     </button>
+  );
+}
+
+function AccountSelect({
+  accounts,
+  value,
+  onChange,
+}: {
+  accounts: Account[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = accounts.find((a) => a.id === value) ?? accounts[0];
+  const multi = accounts.length > 1;
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (!current) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => multi && setOpen((o) => !o)}
+        aria-haspopup={multi ? "listbox" : undefined}
+        aria-expanded={multi ? open : undefined}
+        className={`inline-flex items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs ring-1 ring-zinc-200/70 transition ${
+          multi ? "cursor-pointer hover:bg-zinc-200/60" : "cursor-default"
+        }`}
+      >
+        <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+        </svg>
+        <span className="font-mono tabular-nums tracking-tight text-zinc-700">{groupAccountId(current.account_id ?? "")}</span>
+        {multi && (
+          <svg className={`h-3.5 w-3.5 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        )}
+      </button>
+
+      {open && multi && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full z-30 mt-1.5 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
+        >
+          {accounts.map((a) => {
+            const active = a.id === value;
+            const hasLabel = !!a.label && a.label !== a.account_id;
+            return (
+              <button
+                key={a.id}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(a.id);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition ${active ? "bg-indigo-50/70" : "hover:bg-zinc-50"}`}
+              >
+                <svg className="h-4 w-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+                </svg>
+                <span className="min-w-0 flex-1">
+                  {hasLabel && <span className="block truncate text-[13px] font-medium text-zinc-900">{a.label}</span>}
+                  <span className="block font-mono text-[11px] tabular-nums text-zinc-500">{groupAccountId(a.account_id ?? "")}</span>
+                </span>
+                {active && (
+                  <svg className="h-4 w-4 shrink-0 text-indigo-600" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -509,13 +604,8 @@ export default function FindingsV2() {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {selectedAccount?.account_id && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs ring-1 ring-zinc-200/70">
-                    <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-                    </svg>
-                    <span className="font-mono tabular-nums tracking-tight text-zinc-700">{groupAccountId(selectedAccount.account_id)}</span>
-                  </span>
+                {connectedAccounts.length > 0 && (
+                  <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
                 )}
                 {lastScanAt && (
                   <span
@@ -566,20 +656,6 @@ export default function FindingsV2() {
 
             {connectedId && (
               <div className="flex shrink-0 items-center gap-2.5 self-center">
-                {connectedAccounts.length > 1 && (
-                  <select
-                    value={effectiveAccountId}
-                    onChange={(e) => handleAccountChange(e.target.value)}
-                    aria-label="AWS account"
-                    className="findings-v2-status-select"
-                  >
-                    {connectedAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.account_id ?? a.label ?? "Account"}
-                      </option>
-                    ))}
-                  </select>
-                )}
                 <button
                   type="button"
                   onClick={() => triggerScan(connectedId)}
@@ -790,7 +866,7 @@ export default function FindingsV2() {
               >
                 <span className="w-[5.5rem]">Severity</span>
                 <span>Finding</span>
-                <span className="w-16 text-center">Risk</span>
+                <span className="w-16 pr-1 text-right">Risk</span>
                 <span className="w-7" aria-hidden />
               </div>
 
