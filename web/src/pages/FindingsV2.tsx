@@ -9,7 +9,7 @@ import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, ty
 import { checkLabels } from "../data/checkLabels";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { FRAMEWORKS, frameworkLabel, type FrameworkId } from "../data/frameworks";
-import { remediationSummaryFor } from "../data/remediationSummaries";
+import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
 import { severityLabel } from "../lib/findingDisplay";
 import { isAccountConnected } from "../lib/accountConnection";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
@@ -157,7 +157,6 @@ function FindingRow({
 }) {
   const sev = items[0]?.severity ?? "low";
   const title = checkLabels[checkId] ?? items[0]?.title ?? checkId;
-  const ops = remediationSummaryFor(checkId);
   const topRisk = Math.max(...items.map((f) => f.risk_score));
   const railClass =
     sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
@@ -169,15 +168,19 @@ function FindingRow({
       type="button"
       onClick={() => onReview(items)}
       aria-label={`Review ${title}, ${severityLabel(sev)}`}
-      className={`findings-v2-row ${railClass} grid w-full grid-cols-1 gap-3 py-3.5 pl-4 pr-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4`}
+      className={`findings-v2-row ${railClass} grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4`}
     >
       <div className="sm:w-[5.5rem] shrink-0">
         <SeverityIndicator severity={sev} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
-        <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-[#6b7280]">{ops.impact}</p>
+        <p className="truncate text-[13.5px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
+        {items.length === 1 ? (
+          <p className="mt-0.5 truncate font-mono text-[11px] leading-tight text-[#6b7280]">{shortArn(items[0]?.resource_arn ?? null)}</p>
+        ) : (
+          <p className="mt-0.5 text-[11px] font-medium leading-tight text-[#98a2b3]">{items.length} resources</p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center justify-start sm:justify-center">

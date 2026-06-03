@@ -285,7 +285,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 3.25rem;
+  min-width: 2.75rem;
 }
 
 .findings-v2-risk-label {
@@ -298,9 +298,9 @@
 }
 
 .findings-v2-risk-value {
-  margin-top: 4px;
-  font-size: 21px;
-  font-weight: 700;
+  margin-top: 3px;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
