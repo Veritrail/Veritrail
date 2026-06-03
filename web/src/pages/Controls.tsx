@@ -124,7 +124,7 @@ function FindingCountBadge({ count, status }: { count: number; status: string })
   if (status === "fail") {
     return (
       <span
-        className="inline-flex h-7 w-14 items-center justify-center rounded-md bg-red-50 text-sm font-bold tabular-nums leading-none text-red-700 ring-1 ring-red-200/60"
+        className="inline-flex h-7 w-14 items-center justify-center rounded-md border-l-[3px] border-red-500 bg-red-50 text-sm font-bold tabular-nums leading-none text-red-700 shadow-sm shadow-zinc-950/[0.04] ring-1 ring-red-100"
         aria-label={`${count} open findings`}
       >
         {count}
@@ -134,7 +134,7 @@ function FindingCountBadge({ count, status }: { count: number; status: string })
   if (status === "pass") {
     return (
       <span
-        className="inline-flex h-7 w-14 items-center justify-center rounded-md bg-emerald-50/70 text-[11px] font-semibold text-emerald-600/70 ring-1 ring-emerald-200/50"
+        className="inline-flex h-7 w-14 items-center justify-center rounded-md border-l-[3px] border-emerald-400 bg-emerald-50 text-[11px] font-semibold leading-none text-emerald-600 shadow-sm shadow-zinc-950/[0.04] ring-1 ring-emerald-100"
         aria-hidden
       >
         —
