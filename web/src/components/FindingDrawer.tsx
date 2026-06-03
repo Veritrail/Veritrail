@@ -98,7 +98,7 @@ const drawerFooterVerifySoft = `${drawerFooterActionBase} border border-emerald-
 const drawerFooterVerifyMuted = `${drawerFooterActionBase} border border-slate-200 bg-slate-50 px-5 font-medium text-slate-500 shadow-sm hover:border-slate-300 hover:bg-white hover:text-slate-700 disabled:opacity-45`;
 const drawerFooterVerifyPrimary = `${drawerFooterActionBase} border border-emerald-600 bg-emerald-600 px-6 font-semibold text-white shadow-sm shadow-emerald-600/25 hover:border-emerald-700 hover:bg-emerald-700 disabled:opacity-50`;
 const drawerFooterVerifyDone = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-600 px-6 font-semibold text-white shadow-sm hover:bg-emerald-600`;
-const drawerFooterException = `${drawerFooterActionBase} !flex-none border border-transparent bg-transparent px-4 font-medium text-slate-500 shadow-none hover:bg-slate-100 hover:text-slate-700`;
+const drawerFooterException = `${drawerFooterActionBase} !flex-none border border-amber-200/80 bg-amber-50/70 px-4 font-medium text-amber-800 shadow-sm hover:border-amber-300 hover:bg-amber-100/70`;
 
 function DrawerChevronButton({
   expanded,
