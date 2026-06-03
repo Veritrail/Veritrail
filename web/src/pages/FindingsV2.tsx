@@ -128,17 +128,17 @@ function SeverityIndicator({ severity }: { severity: string }) {
 }
 
 function RiskScoreDisplay({ score, severity }: { score: number; severity: string }) {
-  const tint =
+  const styles =
     severity === "critical"
-      ? "bg-red-50 text-red-700 ring-red-200/60"
+      ? "bg-red-50 text-red-700 border-red-500 ring-red-100"
       : severity === "high"
-        ? "bg-amber-50 text-amber-700 ring-amber-200/60"
-        : "bg-zinc-100 text-zinc-600 ring-zinc-200/70";
+        ? "bg-amber-50 text-amber-800 border-amber-400 ring-amber-100"
+        : "bg-zinc-100 text-zinc-600 border-zinc-300 ring-zinc-200/70";
 
   return (
     <span
       aria-label={`Risk score ${score}`}
-      className={`inline-flex h-7 w-14 items-center justify-center rounded-md text-sm font-bold tabular-nums leading-none ring-1 ${tint}`}
+      className={`inline-flex h-7 w-14 items-center justify-center rounded-md border-l-[3px] text-sm font-bold tabular-nums leading-none shadow-sm shadow-zinc-950/[0.04] ring-1 ${styles}`}
     >
       {score}
     </span>
