@@ -18,7 +18,7 @@ import "../styles/findings-v2.css";
 
 type Finding = {
   id: string;
-  account_id: string;
+  account_id?: string;
   check_id: string;
   resource_arn: string;
   title: string;
@@ -467,6 +467,13 @@ export default function FindingsV2() {
               <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
               <p className="mt-1.5 text-sm text-[#6b7280]">
                 {selectedAccount?.account_id && <span>Account {selectedAccount.account_id}</span>}
+                {lastScanAt && (
+                  <>
+                    {selectedAccount?.account_id && <span className="text-[#98a2b3]"> · </span>}
+                    <span className="text-xs text-slate-400">Last scan </span>
+                    <span className="text-xs font-medium tabular-nums text-slate-500">{lastScanLabel(lastScanAt)}</span>
+                  </>
+                )}
               </p>
             </div>
             <NotificationsBell />
@@ -520,12 +527,6 @@ export default function FindingsV2() {
                       </option>
                     ))}
                   </select>
-                )}
-                {lastScanAt && (
-                  <span className="findings-v2-scan-meta hidden sm:inline">
-                    <span className="text-xs text-slate-400">Last scan </span>
-                    <span className="text-xs font-medium tabular-nums text-slate-500">{lastScanLabel(lastScanAt)}</span>
-                  </span>
                 )}
                 <button
                   type="button"

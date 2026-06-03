@@ -89,10 +89,6 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.findings-v2-scan-meta {
-  white-space: nowrap;
-}
-
 .findings-v2-scan-btn {
   display: inline-flex;
   height: 32px;
