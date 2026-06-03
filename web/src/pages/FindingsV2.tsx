@@ -146,6 +146,18 @@ function RiskScoreDisplay({ score, severity }: { score: number; severity: string
   );
 }
 
+function joinResources(names: string[], limit = 72): { text: string; overflow: number } {
+  const shown: string[] = [];
+  let len = 0;
+  for (const n of names) {
+    const add = (shown.length ? 2 : 0) + n.length;
+    if (shown.length > 0 && len + add > limit) break;
+    shown.push(n);
+    len += add;
+  }
+  return { text: shown.join(", "), overflow: names.length - shown.length };
+}
+
 function FindingRow({
   checkId,
   items,
@@ -158,6 +170,7 @@ function FindingRow({
   const sev = items[0]?.severity ?? "low";
   const title = checkLabels[checkId] ?? items[0]?.title ?? checkId;
   const topRisk = Math.max(...items.map((f) => f.risk_score));
+  const resources = joinResources(items.map((f) => shortArn(f.resource_arn)));
   const railClass =
     sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
       ? `findings-v2-row--${sev}`
@@ -176,11 +189,10 @@ function FindingRow({
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13.5px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
-        {items.length === 1 ? (
-          <p className="mt-0.5 truncate font-mono text-[11px] leading-tight text-[#6b7280]">{shortArn(items[0]?.resource_arn ?? null)}</p>
-        ) : (
-          <p className="mt-0.5 text-[11px] font-medium leading-tight text-[#98a2b3]">{items.length} resources</p>
-        )}
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] leading-tight text-[#6b7280]">
+          <span className="truncate font-mono">{resources.text}</span>
+          {resources.overflow > 0 && <span className="shrink-0 font-medium text-[#98a2b3]">+{resources.overflow}</span>}
+        </p>
       </div>
 
       <div className="flex shrink-0 items-center justify-start sm:justify-center">
@@ -188,13 +200,10 @@ function FindingRow({
       </div>
 
       <div className="flex shrink-0 items-center justify-end">
-        <span className="findings-v2-review-btn" aria-hidden>
-          <span>Review</span>
-          <span className="findings-v2-review-btn-chevron">
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-          </span>
+        <span className="findings-v2-row-chevron" aria-hidden>
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+          </svg>
         </span>
       </div>
     </button>
