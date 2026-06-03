@@ -45,7 +45,7 @@ export function friendlyScanFailureMessage(raw: string): string {
   }
 
   if (lower.includes("throttl") || lower.includes("rate exceeded") || lower.includes("too many requests")) {
-    return "AWS temporarily limited how fast Vigil could scan. Wait a few minutes and run Scan Now on Findings.";
+    return "AWS temporarily limited how fast Vigil could scan. Wait a few minutes and run Start scan on Findings.";
   }
 
   if (lower.includes("timeout") || lower.includes("timed out")) {
@@ -82,7 +82,7 @@ export function friendlyScanFailureMessage(raw: string): string {
   ) {
     return (
       "Something went wrong while Vigil was collecting evidence from AWS. " +
-      "Open Accounts to verify your connector, then run Scan Now on Findings. " +
+      "Open Accounts to verify your connector, then run Start scan on Findings. " +
       "If this keeps happening, contact your Vigil administrator."
     );
   }
@@ -90,15 +90,15 @@ export function friendlyScanFailureMessage(raw: string): string {
   if (lower.includes("error") || lower.includes("exception") || lower.includes("failed")) {
     return (
       "The scan did not finish successfully. " +
-      "Verify your AWS connection on Accounts, then run Scan Now on Findings."
+      "Verify your AWS connection on Accounts, then run Start scan on Findings."
     );
   }
 
   return (
     "The scan did not finish successfully. " +
-    "Verify your AWS connection on Accounts, then run Scan Now on Findings."
+    "Verify your AWS connection on Accounts, then run Start scan on Findings."
   );
 }
 
 export const SCAN_FAILURE_USER_ACTION =
-  "Open Accounts to verify your connector, then run Scan Now on Findings.";
+  "Open Accounts to verify your connector, then run Start scan on Findings.";
