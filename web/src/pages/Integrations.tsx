@@ -8,13 +8,9 @@ import { useAccountScanRun } from "../hooks/useAccountScanRun";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import {
   AwsMark,
-  AzureMark,
   formatSync,
-  GcpMark,
   GitHubMark,
   GitLabMark,
-  OktaMark,
-  PagerDutyMark,
   SlackMark,
   Spinner,
 } from "../components/IntegrationsUi";
@@ -59,40 +55,6 @@ type IntegrationCard = {
   permissionsLabel: string;
   healthLabel: string;
 };
-
-type PlannedIntegration = {
-  name: string;
-  valueProp: string;
-  icon: React.ReactNode;
-  iconBg: string;
-};
-
-const PLANNED_INTEGRATIONS: PlannedIntegration[] = [
-  {
-    name: "Google Cloud",
-    valueProp: "GCP posture, IAM, and storage evidence for multi-cloud compliance.",
-    icon: <GcpMark className="h-4 w-4" />,
-    iconBg: "bg-[#4285F4]",
-  },
-  {
-    name: "Microsoft Azure",
-    valueProp: "Azure RBAC and resource posture for enterprise audit programs.",
-    icon: <AzureMark className="h-4 w-4" />,
-    iconBg: "bg-[#0078D4]",
-  },
-  {
-    name: "Okta",
-    valueProp: "Identity and SSO policy evidence alongside cloud access reviews.",
-    icon: <OktaMark className="h-4 w-4" />,
-    iconBg: "bg-[#007DC1]",
-  },
-  {
-    name: "PagerDuty",
-    valueProp: "Incident routing and on-call evidence for operational controls.",
-    icon: <PagerDutyMark className="h-4 w-4" />,
-    iconBg: "bg-[#06AC38]",
-  },
-];
 
 function syncHealth(lastAt: string | null): { label: string; tone: Tone } {
   if (!lastAt) return { label: "Pending", tone: "idle" };
@@ -254,38 +216,6 @@ function IntegrationCard({ card, primary = false }: { card: IntegrationCard; pri
   );
 }
 
-function PlannedIntegrationCard({ item }: { item: PlannedIntegration }) {
-  return (
-    <article
-      aria-label={`${item.name} — coming soon`}
-      className="flex h-full flex-col rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4"
-    >
-      <div className="flex items-start gap-3">
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white opacity-40 grayscale ${item.iconBg}`}
-        >
-          {item.icon}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-bold text-zinc-400">{item.name}</h3>
-            <span className="inline-flex shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-500 ring-1 ring-zinc-200">
-              Planned
-            </span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-zinc-400">{item.valueProp}</p>
-        </div>
-      </div>
-      <p className="mt-3 border-t border-zinc-200/80 pt-3 text-xs font-medium text-zinc-400">Coming soon!</p>
-      <div className="mt-auto border-t border-zinc-200/80 pt-2.5">
-        <span className="inline-flex cursor-not-allowed rounded-md px-2.5 py-1.5 text-xs font-semibold text-zinc-400 ring-1 ring-inset ring-zinc-200/70">
-          Connect
-        </span>
-      </div>
-    </article>
-  );
-}
-
 function IntegrationsContent() {
   const qc = useQueryClient();
   const prevScanStatus = useRef<string | null>(null);
@@ -319,7 +249,7 @@ function IntegrationsContent() {
 
   const awsCard: IntegrationCard = {
     name: "AWS",
-    valueProp: "Continuous cloud compliance monitoring—posture scans, controls, and audit-ready evidence.",
+    valueProp: "Read-only AWS posture scans mapped to SOC 2, CIS, and ISO controls, plus evidence packs.",
     icon: <AwsMark className="h-6 w-6" />,
     iconBg: "bg-[#232F3E]",
     href: "/accounts",
@@ -383,7 +313,7 @@ function IntegrationsContent() {
   return (
     <PageShell
       variant="compact"
-      eyebrow="EVIDENCE FABRIC"
+      eyebrow="CONNECTED SOURCES"
       title="Integrations"
       description="Connected sources that feed findings, compliance mapping, and audit evidence."
       actions={
@@ -412,16 +342,6 @@ function IntegrationsContent() {
           <IntegrationCard key={card.name} card={card} />
         ))}
       </div>
-
-      <section className="border-t border-dashed border-zinc-200 pt-4">
-        <h2 className="text-[11px] font-bold uppercase tracking-wide text-zinc-400">Planned</h2>
-        <p className="mt-0.5 text-xs text-zinc-500">More evidence sources on the roadmap.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {PLANNED_INTEGRATIONS.map((item) => (
-            <PlannedIntegrationCard key={item.name} item={item} />
-          ))}
-        </div>
-      </section>
     </PageShell>
   );
 }

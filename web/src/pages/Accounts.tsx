@@ -1015,7 +1015,7 @@ function ManageCapabilitiesPanel({
             <CapabilityAccessBadge kind="read-only" />
           </div>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-            Continuous CIS / SOC 2 / ISO checks. Always enabled.
+            CIS / SOC 2 / ISO checks. Always enabled.
           </p>
         </div>
 
@@ -2782,7 +2782,7 @@ export default function Accounts() {
           <h1 className="text-2xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {showFirstAccountOnboarding
-              ? "Connect your AWS account to continuously monitor compliance, detect security findings, and generate auditor-ready evidence."
+              ? "Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and generate evidence for your auditor."
               : "Connected accounts and scan freshness at a glance."}
           </p>
         </div>

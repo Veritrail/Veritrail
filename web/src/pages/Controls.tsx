@@ -555,9 +555,9 @@ function buildAuditorResponseForCopy(control: ControlRow): string {
 
   const identifies = mappedCheckIdentifiesLine(control.check_ids);
   if (identifies) {
-    return `${identifies} Evidence is collected continuously and retained for the selected audit period.`;
+    return `${identifies} Evidence is collected on each scan and retained for the selected audit period.`;
   }
-  return "Evidence is collected continuously and retained for the selected audit period.";
+  return "Evidence is collected on each scan and retained for the selected audit period.";
 }
 
 function CoverageProgressBar({

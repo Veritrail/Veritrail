@@ -117,8 +117,7 @@ export default function TrustCenter() {
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
           <h2 className="text-lg font-bold text-zinc-900">What we monitor</h2>
           <p className="text-sm text-zinc-600">
-            Continuous read-only scans against connected AWS accounts. Evidence is collected daily and mapped to the
-            frameworks below.
+            Read-only scans run daily against connected AWS accounts. Evidence is mapped to the frameworks below.
           </p>
           <ul className="grid gap-2 sm:grid-cols-2 text-sm text-zinc-700">
             {MONITORING_AREAS.map((item) => (
@@ -175,7 +174,7 @@ export default function TrustCenter() {
 
         {/* Top gaps */}
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-zinc-900">Areas under active remediation</h2>
+          <h2 className="text-lg font-bold text-zinc-900">Open control gaps</h2>
           {data.top_gaps.length === 0 ? (
             <p className="text-sm text-zinc-600">
               No open control gaps in the selected frameworks — posture is green for published frameworks.

@@ -146,7 +146,7 @@ export default function GitLabIntegration() {
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">GitLab evidence</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-          Sync GitLab identity, repository controls, and merge request activity into audit-ready compliance evidence.
+          Sync GitLab identity, repository controls, and merge request activity into compliance evidence.
         </p>
         {!p && (
           <div className="mt-4 space-y-3">
