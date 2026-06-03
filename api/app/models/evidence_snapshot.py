@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import ForeignKey, String, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, synonym
 
 from app.core.db import Base
 
@@ -29,6 +29,8 @@ class EvidenceSnapshot(Base):
     )
 
     # Backward-compatible alias for older triage/evidence code that still
-    # orders snapshots by EvidenceSnapshot.ts. The real DB column remains
-    # evidence_snapshots.taken_at, so this does not require a migration.
-    ts = taken_at
+    # orders snapshots by EvidenceSnapshot.ts. A synonym maps both names to
+    # the same evidence_snapshots.taken_at column without duplicate-mapping
+    # the Column (the old `ts = taken_at` broke the taken_at attribute and
+    # 500'd queries that ordered by it). No migration needed.
+    ts = synonym("taken_at")
