@@ -212,9 +212,9 @@ export default function Account() {
   const onlyOneMethod = me ? signinMethodCount === 1 : false;
 
   return (
-    <div className="max-w-lg space-y-8">
+    <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900">Account</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Account</h1>
         {me && <p className="text-sm text-zinc-500 mt-1">{me.email}</p>}
       </div>
 
