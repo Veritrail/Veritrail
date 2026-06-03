@@ -534,21 +534,24 @@ export default function FindingsV2() {
                   disabled={scanTriggered || isRunning}
                   className="findings-v2-scan-btn"
                 >
-                  <svg
-                    className={`h-4 w-4 shrink-0 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"
-                    />
-                  </svg>
-                  {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Start scan"}
+                  <span className="findings-v2-scan-btn-icon" aria-hidden>
+                    <svg
+                      className={`h-3.5 w-3.5 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"
+                      />
+                    </svg>
+                  </span>
+                  <span className="findings-v2-scan-btn-label">
+                    {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Start scan"}
+                  </span>
                 </button>
               </div>
             )}
