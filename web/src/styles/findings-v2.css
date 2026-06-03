@@ -177,15 +177,19 @@
 
 .findings-v2-row--critical {
   --rail: #fca5a5;
+  --hover: #fef4f4;
 }
 .findings-v2-row--high {
   --rail: #fdba74;
+  --hover: #fff8f1;
 }
 .findings-v2-row--medium {
   --rail: #cbd5e1;
+  --hover: #f7f9fc;
 }
 .findings-v2-row--low {
   --rail: #e2e8f0;
+  --hover: #f7f9fc;
 }
 
 /* One continuous 2px line; segments butt edge-to-edge and only the colour changes. */
@@ -197,15 +201,10 @@
   bottom: 0;
   width: 2px;
   background: var(--rail);
-  transition: width 0.18s ease;
 }
 
 .findings-v2-row:hover {
-  background: #f7f9fc;
-}
-
-.findings-v2-row:hover::before {
-  width: 3px;
+  background: var(--hover, #f7f9fc);
 }
 
 .findings-v2-row:focus-visible {
