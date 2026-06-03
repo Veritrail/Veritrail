@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { AccountSelect, LastScanChip } from "../components/AccountSelect";
 import { api, token } from "../api";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import NotificationsBell from "../components/NotificationsBell";
@@ -70,34 +71,6 @@ const SORT_OPTIONS: { id: SortKey; label: string }[] = [
   { id: "first_seen", label: "Age" },
 ];
 
-function lastScanLabel(iso: string): string {
-  const date = new Date(iso);
-  const sameDay = date.toDateString() === new Date().toDateString();
-  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return sameDay ? `today at ${time}` : `${date.toLocaleDateString()} at ${time}`;
-}
-
-function relativeScan(iso: string): string {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.round(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.round(days / 30)}mo ago`;
-}
-
-function scanDotClass(iso: string): string {
-  const hrs = (Date.now() - new Date(iso).getTime()) / 3_600_000;
-  if (hrs <= 26) return "bg-emerald-500";
-  if (hrs <= 24 * 7) return "bg-amber-400";
-  return "bg-rose-400";
-}
-
-function groupAccountId(id: string): string {
-  return /^\d{12}$/.test(id) ? id.replace(/(\d{4})(?=\d)/g, "$1 ") : id;
-}
 
 function emptyFindingsLabel(status: StatusTab): string {
   if (status === "all") return "No findings";
@@ -233,109 +206,6 @@ function FindingRow({
         </span>
       </div>
     </button>
-  );
-}
-
-function AccountSelect({
-  accounts,
-  value,
-  onChange,
-}: {
-  accounts: Account[];
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const current = accounts.find((a) => a.id === value) ?? accounts[0];
-
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  if (!current) return null;
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs ring-1 ring-zinc-200/70 transition hover:bg-zinc-200/60"
-      >
-        <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-        </svg>
-        <span className="font-mono tabular-nums tracking-tight text-zinc-700">{groupAccountId(current.account_id ?? "")}</span>
-        <svg className={`h-3.5 w-3.5 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-        </svg>
-      </button>
-
-      {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 top-full z-30 mt-1.5 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
-        >
-          {accounts.length > 1 && (
-            <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Switch account</p>
-          )}
-          {accounts.map((a) => {
-            const active = a.id === value;
-            const hasLabel = !!a.label && a.label !== a.account_id;
-            return (
-              <button
-                key={a.id}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  onChange(a.id);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition ${active ? "bg-indigo-50/70" : "hover:bg-zinc-50"}`}
-              >
-                <svg className="h-4 w-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-                </svg>
-                <span className="min-w-0 flex-1">
-                  {hasLabel && <span className="block truncate text-[13px] font-medium text-zinc-900">{a.label}</span>}
-                  <span className="block font-mono text-[11px] tabular-nums text-zinc-500">{groupAccountId(a.account_id ?? "")}</span>
-                </span>
-                {active && (
-                  <svg className="h-4 w-4 shrink-0 text-indigo-600" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-          <Link
-            to="/accounts"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 border-t border-zinc-100 px-3 py-2 text-[13px] font-medium text-indigo-600 transition hover:bg-indigo-50/50"
-          >
-            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-            </svg>
-            Manage accounts
-          </Link>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -615,15 +485,7 @@ export default function FindingsV2() {
                 {connectedAccounts.length > 0 && (
                   <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
                 )}
-                {lastScanAt && (
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200/70"
-                    title={`Last scan ${lastScanLabel(lastScanAt)}`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${scanDotClass(lastScanAt)}`} aria-hidden />
-                    Scanned {relativeScan(lastScanAt)}
-                  </span>
-                )}
+                {lastScanAt && <LastScanChip iso={lastScanAt} />}
               </div>
             </div>
             <NotificationsBell />

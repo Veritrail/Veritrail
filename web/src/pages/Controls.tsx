@@ -13,6 +13,7 @@ import {
   showControlEvidenceSection,
 } from "../lib/frameworkEvidenceCoverage";
 import { isAccountConnected } from "../lib/accountConnection";
+import { AccountSelect, LastScanChip } from "../components/AccountSelect";
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
 
@@ -1003,7 +1004,7 @@ function FrameworkNav({
 
 export default function Controls() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const urlFramework = searchParams.get("framework");
   const urlControl = searchParams.get("control");
   const urlAccountId = searchParams.get("account_id");
@@ -1026,10 +1027,25 @@ export default function Controls() {
   });
 
   const connectedAccount = accounts.data?.find((a) => isAccountConnected(a));
+  const connectedAccounts = useMemo(
+    () => accounts.data?.filter((a) => isAccountConnected(a)) ?? [],
+    [accounts.data],
+  );
   const activeAccount =
     (urlAccountId && accounts.data?.find((a) => a.id === urlAccountId && isAccountConnected(a))) ||
     connectedAccount;
   const hasScanned = !!activeAccount?.last_scan_at;
+
+  function handleAccountChange(id: string) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("account_id", id);
+        return next;
+      },
+      { replace: true },
+    );
+  }
   const activeFramework = FRAMEWORKS.find((fw) => fw.id === framework)!;
 
   const controls = useQuery({
@@ -1194,15 +1210,12 @@ export default function Controls() {
     <div className="w-full px-8 py-8">
       <div className={`mb-4 ${exportOpen ? "relative z-[100]" : ""}`}>
         <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
-        <p className="mt-1.5 text-sm text-zinc-500">
-          {activeAccount?.account_id && <span>Account {activeAccount.account_id}</span>}
-          {activeAccount?.last_scan_at && (
-            <span className="text-zinc-400">
-              {activeAccount?.account_id ? " · " : ""}
-              Last scan {lastScanLabel(activeAccount.last_scan_at)}
-            </span>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {connectedAccounts.length > 0 && activeAccount && (
+            <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
           )}
-        </p>
+          {activeAccount?.last_scan_at && <LastScanChip iso={activeAccount.last_scan_at} />}
+        </div>
       </div>
 
       {!hasScanned && connectedAccount && !controls.isLoading && (
