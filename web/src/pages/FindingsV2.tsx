@@ -207,7 +207,7 @@ function FindingRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-end sm:pr-6">
+      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-center">
         <RiskScoreDisplay score={topRisk} severity={sev} />
       </div>
     </button>
@@ -739,7 +739,7 @@ export default function FindingsV2() {
                 <span className="w-5" aria-hidden />
                 <span className="w-[5.5rem]">Severity</span>
                 <span>Finding</span>
-                <span className="w-16 pr-6 text-right">Risk</span>
+                <span className="w-16 text-center">Risk</span>
               </div>
 
               <div className="divide-y divide-[#eef2f6]">
