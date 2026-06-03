@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
 
@@ -12,7 +12,16 @@ import {
   scanShortDate,
 } from "../lib/complianceHistory";
 import { groupEventsByDay, sumFindingsResolvedInPeriod } from "../lib/historyTimeline";
-import { causeSentence, eventPresentation, eventTypeLabel } from "../lib/historyPresentation";
+import { eventPresentation } from "../lib/historyPresentation";
+import {
+  type EventFilter,
+  cleanDetail,
+  controlOf,
+  eventBadge,
+  matchesControl,
+  matchesEventFilter,
+  shortResource,
+} from "../lib/historyEvidence";
 
 interface Account {
   id: string;
@@ -29,185 +38,237 @@ const FRAMEWORKS = [
 
 const PERIODS = [30, 90, 180] as const;
 
-function remediationLabel(event: HistoryEvent): string {
-  return event.detail || event.top_change?.title || event.check_id || event.resource_arn || "Remediation verified";
-}
+const EVENT_FILTERS: { id: EventFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "resolved", label: "Resolved" },
+  { id: "regressed", label: "Regressed" },
+  { id: "exceptions", label: "Exceptions" },
+  { id: "scans", label: "Scans" },
+];
 
-function RemediationRollupCard({
-  count,
-  events,
-  onExpand,
-}: {
-  count: number;
-  events: HistoryEvent[];
-  onExpand: () => void;
-}) {
-  const samples = events.map(remediationLabel).slice(0, 3);
-  const more = count - samples.length;
+type DrawerPayload = {
+  event: HistoryEvent;
+  previous: HistoryEvent | null;
+  tab: "snapshot" | "compare";
+  infra: boolean;
+};
 
+function ControlChip({ id, onClick }: { id: string; onClick?: () => void }) {
   return (
-    <article className="rounded-xl border border-emerald-200 bg-emerald-50/40 px-3 py-2">
-      <p className="text-sm font-semibold text-zinc-900">
-        {count} remediation{count === 1 ? "" : "s"} verified
-      </p>
-      {samples.length > 0 && (
-        <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
-          {samples.map((s) => (
-            <li key={s} className="truncate">
-              {s}
-            </li>
-          ))}
-          {more > 0 && <li className="text-zinc-400">+{more} more</li>}
-        </ul>
-      )}
-      <button type="button" onClick={onExpand} className="mt-2 text-xs font-medium text-indigo-600 hover:text-indigo-800">
-        Show details
-      </button>
-    </article>
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center rounded-md bg-zinc-50 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-inset ring-zinc-200/70 transition hover:bg-zinc-100 hover:text-zinc-900"
+    >
+      {id}
+    </button>
   );
 }
 
-function TimelineEventCompact({
+function EvidenceRow({
   event,
   previous,
-  onOpen,
+  onEvidence,
   onCompare,
-  onInfra,
+  onControl,
 }: {
   event: HistoryEvent;
   previous: HistoryEvent | null;
-  onOpen: () => void;
+  onEvidence: () => void;
   onCompare: () => void;
-  onInfra: () => void;
+  onControl: (controlId: string) => void;
 }) {
-  const pres = eventPresentation(event);
-  const cause = causeSentence(event);
-  const baseline = event.type === "baseline_established";
-  const isResolved = event.type === "finding_resolved";
-  const infraCount = event.infrastructure_events_count ?? 0;
-
-  const accent =
-    baseline
-      ? "border-zinc-300"
-      : isResolved
-        ? "border-emerald-400/70"
-        : event.type === "compliance_regressed" || event.type === "finding_reopened"
-          ? "border-rose-400/60"
-          : "border-indigo-300/70";
+  const badge = eventBadge(event.type);
+  const control = controlOf(event);
+  const res = shortResource(event.resource_arn);
+  const isFinding = event.type.startsWith("finding_");
+  const detail = cleanDetail(event.detail) || (isFinding ? eventPresentation(event).subline : "");
+  const before = event.posture_before;
+  const after = event.posture_after;
+  const canCompare = !isFinding && event.type !== "baseline_established" && !!previous;
 
   return (
-    <article className={`border-l-2 ${accent} py-1 pl-3`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-sm font-semibold text-zinc-900">{baseline ? pres.headline : eventTypeLabel(event.type)}</span>
-        {!baseline && <time className="text-xs text-zinc-400">{scanShortDate(event.timestamp)}</time>}
+    <article className={`border-l-2 ${badge.rail} py-2 pl-3.5`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${badge.chip}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} aria-hidden />
+          {badge.label}
+        </span>
+        {control && <ControlChip id={control.id} onClick={() => onControl(control.id)} />}
+        <time className="ml-auto text-xs tabular-nums text-zinc-400">{scanShortDate(event.timestamp)}</time>
       </div>
 
-      {!baseline && (
-        <p className="mt-1 text-xs text-zinc-600">
-          {event.posture_before != null && event.posture_after != null && event.posture_before !== event.posture_after ? (
-            <>
-              <span className="tabular-nums">{event.posture_before}%</span>
-              <span className="text-zinc-300"> → </span>
-              <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after}%</span>
-            </>
-          ) : isResolved ? (
-            <span className="line-clamp-1">{pres.subline}</span>
-          ) : (
-            <span className="font-semibold tabular-nums text-zinc-900">{event.posture_after ?? "—"}%</span>
-          )}
+      {res ? (
+        <p className="mt-1.5 text-sm leading-snug text-zinc-900">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{res.kind}</span>{" "}
+          <span className="font-mono font-medium break-all">{res.name}</span>
+          {detail && <span className="font-normal text-zinc-500"> — {detail}</span>}
         </p>
+      ) : (
+        <p className="mt-1.5 text-sm leading-snug text-zinc-700">{control?.title ?? detail ?? eventPresentation(event).headline}</p>
       )}
 
-      {cause && !baseline && !isResolved && (
-        <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
-          {cause.control} {cause.text}
-        </p>
-      )}
-
-      <div className="mt-2 flex flex-wrap gap-x-3 text-xs">
-        <button type="button" onClick={onOpen} className="font-medium text-indigo-600 hover:text-indigo-800">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        {before != null && after != null && before !== after && (
+          <span className="tabular-nums text-zinc-500">
+            {before}% <span className="text-zinc-300">→</span> <span className="font-semibold text-zinc-900">{after}%</span>
+          </span>
+        )}
+        <button type="button" onClick={onEvidence} className="font-medium text-indigo-600 hover:text-indigo-800">
           View evidence
         </button>
-        {previous && !baseline && (
+        {canCompare && (
           <button type="button" onClick={onCompare} className="text-zinc-500 hover:text-zinc-700">
             Compare
           </button>
         )}
-        {infraCount > 0 && (
-          <button type="button" onClick={onInfra} className="text-zinc-400 hover:text-zinc-600">
-            Supporting ({infraCount})
-          </button>
-        )}
       </div>
     </article>
   );
 }
 
-function HistoryTimeline({
+function ResourceGroup({
+  label,
+  events,
+  onEvidence,
+  onControl,
+}: {
+  label: string;
+  events: HistoryEvent[];
+  onEvidence: (event: HistoryEvent) => void;
+  onControl: (controlId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const badge = eventBadge(events[0].type);
+  const control = controlOf(events[0]);
+
+  return (
+    <div className={`border-l-2 ${badge.rail} py-2 pl-3.5`}>
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full flex-wrap items-center gap-2 text-left">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${badge.chip}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} aria-hidden />
+          {badge.label}
+        </span>
+        {control && <ControlChip id={control.id} />}
+        <span className="text-sm font-semibold text-zinc-900">{events.length} resources</span>
+        <span className="min-w-0 truncate text-sm text-zinc-500">· {label}</span>
+        <span className="ml-auto text-zinc-400">{open ? "▾" : "▸"}</span>
+      </button>
+
+      {open && (
+        <ul className="mt-2 space-y-1 border-l border-zinc-100 pl-3">
+          {events.map((e, i) => {
+            const r = shortResource(e.resource_arn);
+            return (
+              <li key={`${e.scan_run_id}:${e.resource_arn ?? i}`} className="flex items-center gap-2 text-xs">
+                {r && <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{r.kind}</span>}
+                <span className="min-w-0 flex-1 truncate font-mono text-zinc-700">{r?.name ?? "—"}</span>
+                <button type="button" onClick={() => onEvidence(e)} className="shrink-0 font-medium text-indigo-600 hover:text-indigo-800">
+                  evidence
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DayFeed({
+  events,
+  previousById,
+  onDrawer,
+  onControl,
+}: {
+  events: HistoryEvent[];
+  previousById: Map<string, HistoryEvent | null>;
+  onDrawer: (payload: DrawerPayload) => void;
+  onControl: (controlId: string) => void;
+}) {
+  const groups = new Map<string, HistoryEvent[]>();
+  const singles: HistoryEvent[] = [];
+
+  for (const e of events) {
+    const groupable =
+      (e.type === "finding_resolved" || e.type === "finding_excepted" || e.type === "finding_reopened") && !!e.resource_arn;
+    if (groupable) {
+      const key = `${e.type}::${cleanDetail(e.detail)}`;
+      groups.set(key, [...(groups.get(key) ?? []), e]);
+    } else {
+      singles.push(e);
+    }
+  }
+
+  const nodes: { key: string; ts: string; node: ReactNode }[] = [];
+  for (const [key, evs] of groups) {
+    if (evs.length >= 3) {
+      nodes.push({
+        key,
+        ts: evs[0].timestamp,
+        node: (
+          <ResourceGroup
+            label={cleanDetail(evs[0].detail) || "change verified"}
+            events={evs}
+            onEvidence={(e) => onDrawer({ event: e, previous: previousById.get(e.scan_run_id) ?? null, tab: "snapshot", infra: false })}
+            onControl={onControl}
+          />
+        ),
+      });
+    } else {
+      singles.push(...evs);
+    }
+  }
+
+  for (const e of singles) {
+    const previous = previousById.get(e.scan_run_id) ?? null;
+    nodes.push({
+      key: `${e.scan_run_id}:${e.resource_arn ?? ""}:${e.type}`,
+      ts: e.timestamp,
+      node: (
+        <EvidenceRow
+          event={e}
+          previous={previous}
+          onEvidence={() => onDrawer({ event: e, previous, tab: "snapshot", infra: false })}
+          onCompare={() => onDrawer({ event: e, previous, tab: "compare", infra: false })}
+          onControl={onControl}
+        />
+      ),
+    });
+  }
+
+  nodes.sort((a, b) => b.ts.localeCompare(a.ts));
+
+  return (
+    <div className="space-y-2.5">
+      {nodes.map((n) => (
+        <div key={n.key}>{n.node}</div>
+      ))}
+    </div>
+  );
+}
+
+function EvidenceTimeline({
   dayGroups,
   previousById,
-  expandedRollups,
-  setExpandedRollups,
   onDrawer,
+  onControl,
 }: {
   dayGroups: ReturnType<typeof groupEventsByDay>;
   previousById: Map<string, HistoryEvent | null>;
-  expandedRollups: Record<string, boolean>;
-  setExpandedRollups: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  onDrawer: (payload: {
-    event: HistoryEvent;
-    previous: HistoryEvent | null;
-    tab: "snapshot" | "compare";
-    infra: boolean;
-  }) => void;
+  onDrawer: (payload: DrawerPayload) => void;
+  onControl: (controlId: string) => void;
 }) {
-  if (dayGroups.length === 0) return null;
-
   return (
     <div className="space-y-5">
-      {dayGroups.map((group) => {
-        const remediations = group.events.filter((e) => e.type === "finding_resolved");
-        const others = group.events.filter((e) => e.type !== "finding_resolved");
-        const expanded = expandedRollups[group.day] ?? false;
-        const rollupRemediations = remediations.length >= 2 && !expanded;
-
-        return (
-          <div key={group.day}>
-            <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-400">{group.label}</h3>
-            <div className="mt-2 space-y-2">
-              {rollupRemediations && (
-                <RemediationRollupCard
-                  count={remediations.length}
-                  events={remediations}
-                  onExpand={() => setExpandedRollups((p) => ({ ...p, [group.day]: true }))}
-                />
-              )}
-              {(rollupRemediations ? others : [...remediations, ...others]).map((evt) => {
-                const previous = previousById.get(evt.scan_run_id) ?? null;
-                return (
-                  <TimelineEventCompact
-                    key={evt.scan_run_id}
-                    event={evt}
-                    previous={previous}
-                    onOpen={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: false })}
-                    onCompare={() => onDrawer({ event: evt, previous, tab: "compare", infra: false })}
-                    onInfra={() => onDrawer({ event: evt, previous, tab: "snapshot", infra: true })}
-                  />
-                );
-              })}
-              {expanded && remediations.length >= 2 && (
-                <button
-                  type="button"
-                  onClick={() => setExpandedRollups((p) => ({ ...p, [group.day]: false }))}
-                  className="text-xs font-medium text-zinc-500 hover:text-zinc-800"
-                >
-                  Hide remediation details
-                </button>
-              )}
-            </div>
+      {dayGroups.map((group) => (
+        <div key={group.day}>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-400">{group.label}</h3>
+          <div className="mt-2">
+            <DayFeed events={group.events} previousById={previousById} onDrawer={onDrawer} onControl={onControl} />
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }
@@ -216,13 +277,9 @@ export default function HistoryV2() {
   const [days, setDays] = useState(90);
   const [framework, setFramework] = useState("soc2");
   const [accountId, setAccountId] = useState("");
-  const [expandedRollups, setExpandedRollups] = useState<Record<string, boolean>>({});
-  const [drawer, setDrawer] = useState<{
-    event: HistoryEvent;
-    previous: HistoryEvent | null;
-    tab: "snapshot" | "compare";
-    infra: boolean;
-  } | null>(null);
+  const [eventFilter, setEventFilter] = useState<EventFilter>("all");
+  const [controlFilter, setControlFilter] = useState<string | null>(null);
+  const [drawer, setDrawer] = useState<DrawerPayload | null>(null);
 
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
   const connected = accountsQ.data?.filter((a) => a.status === "connected") ?? [];
@@ -235,14 +292,27 @@ export default function HistoryV2() {
     enabled: !!effectiveAccountId,
   });
 
-  const events = historyQ.data?.events ?? [];
+  const events = useMemo(() => historyQ.data?.events ?? [], [historyQ.data]);
   const previousById = useMemo(() => {
     const map = new Map<string, HistoryEvent | null>();
     events.forEach((evt, index) => map.set(evt.scan_run_id, index + 1 < events.length ? events[index + 1] : null));
     return map;
   }, [events]);
 
-  const dayGroups = useMemo(() => groupEventsByDay(events), [events]);
+  // Counts respect the active control filter, not the event filter.
+  const controlScoped = useMemo(() => events.filter((e) => matchesControl(e, controlFilter)), [events, controlFilter]);
+  const filterCounts = useMemo(() => {
+    const counts: Record<EventFilter, number> = { all: 0, resolved: 0, regressed: 0, exceptions: 0, scans: 0 };
+    for (const f of EVENT_FILTERS) counts[f.id] = controlScoped.filter((e) => matchesEventFilter(e, f.id)).length;
+    return counts;
+  }, [controlScoped]);
+
+  const filteredEvents = useMemo(
+    () => controlScoped.filter((e) => matchesEventFilter(e, eventFilter)),
+    [controlScoped, eventFilter],
+  );
+
+  const dayGroups = useMemo(() => groupEventsByDay(filteredEvents), [filteredEvents]);
   const resolvedInPeriod = sumFindingsResolvedInPeriod(events);
   const onlyBaseline = events.length === 1 && events[0]?.type === "baseline_established";
 
@@ -294,13 +364,60 @@ export default function HistoryV2() {
     </div>
   );
 
+  const filterBar = (
+    <div className="mb-4 inline-flex flex-wrap gap-1 rounded-xl bg-zinc-100 p-0.5" role="tablist" aria-label="Event type">
+      {EVENT_FILTERS.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          role="tab"
+          aria-selected={eventFilter === f.id}
+          onClick={() => setEventFilter(f.id)}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            eventFilter === f.id ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
+          }`}
+        >
+          {f.label}
+          <span className={eventFilter === f.id ? "text-zinc-400" : "text-zinc-400/80"}> · {filterCounts[f.id]}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  const timelineNode = onlyBaseline ? (
+    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
+      <p className="text-xs font-medium text-zinc-800">Baseline recorded</p>
+      <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
+        History starts with your first completed scan. Remediations, exceptions, and control changes will appear here.
+      </p>
+    </div>
+  ) : events.length === 0 ? (
+    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
+      <p className="text-xs font-medium text-zinc-800">No events in this window</p>
+      <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
+        Run a scan or verify a remediation from Findings to populate this timeline.
+      </p>
+    </div>
+  ) : (
+    <>
+      {filterBar}
+      {dayGroups.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-6 text-center text-xs text-zinc-500">
+          No changes match these filters.
+        </p>
+      ) : (
+        <EvidenceTimeline dayGroups={dayGroups} previousById={previousById} onDrawer={setDrawer} onControl={(id) => setControlFilter(id)} />
+      )}
+    </>
+  );
+
   return (
     <>
       <PageShell
         variant="compact"
         eyebrow="SECURITY PROGRESS"
         title="History"
-        description="Posture, findings, controls, and remediation movement over time."
+        description="What changed over time — every remediation, exception, and control movement with its resource and evidence."
         actions={headerActions}
         width="w-full max-w-none"
       >
@@ -322,45 +439,12 @@ export default function HistoryV2() {
             currentSummary={historyQ.data.current_summary}
             periodSummary={historyQ.data.period_summary}
             scanCount={historyQ.data.scan_count}
-            scanCadence={historyQ.data.scan_cadence}
             persistentGaps={historyQ.data.persistent_gaps}
+            openFindingsCount={historyQ.data.current_summary?.open_findings_count}
             resolvedInPeriod={resolvedInPeriod}
-            onSelectSnapshot={(id) => {
-              const evt = events.find((e) => e.scan_run_id === id);
-              if (evt) {
-                setDrawer({
-                  event: evt,
-                  previous: previousById.get(id) ?? null,
-                  tab: "snapshot",
-                  infra: false,
-                });
-              }
-            }}
-            timeline={
-              onlyBaseline ? (
-                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
-                  <p className="text-xs font-medium text-zinc-800">Baseline recorded</p>
-                  <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-                    History starts with your first completed scan. Remediations, exceptions, and control changes will appear here.
-                  </p>
-                </div>
-              ) : events.length > 0 ? (
-                <HistoryTimeline
-                  dayGroups={dayGroups}
-                  previousById={previousById}
-                  expandedRollups={expandedRollups}
-                  setExpandedRollups={setExpandedRollups}
-                  onDrawer={setDrawer}
-                />
-              ) : (
-                <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
-                  <p className="text-xs font-medium text-zinc-800">No events in this window</p>
-                  <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-                    Run a scan or verify a remediation from Findings to populate this timeline.
-                  </p>
-                </div>
-              )
-            }
+            activeControl={controlFilter}
+            onSelectControl={setControlFilter}
+            timeline={timelineNode}
           />
         )}
       </PageShell>

@@ -5,6 +5,7 @@ import type {
   PeriodSummary,
   PersistentGap,
 } from "../lib/complianceHistory";
+import { PostureTrend } from "./PostureTrend";
 
 function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
   const total = summary.controls_passed + summary.controls_failed + summary.controls_no_data;
@@ -37,7 +38,15 @@ function ControlStatusCompact({ summary }: { summary: CurrentSummary }) {
   );
 }
 
-function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
+function NeedsAttentionCompact({
+  gaps,
+  activeControl,
+  onSelect,
+}: {
+  gaps: PersistentGap[];
+  activeControl: string | null;
+  onSelect: (controlId: string | null) => void;
+}) {
   const max = Math.max(1, ...gaps.map((g) => g.open_finding_count));
 
   return (
@@ -46,6 +55,7 @@ function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-400">Still open</p>
           <h3 className="mt-1 text-base font-semibold text-zinc-950">Controls with the most findings</h3>
+          <p className="mt-0.5 text-[11px] text-zinc-400">Click a control to filter the timeline.</p>
         </div>
         {gaps.length > 0 && <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 ring-1 ring-rose-100">Top {Math.min(gaps.length, 4)}</span>}
       </div>
@@ -53,92 +63,55 @@ function NeedsAttentionCompact({ gaps }: { gaps: PersistentGap[] }) {
         <p className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 ring-1 ring-emerald-100">No failing controls with open findings.</p>
       ) : (
         <ul className="mt-5 space-y-3">
-          {gaps.slice(0, 4).map((g, index) => (
-            <li key={g.control_id} className="rounded-2xl bg-rose-50/35 px-3 py-3 ring-1 ring-rose-100/80">
-              <div className="flex items-center gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-bold tabular-nums text-rose-600 ring-1 ring-rose-100">
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-zinc-900">{g.title}</p>
-                  <p className="mt-0.5 text-[11px] text-zinc-500">{g.control_id}</p>
-                </div>
-                <span className="shrink-0 text-sm font-bold tabular-nums text-rose-600">{g.open_finding_count}</span>
-              </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-rose-100/70">
-                <div className="h-full rounded-full bg-rose-400" style={{ width: `${Math.max(8, (g.open_finding_count / max) * 100)}%` }} />
-              </div>
-            </li>
-          ))}
+          {gaps.slice(0, 4).map((g, index) => {
+            const active = activeControl === g.control_id;
+            return (
+              <li key={g.control_id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(active ? null : g.control_id)}
+                  aria-pressed={active}
+                  className={`w-full rounded-2xl px-3 py-3 text-left ring-1 transition ${
+                    active ? "bg-rose-100/70 ring-rose-300" : "bg-rose-50/35 ring-rose-100/80 hover:bg-rose-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white text-xs font-bold tabular-nums text-rose-600 ring-1 ring-rose-100">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-zinc-900">{g.title}</p>
+                      <p className="mt-0.5 text-[11px] text-zinc-500">{g.control_id}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-rose-600">{g.open_finding_count}</span>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-rose-100/70">
+                    <div className="h-full rounded-full bg-rose-400" style={{ width: `${Math.max(8, (g.open_finding_count / max) * 100)}%` }} />
+                  </div>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
   );
 }
 
-function MetricPill({ label, value, tone = "zinc" }: { label: string; value: string | number; tone?: "zinc" | "emerald" | "rose" | "indigo" }) {
-  const toneClass =
-    tone === "emerald"
-      ? "bg-emerald-50 text-emerald-800 ring-emerald-100"
-      : tone === "rose"
-        ? "bg-rose-50 text-rose-800 ring-rose-100"
-        : tone === "indigo"
-          ? "bg-indigo-50 text-indigo-800 ring-indigo-100"
-          : "bg-zinc-50 text-zinc-800 ring-zinc-200/80";
-
-  return (
-    <div className={`rounded-2xl px-4 py-3 ring-1 ${toneClass}`}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-70">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{value}</p>
-    </div>
-  );
-}
-
-function ProgressSummary({
-  resolved,
-  improved,
-  regressed,
-  currentScore,
-  open,
-  scans,
-}: {
-  resolved: number;
-  improved: number;
-  regressed: number;
-  currentScore: number | null | undefined;
-  open: number;
-  scans: number;
-}) {
-  return (
-    <section className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-sm shadow-zinc-950/[0.02]">
-      <div className="h-1 bg-gradient-to-r from-emerald-400 via-indigo-500 to-rose-400" />
-      <div className="flex flex-col gap-4 p-5 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">Window summary</p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">{resolved} findings verified</h2>
-          <p className="mt-1 text-sm text-zinc-500">Remediation movement in this audit window.</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 xl:min-w-[38rem]">
-          <MetricPill label="Improved" value={improved} tone="emerald" />
-          <MetricPill label="Regressed" value={regressed} tone={regressed > 0 ? "rose" : "zinc"} />
-          <MetricPill label="Open" value={open || "—"} tone="rose" />
-          <MetricPill label="Scans" value={scans} tone="indigo" />
-          <MetricPill label="Posture" value={`${currentScore ?? "—"}%`} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function HistoryDashboard({
+  events,
+  days,
   currentScore,
   currentSummary,
   periodSummary,
   scanCount,
-  scanCadence,
   persistentGaps = [],
   openFindingsCount,
   resolvedInPeriod,
+  activeControl = null,
+  onSelectControl = () => {},
+  scanCadence,
+  onSelectSnapshot,
   timeline,
 }: {
   events: HistoryEvent[];
@@ -147,23 +120,35 @@ export function HistoryDashboard({
   currentSummary?: CurrentSummary | null;
   periodSummary?: PeriodSummary;
   scanCount?: number;
-  scanCadence?: unknown;
   persistentGaps?: PersistentGap[];
   openFindingsCount?: number;
   resolvedInPeriod?: number;
+  activeControl?: string | null;
+  onSelectControl?: (controlId: string | null) => void;
+  scanCadence?: unknown;
   onSelectSnapshot?: (scanRunId: string) => void;
   timeline?: ReactNode;
 }) {
+  void scanCadence;
+  void onSelectSnapshot;
   const improved = periodSummary?.controls_improved ?? 0;
   const regressed = periodSummary?.controls_regressed ?? 0;
   const resolved = resolvedInPeriod ?? 0;
   const scans = scanCount ?? 0;
-  const open = openFindingsCount ?? 0;
-  void scanCadence;
+  const open = openFindingsCount ?? currentSummary?.open_findings_count ?? 0;
 
   return (
     <div className="space-y-5">
-      <ProgressSummary resolved={resolved} improved={improved} regressed={regressed} currentScore={currentScore} open={open} scans={scans} />
+      <PostureTrend
+        events={events}
+        currentScore={currentScore}
+        days={days}
+        verified={resolved}
+        improved={improved}
+        regressed={regressed}
+        open={open}
+        scans={scans}
+      />
 
       <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_25rem]">
         <section className="relative overflow-hidden rounded-[1.75rem] border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
@@ -172,15 +157,25 @@ export function HistoryDashboard({
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Activity timeline</p>
               <h3 className="mt-1 text-lg font-semibold tracking-tight text-zinc-950">What changed</h3>
-              <p className="mt-1 text-xs text-zinc-500">Scans, remediations, and control movement.</p>
+              <p className="mt-1 text-xs text-zinc-500">Each change with its resource, mapped control, and posture movement.</p>
             </div>
             {resolved > 0 && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">{resolved} verified</span>}
           </div>
+
+          {activeControl && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-xs ring-1 ring-indigo-100">
+              <span className="font-semibold text-indigo-700">Filtered to {activeControl}</span>
+              <button type="button" onClick={() => onSelectControl(null)} className="ml-auto font-semibold text-indigo-600 hover:text-indigo-800">
+                Clear
+              </button>
+            </div>
+          )}
+
           <div className="mt-4">{timeline}</div>
         </section>
 
         <aside className="grid items-stretch gap-5 lg:grid-cols-2 2xl:sticky 2xl:top-5 2xl:grid-cols-1">
-          <NeedsAttentionCompact gaps={persistentGaps} />
+          <NeedsAttentionCompact gaps={persistentGaps} activeControl={activeControl} onSelect={onSelectControl} />
           {currentSummary && <ControlStatusCompact summary={currentSummary} />}
         </aside>
       </div>
