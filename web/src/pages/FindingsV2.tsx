@@ -678,7 +678,7 @@ export default function FindingsV2() {
                     </svg>
                   </span>
                   <span className="findings-v2-scan-btn-label">
-                    {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Start scan"}
+                    {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
                   </span>
                 </button>
               </div>
