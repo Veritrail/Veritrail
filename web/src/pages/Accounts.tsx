@@ -2456,11 +2456,15 @@ function ScanPhaseBlock({
         </div>
         {!indeterminate && <span className="shrink-0 text-sm font-bold tabular-nums text-indigo-600">{pct}%</span>}
       </div>
-      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70">
-        <div
-          className={`h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 ${indeterminate ? "w-1/3 animate-pulse" : "transition-[width] duration-500"}`}
-          style={indeterminate ? undefined : { width: `${pct}%` }}
-        />
+      <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70">
+        {indeterminate ? (
+          <div className="scan-bar-indeterminate bg-gradient-to-r from-sky-500 to-indigo-500" />
+        ) : (
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-[width] duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        )}
       </div>
       <div className="mt-4 flex items-start">
         {SCAN_PHASES.map((label, i) => {

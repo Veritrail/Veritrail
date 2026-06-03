@@ -76,3 +76,23 @@
     @apply text-[10px] font-semibold uppercase tracking-wider text-zinc-400;
   }
 }
+
+/* Indeterminate scan bar — a slim stripe sliding across the track, so a scan with
+   no worker step data yet never looks like a fixed partial fill. */
+@keyframes vigil-scan-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(560%);
+  }
+}
+
+.scan-bar-indeterminate {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 18%;
+  border-radius: 9999px;
+  animation: vigil-scan-indeterminate 1.15s ease-in-out infinite;
+}
