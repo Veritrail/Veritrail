@@ -582,7 +582,13 @@ type FindingStats = { critHigh: number; medium: number; open: number };
 type ScanFreshness = "scanning" | "fresh" | "recent" | "aging" | "stale" | "none";
 
 function AwsIcon({ className = "h-full w-full max-h-16 object-contain" }: { className?: string }) {
-  return <img src="/aws.png" alt="AWS" className={className} />;
+  return (
+    <img
+      src="/integrations/aws-logo.svg"
+      alt="Amazon Web Services"
+      className={`rounded-xl object-contain ${className}`}
+    />
+  );
 }
 
 function scanAgeMs(iso: string | null): number | null {
@@ -862,13 +868,13 @@ const dangerGhostBtn =
   "inline-flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 const ssmRemediationBadgeClass =
-  "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-amber-200/60";
+  "rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/60";
 
 function ConnectorTemplateBadge({ version }: { version: string | null }) {
   if (!version) return null;
   return (
     <span
-      className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-800 ring-1 ring-sky-200/70"
+      className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/70"
       title="Latest Vigil connector CloudFormation template version"
     >
       CFN v{version}
@@ -912,12 +918,12 @@ function CapabilityBadges({
 
   return (
     <div className="mt-1.5 flex flex-wrap gap-1">
-      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
+      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
         Core Scanner
       </span>
       {(policyGenDeployed || policyGenSelected) && (
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
             policyGenDeployed
               ? "bg-indigo-50 text-indigo-800 ring-indigo-200/60"
               : "bg-indigo-50/50 text-indigo-700 ring-indigo-200/40"
@@ -942,7 +948,7 @@ function CapabilityBadges({
               className={
                 deployed || !connected
                   ? ssmRemediationBadgeClass
-                  : "rounded-full bg-amber-50/40 px-2 py-0.5 text-[10px] font-medium text-amber-800/70 ring-1 ring-amber-200/40"
+                  : "rounded-full bg-amber-50/40 px-2.5 py-1 text-[11px] font-medium text-amber-800/70 ring-1 ring-amber-200/40"
               }
             >
               {m.badgeLabel}
@@ -994,11 +1000,11 @@ function ManageCapabilitiesPanel({
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <ConnectorTemplateBadge version={acc.cfn_template_version} />
             <span className="text-[11px] text-zinc-500">After deploy:</span>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
               Core Scanner
             </span>
             {draft.enable_advanced_policy_generation && (
-              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-800 ring-1 ring-indigo-200/60">
+              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-800 ring-1 ring-indigo-200/60">
                 Policy Generation
               </span>
             )}
@@ -1008,7 +1014,7 @@ function ManageCapabilitiesPanel({
               REMEDIATION_MODULE_SPECS.filter((m) => draft.remediation_modules[m.id]).map((m) => (
                 <span
                   key={m.id}
-                  className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 ring-1 ring-amber-200/60"
+                  className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200/60"
                 >
                   {m.badgeLabel}
                 </span>
@@ -1738,8 +1744,8 @@ function FirstAccountOnboarding({
         <OnboardingFlowProgress activeStep={1} />
 
         <div className="mt-6 flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-200/80 bg-[#FF9900]/10">
-            <AwsIcon className="h-6 w-6 object-contain" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center">
+            <AwsIcon className="h-11 w-11" />
           </div>
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
@@ -2442,7 +2448,7 @@ function ScanPhaseBlock({
       ? mapWorkerStepToUiPhase(progressStep, progressTotal)
       : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
   return (
-    <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-5 py-4">
+    <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-6 py-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <svg className="h-5 w-5 shrink-0 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -2820,13 +2826,13 @@ function AccountCard({
 
   return (
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
-      <div className="flex items-start gap-4 px-5 py-4">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white shadow-sm">
-            <AwsIcon className="h-7 w-7 object-contain" />
+      <div className="flex items-start gap-4 px-6 py-5">
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center">
+            <AwsIcon className="h-14 w-14" />
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-base font-bold text-zinc-900">{acc.label}</h2>
+            <h2 className="truncate text-lg font-bold text-zinc-900">{acc.label}</h2>
             {connected && acc.account_id ? (
               <div className="flex items-center gap-1">
                 <p className="font-mono text-xs tabular-nums text-zinc-500">{acc.account_id}</p>
@@ -3191,11 +3197,11 @@ function PostureSummary({
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {tiles.map((t) => (
         <div
           key={t.label}
-          className="flex items-center gap-4 rounded-2xl border border-zinc-200/80 bg-white px-5 py-5 shadow-sm shadow-zinc-950/[0.03] transition duration-200 hover:border-zinc-300 hover:shadow-md"
+          className="flex items-center gap-5 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm shadow-zinc-950/[0.03] transition duration-200 hover:border-zinc-300 hover:shadow-md"
         >
           <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${t.tint}`}>{t.icon}</span>
           <div className="min-w-0">
@@ -3279,10 +3285,10 @@ export default function Accounts() {
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {showFirstAccountOnboarding
               ? "Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and generate evidence for your auditor."
