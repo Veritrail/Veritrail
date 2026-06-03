@@ -491,7 +491,7 @@ export default function FindingsV2() {
                   className="findings-v2-scan-btn"
                 >
                   <svg
-                    className={`h-4 w-4 shrink-0 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
+                    className={`h-3.5 w-3.5 shrink-0 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2}
