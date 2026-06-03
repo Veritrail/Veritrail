@@ -4627,48 +4627,65 @@ function ExceptionButton({
               className="relative flex max-h-[min(85%,32rem)] w-full flex-col overflow-hidden rounded-t-2xl border border-b-0 border-zinc-200 bg-zinc-50 shadow-[0_-12px_40px_rgba(15,23,42,0.12)]"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
-                <span className="font-semibold">Audit evidence —</span> This exception, approver, and expiry will appear in
-                your evidence pack.
+              <div className="flex shrink-0 items-start gap-2.5 border-b border-amber-200/80 bg-amber-50/90 px-5 py-3 text-amber-950">
+                <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
+                </svg>
+                <div className="min-w-0 text-[12px] leading-snug">
+                  <p className="font-semibold">Included in evidence pack</p>
+                  <p className="text-amber-900/90">This exception, approver, and expiry will be included in your evidence pack.</p>
+                </div>
               </div>
               <div className="min-h-0 overflow-y-auto p-5">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
-                      Document exception
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-zinc-500">
-                      Exceptions are retained in the evidence pack. Auditors can review the reason, approver, and expiry.
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
+                      </svg>
+                    </span>
+                    <div className="min-w-0">
+                      <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
+                        Document exception
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                        Exceptions are retained in the evidence pack. Auditors can review the reason, approver, and expiry.
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
                     disabled={submitting}
-                    className="shrink-0 rounded-lg p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-zinc-200 p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50"
                     aria-label="Close"
                   >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
                 <form onSubmit={submit} className="mt-5 space-y-4">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-700">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-700">
                       Reason <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       rows={3}
+                      maxLength={500}
                       placeholder="e.g. Internal sandbox repo — no production code. Risk accepted by CTO."
                       className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
                       required
                     />
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-xs text-zinc-400">Provide a clear reason for this exception.</p>
+                      <p className="shrink-0 text-xs tabular-nums text-zinc-400">{reason.length} / 500</p>
+                    </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-700">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-700">
                       Approved by <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -4679,35 +4696,45 @@ function ExceptionButton({
                       className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
                       required
                     />
+                    <p className="mt-1 text-xs text-zinc-400">Full name and role of the approver.</p>
                   </div>
                   <div>
-                    <label htmlFor="exception-expires" className="mb-1 block text-xs font-medium text-zinc-700">
-                      Expires (optional)
+                    <label htmlFor="exception-expires" className="mb-1.5 block text-xs font-medium text-zinc-700">
+                      Expires <span className="font-normal text-zinc-400">(optional)</span>
                     </label>
                     <DrawerDateField
                       id="exception-expires"
                       value={expiresAt}
                       onChange={setExpiresAt}
                       minIso={todayIso()}
-                      placeholder="No expiry date"
+                      placeholder="Select expiry date"
                     />
+                    <p className="mt-1 text-xs text-zinc-400">Set when this exception should be reviewed or expire.</p>
                   </div>
-                  <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setOpen(false)}
-                      disabled={submitting}
-                      className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50 sm:min-w-[7rem]"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitting || !reason.trim() || !approvedBy.trim()}
-                      className="rounded-lg border border-zinc-800 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
-                    >
-                      {submitting ? "Saving…" : "Save exception"}
-                    </button>
+                  <div className="border-t border-zinc-100 pt-4">
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        disabled={submitting}
+                        className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50 sm:min-w-[7rem]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting || !reason.trim() || !approvedBy.trim()}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6a2.25 2.25 0 0 1 2.25-2.25Z" />
+                        </svg>
+                        {submitting ? "Saving…" : "Save exception"}
+                      </button>
+                    </div>
+                    {!submitting && (!reason.trim() || !approvedBy.trim()) && (
+                      <p className="mt-2 text-right text-xs text-zinc-400">Complete required fields to save</p>
+                    )}
                   </div>
                 </form>
               </div>
