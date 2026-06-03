@@ -77,6 +77,28 @@ function lastScanLabel(iso: string): string {
   return sameDay ? `today at ${time}` : `${date.toLocaleDateString()} at ${time}`;
 }
 
+function relativeScan(iso: string): string {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return `${Math.round(days / 30)}mo ago`;
+}
+
+function scanDotClass(iso: string): string {
+  const hrs = (Date.now() - new Date(iso).getTime()) / 3_600_000;
+  if (hrs <= 26) return "bg-emerald-500";
+  if (hrs <= 24 * 7) return "bg-amber-400";
+  return "bg-rose-400";
+}
+
+function groupAccountId(id: string): string {
+  return /^\d{12}$/.test(id) ? id.replace(/(\d{4})(?=\d)/g, "$1 ") : id;
+}
+
 function emptyFindingsLabel(status: StatusTab): string {
   if (status === "all") return "No findings";
   if (status === "excepted") return "No exceptions";
@@ -199,11 +221,11 @@ function FindingRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center justify-start sm:justify-center">
+      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-center">
         <RiskScoreDisplay score={topRisk} severity={sev} />
       </div>
 
-      <div className="flex shrink-0 items-center justify-end">
+      <div className="flex w-7 shrink-0 items-center justify-end">
         <span className="findings-v2-row-chevron" aria-hidden>
           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -486,16 +508,25 @@ export default function FindingsV2() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
-              <p className="mt-1.5 text-sm text-[#6b7280]">
-                {selectedAccount?.account_id && <span>Account {selectedAccount.account_id}</span>}
-                {lastScanAt && (
-                  <>
-                    {selectedAccount?.account_id && <span className="text-[#98a2b3]"> · </span>}
-                    <span className="text-slate-400">Last scan </span>
-                    <span className="font-medium tabular-nums text-slate-500">{lastScanLabel(lastScanAt)}</span>
-                  </>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {selectedAccount?.account_id && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs ring-1 ring-zinc-200/70">
+                    <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+                    </svg>
+                    <span className="font-mono tabular-nums tracking-tight text-zinc-700">{groupAccountId(selectedAccount.account_id)}</span>
+                  </span>
                 )}
-              </p>
+                {lastScanAt && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200/70"
+                    title={`Last scan ${lastScanLabel(lastScanAt)}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${scanDotClass(lastScanAt)}`} aria-hidden />
+                    Scanned {relativeScan(lastScanAt)}
+                  </span>
+                )}
+              </div>
             </div>
             <NotificationsBell />
           </div>
@@ -759,8 +790,8 @@ export default function FindingsV2() {
               >
                 <span className="w-[5.5rem]">Severity</span>
                 <span>Finding</span>
-                <span className="text-center">Risk</span>
-                <span className="w-[5.5rem]" aria-hidden />
+                <span className="w-16 text-center">Risk</span>
+                <span className="w-7" aria-hidden />
               </div>
 
               <div className="space-y-2 bg-[#f7f9fc] p-3 sm:p-4">
