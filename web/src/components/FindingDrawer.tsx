@@ -5007,37 +5007,35 @@ export function FindingDrawer({
           ) : null;
 
         if (isShortResourceLabel(resourceLabel)) {
+          const useMono = resourceLabel.includes(":") || resourceLabel.includes("/");
           return (
-            <div className="mt-2.5 flex items-center justify-between gap-3">
-              <p className="min-w-0 truncate text-[12px] leading-snug text-zinc-600">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Resource
-                </span>
-                <span className="mx-1.5 text-zinc-300" aria-hidden>
-                  ·
-                </span>
-                <span
-                  className="font-mono text-[13px] font-medium text-zinc-800"
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-zinc-500">Resource</p>
+                <p
+                  className={`mt-0.5 truncate text-[15px] font-semibold leading-tight tracking-tight text-zinc-900 ${
+                    useMono ? "font-mono text-[14px] font-medium" : ""
+                  }`}
                   title={finding.resource_arn}
                 >
                   {resourceLabel}
-                </span>
-              </p>
+                </p>
+              </div>
               {resourceNav}
             </div>
           );
         }
 
         return (
-          <div className="mt-2.5 rounded-lg border border-black/[0.07] bg-white/70 px-3 py-2">
-            <div className="mb-0.5 flex items-baseline justify-between gap-2">
-              <div className={drawerFieldLabelBlock}>Resource</div>
+          <div className="mt-3 rounded-lg border border-zinc-200/70 bg-white/80 px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-[11px] font-medium text-zinc-500">Resource</p>
               {resourceNav}
             </div>
             <div className="group relative">
-              <p className="truncate font-mono text-xs text-zinc-700">{resourceLabel}</p>
+              <p className="truncate font-mono text-[13px] font-medium leading-snug text-zinc-800">{resourceLabel}</p>
               <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-sm rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg group-hover:block">
-                <p className="break-all font-mono text-xs leading-relaxed text-zinc-700">
+                <p className="break-all font-mono text-[12px] leading-relaxed text-zinc-700">
                   {isVcsResourceIdentifier(finding.resource_arn) ? resourceLabel : finding.resource_arn}
                 </p>
               </div>
