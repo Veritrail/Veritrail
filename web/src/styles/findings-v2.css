@@ -183,11 +183,9 @@
 .findings-v2-row {
   position: relative;
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--fv-border);
-  background: var(--fv-surface);
+  background: #ffffff;
   text-align: left;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .findings-v2-row::before {
@@ -197,7 +195,6 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  border-radius: 12px 0 0 12px;
 }
 
 .findings-v2-row--critical::before {
@@ -217,8 +214,7 @@
 }
 
 .findings-v2-row:hover {
-  background: #fafbfc;
-  border-color: #dce3ec;
+  background: #f8fafc;
 }
 
 .findings-v2-row:focus-visible {

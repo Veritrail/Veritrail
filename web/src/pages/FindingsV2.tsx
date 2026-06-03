@@ -794,7 +794,7 @@ export default function FindingsV2() {
                 <span className="w-7" aria-hidden />
               </div>
 
-              <div className="space-y-2 bg-[#f7f9fc] p-3 sm:p-4">
+              <div className="divide-y divide-[#eef2f6]">
                 {displayGroups.map(([checkId, items]) => (
                   <FindingRow key={checkId} checkId={checkId} items={items} onReview={openReview} />
                 ))}
