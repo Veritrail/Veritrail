@@ -662,18 +662,18 @@ export default function FindingsV2() {
                   disabled={scanTriggered || isRunning}
                   className="findings-v2-scan-btn"
                 >
-                  <span className="findings-v2-scan-btn-icon" aria-hidden>
-                    <svg
-                      className={`h-3.5 w-3.5 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
+                  <span
+                    className="findings-v2-scan-radar"
+                    data-active={isRunning || scanTriggered ? "true" : undefined}
+                    aria-hidden
+                  >
+                    <span className="findings-v2-scan-ping" />
+                    <span className="findings-v2-scan-ping findings-v2-scan-ping--delay" />
+                    <svg className="findings-v2-scan-radar-glyph" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"
+                        d="M9.348 14.652a3.75 3.75 0 0 1 0-5.304m5.304 0a3.75 3.75 0 0 1 0 5.304M12 12h.008v.008H12V12Z"
                       />
                     </svg>
                   </span>
