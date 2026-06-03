@@ -4,7 +4,11 @@ import uuid
 
 from app.models import ScanRun
 from app.models.control import Control
-from app.services.compliance_scan_timeline import _top_change, build_compliance_scan_timeline
+from app.services.compliance_scan_timeline import (
+    _period_summary,
+    _top_change,
+    build_compliance_scan_timeline,
+)
 
 
 def _ctrl():
@@ -43,6 +47,20 @@ def test_skips_scans_without_posture_change():
     assert len(out["events"]) == 1
     assert out["events"][0]["type"] == "baseline_established"
     assert "evidence_added" not in {e["type"] for e in out["events"]}
+
+
+def test_period_summary_excludes_baseline_from_posture_changes():
+    events = [
+        {"type": "baseline_established", "diff": {"newly_failed": [{"control_id": "CC1"}], "newly_passed": []}},
+        {
+            "type": "compliance_regressed",
+            "diff": {"newly_failed": [{"control_id": "CC2"}], "newly_passed": []},
+        },
+    ]
+    summary = _period_summary(events)
+    assert summary["evidence_snapshots"] == 2
+    assert summary["compliance_changes"] == 1
+    assert summary["controls_regressed"] == 1
 
 
 def test_top_change_prefers_improved_control():

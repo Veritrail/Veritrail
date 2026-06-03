@@ -12,6 +12,7 @@ from app.core.ratelimit import limiter
 from app.core.mfa_lockout import check_mfa_lock, clear_mfa_lockout, record_mfa_failure
 from app.core.security import (
     current_principal,
+    current_user_principal,
     decode_mfa_challenge_token,
     decode_refresh_token,
     issue_mfa_challenge_token,
@@ -49,6 +50,7 @@ class SignupIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+    remember_me: bool = False
 
 
 class TokenOut(BaseModel):
@@ -57,7 +59,13 @@ class TokenOut(BaseModel):
     org_id: str
 
 
-def _token_json_response(access_token: str, refresh_token: str, org_id: str) -> JSONResponse:
+def _token_json_response(
+    access_token: str,
+    refresh_token: str,
+    org_id: str,
+    *,
+    remember_me: bool = False,
+) -> JSONResponse:
     """Access token in JSON; refresh in HttpOnly cookie when enabled."""
     payload: dict = {"access_token": access_token, "org_id": org_id}
     if not refresh_cookie_enabled():
@@ -65,7 +73,7 @@ def _token_json_response(access_token: str, refresh_token: str, org_id: str) -> 
     else:
         payload["refresh_token"] = ""
     resp = JSONResponse(content=payload)
-    attach_refresh_cookie(resp, refresh_token)
+    attach_refresh_cookie(resp, refresh_token, remember_me=remember_me)
     return resp
 
 
@@ -77,13 +85,16 @@ class LoginOut(BaseModel):
     mfa_token: str | None = None
 
 
-def _login_response(user: User) -> LoginOut:
+def _login_response(user: User, *, remember_me: bool = False) -> LoginOut:
     uid, oid = str(user.id), str(user.org_id)
     if user.totp_enabled:
-        return LoginOut(mfa_required=True, mfa_token=issue_mfa_challenge_token(uid, oid))
+        return LoginOut(
+            mfa_required=True,
+            mfa_token=issue_mfa_challenge_token(uid, oid, remember_me=remember_me),
+        )
     return LoginOut(
         access_token=issue_token(uid, oid),
-        refresh_token=issue_refresh_token(uid, oid),
+        refresh_token=issue_refresh_token(uid, oid, remember_me=remember_me),
         org_id=oid,
     )
 
@@ -107,7 +118,12 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
     db.add_all([org, user])
     db.commit()
     uid, oid = str(user.id), str(org.id)
-    return _token_json_response(issue_token(uid, oid), issue_refresh_token(uid, oid), oid)
+    return _token_json_response(
+        issue_token(uid, oid),
+        issue_refresh_token(uid, oid, remember_me=True),
+        oid,
+        remember_me=True,
+    )
 
 
 @router.post("/login", response_model=LoginOut)
@@ -116,13 +132,14 @@ def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == body.email))
     if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "bad credentials")
-    out = _login_response(user)
+    out = _login_response(user, remember_me=body.remember_me)
     if out.mfa_required:
         return out
     return _token_json_response(
         out.access_token or "",
         out.refresh_token or "",
         out.org_id or "",
+        remember_me=body.remember_me,
     )
 
 
@@ -144,8 +161,14 @@ def mfa_verify(request: Request, body: MfaVerifyIn, db: Session = Depends(get_db
         record_mfa_failure(user_id)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid code")
     clear_mfa_lockout(user_id)
+    remember_me = bool(payload.get("remember_me"))
     uid, oid = str(user.id), str(user.org_id)
-    return _token_json_response(issue_token(uid, oid), issue_refresh_token(uid, oid), oid)
+    return _token_json_response(
+        issue_token(uid, oid),
+        issue_refresh_token(uid, oid, remember_me=remember_me),
+        oid,
+        remember_me=remember_me,
+    )
 
 
 class MfaCodeIn(BaseModel):
@@ -231,7 +254,13 @@ def refresh(request: Request, body: RefreshIn, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
     uid, oid = str(user.id), str(user.org_id)
-    return _token_json_response(issue_token(uid, oid), issue_refresh_token(uid, oid), oid)
+    remember_me = bool(payload.get("remember_me"))
+    return _token_json_response(
+        issue_token(uid, oid),
+        issue_refresh_token(uid, oid, remember_me=remember_me),
+        oid,
+        remember_me=remember_me,
+    )
 
 
 @router.post("/logout", status_code=204)
@@ -249,6 +278,17 @@ class MeOut(BaseModel):
     google_id: str | None
     totp_enabled: bool
     has_password: bool
+
+
+def get_current_user(
+    principal: dict = Depends(current_user_principal),
+    db: Session = Depends(get_db),
+) -> User:
+    """Load the authenticated user row (compliance/meta routes)."""
+    user = db.get(User, uuid.UUID(principal["sub"]))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    return user
 
 
 @router.get("/me", response_model=MeOut)

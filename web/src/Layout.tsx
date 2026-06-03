@@ -1,30 +1,51 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { logout, token } from "./api";
+import { useEffect, useState } from "react";
+import { logout, restoreSession, token } from "./api";
+import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-4 px-5 py-3 rounded-xl text-base font-medium transition-all ${
     isActive
-      ? "bg-white/10 text-white shadow-sm ring-1 ring-white/5"
-      : "text-slate-400 hover:bg-white/6 hover:text-slate-100"
+      ? "bg-[#152033] text-white shadow-sm ring-1 ring-white/10"
+      : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-100"
   }`;
 
 export default function Layout() {
   const nav = useNavigate();
+  const [authReady, setAuthReady] = useState(false);
+
   useEffect(() => {
-    if (!token()) nav("/login");
+    let cancelled = false;
+    void (async () => {
+      if (token()) {
+        if (!cancelled) setAuthReady(true);
+        return;
+      }
+      const ok = await restoreSession();
+      if (cancelled) return;
+      if (!ok) nav("/login");
+      else setAuthReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [nav]);
 
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 text-sm text-zinc-500">
+        Loading…
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
+    <div className="min-h-screen bg-[#F6F8FB] text-[#111827]">
       <aside
-        className="w-64 flex-shrink-0 sticky top-0 h-screen flex flex-col overflow-y-auto"
+        className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col overflow-y-auto bg-[#0B1220]"
         style={{
-          background:
-            "linear-gradient(160deg, #0f172a 0%, #0d1424 50%, #090e1a 100%)",
-          borderRight: "1px solid rgba(56, 189, 248, 0.12)",
-          boxShadow:
-            "4px 0 32px -4px rgba(14, 165, 233, 0.12), inset -1px 0 0 rgba(56, 189, 248, 0.06)",
+          borderRight: "1px solid rgba(228, 232, 238, 0.08)",
+          boxShadow: "4px 0 24px -6px rgba(11, 18, 32, 0.35)",
         }}
       >
         {/* Logo */}
@@ -72,7 +93,7 @@ export default function Layout() {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5a2.25 2.25 0 012.25 2.25v7.5"
+                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
               />
             </svg>
             History
@@ -83,13 +104,6 @@ export default function Layout() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 7a2 2 0 012-2h2.5a2 2 0 011.6.8l.8 1.067a2 2 0 001.6.8H18a2 2 0 012 2V17a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" />
             </svg>
             Integrations
-          </NavLink>
-
-          <NavLink to="/detection" className={navItem}>
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-            </svg>
-            Detection
           </NavLink>
 
           <NavLink to="/settings" className={navItem}>
@@ -124,10 +138,14 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        <div className="px-8 py-8">
-          <Outlet />
-        </div>
+      <main className="ml-64 flex min-h-screen min-w-0 flex-col">
+        <RecheckNotificationsProvider>
+          <div data-app-scroll className="flex-1 overflow-auto px-8 py-8">
+            <div className="w-full min-w-0">
+              <Outlet />
+            </div>
+          </div>
+        </RecheckNotificationsProvider>
       </main>
     </div>
   );

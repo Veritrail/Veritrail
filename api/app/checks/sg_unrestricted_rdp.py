@@ -47,6 +47,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
                     "group_id": sg.group_id,
                     "group_name": sg.group_name,
                     "region": sg.region,
+                    "vpc_id": sg.vpc_id,
                     "exposing_rules": rules,
                 },
             )

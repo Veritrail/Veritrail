@@ -1,12 +1,27 @@
 import type { PeriodSummary } from "../lib/complianceHistory";
 
 export function HistoryPeriodSummary({ summary }: { summary: PeriodSummary | undefined }) {
-  if (!summary || summary.compliance_changes === 0) return null;
+  if (!summary) return null;
+
+  const snapshots = summary.evidence_snapshots ?? 0;
+  const changes = summary.compliance_changes ?? 0;
+  if (snapshots === 0 && changes === 0) return null;
 
   return (
     <p className="text-sm text-zinc-600">
-      <span className="font-semibold tabular-nums text-zinc-900">{summary.compliance_changes}</span>{" "}
-      posture change{summary.compliance_changes === 1 ? "" : "s"}
+      {snapshots > 0 && (
+        <>
+          <span className="font-semibold tabular-nums text-zinc-900">{snapshots}</span> evidence
+          snapshot{snapshots === 1 ? "" : "s"}
+        </>
+      )}
+      {changes > 0 && (
+        <>
+          {snapshots > 0 ? " · " : ""}
+          <span className="font-semibold tabular-nums text-zinc-900">{changes}</span> posture change
+          {changes === 1 ? "" : "s"}
+        </>
+      )}
       {summary.controls_regressed > 0 && (
         <>
           {" · "}

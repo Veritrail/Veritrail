@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.security import current_principal
 from app.data.control_narratives import narrative_for, narrative_detail_for
-from app.models import Finding, AwsAccount, EvidenceSnapshot
+from app.models import Finding, AwsAccount, EvidenceSnapshot, ScanRun
 from app.models.control import Control, CheckControl
 from app.models.org import Org
 from app.services.check_settings import hidden_check_ids
@@ -108,6 +108,7 @@ def list_controls(
     ).all()
 
     # Resolve account for this org
+    acc: AwsAccount | None = None
     acc_id: uuid.UUID | None = None
     if account_id:
         acc = db.get(AwsAccount, uuid.UUID(account_id))
@@ -129,6 +130,8 @@ def list_controls(
     hidden = hidden_check_ids(org.settings if org else {})
 
     open_findings: list[Finding] = []
+    latest_checks_run: set[str] = set()
+    latest_failed_checks: set[str] = set()
     if acc_id:
         open_q = select(Finding).where(
             Finding.account_id == acc_id,
@@ -138,29 +141,56 @@ def list_controls(
             open_q = open_q.where(Finding.check_id.notin_(hidden))
         open_findings = db.scalars(open_q).all()
 
+        latest_run = db.scalars(
+            select(ScanRun)
+            .where(
+                ScanRun.account_id == acc_id,
+                ScanRun.status.in_(("ok", "degraded")),
+                ScanRun.finished_at.isnot(None),
+            )
+            .order_by(ScanRun.finished_at.desc())
+            .limit(1)
+        ).first()
+        run_stats = latest_run.stats if latest_run and isinstance(latest_run.stats, dict) else {}
+        latest_checks_raw = run_stats.get("checks_run") if isinstance(run_stats, dict) else None
+        if isinstance(latest_checks_raw, list):
+            latest_checks_run = {str(cid) for cid in latest_checks_raw}
+        errors_raw = run_stats.get("check_errors") if isinstance(run_stats, dict) else None
+        if isinstance(errors_raw, list):
+            for err in errors_raw:
+                if isinstance(err, dict) and err.get("check_id"):
+                    latest_failed_checks.add(str(err["check_id"]))
+
     open_by_check: dict[str, list[Finding]] = {}
     for f in open_findings:
         open_by_check.setdefault(f.check_id, []).append(f)
 
     result = []
     for ctrl in controls:
-        check_ids = list(
+        mapped_check_ids = list(
             db.scalars(
                 select(CheckControl.check_id).where(CheckControl.control_id == ctrl.id)
             ).all()
         )
+        check_ids = [cid for cid in mapped_check_ids if cid not in hidden]
 
         hits: list[Finding] = []
         for cid in check_ids:
             hits.extend(open_by_check.get(cid, []))
 
+        check_id_set = set(check_ids)
+        all_mapped_checks_ran = bool(check_id_set) and check_id_set.issubset(latest_checks_run)
+        any_mapped_check_failed = bool(check_id_set & latest_failed_checks)
+
         if not check_ids:
             ctrl_status = "no_data"
         elif any(finding_open_for_control(f, f.status) for f in hits):
             ctrl_status = "fail"
-        elif acc_id and acc and acc.last_scan_at:
+        elif acc_id and acc and acc.last_scan_at and all_mapped_checks_ran and not any_mapped_check_failed:
             ctrl_status = "pass"
         else:
+            # No open findings is not enough to call the control passing.
+            # The latest scan must have successfully evaluated every visible mapped check.
             ctrl_status = "no_data"
 
         detail = narrative_detail_for(ctrl.framework, ctrl.control_id, check_ids)

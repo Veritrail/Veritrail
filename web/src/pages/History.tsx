@@ -1,9 +1,10 @@
-import ComplianceHistory from "./ComplianceHistory";
+import HistoryV2 from "./HistoryV2";
+import { ProductShell } from "../components/ProductShell";
 
 export default function History() {
   return (
-    <div className="min-h-full w-full">
-      <ComplianceHistory />
-    </div>
+    <ProductShell>
+      <HistoryV2 />
+    </ProductShell>
   );
 }

@@ -141,7 +141,7 @@ export default function GitHubIntegration() {
         </p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-950">GitHub evidence</h1>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-500">
-          Identity, repository controls, and pull request activity synced into audit-ready compliance evidence.
+          Identity, repository controls, and pull request activity synced into compliance evidence.
         </p>
       </div>
 

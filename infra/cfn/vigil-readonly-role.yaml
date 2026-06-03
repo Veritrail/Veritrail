@@ -1,9 +1,13 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
+  LEGACY monolithic template — prefer vigil-stack.yaml (parent with conditional nested stacks).
   Vigil read-only IAM role for compliance scanning. Enumerates AWS config
   across IAM, account contacts (CIS 1.1/1.2), IAM server certificates (CIS 1.18),
-  storage, compute, networking, and security services. No write access.
-  Role retained on stack deletion — update the stack to pick up new read actions.
+  storage, compute, networking, and security services. The base role is strictly
+  Read/List/Describe access-level — it never modifies infrastructure. The Write
+  access-level IAM Access Analyzer policy-generation actions live in a separate,
+  optional role (EnableAdvancedPolicyGeneration). Role retained on stack deletion —
+  update the stack to pick up new read actions.
 
 Parameters:
   VigilAccountPrincipal:
@@ -25,6 +29,16 @@ Parameters:
     Description: >
       Create a separate IAM role for IAM Access Analyzer policy generation (reads CloudTrail
       logs in S3). Optional — only needed for Vigil Advanced suggested-policy (ARN scope).
+  EnableAdvancedPolicyGeneration:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+    Description: >
+      Create a separate, optional role holding the IAM Access Analyzer policy-generation actions
+      (StartPolicyGeneration / GetGeneratedPolicy / ListPolicyGenerations / CancelPolicyGeneration).
+      These are Write access-level — they create an analysis job; no infrastructure is modified.
+      Keep "No" for a base role that is strictly Read/List/Describe. Set "Yes" only if you want
+      Vigil's Advanced least-privilege policy generation (resource/ARN-level suggestions).
   CloudTrailLogsBucketName:
     Type: String
     Default: ""
@@ -42,6 +56,7 @@ Parameters:
     Description: KMS key ARN if CloudTrail log objects are SSE-KMS encrypted (optional).
 
 Conditions:
+  CreateAdvancedPolicyGenRole: !Equals [!Ref EnableAdvancedPolicyGeneration, "Yes"]
   CreateMonitorRole:
     Fn::And:
       - !Equals [!Ref EnableAccessAnalyzerMonitorRole, "Yes"]
@@ -97,10 +112,11 @@ Resources:
                   - iam:ListPolicies
                 Resource: "*"
 
-              - Sid: IamServiceLastAccessed
+              # Read existing IAM access reports only. Starting a new report
+              # (GenerateServiceLastAccessedDetails) is in the optional advanced role.
+              - Sid: IamServiceLastAccessedRead
                 Effect: Allow
                 Action:
-                  - iam:GenerateServiceLastAccessedDetails
                   - iam:GetServiceLastAccessedDetails
                 Resource: "*"
 
@@ -184,14 +200,13 @@ Resources:
                   - ec2:GetEbsEncryptionByDefault
                 Resource: "*"
 
-              - Sid: AccessAnalyzerConfiguration
+              # List-level only — enables the "Access Analyzer not enabled" compliance check.
+              # The Write-level policy-generation actions live in VigilAdvancedPolicyGen
+              # (optional), so the base role stays strictly Read/List/Describe.
+              - Sid: AccessAnalyzerEnumeration
                 Effect: Allow
                 Action:
                   - access-analyzer:ListAnalyzers
-                  - access-analyzer:StartPolicyGeneration
-                  - access-analyzer:GetGeneratedPolicy
-                  - access-analyzer:ListPolicyGenerations
-                  - access-analyzer:CancelPolicyGeneration
                 Resource: "*"
 
               - Sid: ConfigServiceConfiguration
@@ -208,10 +223,13 @@ Resources:
                 Action:
                   - sso:ListInstances
                   - sso:DescribeInstance
-                  - sso-admin:ListPermissionSets
-                  - sso-admin:DescribePermissionSet
+                  - sso:ListPermissionSets
+                  - sso:DescribePermissionSet
+                  - sso:ListAccountsForProvisionedPermissionSet
+                  - sso:ListAccountAssignments
                   - identitystore:ListUsers
                   - identitystore:DescribeUser
+                  - identitystore:DescribeGroup
                 Resource: "*"
 
               - Sid: RdsConfiguration
@@ -282,6 +300,67 @@ Resources:
                   - organizations:DescribeAccount
                 Resource: "*"
 
+  VigilAdvancedPolicyGenRole:
+    Type: AWS::IAM::Role
+    Condition: CreateAdvancedPolicyGenRole
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RoleName: !Sub "${RoleName}AdvancedPolicyGen"
+      Description: >
+        Optional Vigil role for IAM Access Analyzer least-privilege policy generation. Holds only
+        the policy-generation actions (Write access-level — they create an analysis job; no
+        infrastructure is modified). Assumed by the Vigil control plane with the same ExternalId.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref VigilAccountPrincipal
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: VigilAdvancedPolicyGeneration
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: IamServiceLastAccessedGenerate
+                Effect: Allow
+                Action:
+                  - iam:GenerateServiceLastAccessedDetails
+                  - iam:GetServiceLastAccessedDetails
+                Resource: "*"
+              - Sid: AccessAnalyzerPolicyGeneration
+                Effect: Allow
+                Action:
+                  - access-analyzer:ListAnalyzers
+                  - access-analyzer:StartPolicyGeneration
+                  - access-analyzer:GetGeneratedPolicy
+                  - access-analyzer:ListPolicyGenerations
+                  - access-analyzer:CancelPolicyGeneration
+                Resource: "*"
+
+  VigilAdvancedPolicyGenPassMonitorPolicy:
+    Type: AWS::IAM::Policy
+    Condition: CreateMonitorRole
+    Properties:
+      PolicyName: VigilPassAccessAnalyzerMonitor
+      Roles:
+        - !Ref VigilAdvancedPolicyGenRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PassAccessAnalyzerMonitorRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt AccessAnalyzerMonitorRole.Arn
+            Condition:
+              StringEquals:
+                iam:PassedToService: access-analyzer.amazonaws.com
+
   AccessAnalyzerMonitorRole:
     Type: AWS::IAM::Role
     Condition: CreateMonitorRole
@@ -348,6 +427,12 @@ Outputs:
   ExternalId:
     Description: ExternalId required to assume the role.
     Value: !Ref ExternalId
+  AdvancedPolicyGenRoleArn:
+    Condition: CreateAdvancedPolicyGenRole
+    Description: >
+      Optional. Paste into Vigil (Advanced policy generation) — the control plane assumes this
+      role for IAM Access Analyzer policy generation. The base VigilReadOnly role stays Read-only.
+    Value: !GetAtt VigilAdvancedPolicyGenRole.Arn
   AccessAnalyzerMonitorRoleArn:
     Condition: CreateMonitorRole
     Description: >

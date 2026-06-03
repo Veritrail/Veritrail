@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,9 @@ class Settings(BaseSettings):
     APP_SECRET: str = "dev-secret"
     JWT_SECRET: str = "dev-jwt"
     JWT_ALG: str = "HS256"
+    AUTH_ACCESS_TOKEN_HOURS: int = 24
+    AUTH_REFRESH_REMEMBER_DAYS: int = 30
+    AUTH_REFRESH_SESSION_HOURS: int = 24
 
     DATABASE_URL: str = "postgresql+psycopg://hygiene:hygiene@db:5432/hygiene"
     REDIS_URL: str = "redis://redis:6379/0"
@@ -25,32 +29,54 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
     GITHUB_INTEGRATION_CALLBACK_PATH: str = "/v1/auth/github/callback"
+    # Shared secret for verifying inbound GitHub webhook signatures (X-Hub-Signature-256) on the
+    # IaC PR/push scan trigger. Empty => the webhook endpoint rejects everything (fail closed).
+    GITHUB_WEBHOOK_SECRET: str = ""
 
     GITLAB_CLIENT_ID: str = ""
     GITLAB_CLIENT_SECRET: str = ""
     GITLAB_INTEGRATION_CALLBACK_PATH: str = "/v1/integrations/gitlab/callback"
+    # Shared secret for verifying inbound GitLab webhook tokens (X-Gitlab-Token header) on the
+    # IaC push/MR scan trigger. Empty => the webhook endpoint rejects everything (fail closed).
+    GITLAB_WEBHOOK_SECRET: str = ""
 
     RESEND_API_KEY: str = ""
     DIGEST_FROM: str = "hygiene@example.com"
 
     # Fernet key for encrypting role_arn + external_id at rest.
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    ENCRYPTION_KEY: str = "IqebDQNnegvXTO6n5gdTpVcZGXXE35Fcdh2hwT7oQxM="
+    ENCRYPTION_KEY: str = ""
 
     # Public URL of the read-only CloudFormation template a customer launches
     # in their own AWS account. Must be fetchable by CloudFormation in the
     # customer's account (S3 object URL — GitHub raw URLs are not reliable).
     # Override in prod to pin a versioned object when the template changes.
     CFN_TEMPLATE_URL: str = (
-        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/vigil-readonly-role.yaml"
+        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-stack.yaml"
     )
+    # Current version of the Vigil connector template (bumped with each release).
+    # Used by the UI to label CloudFormation update actions.
+    CFN_TEMPLATE_VERSION: str = "2026.06"
+    # Parent connector stack + IAM role names (nested child templates).
+    CFN_STACK_NAME: str = "VigilAccountConnector"
+    CFN_STACK_NAME_LEGACY: str = "VigilReadOnly"
+    CFN_SCANNER_ROLE_NAME: str = "VigilScannerRole"
+    # Legacy split-stack policy-gen role (pre-unified connector); derive_advanced_role_arn maps these.
+    CFN_POLICY_GENERATION_ROLE_NAME: str = "VigilPolicyGenerationRole"
+    CFN_SCANNER_ROLE_NAME_LEGACY: str = "VigilReadOnlyScannerRole"
+    CFN_REMEDIATION_AUTOMATION_ROLE_NAME: str = "VigilRemediationAutomationRole"
     CFN_REMEDIATION_TEMPLATE_URL: str = (
-        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/vigil-remediation-runner-ec2.yaml"
+        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
+    )
+    CFN_REMEDIATION_SSM_TEMPLATE_URL: str = (
+        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
     )
 
-    # Customer EventBridge bus where vigil-remediation-runner stack is deployed.
-    REMEDIATION_EVENT_BUS_REGION: str = "us-east-1"
-    REMEDIATION_EVENT_BUS_NAME: str = "default"
+    # CloudFormation console deep links (customer deploys connector stack).
+    CFN_CONSOLE_REGION: str = "us-east-1"
+    # Customer remediation automation home region.
+    REMEDIATION_AUTOMATION_REGION: str = "us-east-1"
+    REMEDIATION_SSM_DOCUMENT_NAME: str = "Vigil-RemediationPlanExecutor"
     REMEDIATION_PLAN_TTL_MINUTES: int = 60
 
     # When True (default) hitting /v1/auth/{github,gitlab,google} *without*
@@ -78,6 +104,25 @@ class Settings(BaseSettings):
     HCLPATCH_BIN: str = "/usr/local/bin/hclpatch"
     # Skip terraform fmt/validate when binary missing (dev only).
     TERRAFORM_VALIDATE_SKIP: bool = False
+
+    # AI-assisted finding triage.
+    AI_TRIAGE_ENABLED: bool = False
+    AI_TRIAGE_API_URL: str = ""
+    AI_TRIAGE_API_KEY: str = ""
+    AI_TRIAGE_MODEL: str = "gpt-4o-mini"
+
+
+    @model_validator(mode="after")
+    def _validate_secrets_not_default(self):
+        if self.APP_ENV == "dev":
+            return self
+        if self.APP_SECRET == "dev-secret":
+            raise ValueError("APP_SECRET must not be the dev default in non-dev environments")
+        if self.JWT_SECRET == "dev-jwt":
+            raise ValueError("JWT_SECRET must not be the dev default in non-dev environments")
+        if not self.ENCRYPTION_KEY:
+            raise ValueError("ENCRYPTION_KEY is required in non-dev environments")
+        return self
 
 
 @lru_cache

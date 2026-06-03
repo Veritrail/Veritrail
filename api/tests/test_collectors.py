@@ -260,3 +260,80 @@ class TestCollectS3:
             count = collect_s3(db, acc)
 
         assert count == 0
+
+
+class TestCollectIdentityCenter:
+    def test_permission_set_snapshots_include_account_assignments(self):
+        from app.collectors.identity_center import list_permission_set_snapshots
+
+        instance_arn = "arn:aws:sso:::instance/ssoins-123"
+        identity_store_id = "d-1234567890"
+        permission_set_arn = "arn:aws:sso:::permissionSet/ssoins-123/ps-abc"
+
+        sso_admin = MagicMock()
+        sso_admin.list_instances.return_value = {
+            "Instances": [
+                {
+                    "InstanceArn": instance_arn,
+                    "IdentityStoreId": identity_store_id,
+                    "Region": "us-east-1",
+                }
+            ]
+        }
+        sso_admin.list_permission_sets.return_value = {
+            "PermissionSets": [permission_set_arn],
+        }
+        sso_admin.describe_permission_set.return_value = {
+            "PermissionSet": {
+                "Name": "DeveloperAccess",
+                "Description": "Developer access",
+                "SessionDuration": "PT4H",
+            }
+        }
+        sso_admin.list_accounts_for_provisioned_permission_set.return_value = {
+            "AccountIds": ["123456789012"],
+        }
+        sso_admin.list_account_assignments.return_value = {
+            "AccountAssignments": [
+                {
+                    "AccountId": "123456789012",
+                    "PermissionSetArn": permission_set_arn,
+                    "PrincipalId": "user-1",
+                    "PrincipalType": "USER",
+                },
+                {
+                    "AccountId": "123456789012",
+                    "PermissionSetArn": permission_set_arn,
+                    "PrincipalId": "group-1",
+                    "PrincipalType": "GROUP",
+                },
+            ],
+        }
+
+        identitystore = MagicMock()
+        identitystore.describe_user.return_value = {
+            "UserName": "alice",
+            "DisplayName": "Alice Example",
+            "Emails": [{"Value": "alice@example.com"}],
+        }
+        identitystore.describe_group.return_value = {
+            "DisplayName": "Engineering",
+            "Description": "Engineering group",
+        }
+
+        sess = MagicMock(spec=boto3.Session)
+        sess.client.side_effect = lambda svc, **kw: {
+            "sso-admin": sso_admin,
+            "identitystore": identitystore,
+        }[svc]
+
+        with patch("app.collectors.identity_center.assume_role", return_value=sess):
+            snapshots = list_permission_set_snapshots(make_account())
+
+        assert len(snapshots) == 1
+        snapshot = snapshots[0]
+        assert snapshot["permission_set_arn"] == permission_set_arn
+        assert snapshot["provisioned_account_ids"] == ["123456789012"]
+        assert snapshot["assignment_count"] == 2
+        assert snapshot["account_assignments"][0]["principal"]["email"] == "alice@example.com"
+        assert snapshot["account_assignments"][1]["principal"]["display_name"] == "Engineering"

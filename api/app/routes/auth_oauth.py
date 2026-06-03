@@ -54,15 +54,25 @@ def _valid_link_token(link_token: str | None) -> bool:
     return bool(link_token and link_token not in ("null", "undefined"))
 
 
-def _oauth_login_redirect(user: User) -> RedirectResponse:
+def _oauth_login_state(*, remember: str | None) -> str:
+    if remember == "0":
+        return "login-noremember"
+    return "login"
+
+
+def _remember_me_from_oauth_state(state: str | None) -> bool:
+    return state != "login-noremember"
+
+
+def _oauth_login_redirect(user: User, *, remember_me: bool = True) -> RedirectResponse:
     uid, oid = str(user.id), str(user.org_id)
     if user.totp_enabled:
-        mfa_token = issue_mfa_challenge_token(uid, oid)
+        mfa_token = issue_mfa_challenge_token(uid, oid, remember_me=remember_me)
         return RedirectResponse(f"{_frontend_url()}/login?mfa_token={quote(mfa_token, safe='')}")
     token = issue_token(uid, oid)
-    refresh = issue_refresh_token(uid, oid)
+    refresh = issue_refresh_token(uid, oid, remember_me=remember_me)
     resp = RedirectResponse(f"{_frontend_url()}/auth/callback?token={quote(token, safe='')}")
-    attach_refresh_cookie(resp, refresh)
+    attach_refresh_cookie(resp, refresh, remember_me=remember_me)
     return resp
 
 
@@ -70,14 +80,14 @@ def _oauth_link_redirect(user: User, provider: str) -> RedirectResponse:
     """Re-issue session after linking an IdP — skips MFA (link_token already proved identity)."""
     uid, oid = str(user.id), str(user.org_id)
     access = issue_token(uid, oid)
-    refresh = issue_refresh_token(uid, oid)
+    refresh = issue_refresh_token(uid, oid, remember_me=True)
     next_path = f"/account?{provider}=linked"
     resp = RedirectResponse(
         f"{_frontend_url()}/auth/callback?"
         f"token={quote(access, safe='')}&"
         f"next={quote(next_path, safe='')}"
     )
-    attach_refresh_cookie(resp, refresh)
+    attach_refresh_cookie(resp, refresh, remember_me=True)
     return resp
 
 
@@ -166,10 +176,13 @@ def _claim_or_block(
 # ── Google ────────────────────────────────────────────────────────────────────
 
 @router.get("/google")
-def google_login(link_token: str | None = None):
+def google_login(link_token: str | None = None, remember: str | None = None):
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(400, "Google OAuth not configured")
-    state = f"link:{link_token}" if _valid_link_token(link_token) else "login"
+    if _valid_link_token(link_token):
+        state = f"link:{link_token}"
+    else:
+        state = _oauth_login_state(remember=remember)
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": _google_callback_uri(),
@@ -274,7 +287,9 @@ def google_callback(
             )
         db.commit()
 
-        return _oauth_login_redirect(user)
+        return _oauth_login_redirect(
+            user, remember_me=_remember_me_from_oauth_state(state)
+        )
 
     except Exception as e:
         log.exception("google.callback_error", error=str(e))
@@ -284,10 +299,13 @@ def google_callback(
 # ── GitHub ────────────────────────────────────────────────────────────────────
 
 @router.get("/github")
-def github_login(link_token: str | None = None):
+def github_login(link_token: str | None = None, remember: str | None = None):
     if not settings.GITHUB_CLIENT_ID:
         raise HTTPException(400, "GitHub OAuth not configured")
-    state = f"link:{link_token}" if _valid_link_token(link_token) else "login"
+    if _valid_link_token(link_token):
+        state = f"link:{link_token}"
+    else:
+        state = _oauth_login_state(remember=remember)
     params = {
         "client_id": settings.GITHUB_CLIENT_ID,
         "redirect_uri": _github_callback_uri(),
@@ -406,7 +424,9 @@ def github_callback(
             )
 
         db.commit()
-        return _oauth_login_redirect(user)
+        return _oauth_login_redirect(
+            user, remember_me=_remember_me_from_oauth_state(state)
+        )
 
     except Exception as e:
         log.exception("github.callback_error", error=str(e))
@@ -416,10 +436,13 @@ def github_callback(
 # ── GitLab ────────────────────────────────────────────────────────────────────
 
 @router.get("/gitlab")
-def gitlab_login(link_token: str | None = None):
+def gitlab_login(link_token: str | None = None, remember: str | None = None):
     if not settings.GITLAB_CLIENT_ID:
         raise HTTPException(400, "GitLab OAuth not configured")
-    state = f"link:{link_token}" if _valid_link_token(link_token) else "login"
+    if _valid_link_token(link_token):
+        state = f"link:{link_token}"
+    else:
+        state = _oauth_login_state(remember=remember)
     params = {
         "client_id": settings.GITLAB_CLIENT_ID,
         "redirect_uri": _gitlab_callback_uri(),
@@ -549,7 +572,9 @@ def gitlab_callback(
             )
 
         db.commit()
-        return _oauth_login_redirect(user)
+        return _oauth_login_redirect(
+            user, remember_me=_remember_me_from_oauth_state(state)
+        )
 
     except Exception as e:
         log.exception("gitlab.callback_error", error=str(e))

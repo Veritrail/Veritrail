@@ -1,112 +1,121 @@
-# Customer-account remediation (Lambda v1)
+# Customer-account remediation (SSM Automation)
 
-Vigil stays **read-only**. Customers deploy a small CFN pack; Vigil emits a **signed, expiring** plan (`vigil_remediation_plan/v2`) that they publish with `aws events put-events`.
+Vigil's scanner stays read-only unless the customer explicitly enables remediation modules.
+Approved fixes run through AWS Systems Manager Automation in the customer account. Vigil
+prefers AWS-owned runbooks where they fit the finding exactly, and uses a small custom SSM
+document only when extra guardrails are needed.
 
 ## Architecture
 
 ```
-Vigil UI → remediation plan v2 → customer runs aws events put-events (bus home region)
-→ EventBridge rule (content filter on check_id + schema) → Lambda (fixed EC2 role)
-→ RevokeSecurityGroupIngress on exact_match_rules only (resource_region in plan)
+Vigil UI -> review -> explicit Start remediation -> ssm:StartAutomationExecution (automation_region)
+-> AWS-owned runbook or Vigil guardrail document
+-> SSM Automation assumes customer remediation role
+-> document applies the approved action in resource_region (same region for EC2/SSM resources)
 ```
 
-- **No dynamic IAM attach** — role permissions are static in CFN.
-- **Bus region ≠ resource region** — deploy the stack and run `put-events` in `REMEDIATION_EVENT_BUS_REGION` (Vigil `.env`). Lambda calls EC2 in `resource_region` from the plan.
-- **Exact-match revoke** — only tuples in `exact_match_rules` from the finding evidence; `stale_plan` if live SG drifted.
-- **Optional Ed25519** — same key material as evidence packs; pass `RemediationSigningPublicKeyBase64` to the stack.
+- **No dynamic IAM attach**: write permissions are static on the customer-owned automation role.
+- **AWS-native execution**: execution history and output live in Systems Manager.
+- **Regions**: `resource_region` is where the affected resource lives. `automation_region` is where `StartAutomationExecution` runs. **AWS-owned runbooks** use `resource_region`. **Vigil custom documents** deploy through the remediation nested CloudFormation stack in `REMEDIATION_AUTOMATION_REGION`; `PlanJson` includes `resource_region` for regional API calls (EC2, SSM, IAM).
+- **Exact-match revoke**: security-group fixes only remove tuples from `exact_match_rules`; returns `stale_plan` if live rules drifted.
+- **No custom Lambda runner**: SSM owns execution, audit trail, and output.
 
-## Deploy (security groups)
+## Deploy (connector-first)
 
-**IAM role names are unique per AWS account.** You cannot create `VigilRemediationRole` twice.
+1. **Update the Vigil connector stack** (`vigil-stack` / core scanner) with SSM remediation modules enabled.
+   The connector role receives scoped `ssm:DescribeDocument`, `ssm:GetDocument`,
+   `ssm:StartAutomationExecution`, `ssm:GetAutomationExecution`, and `iam:PassRole` for
+   `VigilRemediationAutomationRole` only.
 
-### Option A — Update the stack you already have (recommended)
+2. **Publish templates and handler scripts to S3** before deploying or updating the customer stack:
 
 ```bash
-aws cloudformation deploy \
-  --region us-east-1 \
-  --stack-name Vigil-Runner \
-  --template-file infra/cfn/vigil-remediation-runner-ec2.yaml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides EventBusName=default
+./scripts/upload-cfn.sh
 ```
 
-Set Vigil `REMEDIATION_EVENT_BUS_REGION=us-east-1` to match this deploy region.
+3. **Deploy or update the parent connector stack** (`VigilAccountConnector`) with the desired `Enable*Remediation` parameters. The parent stack creates the remediation nested stack, which creates the customer-owned automation role and the Vigil SSM documents via `AWS::SSM::Document`.
 
-### Option B — New stack, reuse existing role
+AWS-owned runbooks (S3 public access, CloudTrail) do not create Vigil documents, but the connector still needs the remediation permissions and `iam:PassRole` for the customer-owned automation role.
 
-```bash
-aws cloudformation deploy \
-  --region us-east-1 \
-  --stack-name Vigil-EC2 \
-  --template-file infra/cfn/vigil-remediation-runner-ec2.yaml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides ExistingRemediationRoleArn=arn:aws:iam::ACCOUNT:role/VigilRemediationRole
-```
+Set Vigil `REMEDIATION_AUTOMATION_REGION=us-east-1` to the automation home region.
 
-### Plan fields (v2)
+## Console: empty `stackName` validation error
+
+AWS documents quick-create links for **create** only (`#/stacks/create/review`). Update wizard
+URLs (`#/stacks/update/review` or `update/template`) often drop `stackName` and fail with
+`Value '' at 'stackName'`. Vigil no longer uses those links: **Manage capabilities → CLI**
+(one command) or **Open stack in console** (filtered list) then Update → Replace template →
+paste the template URL from **Copy template URL**.
+
+## Console: "Failed to load stack policy"
+
+This is **not** a bad `vigil-stack.yaml` body. The CloudFormation console calls
+`cloudformation:GetStackPolicy` on your existing stack before it will continue an update.
+If your IAM user/role lacks that action (common with custom admin policies or SCPs), the
+wizard stops on **Specify template** with that red banner.
+
+**Workaround:** use the CLI from Vigil Accounts → Manage capabilities → CLI (includes
+`--stack-name` and module parameters), or add to your role:
+
+- `cloudformation:GetStackPolicy`
+- `cloudformation:DescribeStacks`
+- `cloudformation:GetTemplateSummary`
+- `cloudformation:UpdateStack`
+
+Templates on S3 must stay in sync: run `./scripts/upload-cfn.sh` (incremental `aws s3 sync` per folder) to publish `infra/cfn/` under `infra/<release>/`, SSM handler scripts under `infra/<release>/ssm-scripts/`, and latest aliases. Upload templates with
+`Content-Type: text/yaml` (see `.env.example`).
+
+## Supported Actions
+
+| Check | SSM action |
+|-------|------------|
+| `ec2.security_group.unrestricted_ssh` | Revoke exact public SSH ingress from the finding plan |
+| `ec2.security_group.unrestricted_rdp` | Revoke exact public RDP ingress from the finding plan |
+| `ssm.parameter.plaintext_secret` | Rewrite plaintext `String` parameter as `SecureString` |
+| `iam.access_key.unused_45d` / `unused_90d` | Deactivate access key (`Inactive`) via plan executor |
+
+AWS-owned runbook mappings are tracked in `api/app/services/ssm_remediation_catalog.py`.
+They should be wired only when Vigil can provide the document's required parameters safely.
+
+Lambda service findings are detected and documented, but not auto-executed yet:
+
+- `lambda.function.deprecated_runtime` needs an approved target runtime.
+- `lambda.function.no_dlq` needs an approved DLQ ARN.
+
+Those should become plan inputs before being automated.
+
+## Plan Fields
 
 | Field | Purpose |
 |-------|---------|
-| `event_bus_region` / `event_bus_name` | Where to `put-events` |
-| `resource_region` | EC2 API region for the SG |
-| `exact_match_rules` | CIDR + protocol + ports to revoke |
+| `resource_region` | AWS API region for the affected resource |
+| `execution.runner_type` | `ssm` |
+| `execution.document_name` | SSM document to execute |
+| `exact_match_rules` | Security-group CIDR/protocol/port tuples to revoke |
 | `expires_at` | Reject expired plans |
 | `content_sha256` | Tamper detection |
-| `signature` | Optional Ed25519 (Vigil signing key) |
+| `approval` | Added only by `POST .../remediation/dispatch` |
 
-## IAM (EC2 only)
+## Execute
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "ec2:RevokeSecurityGroupIngress",
-      "ec2:DescribeSecurityGroups"
-    ],
-    "Resource": "*"
-  }]
-}
-```
-
-## Terraform boundary
-
-- **S3 / KMS** — declarative Terraform snippets in UI.
-- **Security groups** — Console, CLI, EventBridge only (no `null_resource` / local-exec Terraform).
-- **GitHub PR** — paused (`503`) until repo-aware HCL + `terraform validate`.
-
-## Handler behavior
-
-For `ec2.security_group.unrestricted_ssh` / `unrestricted_rdp`:
-
-- Revokes only rules matching `exact_match_rules` (including all-traffic `-1` when in the plan).
-- Returns **`ok: false`** with `stale_plan` if nothing matched.
-- CloudWatch log group retention 30 days; reserved concurrency 2.
-
-Canonical source: `infra/lambda/remediation_runner.py`. Package and upload before deploy:
+`POST /v1/findings/{id}/remediation/dispatch` starts SSM Automation when the connected
+role has the optional remediation permissions and the CloudFormation-managed SSM document exists. The UI also shows a CLI fallback:
 
 ```bash
-./infra/lambda/build.sh
-# Upload to the bucket referenced by LambdaArtifactBucket (e.g. vigil-worm-storage or amzn-s3-vigil)
-aws s3 cp infra/lambda/remediation_runner.zip s3://vigil-worm-storage/lambda/remediation_runner.zip
+aws ssm start-automation-execution \
+  --region us-east-1 \
+  --document-name Vigil-RevokeSecurityGroupIngressExact \
+  --parameters '{"PlanJson":["{...approved plan json...}"]}'
 ```
 
-Set CFN parameter `VigilExecutionWebhookUrl` to your Vigil API, e.g. `https://your-api/v1/public/remediation-execution` (shown in Prepare EventBridge UI).
-
-CFN loads `LambdaArtifactBucket` / `LambdaArtifactKey` (defaults: `amzn-s3-vigil`, `lambda/remediation_runner.zip`).
+Always re-scan before preparing a plan, then re-scan after successful remediation.
 
 ## Troubleshooting
 
 | Symptom | Cause |
-|--------|--------|
-| `put-events` succeeds, Lambda never runs | Wrong **bus region** (not resource region) |
-| `plan_expired` / `content_sha256_mismatch` | Old payload — Prepare again after re-scan |
-| `stale_plan` | SG changed since scan; re-scan and publish fresh plan |
-| `InvalidGroup.NotFound` | Wrong `resource_region` in plan |
-
-Always **re-scan** in Vigil, open **EventBridge** tab, **Prepare**, then run the CLI.
-
-## SSM (v1.5)
-
-Same plan JSON; executor becomes `StartAutomationExecution` with a document per remediation family. Prefer for enterprise auditors; Lambda remains valid for MVP.
+|--------|-------|
+| `InvalidDocument` | SSM template not deployed in the automation region |
+| `plan_expired` / `content_sha256_mismatch` | Old or edited payload; prepare a fresh plan |
+| `stale_plan` | Resource changed since scan; re-scan and prepare a new plan |
+| `InvalidGroup.NotFound` | Wrong `resource_region` or stale security-group id |
+| `AccessDenied` | Automation role lacks the module permission or resource policy blocks it |

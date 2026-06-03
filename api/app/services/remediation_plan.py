@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,17 +19,62 @@ SG_CHECKS = frozenset(
         "ec2.security_group.unrestricted_rdp",
     }
 )
+SSM_CHECKS = frozenset({"ssm.parameter.plaintext_secret"})
+IAM_ACCESS_KEY_CHECKS = frozenset(
+    {
+        "iam.access_key.unused_45d",
+        "iam.access_key.unused_90d",
+    }
+)
+
+# Custom Vigil document runs from one automation home region; PlanJson carries resource_region.
+VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS | frozenset(
+    {
+        "iam.role.full_admin_policy",
+        "iam.policy.wildcard_resource",
+    }
+)
+# Back-compat alias (was IAM-only before SG/SSM used home region too).
+IAM_GLOBAL_SSM_CHECKS = IAM_ACCESS_KEY_CHECKS
 
 
-def _resource_region(finding: Finding) -> str:
+def automation_home_region() -> str:
+    return get_settings().REMEDIATION_AUTOMATION_REGION or "us-east-1"
+
+
+def _region_from_arn(arn: str | None) -> str | None:
+    parts = (arn or "").split(":")
+    if len(parts) > 3 and parts[0] == "arn" and parts[3]:
+        return parts[3]
+    return None
+
+
+def resource_region_for_finding(finding: Finding) -> str:
     ev = finding.evidence or {}
     if isinstance(ev.get("region"), str) and ev["region"]:
         return ev["region"]
-    arn = finding.resource_arn or ""
-    m = re.search(r":([a-z0-9-]+):", arn)
-    if m and m.group(1) not in ("aws", ""):
-        return m.group(1)
+    arn_region = _region_from_arn(finding.resource_arn)
+    if arn_region:
+        return arn_region
     return "us-east-1"
+
+
+def automation_region_for_finding(finding: Finding) -> str:
+    """SSM StartAutomationExecution region (home for Vigil custom doc; resource for AWS runbooks)."""
+    return resolve_automation_region(
+        finding.check_id,
+        resource_region_for_finding(finding),
+    )
+
+
+def resolve_automation_region(check_id: str | None, resource_region: str | None) -> str:
+    """Pick SSM Automation region for describe/start and StartAutomationExecution."""
+    home_region = automation_home_region()
+    if check_id and check_id in VIGIL_CUSTOM_SSM_CHECKS:
+        return home_region
+    if resource_region:
+        return resource_region
+    return home_region
 
 
 def _supported_action(check_id: str) -> str | None:
@@ -38,6 +82,14 @@ def _supported_action(check_id: str) -> str | None:
         return "revoke_public_ingress"
     if check_id == "s3.bucket.public_access_not_blocked":
         return "put_public_access_block"
+    if check_id in SSM_CHECKS:
+        return "migrate_ssm_string_to_secure_string"
+    if check_id in IAM_ACCESS_KEY_CHECKS:
+        return "deactivate_access_key"
+    if check_id == "iam.role.full_admin_policy":
+        return "detach_full_admin"
+    if check_id == "iam.policy.wildcard_resource":
+        return "replace_wildcard_inline"
     return None
 
 
@@ -54,8 +106,8 @@ def _seal_remediation_plan(body: dict[str, Any]) -> dict[str, Any]:
 def build_remediation_plan_body(
     finding: Finding,
     *,
-    mode: str = "customer_lambda",
-    delivery: str = "eventbridge",
+    mode: str = "customer_ssm",
+    delivery: str = "ssm_automation",
 ) -> dict[str, Any]:
     """Unsigned plan body (preview). Seal with _seal_remediation_plan before dispatch."""
     settings = get_settings()
@@ -63,44 +115,59 @@ def build_remediation_plan_body(
     now = datetime.now(timezone.utc)
     ttl = max(5, int(settings.REMEDIATION_PLAN_TTL_MINUTES))
     expires = now + timedelta(minutes=ttl)
-    resource_region = _resource_region(finding)
+    resource_region = resource_region_for_finding(finding)
+    automation_region = automation_region_for_finding(finding)
     ev = finding.evidence or {}
 
-    return {
+    body: dict[str, Any] = {
         "plan_id": plan_id,
         "schema": PLAN_SCHEMA,
         "created_at": now.isoformat(),
         "expires_at": expires.isoformat(),
+        "expires_in_minutes": ttl,
         "finding_id": str(finding.id),
         "check_id": finding.check_id,
         "resource_arn": finding.resource_arn,
         "resource_region": resource_region,
-        "event_bus_region": settings.REMEDIATION_EVENT_BUS_REGION,
-        "event_bus_name": settings.REMEDIATION_EVENT_BUS_NAME,
+        "automation_region": automation_region,
         "evidence": ev,
         "title": finding.title,
         "severity": finding.severity,
         "supported_action": _supported_action(finding.check_id),
         "exact_match_rules": list(ev.get("exposing_rules") or []),
         "execution": {
-            "runner_type": "lambda",
+            "runner_type": "ssm",
             "mode": mode,
             "delivery": delivery,
+            "document_name": settings.REMEDIATION_SSM_DOCUMENT_NAME,
             "note": (
-                "Publish put-events to event_bus_region (where your runner stack lives). "
-                "Lambda calls AWS APIs in resource_region. Deploy vigil-remediation-runner-ec2.yaml."
+                "AWS-owned runbooks run in resource_region. Vigil custom document runs in automation_region "
+                "(REMEDIATION_AUTOMATION_REGION); PlanJson includes resource_region for regional API calls."
             ),
         },
         "steps": _steps_for_check(finding),
         "rollback_hint": "Revert via CloudFormation stack change set or restore prior policy version in IAM.",
     }
 
+    # CloudTrail guided manual: add parameter hints and requires_user_input
+    if finding.check_id == "cloudtrail.trail.not_enabled":
+        body["parameters"] = {
+            "TrailName": "VigilCloudTrail",
+            "S3BucketName": "",
+            "EnableLogFileValidation": True,
+            "IsMultiRegionTrail": True,
+            "IncludeGlobalServiceEvents": True,
+        }
+        body["requires_user_input"] = ["S3BucketName"]
+
+    return body
+
 
 def build_remediation_plan(
     finding: Finding,
     *,
-    mode: str = "customer_lambda",
-    delivery: str = "eventbridge",
+    mode: str = "customer_ssm",
+    delivery: str = "ssm_automation",
 ) -> dict[str, Any]:
     """Emit a remediation plan the customer automation can validate and execute (preview, no approval)."""
     return _seal_remediation_plan(build_remediation_plan_body(finding, mode=mode, delivery=delivery))
@@ -110,10 +177,10 @@ def build_approved_remediation_plan(
     finding: Finding,
     *,
     approved_by: str,
-    mode: str = "customer_lambda",
-    delivery: str = "eventbridge",
+    mode: str = "customer_ssm",
+    delivery: str = "ssm_automation",
 ) -> dict[str, Any]:
-    """Signed plan including approval block — use only when publishing to EventBridge."""
+    """Signed plan including approval block — use only when dispatching approved automation."""
     body = build_remediation_plan_body(finding, mode=mode, delivery=delivery)
     now = datetime.now(timezone.utc)
     body["approval"] = {
@@ -124,22 +191,68 @@ def build_approved_remediation_plan(
     return _seal_remediation_plan(body)
 
 
+def validate_plan_expiry(plan: dict[str, Any]) -> bool:
+    """Return True if the plan is still valid (not expired).
+
+    A plan's expires_at field is checked against the current UTC time.
+    Plans without an expires_at field (pre-TTL) pass validation.
+    """
+    raw_expires = plan.get("expires_at")
+    if not raw_expires:
+        return True
+    try:
+        expires_at = datetime.fromisoformat(raw_expires.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return True
+    return datetime.now(timezone.utc) <= expires_at
+
+
 def _steps_for_check(finding: Finding) -> list[dict[str, str]]:
     cid = finding.check_id
     if cid.startswith("s3."):
         return [
             {"action": "review", "detail": "Apply bucket policy / encryption from Finding drawer generated policy"},
-            {"action": "execute", "detail": "Customer Lambda applies approved S3 API calls from plan payload"},
+            {"action": "execute", "detail": "SSM Automation blocks all four public access settings on this specific bucket"},
+        ]
+    if cid == "iam.policy.wildcard_resource":
+        return [
+            {"action": "review", "detail": "Review the generated least-privilege policy in the Vigil drawer before replacing"},
+            {"action": "execute", "detail": "SSM Automation replaces the inline policy with the scoped version"},
+        ]
+    if cid == "iam.role.full_admin_policy":
+        return [
+            {"action": "review", "detail": "Confirm the customer-managed full-admin policy can be safely detached"},
+            {"action": "execute", "detail": "SSM Automation detaches the listed policies from the role"},
+        ]
+    if cid.startswith("iam.access_key"):
+        return [
+            {"action": "review", "detail": "Confirm no workload still uses this access key (check last-used service in evidence)"},
+            {"action": "execute", "detail": "SSM Automation sets the key status to Inactive (deactivate)"},
         ]
     if cid.startswith("iam."):
         return [
             {"action": "review", "detail": "Use generated least-privilege policy or detach unused policy"},
-            {"action": "execute", "detail": "Customer Lambda applies IAM change after approval gate"},
+            {"action": "execute", "detail": "Use customer automation only when an SSM document exists for this check"},
+        ]
+    if cid == "cloudtrail.trail.not_enabled":
+        return [
+            {"action": "review", "detail": "Create or identify an S3 bucket for CloudTrail log delivery and apply a compatible bucket policy"},
+            {"action": "execute", "detail": "SSM Automation creates a multi-region trail with logging enabled (requires S3BucketName)"},
         ]
     if cid in SG_CHECKS:
         return [
             {"action": "review", "detail": "Confirm exposing_rules in plan match the ingress you intend to remove"},
-            {"action": "execute", "detail": "Publish EventBridge event to runner bus region, or use Console/CLI"},
+            {"action": "execute", "detail": "Start the SSM Automation document, or use Console/CLI"},
+        ]
+    if cid in SSM_CHECKS:
+        return [
+            {"action": "review", "detail": "Confirm the parameter name is a secret and applications can read SecureString values"},
+            {"action": "execute", "detail": "SSM Automation rewrites the same parameter name as SecureString with overwrite"},
+        ]
+    if cid in IAM_ACCESS_KEY_CHECKS:
+        return [
+            {"action": "review", "detail": "Confirm no workload still uses this access key (check last-used service in evidence)"},
+            {"action": "execute", "detail": "SSM Automation sets the key status to Inactive (deactivate)"},
         ]
     return [
         {"action": "review", "detail": "Follow Console/CLI remediation in Vigil finding drawer"},

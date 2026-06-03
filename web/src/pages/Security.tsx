@@ -80,7 +80,10 @@ export default function Security() {
           <ul className="list-disc pl-5 space-y-1 text-zinc-400 text-sm">
             <li>Passwords hashed with bcrypt (12 rounds) + SHA-256 pre-hash to handle inputs longer than bcrypt's 72-byte limit.</li>
             <li>Passwords checked against the Have I Been Pwned k-anonymity API at signup and change-password. Breached passwords are rejected at the UI.</li>
-            <li>Access tokens: 24-hour signed JWTs (HS256). Refresh tokens: 30-day signed JWTs. Both invalidated on logout.</li>
+            <li>
+              Access tokens: 24-hour signed JWTs (HS256). Refresh tokens: session-length (until you close the browser)
+              or 30 days when you choose Remember me. Both invalidated on logout.
+            </li>
             <li>Rate limiting: 10 login attempts per minute, 5 signup attempts per minute per IP.</li>
             <li>GitHub and Google OAuth supported — Vigil only reads your verified primary email address; no repo or calendar access.</li>
           </ul>

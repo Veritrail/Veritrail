@@ -40,25 +40,43 @@ def _audit_assume_role(
 ) -> None:
     """Persist an audit log row for every sts:AssumeRole attempt."""
     try:
+        from sqlalchemy.exc import IntegrityError
+
         from app.core.db import SessionLocal
         from app.models import AssumeRoleAudit
 
-        db = SessionLocal()
-        try:
-            db.add(AssumeRoleAudit(
+        def _row(o_id, a_id) -> AssumeRoleAudit:
+            return AssumeRoleAudit(
                 id=uuid.uuid4(),
-                org_id=aws_account.org_id if aws_account is not None else None,
-                aws_account_id=aws_account.id if aws_account is not None else None,
+                org_id=o_id,
+                aws_account_id=a_id,
                 role_arn=role_arn,
                 session_name=session_name[:120] if session_name else None,
                 purpose=(purpose or session_name or "")[:80] or None,
                 success=success,
                 error_code=(error_code or "")[:120] or None,
                 error_message=(error_message or "")[:500] or None,
-            ))
-            db.commit()
-        finally:
-            db.close()
+            )
+
+        org_id = aws_account.org_id if aws_account is not None else None
+        aws_account_id = aws_account.id if aws_account is not None else None
+
+        def _persist(o_id, a_id) -> None:
+            db = SessionLocal()
+            try:
+                db.add(_row(o_id, a_id))
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                raise
+            finally:
+                db.close()
+
+        try:
+            _persist(org_id, aws_account_id)
+        except IntegrityError:
+            # Stale org/account FK (tests with MagicMock IDs, or deleted org) — still log the attempt.
+            _persist(None, None)
     except Exception:  # noqa: BLE001
         log.exception("assume_role_audit.write_failed")
 
@@ -144,6 +162,7 @@ def assume_role(
     *,
     aws_account: "AwsAccount | None" = None,
     purpose: str | None = None,
+    strict: bool = False,
 ) -> boto3.Session:
     """Assume the customer's read-only role and return a session.
 
@@ -156,7 +175,7 @@ def assume_role(
     except ClientError as e:
         err = e.response.get("Error", {})
         code = err.get("Code")
-        if code == "AccessDenied" and settings.APP_ENV == "dev":
+        if code == "AccessDenied" and settings.APP_ENV == "dev" and not strict:
             if ensure_vigil_role_trust(role_arn, external_id):
                 try:
                     resp = _sts_assume(role_arn, external_id, session_name)
@@ -177,7 +196,7 @@ def assume_role(
                     )
                 except ClientError:
                     pass
-            if _dev_use_direct_session(role_arn):
+            if not strict and _dev_use_direct_session(role_arn):
                 log.warning(
                     "assume_role.dev_direct_session",
                     role_arn=role_arn,
@@ -247,6 +266,7 @@ def verify_account(
             session_name="vigil-verify",
             aws_account=aws_account,
             purpose="verify",
+            strict=True,
         )
         ident = sess.client("sts", config=_boto_cfg).get_caller_identity()
         account_id = ident["Account"]

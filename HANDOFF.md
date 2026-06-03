@@ -1,6 +1,24 @@
 # Vigil — Handoff
 
-_Last updated: 2026-05-30 (session 29 — CIS governance + detection UX)_
+_Last updated: 2026-05-30 (session 30 — deepsearch v6 map + UX polish)_
+
+---
+
+## Session 30 (2026-05-30) — shipped (deepsearch/v6.txt + UX)
+
+- **v6 map:** [`docs/deepsearch-v6-map.md`](docs/deepsearch-v6-map.md) — read-only vs policy-gen IAM actions, unified connector vs v6 two-role diagram, AA integration gaps, CIS 1.11 ≠ CFN permissions.
+- **Accounts:** capability chips only (removed redundant “Read + analysis” posture badge); pending remove skips confirm; onboarding/deploy UX retained.
+- **Compliance:** sort control on same row as CC6/CC7/CC8 domain tabs; default sort **Control ID**.
+- **Finding drawer:** What If / blast radius via `supportsBlastRadius()` (all `iam.role.*`); Analyse button (no auto-load); fixed white-screen (`GeneratePolicySection` wrongly nested in blast radius); policy gen auto-`advanced` when capability deployed; clearer AA notes.
+- **Policy gen verify:** `access-analyzer:ListPolicyGenerations` added to capability inspection (was in CFN but not verified).
+
+**Clarifications (v6):**
+
+- **CFN policy-gen actions are deployed** on `VigilScannerRole` when `EnableAdvancedPolicyGeneration=Yes` (inline `VigilAdvancedPolicyGeneration`). Scan already calls `GenerateServiceLastAccessedDetails`.
+- **API does not call `StartPolicyGeneration`** — `GET …/roles/generated-policy?advanced=true` only merges the latest **SUCCEEDED** Access Analyzer job (`fetch_latest_generated_policy`). Console job or future API work still needed for resource ARNs / high confidence per role.
+- **CIS 1.11 automated (detection)** — dedicated 45-day checks (`iam.user.credentials_unused_45d`, `iam.access_key.unused_45d`); 90-day checks remain for SOC2/ISO. Remediation is manual (read-only).
+
+**Still open from v6:** optional `StartPolicyGeneration` + poll in API; optional AA monitor role + CloudTrail bucket for org trails.
 
 ---
 
@@ -13,7 +31,7 @@ _Last updated: 2026-05-30 (session 29 — CIS governance + detection UX)_
 - **UI:** Evidence pack modal title/CTA → “Generate Audit Package” (Compliance button already renamed).
 - **Policy generator / IAM last-accessed:** service-level vs action-level mismatch fixed (no `service:*` plaster). Map: [`docs/policy-generator-iam-last-accessed.md`](docs/policy-generator-iam-last-accessed.md).
 - **CIS v5 L1 governance checks:** `aws.account.contact_incomplete`, `aws.account.security_contact_missing`, `iam.server_certificate.expired`, `iam.cloudshell_full_access_granted` — collectors in `run_scan`, migration `0035`, CFN `AccountContacts` + `IamServerCertificates`. Spec: [`docs/cis-v5-40-controls.md`](docs/cis-v5-40-controls.md).
-- **CIS matrix status:** **42/42** controls mapped in Compliance (**38** automated, **1** partial, **3** manual). **1 missing** for full automated parity — **1.11** (45-day unused credentials; Vigil uses 90-day threshold). Honest manual: **1.5**, **1.10**, **1.17**.
+- **CIS matrix status:** **42/42** controls mapped in Compliance (**39** automated, **0** partial, **3** manual). Honest manual: **1.5**, **1.10**, **1.17**. CIS **1.11** detection is automated at 45 days; credential disable remains manual.
 - **Detection coverage UX:** removed CIS disclaimer banner; “Hygiene only” → **Operational checks** (not used in compliance scoring).
 
 **Still open from v4:** SSM runbooks; auditor share UI + `shared_with`; expand hclpatch; customer Terraform modules for runner deploy (CFN remains canonical).
@@ -76,6 +94,11 @@ sessions wasted turns suggesting these.
 - **No Stripe / billing work** unless the founder explicitly asks. It is
   deferred indefinitely, not pending-discovery.
 - **No emojis in code, docs, or commits** unless explicitly requested.
+- **No visible SAML / enterprise SSO work** unless a real design partner asks
+  for it. Google/GitHub/GitLab login is enough for now; identity work should
+  mean evidence ingestion, not more app-login options.
+- **No multi-cloud roadmap in the product UI.** Vigil must feel ready on AWS
+  for SOC 2 CC6/CC7 before GCP/Azure enter the conversation.
 
 If you find yourself wanting to add one of the above to a TODO, gap list,
 "next priorities" list, or commit message: stop. It belongs in this section
@@ -96,7 +119,8 @@ only, and only to say it's out of scope.
 - OAuth link flow re-issues session tokens on success so connecting a provider never drops the active session
 
 ### AWS account onboarding
-- Create account → CFN launch URL (pre-filled ExternalId + trust principal)
+- Create account → parent CFN `vigil-stack.yaml` launch URL (stack **`VigilAccountConnector`**; IAM scanner role **`VigilReadOnlyScannerRole`**)
+- Existing accounts keep **`VigilReadOnly`** stack name in DB for update URLs; new accounts use **`VigilAccountConnector`**
 - Verify role via `sts:AssumeRole`
 - Trigger scan → Celery task
 
@@ -200,7 +224,7 @@ only, and only to say it's out of scope.
 - Login page: email/password + GitHub SSO + Google SSO
 - AWS Accounts page — multi-account support, per-account findings + compliance metric strips, scan progress on card, official AWS logo (`/aws.png`), styled remove-account confirm dialog, pending-account UX
 - Findings page (grouped, severity-aware, multi-tag filter, URL-synced `?checks=`, smooth accordion animation, severity-tinted expanded rows)
-- Controls/Compliance page (SOC2 + CIS AWS L1 + ISO 27001; pass-rate cards, status filters, questionnaire template copy, evidence preview, mapped checks — no Re-scan/Refresh in header; scan only from Accounts/Findings)
+- Controls/Compliance page (SOC 2 CC6/CC7 + CIS AWS L1 supporting context; pass-rate cards, status filters, questionnaire template copy, evidence preview, mapped checks — no Re-scan/Refresh in header; scan only from Accounts/Findings)
 - Settings page (check enable/disable per group, weekly digest toggle + recipient email)
 - Account settings page (password + GitHub)
 - Reference page (`/reference`) — searchable table of all supported search keys, resource types, check IDs, ARN patterns
@@ -394,7 +418,7 @@ go cheaper (below $200) or be radically better at evidence quality.
 | Free | $0 | 1 AWS account, weekly scan, no exports, 30d retention |
 | Starter | $99/mo or $999/yr | All AWS checks, evidence exports (JSON+CSV+PDF), weekly digest, 90d snapshots |
 | Team | $249/mo or $2,499/yr | + GitHub + Google Workspace, 365d snapshots, ZIP evidence bundle, up to 5 accounts |
-| Growth | $499/mo or $4,999/yr | + multi-account orgs, Slack delivery, custom controls, priority email |
+| Growth | $499/mo or $4,999/yr | + multi-account orgs, Slack delivery, priority email |
 
 **Why monthly/annual not one-shot:** SOC2 Type 2 requires continuous evidence
 across a 3–12 month audit window. Auditor samples random dates and asks for
@@ -407,13 +431,13 @@ points per year. The recurring fee is justified by recurring evidence.
 | Decision | Choice |
 |---|---|
 | Audit workflows (policies, vendors, trust center, HR, training) | **Out of scope for the foreseeable roadmap.** Only reconsider if repeatedly demanded by paying customers. That swamp is Vanta's. Stay infra-heavy. |
-| Identity evidence ingestion (Okta, Google Workspace, GitHub) | **YES.** Pull metadata only, never build an IdP. |
+| Identity evidence ingestion (Google Workspace, GitHub) | **YES.** Pull metadata only, never build an IdP. |
 | Change management evidence (GitHub PR reviews, branch protections, deployments) | **YES via GitHub.** No Jira yet. |
-| Multi-cloud (Azure, GCP) | **Defer to Year 2+.** Identity integrations give more SOC2 evidence per engineering hour than another cloud. |
+| Multi-cloud (Azure, GCP) | **Out of product scope for now.** AWS must feel complete before this enters the product conversation. |
 | Kubernetes RBAC | **No.** Different buyer, different product. |
 | Repo secret scanning (Gitleaks, Semgrep) | **No.** Different category, Snyk territory. |
 | Write actions / auto-remediation | **No.** Read-only is the entire trust story. |
-| Compliance frameworks to map | **CIS AWS L1, SOC2 CC6/CC7 first.** ISO 27001 A.9/A.12 second. Skip CC1/CC2/CC3/CC5/CC9 — can't evidence from AWS data. |
+| Compliance frameworks to map | **SOC 2 CC6/CC7 first.** CIS AWS L1 is supporting AWS benchmark context. Skip CC1/CC2/CC3/CC5/CC9 — can't evidence from AWS data. |
 
 ## Key differentiator: "What If" blast radius analysis
 
@@ -894,7 +918,7 @@ digest one-click unsubscribe, `/reference` route, sample pack
 - What If tab: policy diff (`GeneratePolicySection`) for `iam.role.full_admin_policy` and other role checks
 
 **Product backlog:**
-- CIS **1.11** 45-day unused-credentials check (or document 90d as accepted partial) — **1 missing** vs full L1 automation
+- ~~CIS **1.11** 45-day unused-credentials check~~ — done (`credentials_unused_45d` + `unused_45d`)
 - Sigstore / per-org signing keys
 - Deeper IAM history UI (per-user drill-down, export slice in ZIP)
 - S3/CloudFront dependency hints in What If
@@ -1028,11 +1052,10 @@ OAuth + admin SDK + domain-wide delegation. Pull:
 - Users (active, suspended, archived)
 - 2-Step Verification enrollment per user
 - Admin roles
-- SSO configuration
 - Last login activity
 
-Covers MFA + deprovisioning for non-GitHub users. Most US/EU startups have
-Google Workspace.
+Covers MFA, access review, and deprovisioning evidence for CC6/CC7. This is
+evidence ingestion, not another app-login or enterprise SSO project.
 
 ### Phase 5 — Billing + delivery (2 weeks)
 
@@ -1057,9 +1080,6 @@ Google Workspace.
 
 ### Phase 1.5, 7+ — deferred until paying customers ask
 
-- Okta integration (3–5 weeks; harder API)
-- Entra ID + Azure
-- GCP
 - KMS key rotation deep checks
 - Secrets Manager / SSM rotation
 - Lambda function URL exposure
@@ -1161,7 +1181,7 @@ When in doubt, reread this section. The next contributor (human or AI)
 should not be allowed to:
 
 - Re-introduce audit workflow / GRC features
-- Add multi-cloud before identity integrations ship
+- Add multi-cloud before AWS CC6/CC7 feels complete
 - Build features without first asking "does this strengthen the evidence
   layer or just add a checkmark?"
 - Quote pricing above $499/mo (cap, not floor)

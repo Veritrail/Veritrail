@@ -12,6 +12,36 @@ export function eventPresentation(event: HistoryEvent): EventPresentation {
   const before = event.posture_before;
   const after = event.posture_after;
 
+  if (event.type === "finding_resolved") {
+    return {
+      headline: "Finding resolved",
+      subline: event.detail || event.top_change?.title || "A remediation was verified",
+      tone: "improved",
+      dotClass: "bg-emerald-500 ring-emerald-100",
+      cardClass: "border-emerald-200/70 bg-emerald-50/20",
+    };
+  }
+
+  if (event.type === "finding_excepted") {
+    return {
+      headline: "Exception recorded",
+      subline: event.detail || event.top_change?.title || "Accepted risk recorded for this finding",
+      tone: "neutral",
+      dotClass: "bg-amber-400 ring-amber-100",
+      cardClass: "border-amber-200/80 bg-amber-50/25",
+    };
+  }
+
+  if (event.type === "finding_reopened") {
+    return {
+      headline: "Finding reopened",
+      subline: event.detail || event.top_change?.title || "A previously closed finding is active again",
+      tone: "regressed",
+      dotClass: "bg-red-500 ring-red-100",
+      cardClass: "border-red-200/80 bg-red-50/25",
+    };
+  }
+
   if (event.type === "baseline_established") {
     const discovered = event.findings_discovered ?? event.findings_opened;
     return {
@@ -104,6 +134,50 @@ export type ImpactItem = {
 };
 
 export function impactItems(event: HistoryEvent): ImpactItem[] {
+  if (event.type === "finding_resolved" || event.type === "finding_excepted") {
+    return [
+      {
+        value: 1,
+        label: event.type === "finding_resolved" ? "finding resolved" : "exception recorded",
+        tone: "good",
+        direction: "down",
+      },
+    ];
+  }
+  if (event.type === "finding_reopened") {
+    return [
+      {
+        value: 1,
+        label: "finding reopened",
+        tone: "bad",
+        direction: "up",
+      },
+    ];
+  }
+
+  if (event.type === "baseline_established") {
+    const items: ImpactItem[] = [];
+    const open = event.findings_discovered ?? event.findings_opened;
+    if (open > 0) {
+      items.push({
+        value: open,
+        label: "open findings in baseline",
+        tone: "neutral",
+        direction: "flat",
+      });
+    }
+    const failing = event.controls_failed_after ?? event.snapshot?.controls_failed ?? 0;
+    if (failing > 0) {
+      items.push({
+        value: failing,
+        label: `failing control${failing === 1 ? "" : "s"}`,
+        tone: "bad",
+        direction: "flat",
+      });
+    }
+    return items;
+  }
+
   const items: ImpactItem[] = [];
   if (event.findings_opened > 0) {
     items.push({
@@ -137,16 +211,19 @@ export function impactItems(event: HistoryEvent): ImpactItem[] {
       direction: "down",
     });
   }
-  if (event.type === "baseline_established") {
-    const d = event.findings_discovered ?? event.findings_opened;
-    if (d > 0 && items.length === 0) {
-      items.push({ value: d, label: "findings in baseline", tone: "neutral", direction: "flat" });
-    }
-  }
   return items;
 }
 
 export function causeSentence(event: HistoryEvent): { control: string; text: string; tone: "bad" | "good" | "neutral" } | null {
+  if (event.type === "finding_resolved") {
+    return { control: event.top_change?.title || "Finding", text: "was verified as resolved", tone: "good" };
+  }
+  if (event.type === "finding_excepted") {
+    return { control: event.top_change?.title || "Finding", text: "was accepted as an exception", tone: "neutral" };
+  }
+  if (event.type === "finding_reopened") {
+    return { control: event.top_change?.title || "Finding", text: "was reopened", tone: "bad" };
+  }
   const c = primaryCause(event);
   if (!c) return null;
   const control = `${c.title} (${c.controlId})`;
@@ -157,6 +234,9 @@ export function causeSentence(event: HistoryEvent): { control: string; text: str
 
 export function impactLines(event: HistoryEvent): string[] {
   const lines: string[] = [];
+  if (event.type === "finding_resolved") return ["1 finding resolved"];
+  if (event.type === "finding_excepted") return ["1 exception recorded"];
+  if (event.type === "finding_reopened") return ["1 finding reopened"];
   if (event.findings_opened > 0) {
     lines.push(`+${event.findings_opened} finding${event.findings_opened === 1 ? "" : "s"} opened`);
   }
@@ -173,9 +253,10 @@ export function impactLines(event: HistoryEvent): string[] {
   }
   if (event.type === "baseline_established") {
     const d = event.findings_discovered ?? event.findings_opened;
-    if (d > 0 && lines.length === 0) {
-      lines.push(`${d} findings in baseline`);
-    }
+    if (d > 0) lines.push(`${d} open findings in baseline`);
+    const failing = event.controls_failed_after ?? event.snapshot?.controls_failed ?? 0;
+    if (failing > 0) lines.push(`${failing} failing control${failing === 1 ? "" : "s"}`);
+    return lines;
   }
   return lines;
 }
@@ -188,6 +269,12 @@ export function eventTypeLabel(type: HistoryEventType): string {
       return "Regression";
     case "compliance_improved":
       return "Improvement";
+    case "finding_resolved":
+      return "Remediation";
+    case "finding_excepted":
+      return "Exception";
+    case "finding_reopened":
+      return "Reopened";
     default:
       return "Snapshot";
   }

@@ -4,13 +4,12 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import Login from "./pages/Login";
-import Findings from "./pages/Findings";
+import Findings from "./pages/FindingsV2";
 import Accounts from "./pages/Accounts";
 import AuthCallback from "./pages/AuthCallback";
 import Account from "./pages/Account";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
-import DetectionCoverage from "./pages/DetectionCoverage";
 import Controls from "./pages/Controls";
 import GitHubIntegration from "./pages/GitHubIntegration";
 import GitHubIntegrationEdit from "./pages/GitHubIntegrationEdit";
@@ -21,6 +20,14 @@ import Security from "./pages/Security";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
 import Layout from "./Layout";
+import AuditorLogin from "./pages/AuditorLogin";
+import AuditorLayout from "./pages/AuditorLayout";
+import AuditorDashboard from "./pages/AuditorDashboard";
+import AuditorFindings from "./pages/AuditorFindings";
+import AuditorControls from "./pages/AuditorControls";
+import AuditorEvidence from "./pages/AuditorEvidence";
+import AuditorExport from "./pages/AuditorExport";
+import TrustCenter from "./pages/TrustCenter";
 
 const qc = new QueryClient();
 
@@ -29,6 +36,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={qc}>
       <BrowserRouter>
         <Routes>
+          <Route path="/trust/:slug" element={<TrustCenter />} />
           <Route path="/login" element={<Login />} />
           <Route path="/security" element={<Security />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -41,7 +49,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/account" element={<Account />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/detection" element={<DetectionCoverage />} />
+            <Route path="/detection" element={<Navigate to="/settings#detection" replace />} />
             <Route path="/controls" element={<Controls />} />
             <Route path="/history" element={<History />} />
             <Route path="/compliance-history" element={<Navigate to="/history" replace />} />
@@ -54,8 +62,17 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/gitlab" element={<GitLabIntegration />} />
             <Route path="/integrations/gitlab/edit" element={<GitLabIntegrationEdit />} />
           </Route>
+          <Route path="/auditor/verify/:token" element={<AuditorLogin />} />
+          <Route path="/auditor/login" element={<AuditorLogin />} />
+          <Route element={<AuditorLayout />}>
+            <Route path="/auditor/dashboard" element={<AuditorDashboard />} />
+            <Route path="/auditor/findings" element={<AuditorFindings />} />
+            <Route path="/auditor/controls" element={<AuditorControls />} />
+            <Route path="/auditor/evidence" element={<AuditorEvidence />} />
+            <Route path="/auditor/export" element={<AuditorExport />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

@@ -1,4 +1,4 @@
-"""Verify customer-account EventBridge remediation runner (read-only)."""
+"""Verify customer-account SSM remediation automation (read-only)."""
 from __future__ import annotations
 
 from typing import Any
@@ -8,142 +8,279 @@ from botocore.exceptions import ClientError
 from app.core.config import get_settings
 from app.core.aws import assume_role
 from app.models import AwsAccount
+from app.services.iam_permission_check import (
+    check_actions_on_documents,
+    connector_can_start_document_automation,
+    load_role_policy_documents,
+)
+from app.services.remediation_plan import (
+    automation_home_region,
+    resolve_automation_region,
+)
 
-RULE_NAME = "VigilRemediationApproved"
-LAMBDA_NAME = "VigilRemediationRunner"
+DOCUMENT_NAME = "Vigil-RemediationPlanExecutor"  # legacy; new stacks use per-module runbooks
+
+CONNECTOR_SSM_START_ACTIONS = (
+    "ssm:DescribeDocument",
+    "ssm:StartAutomationExecution",
+    "ssm:GetAutomationExecution",
+)
+
+S3_PAB_AUTOMATION_ACTIONS = (
+    "s3:GetBucketPublicAccessBlock",
+    "s3:PutBucketPublicAccessBlock",
+)
 
 
-def check_remediation_runner(acc: AwsAccount) -> dict[str, Any]:
-    """
-    Inspect EventBridge rule + Lambda in the remediation bus region.
-    Warn when Schema Registry discovery is off (console default).
-    """
+def connector_ssm_start_blockers(scanner_policy_documents: list[dict]) -> list[str]:
+    """Blockers when the connector role cannot describe/start SSM from the API."""
+    if not scanner_policy_documents:
+        return [
+            "Cannot read VigilScannerRole policies — update VigilAccountConnector with SSM remediation enabled"
+        ]
+    granted = check_actions_on_documents(scanner_policy_documents, CONNECTOR_SSM_START_ACTIONS)
+    missing = [action for action, ok in granted.items() if not ok]
+    if not missing:
+        return []
+    return [
+        "VigilScannerRole cannot start SSM Automation "
+        f"(missing {', '.join(missing)}). "
+        "Update the VigilAccountConnector stack with remediation modules enabled "
+        "(e.g. EnableIamAccessKeyRemediation=Yes), then Verify capabilities on Accounts."
+    ]
+
+
+def _enabled_module_check_ids(acc: AwsAccount) -> list[str]:
+    from app.data.remediation_modules import MODULE_SAMPLE_CHECK_ID, REMEDIATION_MODULES
+
+    check_ids: list[str] = []
+    for spec in REMEDIATION_MODULES:
+        if not spec.runner_supported:
+            continue
+        if not getattr(acc, spec.enable_column, False):
+            continue
+        sample = MODULE_SAMPLE_CHECK_ID.get(spec.id)
+        if sample:
+            check_ids.append(sample)
+    return check_ids
+
+
+def _remediation_role_s3_blockers(session: Any, check_id: str | None) -> list[str]:
+    if check_id != "s3.bucket.public_access_not_blocked":
+        return []
     settings = get_settings()
-    bus_region = settings.REMEDIATION_EVENT_BUS_REGION
-    bus_name = settings.REMEDIATION_EVENT_BUS_NAME or "default"
+    role_name = settings.CFN_REMEDIATION_AUTOMATION_ROLE_NAME
+    iam = session.client("iam")
+    try:
+        docs = load_role_policy_documents(iam, role_name)
+        granted = check_actions_on_documents(docs, S3_PAB_AUTOMATION_ACTIONS)
+    except Exception as exc:  # noqa: BLE001
+        return [
+            "Cannot read VigilRemediationAutomationRole IAM policies "
+            f"({exc}). Update the connector stack, then Verify capabilities."
+        ]
+    missing = [action for action, ok in granted.items() if not ok]
+    if missing:
+        return [
+            "VigilRemediationAutomationRole is missing: "
+            + ", ".join(missing)
+            + ". Update the connector (EnableS3Remediation=Yes), wait for the nested "
+            "vigil-remediation-ssm stack UPDATE_COMPLETE, then Verify capabilities on Accounts."
+        ]
+    return []
+
+
+def _is_vigil_document(document_name: str, runbook_owner: str | None) -> bool:
+    if runbook_owner == "vigil":
+        return True
+    return document_name.startswith("Vigil-")
+
+
+def _check_single_runbook(
+    acc: AwsAccount,
+    *,
+    check_id: str | None,
+    resource_region: str | None,
+    session: Any,
+    scanner_policy_documents: list[dict] | None,
+) -> dict[str, Any]:
+    from app.services.ssm_remediation_catalog import runbook_for_check
+
+    settings = get_settings()
+    automation_region = resolve_automation_region(check_id, resource_region)
+    runbook = runbook_for_check(check_id) if check_id else None
+    document_name = (
+        runbook.document_name
+        if runbook
+        else (settings.REMEDIATION_SSM_DOCUMENT_NAME or DOCUMENT_NAME)
+    )
+    runbook_owner = runbook.owner if runbook else None
 
     out: dict[str, Any] = {
-        "event_bus_region": bus_region,
-        "event_bus_name": bus_name,
+        "check_id": check_id,
+        "automation_region": automation_region,
+        "resource_region": resource_region,
+        "document": {"name": document_name, "exists": False, "status": None},
         "ready": False,
-        "rule": {"name": RULE_NAME, "exists": False, "state": None},
-        "lambda": {"name": LAMBDA_NAME, "exists": False},
-        "schema_discovery": {"enabled": None, "note": None},
         "blockers": [],
         "warnings": [],
         "hints": [],
+    }
+
+    ssm = session.client("ssm", region_name=automation_region)
+    try:
+        doc = ssm.describe_document(Name=document_name)
+        status = (doc.get("Document") or {}).get("Status")
+        out["document"]["exists"] = True
+        out["document"]["status"] = status
+        if status not in (None, "Active"):
+            out["blockers"].append(f"SSM document {document_name} exists but Status={status}")
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code")
+        if code in ("InvalidDocument", "InvalidDocumentOperation"):
+            if _is_vigil_document(document_name, runbook_owner):
+                home = automation_home_region()
+                out["blockers"].append(
+                    f"Vigil runbook {document_name} is not deployed in {automation_region} "
+                    f"(automation home region is {home}). Deploy vigil-remediation-ssm.yaml in that "
+                    "region with the matching Enable*Remediation parameters set to Yes."
+                )
+            else:
+                out["blockers"].append(
+                    f"AWS runbook {document_name} is not available in {automation_region}. "
+                    "AWS-owned documents are regional — enable the module and deploy in the target region."
+                )
+        elif code == "AccessDeniedException":
+            out["blockers"].append(
+                f"Connector role cannot access ssm:DescribeDocument in {automation_region}. "
+                "Update VigilAccountConnector (vigil-core-scanner.yaml) with remediation modules enabled."
+            )
+        else:
+            out["blockers"].append(f"Cannot describe SSM document {document_name}: {e}")
+
+    if scanner_policy_documents is not None:
+        if (
+            _is_vigil_document(document_name, runbook_owner)
+            and out["document"].get("exists")
+            and not connector_can_start_document_automation(scanner_policy_documents, document_name)
+        ):
+            out["blockers"].append(
+                f"Connector IAM must allow ssm:StartAutomationExecution on document/{document_name} "
+                f"in {automation_region} (update vigil-core-scanner.yaml)."
+            )
+
+    if out["document"].get("exists"):
+        for blocker in _remediation_role_s3_blockers(session, check_id):
+            if blocker not in out["blockers"]:
+                out["blockers"].append(blocker)
+
+    out["ready"] = not out["blockers"] and out["document"].get("exists")
+    if runbook and runbook.owner == "aws":
+        out["warnings"].append(f"AWS-owned runbook {document_name}.")
+    return out
+
+
+def check_remediation_runner(
+    acc: AwsAccount,
+    *,
+    check_id: str | None = None,
+    resource_region: str | None = None,
+    session: Any | None = None,
+    scanner_policy_documents: list[dict] | None = None,
+) -> dict[str, Any]:
+    """Inspect SSM Automation readiness (live DescribeDocument, not cached)."""
+    settings = get_settings()
+    home = automation_home_region()
+
+    out: dict[str, Any] = {
+        "automation_region": home,
+        "resource_region": resource_region,
+        "document": {"name": None, "exists": False, "status": None},
+        "ready": False,
+        "rule": {"name": None, "exists": False, "state": None},
+        "lambda": {"name": None, "exists": False, "deprecated": True},
+        "schema_discovery": {"enabled": None, "note": "SSM Automation only — no Lambda runner"},
+        "blockers": [],
+        "warnings": [],
+        "hints": [],
+        "documents": [],
     }
 
     if not acc.role_arn:
         out["blockers"].append("AWS account role not verified — connect account first")
         return out
 
-    try:
-        sess = assume_role(
-            acc.role_arn,
-            acc.external_id,
-            session_name="vigil-remediation-check",
-            aws_account=acc,
-            purpose="remediation_runner_status",
-        )
-    except Exception as exc:  # noqa: BLE001
-        out["blockers"].append(f"Cannot assume role: {exc}")
-        return out
-
-    events = sess.client("events", region_name=bus_region)
-    lam = sess.client("lambda", region_name=bus_region)
-
-    # Event bus exists
-    try:
-        bus = events.describe_event_bus(Name=bus_name)
-        out["event_bus_arn"] = bus.get("Arn")
-    except ClientError as e:
-        code = e.response.get("Error", {}).get("Code", "")
-        if code in ("ResourceNotFoundException", "NotFoundException"):
-            out["blockers"].append(
-                f"Event bus {bus_name!r} not found in {bus_region} — deploy "
-                "infra/cfn/vigil-remediation-runner-ec2.yaml in this region first"
-            )
-        else:
-            out["blockers"].append(f"Cannot describe event bus: {e}")
-        return out
-
-    # Rule
-    rule_arn = None
-    try:
-        rule = events.describe_rule(Name=RULE_NAME, EventBusName=bus_name)
-        out["rule"]["exists"] = True
-        out["rule"]["state"] = rule.get("State")
-        rule_arn = rule.get("Arn")
-        if rule.get("State") != "ENABLED":
-            out["blockers"].append(
-                f"EventBridge rule {RULE_NAME} exists but State={rule.get('State')} — enable it in the console"
-            )
-    except ClientError as e:
-        if e.response.get("Error", {}).get("Code") == "ResourceNotFoundException":
-            out["blockers"].append(
-                f"Rule {RULE_NAME} not found on bus {bus_name} in {bus_region} — deploy or update the CFN stack"
-            )
-        else:
-            out["blockers"].append(f"Cannot describe rule: {e}")
-
-    # Targets
-    if rule_arn:
+    sess = session
+    if sess is None:
         try:
-            targets = events.list_targets_by_rule(Rule=RULE_NAME, EventBusName=bus_name)
-            tgs = targets.get("Targets") or []
-            out["rule"]["target_count"] = len(tgs)
-            if not tgs:
-                out["blockers"].append("EventBridge rule has no targets — redeploy CFN stack")
-        except ClientError as e:
-            out["warnings"].append(f"Could not list rule targets: {e}")
-
-    # Lambda
-    try:
-        fn = lam.get_function(FunctionName=LAMBDA_NAME)
-        out["lambda"]["exists"] = True
-        out["lambda"]["runtime"] = fn.get("Configuration", {}).get("Runtime")
-        out["lambda"]["arn"] = fn.get("Configuration", {}).get("FunctionArn")
-    except ClientError as e:
-        if e.response.get("Error", {}).get("Code") == "ResourceNotFoundException":
-            out["blockers"].append(
-                f"Lambda {LAMBDA_NAME} not found in {bus_region} — deploy vigil-remediation-runner-ec2.yaml"
+            sess = assume_role(
+                acc.role_arn,
+                acc.external_id,
+                session_name="vigil-remediation-check",
+                aws_account=acc,
+                purpose="remediation_runner_status",
             )
-        else:
-            out["blockers"].append(f"Cannot describe Lambda: {e}")
+        except Exception as exc:  # noqa: BLE001
+            out["blockers"].append(f"Cannot assume role: {exc}")
+            return out
 
-    # Schema discovery (optional; often disabled by default)
-    try:
-        schemas = sess.client("schemas", region_name=bus_region)
-        discoverers = schemas.list_discoverers().get("Discoverers") or []
-        bus_arn = out.get("event_bus_arn") or ""
-        enabled = any(
-            d.get("State") == "ACTIVE" and (bus_arn in (d.get("SourceArn") or "") or bus_name == "default")
-            for d in discoverers
+    if check_id:
+        checks = [check_id]
+    else:
+        checks = _enabled_module_check_ids(acc)
+        if not checks:
+            checks = [None]  # noqa: allow legacy single-doc probe when no modules flagged
+
+    partials: list[dict[str, Any]] = []
+    for cid in checks:
+        partials.append(
+            _check_single_runbook(
+                acc,
+                check_id=cid,
+                resource_region=resource_region,
+                session=sess,
+                scanner_policy_documents=scanner_policy_documents,
+            )
         )
-        out["schema_discovery"]["enabled"] = enabled
-        if not enabled:
-            out["schema_discovery"]["note"] = (
-                "EventBridge schema discovery is off (AWS default). Not required for Vigil custom "
-                "events (vigil.security), but enable it in EventBridge → Schema registry → "
-                "Discoverers if you want automatic schema capture."
-            )
-            out["warnings"].append(out["schema_discovery"]["note"])
-    except ClientError:
-        out["schema_discovery"]["enabled"] = None
-        out["schema_discovery"]["note"] = "Could not read schema discoverers (schemas:ListDiscoverers missing on read role)"
 
-    out["ready"] = not out["blockers"] and out["rule"].get("exists") and out["lambda"].get("exists")
+    if scanner_policy_documents is not None and checks != [None]:
+        out["blockers"].extend(connector_ssm_start_blockers(scanner_policy_documents))
+
+    seen_blockers: set[str] = set()
+    for partial in partials:
+        out["documents"].append(partial["document"])
+        for b in partial["blockers"]:
+            if b not in seen_blockers:
+                seen_blockers.add(b)
+                out["blockers"].append(b)
+        out["warnings"].extend(partial["warnings"])
+
+    primary = partials[0] if partials else None
+    if primary:
+        out["automation_region"] = primary["automation_region"]
+        out["document"] = primary["document"]
+        out["rule"] = {
+            "name": primary["document"]["name"],
+            "exists": primary["document"]["exists"],
+            "state": primary["document"]["status"],
+        }
+
+    out["ready"] = bool(partials) and all(p["ready"] for p in partials) and not out["blockers"]
+
     if out["ready"]:
         out["hints"] = [
-            f"Stack looks active in {bus_region}. Use Prepare EventBridge, then put-events to that region.",
-            "Re-scan after remediation so the plan matches live security group rules.",
+            f"SSM remediation runbooks are active (checked {len(partials)} module document(s)).",
+            "Approve on the finding, then start automation. Re-scan after remediation.",
         ]
     else:
         out["hints"] = [
-            "Deploy: aws cloudformation deploy --region "
-            f"{bus_region} --template-file infra/cfn/vigil-remediation-runner-ec2.yaml "
-            "--capabilities CAPABILITY_NAMED_IAM",
-            f"Set REMEDIATION_EVENT_BUS_REGION={bus_region} in Vigil .env to match the stack region.",
+            "Deploy vigil-remediation-ssm.yaml in the automation home region with Enable*Remediation=Yes.",
+            f"Automation home region: {home} (REMEDIATION_AUTOMATION_REGION).",
+            "Connector needs ssm:DescribeDocument and ssm:StartAutomationExecution.",
         ]
+        if checks == [None]:
+            out["hints"].append(
+                "Enable at least one remediation module on the connector stack, then verify again."
+            )
+
     return out

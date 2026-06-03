@@ -218,7 +218,7 @@ export default function GitHubIntegrationEdit() {
                   <div>
                     <div className="text-sm font-medium text-zinc-950">{owner}</div>
                     <div className="mt-1 text-xs text-zinc-500">
-                      {owner === provider.data.login ? "Personal account" : "GitHub organization"}
+                      {owner === provider.data?.login ? "Personal account" : "GitHub organization"}
                     </div>
                   </div>
                   <input

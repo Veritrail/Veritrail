@@ -5,16 +5,16 @@
 @layer base {
   :root {
     color-scheme: light;
-    background: #f7f7f8;
+    background: #f7f9fb;
   }
 
   html {
-    background: #f7f7f8;
+    background: #f7f9fb;
     scrollbar-gutter: stable;
   }
 
   body {
-    @apply bg-zinc-50 text-zinc-900 antialiased;
+    @apply bg-[#F6F8FB] text-[#111827] antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     letter-spacing: 0;
   }

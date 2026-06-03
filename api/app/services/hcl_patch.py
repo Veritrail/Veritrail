@@ -26,6 +26,15 @@ def _run_hclpatch(cmd: str, payload: dict[str, Any]) -> dict[str, Any]:
     return json.loads(proc.stdout.decode())
 
 
+def hcl_validate_syntax(files: list[dict[str, str]]) -> dict[str, Any]:
+    """Validate HCL syntax using hclpatch validate-syntax.
+
+    Returns {"ok": true} on success, or {"ok": false, "error": "..."} with a
+    per-file error message when syntax errors are found.
+    """
+    return _run_hclpatch("validate-syntax", {"files": files})
+
+
 def hcl_repo_scan(
     *,
     check_id: str,
@@ -34,18 +43,31 @@ def hcl_repo_scan(
     key_id: str | None = None,
     group_id: str | None = None,
     group_name: str | None = None,
+    # New fields for expanded check types
+    instance_id: str | None = None,
+    topic_name: str | None = None,
+    queue_name: str | None = None,
+    repo_name: str | None = None,
+    vpc_id: str | None = None,
+    function_name: str | None = None,
+    lb_name: str | None = None,
 ) -> dict[str, Any]:
-    return _run_hclpatch(
-        "scan",
-        {
-            "check_id": check_id,
-            "bucket_name": bucket_name,
-            "key_id": key_id,
-            "group_id": group_id,
-            "group_name": group_name,
-            "files": files,
-        },
-    )
+    req = {
+        "check_id": check_id,
+        "bucket_name": bucket_name,
+        "key_id": key_id,
+        "group_id": group_id,
+        "group_name": group_name,
+        "instance_id": instance_id,
+        "topic_name": topic_name,
+        "queue_name": queue_name,
+        "repo_name": repo_name,
+        "vpc_id": vpc_id,
+        "function_name": function_name,
+        "lb_name": lb_name,
+        "files": files,
+    }
+    return _run_hclpatch("scan", req)
 
 
 def hcl_patch_preview(
@@ -56,6 +78,14 @@ def hcl_patch_preview(
     key_id: str | None = None,
     group_id: str | None = None,
     group_name: str | None = None,
+    # New fields for expanded check types
+    instance_id: str | None = None,
+    topic_name: str | None = None,
+    queue_name: str | None = None,
+    repo_name: str | None = None,
+    vpc_id: str | None = None,
+    function_name: str | None = None,
+    lb_name: str | None = None,
 ) -> dict[str, Any]:
     req = {
         "check_id": check_id,
@@ -63,6 +93,13 @@ def hcl_patch_preview(
         "key_id": key_id,
         "group_id": group_id,
         "group_name": group_name,
+        "instance_id": instance_id,
+        "topic_name": topic_name,
+        "queue_name": queue_name,
+        "repo_name": repo_name,
+        "vpc_id": vpc_id,
+        "function_name": function_name,
+        "lb_name": lb_name,
         "files": files,
     }
     out = _run_hclpatch("patch", req)

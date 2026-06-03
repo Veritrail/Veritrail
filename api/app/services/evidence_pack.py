@@ -567,7 +567,9 @@ def _build_access_roster(db: Session, account_id: uuid.UUID, as_of: datetime) ->
         select(EvidenceSnapshot)
         .where(
             EvidenceSnapshot.account_id == account_id,
-            EvidenceSnapshot.entity_type.in_(["iam_user", "identity_center_user"]),
+            EvidenceSnapshot.entity_type.in_(
+                ["iam_user", "identity_center_user", "identity_center_permission_set"]
+            ),
             EvidenceSnapshot.taken_at <= as_of,
         )
         .order_by(EvidenceSnapshot.taken_at.desc())
@@ -581,6 +583,8 @@ def _build_access_roster(db: Session, account_id: uuid.UUID, as_of: datetime) ->
 
     iam_users: list[dict[str, Any]] = []
     ic_users: list[dict[str, Any]] = []
+    ic_permission_sets: list[dict[str, Any]] = []
+    ic_account_assignments: list[dict[str, Any]] = []
     for (entity_type, _entity_id), snap in latest.items():
         data = snap.payload_json or {}
         if entity_type == "iam_user":
@@ -592,7 +596,7 @@ def _build_access_roster(db: Session, account_id: uuid.UUID, as_of: datetime) ->
                 "last_used_at": data.get("last_used_at"),
                 "snapshot_at": snap.taken_at.isoformat(),
             })
-        else:
+        elif entity_type == "identity_center_user":
             ic_users.append({
                 "user_id": data.get("user_id"),
                 "user_name": data.get("user_name"),
@@ -601,6 +605,27 @@ def _build_access_roster(db: Session, account_id: uuid.UUID, as_of: datetime) ->
                 "active": data.get("active"),
                 "snapshot_at": snap.taken_at.isoformat(),
             })
+        else:
+            permission_set = {
+                "permission_set_arn": data.get("permission_set_arn") or snap.entity_id,
+                "name": data.get("name"),
+                "description": data.get("description"),
+                "session_duration": data.get("session_duration"),
+                "provisioned_account_ids": data.get("provisioned_account_ids") or [],
+                "assignment_count": data.get("assignment_count", 0),
+                "snapshot_at": snap.taken_at.isoformat(),
+            }
+            ic_permission_sets.append(permission_set)
+            for assignment in data.get("account_assignments") or []:
+                ic_account_assignments.append({
+                    "permission_set_arn": permission_set["permission_set_arn"],
+                    "permission_set_name": permission_set["name"],
+                    "account_id": assignment.get("account_id"),
+                    "principal_id": assignment.get("principal_id"),
+                    "principal_type": assignment.get("principal_type"),
+                    "principal": assignment.get("principal"),
+                    "snapshot_at": snap.taken_at.isoformat(),
+                })
 
     # Fall back to live tables when no snapshots exist (pre-migration accounts).
     if not iam_users and not ic_users:
@@ -628,9 +653,13 @@ def _build_access_roster(db: Session, account_id: uuid.UUID, as_of: datetime) ->
         "source": "evidence_snapshots" if snaps else "live_tables_fallback",
         "iam_users": iam_users,
         "identity_center_users": ic_users,
+        "identity_center_permission_sets": ic_permission_sets,
+        "identity_center_account_assignments": ic_account_assignments,
         "summary": {
             "iam_user_count": len(iam_users),
             "identity_center_user_count": len(ic_users),
+            "identity_center_permission_set_count": len(ic_permission_sets),
+            "identity_center_account_assignment_count": len(ic_account_assignments),
         },
     }
 

@@ -1,11 +1,16 @@
 import { useState, type ReactNode } from "react";
+import {
+  drawerSectionHead,
+  drawerSectionTitle,
+  drawerSummaryLabel,
+  drawerSummaryValue,
+  drawerSummaryValueStrong,
+} from "./drawerStyles";
 
-/** Shared “workflow” primitives — same rhythm as What If, reusable across drawer tabs */
+/** Shared workflow primitives. Same rhythm as What If, reusable across drawer tabs. */
 
 export function DrawerFlowLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{children}</p>
-  );
+  return <p className={`${drawerSummaryLabel} px-0.5`}>{children}</p>;
 }
 
 type SemanticTone = "neutral" | "caution" | "action" | "positive";
@@ -44,7 +49,7 @@ export function SemanticNarrativeBlock({
   icon,
 }: {
   tag: string;
-  title: string;
+  title?: string;
   tone?: SemanticTone;
   children: ReactNode;
   icon?: ReactNode;
@@ -60,7 +65,9 @@ export function SemanticNarrativeBlock({
             {tag}
           </span>
         )}
-        <span className="pt-0.5 text-[13px] font-semibold leading-snug text-zinc-900">{title}</span>
+        {title ? (
+          <span className="pt-0.5 text-[13px] font-semibold leading-snug text-zinc-900">{title}</span>
+        ) : null}
       </div>
       <div className="border-t border-zinc-100/90 px-4 py-3 pr-5 text-[13px] leading-relaxed text-zinc-700">
         {children}
@@ -76,7 +83,6 @@ export function PostureMetricCell({
   value,
   sub,
   valueClassName = "text-zinc-900",
-  variant = "compact",
 }: {
   label?: string;
   value: ReactNode;
@@ -84,44 +90,74 @@ export function PostureMetricCell({
   valueClassName?: string;
   variant?: PostureMetricVariant;
 }) {
-  if (variant === "status") {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-lg bg-white px-2.5 py-3.5 text-center ring-1 ring-zinc-100/80">
-        <div className={`text-lg font-semibold tabular-nums leading-tight tracking-tight ${valueClassName}`}>
-          {value}
-        </div>
-        {sub ? (
-          <div className="mt-2 text-[11px] font-normal leading-snug tabular-nums text-zinc-400">{sub}</div>
-        ) : null}
-        {label ? (
-          <div className={`text-[11px] font-medium text-zinc-400 ${sub ? "mt-2.5" : "mt-1.5"}`}>{label}</div>
-        ) : null}
-      </div>
-    );
-  }
+  if (!label) return null;
+  return <FindingTimelineStat label={label} value={value} sub={sub} valueClassName={valueClassName} />;
+}
 
+export function PostureMetricsRow({ children }: { children: ReactNode }) {
+  return <FindingTimelineGrid>{children}</FindingTimelineGrid>;
+}
+
+/** Resource tab hero — type + name with severity accent. */
+export function ResourceInspectorHero({
+  badge,
+  title,
+  severity,
+}: {
+  badge: string;
+  title: string;
+  severity?: string;
+}) {
+  const accent =
+    severity === "critical" || severity === "high"
+      ? "bg-red-500"
+      : severity === "medium"
+        ? "bg-amber-400"
+        : "bg-zinc-300";
   return (
-    <div className="flex min-h-[4.75rem] flex-col items-center justify-center rounded-lg bg-white px-2.5 py-3.5 text-center ring-1 ring-zinc-100/80">
-      <div className={`text-base font-semibold tabular-nums leading-tight ${valueClassName}`}>{value}</div>
-      {sub ? <div className="mt-1.5 text-[11px] font-normal leading-snug tabular-nums text-zinc-400">{sub}</div> : null}
-      {label ? (
-        <div className={`text-[11px] font-medium text-zinc-400 ${sub ? "mt-2" : "mt-1.5"}`}>{label}</div>
-      ) : null}
+    <div className="flex gap-3 border-b border-zinc-100 bg-gradient-to-br from-white via-white to-zinc-50/70 px-4 py-3.5">
+      <div className={`mt-0.5 h-9 w-1 shrink-0 rounded-full ${accent}`} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium text-zinc-500">{badge}</p>
+        <h3 className="mt-0.5 text-[15px] font-semibold leading-snug tracking-normal text-zinc-900">
+          {title}
+        </h3>
+      </div>
     </div>
   );
 }
 
-export function PostureMetricsRow({
-  children,
-  variant = "compact",
+export function FindingTimelineGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-2 divide-x divide-y divide-zinc-100 overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03] sm:grid-cols-4 sm:divide-y-0">
+      {children}
+    </div>
+  );
+}
+
+export function FindingTimelineStat({
+  label,
+  value,
+  sub,
+  valueClassName = "text-zinc-900",
 }: {
-  children: ReactNode;
-  variant?: PostureMetricVariant;
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  valueClassName?: string;
 }) {
-  if (variant === "status") {
-    return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{children}</div>;
-  }
-  return <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">{children}</div>;
+  const numericValue = typeof value === "number";
+  return (
+    <div className="px-3.5 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wide leading-none text-zinc-400">{label}</p>
+      <div
+        className={`mt-1.5 text-[15px] font-semibold leading-snug ${numericValue ? "tabular-nums" : ""} ${valueClassName}`}
+      >
+        {value}
+      </div>
+      {sub ? <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">{sub}</p> : null}
+    </div>
+  );
 }
 
 export function FlowCallout({
@@ -169,6 +205,23 @@ export function FlowBadge({
   );
 }
 
+function ExceptionDetailCell({
+  label,
+  children,
+  muted = false,
+}: {
+  label: string;
+  children: ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-amber-200/45 bg-white/75 px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-800/70">{label}</p>
+      <div className={`mt-1 text-[13px] leading-relaxed ${muted ? "text-zinc-400" : "text-zinc-800"}`}>{children}</div>
+    </div>
+  );
+}
+
 export function ExceptionFlowPanel({
   reason,
   approvedBy,
@@ -178,27 +231,36 @@ export function ExceptionFlowPanel({
   approvedBy?: string | null;
   expiresAt?: string | null;
 }) {
+  const hasApprovedBy = Boolean(approvedBy?.trim());
+  const hasExpiry = Boolean(expiresAt);
+  const hasReason = Boolean(reason?.trim());
+
   return (
-    <div className="overflow-hidden rounded-xl border border-dashed border-amber-300/70 bg-gradient-to-br from-amber-50/85 to-white shadow-sm shadow-amber-900/[0.03]">
-      <div className="flex items-center gap-2 border-b border-amber-200/50 px-4 py-2.5 pr-5">
-        <FlowBadge variant="caution">Exception</FlowBadge>
-        <span className="text-[12px] font-semibold text-amber-950">Documented risk acceptance</span>
+    <div className="w-full overflow-hidden rounded-xl border border-amber-200/70 bg-white shadow-sm shadow-amber-900/[0.04]">
+      <div className="flex items-start justify-between gap-3 border-b border-amber-100/80 bg-gradient-to-r from-amber-50/90 via-white to-white px-4 py-3 pr-5">
+        <div>
+          <div className="flex items-center gap-2">
+            <FlowBadge variant="caution">Exception</FlowBadge>
+            <span className="text-[12px] font-semibold text-zinc-900">Documented risk acceptance</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+            Kept in the evidence pack for auditor review.
+          </p>
+        </div>
       </div>
-      <div className="space-y-2 px-4 py-3 pr-5 text-[13px] leading-relaxed text-amber-950/90">
-        {reason && <p>{reason}</p>}
-        {approvedBy && (
-          <p>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-800/80">Approved by </span>
-            {approvedBy}
-          </p>
-        )}
-        {expiresAt && (
-          <p>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-800/80">Expires </span>
-            {new Date(expiresAt).toLocaleDateString()}
-          </p>
-        )}
-        {!reason && !approvedBy && <p>Approved exception on this finding.</p>}
+
+      <div className="grid gap-2 px-4 py-3 pr-5 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <ExceptionDetailCell label="Reason" muted={!hasReason}>
+            {hasReason ? reason : "No reason captured"}
+          </ExceptionDetailCell>
+        </div>
+        <ExceptionDetailCell label="Approved by" muted={!hasApprovedBy}>
+          {hasApprovedBy ? approvedBy : "Not captured"}
+        </ExceptionDetailCell>
+        <ExceptionDetailCell label="Expires" muted={!hasExpiry}>
+          {hasExpiry ? new Date(expiresAt!).toLocaleDateString() : "No expiry set"}
+        </ExceptionDetailCell>
       </div>
     </div>
   );
@@ -218,16 +280,25 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-/** Semantic group — whitespace + divider only, no section heading */
+/** Semantic group — field rows or nested content inside resource inspector. */
 export function ResourceGroup({
   children,
   className = "",
+  title,
 }: {
   children: ReactNode;
   className?: string;
+  title?: string;
 }) {
   return (
-    <div className={`border-t border-zinc-100/70 px-4 py-3.5 pr-5 ${className}`}>{children}</div>
+    <div className={`border-t border-[#eef2f6] ${className}`}>
+      {title ? (
+        <div className="border-b border-zinc-100 bg-white px-4 pt-3 pb-0">
+          <p className="text-[11px] font-semibold text-zinc-700">{title}</p>
+        </div>
+      ) : null}
+      <div className="bg-white px-4 py-3">{children}</div>
+    </div>
   );
 }
 
@@ -240,14 +311,13 @@ export function ResourceFieldRow({
   children: ReactNode;
   mono?: boolean;
 }) {
+  const valueClass = mono
+    ? `${drawerSummaryValue} font-mono text-[12px] break-all text-[#111827]`
+    : drawerSummaryValue;
   return (
-    <div className="flex gap-3 py-2 first:pt-0 last:pb-0">
-      <span className="w-[4.75rem] shrink-0 pt-0.5 text-[11px] font-medium text-zinc-500">{label}</span>
-      <div
-        className={`min-w-0 flex-1 text-[13px] leading-relaxed text-zinc-800 ${mono ? "font-mono text-[12px] break-all" : ""}`}
-      >
-        {children}
-      </div>
+    <div className="grid grid-cols-[6.75rem_1fr] gap-x-4 border-b border-[#eef2f6] py-3 last:border-b-0 sm:grid-cols-[7.25rem_1fr]">
+      <dt className="pt-0.5 text-[11px] font-medium text-zinc-500">{label}</dt>
+      <dd className={`min-w-0 ${valueClass}`}>{children}</dd>
     </div>
   );
 }
@@ -265,17 +335,17 @@ export function ResourceGroupBlock({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-zinc-100/70 first:border-t-0">
+    <div className="border-t border-[#eef2f6] first:border-t-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-4 py-2.5 pr-5 text-left text-zinc-500 hover:bg-zinc-50/50"
+        className={`flex w-full items-center gap-2 ${drawerSectionHead} text-left hover:bg-[#f8fafc]`}
       >
         <Chevron open={open} />
-        <span className="text-[10px] font-semibold uppercase tracking-wider">{tag}</span>
-        <span className="text-[11px] font-medium text-zinc-600">{title}</span>
+        <span className={drawerSummaryLabel}>{tag}</span>
+        <span className={`${drawerSummaryValueStrong} normal-case tracking-normal`}>{title}</span>
       </button>
-      {open && <div className="px-4 pb-3 pr-5 pt-0">{children}</div>}
+      {open && <div className="border-t border-[#eef2f6] bg-white px-4 py-3">{children}</div>}
     </div>
   );
 }

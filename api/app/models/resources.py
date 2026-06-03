@@ -77,6 +77,8 @@ class CloudTrailTrail(Base):
     s3_bucket_public: Mapped[bool] = mapped_column(Boolean, default=False)
     s3_bucket_logging_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     cloudwatch_logs_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_organization_trail: Mapped[bool] = mapped_column(Boolean, default=False)
+    management_account_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

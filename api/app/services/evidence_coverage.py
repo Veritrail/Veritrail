@@ -125,8 +125,7 @@ def compute_evidence_coverage(
         "coverage_gaps_total": len(missing_dates),
         "last_failed_scan_at": last_failed.isoformat() if last_failed else None,
         "warning": (
-            "Evidence covers fewer days than the selected audit period. "
-            "Connect earlier or extend monitoring before Type II sampling."
+            "Extend monitoring to cover the Type II audit period."
             if days_with_data < period_days
             else None
         ),

@@ -52,7 +52,8 @@ services:
 
   worker:
     build:
-      context: ./api
+      context: .
+      dockerfile: api/Dockerfile
     env_file: ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hygiene}:${POSTGRES_PASSWORD:-hygiene}@db:5432/${POSTGRES_DB:-hygiene}
@@ -63,10 +64,28 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: watchfiles --filter python "celery -A app.worker.celery_app worker --beat --loglevel=info --concurrency=2" app
+    command: watchfiles --filter python "celery -A app.worker.celery_app worker --loglevel=info --concurrency=4" app
     volumes:
       - ./api:/app
       - ${HOME}/.aws:/root/.aws:rw
+
+  beat:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hygiene}:${POSTGRES_PASSWORD:-hygiene}@db:5432/${POSTGRES_DB:-hygiene}
+      REDIS_URL: redis://redis:6379/0
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.worker.celery_app beat --loglevel=info
+    volumes:
+      - ./api:/app
 
   web:
     build:

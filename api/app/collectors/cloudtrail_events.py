@@ -1,8 +1,8 @@
 """Collect significant CloudTrail write events for the infrastructure timeline.
 
-Uses LookupEvents to pull infrastructure-changing events from the last 90 days.
-Prefers explicit TRACKED_EVENTS; otherwise keeps non-readOnly API calls for
-high-signal AWS services (IAM, S3, EC2, KMS, etc.).
+This collector is intentionally lightweight because it runs inside the main scan.
+It pulls recent or incremental CloudTrail management events for the History page
+without turning every compliance scan into a 90-day log backfill.
 """
 from __future__ import annotations
 
@@ -12,10 +12,12 @@ from datetime import datetime, timedelta, timezone
 
 import structlog
 from botocore.exceptions import ClientError
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from app.collectors.cloudtrail import _discover_trails, _get_regions
+from app.collectors.cloudtrail_shared import _get_regions
+from app.collectors.cloudtrail import _discover_trails
 from app.core.aws import assume_role
 from app.models import AwsAccount
 from app.models.cloudtrail import CloudTrailEvent
@@ -77,8 +79,14 @@ _SKIP_EVENT_NAMES = frozenset({
     "PutInventory",
 })
 
-_LOOKBACK_DAYS = 90
-_MAX_EVENTS_PER_RUN = 1000
+# Keep the main scan quick. The first scan gets enough timeline context for the
+# UI, then later scans only look back slightly from the newest event already
+# stored. A dedicated history backfill can use a longer window later if needed.
+_INITIAL_LOOKBACK_DAYS = 7
+_INCREMENTAL_OVERLAP_HOURS = 6
+_MAX_LOOKBACK_DAYS = 90
+_MAX_EVENTS_PER_RUN = 300
+_PAGE_SIZE = 50
 
 
 def _dedupe_resources(resources: list[dict]) -> list[dict]:
@@ -103,6 +111,28 @@ def _lookup_regions(sess) -> list[str]:
     return _get_regions(sess)
 
 
+def _ensure_aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _scan_start_time(db: Session, account: AwsAccount, now: datetime) -> datetime:
+    latest = db.scalar(
+        select(func.max(CloudTrailEvent.event_time)).where(CloudTrailEvent.account_id == account.id)
+    )
+    if latest:
+        latest = _ensure_aware(latest)
+        start = latest - timedelta(hours=_INCREMENTAL_OVERLAP_HOURS)
+        floor = now - timedelta(days=_MAX_LOOKBACK_DAYS)
+        if start < floor:
+            start = floor
+        if start >= now:
+            start = now - timedelta(hours=_INCREMENTAL_OVERLAP_HOURS)
+        return start
+    return now - timedelta(days=_INITIAL_LOOKBACK_DAYS)
+
+
 def _should_collect(ct_event: dict, event_name: str) -> bool:
     if not event_name or event_name in _SKIP_EVENT_NAMES:
         return False
@@ -121,7 +151,7 @@ def _should_collect(ct_event: dict, event_name: str) -> bool:
     return True
 
 
-def _parse_cloudtrail_event(evt: dict, now: datetime) -> tuple[dict, str, str]:
+def _parse_cloudtrail_event(evt: dict) -> tuple[dict, str, str]:
     ct_event = evt.get("CloudTrailEvent") or "{}"
     if isinstance(ct_event, str):
         try:
@@ -142,7 +172,7 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
         purpose="collect_cloudtrail_events",
     )
     now = datetime.now(timezone.utc)
-    start = now - timedelta(days=_LOOKBACK_DAYS)
+    start = _scan_start_time(db, account, now)
     regions = _lookup_regions(sess)
 
     collected = 0
@@ -156,15 +186,19 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
         try:
             ct = sess.client("cloudtrail", region_name=region)
             paginator = ct.get_paginator("lookup_events")
+            # MaxItems is per-paginator; use the *global* remaining, not per-region.
+            remaining = _MAX_EVENTS_PER_RUN - collected
+            if remaining <= 0:
+                break
             pages = paginator.paginate(
                 StartTime=start,
                 EndTime=now,
-                PaginationConfig={"MaxItems": _MAX_EVENTS_PER_RUN - collected, "PageSize": 50},
+                PaginationConfig={"MaxItems": remaining, "PageSize": _PAGE_SIZE},
             )
             for page in pages:
                 for evt in page.get("Events", []):
                     scanned += 1
-                    ct_event, event_name, event_source = _parse_cloudtrail_event(evt, now)
+                    ct_event, event_name, event_source = _parse_cloudtrail_event(evt)
                     if not _should_collect(ct_event, event_name):
                         if ct_event.get("readOnly") is True:
                             skipped_readonly += 1
@@ -210,6 +244,8 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
                     )
                     db.execute(stmt)
                     collected += 1
+                    if collected >= _MAX_EVENTS_PER_RUN:
+                        break
 
                 if collected >= _MAX_EVENTS_PER_RUN:
                     break
@@ -236,5 +272,6 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
         regions=len(regions),
         scanned=scanned,
         skipped_readonly=skipped_readonly,
+        start=start.isoformat(),
     )
     return collected

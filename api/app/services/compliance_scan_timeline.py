@@ -1,4 +1,4 @@
-"""Compliance history: scan-level posture summaries (not per-finding evidence feed)."""
+"""Compliance history: scan-level posture summaries plus remediation events."""
 from __future__ import annotations
 
 import uuid
@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Finding, ScanRun
+from app.models import Finding, FindingEvent, ScanRun
 from app.models.cloudtrail import CloudTrailEvent
 from app.models.control import Control, CheckControl
 from app.services.compliance_timeline import _control_status_at
@@ -18,6 +18,7 @@ from app.services.finding_history import (
     load_events_by_finding,
 )
 from app.services.timeline_filters import COMPLIANCE_EVENT_SOURCES
+
 
 def _control_catalog(db: Session, framework: str) -> list[tuple[Control, list[str]]]:
     controls = db.scalars(
@@ -82,7 +83,6 @@ def _scan_control_diff(
     prev: dict[str, dict[str, Any]],
     curr: dict[str, dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Control-level pass/fail transitions only (no finding rows — use Findings for detail)."""
     newly_failed: list[dict[str, Any]] = []
     newly_passed: list[dict[str, Any]] = []
     for cid, cur in curr.items():
@@ -151,25 +151,84 @@ def _infra_event_counts_by_day(
 
 
 def _attach_infra_counts(events: list[dict[str, Any]], counts: dict[str, int]) -> None:
+    """Only surface infra counts when a scan changed control pass/fail (not baseline noise)."""
     for evt in events:
+        if evt.get("type") in {"baseline_established", "finding_resolved", "finding_excepted", "finding_reopened"}:
+            evt["infrastructure_events_count"] = 0
+            continue
+        diff = evt.get("diff") or {}
+        has_control_flip = bool(diff.get("newly_failed")) or bool(diff.get("newly_passed"))
+        if not has_control_flip:
+            evt["infrastructure_events_count"] = 0
+            continue
         day = evt["timestamp"][:10]
         evt["infrastructure_events_count"] = counts.get(day, 0)
 
 
 def _period_summary(events: list[dict[str, Any]]) -> dict[str, int]:
+    change_events = [e for e in events if e.get("type") != "baseline_established"]
     controls_regressed = 0
     controls_improved = 0
-    for e in events:
-        if e.get("type") == "baseline_established":
-            continue
+    remediations = 0
+    findings_resolved = 0
+    for e in change_events:
         controls_regressed += len(e.get("diff", {}).get("newly_failed", []))
         controls_improved += len(e.get("diff", {}).get("newly_passed", []))
+        findings_resolved += int(e.get("findings_resolved") or 0)
+        if e.get("type") in {"finding_resolved", "finding_excepted"}:
+            remediations += 1
     return {
-        "compliance_changes": len(events),
+        "compliance_changes": len(change_events),
         "controls_regressed": controls_regressed,
         "controls_improved": controls_improved,
+        "remediation_events": remediations,
         "evidence_snapshots": len(events),
+        "findings_resolved": findings_resolved,
     }
+
+
+def _persistent_failing_controls(
+    snap: dict[str, dict[str, Any]] | None,
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    if not snap:
+        return []
+    failing = [
+        {
+            "control_id": cid,
+            "title": v["title"],
+            "open_finding_count": v.get("open_finding_count", 0),
+        }
+        for cid, v in snap.items()
+        if v.get("status") == "fail"
+    ]
+    failing.sort(key=lambda c: c.get("open_finding_count", 0), reverse=True)
+    return failing[:limit]
+
+
+def _scan_cadence(scan_runs: list[ScanRun], events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    posture_days: dict[str, int] = {}
+    for evt in events:
+        if evt.get("type") == "baseline_established":
+            continue
+        day = evt["timestamp"][:10]
+        posture_days[day] = posture_days.get(day, 0) + 1
+
+    days: dict[str, int] = {}
+    for run in scan_runs:
+        ts = run.finished_at or run.started_at
+        day = ts.date().isoformat()
+        days[day] = days.get(day, 0) + 1
+
+    return [
+        {
+            "date": day,
+            "scan_count": count,
+            "posture_change_count": posture_days.get(day, 0),
+        }
+        for day, count in sorted(days.items())
+    ]
 
 
 def _top_change(
@@ -245,6 +304,94 @@ def _event_type(
     return "scan_with_changes"
 
 
+def _finding_control_lookup(db: Session, framework: str, findings: list[Finding]) -> dict[uuid.UUID, dict[str, Any]]:
+    check_ids = sorted({f.check_id for f in findings})
+    if not check_ids:
+        return {}
+    rows = db.execute(
+        select(CheckControl.check_id, Control.control_id, Control.title)
+        .join(Control, CheckControl.control_id == Control.id)
+        .where(Control.framework == framework, CheckControl.check_id.in_(check_ids))
+    ).all()
+    by_check: dict[str, dict[str, Any]] = {}
+    for check_id, control_id, title in rows:
+        by_check.setdefault(check_id, {"control_id": control_id, "title": title})
+    return {f.id: by_check[f.check_id] for f in findings if f.check_id in by_check}
+
+
+def _finding_events(
+    db: Session,
+    *,
+    account_id: uuid.UUID,
+    framework: str,
+    findings: list[Finding],
+    since: datetime,
+    limit: int,
+) -> list[dict[str, Any]]:
+    finding_ids = [f.id for f in findings]
+    if not finding_ids:
+        return []
+    lookup = _finding_control_lookup(db, framework, findings)
+    fmap = {f.id: f for f in findings}
+    rows = db.scalars(
+        select(FindingEvent)
+        .where(FindingEvent.finding_id.in_(finding_ids), FindingEvent.ts >= since)
+        .where(FindingEvent.action.in_(["resolved", "excepted", "reopened"]))
+        .order_by(FindingEvent.ts.desc())
+        .limit(limit)
+    ).all()
+    out: list[dict[str, Any]] = []
+    for evt in rows:
+        finding = fmap.get(evt.finding_id)
+        if not finding:
+            continue
+        control = lookup.get(evt.finding_id)
+        event_type = {
+            "resolved": "finding_resolved",
+            "excepted": "finding_excepted",
+            "reopened": "finding_reopened",
+        }.get(evt.action, "finding_updated")
+        positive = evt.action in {"resolved", "excepted"}
+        out.append(
+            {
+                "type": event_type,
+                "timestamp": evt.ts.isoformat(),
+                "scan_run_id": f"event-{evt.id}",
+                "framework": framework,
+                "posture_before": None,
+                "posture_after": None,
+                "controls_failed_before": None,
+                "controls_failed_after": 0,
+                "controls_passed_before": None,
+                "controls_passed_after": 0,
+                "new_failures_count": 0 if positive else 1,
+                "resolved_count": 1 if positive else 0,
+                "findings_opened": 0 if positive else 1,
+                "findings_resolved": 1 if positive else 0,
+                "resource_arn": finding.resource_arn,
+                "check_id": finding.check_id,
+                "detail": evt.note or finding.title,
+                "snapshot": _snapshot_summary(
+                    {"controls_passed": 0, "controls_failed": 0, "controls_no_data": 0, "controls_total": 0},
+                    None,
+                    findings_opened=0 if positive else 1,
+                    findings_resolved=1 if positive else 0,
+                ),
+                "top_change": {
+                    "control_id": control.get("control_id") if control else None,
+                    "title": control.get("title") if control else finding.title,
+                    "direction": "improved" if positive else "regressed",
+                    "label": "Finding resolved" if evt.action == "resolved" else "Exception recorded" if evt.action == "excepted" else "Finding reopened",
+                },
+                "diff": {
+                    "newly_failed": [] if positive or not control else [control],
+                    "newly_passed": [control] if positive and control else [],
+                },
+            }
+        )
+    return out
+
+
 def build_compliance_scan_timeline(
     db: Session,
     account_id: uuid.UUID,
@@ -252,7 +399,7 @@ def build_compliance_scan_timeline(
     days: int = 90,
     limit: int = 40,
 ) -> dict[str, Any]:
-    """One history entry per scan that changed compliance posture (plus baseline)."""
+    """One history entry per scan that changed compliance posture, plus resolved finding events."""
     since = datetime.now(timezone.utc) - timedelta(days=days)
     catalog = _control_catalog(db, framework)
     if not catalog:
@@ -264,12 +411,16 @@ def build_compliance_scan_timeline(
                 "compliance_changes": 0,
                 "controls_regressed": 0,
                 "controls_improved": 0,
+                "remediation_events": 0,
                 "evidence_snapshots": 0,
+                "findings_resolved": 0,
             },
             "current_summary": None,
             "current_posture_score": None,
             "total_failing": 0,
             "scan_count": 0,
+            "scan_cadence": [],
+            "persistent_gaps": [],
         }
 
     findings = list(db.scalars(select(Finding).where(Finding.account_id == account_id)).all())
@@ -404,7 +555,8 @@ def build_compliance_scan_timeline(
         )
         prev_snap = snap
 
-    events.reverse()
+    events.extend(_finding_events(db, account_id=account_id, framework=framework, findings=findings, since=since, limit=limit))
+    events.sort(key=lambda e: e["timestamp"], reverse=True)
     events = events[:limit]
 
     infra_counts = _infra_event_counts_by_day(db, account_id, since)
@@ -417,6 +569,11 @@ def build_compliance_scan_timeline(
         current_summary = _counts(last_snap)
         current_posture_score = _posture_score(current_summary)
         total_failing = current_summary["controls_failed"]
+        if scan_runs:
+            as_of = scan_runs[-1].finished_at or scan_runs[-1].started_at
+            current_summary["open_findings_count"] = _open_findings_count(
+                findings, events_by_finding, as_of
+            )
 
     return {
         "framework": framework,
@@ -426,5 +583,7 @@ def build_compliance_scan_timeline(
         "current_summary": current_summary,
         "current_posture_score": current_posture_score,
         "total_failing": total_failing,
+        "persistent_gaps": _persistent_failing_controls(last_snap),
         "scan_count": len(scan_runs),
+        "scan_cadence": _scan_cadence(scan_runs, events),
     }

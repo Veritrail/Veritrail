@@ -2,22 +2,28 @@
   {
     "framework": "soc2",
     "control_id": "CC6.1",
-    "title": "Logical Access \u2014 Asset Inventory",
+    "title": "Logical Access — Asset Inventory",
     "description": "The entity implements logical access security software, infrastructure, and architectures over protected information assets to protect them from security events to meet the entity's objectives.",
     "guidance": "Evidence: IAM user inventory, role inventory, access key list with last-used dates. All principals should be accounted for and actively used.",
     "checks": [
-      "iam.user.inactive_90d",
+      "iam.user.credentials_unused_45d",
       "iam.role.unassumed_90d",
-      "iam.access_key.unused_90d",
+      "iam.access_key.unused_45d",
       "iam.access_inventory_gap",
       "github.org.dormant_members",
-      "gitlab.org.dormant_members"
+      "gitlab.org.dormant_members",
+      "cloudtrail.event.iam_user_policy_attachment",
+      "cloudtrail.event.s3_bucket_policy_change",
+      "cloudtrail.event.kms_key_disabled_or_deleted",
+      "cloudtrail.event.iam_access_key_created",
+      "cloudtrail.event.s3_public_access_block_disabled",
+      "cloudtrail.event.rds_instance_created_or_modified"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC6.2",
-    "title": "Logical Access \u2014 Credential Registration",
+    "title": "Logical Access — Credential Registration",
     "description": "Prior to issuing system credentials and granting system access, the entity registers and authorizes new internal and external users whose access is administered by the entity.",
     "guidance": "Evidence: No root access keys present. Each user holds at most one active access key. Programmatic access is scoped to purpose.",
     "checks": [
@@ -34,25 +40,27 @@
   {
     "framework": "soc2",
     "control_id": "CC6.3",
-    "title": "Logical Access \u2014 Access Removal",
+    "title": "Logical Access — Access Removal",
     "description": "The entity removes access to protected information assets when appropriate (e.g., the individual is no longer associated with the entity).",
     "guidance": "Evidence: No IAM users inactive beyond threshold. No access keys unused beyond threshold. No roles unassumed beyond threshold. Root account not used for routine operations.",
     "checks": [
-      "iam.user.inactive_90d",
-      "iam.access_key.unused_90d",
+      "iam.user.credentials_unused_45d",
+      "iam.access_key.unused_45d",
       "iam.role.unassumed_90d",
       "iam.user.direct_policy_attachment",
       "iam.role.unused_services_90d",
       "iam.policy.wildcard_resource",
       "iam.root.usage",
       "github.org.dormant_members",
-      "gitlab.org.dormant_members"
+      "gitlab.org.dormant_members",
+      "cloudtrail.event.iam_user_policy_attachment",
+      "cloudtrail.event.iam_role_policy_mutation"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC6.6",
-    "title": "Logical Access \u2014 External Threat Controls",
+    "title": "Logical Access — External Threat Controls",
     "description": "The entity implements logical access security measures to protect against threats from sources outside its system boundaries, including MFA enforcement, least privilege, and network perimeter controls.",
     "guidance": "Evidence: MFA enabled for root and all IAM console users. No wildcard Action in role policies. No wildcard trust principals. S3 public access blocked. No security groups allow unrestricted SSH or RDP. RDS instances are not publicly accessible.",
     "checks": [
@@ -84,13 +92,14 @@
       "ec2.ami.public",
       "s3.bucket.no_default_encryption",
       "elb.load_balancer.weak_tls_policy",
-      "dynamodb.table.no_encryption"
+      "dynamodb.table.no_encryption",
+      "cloudtrail.event.security_group_open_to_world"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC6.7",
-    "title": "Logical Access \u2014 Transmission Encryption",
+    "title": "Logical Access — Transmission Encryption",
     "description": "The entity restricts the transmission of confidential information to authorized internal and external users and protects it during transmission.",
     "guidance": "Evidence: S3 buckets enforce HTTPS-only via bucket policy (aws:SecureTransport condition).",
     "checks": [
@@ -100,7 +109,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.8",
-    "title": "Logical Access \u2014 Encryption at Rest",
+    "title": "Logical Access — Encryption at Rest",
     "description": "The entity implements controls to prevent unauthorized access to data at rest through encryption of storage resources.",
     "guidance": "Evidence: S3 buckets encrypted with KMS. KMS keys have automatic annual rotation enabled. RDS instances and EBS volumes have storage encryption enabled.",
     "checks": [
@@ -119,7 +128,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.1",
-    "title": "System Operations \u2014 Configuration Change Detection",
+    "title": "System Operations — Configuration Change Detection",
     "description": "To meet its objectives, the entity uses detection and monitoring procedures to identify changes to configurations that result in the introduction of new vulnerabilities.",
     "guidance": "Evidence: CloudTrail enabled with log file validation and KMS encryption in all regions.",
     "checks": [
@@ -132,13 +141,20 @@
       "aws.config.not_enabled",
       "aws.config.rules_non_compliant",
       "acm.certificate.expiring",
-      "lambda.function.deprecated_runtime"
+      "lambda.function.deprecated_runtime",
+      "cloudtrail.event.root_activity",
+      "cloudtrail.event.trail_tampering",
+      "cloudtrail.event.guardduty_disabled",
+      "cloudtrail.event.config_recorder_stopped",
+      "cloudtrail.event.ec2_instance_tampering",
+      "cloudtrail.event.iam_role_policy_mutation",
+      "cloudtrail.event.lambda_function_created_or_modified"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC7.2",
-    "title": "System Operations \u2014 Anomaly Detection",
+    "title": "System Operations — Anomaly Detection",
     "description": "The entity monitors system components and the operation of those components for anomalies that are indicative of malicious acts, natural disasters, and errors affecting the entity's ability to meet its objectives.",
     "guidance": "Evidence: GuardDuty and Security Hub enabled in all regions. VPC Flow Logs enabled on all VPCs. Lambda functions have Dead Letter Queues configured so failed invocations are captured.",
     "checks": [
@@ -149,13 +165,14 @@
       "vpc.flow_logs.not_enabled",
       "s3.bucket.no_logging",
       "elb.load_balancer.no_access_logs",
-      "lambda.function.no_dlq"
+      "lambda.function.no_dlq",
+      "cloudtrail.event.anomalous_api_volume"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC8.1",
-    "title": "Change Management \u2014 Authorized Changes",
+    "title": "Change Management — Authorized Changes",
     "description": "The entity authorizes, approves, and communicates changes to infrastructure, data, software, and procedures to meet its change management objectives.",
     "guidance": "Evidence: Branch protection on default branches. Required PR approvals before merge. No self-merges. Protected deployment environments require designated approvers.",
     "checks": [
@@ -174,7 +191,9 @@
     "title": "Maintain current contact details",
     "description": "AWS account contact information must be current for billing and security notifications.",
     "guidance": "Complete primary contact in AWS Console → Account → Contact information.",
-    "checks": ["aws.account.contact_incomplete"]
+    "checks": [
+      "aws.account.contact_incomplete"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -182,7 +201,9 @@
     "title": "Ensure security contact information is registered",
     "description": "A security alternate contact receives security notifications from AWS.",
     "guidance": "Register SECURITY alternate contact with email and phone in Account settings.",
-    "checks": ["aws.account.security_contact_missing"]
+    "checks": [
+      "aws.account.security_contact_missing"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -190,7 +211,9 @@
     "title": "Ensure no root user access key exists",
     "description": "The root account is the most privileged AWS account. Access keys provide programmatic access and should not exist on root.",
     "guidance": "Delete any root access keys. Use IAM roles for programmatic access.",
-    "checks": ["iam.root.has_access_keys"]
+    "checks": [
+      "iam.root.has_access_keys"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -198,7 +221,9 @@
     "title": "Ensure MFA is enabled for the root user",
     "description": "Multi-factor authentication adds an extra layer of protection on the root account.",
     "guidance": "Enable MFA on the root account (hardware MFA preferred for root).",
-    "checks": ["iam.root.no_mfa"]
+    "checks": [
+      "iam.root.no_mfa"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -214,15 +239,9 @@
     "title": "Eliminate use of the root user for administrative tasks",
     "description": "Root user activity should be rare and auditable.",
     "guidance": "Use IAM users and roles for daily operations; monitor CloudTrail for root usage.",
-    "checks": ["iam.root.usage"]
-  },
-  {
-    "framework": "cis_aws_l1",
-    "control_id": "1.7",
-    "title": "Ensure IAM password policy requires minimum length of 14 or greater",
-    "description": "IAM password policies enforce complexity and minimum length for console users.",
-    "guidance": "Set MinimumPasswordLength to 14 or greater in the account password policy.",
-    "checks": ["iam.account.password_policy_weak"]
+    "checks": [
+      "iam.root.usage"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -238,11 +257,11 @@
     "framework": "cis_aws_l1",
     "control_id": "1.11",
     "title": "Ensure credentials unused for 45 days or greater are disabled",
-    "description": "AWS IAM users can access AWS resources using different types of credentials. It is recommended that all credentials that have been unused in 90 or more days be deactivated or removed.",
-    "guidance": "Disable or remove IAM users with no console activity in 90+ days. Deactivate access keys unused for 90+ days, then delete after confirming no dependency.",
+    "description": "AWS IAM users can access AWS resources using different types of credentials. CIS requires that credentials unused for 45 days or greater are disabled.",
+    "guidance": "Disable or remove IAM users with no console activity in 45+ days. Deactivate access keys unused for 45+ days, then delete after confirming no dependency. Vigil detects against the CIS 45-day threshold; deactivation is performed in your AWS account.",
     "checks": [
-      "iam.user.inactive_90d",
-      "iam.access_key.unused_90d"
+      "iam.user.credentials_unused_45d",
+      "iam.access_key.unused_45d"
     ]
   },
   {
@@ -384,8 +403,8 @@
     "description": "Implement a formal user registration and de-registration process for granting and revoking access to all systems and services.",
     "guidance": "Evidence: IAM users are active and accounted for. Inactive users beyond 90 days are deprovisioned. Access keys are deactivated when no longer needed.",
     "checks": [
-      "iam.user.inactive_90d",
-      "iam.access_key.unused_90d"
+      "iam.user.credentials_unused_45d",
+      "iam.access_key.unused_45d"
     ]
   },
   {
@@ -399,7 +418,8 @@
       "iam.user.no_mfa",
       "iam.account.password_policy_weak",
       "secretsmanager.secret.no_rotation",
-      "ssm.parameter.plaintext_secret"
+      "ssm.parameter.plaintext_secret",
+      "cloudtrail.event.iam_access_key_created"
     ]
   },
   {
@@ -415,7 +435,8 @@
       "iam.role.trust_wildcard",
       "iam.role.unused_services_90d",
       "iam.policy.wildcard_resource",
-      "iam.access_key.no_rotation_90d"
+      "iam.access_key.no_rotation_90d",
+      "cloudtrail.event.iam_role_policy_mutation"
     ]
   },
   {
@@ -457,7 +478,8 @@
       "ec2.ebs.snapshot_unencrypted",
       "dynamodb.table.no_encryption",
       "sns.topic.no_encryption",
-      "sqs.queue.no_encryption"
+      "sqs.queue.no_encryption",
+      "cloudtrail.event.kms_key_disabled_or_deleted"
     ]
   },
   {
@@ -475,7 +497,10 @@
       "cloudtrail.trail.no_cloudwatch_logs",
       "cloudtrail.trail.s3_bucket_no_logging",
       "elb.load_balancer.no_access_logs",
-      "lambda.function.no_dlq"
+      "lambda.function.no_dlq",
+      "cloudtrail.event.trail_tampering",
+      "cloudtrail.event.config_recorder_stopped",
+      "cloudtrail.event.anomalous_api_volume"
     ]
   },
   {
@@ -488,7 +513,8 @@
       "cloudtrail.trail.no_log_validation",
       "cloudtrail.trail.no_kms",
       "cloudtrail.trail.s3_bucket_public",
-      "cloudtrail.trail.s3_bucket_no_logging"
+      "cloudtrail.trail.s3_bucket_no_logging",
+      "cloudtrail.event.trail_tampering"
     ]
   },
   {
@@ -504,7 +530,10 @@
       "ec2.instance.imdsv2_not_required",
       "acm.certificate.expiring",
       "lambda.function.deprecated_runtime",
-      "ec2.ami.aged"
+      "ec2.ami.aged",
+      "cloudtrail.event.guardduty_disabled",
+      "cloudtrail.event.ec2_instance_tampering",
+      "cloudtrail.event.rds_instance_created_or_modified"
     ]
   },
   {
@@ -517,7 +546,8 @@
       "ec2.security_group.unrestricted_ssh",
       "ec2.security_group.unrestricted_rdp",
       "ec2.security_group.default_allows_traffic",
-      "vpc.flow_logs.not_enabled"
+      "vpc.flow_logs.not_enabled",
+      "cloudtrail.event.security_group_open_to_world"
     ]
   },
   {
@@ -696,7 +726,9 @@
     "title": "Ensure expired SSL/TLS certificates in IAM are removed",
     "description": "IAM server certificates past expiration should be removed.",
     "guidance": "Delete expired server certificates in IAM → Server certificates.",
-    "checks": ["iam.server_certificate.expired"]
+    "checks": [
+      "iam.server_certificate.expired"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -704,7 +736,9 @@
     "title": "Ensure IAM password policy expires passwords within 90 days",
     "description": "Password maximum age limits credential lifetime.",
     "guidance": "Set MaxPasswordAge to 90 or fewer days in the account password policy.",
-    "checks": ["iam.account.password_policy_weak"]
+    "checks": [
+      "iam.account.password_policy_weak"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -712,7 +746,9 @@
     "title": "Ensure access to AWSCloudShellFullAccess is restricted",
     "description": "CloudShell full access should not be attached broadly to users or roles.",
     "guidance": "Detach AWSCloudShellFullAccess except break-glass principals.",
-    "checks": ["iam.cloudshell_full_access_granted"]
+    "checks": [
+      "iam.cloudshell_full_access_granted"
+    ]
   },
   {
     "framework": "cis_aws_l1",
@@ -720,7 +756,9 @@
     "title": "Ensure no customer-managed policy allows full admin (*:*)",
     "description": "Customer-managed policies must not grant Action:* with Resource:*.",
     "guidance": "Replace full-admin customer policies with scoped permissions.",
-    "checks": ["iam.role.full_admin_policy"]
+    "checks": [
+      "iam.role.full_admin_policy"
+    ]
   },
   {
     "framework": "iso27001",
@@ -742,6 +780,38 @@
     "guidance": "Evidence: RDS instances are deployed with Multi-AZ for automatic failover and high availability. Single-AZ deployments create a single point of failure.",
     "checks": [
       "rds.instance.no_multi_az"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.9.2.3",
+    "title": "Management of Privileged Access Rights",
+    "description": "The allocation and use of privileged access rights should be restricted and controlled. Root API calls must be exceptional and reviewed.",
+    "guidance": "Evidence: CloudTrail event analysis detects root actor API calls. Direct user policy attachments bypassing group/role model are also monitored.",
+    "checks": [
+      "cloudtrail.event.root_activity",
+      "cloudtrail.event.iam_user_policy_attachment"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.9.4.1",
+    "title": "Information Access Restriction",
+    "description": "Access to information and application system functions shall be restricted in accordance with the access control policy. S3 bucket policy/ACL changes and public access block removal must be monitored.",
+    "guidance": "Evidence: CloudTrail event analysis detects S3 bucket policy changes, public access block removal, and other data exposure events.",
+    "checks": [
+      "cloudtrail.event.s3_bucket_policy_change",
+      "cloudtrail.event.s3_public_access_block_disabled"
+    ]
+  },
+  {
+    "framework": "iso27001",
+    "control_id": "A.12.1.2",
+    "title": "Change Management",
+    "description": "The organization shall control changes to information processing facilities, including Lambda function creation/modification.",
+    "guidance": "Evidence: CloudTrail event analysis detects CreateFunction and UpdateFunctionConfiguration calls alongside other infrastructure changes.",
+    "checks": [
+      "cloudtrail.event.lambda_function_created_or_modified"
     ]
   }
 ]

@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+upload-cfn.sh
+upload-cfn.credentials.sh
 __pycache__/
 *.pyc
 .venv/
@@ -15,6 +17,9 @@ build/
 .vscode/
 celerybeat-schedule
 celerybeat-schedule.*
-openclaw-summary.txt
+
+
+
 information.md
 deepsearch/
+todo.txt

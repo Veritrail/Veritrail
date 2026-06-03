@@ -12,6 +12,10 @@ from app.core.security import current_principal
 from app.models import Finding, FindingEvent, AwsAccount
 from app.models.org import Org
 from app.services.check_settings import hidden_check_ids
+from app.services.finding_supersession import (
+    RETIRED_FINDING_CHECKS,
+    resolve_retired_for_resource,
+)
 
 router = APIRouter()
 
@@ -100,7 +104,7 @@ def list_findings(
 ):
     org_id = uuid.UUID(p["org_id"])
     org = db.get(Org, org_id)
-    hidden = hidden_check_ids(org.settings if org else {})
+    hidden = hidden_check_ids(org.settings if org else {}) | RETIRED_FINDING_CHECKS
 
     base_q = select(Finding).where(Finding.org_id == org_id)
     if hidden:
@@ -160,9 +164,11 @@ def resolve(finding_id: str, body: ResolveIn, p=Depends(current_principal), db: 
             "Confirm verification before resolving (re-scan or manual check)",
         )
     f = _get_owned(db, p, finding_id)
+    now = datetime.now(timezone.utc)
     f.status = "resolved"
-    f.resolved_at = datetime.now(timezone.utc)
+    f.resolved_at = now
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="resolved", actor=p["sub"], note=body.note))
+    resolve_retired_for_resource(db, canonical=f, now=now, actor=p["sub"])
     db.commit()
     return _to_out(f)
 
@@ -209,7 +215,7 @@ def create_exception(finding_id: str, body: ExceptionIn, p=Depends(current_princ
 
 @router.get("/{finding_id}/remediation-plan")
 def remediation_plan(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
-    """Customer-hosted remediation plan (Vigil stays read-only)."""
+    """Customer-hosted remediation plan preview (no execution)."""
     from app.services.remediation_plan import build_remediation_plan
 
     f = _get_owned(db, p, finding_id)
@@ -290,6 +296,9 @@ def get_remediation_execution(finding_id: str, p=Depends(current_principal), db:
 
     from app.models.remediation_execution import RemediationExecution
 
+    from app.models import AwsAccount
+    from app.services.remediation_execution_sync import sync_remediation_execution_from_ssm
+
     f = _get_owned(db, p, finding_id)
     row = db.scalar(
         select(RemediationExecution)
@@ -299,6 +308,11 @@ def get_remediation_execution(finding_id: str, p=Depends(current_principal), db:
     )
     if not row:
         return {"status": "none"}
+    acc = db.get(AwsAccount, row.account_id)
+    sync_meta: dict = {}
+    if acc and acc.role_arn:
+        row, sync_meta = sync_remediation_execution_from_ssm(db, row=row, account=acc)
+    result = row.result_json if isinstance(row.result_json, dict) else {}
     return {
         "plan_id": row.plan_id,
         "status": row.status,
@@ -306,12 +320,24 @@ def get_remediation_execution(finding_id: str, p=Depends(current_principal), db:
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
         "result": row.result_json,
         "error": row.error,
+        "automation_execution_id": result.get("automation_execution_id"),
+        "ssm_status": sync_meta.get("ssm_status") or result.get("ssm_status"),
+        "status_sync": sync_meta or None,
     }
 
 
+class RemediationDispatchIn(BaseModel):
+    execute: bool = False
+
+
 @router.post("/{finding_id}/remediation/dispatch")
-def remediation_dispatch(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
-    """EventBridge + CLI payload for customer-hosted Lambda remediation."""
+def remediation_dispatch(
+    finding_id: str,
+    body: RemediationDispatchIn = RemediationDispatchIn(),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Approve remediation plan; start SSM Automation only when body.execute is true."""
     from app.services.remediation_dispatch import build_remediation_dispatch
 
     f = _get_owned(db, p, finding_id)
@@ -321,15 +347,178 @@ def remediation_dispatch(finding_id: str, p=Depends(current_principal), db: Sess
         approved_by=str(approved_by),
         db=db,
         org_id=uuid.UUID(p["org_id"]),
+        execute=body.execute,
+    )
+
+
+class TriageTriggerResponse(BaseModel):
+    queued: bool = False
+    result: dict | None = None
+    ai_triage_enabled: bool = False
+
+
+class TriageResultOut(BaseModel):
+    id: str
+    finding_id: str
+    confidence_score: float
+    rationale: str
+    suggested_action: str
+    model_version: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+def _triage_api_response(finding, row, *, llm_configured: bool) -> dict:
+    from app.services.ai_triage_store import triage_row_to_api
+    from app.services.ai_finding_review import heuristic_triage_payload, LOCAL_MODEL_VERSION
+
+    if row:
+        result = triage_row_to_api(row)
+        review_mode = "llm" if row.model_version != LOCAL_MODEL_VERSION else "local"
+    else:
+        result = heuristic_triage_payload(finding)
+        review_mode = "local"
+    return {
+        "ai_triage_enabled": True,
+        "llm_configured": llm_configured,
+        "review_mode": review_mode,
+        "result": result,
+    }
+
+
+@router.get("/{finding_id}/triage", response_model=TriageResultOut | dict)
+def get_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+    """Fetch the latest AI triage result for a finding."""
+    from app.models.ai_triage import AITriageResult
+    from app.models.org import Org
+    from app.services.ai_finding_review import llm_triage_available, org_ai_finding_review_enabled
+
+    finding = _get_owned(db, p, finding_id)
+    org = db.get(Org, finding.org_id)
+    if not org_ai_finding_review_enabled(org):
+        return {"ai_triage_enabled": False, "llm_configured": False}
+
+    row = db.scalar(
+        select(AITriageResult)
+        .where(AITriageResult.finding_id == uuid.UUID(finding_id))
+        .order_by(AITriageResult.created_at.desc())
+        .limit(1)
+    )
+    llm_ready = llm_triage_available()
+    if row:
+        return _triage_api_response(finding, row, llm_configured=llm_ready)
+    if not llm_ready:
+        return _triage_api_response(finding, None, llm_configured=False)
+    return {"ai_triage_enabled": True, "llm_configured": True, "review_mode": "llm", "result": None}
+
+
+@router.post("/{finding_id}/triage", response_model=TriageTriggerResponse)
+def trigger_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+    """Manually trigger AI triage for a single finding."""
+    from app.models.org import Org
+    from app.services.ai_finding_review import (
+        heuristic_triage_payload,
+        llm_triage_available,
+        org_ai_finding_review_enabled,
+        LOCAL_MODEL_VERSION,
+    )
+    from app.services.ai_triage_store import save_triage_result, triage_row_to_api
+
+    finding = _get_owned(db, p, finding_id)
+    org = db.get(Org, finding.org_id)
+    if not org_ai_finding_review_enabled(org):
+        return TriageTriggerResponse(queued=False, ai_triage_enabled=False)
+
+    if not llm_triage_available():
+        payload = heuristic_triage_payload(finding)
+        row = save_triage_result(
+            db,
+            finding,
+            confidence_score=payload["confidence_score"],
+            rationale=payload["rationale"],
+            suggested_action=payload["suggested_action"],
+            model_version=LOCAL_MODEL_VERSION,
+        )
+        return TriageTriggerResponse(
+            queued=False,
+            ai_triage_enabled=True,
+            result={"review_mode": "local", **triage_row_to_api(row)},
+        )
+
+    from app.worker.tasks import ai_triage_single_finding
+
+    task = ai_triage_single_finding.delay(finding_id)
+    return TriageTriggerResponse(
+        queued=True,
+        ai_triage_enabled=True,
+        result={"task_id": task.id, "review_mode": "llm"},
+    )
+
+
+@router.post("/bulk-triage", response_model=TriageTriggerResponse)
+def bulk_triage(
+    account_id: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Triage all un-triaged findings for an org (or a specific account)."""
+    from app.services.ai_finding_review import llm_triage_available, org_ai_finding_review_enabled
+
+    org = db.get(Org, uuid.UUID(p["org_id"]))
+    if not org_ai_finding_review_enabled(org):
+        return TriageTriggerResponse(queued=False, ai_triage_enabled=False)
+
+    if not llm_triage_available():
+        return TriageTriggerResponse(
+            queued=False,
+            ai_triage_enabled=True,
+            result={"review_mode": "local", "message": "Bulk triage uses rules-based review per finding in the drawer."},
+        )
+
+    if account_id:
+        acc = db.get(AwsAccount, uuid.UUID(account_id))
+        if not acc or str(acc.org_id) != p["org_id"]:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+
+    from app.worker.tasks import ai_triage_task
+
+    org_id = uuid.UUID(p["org_id"])
+    accounts = db.scalars(
+        select(AwsAccount).where(
+            AwsAccount.org_id == org_id,
+            AwsAccount.status == "connected",
+            *([AwsAccount.id == uuid.UUID(account_id)] if account_id else []),
+        )
+    ).all()
+
+    task_ids = []
+    for acc in accounts:
+        task = ai_triage_task.delay(str(acc.id))
+        task_ids.append(task.id)
+
+    return TriageTriggerResponse(
+        queued=len(accounts) > 0,
+        ai_triage_enabled=True,
+        result={"task_ids": task_ids, "accounts_queued": len(accounts)},
     )
 
 
 @router.post("/{finding_id}/recheck")
 def recheck(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+    from app.services.fast_finding_recheck import try_fast_finding_recheck
     from app.worker.tasks import recheck_finding
+
     f = _get_owned(db, p, finding_id)
     acc = db.get(AwsAccount, f.account_id)
     if not acc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+
+    actor = p.get("sub") or p.get("email") or "system"
+    fast = try_fast_finding_recheck(db, account=acc, finding=f, actor=str(actor))
+    if fast.get("checked"):
+        return fast
+
     recheck_finding.delay(str(acc.id), f.check_id)
     return {"queued": True, "check_id": f.check_id}

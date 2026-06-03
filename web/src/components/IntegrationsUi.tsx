@@ -303,6 +303,38 @@ export function SlackMark({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+export function GcpMark({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
+      <path d="M12.02 10.18v3.72l3.32 1.92c.64-1.18 1.01-2.53 1.01-3.96 0-.52-.05-1.03-.14-1.52l-4.19-2.42v1.26zm-1.96-3.38L6.4 8.77A7.96 7.96 0 0 0 4 12c0 1.44.38 2.79 1.05 3.96l3.97-2.29V10.2l4.04-2.33v1.33zM12 4c-1.73 0-3.33.48-4.7 1.31l3.97 2.29 2.73-1.58V4zm6.98 4.77-3.97 2.29 2.73 1.58A7.96 7.96 0 0 1 20 12c0-1.18-.26-2.3-.72-3.31l-.3-.92zM12 20a7.97 7.97 0 0 0 4.7-1.53l-3.97-2.29-2.73 1.58V20z" />
+    </svg>
+  );
+}
+
+export function AzureMark({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
+      <path d="M5.4 4.2h8.28l-1.02 5.58 5.94-2.78L8.9 19.8 7.2 12.6l-4.5 2.1L5.4 4.2z" />
+    </svg>
+  );
+}
+
+export function OktaMark({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
+      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3.2a6.8 6.8 0 1 1 0 13.6 6.8 6.8 0 0 1 0-13.6z" />
+    </svg>
+  );
+}
+
+export function PagerDutyMark({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
+      <path d="M12 2 4 6.5v11L12 22l8-4.5v-11L12 2zm0 3.2 5.2 2.9v5.8L12 16.8l-5.2-3V8.1L12 5.2z" />
+    </svg>
+  );
+}
+
 export function IconShield({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">

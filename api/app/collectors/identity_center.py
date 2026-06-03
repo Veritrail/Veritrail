@@ -85,7 +85,7 @@ def collect_identity_center(db: Session, account: AwsAccount) -> int:
 
 
 def list_permission_set_snapshots(account: AwsAccount) -> list[dict]:
-    """Read-only permission set metadata for evidence snapshots (no DB table in MVP)."""
+    """Read-only permission set metadata and account assignments for evidence snapshots."""
     sess = assume_role(
         account.role_arn,
         account.external_id,
@@ -107,6 +107,7 @@ def list_permission_set_snapshots(account: AwsAccount) -> list[dict]:
 
     for inst in instances:
         instance_arn = inst.get("InstanceArn")
+        identity_store_id = inst.get("IdentityStoreId")
         if not instance_arn:
             continue
         region = inst.get("Region", "us-east-1")
@@ -128,15 +129,67 @@ def list_permission_set_snapshots(account: AwsAccount) -> list[dict]:
                     ).get("PermissionSet", {})
                 except ClientError:
                     continue
+                assignments: list[dict] = []
+                account_ids: list[str] = []
+                try:
+                    account_token: str | None = None
+                    while True:
+                        account_kwargs: dict = {
+                            "InstanceArn": instance_arn,
+                            "PermissionSetArn": ps_arn,
+                            "MaxResults": 100,
+                        }
+                        if account_token:
+                            account_kwargs["NextToken"] = account_token
+                        account_page = admin.list_accounts_for_provisioned_permission_set(**account_kwargs)
+                        account_ids.extend(account_page.get("AccountIds", []))
+                        account_token = account_page.get("NextToken")
+                        if not account_token:
+                            break
+                except ClientError:
+                    account_ids = []
+
+                for aws_account_id in account_ids:
+                    try:
+                        assignment_token: str | None = None
+                        while True:
+                            assignment_kwargs: dict = {
+                                "InstanceArn": instance_arn,
+                                "AccountId": aws_account_id,
+                                "PermissionSetArn": ps_arn,
+                                "MaxResults": 100,
+                            }
+                            if assignment_token:
+                                assignment_kwargs["NextToken"] = assignment_token
+                            assignment_page = admin.list_account_assignments(**assignment_kwargs)
+                            for assignment in assignment_page.get("AccountAssignments", []):
+                                assignments.append(
+                                    _assignment_snapshot(
+                                        sess,
+                                        identity_store_id=identity_store_id,
+                                        region=region,
+                                        assignment=assignment,
+                                    )
+                                )
+                            assignment_token = assignment_page.get("NextToken")
+                            if not assignment_token:
+                                break
+                    except ClientError:
+                        continue
+
                 out.append(
                     {
                         "permission_set_arn": ps_arn,
                         "instance_arn": instance_arn,
+                        "identity_store_id": identity_store_id,
                         "region": region,
                         "name": desc.get("Name"),
                         "description": desc.get("Description"),
                         "session_duration": desc.get("SessionDuration"),
                         "relay_state": desc.get("RelayState"),
+                        "provisioned_account_ids": sorted(set(account_ids)),
+                        "account_assignments": assignments,
+                        "assignment_count": len(assignments),
                     }
                 )
             token = page.get("NextToken")
@@ -147,4 +200,43 @@ def list_permission_set_snapshots(account: AwsAccount) -> list[dict]:
         account_id=str(account.id),
         count=len(out),
     )
+    return out
+
+
+def _assignment_snapshot(
+    sess,
+    *,
+    identity_store_id: str | None,
+    region: str,
+    assignment: dict,
+) -> dict:
+    principal_id = assignment.get("PrincipalId")
+    principal_type = assignment.get("PrincipalType")
+    out = {
+        "account_id": assignment.get("AccountId"),
+        "permission_set_arn": assignment.get("PermissionSetArn"),
+        "principal_id": principal_id,
+        "principal_type": principal_type,
+    }
+    if not identity_store_id or not principal_id:
+        return out
+
+    try:
+        idstore = sess.client("identitystore", region_name=region)
+        if principal_type == "USER":
+            user = idstore.describe_user(IdentityStoreId=identity_store_id, UserId=principal_id)
+            emails = [e.get("Value") for e in user.get("Emails", []) if e.get("Value")]
+            out["principal"] = {
+                "user_name": user.get("UserName"),
+                "display_name": user.get("DisplayName"),
+                "email": emails[0] if emails else None,
+            }
+        elif principal_type == "GROUP":
+            group = idstore.describe_group(IdentityStoreId=identity_store_id, GroupId=principal_id)
+            out["principal"] = {
+                "display_name": group.get("DisplayName"),
+                "description": group.get("Description"),
+            }
+    except ClientError:
+        pass
     return out

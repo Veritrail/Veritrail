@@ -15,7 +15,10 @@ export type HistoryEventType =
   | "baseline_established"
   | "compliance_regressed"
   | "compliance_improved"
-  | "scan_with_changes";
+  | "scan_with_changes"
+  | "finding_resolved"
+  | "finding_excepted"
+  | "finding_reopened";
 
 export interface TopChange {
   control_id: string | null;
@@ -50,6 +53,9 @@ export interface HistoryEvent {
   findings_resolved: number;
   findings_discovered?: number;
   infrastructure_events_count?: number;
+  resource_arn?: string;
+  check_id?: string;
+  detail?: string;
   snapshot: SnapshotSummary;
   top_change: TopChange;
   diff: ScanDiff;
@@ -59,24 +65,41 @@ export interface PeriodSummary {
   compliance_changes: number;
   controls_regressed: number;
   controls_improved: number;
+  remediation_events?: number;
   evidence_snapshots: number;
+  findings_resolved: number;
 }
 
 export interface CurrentSummary {
   controls_passed: number;
   controls_failed: number;
   controls_no_data: number;
+  open_findings_count?: number;
+}
+
+export interface ScanCadenceDay {
+  date: string;
+  scan_count: number;
+  posture_change_count: number;
+}
+
+export interface PersistentGap {
+  control_id: string;
+  title: string;
+  open_finding_count: number;
 }
 
 export interface ComplianceHistoryResponse {
   framework: string;
   period_days: number;
   events: HistoryEvent[];
+  persistent_gaps?: PersistentGap[];
   period_summary?: PeriodSummary;
   current_summary?: CurrentSummary | null;
   current_posture_score: number | null;
   total_failing: number;
   scan_count?: number;
+  scan_cadence?: ScanCadenceDay[];
 }
 
 export function scanDateLabel(iso: string) {
