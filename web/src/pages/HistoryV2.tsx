@@ -54,11 +54,18 @@ type DrawerPayload = {
 };
 
 function ControlChip({ id, onClick }: { id: string; onClick?: () => void }) {
+  const base =
+    "inline-flex items-center rounded-md bg-zinc-50 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-inset ring-zinc-200/70";
+  // Rendered inside the ResourceGroup toggle button when non-interactive — a nested
+  // <button> is invalid DOM, so fall back to a <span> unless a handler is given.
+  if (!onClick) {
+    return <span className={base}>{id}</span>;
+  }
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center rounded-md bg-zinc-50 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-inset ring-zinc-200/70 transition hover:bg-zinc-100 hover:text-zinc-900"
+      className={`${base} transition hover:bg-zinc-100 hover:text-zinc-900`}
     >
       {id}
     </button>
