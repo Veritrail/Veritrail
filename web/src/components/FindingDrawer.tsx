@@ -88,8 +88,8 @@ const DRAWER_MAX_W = "max-w-[640px]";
 /** Resource label in drawer header (matches drawerFieldLabel). */
 const drawerFieldLabelBlock = drawerFieldLabel;
 const drawerFooterActionBase =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-medium transition active:scale-[0.98] disabled:pointer-events-none";
-const drawerFooterReopen = `${drawerFooterActionBase} border border-zinc-200 bg-white px-5 font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50`;
+  "flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-medium transition active:scale-[0.98] disabled:pointer-events-none";
+const drawerFooterReopen = `${drawerFooterActionBase} w-full border border-zinc-200 bg-white px-5 font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50`;
 const drawerFooterVerifySoft = `${drawerFooterActionBase} border border-emerald-200 bg-emerald-50 px-6 font-semibold text-emerald-700 shadow-[0_1px_2px_rgba(16,185,129,0.08)] hover:border-emerald-300 hover:bg-emerald-100/70 disabled:opacity-50`;
 const drawerFooterVerifyMuted = `${drawerFooterActionBase} border border-slate-200 bg-slate-50 px-5 font-medium text-slate-500 shadow-sm hover:border-slate-300 hover:bg-white hover:text-slate-700 disabled:opacity-45`;
 const drawerFooterVerifyPrimary = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-100/80 px-6 font-semibold text-emerald-800 shadow-[0_1px_2px_rgba(16,185,129,0.1)] hover:border-emerald-400 hover:bg-emerald-100 disabled:opacity-50`;
@@ -5197,37 +5197,25 @@ export function FindingDrawer({
     </div>
     <div className="shrink-0 border-t border-slate-200 bg-white/90 px-6 py-4 backdrop-blur pb-[max(1rem,env(safe-area-inset-bottom))]">
       {showReopenFooter ? (
-        <div className="flex justify-end">
-          <button type="button" onClick={() => onAction(finding.id, "reopen")} className={drawerFooterReopen}>
-            Reopen finding
-          </button>
-        </div>
+        <button type="button" onClick={() => onAction(finding.id, "reopen")} className={drawerFooterReopen}>
+          Reopen finding
+        </button>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="min-w-0 text-xs leading-snug text-slate-500 sm:max-w-[14rem]">
-            Review the finding before taking action
-          </p>
-          <div className="ml-auto flex shrink-0 items-center gap-3">
-            <ExceptionButton
-              findingId={finding.id}
-              onDone={onClose}
-              className={drawerFooterException}
-              sheetContainerRef={drawerSheetRef}
-            />
-            <button
-              type="button"
-              disabled={verifying || verified}
-              onClick={() => onAction(finding.id, "recheck")}
-              className={`${
-                verified
-                  ? drawerFooterVerifyDone
-                  : verifyFooterPrimary
-                    ? drawerFooterVerifyPrimary
-                    : verifyFooterMuted
-                      ? drawerFooterVerifyMuted
-                      : drawerFooterVerifySoft
-              } relative min-w-[8.5rem]`}
-            >
+        <div className="flex w-full gap-3">
+          <button
+            type="button"
+            disabled={verifying || verified}
+            onClick={() => onAction(finding.id, "recheck")}
+            className={`${
+              verified
+                ? drawerFooterVerifyDone
+                : verifyFooterPrimary
+                  ? drawerFooterVerifyPrimary
+                  : verifyFooterMuted
+                    ? drawerFooterVerifyMuted
+                    : drawerFooterVerifySoft
+            } relative`}
+          >
               <span className={`inline-flex items-center gap-2 ${verifying ? "invisible" : ""}`} aria-hidden={verifying}>
                 {!verified && (
                   <svg className="h-4 w-4 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -5257,8 +5245,13 @@ export function FindingDrawer({
                   <span>Verified</span>
                 </span>
               )}
-            </button>
-          </div>
+          </button>
+          <ExceptionButton
+            findingId={finding.id}
+            onDone={onClose}
+            className={drawerFooterException}
+            sheetContainerRef={drawerSheetRef}
+          />
         </div>
       )}
     </div>
