@@ -207,7 +207,7 @@ function FindingRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-end sm:pr-5">
+      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-end sm:pr-6">
         <RiskScoreDisplay score={topRisk} severity={sev} />
       </div>
     </button>
@@ -545,7 +545,7 @@ export default function FindingsV2() {
                       </svg>
                     ) : (
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 7.5V6A2.25 2.25 0 0 1 6 3.75h1.5M16.5 3.75H18A2.25 2.25 0 0 1 20.25 6v1.5M20.25 16.5V18A2.25 2.25 0 0 1 18 20.25h-1.5M7.5 20.25H6A2.25 2.25 0 0 1 3.75 18v-1.5" />
                       </svg>
                     )}
                   </span>
@@ -739,7 +739,7 @@ export default function FindingsV2() {
                 <span className="w-5" aria-hidden />
                 <span className="w-[5.5rem]">Severity</span>
                 <span>Finding</span>
-                <span className="w-16 pr-5 text-right">Risk</span>
+                <span className="w-16 pr-6 text-right">Risk</span>
               </div>
 
               <div className="divide-y divide-[#eef2f6]">

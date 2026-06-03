@@ -94,23 +94,32 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  height: 36px;
-  padding: 0 0.95rem 0 0.8rem;
-  border-radius: 9px;
+  height: 38px;
+  padding: 0 1.1rem 0 0.9rem;
+  border-radius: 12px;
   border: none;
-  background: var(--fv-primary);
+  background: linear-gradient(120deg, #3b82f6 0%, #6366f1 52%, #8b5cf6 100%);
   color: #ffffff;
   white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-  transition: background 0.14s ease;
+  box-shadow:
+    0 4px 14px -3px rgba(99, 102, 241, 0.45),
+    0 1px 2px rgba(59, 130, 246, 0.25);
+  transition:
+    box-shadow 0.16s ease,
+    transform 0.16s ease,
+    filter 0.16s ease;
 }
 
 .findings-v2-scan-btn:hover:not(:disabled) {
-  background: var(--fv-primary-hover);
+  filter: brightness(1.05) saturate(1.05);
+  box-shadow:
+    0 7px 20px -3px rgba(99, 102, 241, 0.55),
+    0 2px 5px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
 }
 
 .findings-v2-scan-btn:active:not(:disabled) {
-  background: #163b5c;
+  transform: translateY(0);
 }
 
 .findings-v2-scan-btn:disabled {
