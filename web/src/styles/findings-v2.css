@@ -226,48 +226,6 @@
   outline-offset: 2px;
 }
 
-.findings-v2-risk-score--critical {
-  color: #c45c52;
-}
-
-.findings-v2-risk-score--high {
-  color: #b8862e;
-}
-
-.findings-v2-risk-score--medium {
-  color: #9a8444;
-}
-
-.findings-v2-risk-score--low {
-  color: #6b849c;
-}
-
-.findings-v2-risk {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.75rem;
-}
-
-.findings-v2-risk-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fv-meta);
-  line-height: 1;
-}
-
-.findings-v2-risk-value {
-  margin-top: 3px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
 .findings-v2-toolbar-group {
   display: flex;
   flex-wrap: wrap;

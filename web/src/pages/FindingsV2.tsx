@@ -133,16 +133,20 @@ function SeverityIndicator({ severity }: { severity: string }) {
 }
 
 function RiskScoreDisplay({ score, severity }: { score: number; severity: string }) {
-  const scoreClass =
-    severity === "critical" || severity === "high" || severity === "medium" || severity === "low"
-      ? `findings-v2-risk-score--${severity}`
-      : "findings-v2-risk-score--low";
+  const numClass =
+    severity === "critical"
+      ? "text-red-700"
+      : severity === "high"
+        ? "text-amber-800"
+        : "text-zinc-500";
 
   return (
-    <div className="findings-v2-risk" aria-label={`Risk score ${score}`}>
-      <span className="findings-v2-risk-label">Risk</span>
-      <span className={`findings-v2-risk-value ${scoreClass}`}>{score}</span>
-    </div>
+    <span
+      aria-label={`Risk score ${score}`}
+      className={`inline-flex min-w-[2.5rem] items-center justify-center rounded-lg bg-zinc-100/70 px-2 py-1 text-[13px] font-bold tabular-nums ring-1 ring-zinc-200/60 ${numClass}`}
+    >
+      {score}
+    </span>
   );
 }
 
@@ -188,10 +192,10 @@ function FindingRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13.5px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] leading-tight text-[#6b7280]">
-          <span className="truncate font-mono">{resources.text}</span>
-          {resources.overflow > 0 && <span className="shrink-0 font-medium text-[#98a2b3]">+{resources.overflow}</span>}
+        <p className="truncate text-[14px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-[11.5px] leading-tight text-[#64748b]">
+          <span className="truncate font-mono font-medium">{resources.text}</span>
+          {resources.overflow > 0 && <span className="shrink-0 font-semibold text-[#94a3b8]">+{resources.overflow}</span>}
         </p>
       </div>
 
