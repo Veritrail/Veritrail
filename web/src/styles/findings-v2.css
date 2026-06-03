@@ -201,8 +201,7 @@
 }
 
 .findings-v2-row:hover {
-  background: linear-gradient(90deg, #eef3f9 0%, #f8fafc 44%);
-  box-shadow: inset 0 0 0 1px rgba(31, 78, 121, 0.04);
+  background: #f7f9fc;
 }
 
 .findings-v2-row:hover::before {
