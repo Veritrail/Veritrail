@@ -128,17 +128,17 @@ function SeverityIndicator({ severity }: { severity: string }) {
 }
 
 function RiskScoreDisplay({ score, severity }: { score: number; severity: string }) {
-  const numClass =
+  const tint =
     severity === "critical"
-      ? "text-red-700"
+      ? "bg-red-50 text-red-700 ring-red-200/60"
       : severity === "high"
-        ? "text-amber-800"
-        : "text-zinc-500";
+        ? "bg-amber-50 text-amber-700 ring-amber-200/60"
+        : "bg-zinc-100 text-zinc-600 ring-zinc-200/70";
 
   return (
     <span
       aria-label={`Risk score ${score}`}
-      className={`inline-flex min-w-[2.5rem] items-center justify-center rounded-lg bg-zinc-100/70 px-2 py-1 text-[13px] font-bold tabular-nums ring-1 ring-zinc-200/60 ${numClass}`}
+      className={`inline-flex h-7 w-14 items-center justify-center rounded-md text-sm font-bold tabular-nums leading-none ring-1 ${tint}`}
     >
       {score}
     </span>
@@ -184,7 +184,7 @@ function FindingRow({
     >
       <div className="hidden w-5 shrink-0 items-center justify-center sm:flex">
         <svg
-          className="h-3.5 w-3.5 text-zinc-300 transition-colors group-hover:text-[#1f4e79]"
+          className="h-3.5 w-3.5 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-[#1f4e79]"
           fill="none"
           stroke="currentColor"
           strokeWidth={2.5}

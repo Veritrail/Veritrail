@@ -14,6 +14,7 @@ import {
 } from "../lib/frameworkEvidenceCoverage";
 import { isAccountConnected } from "../lib/accountConnection";
 import { AccountSelect, LastScanChip } from "../components/AccountSelect";
+import NotificationsBell from "../components/NotificationsBell";
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
 
@@ -1209,12 +1210,17 @@ export default function Controls() {
     <div className="min-h-full bg-zinc-100/35">
     <div className="w-full px-8 py-8">
       <div className={`mb-4 ${exportOpen ? "relative z-[100]" : ""}`}>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {connectedAccounts.length > 0 && activeAccount && (
-            <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
-          )}
-          {activeAccount?.last_scan_at && <LastScanChip iso={activeAccount.last_scan_at} />}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {connectedAccounts.length > 0 && activeAccount && (
+                <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
+              )}
+              {activeAccount?.last_scan_at && <LastScanChip iso={activeAccount.last_scan_at} />}
+            </div>
+          </div>
+          <NotificationsBell />
         </div>
       </div>
 

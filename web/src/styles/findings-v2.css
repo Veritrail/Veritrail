@@ -172,7 +172,7 @@
   width: 100%;
   background: #ffffff;
   text-align: left;
-  transition: background 0.15s ease;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .findings-v2-row--critical {
@@ -197,10 +197,16 @@
   bottom: 0;
   width: 2px;
   background: var(--rail);
+  transition: width 0.18s ease;
 }
 
 .findings-v2-row:hover {
-  background: #f8fafc;
+  background: linear-gradient(90deg, #eef3f9 0%, #f8fafc 44%);
+  box-shadow: inset 0 0 0 1px rgba(31, 78, 121, 0.04);
+}
+
+.findings-v2-row:hover::before {
+  width: 3px;
 }
 
 .findings-v2-row:focus-visible {
