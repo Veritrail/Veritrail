@@ -186,7 +186,12 @@ function FindingRow({
 
       <div className="flex shrink-0 items-center justify-end">
         <span className="findings-v2-review-btn" aria-hidden>
-          Review <span>→</span>
+          <span>Review</span>
+          <span className="findings-v2-review-btn-chevron">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </span>
         </span>
       </div>
     </button>

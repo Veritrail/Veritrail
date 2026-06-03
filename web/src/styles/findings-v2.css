@@ -89,20 +89,17 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-/* Scan — soft sky shell + saturated icon chip */
+/* Scan — segmented: Vigil navy rail + soft sky label panel */
 .findings-v2-scan-btn {
   display: inline-flex;
   height: 36px;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0 0.875rem 0 0.35rem;
+  align-items: stretch;
+  overflow: hidden;
   border-radius: 10px;
-  border: 1px solid #9fc3ff;
-  background: linear-gradient(180deg, #f4f9ff 0%, #e8f2ff 100%);
+  border: 1px solid #b8d4f0;
+  background: #ffffff;
   white-space: nowrap;
-  box-shadow:
-    0 1px 2px rgba(24, 89, 209, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 3px rgba(31, 78, 121, 0.1);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
@@ -110,14 +107,16 @@
 }
 
 .findings-v2-scan-btn:hover:not(:disabled) {
-  border-color: #7eb3ff;
-  box-shadow:
-    0 2px 8px rgba(24, 89, 209, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border-color: #8fb8e8;
+  box-shadow: 0 3px 10px rgba(31, 78, 121, 0.14);
 }
 
 .findings-v2-scan-btn:hover:not(:disabled) .findings-v2-scan-btn-icon {
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--fv-primary-hover);
+}
+
+.findings-v2-scan-btn:hover:not(:disabled) .findings-v2-scan-btn-label {
+  background: #e8f2fc;
 }
 
 .findings-v2-scan-btn:active:not(:disabled) {
@@ -131,24 +130,25 @@
 
 .findings-v2-scan-btn-icon {
   display: flex;
-  height: 28px;
-  width: 28px;
+  width: 36px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
-  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  background: var(--fv-primary);
   color: #ffffff;
-  box-shadow: 0 1px 3px rgba(29, 78, 216, 0.35);
   transition: background 0.15s ease;
 }
 
 .findings-v2-scan-btn-label {
-  padding-right: 0.125rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.875rem;
   font-size: 13px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--fv-primary);
   letter-spacing: -0.01em;
+  background: #f4f9ff;
+  transition: background 0.15s ease;
 }
 
 /* Column titles — inset matches list body padding + row horizontal padding. */
@@ -174,19 +174,48 @@
 
 .findings-v2-review-btn {
   display: inline-flex;
-  height: 30px;
+  height: 34px;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 0 12px;
-  border-radius: 9px;
-  border: 1px solid var(--fv-ghost-border);
-  background: var(--fv-ghost-bg);
-  font-size: 12px;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0 0.875rem;
+  border-radius: 10px;
+  border: 1px solid #d4dce8;
+  background: #ffffff;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--fv-ghost-text);
+  color: var(--fv-primary);
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   pointer-events: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
+}
+
+.findings-v2-review-btn-chevron {
+  display: flex;
+  height: 22px;
+  width: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(31, 78, 121, 0.08);
+  color: var(--fv-primary);
+  transition: background 0.15s ease;
+}
+
+.findings-v2-row:hover .findings-v2-review-btn {
+  border-color: #a8c4e0;
+  background: #f8fbff;
+  box-shadow: 0 2px 8px rgba(31, 78, 121, 0.1);
+}
+
+.findings-v2-row:hover .findings-v2-review-btn-chevron {
+  background: var(--fv-primary);
+  color: #ffffff;
 }
 
 .findings-v2-row {
@@ -256,24 +285,25 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 2.75rem;
+  min-width: 3.25rem;
 }
 
 .findings-v2-risk-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fv-meta);
   line-height: 1;
 }
 
 .findings-v2-risk-value {
-  margin-top: 3px;
-  font-size: 17px;
+  margin-top: 4px;
+  font-size: 21px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .findings-v2-toolbar-group {
