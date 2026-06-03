@@ -18,6 +18,7 @@ import "../styles/findings-v2.css";
 
 type Finding = {
   id: string;
+  account_id: string;
   check_id: string;
   resource_arn: string;
   title: string;
@@ -35,6 +36,7 @@ type Finding = {
 type FindingPage = { items: Finding[]; total: number; next_cursor: string | null };
 type Account = {
   id: string;
+  label?: string | null;
   status: string;
   account_id: string | null;
   last_scan_at?: string | null;
@@ -213,6 +215,7 @@ export default function FindingsV2() {
     return "all";
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get("account") ?? "");
   const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, reportScanFailure, clearDrawerVerifyFlash } =
     useRecheckNotifications();
   const lastScanFailureKeyRef = useRef("");
@@ -222,20 +225,32 @@ export default function FindingsV2() {
     queryFn: () => api<{ checks: Record<string, string[]> }>("/v1/controls/check-frameworks"),
     staleTime: 300_000,
   });
+  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
+  const connectedAccounts = useMemo(
+    () => accounts.data?.filter((a) => isAccountConnected(a)) ?? [],
+    [accounts.data],
+  );
+  const effectiveAccountId =
+    (selectedAccountId && connectedAccounts.some((a) => a.id === selectedAccountId)
+      ? selectedAccountId
+      : connectedAccounts[0]?.id) || "";
+  const selectedAccount = connectedAccounts.find((a) => a.id === effectiveAccountId) ?? connectedAccounts[0];
+  const connectedId = effectiveAccountId || undefined;
+
   const q = useQuery({
-    queryKey: ["findings", status],
-    queryFn: () => api<FindingPage>(`/v1/findings?status=${status}&limit=500`),
+    queryKey: ["findings", status, effectiveAccountId],
+    queryFn: () =>
+      api<FindingPage>(
+        `/v1/findings?status=${status}&limit=500${effectiveAccountId ? `&account_id=${effectiveAccountId}` : ""}`,
+      ),
     refetchInterval: pendingRecheck ? 3000 : false,
   });
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
-  const connectedAccount = accounts.data?.find((a) => isAccountConnected(a));
-  const connectedId = connectedAccount?.id;
   const { scanRun, scanStatus, isRunning, scanTriggered, isScanActive, scanProgress, triggerScan } = useTriggeredScan(
     connectedId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
   );
 
-  const lastScanAt = connectedAccount?.last_scan_at ?? scanRun.data?.finished_at ?? null;
+  const lastScanAt = selectedAccount?.last_scan_at ?? scanRun.data?.finished_at ?? null;
 
   useEffect(() => {
     if (!(scanStatus === "error" && scanRun.data?.error)) return;
@@ -378,6 +393,19 @@ export default function FindingsV2() {
     );
   }
 
+  function handleAccountChange(id: string) {
+    setSelectedAccountId(id);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id) next.set("account", id);
+        else next.delete("account");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   function handleSearch(value: string) {
     setSearchText(value);
     setSearchParams(
@@ -438,7 +466,7 @@ export default function FindingsV2() {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
               <p className="mt-1.5 text-sm text-[#6b7280]">
-                {connectedAccount?.account_id && <span>Account {connectedAccount.account_id}</span>}
+                {selectedAccount?.account_id && <span>Account {selectedAccount.account_id}</span>}
               </p>
             </div>
             <NotificationsBell />
@@ -479,9 +507,24 @@ export default function FindingsV2() {
 
             {connectedId && (
               <div className="flex shrink-0 items-center gap-3">
+                {connectedAccounts.length > 1 && (
+                  <select
+                    value={effectiveAccountId}
+                    onChange={(e) => handleAccountChange(e.target.value)}
+                    aria-label="AWS account"
+                    className="findings-v2-status-select"
+                  >
+                    {connectedAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.account_id ?? a.label ?? "Account"}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {lastScanAt && (
-                  <span className="findings-v2-scan-meta hidden tabular-nums sm:inline">
-                    Last scan {lastScanLabel(lastScanAt)}
+                  <span className="findings-v2-scan-meta hidden sm:inline">
+                    <span className="text-xs text-slate-400">Last scan </span>
+                    <span className="text-xs font-medium tabular-nums text-slate-500">{lastScanLabel(lastScanAt)}</span>
                   </span>
                 )}
                 <button
@@ -709,7 +752,7 @@ export default function FindingsV2() {
         finding={selected}
         relatedFindings={drawerGroup ?? undefined}
         onSelectRelated={(f) => setSelected(f)}
-        accountId={connectedId ?? null}
+        accountId={selected?.account_id ?? connectedId ?? null}
         tab={drawerTab}
         onTabChange={setDrawerTab}
         remTab={remTab}

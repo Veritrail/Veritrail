@@ -90,11 +90,11 @@ const drawerFieldLabelBlock = drawerFieldLabel;
 const drawerFooterActionBase =
   "inline-flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-medium transition active:scale-[0.98] disabled:pointer-events-none";
 const drawerFooterReopen = `${drawerFooterActionBase} border border-zinc-200 bg-white px-5 font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50`;
-const drawerFooterVerifySoft = `${drawerFooterActionBase} border border-emerald-200 bg-emerald-50 px-6 font-semibold text-emerald-700 shadow-sm hover:bg-emerald-100 disabled:opacity-50`;
-const drawerFooterVerifyMuted = `${drawerFooterActionBase} border border-zinc-200 bg-zinc-50 px-5 text-zinc-500 shadow-sm hover:border-zinc-300 hover:bg-white hover:text-zinc-700 disabled:opacity-45`;
-const drawerFooterVerifyPrimary = `${drawerFooterActionBase} border border-emerald-600 bg-emerald-600 px-6 font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50`;
-const drawerFooterVerifyDone = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-600`;
-const drawerFooterException = `${drawerFooterActionBase} border border-slate-200 bg-white px-5 text-slate-700 hover:bg-slate-50`;
+const drawerFooterVerifySoft = `${drawerFooterActionBase} border border-emerald-200 bg-emerald-50 px-6 font-semibold text-emerald-700 shadow-[0_1px_2px_rgba(16,185,129,0.08)] hover:border-emerald-300 hover:bg-emerald-100/70 disabled:opacity-50`;
+const drawerFooterVerifyMuted = `${drawerFooterActionBase} border border-slate-200 bg-slate-50 px-5 font-medium text-slate-500 shadow-sm hover:border-slate-300 hover:bg-white hover:text-slate-700 disabled:opacity-45`;
+const drawerFooterVerifyPrimary = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-100/80 px-6 font-semibold text-emerald-800 shadow-[0_1px_2px_rgba(16,185,129,0.1)] hover:border-emerald-400 hover:bg-emerald-100 disabled:opacity-50`;
+const drawerFooterVerifyDone = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-600 px-6 font-semibold text-white shadow-sm hover:bg-emerald-600`;
+const drawerFooterException = `${drawerFooterActionBase} border border-slate-200 bg-white px-5 font-medium text-slate-700 shadow-sm hover:bg-slate-50`;
 
 function DrawerChevronButton({
   expanded,
@@ -4562,7 +4562,7 @@ function ExceptionButton({
         className={`${className ?? drawerFooterException} ${done ? "!border-emerald-200/80 !bg-emerald-50/80 !text-emerald-800 hover:!bg-emerald-50" : ""}`}
       >
         {!done && (
-          <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+          <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -5223,7 +5223,7 @@ export function FindingDrawer({
             >
               <span className={`inline-flex items-center gap-2 ${verifying ? "invisible" : ""}`} aria-hidden={verifying}>
                 {!verified && (
-                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <svg className="h-4 w-4 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
