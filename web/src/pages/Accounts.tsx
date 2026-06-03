@@ -134,7 +134,7 @@ const workflowInlineBtn =
   "inline-flex shrink-0 items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
 
 const workflowInlineActionBtn =
-  "inline-flex shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_-3px_rgba(99,102,241,0.45)] transition-[box-shadow,transform,filter] duration-150 hover:-translate-y-px hover:brightness-105 hover:shadow-[0_7px_20px_-3px_rgba(99,102,241,0.55)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:brightness-100";
 
 function WorkflowCheckIcon() {
   return (
