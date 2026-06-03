@@ -19,14 +19,111 @@ interface MfaSetup {
   qr_data_url: string | null;
 }
 
-function SettingsSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function ShieldIcon() {
   return (
-    <section className="grid gap-x-10 gap-y-4 border-t border-zinc-200/70 py-8 first:border-t-0 first:pt-0 lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <div className="lg:pr-4">
-        <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p>
+    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
+    </svg>
+  );
+}
+
+function KeyIcon() {
+  return (
+    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.03 5.91c-.56-.1-1.16.03-1.56.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.82c0-.6.24-1.17.66-1.59l6.5-6.5c.4-.4.52-1 .43-1.56A6 6 0 1 1 21.75 8.25Z" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.69a4.5 4.5 0 0 1 1.24 7.24l-4.5 4.5a4.5 4.5 0 0 1-6.36-6.36l1.76-1.76m13.35-.62 1.76-1.76a4.5 4.5 0 0 0-6.36-6.36l-4.5 4.5a4.5 4.5 0 0 0 1.24 7.24" />
+    </svg>
+  );
+}
+
+function StatusChip({ tone, children }: { tone: "on" | "off" | "warn"; children: ReactNode }) {
+  const cls =
+    tone === "on"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200/60"
+      : tone === "warn"
+        ? "bg-amber-50 text-amber-700 ring-amber-200/70"
+        : "bg-zinc-100 text-zinc-500 ring-zinc-200";
+  const dot = tone === "on" ? "bg-emerald-500" : tone === "warn" ? "bg-amber-500" : "bg-zinc-300";
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+function PostureCard({
+  icon,
+  tint,
+  label,
+  value,
+  sub,
+  valueClass,
+}: {
+  icon: ReactNode;
+  tint: string;
+  label: string;
+  value: ReactNode;
+  sub: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3.5 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm shadow-zinc-950/[0.02]">
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tint}`}>{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
+        <p className={`mt-0.5 text-xl font-bold leading-none tracking-tight ${valueClass ?? "text-zinc-900"}`}>{value}</p>
+        <p className="mt-1 truncate text-[11px] text-zinc-500">{sub}</p>
       </div>
-      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+function Panel({
+  icon,
+  tint,
+  title,
+  description,
+  status,
+  children,
+  flush,
+}: {
+  icon: ReactNode;
+  tint: string;
+  title: string;
+  description: string;
+  status?: ReactNode;
+  children: ReactNode;
+  flush?: boolean;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm shadow-zinc-950/[0.02]">
+      <div className="flex items-start gap-4 px-6 py-5">
+        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tint}`}>{icon}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
+            {status}
+          </div>
+          <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{description}</p>
+        </div>
+      </div>
+      <div className={flush ? "border-t border-zinc-100" : "border-t border-zinc-100 px-6 py-5"}>{children}</div>
     </section>
   );
 }
@@ -49,7 +146,7 @@ function ProviderRow({
   lastMethod: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-5 py-4">
+    <div className="flex items-center justify-between gap-4 px-6 py-4">
       <div className="flex min-w-0 items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">{icon}</span>
         <div className="min-w-0">
@@ -272,27 +369,83 @@ export default function Account() {
     ? (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0)
     : 0;
   const onlyOneMethod = me ? signinMethodCount === 1 : false;
+  const providerCount = me ? (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) : 0;
+  const mfaOn = !!me?.totp_enabled;
+  const hasPw = !!me?.has_password;
 
   return (
-    <div className="mx-auto max-w-4xl pb-10">
-      <header className="mb-8">
+    <div className="mx-auto max-w-5xl pb-10">
+      <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Account</h1>
-        {me && <p className="mt-1 text-sm text-zinc-500">{me.email}</p>}
+        <p className="mt-1 flex items-center gap-2 text-sm text-zinc-500">
+          {me ? (
+            <>
+              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+              Signed in as <span className="font-medium text-zinc-700">{me.email}</span>
+            </>
+          ) : (
+            "Manage how you sign in and keep your account secure."
+          )}
+        </p>
       </header>
 
+      {/* Security posture at a glance — mirrors the Accounts KPI row. */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <PostureCard
+          icon={<ShieldIcon />}
+          tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-400"}
+          label="Two-factor"
+          value={mfaOn ? "On" : "Off"}
+          valueClass={mfaOn ? "text-emerald-600" : "text-zinc-400"}
+          sub={mfaOn ? "Authenticator app" : "Not configured"}
+        />
+        <PostureCard
+          icon={<KeyIcon />}
+          tint="bg-sky-50 text-sky-600"
+          label="Sign-in methods"
+          value={signinMethodCount}
+          valueClass={onlyOneMethod ? "text-amber-600" : "text-zinc-900"}
+          sub={onlyOneMethod ? "Only one — add a backup" : "Ways you can sign in"}
+        />
+        <PostureCard
+          icon={<LockIcon />}
+          tint="bg-indigo-50 text-indigo-600"
+          label="Password"
+          value={hasPw ? "Set" : "SSO only"}
+          valueClass={hasPw ? "text-zinc-900" : "text-zinc-400"}
+          sub={hasPw ? "Email + password" : "No password set"}
+        />
+        <PostureCard
+          icon={<LinkIcon />}
+          tint="bg-amber-50 text-amber-600"
+          label="Connected SSO"
+          value={`${providerCount} of 3`}
+          sub="GitHub · GitLab · Google"
+        />
+      </div>
+
       {me && onlyOneMethod && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <strong className="font-semibold">Only one sign-in method.</strong>{" "}
-          Set a password or connect another provider so you don't get locked out if{" "}
-          {me.has_password ? "you forget it" : me.github_id ? "GitHub access changes" : me.gitlab_id ? "GitLab access changes" : "Google access changes"}.
+        <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.2 3.37 1.93 3.37h14.74c1.73 0 2.81-1.87 1.94-3.37L13.95 3.38c-.87-1.5-3.04-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z" />
+          </svg>
+          <p>
+            <strong className="font-semibold">Only one sign-in method.</strong>{" "}
+            Set a password or connect another provider so you don't get locked out if{" "}
+            {me.has_password ? "you forget it" : me.github_id ? "GitHub access changes" : me.gitlab_id ? "GitLab access changes" : "Google access changes"}.
+          </p>
         </div>
       )}
 
-      <SettingsSection
-        title={me?.has_password ? "Password" : "Set a password"}
-        description={me?.has_password ? "Change the password you use for email sign-in." : "Your account uses SSO. Set a password to also sign in with email + password."}
-      >
-        <div className="rounded-xl border border-zinc-200 bg-white p-6">
+      <div className="space-y-5">
+
+        <Panel
+          icon={<LockIcon />}
+          tint="bg-indigo-50 text-indigo-600"
+          title={me?.has_password ? "Password" : "Set a password"}
+          description={me?.has_password ? "Change the password you use for email sign-in." : "Your account uses SSO. Set a password to also sign in with email + password."}
+          status={<StatusChip tone={hasPw ? "on" : "off"}>{hasPw ? "Set" : "Not set"}</StatusChip>}
+        >
         <form noValidate onSubmit={submitPassword} className="space-y-4">
           {me?.has_password && (
             <div>
@@ -352,12 +505,18 @@ export default function Account() {
             {changePw.isPending ? "Saving…" : me?.has_password ? "Update password" : "Set password"}
           </button>
         </form>
-        </div>
-      </SettingsSection>
+        </Panel>
 
-      {/* Single sign-on */}
-      <SettingsSection title="Single sign-on" description="Connect a provider to sign in without a password.">
-        <div className="divide-y divide-zinc-100 overflow-hidden rounded-xl border border-zinc-200 bg-white">
+        {/* Single sign-on */}
+        <Panel
+          icon={<LinkIcon />}
+          tint="bg-sky-50 text-sky-600"
+          title="Single sign-on"
+          description="Connect a provider to sign in without a password."
+          status={<StatusChip tone={providerCount ? "on" : "off"}>{providerCount} connected</StatusChip>}
+          flush
+        >
+        <div className="divide-y divide-zinc-100">
           <ProviderRow
             name="GitHub"
             icon={
@@ -403,14 +562,16 @@ export default function Account() {
             lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) === 0}
           />
         </div>
-      </SettingsSection>
+        </Panel>
 
-      {/* Two-factor authentication */}
-      <SettingsSection
-        title="Two-factor authentication"
-        description="Require a code from your authenticator app when signing in with email, Google, GitHub, or GitLab."
-      >
-        <div className="rounded-xl border border-zinc-200 bg-white p-6">
+        {/* Two-factor authentication */}
+        <Panel
+          icon={<ShieldIcon />}
+          tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500"}
+          title="Two-factor authentication"
+          description="Require a code from your authenticator app when signing in with email, Google, GitHub, or GitLab."
+          status={<StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "Enabled" : "Disabled"}</StatusChip>}
+        >
           {mfaMsg && (
             <div className={`mb-3 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
               {mfaMsg.text}
@@ -557,8 +718,8 @@ export default function Account() {
               {startMfaSetup.isPending ? "Preparing…" : "Set up authenticator app"}
             </button>
           )}
-        </div>
-      </SettingsSection>
+        </Panel>
+      </div>
 
       {toast && (
         <div
