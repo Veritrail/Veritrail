@@ -439,12 +439,6 @@ export default function FindingsV2() {
               <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
               <p className="mt-1.5 text-sm text-[#6b7280]">
                 {connectedAccount?.account_id && <span>Account {connectedAccount.account_id}</span>}
-                {lastScanAt && (
-                  <span className="text-[#98a2b3]">
-                    {connectedAccount?.account_id ? " · " : ""}
-                    Last scan {lastScanLabel(lastScanAt)}
-                  </span>
-                )}
               </p>
             </div>
             <NotificationsBell />
@@ -484,14 +478,35 @@ export default function FindingsV2() {
             </div>
 
             {connectedId && (
-              <button
-                type="button"
-                onClick={() => triggerScan(connectedId)}
-                disabled={scanTriggered || isRunning}
-                className="findings-v2-toolbar-btn-primary shrink-0"
-              >
-                {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan Now"}
-              </button>
+              <div className="flex shrink-0 items-center gap-3">
+                {lastScanAt && (
+                  <span className="findings-v2-scan-meta hidden tabular-nums sm:inline">
+                    Last scan {lastScanLabel(lastScanAt)}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => triggerScan(connectedId)}
+                  disabled={scanTriggered || isRunning}
+                  className="findings-v2-scan-btn"
+                >
+                  <svg
+                    className={`h-4 w-4 shrink-0 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"
+                    />
+                  </svg>
+                  {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Start scan"}
+                </button>
+              </div>
             )}
           </div>
         </header>

@@ -89,29 +89,48 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.findings-v2-toolbar-btn-primary {
+.findings-v2-scan-meta {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--fv-meta);
+  white-space: nowrap;
+}
+
+.findings-v2-scan-btn {
   display: inline-flex;
-  height: 32px;
+  height: 36px;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
-  border-radius: 10px;
-  border: 1px solid var(--fv-primary-hover);
-  background: var(--fv-primary);
-  font-size: 12px;
-  font-weight: 700;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #111827;
+  font-size: 14px;
+  font-weight: 500;
   color: #ffffff;
   white-space: nowrap;
-  transition: background 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
 }
 
-.findings-v2-toolbar-btn-primary:hover:not(:disabled) {
-  background: var(--fv-primary-hover);
+.findings-v2-scan-btn:hover:not(:disabled) {
+  background: #1f2937;
 }
 
-.findings-v2-toolbar-btn-primary:disabled {
-  opacity: 0.5;
+.findings-v2-scan-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.findings-v2-scan-btn:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
+}
+
+.findings-v2-scan-btn svg {
+  opacity: 0.85;
 }
 
 /* Column titles — inset matches list body padding + row horizontal padding. */
