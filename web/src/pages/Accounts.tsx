@@ -2238,18 +2238,11 @@ function formatFooterScanDate(iso: string | null | undefined, opts?: { utc?: boo
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  const parts: Intl.DateTimeFormatOptions = {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  };
-  if (opts?.utc) {
-    return `${d.toLocaleString("en-US", { ...parts, timeZone: "UTC" })} UTC`;
-  }
-  return d.toLocaleString(undefined, parts);
+  const locale = opts?.utc ? "en-US" : undefined;
+  const timeZone = opts?.utc ? "UTC" : undefined;
+  const date = d.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric", timeZone });
+  const time = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", hour12: true, timeZone });
+  return opts?.utc ? `${date} ${time} UTC` : `${date} ${time}`;
 }
 
 function formatElapsed(ms: number | null | undefined): string | null {
@@ -2313,10 +2306,8 @@ function SeverityCounts({ stats }: { stats: FindingStats }) {
   return (
     <div className="inline-flex items-center">
       {items.map((it, i) => (
-        <div
-          key={it.label}
-          className={`min-w-[4.25rem] px-4 py-2 text-center ${i > 0 ? "border-l border-zinc-200" : ""}`}
-        >
+        <div key={it.label} className="relative min-w-[4.25rem] px-4 py-1 text-center">
+          {i > 0 && <span className="absolute left-0 top-1/2 h-7 w-px -translate-y-1/2 bg-zinc-200/80" aria-hidden />}
           <p className={`text-[1.35rem] font-bold leading-none tracking-tight tabular-nums ${it.cls}`}>
             {it.value}
           </p>
@@ -2513,10 +2504,11 @@ function FooterStat({
 }) {
   return (
     <div
-      className={`flex min-w-0 items-center gap-2 px-4 py-2.5 ${
-        divided ? "border-b border-zinc-100 sm:border-b-0 sm:border-r sm:border-zinc-100" : ""
+      className={`relative flex min-w-0 items-center gap-2.5 px-4 py-2.5 ${
+        divided ? "border-b border-zinc-100 sm:border-b-0" : ""
       }`}
     >
+      {divided && <span className="absolute right-0 top-1/2 hidden h-7 w-px -translate-y-1/2 bg-zinc-200/70 sm:block" aria-hidden />}
       <span className="shrink-0 text-zinc-400/90">{icon}</span>
       <div className="min-w-0">
         <p className="text-[11px] font-normal leading-tight text-zinc-500">{label}</p>
