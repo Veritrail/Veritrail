@@ -35,6 +35,7 @@ type SettingsData = {
     digest_email: string | null;
     slack_webhook_url: string | null;
     scan_failure_email_enabled: boolean;
+    critical_alert_enabled: boolean;
   };
   scan_status: {
     account_connected: boolean;
@@ -93,6 +94,7 @@ function buildPayload(state: {
   freqMode: FreqMode;
   customHours: number;
   scanFailureEnabled: boolean;
+  criticalAlertEnabled: boolean;
   emailDigestEnabled: boolean;
   digestEmail: string;
   slackWebhookUrl: string;
@@ -116,6 +118,7 @@ function buildPayload(state: {
       digest_email: state.digestEmail.trim() || null,
       slack_webhook_url: state.slackWebhookUrl.trim() || null,
       scan_failure_email_enabled: state.scanFailureEnabled,
+      critical_alert_enabled: state.criticalAlertEnabled,
     },
   };
 }
@@ -208,6 +211,7 @@ export default function Settings() {
   const [freqMode, setFreqMode] = useState<FreqMode>("daily");
   const [customHours, setCustomHours] = useState(24);
   const [scanFailureEnabled, setScanFailureEnabled] = useState(true);
+  const [criticalAlertEnabled, setCriticalAlertEnabled] = useState(true);
   const [emailDigestEnabled, setEmailDigestEnabled] = useState(false);
   const [digestEmail, setDigestEmail] = useState("");
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
@@ -246,6 +250,7 @@ export default function Settings() {
       setFreqMode(canDaily ? "daily" : "weekly");
     }
     setScanFailureEnabled(data.notifications.scan_failure_email_enabled ?? true);
+    setCriticalAlertEnabled(data.notifications.critical_alert_enabled ?? true);
     setEmailDigestEnabled(data.notifications.email_digest_enabled ?? false);
     setDigestEmail(data.notifications.digest_email ?? "");
     setSlackWebhookUrl(data.notifications.slack_webhook_url ?? "");
@@ -256,6 +261,7 @@ export default function Settings() {
         freqMode: interval === "custom" ? "custom" : interval === "weekly" ? "weekly" : canDaily ? "daily" : "weekly",
         customHours: data.scanning.custom_hours ?? 24,
         scanFailureEnabled: data.notifications.scan_failure_email_enabled ?? true,
+        criticalAlertEnabled: data.notifications.critical_alert_enabled ?? true,
         emailDigestEnabled: data.notifications.email_digest_enabled ?? false,
         digestEmail: data.notifications.digest_email ?? "",
         slackWebhookUrl: data.notifications.slack_webhook_url ?? "",
@@ -297,12 +303,13 @@ export default function Settings() {
       freqMode,
       customHours,
       scanFailureEnabled,
+      criticalAlertEnabled,
       emailDigestEnabled,
       digestEmail,
       slackWebhookUrl,
       aiFindingReviewEnabled,
     }),
-    [scanEnabled, freqMode, customHours, scanFailureEnabled, emailDigestEnabled, digestEmail, slackWebhookUrl, aiFindingReviewEnabled],
+    [scanEnabled, freqMode, customHours, scanFailureEnabled, criticalAlertEnabled, emailDigestEnabled, digestEmail, slackWebhookUrl, aiFindingReviewEnabled],
   );
 
   useEffect(() => {
@@ -340,7 +347,7 @@ export default function Settings() {
   const slackConnected = slackWebhookUrl.trim().length > 0;
   const deliveryPlaceholder = data?.account_email ?? "you@company.com";
   const vaultLabel = vaultStatus.data?.enabled ? "Enabled" : vaultStatus.data?.configured ? "Configured" : "Not configured";
-  const alertsOn = scanFailureEnabled || emailDigestEnabled;
+  const alertsOn = scanFailureEnabled || criticalAlertEnabled || emailDigestEnabled;
 
   const activeAuditors = (auditorList.data ?? []).filter(
     (a) => a.is_active && new Date(a.expires_at) > new Date(),
@@ -451,11 +458,16 @@ export default function Settings() {
                     <Toggle checked={scanFailureEnabled} onChange={setScanFailureEnabled} />
                   </SettingRow>
                   <div className="border-t border-zinc-100">
+                    <SettingRow title="Critical finding alerts" description="Notify immediately (email + Slack) when a scan opens new critical or high findings.">
+                      <Toggle checked={criticalAlertEnabled} onChange={setCriticalAlertEnabled} />
+                    </SettingRow>
+                  </div>
+                  <div className="border-t border-zinc-100">
                     <SettingRow title="Weekly email digest" description="Findings summary every Monday at 9:00 UTC.">
                       <Toggle checked={emailDigestEnabled} onChange={setEmailDigestEnabled} />
                     </SettingRow>
                   </div>
-                  {(scanFailureEnabled || emailDigestEnabled) && (
+                  {(scanFailureEnabled || criticalAlertEnabled || emailDigestEnabled) && (
                     <div className="border-t border-zinc-100 px-4 py-3">
                       <TextField id="delivery-email" label="Delivery email" type="email" value={digestEmail} onChange={setDigestEmail} placeholder={deliveryPlaceholder} />
                     </div>

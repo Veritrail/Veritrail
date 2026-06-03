@@ -39,6 +39,7 @@ DEFAULT_SETTINGS: dict = {
         "digest_unsubscribe_token": None,
         "slack_webhook_url": None,
         "scan_failure_email_enabled": True,
+        "critical_alert_enabled": True,
     },
     "features": {
         "ai_finding_review_enabled": True,
@@ -64,6 +65,7 @@ class NotificationsIn(BaseModel):
     digest_email: str | None = None
     slack_webhook_url: str | None = None
     scan_failure_email_enabled: bool = True
+    critical_alert_enabled: bool = True
 
 
 class FeaturesIn(BaseModel):

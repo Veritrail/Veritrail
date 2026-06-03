@@ -880,6 +880,13 @@ def run_scan(account_id: str) -> dict:
 
         _enqueue_post_scan_tasks(account_id)
 
+        try:
+            from app.services.scan_alert import notify_new_findings
+
+            notify_new_findings(db, acc.id, run.id)
+        except Exception:  # noqa: BLE001
+            log.exception("scan.new_findings_notify_failed", account_id=str(acc.id))
+
         return {"ok": True, "opened": opened, "resolved": resolved, "snapshots": snap_count}
     except Exception as e:  # noqa: BLE001
         db.rollback()
