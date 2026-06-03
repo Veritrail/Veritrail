@@ -92,12 +92,12 @@ const DRAWER_MAX_W = "max-w-[640px]";
 /** Resource label in drawer header (matches drawerFieldLabel). */
 const drawerFieldLabelBlock = drawerFieldLabel;
 const drawerFooterCardBase =
-  "relative flex h-14 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border px-3.5 transition hover:shadow-md active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50";
+  "relative flex min-h-[4.25rem] min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border bg-white px-4 py-3 transition hover:shadow-sm active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50";
 const drawerFooterReopen = `${drawerFooterCardBase} w-full justify-center border-zinc-200 bg-zinc-50/80 text-[13px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50`;
-const drawerFooterVerifyCard = `${drawerFooterCardBase} border-emerald-200 bg-emerald-50/70 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50`;
-const drawerFooterVerifyMutedCard = `${drawerFooterCardBase} border-slate-200 bg-slate-50/90 text-slate-400 hover:border-slate-300 hover:bg-slate-50`;
-const drawerFooterVerifyDoneCard = `${drawerFooterCardBase} border-emerald-300 bg-emerald-50 text-emerald-700`;
-const drawerFooterExceptionCard = `${drawerFooterCardBase} border-orange-200 bg-orange-50/70 text-orange-600 hover:border-orange-300 hover:bg-orange-50`;
+const drawerFooterVerifyCard = `${drawerFooterCardBase} border-emerald-200/90 hover:border-emerald-300`;
+const drawerFooterVerifyMutedCard = `${drawerFooterCardBase} border-slate-200 hover:border-slate-300`;
+const drawerFooterVerifyDoneCard = `${drawerFooterCardBase} border-emerald-300`;
+const drawerFooterExceptionCard = `${drawerFooterCardBase} border-amber-200/90 hover:border-amber-300`;
 
 function DrawerFooterIconBadge({
   children,
@@ -108,15 +108,13 @@ function DrawerFooterIconBadge({
 }) {
   const shell =
     tone === "orange"
-      ? "bg-orange-100/90"
+      ? "bg-orange-50 text-amber-600"
       : tone === "slate"
-        ? "bg-slate-100"
-        : tone === "emerald-done"
-          ? "bg-emerald-100"
-          : "bg-emerald-100/90";
+        ? "bg-slate-100 text-slate-500"
+        : "bg-emerald-50 text-emerald-700";
   return (
     <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${shell}`}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${shell}`}
       aria-hidden
     >
       {children}
@@ -124,9 +122,18 @@ function DrawerFooterIconBadge({
   );
 }
 
-function DrawerFooterChevron() {
+function DrawerFooterChevron({ tone }: { tone: "emerald" | "orange" | "slate" | "emerald-done" }) {
+  const color =
+    tone === "orange" ? "text-amber-700" : tone === "slate" ? "text-slate-400" : "text-emerald-700";
   return (
-    <svg className="h-4 w-4 shrink-0 opacity-80" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+    <svg
+      className={`h-4 w-4 shrink-0 ${color}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
     </svg>
   );
@@ -134,17 +141,24 @@ function DrawerFooterChevron() {
 
 function DrawerFooterCardLead({
   icon,
-  label,
+  title,
+  subtitle,
   tone,
 }: {
   icon: ReactNode;
-  label: string;
+  title: string;
+  subtitle: string;
   tone: "emerald" | "orange" | "slate" | "emerald-done";
 }) {
+  const titleClass =
+    tone === "orange" ? "text-amber-800" : tone === "slate" ? "text-slate-500" : "text-emerald-800";
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2.5">
+    <span className="flex min-w-0 flex-1 items-center gap-3">
       <DrawerFooterIconBadge tone={tone}>{icon}</DrawerFooterIconBadge>
-      <span className="truncate text-[13px] font-semibold leading-tight">{label}</span>
+      <span className="min-w-0 flex flex-col gap-0.5">
+        <span className={`truncate text-sm font-semibold leading-tight ${titleClass}`}>{title}</span>
+        <span className="truncate text-xs text-zinc-500">{subtitle}</span>
+      </span>
     </span>
   );
 }
@@ -161,15 +175,15 @@ function DrawerFooterShieldCheckIcon() {
   );
 }
 
-function DrawerFooterExceptionBubbleIcon() {
+function DrawerFooterExceptionFunnelIcon() {
   return (
     <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a2.252 2.252 0 0 0 1.126-1.92c0-.817-.546-1.55-1.346-1.894a48.508 48.508 0 0 0-8.558-2.535c-.966-.14-1.936-.21-2.908-.21"
+        d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z"
       />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 0h.008v.008H12V12.75Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6" />
     </svg>
   );
 }
@@ -350,17 +364,18 @@ function SelectedResourceInspector({
   const rootInspector = isAwsRootFinding(finding);
 
   const timelineBlock = (
-    <div className="border-t border-zinc-100 bg-zinc-50/40 px-4 py-3.5">
-      <p className="mb-2.5 text-[11px] font-semibold text-zinc-700">Finding timeline</p>
-      <PostureMetricsRow>
-        <PostureMetricCell label="Risk score" value={finding.risk_score} valueClassName={riskTone} />
-        <PostureMetricCell
-          label="Status"
-          value={<span className="capitalize">{statusLabel}</span>}
-        />
-        <PostureMetricCell label="First seen" value={daysAgo(finding.first_seen)} />
-        <PostureMetricCell label="Last seen" value={daysAgo(finding.last_seen)} />
-      </PostureMetricsRow>
+    <div className="border-t border-zinc-100 bg-white px-4 pb-1.5 pt-3">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Finding timeline</p>
+      <dl>
+        <ResourceFieldRow label="Risk score">
+          <span className={`font-semibold ${riskTone}`}>{finding.risk_score}</span>
+        </ResourceFieldRow>
+        <ResourceFieldRow label="Status">
+          <span className="capitalize">{statusLabel}</span>
+        </ResourceFieldRow>
+        <ResourceFieldRow label="First seen">{daysAgo(finding.first_seen)}</ResourceFieldRow>
+        <ResourceFieldRow label="Last seen">{daysAgo(finding.last_seen)}</ResourceFieldRow>
+      </dl>
     </div>
   );
 
@@ -4665,22 +4680,23 @@ function ExceptionButton({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={done ? "Exception recorded" : "Create exception"}
-        className={`${className ?? drawerFooterExceptionCard} ${done ? "!border-emerald-300 !bg-emerald-50 !text-emerald-700" : ""}`}
+        className={`${className ?? drawerFooterExceptionCard} ${done ? "!border-emerald-300" : ""}`}
       >
         <DrawerFooterCardLead
           tone={done ? "emerald-done" : "orange"}
-          label={done ? "Exception recorded" : "Create exception"}
+          title={done ? "Exception recorded" : "Create exception"}
+          subtitle={done ? "Rule saved" : "Add exception rule"}
           icon={
             done ? (
               <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             ) : (
-              <DrawerFooterExceptionBubbleIcon />
+              <DrawerFooterExceptionFunnelIcon />
             )
           }
         />
-        <DrawerFooterChevron />
+        <DrawerFooterChevron tone={done ? "emerald-done" : "orange"} />
       </button>
       {open &&
         sheetContainerRef.current &&
@@ -4700,7 +4716,7 @@ function ExceptionButton({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
-                <span className="font-semibold">Audit evidence.</span> This exception, approver, and expiry will appear in
+                <span className="font-semibold">Audit evidence —</span> This exception, approver, and expiry will appear in
                 your evidence pack.
               </div>
               <div className="min-h-0 overflow-y-auto p-5">
@@ -5337,7 +5353,8 @@ export function FindingDrawer({
               <>
                 <DrawerFooterCardLead
                   tone="emerald"
-                  label="Verifying…"
+                  title="Verifying…"
+                  subtitle="Re-scan and validate"
                   icon={
                     <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -5345,13 +5362,14 @@ export function FindingDrawer({
                     </svg>
                   }
                 />
-                <DrawerFooterChevron />
+                <DrawerFooterChevron tone="emerald" />
               </>
             ) : (
               <>
                 <DrawerFooterCardLead
                   tone={verified ? "emerald-done" : verifyFooterMuted ? "slate" : "emerald"}
-                  label={verified ? "Verified" : "Verify fix"}
+                  title={verified ? "Verified" : "Verify fix"}
+                  subtitle="Re-scan and validate"
                   icon={
                     verified ? (
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -5362,7 +5380,7 @@ export function FindingDrawer({
                     )
                   }
                 />
-                <DrawerFooterChevron />
+                <DrawerFooterChevron tone={verified ? "emerald-done" : verifyFooterMuted ? "slate" : "emerald"} />
               </>
             )}
           </button>
