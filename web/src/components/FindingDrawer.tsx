@@ -38,6 +38,7 @@ import {
   daysAgo,
   awsRegionFromArn,
   regionsFromFindingEvidence,
+  filterRedundantResourceDetailRows,
   resourceDetailRowsFromFinding,
   resourceDisplayName,
   resourceIdentifierLabel,
@@ -45,6 +46,7 @@ import {
   resourceRegionForFinding,
   resourceShortName,
   resourceTypeLabel,
+  isAwsRootFinding,
   isVcsResourceIdentifier,
 } from "../lib/findingDisplay";
 import {
@@ -92,11 +94,11 @@ const drawerFieldLabelBlock = drawerFieldLabel;
 const drawerFooterActionBase =
   "flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-medium transition active:scale-[0.98] disabled:pointer-events-none";
 const drawerFooterReopen = `${drawerFooterActionBase} w-full border border-zinc-200 bg-white px-5 font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50`;
-const drawerFooterVerifySoft = `${drawerFooterActionBase} border border-emerald-200 bg-emerald-50 px-6 font-semibold text-emerald-700 shadow-[0_1px_2px_rgba(16,185,129,0.08)] hover:border-emerald-300 hover:bg-emerald-100/70 disabled:opacity-50`;
+const drawerFooterVerifySoft = `${drawerFooterActionBase} border border-emerald-600 bg-emerald-600 px-6 font-semibold text-white shadow-sm shadow-emerald-600/25 hover:border-emerald-700 hover:bg-emerald-700 disabled:opacity-50`;
 const drawerFooterVerifyMuted = `${drawerFooterActionBase} border border-slate-200 bg-slate-50 px-5 font-medium text-slate-500 shadow-sm hover:border-slate-300 hover:bg-white hover:text-slate-700 disabled:opacity-45`;
-const drawerFooterVerifyPrimary = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-100/80 px-6 font-semibold text-emerald-800 shadow-[0_1px_2px_rgba(16,185,129,0.1)] hover:border-emerald-400 hover:bg-emerald-100 disabled:opacity-50`;
+const drawerFooterVerifyPrimary = `${drawerFooterActionBase} border border-emerald-600 bg-emerald-600 px-6 font-semibold text-white shadow-sm shadow-emerald-600/25 hover:border-emerald-700 hover:bg-emerald-700 disabled:opacity-50`;
 const drawerFooterVerifyDone = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-600 px-6 font-semibold text-white shadow-sm hover:bg-emerald-600`;
-const drawerFooterException = `${drawerFooterActionBase} border border-slate-200 bg-white px-5 font-medium text-slate-700 shadow-sm hover:bg-slate-50`;
+const drawerFooterException = `${drawerFooterActionBase} !flex-none border border-transparent bg-transparent px-4 font-medium text-slate-500 shadow-none hover:bg-slate-100 hover:text-slate-700`;
 
 function DrawerChevronButton({
   expanded,
@@ -239,8 +241,10 @@ function SelectedResourceInspector({
   const thresholdDays = ev.threshold_days as number | undefined;
   const withRecordedUse =
     totalGranted != null && unusedCount != null ? Math.max(0, totalGranted - unusedCount) : null;
-  const detailRows = resourceDetailRowsFromFinding(finding);
-  const fieldDetailRows = detailRows.filter((r) => r.label !== "IAM role");
+  const fieldDetailRows = filterRedundantResourceDetailRows(
+    resourceDetailRowsFromFinding(finding),
+    finding,
+  );
   const exposingRules = Array.isArray(ev.exposing_rules) ? (ev.exposing_rules as Record<string, unknown>[]) : [];
   const affectedRegions = regionsFromFindingEvidence(ev);
   const affectedRegionsLabel =
@@ -267,11 +271,44 @@ function SelectedResourceInspector({
     accountId != null ||
     !isVcsResourceIdentifier(finding.resource_arn);
 
-  const shortName = resourceShortName(finding);
-  const heroTitle =
-    shortName.toLowerCase() === "root" && accountId ? `Account ${accountId}` : shortName;
   const identifierValue = resourceIdentifierValue(finding);
   const identifierHref = isVcsResourceIdentifier(finding.resource_arn) ? identifierValue : null;
+  const rootInspector = isAwsRootFinding(finding);
+
+  const timelineBlock = (
+    <div className="border-t border-zinc-100 bg-zinc-50/40 px-4 py-3.5">
+      <p className="mb-2.5 text-[11px] font-semibold text-zinc-700">Finding timeline</p>
+      <PostureMetricsRow>
+        <PostureMetricCell label="Risk score" value={finding.risk_score} valueClassName={riskTone} />
+        <PostureMetricCell
+          label="Status"
+          value={<span className="capitalize">{statusLabel}</span>}
+        />
+        <PostureMetricCell label="First seen" value={daysAgo(finding.first_seen)} />
+        <PostureMetricCell label="Last seen" value={daysAgo(finding.last_seen)} />
+      </PostureMetricsRow>
+    </div>
+  );
+
+  if (rootInspector) {
+    return (
+      <div
+        className={`${drawerPanel} overflow-hidden ${
+          attachedToList ? "border-l-2 border-l-zinc-400/30 shadow-sm shadow-zinc-950/[0.04]" : ""
+        }`}
+      >
+        <dl className="border-b border-zinc-100 bg-white px-4 py-0.5">
+          {accountId ? (
+            <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>
+          ) : null}
+          <ResourceFieldRow label="ARN" mono>
+            {identifierValue}
+          </ResourceFieldRow>
+        </dl>
+        {timelineBlock}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -279,14 +316,20 @@ function SelectedResourceInspector({
         attachedToList ? "border-l-2 border-l-zinc-400/30 shadow-sm shadow-zinc-950/[0.04]" : ""
       }`}
     >
-      <ResourceInspectorHero
-        badge={resourceTypeLabel(finding.check_id)}
-        title={heroTitle}
-        severity={finding.severity}
-      />
+      {!attachedToList && (
+        <ResourceInspectorHero
+          badge={resourceTypeLabel(finding.check_id)}
+          title={resourceShortName(finding)}
+          severity={finding.severity}
+        />
+      )}
 
       {showFieldList && (
-        <dl className="border-b border-zinc-100 bg-white px-4 py-1">
+        <dl
+          className={`border-b border-zinc-100 bg-white px-4 py-1 ${
+            attachedToList ? "pt-3" : ""
+          }`}
+        >
           {fieldDetailRows.map((row) => (
             <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
               {row.value}
@@ -371,22 +414,7 @@ function SelectedResourceInspector({
         </ResourceGroup>
       )}
 
-      <div className="border-t border-zinc-100 bg-zinc-50/40 px-4 py-3.5">
-        <p className="mb-2.5 text-[11px] font-semibold text-zinc-700">Finding timeline</p>
-        <PostureMetricsRow>
-          <PostureMetricCell
-            label="Risk score"
-            value={finding.risk_score}
-            valueClassName={riskTone}
-          />
-          <PostureMetricCell
-            label="Status"
-            value={<span className="capitalize">{statusLabel}</span>}
-          />
-          <PostureMetricCell label="First seen" value={daysAgo(finding.first_seen)} />
-          <PostureMetricCell label="Last seen" value={daysAgo(finding.last_seen)} />
-        </PostureMetricsRow>
-      </div>
+      {timelineBlock}
     </div>
   );
 }
@@ -4903,6 +4931,7 @@ export function FindingDrawer({
     "gitlab.repo": "GitLab Project",
   };
   const category = Object.entries(categoryLabel).find(([prefix]) => finding.check_id.startsWith(prefix))?.[1] ?? "Finding";
+  const isRootFinding = isAwsRootFinding(finding);
   const showPolicyGen = ROLE_POLICY_GEN_CHECKS.has(finding.check_id) && !!accountId;
 
   const tabs: { id: Tab; label: string }[] = [
@@ -5006,45 +5035,54 @@ export function FindingDrawer({
             })()
           ) : null;
 
+        if (isRootFinding) {
+          if (!resourceNav) return null;
+          return <div className="mt-2 flex justify-end">{resourceNav}</div>;
+        }
+
         if (isShortResourceLabel(resourceLabel)) {
           const useMono = resourceLabel.includes(":") || resourceLabel.includes("/");
           return (
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium text-zinc-500">Resource</p>
-                <p
-                  className={`mt-0.5 truncate text-[15px] font-semibold leading-tight tracking-tight text-zinc-900 ${
-                    useMono ? "font-mono text-[14px] font-medium" : ""
-                  }`}
+            <div className="mt-2 flex items-baseline justify-between gap-3">
+              <p className="flex min-w-0 items-baseline gap-1.5 truncate text-[13px] leading-snug text-zinc-600">
+                <span className="shrink-0 text-zinc-500">Resource</span>
+                <span className="shrink-0 text-zinc-300" aria-hidden>
+                  ·
+                </span>
+                <span
+                  className={`truncate text-zinc-700 ${useMono ? "font-mono text-[12px]" : ""}`}
                   title={finding.resource_arn}
                 >
                   {resourceLabel}
-                </p>
-              </div>
+                </span>
+              </p>
               {resourceNav}
             </div>
           );
         }
 
         return (
-          <div className="mt-3 rounded-lg border border-zinc-200/70 bg-white/80 px-3 py-2.5 shadow-sm shadow-zinc-950/[0.02]">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[11px] font-medium text-zinc-500">Resource</p>
-              {resourceNav}
-            </div>
-            <div className="group relative">
-              <p className="truncate font-mono text-[13px] font-medium leading-snug text-zinc-800">{resourceLabel}</p>
-              <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-sm rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg group-hover:block">
-                <p className="break-all font-mono text-[12px] leading-relaxed text-zinc-700">
-                  {isVcsResourceIdentifier(finding.resource_arn) ? resourceLabel : finding.resource_arn}
-                </p>
+          <div className="mt-2 rounded-lg border border-zinc-200/60 bg-white/70 px-3 py-1.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="group relative flex min-w-0 flex-1 items-baseline gap-1.5 text-[13px] text-zinc-600">
+                <span className="shrink-0 text-zinc-500">Resource</span>
+                <span className="shrink-0 text-zinc-300" aria-hidden>
+                  ·
+                </span>
+                <p className="truncate font-mono text-[12px] leading-snug text-zinc-700">{resourceLabel}</p>
+                <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-sm rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg group-hover:block">
+                  <p className="break-all font-mono text-[12px] leading-relaxed text-zinc-700">
+                    {isVcsResourceIdentifier(finding.resource_arn) ? resourceLabel : finding.resource_arn}
+                  </p>
+                </div>
               </div>
+              {resourceNav}
             </div>
           </div>
         );
       })()}
       {/* Segmented tab control — w-fit keeps track background from stretching full width */}
-      <div className="mt-3">
+      <div className={isRootFinding ? "mt-2.5" : "mt-3"}>
         <div className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-zinc-900/[0.06] p-0.5">
         {tabs.map((t) => (
           <button
@@ -5221,7 +5259,7 @@ export function FindingDrawer({
           >
               <span className={`inline-flex items-center gap-2 ${verifying ? "invisible" : ""}`} aria-hidden={verifying}>
                 {!verified && (
-                  <svg className="h-4 w-4 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"

@@ -189,38 +189,27 @@
 }
 
 .findings-v2-row--critical {
-  --rail: var(--fv-rail-critical);
+  --rail: #fca5a5;
 }
 .findings-v2-row--high {
-  --rail: var(--fv-rail-high);
+  --rail: #fdba74;
 }
 .findings-v2-row--medium {
-  --rail: var(--fv-rail-medium);
+  --rail: #cbd5e1;
 }
 .findings-v2-row--low {
-  --rail: var(--fv-rail-low);
+  --rail: #e2e8f0;
 }
 
+/* One continuous 2px line; segments butt edge-to-edge and only the colour changes. */
 .findings-v2-row::before {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
-  /* Soften the segment ends so adjacent severities blend at the seams. */
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--rail) 50%, transparent),
-    var(--rail) 28%,
-    var(--rail) 72%,
-    color-mix(in srgb, var(--rail) 50%, transparent)
-  );
-  /* All-around glow blends with neighbours; rightward bleed melts into the row. */
-  box-shadow:
-    0 0 9px 0 color-mix(in srgb, var(--rail) 55%, transparent),
-    5px 0 16px -3px color-mix(in srgb, var(--rail) 38%, transparent);
-  opacity: 0.95;
+  width: 2px;
+  background: var(--rail);
 }
 
 .findings-v2-row:hover {
