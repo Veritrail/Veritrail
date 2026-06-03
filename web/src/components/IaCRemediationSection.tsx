@@ -361,16 +361,16 @@ function SsmRunRemediationButton({
       type="button"
       disabled={disabled}
       onClick={onStart}
-      className="mt-3 inline-flex min-w-[220px] w-full max-sm:w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-[13px] font-semibold text-white shadow-[0_12px_28px_-14px_rgba(79,70,229,0.85)] transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-5 py-3 text-[13px] font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
     >
       {running ? (
         <span
-          className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+          className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
           aria-hidden
         />
       ) : (
-        <svg className="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-          <path d="M8 5.14v14.72a1 1 0 0 0 1.5.86l11.04-7.36a1 1 0 0 0 0-1.72L9.5 4.28a1 1 0 0 0-1.5.86Z" />
+        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
         </svg>
       )}
       {running ? "Running…" : "Run remediation"}
@@ -772,7 +772,7 @@ function SsmRemediationPanel({
         <PreviousExecutionNote findingId={findingId} />
       )}
 
-      {!showFailedState && !execSuccess && (
+      {!showFailedState && !execSuccess && !(started && !executionRunFailed) && (
         <ExecutionStatus
           findingId={findingId}
           showStaleFailures={attemptedStart}
