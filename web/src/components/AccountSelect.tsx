@@ -11,23 +11,20 @@ export type AccountOption = {
   provider?: CloudProvider;
 };
 
-/** AWS favicon: orange rounded tile + the white "smile" arrow. */
-function AwsFavicon({ className }: { className?: string }) {
+function CloudIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect width="24" height="24" rx="5.5" fill="#FF9900" />
-      <path d="M4.8 13.1c2.4 1.7 5.2 2.6 8 2.6 1.9 0 4-.46 5.9-1.4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M16.4 12.5c.95-.52 2.45-.6 2.95-.28.42.27.12 1.7-.66 2.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+    <svg className={`${className ?? ""} text-zinc-400`} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
     </svg>
   );
 }
 
-/** AWS is the only live provider today; GCP/Azure are wired but dark until those
+/** Neutral cloud today; GCP/Azure marks are wired but dark until those
  *  connectors ship (accounts never carry those providers yet). */
 function ProviderMark({ provider, className }: { provider?: CloudProvider; className?: string }) {
   if (provider === "gcp") return <GcpMark className={className} />;
   if (provider === "azure") return <AzureMark className={className} />;
-  return <AwsFavicon className={className} />;
+  return <CloudIcon className={className} />;
 }
 
 export function groupAccountId(id: string): string {
