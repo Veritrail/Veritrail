@@ -4132,142 +4132,6 @@ function PolicyCloudTrailStartAction({
   );
 }
 
-function ApplyPolicyFooter({
-  accountId,
-  roleArn,
-  data,
-  onApplied,
-}: {
-  accountId: string;
-  roleArn: string;
-  data: GeneratedPolicy;
-  onApplied: () => void;
-}) {
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dryRun, setDryRun] = useState(false);
-
-  if (!data.cleaned_policies || !data.has_inline_policies) return null;
-
-  const policyName = Object.keys(data.cleaned_policies)[0];
-  const cleanedPolicy = data.cleaned_policies[policyName];
-  const originalPolicy = (data.original_policies ?? {})[policyName];
-
-  async function handleApply() {
-    setApplying(true);
-    setError(null);
-    try {
-      const result = await api<{ dry_run?: boolean }>(
-        `/v1/accounts/${accountId}/roles/apply-policy`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            role_arn: roleArn,
-            policy_name: policyName,
-            cleaned_policy: cleanedPolicy,
-            dry_run: dryRun,
-          }),
-        },
-      );
-      if (result.dry_run) {
-        setError(null);
-        setShowConfirm(true);
-      } else {
-        setApplied(true);
-        onApplied();
-      }
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setApplying(false);
-    }
-  }
-
-  return (
-    <>
-      <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 mt-2">
-        {applied ? (
-          <span className="text-[11px] font-medium text-emerald-600">✓ Policy applied</span>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={applying}
-              className="rounded-md bg-zinc-800 px-2.5 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-60"
-            >
-              {applying ? "Applying…" : "Apply policy"}
-            </button>
-            {error && <span className="text-[11px] text-red-600">{error}</span>}
-          </>
-        )}
-      </div>
-
-      {showConfirm && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6">
-          <div
-            className="absolute inset-0 bg-zinc-950/25 backdrop-blur-[2px]"
-            onClick={() => setShowConfirm(false)}
-            aria-hidden
-          />
-          <div
-            role="dialog"
-            aria-labelledby="apply-policy-dialog-title"
-            className="relative w-full max-w-[520px] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-2xl shadow-zinc-900/15"
-          >
-            <div className="border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
-              <span className="font-semibold">⚠️ This will modify IAM.</span> The cleaned policy will replace the current inline policy on the role.
-            </div>
-            <div className="p-6">
-              <h3 id="apply-policy-dialog-title" className="text-base font-semibold text-zinc-900">
-                Confirm policy apply
-              </h3>
-              <p className="mt-2 text-sm text-zinc-600">
-                You{'\''}re about to apply the cleaned policy <span className="font-mono text-zinc-800">{policyName}</span> to role{" "}
-                <span className="font-mono text-zinc-800">{(roleArn || "").split("/").pop()}</span>.
-              </p>
-              <div className="mt-4 max-h-[200px] overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3">
-                <pre className="font-mono text-[11px] leading-relaxed text-zinc-700 whitespace-pre-wrap">
-                  {JSON.stringify(cleanedPolicy, null, 2)}
-                </pre>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <label className="flex items-center gap-2 text-xs text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={dryRun}
-                    onChange={(e) => setDryRun(e.target.checked)}
-                    className="rounded"
-                  />
-                  Dry run (validate only)
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(false)}
-                    className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleApply}
-                    disabled={applying}
-                    className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
-                  >
-                    {applying ? "Applying…" : dryRun ? "Validate" : "Apply"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
 
 function GeneratePolicySection({
   accountId,
@@ -4400,7 +4264,6 @@ function GeneratePolicySection({
               Per-action usage not available yet — scoped to services with recorded activity. Run another scan to refresh.
             </p>
           )}
-          <ApplyPolicyFooter accountId={accountId} roleArn={finding.resource_arn} data={data} onApplied={() => void refetch()} />
         </div>
       )}
       </div>
@@ -4538,6 +4401,34 @@ function CliBlock({ code, label = "Command" }: { code: string; label?: string })
   );
 }
 
+function ExceptionDocIcon() {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    // Fallback when /exception-shield.png is not present — clean indigo doc tile.
+    return (
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
+          />
+          <path strokeLinecap="round" strokeLinejoin="round" d="m9 13.5 1.75 1.75L14.5 11" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <img
+      src="/exception-shield.png"
+      alt=""
+      aria-hidden
+      onError={() => setFailed(true)}
+      className="h-11 w-11 shrink-0 rounded-xl object-contain"
+    />
+  );
+}
+
 function ExceptionButton({
   findingId,
   onDone,
@@ -4639,12 +4530,7 @@ function ExceptionButton({
               <div className="min-h-0 overflow-y-auto p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    <img
-                      src="/exception-shield.png"
-                      alt=""
-                      aria-hidden
-                      className="h-11 w-11 shrink-0 rounded-xl object-contain"
-                    />
+                    <ExceptionDocIcon />
                     <div className="min-w-0">
                       <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
                         Document exception
