@@ -4523,6 +4523,17 @@ function ExceptionButton({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  useAppScrollLock(open);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !submitting) setOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, submitting]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!reason.trim() || !approvedBy.trim()) return;
@@ -4561,99 +4572,109 @@ function ExceptionButton({
         )}
         {done ? "Exception recorded" : "Create exception"}
       </button>
-      {open && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6">
+      {open &&
+        createPortal(
           <div
-            className="absolute inset-0 bg-zinc-950/25 backdrop-blur-[2px]"
-            onClick={() => setOpen(false)}
-            aria-hidden
-          />
-          <div
-            role="dialog"
-            aria-labelledby="exception-dialog-title"
-            className="relative w-full max-w-[520px] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-2xl shadow-zinc-900/15"
+            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto p-4 sm:items-center sm:p-6"
+            role="presentation"
           >
-            <div className="border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
-              <span className="font-semibold">Audit evidence.</span> This exception, approver, and expiry will appear in your evidence pack.
-            </div>
-            <div className="p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
-                    Document exception
-                  </h3>
-                  <p className="mt-1 text-sm leading-relaxed text-zinc-500">
-                    Exceptions are retained in the evidence pack. Auditors can review the reason, approver, and expiry.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="shrink-0 rounded-lg p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
-                  aria-label="Close"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+            <div
+              className="fixed inset-0 bg-zinc-950/30 backdrop-blur-[2px]"
+              onClick={() => !submitting && setOpen(false)}
+              aria-hidden
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="exception-dialog-title"
+              className="relative my-auto flex w-full max-h-[min(100dvh-2rem,40rem)] max-w-[520px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-2xl shadow-zinc-900/15"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
+                <span className="font-semibold">Audit evidence.</span> This exception, approver, and expiry will appear in
+                your evidence pack.
               </div>
-              <form onSubmit={submit} className="mt-5 space-y-4">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-700">
-                    Reason <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    rows={3}
-                    placeholder="e.g. Internal sandbox repo — no production code. Risk accepted by CTO."
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-700">
-                    Approved by <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={approvedBy}
-                    onChange={(e) => setApprovedBy(e.target.value)}
-                    placeholder="e.g. Alice Smith (CTO)"
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-700">Expires (optional)</label>
-                  <input
-                    type="date"
-                    value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-                  />
-                </div>
-                <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+              <div className="min-h-0 overflow-y-auto p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
+                      Document exception
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                      Exceptions are retained in the evidence pack. Auditors can review the reason, approver, and expiry.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 sm:min-w-[7rem]"
+                    disabled={submitting}
+                    className="shrink-0 rounded-lg p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50"
+                    aria-label="Close"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting || !reason.trim() || !approvedBy.trim()}
-                    className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
-                  >
-                    {submitting ? "Saving…" : "Save exception"}
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
-              </form>
+                <form onSubmit={submit} className="mt-5 space-y-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-zinc-700">
+                      Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      rows={3}
+                      placeholder="e.g. Internal sandbox repo — no production code. Risk accepted by CTO."
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-zinc-700">
+                      Approved by <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={approvedBy}
+                      onChange={(e) => setApprovedBy(e.target.value)}
+                      placeholder="e.g. Alice Smith (CTO)"
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-zinc-700">Expires (optional)</label>
+                    <input
+                      type="date"
+                      value={expiresAt}
+                      onChange={(e) => setExpiresAt(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                    />
+                  </div>
+                  <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setOpen(false)}
+                      disabled={submitting}
+                      className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50 sm:min-w-[7rem]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting || !reason.trim() || !approvedBy.trim()}
+                      className="rounded-lg border border-zinc-800 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
+                    >
+                      {submitting ? "Saving…" : "Save exception"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
