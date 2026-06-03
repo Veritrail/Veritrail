@@ -18,7 +18,10 @@ ENTITY_PROVENANCE: dict[str, tuple[str, str]] = {
     "kms_key": ("collect_kms", "kms:ListKeys"),
     "cloudtrail_trail": ("collect_cloudtrail", "cloudtrail:DescribeTrails"),
     "identity_center_user": ("collect_identity_center", "identitystore:ListUsers"),
-    "identity_center_permission_set": ("collect_identity_center", "sso-admin:ListPermissionSets"),
+    "identity_center_permission_set": (
+        "collect_identity_center",
+        "sso-admin:ListPermissionSets,ListAccountsForProvisionedPermissionSet,ListAccountAssignments",
+    ),
     "guardduty_finding": ("collect_guardduty", "guardduty:ListFindings"),
     "config_rule_compliance": ("collect_config", "config:DescribeComplianceByConfigRule"),
 }

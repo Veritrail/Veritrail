@@ -91,14 +91,88 @@ const DRAWER_MAX_W = "max-w-[640px]";
 
 /** Resource label in drawer header (matches drawerFieldLabel). */
 const drawerFieldLabelBlock = drawerFieldLabel;
-const drawerFooterActionBase =
-  "flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-medium transition active:scale-[0.98] disabled:pointer-events-none";
-const drawerFooterReopen = `${drawerFooterActionBase} w-full border border-zinc-200 bg-white px-5 font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50`;
-const drawerFooterVerifySoft = `${drawerFooterActionBase} border border-emerald-600 bg-emerald-600 px-6 font-semibold text-white shadow-sm shadow-emerald-600/25 hover:border-emerald-700 hover:bg-emerald-700 disabled:opacity-50`;
-const drawerFooterVerifyMuted = `${drawerFooterActionBase} border border-slate-200 bg-slate-50 px-5 font-medium text-slate-500 shadow-sm hover:border-slate-300 hover:bg-white hover:text-slate-700 disabled:opacity-45`;
-const drawerFooterVerifyPrimary = `${drawerFooterActionBase} border border-emerald-600 bg-emerald-600 px-6 font-semibold text-white shadow-sm shadow-emerald-600/25 hover:border-emerald-700 hover:bg-emerald-700 disabled:opacity-50`;
-const drawerFooterVerifyDone = `${drawerFooterActionBase} border border-emerald-300 bg-emerald-600 px-6 font-semibold text-white shadow-sm hover:bg-emerald-600`;
-const drawerFooterException = `${drawerFooterActionBase} !flex-none border border-amber-200/80 bg-amber-50/70 px-4 font-medium text-amber-800 shadow-sm hover:border-amber-300 hover:bg-amber-100/70`;
+const drawerFooterCardBase =
+  "relative flex h-14 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border px-3.5 transition hover:shadow-md active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50";
+const drawerFooterReopen = `${drawerFooterCardBase} w-full justify-center border-zinc-200 bg-zinc-50/80 text-[13px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50`;
+const drawerFooterVerifyCard = `${drawerFooterCardBase} border-emerald-200 bg-emerald-50/70 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50`;
+const drawerFooterVerifyMutedCard = `${drawerFooterCardBase} border-slate-200 bg-slate-50/90 text-slate-400 hover:border-slate-300 hover:bg-slate-50`;
+const drawerFooterVerifyDoneCard = `${drawerFooterCardBase} border-emerald-300 bg-emerald-50 text-emerald-700`;
+const drawerFooterExceptionCard = `${drawerFooterCardBase} border-orange-200 bg-orange-50/70 text-orange-600 hover:border-orange-300 hover:bg-orange-50`;
+
+function DrawerFooterIconBadge({
+  children,
+  tone,
+}: {
+  children: ReactNode;
+  tone: "emerald" | "orange" | "slate" | "emerald-done";
+}) {
+  const shell =
+    tone === "orange"
+      ? "bg-orange-100/90"
+      : tone === "slate"
+        ? "bg-slate-100"
+        : tone === "emerald-done"
+          ? "bg-emerald-100"
+          : "bg-emerald-100/90";
+  return (
+    <span
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${shell}`}
+      aria-hidden
+    >
+      {children}
+    </span>
+  );
+}
+
+function DrawerFooterChevron() {
+  return (
+    <svg className="h-4 w-4 shrink-0 opacity-80" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+    </svg>
+  );
+}
+
+function DrawerFooterCardLead({
+  icon,
+  label,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  tone: "emerald" | "orange" | "slate" | "emerald-done";
+}) {
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-2.5">
+      <DrawerFooterIconBadge tone={tone}>{icon}</DrawerFooterIconBadge>
+      <span className="truncate text-[13px] font-semibold leading-tight">{label}</span>
+    </span>
+  );
+}
+
+function DrawerFooterShieldCheckIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+      />
+    </svg>
+  );
+}
+
+function DrawerFooterExceptionBubbleIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a2.252 2.252 0 0 0 1.126-1.92c0-.817-.546-1.55-1.346-1.894a48.508 48.508 0 0 0-8.558-2.535c-.966-.14-1.936-.21-2.908-.21"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 0h.008v.008H12V12.75Z" />
+    </svg>
+  );
+}
 
 function DrawerChevronButton({
   expanded,
@@ -4590,18 +4664,23 @@ function ExceptionButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`${className ?? drawerFooterException} ${done ? "!border-emerald-200/80 !bg-emerald-50/80 !text-emerald-800 hover:!bg-emerald-50" : ""}`}
+        aria-label={done ? "Exception recorded" : "Create exception"}
+        className={`${className ?? drawerFooterExceptionCard} ${done ? "!border-emerald-300 !bg-emerald-50 !text-emerald-700" : ""}`}
       >
-        {!done && (
-          <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v3.75m0 3.75h.008v.008H12V16.5Zm9.303 3.75a9.02 9.02 0 0 1-16.606 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-            />
-          </svg>
-        )}
-        {done ? "Exception recorded" : "Create exception"}
+        <DrawerFooterCardLead
+          tone={done ? "emerald-done" : "orange"}
+          label={done ? "Exception recorded" : "Create exception"}
+          icon={
+            done ? (
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <DrawerFooterExceptionBubbleIcon />
+            )
+          }
+        />
+        <DrawerFooterChevron />
       </button>
       {open &&
         sheetContainerRef.current &&
@@ -4893,8 +4972,6 @@ export function FindingDrawer({
     remediationExecution?.status === "success" ||
     Boolean((remediationExecution?.result as { ok?: boolean } | undefined)?.ok);
   const ssmAutomationRemTab = remTab === "automation";
-  const verifyFooterPrimary =
-    ssmAutomationRemTab && ssmExecSuccess && !verified && !verifying && !showReopenFooter;
   const verifyFooterMuted =
     ssmAutomationRemTab && !ssmExecSuccess && !verified && !verifying && !showReopenFooter;
 
@@ -5236,7 +5313,7 @@ export function FindingDrawer({
         <BlastRadiusSection accountId={accountId!} finding={finding} />
       )}
     </div>
-    <div className="shrink-0 border-t border-slate-200 bg-white/90 px-6 py-4 backdrop-blur pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       {showReopenFooter ? (
         <button type="button" onClick={() => onAction(finding.id, "reopen")} className={drawerFooterReopen}>
           Reopen finding
@@ -5247,50 +5324,52 @@ export function FindingDrawer({
             type="button"
             disabled={verifying || verified}
             onClick={() => onAction(finding.id, "recheck")}
+            aria-label={verified ? "Verified" : verifying ? "Verifying fix" : "Verify fix"}
             className={`${
               verified
-                ? drawerFooterVerifyDone
-                : verifyFooterPrimary
-                  ? drawerFooterVerifyPrimary
-                  : verifyFooterMuted
-                    ? drawerFooterVerifyMuted
-                    : drawerFooterVerifySoft
-            } relative`}
+                ? drawerFooterVerifyDoneCard
+                : verifyFooterMuted
+                  ? drawerFooterVerifyMutedCard
+                  : drawerFooterVerifyCard
+            }`}
           >
-              <span className={`inline-flex items-center gap-2 ${verifying ? "invisible" : ""}`} aria-hidden={verifying}>
-                {!verified && (
-                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                    />
-                  </svg>
-                )}
-                {verified ? "Verified" : "Verify fix"}
-              </span>
-              {verifying && (
-                <span className="absolute inset-0 flex items-center justify-center gap-2">
-                  <svg className="h-4 w-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span>Verifying…</span>
-                </span>
-              )}
-              {verified && !verifying && (
-                <span className="absolute inset-0 flex items-center justify-center gap-1.5">
-                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Verified</span>
-                </span>
-              )}
+            {verifying ? (
+              <>
+                <DrawerFooterCardLead
+                  tone="emerald"
+                  label="Verifying…"
+                  icon={
+                    <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  }
+                />
+                <DrawerFooterChevron />
+              </>
+            ) : (
+              <>
+                <DrawerFooterCardLead
+                  tone={verified ? "emerald-done" : verifyFooterMuted ? "slate" : "emerald"}
+                  label={verified ? "Verified" : "Verify fix"}
+                  icon={
+                    verified ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <DrawerFooterShieldCheckIcon />
+                    )
+                  }
+                />
+                <DrawerFooterChevron />
+              </>
+            )}
           </button>
           <ExceptionButton
             findingId={finding.id}
             onDone={onClose}
-            className={drawerFooterException}
+            className={drawerFooterExceptionCard}
             sheetContainerRef={drawerSheetRef}
           />
         </div>

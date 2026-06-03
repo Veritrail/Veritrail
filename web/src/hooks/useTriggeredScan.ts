@@ -105,7 +105,7 @@ export function useTriggeredScan(accountId: string | undefined, options?: UseTri
       if (!accountId) return false;
       const pending = readPendingScan(accountId);
       const status = qc.getQueryData<ScanRunLatest | null>(["scan-run-latest", accountId])?.status;
-      if (pending || status === "running") return 3000;
+      if (pending || status === "running") return 2000;
       return backgroundPollMs ?? false;
     },
   });

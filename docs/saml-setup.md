@@ -1,10 +1,10 @@
-# SAML 2.0 Enterprise SSO — setup & operations
+# SAML 2.0 Enterprise SSO — dark/internal
 
 **Search terms:** SAML, SSO, Okta, Azure AD, `auth_saml.py`, `OrgSamlConfig`, ACS, IdP, `python3-saml`, xmlsec, migration 0045
 
-Per-org SP-initiated SAML login, alongside the existing Google/GitHub/GitLab OAuth. Each org configures its own IdP; users authenticate at the IdP and are provisioned into that org on first login.
+SAML is backend-capable but intentionally hidden from the product UI. Vigil's current product boundary is AWS-native SOC 2 CC6/CC7 evidence and evidence packs, not enterprise identity administration.
 
-> **Status:** code-complete, **not yet tested against a live IdP**. Do one real round-trip (Okta or Azure AD) in staging before enabling for real users. See [Limitations](#limitations).
+> **Status:** dark/internal. Code-complete, **not yet tested against a live IdP**, and not part of the current launch surface. Do one real round-trip (Okta or Azure AD) in staging before exposing this to users. See [Limitations](#limitations).
 
 ## Code map
 
@@ -13,8 +13,8 @@ Per-org SP-initiated SAML login, alongside the existing Google/GitHub/GitLab OAu
 | Model | `api/app/models/saml.py` → `OrgSamlConfig` |
 | Migration | `api/migrations/versions/0045_org_saml_config.py` |
 | Routes | `api/app/routes/auth_saml.py` |
-| Admin UI | `web/src/components/SamlSettings.tsx` → Settings ▸ **SSO (SAML)** |
-| Login entry | `web/src/pages/Login.tsx` → "Sign in with SSO" |
+| Admin UI | Hidden; `web/src/components/SamlSettings.tsx` remains unused dark code |
+| Login entry | Hidden; no visible SAML login button |
 | Tests | `api/tests/test_saml_acs.py` |
 
 Endpoints (mounted under `/v1/auth`):
@@ -26,7 +26,7 @@ Endpoints (mounted under `/v1/auth`):
 | POST | `/v1/auth/saml/{slug}/acs` | Assertion Consumer Service (IdP posts here) |
 | GET/PUT | `/v1/auth/saml/config` | Authenticated per-org admin config |
 
-## 1. One-time deploy (required — the feature is dark until this is done)
+## 1. One-time deploy (only if intentionally re-enabled)
 
 The native crypto dependency (`python3-saml` → `xmlsec`/`libxml2`) is in the Dockerfile and `requirements.txt` but **not in the currently-running image**. Until rebuilt, every SAML route returns `503 "SAML support is not installed on this server"`.
 
@@ -49,9 +49,9 @@ Required env (already in config defaults — confirm for prod in `api/app/core/c
 | `FRONTEND_URL` | Where ACS redirects after login (`{FRONTEND_URL}/auth/callback?token=…`). |
 | `ALLOW_SSO_SIGNUP` | `true` = provision unknown emails on first SAML login. `false` = only pre-existing users may log in. |
 
-## 2. Configure an org (admin)
+## 2. Configure an org (admin, hidden feature)
 
-In the app: **Settings ▸ SSO (SAML)**. Fill in:
+The Settings UI does not expose SAML. If this is re-enabled for a specific customer, restore the hidden admin UI or configure through the API:
 
 | Field | Value |
 |-------|-------|

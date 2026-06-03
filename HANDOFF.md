@@ -94,6 +94,11 @@ sessions wasted turns suggesting these.
 - **No Stripe / billing work** unless the founder explicitly asks. It is
   deferred indefinitely, not pending-discovery.
 - **No emojis in code, docs, or commits** unless explicitly requested.
+- **No visible SAML / enterprise SSO work** unless a real design partner asks
+  for it. Google/GitHub/GitLab login is enough for now; identity work should
+  mean evidence ingestion, not more app-login options.
+- **No multi-cloud roadmap in the product UI.** Vigil must feel ready on AWS
+  for SOC 2 CC6/CC7 before GCP/Azure enter the conversation.
 
 If you find yourself wanting to add one of the above to a TODO, gap list,
 "next priorities" list, or commit message: stop. It belongs in this section
@@ -219,7 +224,7 @@ only, and only to say it's out of scope.
 - Login page: email/password + GitHub SSO + Google SSO
 - AWS Accounts page — multi-account support, per-account findings + compliance metric strips, scan progress on card, official AWS logo (`/aws.png`), styled remove-account confirm dialog, pending-account UX
 - Findings page (grouped, severity-aware, multi-tag filter, URL-synced `?checks=`, smooth accordion animation, severity-tinted expanded rows)
-- Controls/Compliance page (SOC2 + CIS AWS L1 + ISO 27001; pass-rate cards, status filters, questionnaire template copy, evidence preview, mapped checks — no Re-scan/Refresh in header; scan only from Accounts/Findings)
+- Controls/Compliance page (SOC 2 CC6/CC7 + CIS AWS L1 supporting context; pass-rate cards, status filters, questionnaire template copy, evidence preview, mapped checks — no Re-scan/Refresh in header; scan only from Accounts/Findings)
 - Settings page (check enable/disable per group, weekly digest toggle + recipient email)
 - Account settings page (password + GitHub)
 - Reference page (`/reference`) — searchable table of all supported search keys, resource types, check IDs, ARN patterns
@@ -413,7 +418,7 @@ go cheaper (below $200) or be radically better at evidence quality.
 | Free | $0 | 1 AWS account, weekly scan, no exports, 30d retention |
 | Starter | $99/mo or $999/yr | All AWS checks, evidence exports (JSON+CSV+PDF), weekly digest, 90d snapshots |
 | Team | $249/mo or $2,499/yr | + GitHub + Google Workspace, 365d snapshots, ZIP evidence bundle, up to 5 accounts |
-| Growth | $499/mo or $4,999/yr | + multi-account orgs, Slack delivery, custom controls, priority email |
+| Growth | $499/mo or $4,999/yr | + multi-account orgs, Slack delivery, priority email |
 
 **Why monthly/annual not one-shot:** SOC2 Type 2 requires continuous evidence
 across a 3–12 month audit window. Auditor samples random dates and asks for
@@ -426,13 +431,13 @@ points per year. The recurring fee is justified by recurring evidence.
 | Decision | Choice |
 |---|---|
 | Audit workflows (policies, vendors, trust center, HR, training) | **Out of scope for the foreseeable roadmap.** Only reconsider if repeatedly demanded by paying customers. That swamp is Vanta's. Stay infra-heavy. |
-| Identity evidence ingestion (Okta, Google Workspace, GitHub) | **YES.** Pull metadata only, never build an IdP. |
+| Identity evidence ingestion (Google Workspace, GitHub) | **YES.** Pull metadata only, never build an IdP. |
 | Change management evidence (GitHub PR reviews, branch protections, deployments) | **YES via GitHub.** No Jira yet. |
-| Multi-cloud (Azure, GCP) | **Defer to Year 2+.** Identity integrations give more SOC2 evidence per engineering hour than another cloud. |
+| Multi-cloud (Azure, GCP) | **Out of product scope for now.** AWS must feel complete before this enters the product conversation. |
 | Kubernetes RBAC | **No.** Different buyer, different product. |
 | Repo secret scanning (Gitleaks, Semgrep) | **No.** Different category, Snyk territory. |
 | Write actions / auto-remediation | **No.** Read-only is the entire trust story. |
-| Compliance frameworks to map | **CIS AWS L1, SOC2 CC6/CC7 first.** ISO 27001 A.9/A.12 second. Skip CC1/CC2/CC3/CC5/CC9 — can't evidence from AWS data. |
+| Compliance frameworks to map | **SOC 2 CC6/CC7 first.** CIS AWS L1 is supporting AWS benchmark context. Skip CC1/CC2/CC3/CC5/CC9 — can't evidence from AWS data. |
 
 ## Key differentiator: "What If" blast radius analysis
 
@@ -1047,11 +1052,10 @@ OAuth + admin SDK + domain-wide delegation. Pull:
 - Users (active, suspended, archived)
 - 2-Step Verification enrollment per user
 - Admin roles
-- SSO configuration
 - Last login activity
 
-Covers MFA + deprovisioning for non-GitHub users. Most US/EU startups have
-Google Workspace.
+Covers MFA, access review, and deprovisioning evidence for CC6/CC7. This is
+evidence ingestion, not another app-login or enterprise SSO project.
 
 ### Phase 5 — Billing + delivery (2 weeks)
 
@@ -1076,9 +1080,6 @@ Google Workspace.
 
 ### Phase 1.5, 7+ — deferred until paying customers ask
 
-- Okta integration (3–5 weeks; harder API)
-- Entra ID + Azure
-- GCP
 - KMS key rotation deep checks
 - Secrets Manager / SSM rotation
 - Lambda function URL exposure
@@ -1180,7 +1181,7 @@ When in doubt, reread this section. The next contributor (human or AI)
 should not be allowed to:
 
 - Re-introduce audit workflow / GRC features
-- Add multi-cloud before identity integrations ship
+- Add multi-cloud before AWS CC6/CC7 feels complete
 - Build features without first asking "does this strengthen the evidence
   layer or just add a checkmark?"
 - Quote pricing above $499/mo (cap, not floor)

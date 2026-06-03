@@ -19,6 +19,7 @@ import {
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
+import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { isAccountConnected } from "../lib/accountConnection";
 import { friendlyScanFailureMessage } from "../lib/scanFailureMessages";
@@ -561,7 +562,20 @@ function capabilityVerifyFeedback(
   return null;
 }
 
-type Finding = { id: string; account_id: string; severity: string; status: string };
+type Finding = {
+  id: string;
+  account_id: string;
+  severity: string;
+  status: string;
+  first_seen: string;
+};
+
+function isWithinLastDays(iso: string | null | undefined, days: number): boolean {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t <= days * 24 * 60 * 60 * 1000;
+}
 
 type FindingStats = { critHigh: number; medium: number; open: number };
 
@@ -1442,27 +1456,18 @@ function RemediationAutomationSection({
 
 function AccountDetailsPanel({
   acc,
-  isScanActive,
   scanError,
   showManageCapabilities,
-  onManageCapabilities,
-  onUpdateConnector,
   showUpdateArn,
   roleArn,
   setRoleArn,
   verify,
-  onUpdateRole,
   onCancelUpdate,
-  onRemove,
-  removePending,
   manageCapabilitiesPanel,
 }: {
   acc: Account;
-  isScanActive: boolean;
   scanError: string | null;
   showManageCapabilities: boolean;
-  onManageCapabilities: () => void;
-  onUpdateConnector: () => void;
   showUpdateArn: boolean;
   roleArn: string;
   setRoleArn: (v: string) => void;
@@ -1473,10 +1478,7 @@ function AccountDetailsPanel({
     isSuccess: boolean;
     reset: () => void;
   };
-  onUpdateRole: () => void;
   onCancelUpdate: () => void;
-  onRemove: () => void;
-  removePending: boolean;
   manageCapabilitiesPanel: ReactNode;
 }) {
   const roleDisplay =
@@ -1539,33 +1541,6 @@ function AccountDetailsPanel({
       </div>
 
       {showManageCapabilities && manageCapabilitiesPanel}
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200/60 px-4 py-3">
-        <div className="flex flex-wrap gap-1">
-          <button
-            type="button"
-            onClick={onUpdateConnector}
-            disabled={isScanActive}
-            className={ghostBtn}
-          >
-            Update connector
-          </button>
-          <button
-            type="button"
-            onClick={onManageCapabilities}
-            disabled={isScanActive}
-            className={ghostBtn}
-          >
-            {showManageCapabilities ? "Hide capabilities" : "Manage capabilities"}
-          </button>
-          <button type="button" onClick={onUpdateRole} disabled={isScanActive} className={ghostBtn}>
-            Update role ARN
-          </button>
-        </div>
-        <button type="button" onClick={onRemove} disabled={removePending} className={dangerGhostBtn}>
-          Disconnect account
-        </button>
-      </div>
     </div>
   );
 }
@@ -2162,7 +2137,7 @@ function FindingsSeverityStrip({ stats }: { stats: FindingStats }) {
 
 
 const cardClass =
-  "overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-200 hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_20px_rgba(0,0,0,0.05)]";
+  "rounded-xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-200 hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_20px_rgba(0,0,0,0.05)]";
 
 function buildStatsMap(items: Finding[] | undefined): Map<string, FindingStats> {
   const map = new Map<string, FindingStats>();
@@ -2233,15 +2208,42 @@ type ScanScheduleData = {
 function scanScheduleText(s?: ScanScheduleData): string {
   if (!s || !s.scanning.enabled || s.scanning.interval === "manual") return "Manual only";
   if (s.scanning.interval === "weekly") return "Weekly";
-  if (s.scanning.interval === "custom") return s.scanning.custom_hours ? `Every ${s.scanning.custom_hours}h` : "Custom";
+  if (s.scanning.interval === "custom") {
+    return s.scanning.custom_hours ? `Every ${s.scanning.custom_hours} hours` : "Custom";
+  }
+  const next = s.scan_status.next_scan_at;
+  if (next) {
+    const t = new Date(next);
+    if (!Number.isNaN(t.getTime())) {
+      const at = t.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+        hour12: false,
+      });
+      return `Daily at ${at} UTC`;
+    }
+  }
   return "Daily";
 }
 
-function formatScanDate(iso: string | null | undefined): string {
+/** Account card footer — quiet dates like the design mock (no local TZ suffix on last scan). */
+function formatFooterScanDate(iso: string | null | undefined, opts?: { utc?: boolean }): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const parts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  };
+  if (opts?.utc) {
+    return `${d.toLocaleString("en-US", { ...parts, timeZone: "UTC" })} UTC`;
+  }
+  return d.toLocaleString(undefined, parts);
 }
 
 function formatElapsed(ms: number | null | undefined): string | null {
@@ -2283,8 +2285,13 @@ function CopyIdButton({ text }: { text: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
         </svg>
       ) : (
-        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75h-6a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.75}
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
         </svg>
       )}
     </button>
@@ -2295,30 +2302,54 @@ function SeverityCounts({ stats }: { stats: FindingStats }) {
   const items = [
     { value: stats.critHigh, label: "Critical", cls: stats.critHigh > 0 ? "text-red-600" : "text-zinc-400" },
     { value: stats.medium, label: "Medium", cls: stats.medium > 0 ? "text-amber-600" : "text-zinc-400" },
-    { value: stats.open, label: "Open", cls: "text-zinc-700" },
+    { value: stats.open, label: "Open", cls: "text-zinc-900" },
   ];
   return (
-    <div className="flex items-stretch divide-x divide-zinc-200">
-      {items.map((it) => (
-        <div key={it.label} className="px-3.5 text-center first:pl-0 last:pr-0">
-          <p className={`text-xl font-bold leading-none tabular-nums ${it.cls}`}>{it.value}</p>
-          <p className="mt-1 text-[11px] text-zinc-500">{it.label}</p>
+    <div className="inline-flex items-center">
+      {items.map((it, i) => (
+        <div
+          key={it.label}
+          className={`min-w-[4.25rem] px-4 py-2 text-center ${i > 0 ? "border-l border-zinc-200" : ""}`}
+        >
+          <p className={`text-[1.35rem] font-bold leading-none tracking-tight tabular-nums ${it.cls}`}>
+            {it.value}
+          </p>
+          <p className="mt-0.5 text-[11px] font-medium text-zinc-500">{it.label}</p>
         </div>
       ))}
     </div>
   );
 }
 
+type AccountMenuProps = {
+  onUpdateConnector: () => void;
+  onManageCapabilities: () => void;
+  onUpdateRole: () => void;
+  onDisconnect: () => void;
+  scanDisabled?: boolean;
+  disconnectPending?: boolean;
+};
+
+function AccountSeverityStrip({ stats, menu }: { stats: FindingStats; menu: AccountMenuProps }) {
+  return (
+    <div className="inline-flex items-center gap-2">
+      <SeverityCounts stats={stats} />
+      <AccountMenu {...menu} />
+    </div>
+  );
+}
+
 function AccountMenu({
-  onViewFindings,
-  onManage,
-  onRemove,
-}: {
-  onViewFindings: () => void;
-  onManage: () => void;
-  onRemove: () => void;
-}) {
+  onUpdateConnector,
+  onManageCapabilities,
+  onUpdateRole,
+  onDisconnect,
+  scanDisabled = false,
+  disconnectPending = false,
+}: AccountMenuProps) {
   const [open, setOpen] = useState(false);
+  const itemClass =
+    "block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
   return (
     <div className="relative">
       <button
@@ -2327,19 +2358,62 @@ function AccountMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         title="More actions"
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 transition hover:bg-zinc-50 hover:text-zinc-600"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-800"
       >
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 6.75a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm0 6.75a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm0 6.75a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+          <circle cx="5" cy="12" r="2.25" />
+          <circle cx="12" cy="12" r="2.25" />
+          <circle cx="19" cy="12" r="2.25" />
         </svg>
       </button>
       {open && (
         <>
           <button type="button" aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
-            <button role="menuitem" onClick={() => { setOpen(false); onViewFindings(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50">View findings</button>
-            <button role="menuitem" onClick={() => { setOpen(false); onManage(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50">Manage capabilities</button>
-            <button role="menuitem" onClick={() => { setOpen(false); onRemove(); }} className="block w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50">Remove account</button>
+          <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
+            <button
+              role="menuitem"
+              disabled={scanDisabled}
+              onClick={() => {
+                setOpen(false);
+                onUpdateConnector();
+              }}
+              className={itemClass}
+            >
+              Update connector
+            </button>
+            <button
+              role="menuitem"
+              disabled={scanDisabled}
+              onClick={() => {
+                setOpen(false);
+                onManageCapabilities();
+              }}
+              className={itemClass}
+            >
+              Manage capabilities
+            </button>
+            <button
+              role="menuitem"
+              disabled={scanDisabled}
+              onClick={() => {
+                setOpen(false);
+                onUpdateRole();
+              }}
+              className={itemClass}
+            >
+              Update role ARN
+            </button>
+            <button
+              role="menuitem"
+              disabled={disconnectPending}
+              onClick={() => {
+                setOpen(false);
+                onDisconnect();
+              }}
+              className="block w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Disconnect account
+            </button>
           </div>
         </>
       )}
@@ -2360,10 +2434,13 @@ function ScanPhaseBlock({
   progressTotal: number | null;
   indeterminate: boolean;
 }) {
-  const pct = Math.max(0, Math.min(100, Math.round((progress ?? 0) * 100)));
+  const pct = Math.max(0, Math.min(100, Math.round(progress ?? 0)));
   const elapsed = formatElapsed(elapsedMs);
-  const frac = progressTotal && progressStep != null ? progressStep / progressTotal : progress ?? 0;
-  const activeIdx = indeterminate ? 0 : Math.min(SCAN_PHASES.length - 1, Math.floor(frac * SCAN_PHASES.length));
+  const activeIdx = indeterminate
+    ? 0
+    : progressStep != null && progressTotal
+      ? mapWorkerStepToUiPhase(progressStep, progressTotal)
+      : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
   return (
     <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-5 py-4">
       <div className="flex items-center justify-between gap-3">
@@ -2388,12 +2465,12 @@ function ScanPhaseBlock({
           style={indeterminate ? undefined : { width: `${pct}%` }}
         />
       </div>
-      <div className="mt-3.5 grid grid-cols-3 gap-y-3 sm:grid-cols-6">
+      <div className="mt-3.5 grid w-full grid-cols-3 gap-x-3 gap-y-3 sm:grid-cols-6 sm:gap-x-2 sm:gap-y-0">
         {SCAN_PHASES.map((label, i) => {
           const done = i < activeIdx;
           const active = i === activeIdx;
           return (
-            <div key={label} className="flex flex-col items-center gap-1 px-1 text-center">
+            <div key={label} className="flex min-w-0 flex-col items-center gap-1 px-0.5 text-center">
               <span
                 className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
                   done ? "bg-emerald-500 text-white" : active ? "bg-indigo-600 text-white" : "bg-zinc-200 text-zinc-500"
@@ -2417,64 +2494,115 @@ function ScanPhaseBlock({
   );
 }
 
-function FooterStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function FooterStat({
+  icon,
+  label,
+  value,
+  divided,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  divided?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-zinc-300">{icon}</span>
-      <div className="leading-tight">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{label}</p>
-        <p className="text-xs font-medium text-zinc-600">{value}</p>
+    <div
+      className={`flex min-w-0 items-center gap-2 px-4 py-2.5 ${
+        divided ? "border-b border-zinc-100 sm:border-b-0 sm:border-r sm:border-zinc-100" : ""
+      }`}
+    >
+      <span className="shrink-0 text-zinc-400/90">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-normal leading-tight text-zinc-500">{label}</p>
+        <p className="mt-0.5 truncate text-[13px] font-normal leading-snug text-zinc-700">{value}</p>
       </div>
     </div>
   );
 }
 
-function SplitScanButton({
+function AccountCardActionBar({
+  lastScanLabel,
+  scheduleLabel,
+  nextScanLabel,
+  expanded,
+  onToggleDetails,
+  onViewFindings,
   onRescan,
-  onHistory,
-  disabled,
-  running,
+  scanDisabled,
+  scanRunning,
 }: {
+  lastScanLabel: string;
+  scheduleLabel: string;
+  nextScanLabel: string;
+  expanded: boolean;
+  onToggleDetails: () => void;
+  onViewFindings: () => void;
   onRescan: () => void;
-  onHistory: () => void;
-  disabled: boolean;
-  running: boolean;
+  scanDisabled: boolean;
+  scanRunning: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="relative flex">
-      <button
-        type="button"
-        onClick={onRescan}
-        disabled={disabled}
-        className="inline-flex h-9 items-center gap-1.5 rounded-l-lg bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <svg className={`h-4 w-4 ${running ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        {running ? "Scanning…" : "Rescan"}
-      </button>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title="Scan options"
-        className="inline-flex h-9 items-center rounded-r-lg bg-gradient-to-r from-[#8b5cf6] to-[#8b5cf6] px-1.5 text-white shadow-[inset_1px_0_0_rgba(255,255,255,0.25)] transition hover:brightness-110"
-      >
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <>
-          <button type="button" aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
-            <button role="menuitem" disabled={disabled} onClick={() => { setOpen(false); onRescan(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50">Rescan now</button>
-            <button role="menuitem" onClick={() => { setOpen(false); onHistory(); }} className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50">View scan history</button>
-          </div>
-        </>
-      )}
+    <div className="flex w-full min-w-0 flex-col rounded-b-xl border-t border-zinc-100 bg-white lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:py-0 lg:pr-5">
+      <div className="flex min-w-0 flex-col sm:flex-row lg:shrink-0">
+        <FooterStat divided icon={FOOTER_ICON_CLOCK} label="Last scan started" value={lastScanLabel} />
+        <FooterStat divided icon={FOOTER_ICON_REPEAT} label="Scheduled" value={scheduleLabel} />
+        <FooterStat icon={FOOTER_ICON_CALENDAR} label="Next scan" value={nextScanLabel} />
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-zinc-200 px-4 py-3 lg:border-t-0 lg:shrink-0 lg:py-3 lg:pl-0 lg:pr-0">
+        <button
+          type="button"
+          onClick={onToggleDetails}
+          aria-expanded={expanded}
+          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50"
+        >
+          <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+          </svg>
+          View details
+          <svg
+            className={`h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={onViewFindings}
+          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50"
+        >
+          <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+            />
+          </svg>
+          View findings
+        </button>
+        <button
+          type="button"
+          onClick={onRescan}
+          disabled={scanDisabled}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg
+            className={`h-4 w-4 ${scanRunning ? "animate-spin" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {scanRunning ? "Scanning…" : "Rescan"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -2559,7 +2687,9 @@ function AccountCard({
     enabled: connected,
   });
   const scheduleLabel = scanScheduleText(settings.data);
-  const nextScanLabel = settings.data ? formatScanDate(settings.data.scan_status.next_scan_at) : "—";
+  const nextScanLabel = settings.data
+    ? formatFooterScanDate(settings.data.scan_status.next_scan_at, { utc: true })
+    : "—";
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -2666,6 +2796,28 @@ function AccountCard({
 
   const hasStats = connected && hasScanned && !!stats;
 
+  const ensureExpanded = () => {
+    if (!expanded) onToggle();
+  };
+
+  const accountMenu: AccountMenuProps = {
+    onUpdateConnector: () => {
+      ensureExpanded();
+      setShowConnectorUpdate(true);
+    },
+    onManageCapabilities: () => {
+      ensureExpanded();
+      setShowManageCapabilities((v) => !v);
+    },
+    onUpdateRole: () => {
+      ensureExpanded();
+      setShowUpdateArn(true);
+    },
+    onDisconnect: requestRemove,
+    scanDisabled: isScanActive,
+    disconnectPending: remove.isPending,
+  };
+
   return (
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
       <div className="flex items-start gap-4 px-5 py-4">
@@ -2697,20 +2849,14 @@ function AccountCard({
         </div>
 
         {connected ? (
-          <div className="flex shrink-0 items-center gap-3">
-            {hasStats && stats && (
+          <div className="flex shrink-0 items-center">
+            {hasStats && stats ? (
               <div className="hidden sm:block">
-                <SeverityCounts stats={stats} />
+                <AccountSeverityStrip stats={stats} menu={accountMenu} />
               </div>
+            ) : (
+              <AccountMenu {...accountMenu} />
             )}
-            <AccountMenu
-              onViewFindings={() => navigate("/findings")}
-              onManage={() => {
-                if (!expanded) onToggle();
-                setShowManageCapabilities(true);
-              }}
-              onRemove={requestRemove}
-            />
           </div>
         ) : (
           <div className="flex shrink-0 items-center gap-2">
@@ -2730,8 +2876,8 @@ function AccountCard({
       </div>
 
       {hasStats && stats && (
-        <div className="border-t border-zinc-100/80 px-5 py-2.5 sm:hidden">
-          <SeverityCounts stats={stats} />
+        <div className="flex justify-end border-t border-zinc-100/80 px-5 py-2.5 sm:hidden">
+          <AccountSeverityStrip stats={stats} menu={accountMenu} />
         </div>
       )}
 
@@ -2761,46 +2907,17 @@ function AccountCard({
       )}
 
       {connected && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 bg-zinc-50/50 px-5 py-3">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <FooterStat icon={FOOTER_ICON_CLOCK} label="Last scan" value={formatScanDate(acc.last_scan_at)} />
-            <FooterStat icon={FOOTER_ICON_REPEAT} label="Scheduled" value={scheduleLabel} />
-            <FooterStat icon={FOOTER_ICON_CALENDAR} label="Next scan" value={nextScanLabel} />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-expanded={expanded}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
-            >
-              <svg className="h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-              </svg>
-              View details
-              <svg className={`h-3.5 w-3.5 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/findings")}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
-            >
-              <svg className="h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              </svg>
-              View findings
-            </button>
-            <SplitScanButton
-              onRescan={() => triggerScan(acc.id)}
-              onHistory={() => navigate("/history")}
-              disabled={isScanActive}
-              running={isScanActive}
-            />
-          </div>
-        </div>
+        <AccountCardActionBar
+          lastScanLabel={formatFooterScanDate(acc.last_scan_at)}
+          scheduleLabel={scheduleLabel}
+          nextScanLabel={nextScanLabel}
+          expanded={expanded}
+          onToggleDetails={onToggle}
+          onViewFindings={() => navigate("/findings")}
+          onRescan={() => triggerScan(acc.id)}
+          scanDisabled={isScanActive}
+          scanRunning={isScanActive}
+        />
       )}
 
       <div
@@ -2813,27 +2930,21 @@ function AccountCard({
             <div className="border-t border-zinc-200/60 bg-zinc-50/50">
               <AccountDetailsPanel
                 acc={acc}
-                isScanActive={isScanActive}
                 scanError={
                   scanStatus === "error" && scanRun.data?.error
                     ? `${scanRun.data.error_type ? `(${scanRun.data.error_type}) ` : ""}${scanRun.data.error}`
                     : null
                 }
                 showManageCapabilities={showManageCapabilities}
-                onManageCapabilities={() => setShowManageCapabilities((v) => !v)}
-                onUpdateConnector={() => setShowConnectorUpdate(true)}
                 showUpdateArn={showUpdateArn}
                 roleArn={roleArn}
                 setRoleArn={setRoleArn}
                 verify={verify}
-                onUpdateRole={() => setShowUpdateArn(true)}
                 onCancelUpdate={() => {
                   setShowUpdateArn(false);
                   setRoleArn("");
                   verify.reset();
                 }}
-                onRemove={() => setShowRemoveConfirm(true)}
-                removePending={remove.isPending}
                 manageCapabilitiesPanel={
                   showManageCapabilities ? (
                     <ManageCapabilitiesPanel
@@ -2934,81 +3045,150 @@ function PostureGlyphUsers() {
 
 type PostureTone = "good" | "warn" | "bad" | "muted";
 
-function PostureSummary({
-  accounts,
-  statsMap,
-}: {
-  accounts: Account[];
-  statsMap: Map<string, FindingStats>;
-}) {
-  const connected = accounts.filter((a) => isAccountConnected(a));
-  const pending = accounts.length - connected.length;
+type PortfolioMetrics = {
+  totalOpen: number;
+  totalCrit: number;
+  needsAttention: number;
+  connectedThisWeek: number;
+  openNew7d: number;
+  critHighNew7d: number;
+  atRiskNew7d: number;
+};
 
+function buildPortfolioMetrics(
+  findings: Finding[] | undefined,
+  statsMap: Map<string, FindingStats>,
+  connected: Account[],
+): PortfolioMetrics {
+  const critAccounts = new Set<string>();
   let totalOpen = 0;
   let totalCrit = 0;
-  let needsAttention = 0;
+  let openNew7d = 0;
+  let critHighNew7d = 0;
+  const atRiskNewAccounts = new Set<string>();
+
   for (const a of connected) {
     const s = statsMap.get(a.id);
     if (!s) continue;
     totalOpen += s.open;
     totalCrit += s.critHigh;
-    if (s.critHigh > 0) needsAttention += 1;
+    if (s.critHigh > 0) critAccounts.add(a.id);
   }
+
+  for (const f of findings ?? []) {
+    if (!isWithinLastDays(f.first_seen, 7)) continue;
+    openNew7d += 1;
+    if (f.severity === "critical" || f.severity === "high") {
+      critHighNew7d += 1;
+      atRiskNewAccounts.add(f.account_id);
+    }
+  }
+
+  const connectedThisWeek = connected.filter(
+    (a) => isAccountConnected(a) && isWithinLastDays(a.last_scan_at, 7),
+  ).length;
+
+  return {
+    totalOpen,
+    totalCrit,
+    needsAttention: critAccounts.size,
+    connectedThisWeek,
+    openNew7d,
+    critHighNew7d,
+    atRiskNew7d: atRiskNewAccounts.size,
+  };
+}
+
+function PostureTrend({
+  count,
+  label,
+  tone,
+}: {
+  count: number;
+  label: string;
+  tone: PostureTone;
+}) {
+  const toneText: Record<PostureTone, string> = {
+    good: "text-emerald-600",
+    warn: "text-amber-600",
+    bad: "text-red-600",
+    muted: "text-zinc-500",
+  };
+
+  return (
+    <p className={`mt-2 flex items-center gap-1 text-[11px] font-medium ${toneText[tone]}`}>
+      {count === 0 ? (
+        <span className="w-3 text-center text-zinc-400" aria-hidden>
+          —
+        </span>
+      ) : (
+        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+        </svg>
+      )}
+      <span>{label}</span>
+    </p>
+  );
+}
+
+function PostureSummary({
+  accounts,
+  statsMap,
+  findings,
+}: {
+  accounts: Account[];
+  statsMap: Map<string, FindingStats>;
+  findings: Finding[] | undefined;
+}) {
+  const connected = accounts.filter((a) => isAccountConnected(a));
+  const metrics = buildPortfolioMetrics(findings, statsMap, connected);
 
   const tiles: {
     label: string;
     value: number;
     tint: string;
     icon: ReactNode;
-    sub: string;
-    tone: PostureTone;
+    trendCount: number;
+    trendLabel: string;
+    trendTone: PostureTone;
   }[] = [
     {
       label: "Connected",
       value: connected.length,
       tint: "bg-sky-50 text-sky-500",
       icon: <PostureGlyphCloud />,
-      sub: pending > 0 ? `${pending} pending setup` : "All active",
-      tone: pending > 0 ? "warn" : "good",
+      trendCount: metrics.connectedThisWeek,
+      trendLabel: metrics.connectedThisWeek === 0 ? "No change" : `${metrics.connectedThisWeek} this week`,
+      trendTone: metrics.connectedThisWeek > 0 ? "good" : "muted",
     },
     {
       label: "Open findings",
-      value: totalOpen,
+      value: metrics.totalOpen,
       tint: "bg-orange-50 text-orange-500",
       icon: <PostureGlyphFlag />,
-      sub: `Across ${connected.length} account${connected.length === 1 ? "" : "s"}`,
-      tone: "muted",
+      trendCount: metrics.openNew7d,
+      trendLabel: metrics.openNew7d === 0 ? "No change" : `${metrics.openNew7d} vs last 7 days`,
+      trendTone: metrics.openNew7d > 0 ? "warn" : "muted",
     },
     {
       label: "Critical + high",
-      value: totalCrit,
+      value: metrics.totalCrit,
       tint: "bg-red-50 text-red-500",
       icon: <PostureGlyphShield />,
-      sub: totalCrit > 0 ? "Needs attention" : "All clear",
-      tone: totalCrit > 0 ? "bad" : "good",
+      trendCount: metrics.critHighNew7d,
+      trendLabel: metrics.critHighNew7d === 0 ? "No change" : `${metrics.critHighNew7d} vs last 7 days`,
+      trendTone: metrics.critHighNew7d > 0 ? "bad" : metrics.totalCrit > 0 ? "muted" : "good",
     },
     {
       label: "Accounts at risk",
-      value: needsAttention,
+      value: metrics.needsAttention,
       tint: "bg-amber-50 text-amber-500",
       icon: <PostureGlyphUsers />,
-      sub: needsAttention > 0 ? `of ${connected.length} connected` : "None at risk",
-      tone: needsAttention > 0 ? "warn" : "good",
+      trendCount: metrics.atRiskNew7d,
+      trendLabel: metrics.atRiskNew7d === 0 ? "No change" : `${metrics.atRiskNew7d} vs last 7 days`,
+      trendTone: metrics.atRiskNew7d > 0 ? "warn" : "muted",
     },
   ];
-
-  const toneText: Record<PostureTone, string> = {
-    good: "text-emerald-600",
-    warn: "text-amber-600",
-    bad: "text-red-600",
-    muted: "text-zinc-400",
-  };
-  const toneDot: Record<PostureTone, string> = {
-    good: "bg-emerald-500",
-    warn: "bg-amber-500",
-    bad: "bg-red-500",
-    muted: "bg-zinc-300",
-  };
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -3021,10 +3201,7 @@ function PostureSummary({
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{t.label}</p>
             <p className="mt-0.5 text-3xl font-bold leading-none tracking-tight tabular-nums text-zinc-900">{t.value}</p>
-            <p className={`mt-2 flex items-center gap-1.5 text-[11px] font-medium ${toneText[t.tone]}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${toneDot[t.tone]}`} aria-hidden />
-              {t.sub}
-            </p>
+            <PostureTrend count={t.trendCount} label={t.trendLabel} tone={t.trendTone} />
           </div>
         </div>
       ))}
@@ -3102,7 +3279,7 @@ export default function Accounts() {
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
@@ -3114,20 +3291,23 @@ export default function Accounts() {
         </div>
         {accs.length > 0 && (
           <button
+            type="button"
             onClick={() => create.mutate(pendingConnectionOptions)}
             disabled={create.isPending || hasPending}
             title={hasPending ? "Finish setting up the pending account first" : undefined}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             {create.isPending ? "Adding…" : "Add account"}
           </button>
         )}
       </div>
 
-      {hasConnectedAccount && <PostureSummary accounts={accs} statsMap={statsMap} />}
+      {hasConnectedAccount && (
+        <PostureSummary accounts={accs} statsMap={statsMap} findings={allFindings.data?.items} />
+      )}
 
       {accounts.isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

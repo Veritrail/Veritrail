@@ -16,7 +16,6 @@ type AuditorControl = {
 const FRAMEWORKS = [
   { key: "soc2", label: "SOC 2" },
   { key: "cis_aws_l1", label: "CIS AWS Foundations L1" },
-  { key: "iso27001", label: "ISO 27001" },
 ];
 
 const statusBadge: Record<string, string> = {

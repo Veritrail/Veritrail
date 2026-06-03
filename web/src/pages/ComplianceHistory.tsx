@@ -28,7 +28,6 @@ interface Account {
 const FRAMEWORKS = [
   { value: "soc2", label: "SOC 2" },
   { value: "cis_aws_l1", label: "CIS" },
-  { value: "iso27001", label: "ISO" },
 ] as const;
 
 const PERIOD_OPTIONS = [

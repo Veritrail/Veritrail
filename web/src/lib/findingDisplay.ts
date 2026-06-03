@@ -7,6 +7,14 @@ export type FindingLike = {
   severity: string;
 };
 
+/** IAM root identity findings (arn:...:root or iam.root.* checks). */
+export function isAwsRootFinding(f: FindingLike): boolean {
+  if (f.check_id.startsWith("iam.root")) return true;
+  if (isVcsResourceIdentifier(f.resource_arn)) return false;
+  const tail = f.resource_arn.split(":").pop() ?? "";
+  return tail === "root";
+}
+
 export function resourceName(arn: string): string {
   const parts = arn.split(":");
   const region = parts[3] ?? "";
@@ -254,6 +262,55 @@ export function resourceDetailRowsFromFinding(f: FindingLike): ResourceDetailRow
 
   push("Region", evidenceString(e, "region", "home_region") ?? awsRegionFromArn(f.resource_arn), true);
   return rows;
+}
+
+/** Detail row labels that repeat the resource name already shown in the picker / hero. */
+const RESOURCE_IDENTITY_DETAIL_LABELS = new Set([
+  "Access key",
+  "Bucket",
+  "Domain",
+  "Function",
+  "Instance",
+  "Key",
+  "Load balancer",
+  "Name",
+  "Parameter",
+  "Secret",
+  "Security group",
+  "Table",
+  "Trail",
+  "Volume",
+  "VPC",
+  "IAM user",
+]);
+
+/** Canonical names for the affected resource (list label, hero title, ARN tail). */
+export function resourcePrimaryIdentifiers(f: FindingLike): Set<string> {
+  const ids = new Set<string>();
+  const add = (s: string | null | undefined) => {
+    const t = s?.trim();
+    if (t) ids.add(t);
+  };
+  add(resourceShortName(f));
+  add(resourceDisplayName(f));
+  add(resourceName(f.resource_arn));
+  const short = resourceShortName(f).trim();
+  if (short.includes(" · ")) add(short.split(" · ")[0]);
+  const paren = short.match(/^(.+?)\s+\([^)]+\)$/);
+  if (paren) add(paren[1].trim());
+  return ids;
+}
+
+/** Drop identity rows whose value is already shown above in the inspector. */
+export function filterRedundantResourceDetailRows(
+  rows: ResourceDetailRow[],
+  f: FindingLike,
+): ResourceDetailRow[] {
+  const primaryIds = resourcePrimaryIdentifiers(f);
+  return rows.filter((row) => {
+    if (!RESOURCE_IDENTITY_DETAIL_LABELS.has(row.label)) return true;
+    return !primaryIds.has(row.value.trim());
+  });
 }
 
 /** Primary resource label without region suffix (Resources tab detail). */

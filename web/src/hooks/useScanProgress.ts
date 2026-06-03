@@ -6,6 +6,30 @@ const DEFAULT_SCAN_DURATION_MS = 600_000;
 
 export type WorkerProgress = { step: number; total: number };
 
+/** Must match collector `_step()` count in `api/app/worker/tasks.py` run_scan. */
+export const WORKER_COLLECTOR_STEPS = 26;
+export const WORKER_FINALIZE_STEPS = 2;
+
+/** Map fine-grained worker steps onto the 6 marketing phases in the Accounts UI. */
+export function mapWorkerStepToUiPhase(step: number, total: number): number {
+  const UI_PHASE_COUNT = 6;
+  if (total <= 0 || step <= 0) return 0;
+
+  const collectorEnd = WORKER_COLLECTOR_STEPS;
+  const finalizeStart = Math.max(collectorEnd + 1, total - WORKER_FINALIZE_STEPS);
+
+  if (step <= collectorEnd) {
+    const t = step / collectorEnd;
+    return Math.min(2, Math.floor(t * 3));
+  }
+  if (step < finalizeStart) {
+    const span = Math.max(1, finalizeStart - collectorEnd);
+    const t = (step - collectorEnd) / span;
+    return 3 + Math.min(1, Math.floor(t * 2));
+  }
+  return UI_PHASE_COUNT - 1;
+}
+
 export function loadExpectedScanDurationMs(): number {
   const raw = localStorage.getItem(LAST_SCAN_DURATION_KEY);
   const n = raw ? parseInt(raw, 10) : NaN;
@@ -73,8 +97,9 @@ export function useScanProgress(
   if (workerProgress && workerProgress.total > 0) {
     const step = Math.min(workerProgress.step, workerProgress.total);
     const ratio = step / workerProgress.total;
-    const progress = Math.min(98, Math.max(2, ratio * 100));
-    const finishing = ratio >= 0.92;
+    // Cap below 100% until the run finishes — worker step can hit total while still committing.
+    const progress = Math.min(99, Math.max(2, ratio * 100));
+    const finishing = ratio >= 0.97;
     return {
       progress,
       elapsedMs,

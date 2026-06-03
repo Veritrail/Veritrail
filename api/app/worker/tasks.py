@@ -761,16 +761,29 @@ def run_scan(account_id: str) -> dict:
 
         stats: dict = {}
 
-        _TOTAL_STEPS = 28  # collectors + checks + snapshots
+        from app.services.check_settings import is_check_enabled
+
+        org_obj = db.get(Org, acc.org_id)
+        org_settings = org_obj.settings if org_obj else {}
+        enabled_checks = [mod for mod in ALL_CHECKS if is_check_enabled(org_settings, mod.CHECK_ID)]
+
+        # Collectors are fast; checks + finalize dominate wall time — weight progress accordingly.
+        _COLLECTOR_STEPS = 26
+        _FINALIZE_STEPS = 2
+        _TOTAL_STEPS = _COLLECTOR_STEPS + len(enabled_checks) + _FINALIZE_STEPS
         _step_counter = 0
+        _PROGRESS_COMMIT_EVERY = 4
+
+        def _publish_progress() -> None:
+            run.stats = {**stats, "_progress_step": _step_counter, "_progress_total": _TOTAL_STEPS}
+            db.commit()
 
         def _step(name: str, fn):
             nonlocal step, _step_counter
             step = name
             result = fn()
             _step_counter += 1
-            run.stats = {**stats, "_progress_step": _step_counter, "_progress_total": _TOTAL_STEPS}
-            db.commit()
+            _publish_progress()
             return result
 
         stats.update(_step("collect_iam", lambda: collect_iam(db, acc)))
@@ -812,19 +825,13 @@ def run_scan(account_id: str) -> dict:
         stats["config_rule_compliance"] = _step("collect_config_compliance", lambda: collect_config_compliance(db, acc))
         stats["securityhub_regions"] = _step("collect_securityhub", lambda: collect_securityhub(db, acc))
 
-        step = "load_check_config"
-        org_obj = db.get(Org, acc.org_id)
-        org_settings = org_obj.settings if org_obj else {}
-
         step = "run_checks"
         drafts = []
         check_ids_run: set[str] = set()
         check_errors: list[dict] = []
-        from app.services.check_settings import is_check_enabled
 
-        for mod in ALL_CHECKS:
-            if not is_check_enabled(org_settings, mod.CHECK_ID):
-                continue
+        for idx, mod in enumerate(enabled_checks):
+            step = f"check:{mod.CHECK_ID}"
             check_ids_run.add(mod.CHECK_ID)
             try:
                 drafts.extend(mod.run(db, acc.id))
@@ -840,18 +847,25 @@ def run_scan(account_id: str) -> dict:
                     "error_type": type(inner).__name__,
                     "error": str(inner)[:300],
                 })
+            _step_counter += 1
+            if (idx + 1) % _PROGRESS_COMMIT_EVERY == 0 or idx == len(enabled_checks) - 1:
+                _publish_progress()
 
-        step = "persist_findings"
-        opened, resolved = persist_findings(
-            db,
-            org_id=acc.org_id,
-            account_id=acc.id,
-            drafts=drafts,
-            check_ids_run=check_ids_run,
-        )
+        def _persist() -> dict:
+            o, r = persist_findings(
+                db,
+                org_id=acc.org_id,
+                account_id=acc.id,
+                drafts=drafts,
+                check_ids_run=check_ids_run,
+            )
+            return {"opened": o, "resolved": r}
 
-        step = "write_evidence_snapshots"
-        snap_count = _write_evidence_snapshots(db, acc, run)
+        persist_stats = _step("persist_findings", _persist)
+        opened = persist_stats["opened"]
+        resolved = persist_stats["resolved"]
+
+        snap_count = _step("write_evidence_snapshots", lambda: _write_evidence_snapshots(db, acc, run))
 
         run.status = "degraded" if check_errors else "ok"
         run.finished_at = datetime.now(timezone.utc)

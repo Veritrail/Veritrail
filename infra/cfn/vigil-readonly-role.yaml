@@ -223,10 +223,13 @@ Resources:
                 Action:
                   - sso:ListInstances
                   - sso:DescribeInstance
-                  - sso-admin:ListPermissionSets
-                  - sso-admin:DescribePermissionSet
+                  - sso:ListPermissionSets
+                  - sso:DescribePermissionSet
+                  - sso:ListAccountsForProvisionedPermissionSet
+                  - sso:ListAccountAssignments
                   - identitystore:ListUsers
                   - identitystore:DescribeUser
+                  - identitystore:DescribeGroup
                 Resource: "*"
 
               - Sid: RdsConfiguration

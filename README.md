@@ -1,10 +1,10 @@
 # Vigil
 
-**Continuous SOC2 CC6/CC7 and CIS evidence automation for engineering teams.**
+**AWS-native SOC 2 CC6/CC7 evidence automation for engineering teams.**
 
-Connect AWS, GitHub, or GitLab. Vigil scans daily, maps findings to SOC2 CC6/CC7, a curated subset of CIS AWS Foundations controls, and ISO 27001 Annex A, and produces auditor-ready evidence packs — JSON, CSV, and PDF — on demand.
+Connect AWS, then optionally GitHub or GitLab for change-management evidence. Vigil scans daily, maps AWS posture and change evidence to SOC 2 CC6/CC7, and produces auditor-ready evidence packs — JSON, CSV, and PDF — on demand.
 
-Built for engineering-led startups heading into their first SOC2 Type 2 audit who don't want to pay $10k–80k/yr for Vanta or spend weeks doing it manually with Prowler screenshots.
+Built for AWS-heavy engineering teams heading into SOC 2 who need a credible CC6/CC7 evidence layer, not a broad GRC suite.
 
 **One-line:** Connect your AWS account → first downloadable SOC2 evidence pack in under 10 minutes.
 
@@ -12,13 +12,13 @@ Built for engineering-led startups heading into their first SOC2 Type 2 audit wh
 
 ## What it is
 
-Vigil is a **continuous compliance evidence platform** — not a CSPM, not a compliance suite.
+Vigil is a **SOC 2 infrastructure evidence layer** — not a CSPM, not a broad compliance suite.
 
 | What Vigil does | What Vigil does not do |
 |---|---|
-| Automates SOC2 CC6/CC7, selected CIS AWS controls, ISO 27001 evidence | Replace Vanta/Drata (no HR/MDM/vendor/policy) |
+| Automates SOC 2 CC6/CC7 evidence from AWS and code-hosting systems | Replace Vanta/Drata (no HR/MDM/vendor/policy) |
 | Produces timestamped, auditor-ready evidence packs | Compete with Wiz/Prisma on scan breadth |
-| CloudTrail change timeline + GitHub/GitLab evidence in packs | Write to your AWS account during scanning |
+| CloudTrail change timeline + GitHub/GitLab evidence in packs | Expand into multi-cloud before AWS feels complete |
 | Shows blast radius before you remediate a finding | Generate AI summaries in evidence outputs |
 | Console / CLI / Terraform / optional customer SSM Automation | Auto-remediate without customer approval |
 | Documents exceptions with approver + reason + expiry | Run agents inside customer VPCs |
@@ -74,9 +74,9 @@ AWS in dev: mount `~/.aws` (already in `compose.yml`) and set `AWS_PROFILE` in `
 
 ## Onboarding a customer account (AWS)
 
-1. Sign up — email/password or GitHub/Google SSO.
+1. Sign up — email/password, GitHub, GitLab, or Google login.
 2. **AWS Accounts** → choose connection mode:
-   - **Core Scanner** (required, read-only) — CIS / SOC 2 / ISO checks and evidence packs.
+   - **Core Scanner** (required, read-only) — AWS posture checks and SOC 2 CC6/CC7 evidence packs.
    - **Advanced IAM policy generation** (optional) — adds `iam:GenerateServiceLastAccessedDetails` and Access Analyzer policy-generation actions to a separate CFN role. Starts AWS analysis jobs only; does not modify resources.
    - **Remediation automation** (optional, second stack) — customer-owned SSM Automation for approved fixes (e.g. security groups). Not required for compliance scanning.
 3. **Continue to deploy** → **Launch CloudFormation stack** — template URL, ExternalId, trust principal, and optional parameters are pre-filled from your selections.
@@ -102,7 +102,7 @@ vigil-evidence-soc2-2026-05-26.zip
   pack_signature.json          ← when EVIDENCE_PACK_SIGNING_KEY is set
   vault_upload_plan.json       ← when EVIDENCE_VAULT_S3_URI is set
   vault_upload_result.json     ← when EVIDENCE_VAULT_ENABLED (immutable S3 copy)
-  access_roster.json           ← IAM + Identity Center users as of period end
+  access_roster.json           ← IAM users + Identity Center users, permission sets, and account assignments
   iam_history.json             ← point-in-time IAM snapshot entities
   controls/
     CC6.1/
@@ -155,9 +155,10 @@ vigil-evidence-soc2-2026-05-26.zip
 
 | Framework | Controls |
 |---|---|
-| SOC2 TSC (CC6, CC7, CC8) | CC6.1 – CC6.8, CC7.1 – CC7.2, CC8.1 |
-| CIS AWS Foundations (selected) | ~22 mapped controls (e.g. 1.4–3.8); not full CIS v5 benchmark parity |
-| ISO 27001 Annex A | A.9, A.10, A.12, A.13 |
+| SOC 2 TSC | CC6.1 – CC6.8, CC7.1 – CC7.2 |
+| CIS AWS Foundations | Supporting AWS control mapping and detection coverage |
+
+SOC 2 CC6/CC7 is the product boundary. Other framework mappings may exist in code or exports as supporting context, but they are not the primary promise.
 
 ---
 
@@ -169,9 +170,9 @@ Before remediating, see what depends on a resource: service usage, last-accessed
 **Exception workflow**
 Flag a finding as a formal documented exception: reason, approver, expiry date. Exceptions appear in evidence packs — auditors see them alongside open findings. Separate from snooze (which is operational deferral, not formal approval).
 
-**History** (`/history`) — compliance timeline with per-snapshot infrastructure event drill-down; `/timeline` redirects here
+**History** (`/history`) — SOC 2 evidence timeline with per-snapshot infrastructure event drill-down; `/timeline` redirects here
 - **Activity Log** — CloudTrail infrastructure writes from scans; filtered by default to compliance-relevant sources (IAM, S3, EC2, KMS, …). Toggle **Include operational noise** for SSM/Lambda churn.
-- **History** — posture improvements/regressions and collapsed no-change scan periods per framework (SOC2 / CIS / ISO), from `GET /v1/accounts/{id}/compliance-timeline`.
+- **History** — posture improvements/regressions and collapsed no-change scan periods, from `GET /v1/accounts/{id}/compliance-timeline`.
 - GitHub/GitLab change evidence stays in compliance packs and integration sync — not on the activity log page.
 
 **Findings drawer**
@@ -221,7 +222,7 @@ Vigil scanning is read-only. If you explicitly enable remediation modules, appro
 
 Full runbook: [docs/remediation-automation.md](docs/remediation-automation.md).
 
-**Roadmap:** GitLab MR; SG repo-aware Terraform PR; optional SSM execution callback keyed by `plan_id`.
+**Deferred:** broader repo-aware Terraform patching and optional SSM execution callback keyed by `plan_id`.
 
 ---
 
@@ -246,7 +247,7 @@ The role uses `ExternalId` (confused-deputy protection). Only `TRUST_PRINCIPAL_A
 | Free | $0 | 1 account, weekly scan, no exports, 30d retention |
 | Starter | $99/mo | All AWS checks, evidence exports (JSON+CSV+PDF), 90d snapshots |
 | Team | $249/mo | + GitHub + GitLab, 365d snapshots, ZIP bundle, up to 5 accounts |
-| Growth | $499/mo | + multi-account orgs, Slack, custom controls |
+| Growth | $499/mo | + multi-account orgs, Slack alerts/digests, priority support |
 
 7-day trial. No credit card required to start. SOC2 Type 2 requires continuous evidence across the audit period — one scan is one day of evidence. Daily scanning = 365 date-stamped evidence points per year.
 
@@ -283,7 +284,7 @@ compose.yml
 
 - Email + password (bcrypt + sha256 prehash)
 - GitHub OAuth (login + connect for evidence)
-- Google OAuth (login)
+- Google OAuth (login only; Google Workspace evidence ingestion is not part of the current product)
 - JWT access tokens (24h) + refresh tokens (30d, auto-retry on 401)
 
 ---

@@ -140,6 +140,41 @@ def test_timeline_csv_has_header():
     assert csv_text.startswith("timestamp,event_type")
 
 
+def test_access_roster_includes_identity_center_assignments():
+    from datetime import datetime, timezone
+
+    from app.services.evidence_pack import _build_access_roster
+
+    snap = MagicMock()
+    snap.entity_type = "identity_center_permission_set"
+    snap.entity_id = "arn:aws:sso:::permissionSet/ssoins-123/ps-abc"
+    snap.taken_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    snap.payload_json = {
+        "permission_set_arn": snap.entity_id,
+        "name": "DeveloperAccess",
+        "provisioned_account_ids": ["123456789012"],
+        "assignment_count": 1,
+        "account_assignments": [
+            {
+                "account_id": "123456789012",
+                "principal_id": "user-1",
+                "principal_type": "USER",
+                "principal": {"email": "alice@example.com"},
+            }
+        ],
+    }
+
+    db = MagicMock()
+    db.scalars.return_value.all.return_value = [snap]
+
+    roster = _build_access_roster(db, uuid.uuid4(), datetime(2026, 1, 2, tzinfo=timezone.utc))
+
+    assert roster["summary"]["identity_center_permission_set_count"] == 1
+    assert roster["summary"]["identity_center_account_assignment_count"] == 1
+    assert roster["identity_center_permission_sets"][0]["name"] == "DeveloperAccess"
+    assert roster["identity_center_account_assignments"][0]["principal"]["email"] == "alice@example.com"
+
+
 def test_s3_no_default_encryption_flags_unencrypted_buckets(mock_db):
     from app.checks import s3_no_default_encryption
 

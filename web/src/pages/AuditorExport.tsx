@@ -4,7 +4,6 @@ import { BASE, auditorToken } from "../api";
 const FRAMEWORKS = [
   { key: "soc2", label: "SOC 2" },
   { key: "cis_aws_l1", label: "CIS AWS Foundations L1" },
-  { key: "iso27001", label: "ISO 27001" },
 ];
 
 export default function AuditorExport() {
