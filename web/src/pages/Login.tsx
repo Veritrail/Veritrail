@@ -31,6 +31,13 @@ function oauthErrorMessage(code: string): string {
       return "Google sign-in is restricted to company accounts only.";
     case "no_account_for_idp":
       return "No account matches that sign-in. Sign up first, then connect this provider.";
+    case "saml_invalid_response":
+    case "saml_not_authenticated":
+      return "SSO sign-in failed. Contact your administrator.";
+    case "saml_no_email":
+      return "Your identity provider didn't share an email address.";
+    case "saml_email_other_org":
+      return "That email already belongs to a different workspace.";
     case "server_error":
       return "Sign-in failed on our side. Try again.";
     default:
@@ -67,6 +74,8 @@ export default function Login() {
 
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
+  const [showSso, setShowSso] = useState(false);
+  const [ssoSlug, setSsoSlug] = useState("");
 
   useEffect(() => {
     const token = params.get("mfa_token");
@@ -372,6 +381,44 @@ export default function Login() {
               </svg>
               Continue with GitLab
             </a>
+
+            {!showSso ? (
+              <button
+                type="button"
+                onClick={() => setShowSso(true)}
+                className="w-full flex items-center justify-center gap-2.5 border border-zinc-200 rounded-lg py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25v-6.75a2.25 2.25 0 012.25-2.25z" />
+                </svg>
+                Sign in with SSO
+              </button>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const slug = ssoSlug.trim().toLowerCase();
+                  if (slug) window.location.href = `${BASE}/v1/auth/saml/${encodeURIComponent(slug)}/login`;
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  value={ssoSlug}
+                  onChange={(e) => setSsoSlug(e.target.value)}
+                  placeholder="workspace slug"
+                  aria-label="Workspace slug"
+                  autoFocus
+                  className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
+                />
+                <button
+                  type="submit"
+                  disabled={!ssoSlug.trim()}
+                  className="shrink-0 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  Continue
+                </button>
+              </form>
+            )}
 
             <div className="text-center">
               <button

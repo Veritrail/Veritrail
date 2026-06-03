@@ -14,7 +14,7 @@ from app.core.ratelimit import limiter
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
-from app.routes import accounts, findings, auth, auth_oauth, github_integration, gitlab_integration, iac, settings as settings_router
+from app.routes import accounts, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, iac, settings as settings_router
 from app.routes import controls, exports, meta, public
 from app.routes import auditor, auditor_portal, trust_center
 
@@ -144,6 +144,7 @@ def healthz():
 
 app.include_router(auth.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(auth_oauth.router, prefix="/v1/auth", tags=["auth"])
+app.include_router(auth_saml.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(accounts.router, prefix="/v1/accounts", tags=["accounts"])
 app.include_router(findings.router, prefix="/v1/findings", tags=["findings"])
 app.include_router(iac.router, prefix="/v1/iac", tags=["iac"])

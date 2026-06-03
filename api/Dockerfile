@@ -13,6 +13,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libpq-dev curl unzip \
+    pkg-config libxml2-dev libxmlsec1-dev libxmlsec1-openssl \
     && rm -rf /var/lib/apt/lists/*
 
 ARG TERRAFORM_VERSION=1.9.8

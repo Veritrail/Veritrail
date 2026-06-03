@@ -8,11 +8,12 @@ import { ProductShell } from "../components/ProductShell";
 import { Toggle } from "../components/SettingsUi";
 import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
+import { SamlSettings } from "../components/SamlSettings";
 
 type ScanInterval = "daily" | "weekly" | "custom" | "manual";
 type FreqMode = "daily" | "weekly" | "custom";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type SectionId = "scanning" | "notifications" | "detection" | "trust" | "auditors" | "records" | "advanced";
+type SectionId = "scanning" | "notifications" | "detection" | "trust" | "auditors" | "sso" | "records" | "advanced";
 
 type OptionalCheck = {
   check_id: string;
@@ -175,6 +176,8 @@ const SECTION_ICONS: Record<SectionId, string> = {
     "M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z",
   advanced:
     "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5",
+  sso:
+    "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z",
 };
 
 function SectionHeader({ title, description }: { title: string; description: string }) {
@@ -367,6 +370,7 @@ export default function Settings() {
     { id: "detection", label: "Detection scope", badge: `${enabledOptional}/${optionalTotal}` },
     { id: "trust", label: "Trust Center", badge: trustCenter.data?.is_enabled ? "Live" : "Off" },
     { id: "auditors", label: "Auditor access", badge: activeAuditors ? String(activeAuditors) : undefined },
+    { id: "sso", label: "SSO (SAML)", badge: undefined },
     { id: "records", label: "Evidence records", badge: vaultStatus.data?.enabled ? "On" : vaultStatus.data?.configured ? "Set" : "Off" },
     { id: "advanced", label: "Advanced", badge: aiFindingReviewEnabled ? "On" : "Off" },
   ];
@@ -533,6 +537,13 @@ export default function Settings() {
               <section>
                 <SectionHeader title="Auditor access" description="Invite external auditors with scoped, time-boxed read access." />
                 <AuditorManagement />
+              </section>
+            )}
+
+            {active === "sso" && (
+              <section>
+                <SectionHeader title="SAML SSO" description="Enterprise single sign-on through your identity provider (Okta, Azure AD, etc.)." />
+                <SamlSettings />
               </section>
             )}
 

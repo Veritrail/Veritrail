@@ -16,6 +16,7 @@ from app.models.remediation_execution import RemediationExecution
 from app.models.evidence_export import EvidenceExport
 from app.models.ai_triage import AITriageResult
 from app.models.auditor import AuditorAccess, AuditActivityLog, TrustCenterConfig
+from app.models.saml import OrgSamlConfig
 
 __all__ = [
     "Org", "User",
@@ -35,4 +36,5 @@ __all__ = [
     "EvidenceExport",
     "AITriageResult",
     "AuditorAccess", "AuditActivityLog", "TrustCenterConfig",
+    "OrgSamlConfig",
 ]
