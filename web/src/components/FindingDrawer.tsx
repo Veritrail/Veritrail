@@ -4624,10 +4624,10 @@ function ExceptionButton({
               role="dialog"
               aria-modal="true"
               aria-labelledby="exception-dialog-title"
-              className="relative flex max-h-[min(85%,32rem)] w-full flex-col overflow-hidden rounded-t-2xl border border-b-0 border-zinc-200 bg-zinc-50 shadow-[0_-12px_40px_rgba(15,23,42,0.12)]"
+              className="relative flex max-h-[min(85%,32rem)] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_-12px_40px_rgba(15,23,42,0.16)] ring-1 ring-zinc-200/70"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex shrink-0 items-start gap-2.5 border-b border-amber-200/80 bg-amber-50/90 px-5 py-3 text-amber-950">
+              <div className="flex shrink-0 items-start gap-2.5 border-b border-amber-200/80 bg-amber-50 px-5 py-3 text-amber-950">
                 <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
                 </svg>
@@ -4639,11 +4639,12 @@ function ExceptionButton({
               <div className="min-h-0 overflow-y-auto p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
-                      </svg>
-                    </span>
+                    <img
+                      src="/exception-shield.png"
+                      alt=""
+                      aria-hidden
+                      className="h-11 w-11 shrink-0 rounded-xl object-contain"
+                    />
                     <div className="min-w-0">
                       <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
                         Document exception
