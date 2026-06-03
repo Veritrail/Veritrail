@@ -180,7 +180,7 @@ function FindingRow({
       type="button"
       onClick={() => onReview(items)}
       aria-label={`Review ${title}, ${severityLabel(sev)}`}
-      className={`findings-v2-row ${railClass} group grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4`}
+      className={`findings-v2-row ${railClass} group grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 last:rounded-b-2xl sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4`}
     >
       <div className="hidden w-5 shrink-0 items-center justify-center sm:flex">
         <svg
@@ -613,8 +613,8 @@ export default function FindingsV2() {
 
         {!q.isLoading && rows.length > 0 && (
           <section className="min-w-0">
-            <div className="overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eef2f6] bg-[#f8fafc]/80 px-4 py-3.5 sm:px-5">
+            <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[#eef2f6] bg-[#f8fafc]/80 px-4 py-3.5 sm:px-5">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {status === "open" ? (
                     <div
