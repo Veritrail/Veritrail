@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AwsMark, AzureMark, GcpMark } from "./IntegrationsUi";
+import { AzureMark, GcpMark } from "./IntegrationsUi";
 
 export type CloudProvider = "aws" | "gcp" | "azure";
 
@@ -11,12 +11,23 @@ export type AccountOption = {
   provider?: CloudProvider;
 };
 
+/** AWS favicon: orange rounded tile + the white "smile" arrow. */
+function AwsFavicon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect width="24" height="24" rx="5.5" fill="#FF9900" />
+      <path d="M4.8 13.1c2.4 1.7 5.2 2.6 8 2.6 1.9 0 4-.46 5.9-1.4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M16.4 12.5c.95-.52 2.45-.6 2.95-.28.42.27.12 1.7-.66 2.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** AWS is the only live provider today; GCP/Azure are wired but dark until those
  *  connectors ship (accounts never carry those providers yet). */
 function ProviderMark({ provider, className }: { provider?: CloudProvider; className?: string }) {
   if (provider === "gcp") return <GcpMark className={className} />;
   if (provider === "azure") return <AzureMark className={className} />;
-  return <AwsMark className={`${className ?? ""} text-[#ff9900]`} />;
+  return <AwsFavicon className={className} />;
 }
 
 export function groupAccountId(id: string): string {
