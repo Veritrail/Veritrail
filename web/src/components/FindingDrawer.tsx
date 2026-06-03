@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import { IaCRemediationSection } from "./IaCRemediationSection";
 import { useRemediationExecution } from "../hooks/useRemediationExecution";
+import { DrawerDateField } from "./DrawerDateField";
+import { todayIso } from "../lib/isoDate";
 import {
   drawerBody,
   drawerFieldLabel,
@@ -4644,12 +4646,15 @@ function ExceptionButton({
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-700">Expires (optional)</label>
-                    <input
-                      type="date"
+                    <label htmlFor="exception-expires" className="mb-1 block text-xs font-medium text-zinc-700">
+                      Expires (optional)
+                    </label>
+                    <DrawerDateField
+                      id="exception-expires"
                       value={expiresAt}
-                      onChange={(e) => setExpiresAt(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+                      onChange={setExpiresAt}
+                      minIso={todayIso()}
+                      placeholder="No expiry date"
                     />
                   </div>
                   <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
