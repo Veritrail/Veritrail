@@ -470,8 +470,8 @@ export default function FindingsV2() {
                 {lastScanAt && (
                   <>
                     {selectedAccount?.account_id && <span className="text-[#98a2b3]"> · </span>}
-                    <span className="text-xs text-slate-400">Last scan </span>
-                    <span className="text-xs font-medium tabular-nums text-slate-500">{lastScanLabel(lastScanAt)}</span>
+                    <span className="text-slate-400">Last scan </span>
+                    <span className="font-medium tabular-nums text-slate-500">{lastScanLabel(lastScanAt)}</span>
                   </>
                 )}
               </p>
@@ -513,7 +513,7 @@ export default function FindingsV2() {
             </div>
 
             {connectedId && (
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 items-center gap-2.5 self-center">
                 {connectedAccounts.length > 1 && (
                   <select
                     value={effectiveAccountId}
@@ -535,7 +535,7 @@ export default function FindingsV2() {
                   className="findings-v2-scan-btn"
                 >
                   <svg
-                    className={`h-3.5 w-3.5 shrink-0 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
+                    className={`h-4 w-4 shrink-0 ${isRunning || scanTriggered ? "animate-spin" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2}
