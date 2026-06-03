@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
@@ -4511,10 +4511,13 @@ function ExceptionButton({
   findingId,
   onDone,
   className,
+  sheetContainerRef,
 }: {
   findingId: string;
   onDone: () => void;
   className?: string;
+  /** Drawer root — exception sheet is portaled here so it covers the panel only. */
+  sheetContainerRef: RefObject<HTMLElement | null>;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -4522,8 +4525,6 @@ function ExceptionButton({
   const [expiresAt, setExpiresAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-
-  useAppScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
@@ -4573,28 +4574,27 @@ function ExceptionButton({
         {done ? "Exception recorded" : "Create exception"}
       </button>
       {open &&
+        sheetContainerRef.current &&
         createPortal(
-          <div
-            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto p-4 sm:items-center sm:p-6"
-            role="presentation"
-          >
-            <div
-              className="fixed inset-0 bg-zinc-950/30 backdrop-blur-[2px]"
+          <div className="absolute inset-0 z-[70] flex flex-col justify-end" role="presentation">
+            <button
+              type="button"
+              className="absolute inset-0 bg-zinc-950/20"
               onClick={() => !submitting && setOpen(false)}
-              aria-hidden
+              aria-label="Dismiss exception form"
             />
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="exception-dialog-title"
-              className="relative my-auto flex w-full max-h-[min(100dvh-2rem,40rem)] max-w-[520px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-2xl shadow-zinc-900/15"
+              className="relative flex max-h-[min(85%,32rem)] w-full flex-col overflow-hidden rounded-t-2xl border border-b-0 border-zinc-200 bg-zinc-50 shadow-[0_-12px_40px_rgba(15,23,42,0.12)]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
                 <span className="font-semibold">Audit evidence.</span> This exception, approver, and expiry will appear in
                 your evidence pack.
               </div>
-              <div className="min-h-0 overflow-y-auto p-5 sm:p-6">
+              <div className="min-h-0 overflow-y-auto p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
@@ -4673,7 +4673,7 @@ function ExceptionButton({
               </div>
             </div>
           </div>,
-          document.body,
+          sheetContainerRef.current,
         )}
     </>
   );
@@ -4792,6 +4792,7 @@ export function FindingDrawer({
   onDismissVerifyOutcome?: () => void;
 }) {
   const prevCheckId = useRef<string | null>(null);
+  const drawerSheetRef = useRef<HTMLDivElement>(null);
 
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
@@ -4919,6 +4920,7 @@ export function FindingDrawer({
         aria-hidden
       />
       <div
+        ref={drawerSheetRef}
         className={`fixed top-0 right-0 bottom-0 z-[110] flex w-full ${DRAWER_MAX_W} flex-col overflow-hidden bg-white shadow-2xl`}
         role="dialog"
         aria-modal="true"
@@ -5206,7 +5208,12 @@ export function FindingDrawer({
             Review the finding before taking action
           </p>
           <div className="ml-auto flex shrink-0 items-center gap-3">
-            <ExceptionButton findingId={finding.id} onDone={onClose} className={drawerFooterException} />
+            <ExceptionButton
+              findingId={finding.id}
+              onDone={onClose}
+              className={drawerFooterException}
+              sheetContainerRef={drawerSheetRef}
+            />
             <button
               type="button"
               disabled={verifying || verified}
