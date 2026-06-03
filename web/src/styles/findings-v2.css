@@ -136,10 +136,8 @@
 }
 
 
-/* Column titles — inset matches list body padding + row horizontal padding. */
+/* Column titles span the full card width; padding aligns labels with the rows. */
 .findings-v2-col-head {
-  margin-left: 0.75rem;
-  margin-right: 0.75rem;
   padding: 0.5rem 1rem 0.625rem;
   border-bottom: 1px solid var(--fv-divider);
   background: #f8fafc;
@@ -148,13 +146,6 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-}
-
-@media (min-width: 640px) {
-  .findings-v2-col-head {
-    margin-left: 1rem;
-    margin-right: 1rem;
-  }
 }
 
 .findings-v2-row-chevron {
