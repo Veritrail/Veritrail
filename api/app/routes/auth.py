@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -16,8 +16,10 @@ from app.core.security import (
     current_principal,
     current_user_principal,
     decode_mfa_challenge_token,
+    decode_password_reset_token,
     decode_refresh_token,
     issue_mfa_challenge_token,
+    issue_password_reset_token,
     issue_refresh_token,
     issue_token,
 )
@@ -29,8 +31,11 @@ from app.core.auth_cookies import (
 )
 from app.core.totp import new_secret, provisioning_uri, qr_png_data_url, verify_totp
 from app.models import Org, User
+from app.core.config import get_settings
+from app.services.password_reset_email import send_password_reset_email
 
 router = APIRouter()
+settings = get_settings()
 
 
 def _normalize_backup_code(code: str) -> str:
@@ -381,6 +386,52 @@ def change_password(
         )
     user.password_hash = hash_password(body.new_password)
     db.commit()
+
+
+def _password_fingerprint(user: User) -> str:
+    """Stable tag of the current password hash; changes when the password changes,
+    so a reset token signed against it can only be used once."""
+    return hashlib.sha256((user.password_hash or "").encode()).hexdigest()[:16]
+
+
+class PasswordResetRequestIn(BaseModel):
+    email: EmailStr
+
+
+@router.post("/password-reset/request", status_code=204)
+@limiter.limit("5/minute")
+def password_reset_request(request: Request, body: PasswordResetRequestIn, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(func.lower(User.email) == body.email.lower()))
+    if user:
+        token = issue_password_reset_token(str(user.id), _password_fingerprint(user))
+        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+        send_password_reset_email(to=user.email, reset_url=reset_url)
+    # Always 204 — never reveal whether an account exists for this email.
+    return Response(status_code=204)
+
+
+class PasswordResetConfirmIn(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/password-reset/confirm", status_code=204)
+def password_reset_confirm(body: PasswordResetConfirmIn, db: Session = Depends(get_db)):
+    payload = decode_password_reset_token(body.token)
+    user = db.get(User, uuid.UUID(payload["sub"]))
+    if not user or payload.get("fp") != _password_fingerprint(user):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "reset link expired or already used — request a new one")
+    if len(body.new_password) < 12:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "password must be at least 12 characters")
+    count = pwned_count(body.new_password)
+    if count > 0:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"password has appeared in {count:,} data breaches — choose a different password",
+        )
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return Response(status_code=204)
 
 
 def _remaining_signin_methods(user: User, *, excluding: str) -> int:

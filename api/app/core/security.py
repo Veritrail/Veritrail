@@ -93,6 +93,30 @@ def decode_mfa_challenge_token(token: str) -> dict:
     return payload
 
 
+def issue_password_reset_token(sub: str, fingerprint: str) -> str:
+    """Short-lived reset token. `fingerprint` ties it to the current password hash,
+    so the token dies the moment the password changes (single-use)."""
+    now = datetime.now(timezone.utc)
+    payload = {
+        "type": "pw_reset",
+        "sub": sub,
+        "fp": fingerprint,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=30)).timestamp()),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
+
+
+def decode_password_reset_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
+    except JWTError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "reset link expired or invalid — request a new one")
+    if payload.get("type") != "pw_reset":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "not a password reset token")
+    return payload
+
+
 def current_principal(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
     if not creds:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing token")
