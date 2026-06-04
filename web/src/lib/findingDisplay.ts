@@ -88,7 +88,7 @@ function vcsRepoSlug(f: FindingLike): string | null {
   return path || null;
 }
 
-function vcsOrgSlug(f: FindingLike): string | null {
+export function vcsOrgSlugFromFinding(f: FindingLike): string | null {
   const org = evidenceString(f.evidence, "source", "org", "organization");
   if (org) return org.replace(/^\/+/, "");
   if (f.resource_arn.includes("://org/")) {
@@ -100,13 +100,58 @@ function vcsOrgSlug(f: FindingLike): string | null {
   return slug.split("/")[0] ?? null;
 }
 
+export type FindingScopeProvider = "aws" | "github" | "gitlab";
+
+export function isVcsFinding(f: { check_id: string; resource_arn?: string }): boolean {
+  return (
+    f.check_id.startsWith("github.") ||
+    f.check_id.startsWith("gitlab.") ||
+    (f.resource_arn ? isVcsResourceIdentifier(f.resource_arn) : false)
+  );
+}
+
+export function findingScopeProvider(f: {
+  check_id: string;
+  account_provider?: string | null;
+}): FindingScopeProvider {
+  const p = (f.account_provider ?? "").toLowerCase();
+  if (p === "github" || p === "gitlab") return p;
+  if (f.check_id.startsWith("github.")) return "github";
+  if (f.check_id.startsWith("gitlab.")) return "gitlab";
+  return "aws";
+}
+
+/** Display name for the Account column — AWS account alias or Git org/group. */
+export function findingScopeDisplayName(
+  f: FindingLike & { account_name?: string | null; account_label?: string | null },
+  awsAccountsById?: Map<string, { label?: string | null; account_id?: string | null; account_name?: string | null }>,
+): string {
+  const provider = findingScopeProvider(f);
+  if (provider !== "aws") {
+    const fromApi = (f.account_name ?? f.account_label ?? "").trim();
+    if (fromApi) return fromApi;
+    return vcsOrgSlugFromFinding(f) ?? (provider === "github" ? "GitHub organization" : "GitLab group");
+  }
+  const acc = f.account_id ? awsAccountsById?.get(f.account_id) : undefined;
+  if (acc) {
+    if (acc.account_name?.trim()) return acc.account_name.trim();
+    const label = (acc.label ?? "").trim();
+    const aid = (acc.account_id ?? "").trim();
+    if (label && label !== aid) return label;
+    if (label) return label;
+  }
+  const fromApi = (f.account_name ?? f.account_label ?? "").trim();
+  if (fromApi) return fromApi;
+  return "AWS account";
+}
+
 /** https://github.com/org/repo or GitLab project URL for a VCS finding. */
 export function vcsResourceWebUrl(f: FindingLike): string | null {
   const provider = vcsProviderFromArn(f.resource_arn);
   if (!provider) return null;
 
   if (f.check_id.includes(".org.")) {
-    const org = vcsOrgSlug(f);
+    const org = vcsOrgSlugFromFinding(f);
     if (!org) return null;
     if (provider === "github") return `https://github.com/${org}`;
     return `${gitlabHostFromEvidence(f.evidence)}/${org}`;
@@ -405,6 +450,146 @@ export function resourceTypeLabel(checkId: string): string {
   return "Resources";
 }
 
+/** Singular, compact label for list-row asset type pills (Orca-style). */
+const RESOURCE_TYPE_PILL_LABELS: Record<string, string> = {
+  "iam.user": "IAM user",
+  "iam.role": "IAM role",
+  "iam.access_key": "Access key",
+  "iam.root": "Root account",
+  "iam.policy": "IAM policy",
+  "iam.account": "Account setting",
+  "iam.perm": "IAM permission",
+  "s3.bucket": "S3 bucket",
+  "s3.account": "S3 account",
+  "kms.key": "KMS key",
+  "dynamodb.table": "DynamoDB table",
+  "lambda.function": "Lambda function",
+  "ec2.instance": "EC2 instance",
+  "ec2.ebs": "EBS volume",
+  "ec2.security_group": "Security group",
+  "rds.instance": "RDS instance",
+  "cloudtrail.trail": "CloudTrail trail",
+  "cloudtrail.bucket": "CloudTrail bucket",
+  "guardduty.detector": "GuardDuty",
+  "guardduty.open": "GuardDuty finding",
+  "aws.config": "AWS Config",
+  "aws.securityhub": "Security Hub",
+  "aws.account": "AWS account",
+  "vpc.flow_logs": "VPC flow logs",
+  "secretsmanager.secret": "Secrets Manager",
+  "sns.topic": "SNS topic",
+  "sqs.queue": "SQS queue",
+  "elb.load_balancer": "Load balancer",
+  "eks.cluster": "EKS cluster",
+  "ecr.repository": "ECR repository",
+  "acm.certificate": "ACM certificate",
+  "ssm.parameter": "SSM parameter",
+  "github.repo": "GitHub repo",
+  "github.org": "GitHub org",
+  "gitlab.repo": "GitLab project",
+  "gitlab.org": "GitLab group",
+};
+
+export function resourceTypePillLabel(checkId: string): string {
+  const match = Object.entries(RESOURCE_TYPE_PILL_LABELS).find(([prefix]) => checkId.startsWith(prefix));
+  if (match) return match[1];
+  const parts = checkId.split(".");
+  if (parts.length >= 2) {
+    const service = parts[0].toUpperCase();
+    const noun = parts[1].replace(/_/g, " ");
+    return `${service} ${noun}`;
+  }
+  return "AWS resource";
+}
+
+export type ResourceTypeIconKind =
+  | "iam"
+  | "s3"
+  | "kms"
+  | "ec2"
+  | "rds"
+  | "lambda"
+  | "cloudtrail"
+  | "dynamodb"
+  | "github"
+  | "cloud";
+
+export function resourceTypeIconKind(checkId: string): ResourceTypeIconKind {
+  if (checkId.startsWith("github.") || checkId.startsWith("gitlab.")) return "github";
+  if (checkId.startsWith("iam.") || checkId.startsWith("aws.access_analyzer")) return "iam";
+  if (checkId.startsWith("s3.")) return "s3";
+  if (checkId.startsWith("kms.")) return "kms";
+  if (
+    checkId.startsWith("ec2.") ||
+    checkId.startsWith("ebs.") ||
+    checkId.startsWith("vpc.") ||
+    checkId.startsWith("elb.") ||
+    checkId.startsWith("eks.") ||
+    checkId.startsWith("ecr.")
+  )
+    return "ec2";
+  if (checkId.startsWith("rds.")) return "rds";
+  if (checkId.startsWith("lambda.")) return "lambda";
+  if (checkId.startsWith("cloudtrail.")) return "cloudtrail";
+  if (checkId.startsWith("dynamodb.")) return "dynamodb";
+  return "cloud";
+}
+
+export type AssetPillTone = "orange" | "green" | "grey" | "blue";
+
+/** Orca-style pill border/text colors by AWS service family. */
+export function resourceTypePillTone(checkId: string): AssetPillTone {
+  const kind = resourceTypeIconKind(checkId);
+  if (kind === "iam" || kind === "github") return "grey";
+  if (kind === "s3" || kind === "rds" || kind === "dynamodb") return "green";
+  if (kind === "lambda" || kind === "ec2") return "orange";
+  if (kind === "kms" || kind === "cloudtrail") return "blue";
+  return "orange";
+}
+
+/** Label passed to AwsServiceIcon / awsServiceIconUrl. */
+export function awsServiceLabelForCheck(checkId: string): string {
+  const prefix = checkId.split(".")[0] ?? "";
+  const labels: Record<string, string> = {
+    iam: "IAM",
+    s3: "S3",
+    kms: "KMS",
+    ec2: "EC2",
+    ebs: "EC2",
+    vpc: "VPC",
+    elb: "ELB",
+    eks: "EKS",
+    ecr: "ECR",
+    rds: "RDS",
+    lambda: "Lambda",
+    cloudtrail: "CloudTrail",
+    dynamodb: "DynamoDB",
+    guardduty: "GuardDuty",
+    sns: "SNS",
+    sqs: "SQS",
+    secretsmanager: "SecretsManager",
+    ssm: "SSM",
+    acm: "ACM",
+    aws: "Config",
+  };
+  if (prefix === "github" || prefix === "gitlab") return "";
+  return labels[prefix] ?? prefix.charAt(0).toUpperCase() + prefix.slice(1);
+}
+
+export type AssetTypePillEntry = { checkId: string; label: string };
+
+/** Unique asset type pills for a grouped findings row (stable order). */
+export function assetTypePillEntries(items: FindingLike[]): AssetTypePillEntry[] {
+  const byLabel = new Map<string, string>();
+  for (const f of items) {
+    const label = resourceTypePillLabel(f.check_id);
+    if (!byLabel.has(label)) byLabel.set(label, f.check_id);
+  }
+  return [...byLabel.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, checkId]) => ({ checkId, label }));
+}
+
 export function daysAgo(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (d <= 0) return "today";
@@ -416,6 +601,22 @@ export function daysAgo(iso: string): string {
 
 export function severityLabel(sev: string): string {
   return sev.charAt(0).toUpperCase() + sev.slice(1);
+}
+
+/** Compact severity pill — matches Findings table (critical/high red, medium amber, low slate). */
+export function severityPillClassName(severity: string): string {
+  const base =
+    "inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-semibold";
+  if (severity === "critical") {
+    return `${base} bg-red-50 text-red-800 ring-1 ring-red-200/60`;
+  }
+  if (severity === "high") {
+    return `${base} bg-red-50/90 text-red-700 ring-1 ring-red-200/55`;
+  }
+  if (severity === "medium") {
+    return `${base} bg-amber-50 text-amber-800 ring-1 ring-amber-200/70`;
+  }
+  return `${base} bg-slate-50 text-slate-600 ring-1 ring-slate-200/80`;
 }
 
 /** Comma-separated preview of affected resource names for compact list rows. */
