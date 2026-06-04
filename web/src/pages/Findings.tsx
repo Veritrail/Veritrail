@@ -1,31 +1,25 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AccountSelect, LastScanChip } from "../components/AccountSelect";
 import { api, token } from "../api";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
-import {
-  FindingDrawer,
-  defaultFindingRemediationMode,
-  type FindingDrawerTab,
-  type FindingRemediationMode,
-} from "../components/FindingDrawer";
-import { SearchReferenceModal } from "../components/SearchReferenceModal";
+import NotificationsBell from "../components/NotificationsBell";
 import ScanProgressBar from "../components/ScanProgressBar";
+import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { FRAMEWORKS, frameworkLabel, type FrameworkId } from "../data/frameworks";
-import { remediationSummaryFor } from "../data/remediationSummaries";
-import { affectedResourcesPreview, daysAgo, severityLabel } from "../lib/findingDisplay";
-import { useTriggeredScan } from "../hooks/useTriggeredScan";
+import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
+import { severityLabel } from "../lib/findingDisplay";
 import { isAccountConnected } from "../lib/accountConnection";
-import NotificationsBell from "../components/NotificationsBell";
-import {
-  useRecheckNotifications,
-  type RecheckResponse,
-} from "../context/RecheckNotificationsContext";
+import { useTriggeredScan } from "../hooks/useTriggeredScan";
+import { useRecheckNotifications, type RecheckResponse } from "../context/RecheckNotificationsContext";
+import "../styles/findings-v2.css";
 
 type Finding = {
   id: string;
+  account_id?: string;
   check_id: string;
   resource_arn: string;
   title: string;
@@ -40,52 +34,43 @@ type Finding = {
   exception_expires_at?: string | null;
 };
 
-type FindingPage = {
-  items: Finding[];
-  total: number;
-  next_cursor: string | null;
+type FindingPage = { items: Finding[]; total: number; next_cursor: string | null };
+type Account = {
+  id: string;
+  label?: string | null;
+  status: string;
+  account_id: string | null;
+  last_scan_at?: string | null;
+  cfn_launch_url?: string;
 };
+type StatusTab = "open" | "excepted" | "resolved" | "all";
+type SeverityFilter = "all" | "critical" | "high" | "medium" | "low";
 
-type Account = { id: string; status: string; account_id: string | null; cfn_launch_url?: string };
+const severityTabs: { id: SeverityFilter; label: string; urgent?: boolean }[] = [
+  { id: "all", label: "All" },
+  { id: "critical", label: "Critical", urgent: true },
+  { id: "high", label: "High", urgent: true },
+  { id: "medium", label: "Medium" },
+  { id: "low", label: "Low" },
+];
+type SortKey = "severity" | "score" | "first_seen";
+type BenchmarkFilter = "all" | FrameworkId;
 
-const COLLAPSED_FINDINGS_KEY = "vigil.findings.collapsedGroups";
-
-const sevBadge: Record<string, string> = {
-  critical: "bg-red-50 text-red-700 ring-red-200/70",
-  high: "bg-orange-50 text-orange-700 ring-orange-200/70",
-  medium: "bg-amber-50 text-amber-800 ring-amber-200/70",
-  low: "bg-zinc-100 text-zinc-600 ring-zinc-200/70",
-};
-
-const sevBorder: Record<string, string> = {
-  critical: "border-l-red-500",
-  high: "border-l-orange-500",
-  medium: "border-l-amber-400",
-  low: "border-l-zinc-300",
-};
-
-const sevRiskTone: Record<string, string> = {
-  critical: "text-red-700",
-  high: "text-orange-700",
-  medium: "text-amber-700",
-  low: "text-zinc-700",
-};
-
-const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-
-const statusTabs = ["open", "excepted", "resolved", "all"] as const;
-type StatusTab = (typeof statusTabs)[number];
-
+const statusTabs: StatusTab[] = ["open", "excepted", "resolved", "all"];
 const statusTabLabels: Record<StatusTab, string> = {
   open: "Open",
   excepted: "Exceptions",
   resolved: "Resolved",
   all: "All",
 };
+const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-type SeverityFilter = "all" | "critical_high" | "medium" | "low";
-type SortKey = "severity" | "score" | "first_seen";
-type BenchmarkFilter = "all" | FrameworkId;
+const SORT_OPTIONS: { id: SortKey; label: string }[] = [
+  { id: "severity", label: "Severity" },
+  { id: "score", label: "Risk" },
+  { id: "first_seen", label: "Age" },
+];
+
 
 function emptyFindingsLabel(status: StatusTab): string {
   if (status === "all") return "No findings";
@@ -93,44 +78,86 @@ function emptyFindingsLabel(status: StatusTab): string {
   return `No ${status} findings`;
 }
 
-function lastScanLabel(iso: string): string {
-  const date = new Date(iso);
-  const sameDay = date.toDateString() === new Date().toDateString();
-  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return sameDay ? `today at ${time}` : `${date.toLocaleDateString()} at ${time}`;
-}
-
 function matchesSeverityFilter(f: Finding, filter: SeverityFilter): boolean {
   if (filter === "all") return true;
-  if (filter === "critical_high") return f.severity === "critical" || f.severity === "high";
   return f.severity === filter;
-}
-
-function sortLabel(k: SortKey): string {
-  if (k === "first_seen") return "Age";
-  if (k === "score") return "Risk";
-  return "Severity";
-}
-
-function sortIcon(k: SortKey, active: SortKey, dir: "asc" | "desc"): string {
-  if (k !== active) return "";
-  return dir === "asc" ? "↑" : "↓";
 }
 
 function frameworksForCheck(checkId: string, apiMap: Record<string, string[]> | undefined): string[] {
   return apiMap?.[checkId] ?? CHECK_FRAMEWORK_MAP[checkId] ?? [];
 }
 
-function matchesBenchmarkFilter(
-  f: Finding,
-  benchmarkFilter: BenchmarkFilter,
-  apiMap: Record<string, string[]> | undefined,
-): boolean {
-  if (benchmarkFilter === "all") return true;
-  return frameworksForCheck(f.check_id, apiMap).includes(benchmarkFilter);
+function matchesBenchmarkFilter(f: Finding, filter: BenchmarkFilter, apiMap: Record<string, string[]> | undefined): boolean {
+  if (filter === "all") return true;
+  return frameworksForCheck(f.check_id, apiMap).includes(filter);
 }
 
-function FindingIssueCard({
+function SeverityIndicator({ severity }: { severity: string }) {
+  const badgeClass =
+    "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium";
+  if (severity === "critical") {
+    return (
+      <span className={`${badgeClass} bg-red-50/80 text-red-700 ring-1 ring-red-200/45`}>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/75" aria-hidden />
+        Critical
+      </span>
+    );
+  }
+  if (severity === "high") {
+    return (
+      <span className={`${badgeClass} bg-amber-50/90 text-amber-800 ring-1 ring-amber-200/50`}>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/80" aria-hidden />
+        High
+      </span>
+    );
+  }
+  if (severity === "medium") {
+    return (
+      <span className={`${badgeClass} bg-zinc-100/90 text-zinc-600 ring-1 ring-zinc-200/70`}>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400/80" aria-hidden />
+        Medium
+      </span>
+    );
+  }
+  return (
+    <span className={`${badgeClass} bg-zinc-100/90 text-zinc-500 ring-1 ring-zinc-200/70`}>
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400/70" aria-hidden />
+      Low
+    </span>
+  );
+}
+
+function RiskScoreDisplay({ score, severity }: { score: number; severity: string }) {
+  const styles =
+    severity === "critical"
+      ? "bg-red-50 text-red-700 border-red-500 ring-red-100"
+      : severity === "high"
+        ? "bg-amber-50 text-amber-800 border-amber-400 ring-amber-100"
+        : "bg-zinc-100 text-zinc-600 border-zinc-300 ring-zinc-200/70";
+
+  return (
+    <span
+      aria-label={`Risk score ${score}`}
+      className={`inline-flex h-7 w-14 items-center justify-center rounded-md border-l-[3px] text-sm font-bold tabular-nums leading-none shadow-sm shadow-zinc-950/[0.04] ring-1 ${styles}`}
+    >
+      {score}
+    </span>
+  );
+}
+
+function joinResources(names: string[], limit = 72): { text: string; overflow: number } {
+  const shown: string[] = [];
+  let len = 0;
+  for (const n of names) {
+    const add = (shown.length ? 2 : 0) + n.length;
+    if (shown.length > 0 && len + add > limit) break;
+    shown.push(n);
+    len += add;
+  }
+  return { text: shown.join(", "), overflow: names.length - shown.length };
+}
+
+function FindingRow({
   checkId,
   items,
   onReview,
@@ -141,430 +168,54 @@ function FindingIssueCard({
 }) {
   const sev = items[0]?.severity ?? "low";
   const title = checkLabels[checkId] ?? items[0]?.title ?? checkId;
-  const ops = remediationSummaryFor(checkId);
-  const count = items.length;
   const topRisk = Math.max(...items.map((f) => f.risk_score));
-  const oldest = items.reduce((a, b) => (new Date(a.first_seen) < new Date(b.first_seen) ? a : b));
-  const affectedPreview = affectedResourcesPreview(items);
+  const resources = joinResources(items.map((f) => shortArn(f.resource_arn)));
+  const railClass =
+    sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
+      ? `findings-v2-row--${sev}`
+      : "findings-v2-row--low";
 
   return (
-    <article
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={() => onReview(items)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onReview(items);
-        }
-      }}
-      className={`group cursor-pointer rounded-xl border border-zinc-200/80 border-l-[3px] bg-white px-4 py-4 transition hover:border-zinc-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 ${sevBorder[sev] ?? sevBorder.low}`}
+      aria-label={`Review ${title}, ${severityLabel(sev)}`}
+      className={`findings-v2-row ${railClass} group grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 last:rounded-b-2xl sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4`}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span
-              className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ring-1 ${sevBadge[sev] ?? sevBadge.low}`}
-            >
-              {severityLabel(sev)}
-            </span>
-            <span className="text-xs font-medium text-zinc-500">
-              {count} resource{count === 1 ? "" : "s"}
-            </span>
-          </div>
-          <h3 className="mt-2 text-[15px] font-semibold leading-snug text-zinc-900">{title}</h3>
-        </div>
-        <div className="relative shrink-0 self-start">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onReview(items);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 group-hover:bg-indigo-700 active:scale-[0.98]"
-          >
-            Review
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          <p className="pointer-events-none absolute left-1/2 top-full mt-4 w-max -translate-x-1/2 whitespace-nowrap text-center leading-none">
-            <span className="text-xs font-medium text-zinc-400">Risk </span>
-            <span className={`text-lg font-bold tabular-nums ${sevRiskTone[sev] ?? sevRiskTone.low}`}>{topRisk}</span>
-          </p>
-        </div>
-      </div>
-
-      <p className="mt-2.5 text-sm leading-relaxed text-zinc-600">{ops.impact}</p>
-      <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">{ops.fix}</p>
-
-      <div className="mt-3.5 rounded-lg bg-zinc-50/90 px-3 py-2.5 ring-1 ring-zinc-100/80">
-        {affectedPreview ? (
-          <p className="truncate font-mono text-[13px] text-zinc-600">{affectedPreview}</p>
-        ) : (
-          <p className="text-[13px] text-zinc-500">No resource names available</p>
-        )}
-        <p className="mt-1 text-xs text-zinc-400">First seen {daysAgo(oldest.first_seen)}</p>
-      </div>
-    </article>
-  );
-}
-
-function BenchmarkScopeSelect({
-  value,
-  onChange,
-}: {
-  value: BenchmarkFilter;
-  onChange: (v: BenchmarkFilter) => void;
-}) {
-  return (
-    <div className="relative shrink-0">
-      <svg
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-600/75"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-        aria-hidden
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.75}
-          d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-        />
-      </svg>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as BenchmarkFilter)}
-        aria-label="Findings scope by benchmark"
-        className="h-10 min-w-[13rem] cursor-pointer appearance-none rounded-xl border border-zinc-300/90 bg-white pl-9 pr-9 text-sm font-semibold text-zinc-800 shadow-sm outline-none transition hover:border-zinc-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
-      >
-        <option value="all">All benchmarks</option>
-        {FRAMEWORKS.map((fw) => (
-          <option key={fw.id} value={fw.id}>
-            {fw.label}
-          </option>
-        ))}
-      </select>
-      <svg
-        className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-        aria-hidden
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
-    </div>
-  );
-}
-
-function metricTileClasses(
-  accent: "neutral" | "red" | "amber",
-  isActive: boolean,
-): string {
-  if (accent === "red") {
-    return isActive
-      ? "bg-red-50 text-red-800 ring-1 ring-red-200/80 shadow-sm shadow-red-100/80"
-      : "text-red-700 hover:bg-red-50/70 hover:shadow-md hover:shadow-red-100/60 hover:ring-1 hover:ring-red-200/50";
-  }
-  if (accent === "amber") {
-    return isActive
-      ? "bg-amber-50 text-amber-900 ring-1 ring-amber-200/80 shadow-sm shadow-amber-100/80"
-      : "text-amber-800 hover:bg-amber-50/70 hover:shadow-md hover:shadow-amber-100/60 hover:ring-1 hover:ring-amber-200/50";
-  }
-  return isActive
-    ? "bg-zinc-100 text-zinc-900 ring-1 ring-zinc-200/90 shadow-sm shadow-zinc-200/50"
-    : "text-zinc-800 hover:bg-zinc-50 hover:shadow-md hover:shadow-zinc-200/40 hover:ring-1 hover:ring-zinc-200/60";
-}
-
-function MetricSummary({
-  totals,
-  active,
-  onSelect,
-  highlightActive = true,
-}: {
-  totals: { open: number; critical: number; high: number; medium: number; low: number };
-  active: SeverityFilter;
-  onSelect: (f: SeverityFilter) => void;
-  highlightActive?: boolean;
-}) {
-  const chTotal = totals.critical + totals.high;
-  const items: {
-    key: SeverityFilter;
-    label: string;
-    value: number;
-    accent: "neutral" | "red" | "amber";
-    prominent?: boolean;
-  }[] = [
-    { key: "all", label: "Open", value: totals.open, accent: "neutral", prominent: true },
-    { key: "critical_high", label: "Crit + high", value: chTotal, accent: "red", prominent: true },
-    { key: "medium", label: "Medium", value: totals.medium, accent: "amber" },
-    { key: "low", label: "Low", value: totals.low, accent: "neutral" },
-  ];
-
-  return (
-    <div className="inline-flex flex-wrap items-center gap-1">
-      {items.map((item) => {
-        const isActive = highlightActive && active === item.key;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => onSelect(item.key)}
-            className={`inline-flex min-w-[4.5rem] flex-col items-center rounded-lg border border-transparent px-2.5 py-2 transition ${metricTileClasses(item.accent, isActive)}`}
-          >
-            <span
-              className={`tabular-nums leading-none ${item.prominent ? "text-2xl font-bold" : "text-xl font-semibold"}`}
-            >
-              {item.value}
-            </span>
-            <span
-              className={`mt-1 uppercase tracking-wide ${
-                item.prominent ? "text-[11px] font-semibold opacity-80" : "text-[11px] font-medium opacity-70"
-              }`}
-            >
-              {item.label}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const ALL_CHECK_IDS = Object.keys(checkLabels);
-
-function TagSearchInput({
-  tags,
-  onTagsChange,
-  className,
-}: {
-  tags: string[];
-  onTagsChange: (t: string[]) => void;
-  className?: string;
-}) {
-  const [input, setInput] = useState("");
-  const [open, setOpen] = useState(false);
-  const [hi, setHi] = useState(0);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [refOpen, setRefOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setHelpOpen(false);
-        setInput("");
-      }
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, []);
-
-  const suggestions = useMemo(() => {
-    if (!input.trim()) return [];
-    const q = input.toLowerCase();
-    return ALL_CHECK_IDS.filter(
-      (s) => !tags.includes(s) && (s.includes(q) || (checkLabels[s] ?? "").toLowerCase().includes(q)),
-    ).slice(0, 8);
-  }, [input, tags]);
-
-  function commit(value: string) {
-    const v = value.trim().replace(/,+$/, "");
-    if (v && !tags.includes(v)) onTagsChange([...tags, v]);
-    setInput("");
-    setOpen(false);
-    setHi(0);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "," || e.key === "Enter" || e.key === "Tab") {
-      if (!input.trim() && e.key === "Tab") return;
-      e.preventDefault();
-      commit(suggestions[hi] ?? input);
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHi((h) => Math.min(h + 1, Math.max(0, suggestions.length - 1)));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHi((h) => Math.max(h - 1, 0));
-    } else if (e.key === "Backspace" && input === "" && tags.length > 0) {
-      onTagsChange(tags.slice(0, -1));
-    } else if (e.key === "Escape") {
-      setOpen(false);
-      setInput("");
-    }
-  }
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <div
-        className={`flex min-h-10 items-center rounded-xl border border-zinc-200/90 bg-white shadow-sm transition focus-within:border-zinc-300 focus-within:ring-2 focus-within:ring-zinc-950/[0.04] ${className ?? "w-80"}`}
-        onClick={() => inputRef.current?.focus()}
-      >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 px-3 py-1.5">
-          {tags.map((tag) => (
-            <span key={tag} className="inline-flex max-w-[10rem] items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-mono text-indigo-700">
-              <span className="truncate">{tag}</span>
-              <button
-                type="button"
-                className="text-indigo-400 hover:text-indigo-700"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTagsChange(tags.filter((t) => t !== tag));
-                }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setOpen(true);
-              setHi(0);
-            }}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setOpen(true)}
-            placeholder={tags.length === 0 ? "Search findings…" : "Add filter…"}
-            className="min-w-28 flex-1 bg-transparent text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
-          />
-        </div>
-        <div className="flex items-center gap-1 pr-2">
-          {tags.length === 0 && input.trim() === "" && (
-            <button
-              type="button"
-              aria-label="Search help"
-              className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-xs font-bold text-zinc-400 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
-              onClick={(e) => {
-                e.stopPropagation();
-                setHelpOpen((p) => !p);
-                setOpen(false);
-              }}
-            >
-              ?
-            </button>
-          )}
-          {tags.length > 0 && (
-            <button
-              type="button"
-              className="px-0.5 text-base leading-none text-zinc-300 transition hover:text-zinc-500"
-              onClick={(e) => {
-                e.stopPropagation();
-                onTagsChange([]);
-              }}
-            >
-              ×
-            </button>
-          )}
-        </div>
-      </div>
-
-      {helpOpen && (
-        <div className="absolute right-0 z-20 mt-1 w-80 rounded-xl border border-zinc-200 bg-white p-3 text-left shadow-lg">
-          <div className="text-xs font-semibold text-zinc-700">Search lookup</div>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-            Search by check, resource, ARN, or resource family. Examples: <span className="font-mono text-zinc-700">iam.root</span>,{" "}
-            <span className="font-mono text-zinc-700">s3.bucket</span>, <span className="font-mono text-zinc-700">ec2.instance</span>.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setHelpOpen(false);
-              setRefOpen(true);
-            }}
-            className="mt-3 inline-flex items-center text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-          >
-            Open search reference
-            <svg className="ml-1 h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {refOpen && <SearchReferenceModal onClose={() => setRefOpen(false)} />}
-
-      {open && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full min-w-80 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
-          {suggestions.map((s, i) => (
-            <button
-              key={s}
-              type="button"
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${i === hi ? "bg-zinc-100" : "hover:bg-zinc-50"}`}
-              onMouseDown={() => commit(s)}
-              onMouseEnter={() => setHi(i)}
-            >
-              <span className="shrink-0 text-xs font-mono font-semibold text-zinc-700">{s}</span>
-              {checkLabels[s] && <span className="truncate text-xs text-zinc-400">{checkLabels[s]}</span>}
-            </button>
-          ))}
-          <div className="border-t border-zinc-100 px-3 py-1.5 text-[10px] text-zinc-400">
-            Tab / Enter / comma to add. Backspace removes last filter.
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatusTabs({ status, onChange }: { status: StatusTab; onChange: (status: StatusTab) => void }) {
-  return (
-    <div className="flex items-center gap-1 rounded-xl border border-zinc-200/80 bg-zinc-100/60 p-1">
-      {statusTabs.map((s) => (
-        <button
-          key={s}
-          onClick={() => onChange(s)}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-            status === s
-              ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80"
-              : "text-zinc-500 hover:text-zinc-800"
-          }`}
+      <div className="hidden w-5 shrink-0 items-center justify-center sm:flex">
+        <svg
+          className="h-3.5 w-3.5 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-[#1f4e79]"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          viewBox="0 0 24 24"
+          aria-hidden
         >
-          {statusTabLabels[s]}
-        </button>
-      ))}
-    </div>
-  );
-}
+          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+      </div>
 
-function SortToggle({
-  sortKey,
-  sortDir,
-  onToggle,
-}: {
-  sortKey: SortKey;
-  sortDir: "asc" | "desc";
-  onToggle: (key: SortKey) => void;
-}) {
-  return (
-    <div className="flex shrink-0 items-center gap-1 rounded-xl border border-zinc-200/80 bg-zinc-100/60 p-1">
-      {(["severity", "score", "first_seen"] as SortKey[]).map((k) => (
-        <button
-          key={k}
-          onClick={() => onToggle(k)}
-          className={`inline-flex h-9 items-center gap-1 rounded-lg px-3.5 text-sm font-medium transition ${
-            sortKey === k
-              ? "bg-white font-semibold text-zinc-900 shadow-sm ring-1 ring-zinc-200/80"
-              : "text-zinc-500 hover:text-zinc-700"
-          }`}
-        >
-          {sortLabel(k)}
-          {sortKey === k && <span className="text-xs text-zinc-400">{sortIcon(k, sortKey, sortDir)}</span>}
-        </button>
-      ))}
-    </div>
+      <div className="sm:w-[5.5rem] shrink-0">
+        <SeverityIndicator severity={sev} />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
+        <p className="mt-1 flex items-center gap-1.5 text-[11.5px] leading-tight text-[#64748b]">
+          <span className="truncate font-mono font-medium">{resources.text}</span>
+          {resources.overflow > 0 && <span className="shrink-0 font-semibold text-[#94a3b8]">+{resources.overflow}</span>}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-center">
+        <RiskScoreDisplay score={topRisk} severity={sev} />
+      </div>
+    </button>
   );
 }
 
 export default function Findings() {
   const qc = useQueryClient();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState<StatusTab>("open");
   const [selected, setSelected] = useState<Finding | null>(null);
@@ -574,16 +225,7 @@ export default function Findings() {
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
-  const {
-    pendingRecheck,
-    recheckOutcome,
-    startRecheck,
-    applyRecheckResult,
-    failRecheck,
-    reportScanFailure,
-    clearDrawerVerifyFlash,
-  } = useRecheckNotifications();
-  const lastScanFailureKeyRef = useRef<string>("");
+  const [searchText, setSearchText] = useState(searchParams.get("q") ?? "");
   const [searchTags, setSearchTags] = useState<string[]>(() => {
     const raw = searchParams.get("checks");
     return raw ? raw.split(",").filter(Boolean) : [];
@@ -593,40 +235,43 @@ export default function Findings() {
     if (fw && FRAMEWORKS.some((f) => f.id === fw)) return fw as FrameworkId;
     return "all";
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get("account") ?? "");
+  const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, reportScanFailure, clearDrawerVerifyFlash } =
+    useRecheckNotifications();
+  const lastScanFailureKeyRef = useRef("");
 
   const frameworkMapQ = useQuery({
     queryKey: ["check-frameworks"],
     queryFn: () => api<{ checks: Record<string, string[]> }>("/v1/controls/check-frameworks"),
     staleTime: 300_000,
   });
+  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
+  const connectedAccounts = useMemo(
+    () => accounts.data?.filter((a) => isAccountConnected(a)) ?? [],
+    [accounts.data],
+  );
+  const effectiveAccountId =
+    (selectedAccountId && connectedAccounts.some((a) => a.id === selectedAccountId)
+      ? selectedAccountId
+      : connectedAccounts[0]?.id) || "";
+  const selectedAccount = connectedAccounts.find((a) => a.id === effectiveAccountId) ?? connectedAccounts[0];
+  const connectedId = effectiveAccountId || undefined;
 
   const q = useQuery({
-    queryKey: ["findings", status],
-    queryFn: () => api<FindingPage>(`/v1/findings?status=${status}&limit=500`),
+    queryKey: ["findings", status, effectiveAccountId],
+    queryFn: () =>
+      api<FindingPage>(
+        `/v1/findings?status=${status}&limit=500${effectiveAccountId ? `&account_id=${effectiveAccountId}` : ""}`,
+      ),
     refetchInterval: pendingRecheck ? 3000 : false,
   });
+  const { scanRun, scanStatus, isRunning, scanTriggered, isScanActive, scanProgress, triggerScan } = useTriggeredScan(
+    connectedId,
+    { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
+  );
 
-  const openMetricsQ = useQuery({
-    queryKey: ["findings", "open"],
-    queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500"),
-    refetchInterval: pendingRecheck ? 3000 : false,
-  });
-
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
-  const connectedAccount = accounts.data?.find((a) => isAccountConnected(a));
-  const connectedId = connectedAccount?.id;
-
-  const {
-    scanRun,
-    scanStatus,
-    isRunning,
-    scanTriggered,
-    isScanActive,
-    scanProgress,
-    triggerScan,
-  } = useTriggeredScan(connectedId, {
-    onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }),
-  });
+  const lastScanAt = selectedAccount?.last_scan_at ?? scanRun.data?.finished_at ?? null;
 
   useEffect(() => {
     if (!(scanStatus === "error" && scanRun.data?.error)) return;
@@ -643,19 +288,18 @@ export default function Findings() {
   }, [connectedId, scanRun.data, scanStatus, reportScanFailure]);
 
   useEffect(() => {
-    try {
-      localStorage.removeItem(COLLAPSED_FINDINGS_KEY);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
     if (isRefreshing && !q.isFetching) {
       const t = setTimeout(() => setIsRefreshing(false), 600);
       return () => clearTimeout(t);
     }
   }, [q.isFetching, isRefreshing]);
+
+  useEffect(() => {
+    const raw = searchParams.get("checks");
+    const next = raw ? raw.split(",").filter(Boolean) : [];
+    setSearchTags(next);
+    if (next.length > 0) setStatus("open");
+  }, [searchParams]);
 
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "recheck" | "reopen" }) =>
@@ -664,9 +308,7 @@ export default function Findings() {
       if (action === "recheck") {
         const result = data as RecheckResponse;
         const checkId = selected?.check_id ?? result.check_id ?? "";
-        if (!applyRecheckResult(id, checkId, result)) {
-          setTimeout(() => qc.invalidateQueries({ queryKey: ["findings"] }), 6000);
-        }
+        if (!applyRecheckResult(id, checkId, result)) setTimeout(() => qc.invalidateQueries({ queryKey: ["findings"] }), 6000);
       } else {
         qc.invalidateQueries({ queryKey: ["findings"] });
         if (selected) setSelected(data as Finding);
@@ -677,11 +319,147 @@ export default function Findings() {
       }
     },
     onError: (_err, { id, action }) => {
-      if (action === "recheck" && selected) {
-        failRecheck(id, selected.check_id);
-      }
+      if (action === "recheck" && selected) failRecheck(id, selected.check_id);
     },
   });
+
+  const findings = q.data?.items ?? [];
+  const checkFrameworksApi = frameworkMapQ.data?.checks;
+  const verifying = !!(selected && pendingRecheck?.findingId === selected.id);
+  const verified = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "verified");
+  const verifyUnchanged = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "unchanged");
+
+  const benchmarkScopedFindings = useMemo(
+    () => findings.filter((f) => matchesBenchmarkFilter(f, benchmarkFilter, checkFrameworksApi)),
+    [findings, benchmarkFilter, checkFrameworksApi],
+  );
+
+  const rows = useMemo(() => {
+    const qtext = searchText.trim().toLowerCase();
+    const arr = benchmarkScopedFindings.filter((f) => {
+      if (status === "open" && !matchesSeverityFilter(f, severityFilter)) return false;
+      if (searchTags.length > 0) {
+        const matchesCheck = searchTags.some((tag) => {
+          if (f.check_id === tag) return true;
+          const haystack = [f.title, f.check_id, f.resource_arn, checkLabels[f.check_id] ?? ""].join(" ").toLowerCase();
+          return haystack.includes(tag.toLowerCase());
+        });
+        if (!matchesCheck) return false;
+      }
+      if (!qtext) return true;
+      return [f.title, f.check_id, f.resource_arn, checkLabels[f.check_id] ?? ""].join(" ").toLowerCase().includes(qtext);
+    });
+    arr.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "severity") cmp = (sevWeight[a.severity] ?? 9) - (sevWeight[b.severity] ?? 9) || b.risk_score - a.risk_score;
+      else if (sortKey === "score") cmp = b.risk_score - a.risk_score;
+      else cmp = new Date(b.first_seen).getTime() - new Date(a.first_seen).getTime();
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [benchmarkScopedFindings, searchText, searchTags, severityFilter, sortKey, sortDir, status]);
+
+  const displayGroups = useMemo(() => {
+    const map = new Map<string, Finding[]>();
+    for (const f of rows) map.set(f.check_id, [...(map.get(f.check_id) ?? []), f]);
+    const entries = [...map.entries()];
+    entries.sort(([, a], [, b]) => {
+      let cmp = 0;
+      if (sortKey === "severity")
+        cmp =
+          (sevWeight[a[0].severity] ?? 9) - (sevWeight[b[0].severity] ?? 9) ||
+          Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
+      else if (sortKey === "score") cmp = Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
+      else
+        cmp =
+          Math.min(...b.map((f) => new Date(f.first_seen).getTime())) -
+          Math.min(...a.map((f) => new Date(f.first_seen).getTime()));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return entries;
+  }, [rows, sortKey, sortDir]);
+
+  const severityCounts = useMemo(() => {
+    const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0 };
+    if (status !== "open") return counts;
+    for (const f of benchmarkScopedFindings) {
+      counts.all += 1;
+      if (f.severity === "critical") counts.critical += 1;
+      else if (f.severity === "high") counts.high += 1;
+      else if (f.severity === "medium") counts.medium += 1;
+      else if (f.severity === "low") counts.low += 1;
+    }
+    return counts;
+  }, [benchmarkScopedFindings, status]);
+
+  function openReview(items: Finding[]) {
+    const top = items.reduce((best, f) => (f.risk_score > best.risk_score ? f : best), items[0]);
+    setDrawerGroup(items.length > 1 ? items : null);
+    setSelected(top);
+    setDrawerTab("overview");
+    setRemTab(defaultFindingRemediationMode(top.check_id));
+    clearDrawerVerifyFlash();
+  }
+
+  function handleBenchmarkChange(fw: BenchmarkFilter) {
+    setBenchmarkFilter(fw);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (fw === "all") next.delete("framework");
+        else next.set("framework", fw);
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  function handleAccountChange(id: string) {
+    setSelectedAccountId(id);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id) next.set("account", id);
+        else next.delete("account");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  function handleSearch(value: string) {
+    setSearchText(value);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value.trim()) next.set("q", value.trim());
+        else next.delete("q");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  function handleTagsChange(tags: string[]) {
+    setSearchTags(tags);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (tags.length > 0) next.set("checks", tags.join(","));
+        else next.delete("checks");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  function toggleSort(k: SortKey) {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setSortDir(k === "severity" ? "asc" : "desc");
+    }
+  }
 
   const downloadCsv = useCallback(async () => {
     const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
@@ -699,216 +477,88 @@ export default function Findings() {
     URL.revokeObjectURL(url);
   }, [status]);
 
-  function openReview(items: Finding[]) {
-    const top = items.reduce((best, f) => (f.risk_score > best.risk_score ? f : best), items[0]);
-    setDrawerGroup(items.length > 1 ? items : null);
-    setSelected(top);
-    setDrawerTab("overview");
-    setRemTab(defaultFindingRemediationMode(top.check_id));
-    clearDrawerVerifyFlash();
-  }
-
-  function closeDrawer() {
-    setSelected(null);
-    setDrawerGroup(null);
-    clearDrawerVerifyFlash();
-  }
-
-  function handleTagsChange(tags: string[]) {
-    setSearchTags(tags);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (tags.length > 0) next.set("checks", tags.join(","));
-      else next.delete("checks");
-      return next;
-    }, { replace: true });
-  }
-
-  function handleBenchmarkChange(fw: BenchmarkFilter) {
-    setBenchmarkFilter(fw);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (fw === "all") next.delete("framework");
-      else next.set("framework", fw);
-      return next;
-    }, { replace: true });
-  }
-
-  function handleRefresh() {
-    if (isRefreshing) return;
-    qc.invalidateQueries({ queryKey: ["findings"] });
-    setIsRefreshing(true);
-  }
-
-  function handleMetricSelect(filter: SeverityFilter) {
-    setSeverityFilter(filter);
-    if (status !== "open") setStatus("open");
-  }
-
-  function toggleSort(k: SortKey) {
-    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(k);
-      setSortDir(k === "severity" ? "asc" : "desc");
-    }
-  }
-
-  const findings = q.data?.items ?? [];
-  const checkFrameworksApi = frameworkMapQ.data?.checks;
-  const openFindingsForMetrics = openMetricsQ.data?.items ?? (status === "open" ? findings : []);
-
-  const verifying = !!(selected && pendingRecheck?.findingId === selected.id);
-  const verified = !!(
-    selected &&
-    recheckOutcome?.findingId === selected.id &&
-    recheckOutcome.status === "verified"
-  );
-  const verifyUnchanged = !!(
-    selected &&
-    recheckOutcome?.findingId === selected.id &&
-    recheckOutcome.status === "unchanged"
-  );
-
-  const metricBenchmarkScoped = useMemo(
-    () => openFindingsForMetrics.filter((f) => matchesBenchmarkFilter(f, benchmarkFilter, checkFrameworksApi)),
-    [openFindingsForMetrics, benchmarkFilter, checkFrameworksApi],
-  );
-
-  const metricTotals = useMemo(() => {
-    const t = { open: 0, critical: 0, high: 0, medium: 0, low: 0 };
-    for (const f of metricBenchmarkScoped) {
-      t.open++;
-      if (f.severity in t) t[f.severity as keyof typeof t]++;
-    }
-    return t;
-  }, [metricBenchmarkScoped]);
-
-  const benchmarkScopedFindings = useMemo(
-    () => findings.filter((f) => matchesBenchmarkFilter(f, benchmarkFilter, checkFrameworksApi)),
-    [findings, benchmarkFilter, checkFrameworksApi],
-  );
-
-  const rows = useMemo(() => {
-    const arr = benchmarkScopedFindings.filter((f) => {
-      if (status === "open" && !matchesSeverityFilter(f, severityFilter)) return false;
-      if (searchTags.length === 0) return true;
-      return searchTags.some((tag) => {
-        if (f.check_id === tag) return true;
-        const haystack = [f.title, f.check_id, f.resource_arn, checkLabels[f.check_id] ?? ""].join(" ").toLowerCase();
-        return haystack.includes(tag.toLowerCase());
-      });
-    });
-    arr.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "severity") cmp = (sevWeight[a.severity] ?? 9) - (sevWeight[b.severity] ?? 9) || b.risk_score - a.risk_score;
-      else if (sortKey === "score") cmp = b.risk_score - a.risk_score;
-      else cmp = new Date(b.first_seen).getTime() - new Date(a.first_seen).getTime();
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [benchmarkScopedFindings, searchTags, severityFilter, sortKey, sortDir, status]);
-
-  const displayGroups = useMemo(() => {
-    const map = new Map<string, Finding[]>();
-    for (const f of rows) {
-      const list = map.get(f.check_id) ?? [];
-      list.push(f);
-      map.set(f.check_id, list);
-    }
-    const entries = [...map.entries()];
-    entries.sort(([, a], [, b]) => {
-      let cmp = 0;
-      if (sortKey === "severity") {
-        cmp =
-          (sevWeight[a[0].severity] ?? 9) - (sevWeight[b[0].severity] ?? 9) ||
-          Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
-      } else if (sortKey === "score") {
-        cmp = Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
-      } else {
-        const aOldest = Math.min(...a.map((f) => new Date(f.first_seen).getTime()));
-        const bOldest = Math.min(...b.map((f) => new Date(f.first_seen).getTime()));
-        cmp = bOldest - aOldest;
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return entries;
-  }, [rows, sortKey, sortDir]);
-
-  const chTotal = metricTotals.critical + metricTotals.high;
-  const hasUrgent = chTotal > 0;
-
-  if (!accounts.isLoading && accounts.data && !connectedId) {
-    return <ConnectAwsEmptyState />;
-  }
+  if (!accounts.isLoading && accounts.data && !connectedId) return <ConnectAwsEmptyState />;
 
   return (
-    <div className="w-full px-6 py-6">
-      <div className="mb-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Findings</h1>
-            {scanRun.data?.finished_at && (
-              <span className="text-sm text-zinc-500">Last scan {lastScanLabel(scanRun.data.finished_at)}</span>
-            )}
-            {benchmarkFilter !== "all" && (
-              <span className="text-sm font-medium text-indigo-700/90">{frameworkLabel(benchmarkFilter)} scope</span>
-            )}
-          </div>
-          <div className="shrink-0 pt-0.5">
+    <div className="findings-v2-page findings-v2-shell min-h-full">
+      <div className="w-full px-8 py-8">
+        <header className="mb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {connectedAccounts.length > 0 && (
+                  <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
+                )}
+                {lastScanAt && <LastScanChip iso={lastScanAt} />}
+              </div>
+            </div>
             <NotificationsBell />
           </div>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-3">
-          <MetricSummary
-            totals={metricTotals}
-            active={severityFilter}
-            onSelect={handleMetricSelect}
-            highlightActive={status === "open"}
-          />
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ebf2] pb-3">
+            <div
+              className="inline-flex min-w-0 flex-wrap rounded-lg border border-[#e6ebf2] bg-[#f8fafc] p-0.5"
+              role="tablist"
+              aria-label="Benchmark scope"
+            >
               <button
                 type="button"
-                onClick={downloadCsv}
-                className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-sm font-semibold text-zinc-600 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
+                role="tab"
+                aria-selected={benchmarkFilter === "all"}
+                onClick={() => handleBenchmarkChange("all")}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                  benchmarkFilter === "all" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
+                }`}
               >
-                Export
+                All benchmarks
               </button>
-              <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-sm font-semibold text-zinc-600 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isRefreshing && (
-                  <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                )}
-                Refresh
-              </button>
-              {connectedId && (
+              {FRAMEWORKS.map((fw) => (
+                <button
+                  key={fw.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={benchmarkFilter === fw.id}
+                  onClick={() => handleBenchmarkChange(fw.id)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                    benchmarkFilter === fw.id ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
+                  }`}
+                >
+                  {fw.label}
+                </button>
+              ))}
+            </div>
+
+            {connectedId && (
+              <div className="flex shrink-0 items-center gap-2.5 self-center">
                 <button
                   type="button"
                   onClick={() => triggerScan(connectedId)}
                   disabled={scanTriggered || isRunning}
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-600/20 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="findings-v2-scan-btn"
                 >
-                  {(scanTriggered || isRunning) && (
-                    <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  )}
-                  {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Re-scan"}
+                  <span className="findings-v2-scan-btn-icon" aria-hidden>
+                    {isRunning || scanTriggered ? (
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="findings-v2-scan-btn-label">
+                    {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
+                  </span>
                 </button>
-              )}
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        </header>
 
-      {isScanActive && (
-        <div className="mb-3">
+        {isScanActive && (
           <ScanProgressBar
             phase={isRunning ? "running" : "starting"}
             progress={scanProgress.progress}
@@ -919,52 +569,186 @@ export default function Findings() {
             progressStep={scanProgress.progressStep}
             progressTotal={scanProgress.progressTotal}
           />
-        </div>
-      )}
-
-      <div
-        className={`overflow-hidden rounded-xl border bg-white shadow-sm shadow-zinc-950/[0.03] ${
-          hasUrgent ? "border-red-200/60" : "border-zinc-200/80"
-        }`}
-      >
-        <div
-          className={`flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
-            hasUrgent ? "border-red-100/80 bg-gradient-to-r from-red-50/40 via-white to-white" : "border-zinc-100 bg-zinc-50/40"
-          }`}
-        >
-          <StatusTabs status={status} onChange={setStatus} />
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 sm:justify-end">
-            <BenchmarkScopeSelect value={benchmarkFilter} onChange={handleBenchmarkChange} />
-            <TagSearchInput tags={searchTags} onTagsChange={handleTagsChange} className="min-w-0 flex-1 max-w-md" />
-            <SortToggle sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-          </div>
-        </div>
-
-        {q.isLoading && (
-          <div className="px-4 py-12 text-center text-sm text-zinc-400">Loading…</div>
         )}
-        {!q.isLoading && rows.length === 0 && (
-          <div className="px-4 py-12 text-center">
-            <p className="text-sm font-semibold text-zinc-700">
-              {benchmarkFilter !== "all"
-                ? `No findings for ${frameworkLabel(benchmarkFilter)}`
-                : emptyFindingsLabel(status)}
-            </p>
-            <p className="mt-1 text-xs text-zinc-400">
-              {benchmarkFilter !== "all"
-                ? "Try All benchmarks or a different status tab."
-                : status === "open"
-                  ? "Run a scan to check your account for IAM issues."
-                  : "Nothing to show here."}
-            </p>
-          </div>
-        )}
-        {rows.length > 0 && (
-          <div className="grid gap-3 bg-zinc-50/60 p-3 sm:gap-3.5 sm:p-4">
-            {displayGroups.map(([checkId, items]) => (
-              <FindingIssueCard key={checkId} checkId={checkId} items={items} onReview={openReview} />
+
+        {searchTags.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-zinc-500">Check filter</span>
+            {searchTags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex max-w-[14rem] items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white px-2.5 py-1 text-xs font-medium text-zinc-800 shadow-sm"
+              >
+                <span className="truncate">{checkLabels[tag] ?? tag}</span>
+                <button
+                  type="button"
+                  className="text-zinc-400 hover:text-zinc-700"
+                  aria-label={`Remove ${checkLabels[tag] ?? tag} filter`}
+                  onClick={() => handleTagsChange(searchTags.filter((t) => t !== tag))}
+                >
+                  ×
+                </button>
+              </span>
             ))}
+            <button type="button" onClick={() => handleTagsChange([])} className="text-xs font-semibold text-zinc-500 hover:text-indigo-700">
+              Clear all
+            </button>
           </div>
+        )}
+
+        {q.isLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
+
+        {!q.isLoading && rows.length === 0 && (
+          <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-16 text-center shadow-sm">
+            <p className="text-sm font-semibold text-zinc-700">
+              {searchTags.length > 0
+                ? "No findings match the selected checks"
+                : benchmarkFilter !== "all"
+                  ? `No findings for ${frameworkLabel(benchmarkFilter)}`
+                  : emptyFindingsLabel(status)}
+            </p>
+            <p className="mt-1 text-xs text-zinc-400">{status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}</p>
+          </div>
+        )}
+
+        {!q.isLoading && rows.length > 0 && (
+          <section className="min-w-0">
+            <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[#eef2f6] bg-[#f8fafc]/80 px-4 py-3.5 sm:px-5">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  {status === "open" ? (
+                    <div
+                      className="inline-flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-[#e6ebf2] bg-white p-1"
+                      role="tablist"
+                      aria-label="Severity"
+                    >
+                      {severityTabs.map((tab) => {
+                        const isSelected = severityFilter === tab.id;
+                        const count = severityCounts[tab.id];
+                        const showUrgent = tab.urgent && count > 0;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={isSelected}
+                            onClick={() => setSeverityFilter(tab.id)}
+                            className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
+                              isSelected
+                                ? "bg-[#f8fafc] text-[#1f4e79] ring-1 ring-[#dce3ec]"
+                                : "text-[#6b7280] hover:bg-[#f8fafc] hover:text-[#111827]"
+                            }`}
+                          >
+                            {tab.label}
+                            <span
+                              className={
+                                showUrgent && !isSelected
+                                  ? "text-red-500/90"
+                                  : isSelected
+                                    ? "text-[#1f4e79]/70"
+                                    : "text-[#98a2b3]"
+                              }
+                            >
+                              {" "}
+                              · {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm font-semibold text-[#111827]">{statusTabLabels[status]}</p>
+                  )}
+
+                  <div className="relative shrink-0">
+                    <label htmlFor="findings-status-filter" className="sr-only">
+                      Status
+                    </label>
+                    <select
+                      id="findings-status-filter"
+                      value={status}
+                      onChange={(e) => {
+                        const next = e.target.value as StatusTab;
+                        setStatus(next);
+                        if (next !== "open") setSeverityFilter("all");
+                      }}
+                      className="findings-v2-status-select"
+                    >
+                      {statusTabs.map((s) => (
+                        <option key={s} value={s}>
+                          {statusTabLabels[s]}
+                        </option>
+                      ))}
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:gap-3">
+                  <input
+                    value={searchText}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    placeholder="Search finding, ARN, resource…"
+                    className="h-8 min-w-[12rem] flex-1 basis-[12rem] rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
+                  />
+                  <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Sort findings">
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => toggleSort(opt.id)}
+                        className={`findings-v2-toolbar-btn ${sortKey === opt.id ? "is-active" : ""}`}
+                      >
+                        {opt.label}
+                        {sortKey === opt.id ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider">
+                    <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
+                      Export
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        qc.invalidateQueries({ queryKey: ["findings"] });
+                        setIsRefreshing(true);
+                      }}
+                      disabled={isRefreshing}
+                      className="findings-v2-toolbar-btn"
+                    >
+                      {isRefreshing ? "Refreshing…" : "Refresh"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="findings-v2-col-head hidden sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4"
+                role="row"
+              >
+                <span className="w-5" aria-hidden />
+                <span className="w-[5.5rem]">Severity</span>
+                <span>Finding</span>
+                <span className="w-16 text-center">Risk</span>
+              </div>
+
+              <div className="divide-y divide-[#eef2f6]">
+                {displayGroups.map(([checkId, items]) => (
+                  <FindingRow key={checkId} checkId={checkId} items={items} onReview={openReview} />
+                ))}
+              </div>
+            </div>
+          </section>
         )}
       </div>
 
@@ -972,7 +756,7 @@ export default function Findings() {
         finding={selected}
         relatedFindings={drawerGroup ?? undefined}
         onSelectRelated={(f) => setSelected(f)}
-        accountId={connectedId ?? null}
+        accountId={selected?.account_id ?? connectedId ?? null}
         tab={drawerTab}
         onTabChange={setDrawerTab}
         remTab={remTab}
@@ -981,11 +765,13 @@ export default function Findings() {
         verifyUnchanged={verifyUnchanged}
         verifying={verifying}
         onDismissVerifyOutcome={clearDrawerVerifyFlash}
-        onClose={closeDrawer}
+        onClose={() => {
+          setSelected(null);
+          setDrawerGroup(null);
+          clearDrawerVerifyFlash();
+        }}
         onAction={(id, action) => {
-          if (action === "recheck") {
-            startRecheck(id, selected?.check_id ?? "");
-          }
+          if (action === "recheck") startRecheck(id, selected?.check_id ?? "");
           act.mutate({ id, action });
         }}
       />
