@@ -240,18 +240,6 @@ The role uses `ExternalId` (confused-deputy protection). Only `TRUST_PRINCIPAL_A
 
 ---
 
-## Pricing
-
-| Tier | Price | Includes |
-|---|---|---|
-| Free | $0 | 1 account, weekly scan, no exports, 30d retention |
-| Starter | $99/mo | All AWS checks, evidence exports (JSON+CSV+PDF), 90d snapshots |
-| Team | $249/mo | + GitHub + GitLab, 365d snapshots, ZIP bundle, up to 5 accounts |
-| Growth | $499/mo | + multi-account orgs, Slack alerts/digests, priority support |
-
-7-day trial. No credit card required to start. SOC2 Type 2 requires continuous evidence across the audit period — one scan is one day of evidence. Daily scanning = 365 date-stamped evidence points per year.
-
----
 
 ## Architecture
 
