@@ -1,4 +1,4 @@
-"""Collectors for AWS gap-check resources: ACM, Lambda, Secrets, SSM, ELB, DynamoDB, SNS, SQS."""
+"""Collectors for AWS gap-check resources: ACM, Lambda, ECR, Secrets, SSM, ELB, DynamoDB, SNS, SQS."""
 from __future__ import annotations
 
 import re
@@ -15,6 +15,7 @@ from app.models import AwsAccount
 from app.models.resources import (
     AcmCertificate,
     DynamoDbTable,
+    EcrRepository,
     ElbLoadBalancer,
     LambdaFunction,
     SecretsManagerSecret,
@@ -116,6 +117,11 @@ def collect_lambda(db: Session, account: AwsAccount) -> int:
                 for fn in page.get("Functions", []):
                     arn = fn["FunctionArn"]
                     name = fn["FunctionName"]
+                    url_cfg = {}
+                    try:
+                        url_cfg = lam.get_function_url_config(FunctionName=name)
+                    except ClientError:
+                        pass
                     has_dlq = False
                     try:
                         cfg = lam.get_function_event_invoke_config(FunctionName=name)
@@ -130,12 +136,16 @@ def collect_lambda(db: Session, account: AwsAccount) -> int:
                         arn=arn,
                         runtime=fn.get("Runtime"),
                         has_dlq=has_dlq,
+                        function_url=url_cfg.get("FunctionUrl"),
+                        function_url_auth_type=url_cfg.get("AuthType"),
                         last_seen=_now(),
                     ).on_conflict_do_update(
                         index_elements=["account_id", "arn"],
                         set_={
                             "runtime": fn.get("Runtime"),
                             "has_dlq": has_dlq,
+                            "function_url": url_cfg.get("FunctionUrl"),
+                            "function_url_auth_type": url_cfg.get("AuthType"),
                             "last_seen": _now(),
                         },
                     )
@@ -145,6 +155,46 @@ def collect_lambda(db: Session, account: AwsAccount) -> int:
             continue
     db.commit()
     log.info("collect_lambda.done", account_id=str(account.id), functions=count)
+    return count
+
+
+def collect_ecr(db: Session, account: AwsAccount) -> int:
+    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-ecr", aws_account=account, purpose="collect_ecr")
+    count = 0
+    for region in _get_regions(sess):
+        try:
+            ecr = sess.client("ecr", region_name=region)
+            paginator = ecr.get_paginator("describe_repositories")
+            for page in paginator.paginate():
+                for repo in page.get("repositories", []):
+                    arn = repo["repositoryArn"]
+                    scanning = repo.get("imageScanningConfiguration") or {}
+                    encryption = repo.get("encryptionConfiguration") or {}
+                    scan_on_push = bool(scanning.get("scanOnPush"))
+                    stmt = pg_insert(EcrRepository).values(
+                        id=uuid.uuid5(uuid.NAMESPACE_URL, f"{account.id}:{arn}"),
+                        account_id=account.id,
+                        region=region,
+                        repository_name=repo.get("repositoryName", arn),
+                        repository_arn=arn,
+                        scan_on_push=scan_on_push,
+                        encryption_type=encryption.get("encryptionType"),
+                        last_seen=_now(),
+                    ).on_conflict_do_update(
+                        index_elements=["account_id", "repository_arn"],
+                        set_={
+                            "repository_name": repo.get("repositoryName", arn),
+                            "scan_on_push": scan_on_push,
+                            "encryption_type": encryption.get("encryptionType"),
+                            "last_seen": _now(),
+                        },
+                    )
+                    db.execute(stmt)
+                    count += 1
+        except ClientError:
+            continue
+    db.commit()
+    log.info("collect_ecr.done", account_id=str(account.id), repositories=count)
     return count
 
 

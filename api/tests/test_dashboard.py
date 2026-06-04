@@ -47,6 +47,8 @@ from app.services.compliance_score import (
         ("ssm.parameter.plaintext_secret", "SSM"),
         ("elb.load_balancer.access_logs_disabled", "ELB"),
         ("dynamodb.table.no_encryption", "DynamoDB"),
+        ("ecr.repository.image_scan_disabled", "ECR"),
+        ("eks.cluster.public_endpoint", "EKS"),
         ("sns.topic.no_encryption", "SNS"),
         ("sqs.queue.no_encryption", "SQS"),
         ("github.org.mfa_not_enforced", "GitHub"),

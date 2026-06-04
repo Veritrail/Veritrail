@@ -11,6 +11,7 @@ interface Me {
   google_id: string | null;
   totp_enabled: boolean;
   has_password: boolean;
+  mfa_backup_codes_remaining: number;
 }
 
 interface MfaSetup {
@@ -51,6 +52,47 @@ function LinkIcon() {
   );
 }
 
+function MailIcon() {
+  return (
+    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 7.5v9a2.25 2.25 0 0 1-2.25 2.25h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0-8.7 5.8a2.25 2.25 0 0 1-2.5 0L2.25 7.5" />
+    </svg>
+  );
+}
+
+function BulbIcon() {
+  return (
+    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-1.5m0-12a6 6 0 0 0-3.5 10.87c.64.46 1 1.2 1 1.99V18h5v-.64c0-.79.36-1.53 1-1.99A6 6 0 0 0 12 4.5ZM9.75 21h4.5" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.2 4.2L19 7" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.75a2.75 2.75 0 1 0 0-5.5 2.75 2.75 0 0 0 0 5.5Z" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
+    </svg>
+  );
+}
+
 function StatusChip({ tone, children }: { tone: "on" | "off" | "warn"; children: ReactNode }) {
   const cls =
     tone === "on"
@@ -65,6 +107,10 @@ function StatusChip({ tone, children }: { tone: "on" | "off" | "warn"; children:
       {children}
     </span>
   );
+}
+
+function SoftIcon({ icon, tint }: { icon: ReactNode; tint: string }) {
+  return <span className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${tint}`}>{icon}</span>;
 }
 
 function PostureCard({
@@ -83,12 +129,12 @@ function PostureCard({
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center gap-3.5 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm shadow-zinc-950/[0.02]">
-      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tint}`}>{icon}</span>
+    <div className="flex min-h-[118px] items-center gap-5 rounded-lg border border-zinc-200 bg-white px-6 py-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
+      <SoftIcon icon={icon} tint={tint} />
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
-        <p className={`mt-0.5 text-xl font-bold leading-none tracking-tight ${valueClass ?? "text-zinc-900"}`}>{value}</p>
-        <p className="mt-1 truncate text-[11px] text-zinc-500">{sub}</p>
+        <p className="text-sm font-semibold text-slate-600">{label}</p>
+        <p className={`mt-1 text-2xl font-extrabold leading-none tracking-tight ${valueClass ?? "text-slate-950"}`}>{value}</p>
+        <p className="mt-1.5 truncate text-sm text-slate-500">{sub}</p>
       </div>
     </div>
   );
@@ -102,6 +148,7 @@ function Panel({
   status,
   children,
   flush,
+  className = "",
 }: {
   icon: ReactNode;
   tint: string;
@@ -110,20 +157,21 @@ function Panel({
   status?: ReactNode;
   children: ReactNode;
   flush?: boolean;
+  className?: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm shadow-zinc-950/[0.02]">
-      <div className="flex items-start gap-4 px-6 py-5">
-        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tint}`}>{icon}</span>
+    <section className={`overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.04)] ${className}`}>
+      <div className="flex items-start gap-5 px-6 py-6">
+        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tint}`}>{icon}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
+            <h2 className="text-lg font-extrabold text-slate-950">{title}</h2>
             {status}
           </div>
-          <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{description}</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-500">{description}</p>
         </div>
       </div>
-      <div className={flush ? "border-t border-zinc-100" : "border-t border-zinc-100 px-6 py-5"}>{children}</div>
+      <div className={flush ? "border-t border-zinc-200" : "border-t border-zinc-200 px-6 py-5"}>{children}</div>
     </section>
   );
 }
@@ -146,12 +194,12 @@ function ProviderRow({
   lastMethod: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-6 py-4">
+    <div className="flex items-center justify-between gap-4 px-5 py-4">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50">{icon}</span>
-        <div className="min-w-0">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white">{icon}</span>
+        <div className="flex min-w-0 items-center gap-4">
           <p className="text-sm font-semibold text-zinc-900">{name}</p>
-          <p className="text-xs text-zinc-500">{connected ? "Connected" : "Sign in without a password"}</p>
+          {connected ? <StatusChip tone="on">Connected</StatusChip> : <StatusChip tone="off">Not connected</StatusChip>}
         </div>
       </div>
       {connected ? (
@@ -160,21 +208,81 @@ function ProviderRow({
           onClick={onDisconnect}
           disabled={disconnecting || lastMethod}
           title={lastMethod ? "Set a password or connect another sign-in method before disconnecting your last one." : undefined}
-          className="shrink-0 text-sm font-medium text-red-600 transition-colors hover:text-red-700 disabled:opacity-60 disabled:hover:text-red-600"
+          className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-700 transition-colors hover:text-blue-900 disabled:opacity-60 disabled:hover:text-blue-700"
         >
-          {disconnecting ? "Disconnecting…" : "Disconnect"}
+          {disconnecting ? "Saving…" : "Manage"}
+          <ChevronRightIcon />
         </button>
       ) : connectUrl ? (
         <a
           href={connectUrl}
-          className="shrink-0 rounded-lg border border-zinc-200 px-3.5 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+          className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-700 transition-colors hover:text-blue-900"
         >
           Connect
+          <ChevronRightIcon />
         </a>
       ) : (
         <span className="shrink-0 text-xs text-zinc-400">Sign in again to connect</span>
       )}
     </div>
+  );
+}
+
+function FieldShell({ children }: { children: ReactNode }) {
+  return <div className="relative flex-1">{children}</div>;
+}
+
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  invalid,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  invalid?: boolean;
+}) {
+  return (
+    <FieldShell>
+      <input
+        type="password"
+        placeholder={placeholder}
+        className={`w-full rounded-lg border bg-white px-4 py-2.5 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-2 ${
+          invalid ? "border-red-300 focus:ring-red-100" : "border-zinc-200 focus:border-blue-500 focus:ring-blue-100"
+        }`}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      />
+      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">
+        <EyeIcon />
+      </span>
+    </FieldShell>
+  );
+}
+
+function ProviderLogo({ provider }: { provider: "github" | "gitlab" | "google" }) {
+  if (provider === "github") {
+    return (
+      <svg className="h-5 w-5 text-zinc-900" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z" />
+      </svg>
+    );
+  }
+  if (provider === "gitlab") {
+    return (
+      <svg className="h-5 w-5 text-[#e24329]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51a.42.42 0 0 1 .11-.18.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    </svg>
   );
 }
 
@@ -194,6 +302,32 @@ export default function Account() {
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [nextError, setNextError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+  const generateCodes = useMutation({
+    mutationFn: () => api<{ codes: string[] }>("/v1/auth/me/mfa/backup-codes", { method: "POST" }),
+    onSuccess: (data) => {
+      setRecoveryCodes(data.codes);
+      qc.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+  const downloadRecoveryCodes = (codes: string[]) => {
+    const blob = new Blob([`Vigil recovery codes\n\n${codes.join("\n")}\n`], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "vigil-recovery-codes.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const forgotPassword = useMutation({
+    mutationFn: () =>
+      api("/v1/auth/password-reset/request", { method: "POST", body: JSON.stringify({ email: me?.email }) }),
+    onSuccess: () =>
+      setPwMsg({ ok: true, text: "Reset link sent — check your email. The link expires in 30 minutes." }),
+    onError: (e: Error) => setPwMsg({ ok: false, text: formatApiError(e) }),
+  });
 
   const changePw = useMutation({
     mutationFn: () =>
@@ -365,23 +499,21 @@ export default function Account() {
     onError: (e: Error) => setMfaMsg({ ok: false, text: formatApiError(e) }),
   });
 
-  const signinMethodCount = me
-    ? (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0)
-    : 0;
-  const onlyOneMethod = me ? signinMethodCount === 1 : false;
   const providerCount = me ? (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) : 0;
+  const signinMethodCount = providerCount;
+  const onlyOneMethod = me ? signinMethodCount === 1 : false;
   const mfaOn = !!me?.totp_enabled;
   const hasPw = !!me?.has_password;
 
   return (
-    <div className="mx-auto max-w-5xl pb-10">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Account</h1>
-        <p className="mt-1 flex items-center gap-2 text-sm text-zinc-500">
+    <div className="w-full max-w-none space-y-6 pb-10">
+      <header>
+        <h1 className="text-[32px] font-extrabold leading-tight tracking-tight text-slate-950">Account</h1>
+        <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
           {me ? (
             <>
               <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-              Signed in as <span className="font-medium text-zinc-700">{me.email}</span>
+              Signed in as <span className="font-semibold text-slate-700">{me.email}</span>
             </>
           ) : (
             "Manage how you sign in and keep your account secure."
@@ -390,13 +522,13 @@ export default function Account() {
       </header>
 
       {/* Security posture at a glance — mirrors the Accounts KPI row. */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <PostureCard
           icon={<ShieldIcon />}
-          tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-400"}
-          label="Two-factor"
+          tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500"}
+          label="Two-factor authentication"
           value={mfaOn ? "On" : "Off"}
-          valueClass={mfaOn ? "text-emerald-600" : "text-zinc-400"}
+          valueClass={mfaOn ? "text-emerald-700" : "text-slate-950"}
           sub={mfaOn ? "Authenticator app" : "Not configured"}
         />
         <PostureCard
@@ -404,15 +536,15 @@ export default function Account() {
           tint="bg-sky-50 text-sky-600"
           label="Sign-in methods"
           value={signinMethodCount}
-          valueClass={onlyOneMethod ? "text-amber-600" : "text-zinc-900"}
+          valueClass={onlyOneMethod ? "text-amber-600" : "text-slate-950"}
           sub={onlyOneMethod ? "Only one — add a backup" : "Ways you can sign in"}
         />
         <PostureCard
           icon={<LockIcon />}
           tint="bg-indigo-50 text-indigo-600"
-          label="Password"
+          label="Password status"
           value={hasPw ? "Set" : "SSO only"}
-          valueClass={hasPw ? "text-zinc-900" : "text-zinc-400"}
+          valueClass={hasPw ? "text-slate-950" : "text-slate-500"}
           sub={hasPw ? "Email + password" : "No password set"}
         />
         <PostureCard
@@ -425,7 +557,7 @@ export default function Account() {
       </div>
 
       {me && onlyOneMethod && (
-        <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.2 3.37 1.93 3.37h14.74c1.73 0 2.81-1.87 1.94-3.37L13.95 3.38c-.87-1.5-3.04-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z" />
           </svg>
@@ -437,7 +569,300 @@ export default function Account() {
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className="grid gap-5 xl:grid-cols-[1fr_1.05fr]">
+        <Panel
+          icon={<ShieldIcon />}
+          tint="bg-blue-50 text-blue-600"
+          title="Profile & Security"
+          description="Manage your account identity and password."
+        >
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-bold text-slate-800">Email address</label>
+              <div className="mt-2 flex min-h-12 items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-slate-700">
+                <span className="truncate">{me?.email ?? "Loading..."}</span>
+                <StatusChip tone="on">Verified</StatusChip>
+              </div>
+            </div>
+
+            <form noValidate onSubmit={submitPassword} className="space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-950">Password</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {me?.has_password ? "Keep your password strong and secure." : "Set a password to also sign in with email + password."}
+                  </p>
+                </div>
+                {me?.has_password && (
+                  <button
+                    type="button"
+                    onClick={() => forgotPassword.mutate()}
+                    disabled={forgotPassword.isPending}
+                    className="shrink-0 text-sm font-semibold text-blue-700 transition hover:text-blue-900 disabled:opacity-60"
+                  >
+                    {forgotPassword.isPending ? "Sending…" : "Forgot current password?"}
+                  </button>
+                )}
+              </div>
+
+              {me?.has_password && (
+                <div className="grid gap-2 md:grid-cols-[170px_1fr] md:items-center">
+                  <label className="text-sm font-bold text-slate-800">Current password</label>
+                  <PasswordInput value={current} onChange={setCurrent} placeholder="Enter current password" />
+                </div>
+              )}
+
+              <div className="grid gap-2 md:grid-cols-[170px_1fr] md:items-center">
+                <label className="text-sm font-bold text-slate-800">New password</label>
+                <div>
+                  <PasswordInput
+                    value={next}
+                    onChange={(value) => { setNext(value); setNextError(null); }}
+                    placeholder="Enter new password"
+                    invalid={!!nextError}
+                  />
+                  {nextError ? (
+                    <p className="mt-1 text-xs text-red-600">{nextError}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-400">At least 12 characters.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-[170px_1fr] md:items-center">
+                <label className="text-sm font-bold text-slate-800">Confirm new password</label>
+                <div>
+                  <PasswordInput
+                    value={confirm}
+                    onChange={(value) => { setConfirm(value); setConfirmError(null); }}
+                    placeholder="Confirm new password"
+                    invalid={!!confirmError}
+                  />
+                  {confirmError && <p className="mt-1 text-xs text-red-600">{confirmError}</p>}
+                </div>
+              </div>
+
+              {pwMsg && (
+                <div className={`rounded-lg px-3 py-2.5 text-sm ${pwMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
+                  {pwMsg.text}
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={changePw.isPending}
+                  className="rounded-lg bg-blue-700 px-8 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
+                >
+                  {changePw.isPending ? "Saving..." : me?.has_password ? "Update password" : "Set password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </Panel>
+
+        <div className="space-y-5">
+          <Panel
+            icon={<LinkIcon />}
+            tint="bg-blue-50 text-blue-600"
+            title="Connected providers"
+            description="Manage external identity providers used to sign in."
+            flush
+          >
+            <div className="mx-6 my-5 overflow-hidden rounded-lg border border-zinc-200">
+              <div className="divide-y divide-zinc-200">
+                <ProviderRow
+                  name="GitHub"
+                  icon={<ProviderLogo provider="github" />}
+                  connected={!!me?.github_id}
+                  connectUrl={ghConnectUrl ?? null}
+                  onDisconnect={() => setToast({ kind: "success", text: "GitHub management will open here soon." })}
+                  disconnecting={disconnectGh.isPending}
+                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
+                />
+                <ProviderRow
+                  name="GitLab"
+                  icon={<ProviderLogo provider="gitlab" />}
+                  connected={!!me?.gitlab_id}
+                  connectUrl={glConnectUrl ?? null}
+                  onDisconnect={() => setToast({ kind: "success", text: "GitLab management will open here soon." })}
+                  disconnecting={disconnectGl.isPending}
+                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
+                />
+                <ProviderRow
+                  name="Google"
+                  icon={<ProviderLogo provider="google" />}
+                  connected={!!me?.google_id}
+                  connectUrl={googleConnectUrl ?? null}
+                  onDisconnect={() => setToast({ kind: "success", text: "Google management will open here soon." })}
+                  disconnecting={disconnectGoogle.isPending}
+                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) === 0}
+                />
+              </div>
+            </div>
+          </Panel>
+
+          <Panel
+            icon={<ShieldIcon />}
+            tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}
+            title="Two-factor authentication"
+            description="Add an extra layer of security to your account."
+            status={<StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>}
+          >
+            {mfaMsg && (
+              <div className={`mb-3 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
+                {mfaMsg.text}
+              </div>
+            )}
+
+            {me?.totp_enabled ? (
+              <div className="flex items-center justify-between gap-5">
+                <p className="max-w-xl text-sm leading-relaxed text-slate-600">
+                  Two-factor authentication is enabled for this account.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setShowDisableMfa(true); setMfaMsg(null); }}
+                  className="shrink-0 rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-zinc-50"
+                >
+                  Disable
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-6">
+                <p className="max-w-xl text-sm leading-relaxed text-slate-600">
+                  Two-factor authentication helps protect your account by requiring a verification code in addition to your password when signing in.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => startMfaSetup.mutate()}
+                  disabled={startMfaSetup.isPending}
+                  className="shrink-0 rounded-lg bg-blue-700 px-8 py-3 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
+                >
+                  {startMfaSetup.isPending ? "Preparing..." : "Set up 2FA"}
+                </button>
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_1.05fr]">
+        <Panel
+          icon={<KeyIcon />}
+          tint="bg-emerald-50 text-emerald-600"
+          title="Recovery codes"
+          description="One-time codes to sign in if you lose your authenticator."
+        >
+          {!me?.totp_enabled ? (
+            <div className="rounded-lg border border-dashed border-zinc-200 px-5 py-4 text-sm text-zinc-500">
+              Enable two-factor authentication above to generate recovery codes.
+            </div>
+          ) : recoveryCodes ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+              <p className="text-sm font-semibold text-amber-900">Save these now — they won't be shown again.</p>
+              <p className="mt-0.5 text-xs text-amber-800/80">Each code works once. Store them somewhere safe.</p>
+              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-amber-200/70 bg-white p-4">
+                {recoveryCodes.map((c) => (
+                  <code key={c} className="font-mono text-sm tracking-wide text-slate-800">{c}</code>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  Copy all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadRecoveryCodes(recoveryCodes)}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                >
+                  Download .txt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecoveryCodes(null)}
+                  className="ml-auto rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800">{me.mfa_backup_codes_remaining} of 10 codes remaining</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Each code signs you in once when your authenticator is unavailable.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => generateCodes.mutate()}
+                disabled={generateCodes.isPending}
+                className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+              >
+                {generateCodes.isPending ? "Generating…" : me.mfa_backup_codes_remaining > 0 ? "Regenerate codes" : "Generate codes"}
+              </button>
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          icon={<BulbIcon />}
+          tint="bg-amber-50 text-amber-600"
+          title="Security tips"
+          description="Simple actions to keep your account secure."
+        >
+          <div className="flex items-center justify-between gap-8">
+            <ul className="space-y-4 text-sm text-slate-600">
+              {["Use a unique, strong password", "Enable two-factor authentication", "Review connected apps regularly"].map((tip) => (
+                <li key={tip} className="flex items-center gap-3">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-300 text-emerald-600">
+                    <CheckIcon className="h-3.5 w-3.5" />
+                  </span>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+            <div className="hidden h-32 w-48 shrink-0 items-center justify-center md:flex">
+              <svg className="h-32 w-48" viewBox="0 0 192 128" fill="none" aria-hidden="true">
+                <circle cx="104" cy="64" r="50" fill="#EEF1FF" />
+                <circle cx="104" cy="64" r="38" fill="#E5EAFF" />
+                <circle cx="50" cy="61" r="5" fill="#3B6FF6" />
+                <circle cx="151" cy="19" r="4" fill="#3B6FF6" />
+                <circle cx="172" cy="35" r="2.5" fill="#2F5FE6" />
+                <circle cx="69" cy="99" r="2.5" fill="#EAB308" />
+                <circle cx="126" cy="14" r="2" fill="#7FA1FF" />
+                <g filter="url(#securityShieldShadow)">
+                  <path d="M81 31H127a6 6 0 0 1 6 6V64c0 21-12 35-29 42-17-7-29-21-29-42V37a6 6 0 0 1 6-6Z" fill="#DDE5FF" />
+                  <path d="M87 38H121a5 5 0 0 1 5 5V64c0 18-10 30-22 36-12-6-22-18-22-36V43a5 5 0 0 1 5-5Z" fill="url(#securityShield)" />
+                  <path d="M104 38H121a5 5 0 0 1 5 5V64c0 18-10 30-22 36V38Z" fill="white" opacity=".08" />
+                  <path d="m92 68 8 8L118 58" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                </g>
+                <defs>
+                  <filter id="securityShieldShadow" x="45" y="12" width="118" height="120" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
+                    <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
+                    <feOffset dy="8" />
+                    <feGaussianBlur stdDeviation="10" />
+                    <feColorMatrix type="matrix" values="0 0 0 0 0.145 0 0 0 0 0.278 0 0 0 0 0.706 0 0 0 0.18 0" />
+                    <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow" />
+                    <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape" />
+                  </filter>
+                  <linearGradient id="securityShield" x1="83" x2="126" y1="42" y2="100" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#5B7CFF" />
+                    <stop offset="1" stopColor="#1D4ED8" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <div className="hidden">
 
         <Panel
           icon={<LockIcon />}
@@ -720,6 +1145,115 @@ export default function Account() {
           )}
         </Panel>
       </div>
+
+      {mfaSetup && !me?.totp_enabled && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mfa-setup-title"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-white/70 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                  <ShieldIcon />
+                </p>
+                <h2 id="mfa-setup-title" className="text-xl font-extrabold tracking-tight text-slate-950">
+                  Set up two-factor authentication
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
+                  Scan the QR code, then enter the 6-digit code from your authenticator app.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close two-factor setup"
+                onClick={() => {
+                  setMfaSetup(null);
+                  setMfaEnableCode("");
+                  setMfaMsg(null);
+                }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 transition-colors hover:bg-zinc-50 hover:text-slate-900"
+              >
+                &times;
+              </button>
+            </div>
+
+            {mfaMsg && !mfaMsg.ok && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
+                {mfaMsg.text}
+              </div>
+            )}
+
+            {mfaSetup.qr_data_url ? (
+              <img
+                src={mfaSetup.qr_data_url}
+                alt="Authenticator QR code"
+                className="mx-auto h-56 w-56 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"
+              />
+            ) : (
+              <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 text-center text-sm font-medium text-slate-500">
+                QR code unavailable. Use the manual key below.
+              </div>
+            )}
+
+            <div className="mt-5 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Manual entry key</p>
+              <code className="break-all text-xs text-zinc-800">{mfaSetup.secret}</code>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setMfaMsg(null);
+                enableMfa.mutate();
+              }}
+              className="mt-5 space-y-4"
+            >
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">Verification code</label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  autoFocus
+                  className="w-full rounded-lg border border-zinc-200 px-3 py-3 text-center font-mono text-lg text-slate-900 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  value={mfaEnableCode}
+                  onChange={e => setMfaEnableCode(e.currentTarget.value.replace(/\D/g, "").slice(0, 6))}
+                  onPaste={e => {
+                    e.preventDefault();
+                    setMfaEnableCode(e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6));
+                  }}
+                  required
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaSetup(null);
+                    setMfaEnableCode("");
+                    setMfaMsg(null);
+                  }}
+                  className="flex-1 rounded-lg border border-zinc-200 px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={enableMfa.isPending || mfaEnableCode.length !== 6}
+                  className="flex-1 rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
+                >
+                  {enableMfa.isPending ? "Enabling..." : "Enable 2FA"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div

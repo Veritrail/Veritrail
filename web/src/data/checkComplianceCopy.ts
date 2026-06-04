@@ -505,6 +505,26 @@ const SPECIFIC: Record<string, (s: RemediationSummary) => CheckComplianceCopy> =
       "Verify that asynchronously invoked Lambda functions have a dead-letter queue configured.",
       "Vigil reads async-invoke DLQ configuration. Asynchronous functions without a configured dead-letter target are flagged.",
     ),
+  "rds.snapshot.public": () =>
+    copy(
+      "Verify that RDS manual snapshots are not publicly restorable.",
+      "Vigil reads DB snapshot restore attributes. Snapshots shared with all AWS accounts are flagged.",
+    ),
+  "eks.cluster.public_endpoint": () =>
+    copy(
+      "Verify that EKS cluster API endpoints are not public to the internet.",
+      "Vigil reads EKS endpoint access configuration and public CIDR ranges. Public endpoints open to 0.0.0.0/0 or ::/0 are flagged.",
+    ),
+  "lambda.function.public_url": () =>
+    copy(
+      "Verify that Lambda function URLs are not publicly invokable without authentication.",
+      "Vigil reads Lambda function URL auth configuration. Function URLs with AuthType NONE are flagged.",
+    ),
+  "ecr.repository.image_scan_disabled": () =>
+    copy(
+      "Verify that ECR repositories scan container images when images are pushed.",
+      "Vigil reads ECR image scanning configuration. Repositories without scan-on-push enabled are flagged.",
+    ),
   "secretsmanager.secret.no_rotation": () =>
     copy(
       "Verify that Secrets Manager secrets have automatic rotation enabled.",

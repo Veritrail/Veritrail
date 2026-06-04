@@ -18,9 +18,9 @@ Deploy or update the parent `VigilAccountConnector` CloudFormation stack with th
 - `Vigil-RevokeSecurityGroupIngressExact`
 - `Vigil-DeactivateIamAccessKey`
 - `Vigil-MigrateSsmParameterToSecureString`
-- `Vigil-RemediateIamExcessPermissions`
 
 Do not deploy SSM documents with direct `aws ssm create-document` commands for customer installs; the supported path is CloudFormation through the connector stack.
+IAM policy findings are analysis-first: Vigil can generate least-privilege candidates and IaC guidance, but does not run one-click policy detachment/replacement.
 
 ## IaC / PRs
 

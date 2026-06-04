@@ -287,6 +287,17 @@ export function GitLabMark({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+/** AWS wordmark on white tile — for light UI surfaces. */
+export function AwsBrandIcon({ className = "h-11 w-11" }: { className?: string }) {
+  return (
+    <img
+      src="/integrations/aws-logo-light.svg"
+      alt="Amazon Web Services"
+      className={`rounded-xl object-contain ring-1 ring-zinc-200/80 ${className}`}
+    />
+  );
+}
+
 export function AwsMark({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">

@@ -23,10 +23,12 @@ from app.collectors.identity_center import collect_identity_center, list_permiss
 from app.collectors.config_compliance import collect_config_compliance
 from app.collectors.vpc import collect_vpc
 from app.collectors.rds import collect_rds
+from app.collectors.eks import collect_eks
 from app.collectors.ec2 import collect_ec2
 from app.collectors.extended import (
     collect_acm,
     collect_dynamodb,
+    collect_ecr,
     collect_elb,
     collect_lambda,
     collect_secrets,
@@ -48,11 +50,13 @@ from app.models.resources import (
     CloudTrailTrail,
     ConfigRecorder,
     DynamoDbTable,
+    EcrRepository,
     EbsEncryptionDefault,
     EbsSnapshot,
     EbsVolume,
     Ec2Ami,
     Ec2Instance,
+    EksCluster,
     ElbLoadBalancer,
     GuardDutyDetector,
     GuardDutyFinding,
@@ -62,6 +66,7 @@ from app.models.resources import (
     KmsKey,
     LambdaFunction,
     RdsInstance,
+    RdsSnapshot,
     S3AccountPublicAccessBlock,
     S3Bucket,
     SecretsManagerSecret,
@@ -101,6 +106,8 @@ _COLLECTOR_FOR_CHECK = {
     "ssm.": lambda db, acc: collect_ssm_parameters(db, acc),
     "elb.": lambda db, acc: collect_elb(db, acc),
     "dynamodb.": lambda db, acc: collect_dynamodb(db, acc),
+    "ecr.": lambda db, acc: collect_ecr(db, acc),
+    "eks.": lambda db, acc: collect_eks(db, acc),
     "sns.": lambda db, acc: collect_sns(db, acc),
     "sqs.": lambda db, acc: collect_sqs(db, acc),
     "rds.": lambda db, acc: collect_rds(db, acc),
@@ -466,6 +473,24 @@ def _write_evidence_snapshots(db, acc: AwsAccount, run: ScanRun) -> int:
             },
         ))
 
+    for snap in db.scalars(select(RdsSnapshot).where(RdsSnapshot.account_id == acc.id)).all():
+        snaps.append(EvidenceSnapshot(
+            id=uuid.uuid4(),
+            scan_run_id=run.id,
+            account_id=acc.id,
+            org_id=acc.org_id,
+            entity_type="rds_snapshot",
+            entity_id=snap.arn,
+            payload_json={
+                "snapshot_id": snap.snapshot_id,
+                "arn": snap.arn,
+                "region": snap.region,
+                "engine": snap.engine,
+                "encrypted": snap.encrypted,
+                "is_public": snap.is_public,
+            },
+        ))
+
     for snap in db.scalars(select(EbsSnapshot).where(EbsSnapshot.account_id == acc.id)).all():
         snaps.append(EvidenceSnapshot(
             id=uuid.uuid4(),
@@ -498,6 +523,26 @@ def _write_evidence_snapshots(db, acc: AwsAccount, run: ScanRun) -> int:
                 "name": ami.name,
                 "is_public": ami.is_public,
                 "created_at": ami.created_at.isoformat() if ami.created_at else None,
+            },
+        ))
+
+    for cluster in db.scalars(select(EksCluster).where(EksCluster.account_id == acc.id)).all():
+        snaps.append(EvidenceSnapshot(
+            id=uuid.uuid4(),
+            scan_run_id=run.id,
+            account_id=acc.id,
+            org_id=acc.org_id,
+            entity_type="eks_cluster",
+            entity_id=cluster.arn,
+            payload_json={
+                "name": cluster.name,
+                "arn": cluster.arn,
+                "region": cluster.region,
+                "endpoint_public_access": cluster.endpoint_public_access,
+                "endpoint_private_access": cluster.endpoint_private_access,
+                "public_access_cidrs": cluster.public_access_cidrs or [],
+                "version": cluster.version,
+                "status": cluster.status,
             },
         ))
 
@@ -601,6 +646,25 @@ def _write_evidence_snapshots(db, acc: AwsAccount, run: ScanRun) -> int:
                 "region": fn.region,
                 "runtime": fn.runtime,
                 "has_dlq": fn.has_dlq,
+                "function_url": fn.function_url,
+                "function_url_auth_type": fn.function_url_auth_type,
+            },
+        ))
+
+    for repo in db.scalars(select(EcrRepository).where(EcrRepository.account_id == acc.id)).all():
+        snaps.append(EvidenceSnapshot(
+            id=uuid.uuid4(),
+            scan_run_id=run.id,
+            account_id=acc.id,
+            org_id=acc.org_id,
+            entity_type="ecr_repository",
+            entity_id=repo.repository_arn,
+            payload_json={
+                "repository_name": repo.repository_name,
+                "repository_arn": repo.repository_arn,
+                "region": repo.region,
+                "scan_on_push": repo.scan_on_push,
+                "encryption_type": repo.encryption_type,
             },
         ))
 
@@ -818,6 +882,8 @@ def run_scan(account_id: str) -> dict:
         stats["ssm_parameters"] = _step("collect_ssm_parameters", lambda: collect_ssm_parameters(db, acc))
         stats["elb_load_balancers"] = _step("collect_elb", lambda: collect_elb(db, acc))
         stats["dynamodb_tables"] = _step("collect_dynamodb", lambda: collect_dynamodb(db, acc))
+        stats["ecr_repositories"] = _step("collect_ecr", lambda: collect_ecr(db, acc))
+        stats["eks_clusters"] = _step("collect_eks", lambda: collect_eks(db, acc))
         stats["sns_topics"] = _step("collect_sns", lambda: collect_sns(db, acc))
         stats["sqs_queues"] = _step("collect_sqs", lambda: collect_sqs(db, acc))
         stats["access_analyzers"] = _step("collect_access_analyzer", lambda: collect_access_analyzer(db, acc))

@@ -2,9 +2,11 @@
 export const SSM_AUTOMATION_CHECKS = new Set([
   "ec2.security_group.unrestricted_ssh",
   "ec2.security_group.unrestricted_rdp",
+  "s3.bucket.public_access_not_blocked",
   "ssm.parameter.plaintext_secret",
   "iam.access_key.unused_45d",
   "iam.access_key.unused_90d",
+  "cloudtrail.trail.not_enabled",
 ]);
 
 export function supportsSsmAutomation(checkId: string): boolean {

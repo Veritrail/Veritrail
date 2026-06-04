@@ -21,6 +21,8 @@ _DOMAIN_PREFIXES: tuple[tuple[str, str], ...] = (
     ("secretsmanager.", "Secrets Manager"),
     ("elasticloadbalancing.", "ELB"),
     ("dynamodb.", "DynamoDB"),
+    ("ecr.", "ECR"),
+    ("eks.", "EKS"),
     ("github.", "GitHub"),
     ("gitlab.", "GitLab"),
     ("iam.", "IAM"),

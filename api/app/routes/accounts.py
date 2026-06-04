@@ -62,9 +62,9 @@ from app.models.cloudtrail import CloudTrailEvent
 from app.models.github import IdentityProvider, PullRequest, Repo
 from app.models.iam import IamAccessKey, IamUser
 from app.models.resources import (
-    AccessAnalyzer, AcmCertificate, CloudTrailTrail, ConfigRecorder, DynamoDbTable, Ec2Ami,
-    Ec2Instance, EbsEncryptionDefault, EbsSnapshot, EbsVolume, ElbLoadBalancer,
-    GuardDutyDetector, IamPasswordPolicy, KmsKey, LambdaFunction, RdsInstance,
+    AccessAnalyzer, AcmCertificate, CloudTrailTrail, ConfigRecorder, DynamoDbTable, EcrRepository, Ec2Ami,
+    Ec2Instance, EbsEncryptionDefault, EbsSnapshot, EbsVolume, EksCluster, ElbLoadBalancer,
+    GuardDutyDetector, IamPasswordPolicy, KmsKey, LambdaFunction, RdsInstance, RdsSnapshot,
     S3AccountPublicAccessBlock, S3Bucket, SecretsManagerSecret, SecurityGroup,
     SecurityHubStatus, SnsTopic, SsmParameter, SqsQueue, Vpc,
 )
@@ -618,6 +618,39 @@ def delete_account(account_id: str, p=Depends(current_principal), db: Session = 
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
     db.delete(acc)
     db.commit()
+
+
+@router.post("/scan-all")
+@limiter.limit("3/hour")
+def trigger_scan_all(request: Request, p=Depends(current_principal), db: Session = Depends(get_db)):
+    """Queue a scan for every connected account in the org."""
+    from app.worker.tasks import run_scan
+
+    org_id = uuid.UUID(p["org_id"])
+    accounts = db.scalars(
+        select(AwsAccount).where(AwsAccount.org_id == org_id, AwsAccount.status == "connected")
+    ).all()
+    if not accounts:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "no connected accounts")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+    queued: list[str] = []
+    deduped: list[str] = []
+    for acc in accounts:
+        existing = db.scalar(
+            select(ScanRun)
+            .where(ScanRun.account_id == acc.id)
+            .where(ScanRun.status == "running")
+            .where(ScanRun.started_at >= cutoff)
+            .order_by(ScanRun.started_at.desc())
+        )
+        if existing:
+            deduped.append(str(existing.id))
+            continue
+        job = run_scan.delay(str(acc.id))
+        queued.append(job.id)
+
+    return {"queued": len(queued), "deduped": len(deduped), "account_count": len(accounts)}
 
 
 @router.post("/{account_id}/scan")
@@ -2123,6 +2156,44 @@ def blast_radius(
             "warnings": warnings,
         }
 
+    # ── RDS Snapshot ──────────────────────────────────────────────────────────
+    if check_id.startswith("rds.snapshot."):
+        snap = db.scalar(
+            select(RdsSnapshot).where(RdsSnapshot.account_id == acc.id, RdsSnapshot.arn == resource_arn)
+        )
+        if not snap:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "RDS snapshot not found — run a scan first")
+        return {
+            "resource_type": "rds_snapshot",
+            "confidence": "high",
+            "snapshot_id": snap.snapshot_id,
+            "engine": snap.engine,
+            "region": snap.region,
+            "encrypted": snap.encrypted,
+            "is_public": snap.is_public,
+            "warnings": ["Public snapshots may already have been copied by external accounts — rotate database credentials and review sensitive data exposure"],
+        }
+
+    # ── EKS Cluster ───────────────────────────────────────────────────────────
+    if check_id.startswith("eks.cluster."):
+        cluster = db.scalar(
+            select(EksCluster).where(EksCluster.account_id == acc.id, EksCluster.arn == resource_arn)
+        )
+        if not cluster:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "EKS cluster not found — run a scan first")
+        return {
+            "resource_type": "eks_cluster",
+            "confidence": "medium",
+            "cluster_name": cluster.name,
+            "region": cluster.region,
+            "version": cluster.version,
+            "status": cluster.status,
+            "endpoint_public_access": cluster.endpoint_public_access,
+            "endpoint_private_access": cluster.endpoint_private_access,
+            "public_access_cidrs": cluster.public_access_cidrs or [],
+            "warnings": ["Restricting the public endpoint can block admins, CI jobs, and operators outside the allowed CIDRs — confirm access paths first"],
+        }
+
     # ── DynamoDB Table ───────────────────────────────────────────────────────
     if check_id.startswith("dynamodb.table."):
         table = db.scalar(
@@ -2523,6 +2594,8 @@ def blast_radius(
             warnings.append("Runtime upgrades can break dependencies — test in a staging alias before updating production")
         elif check_id == "lambda.function.no_dlq":
             warnings.append("Adding a DLQ does not affect successful invocations — monitor DLQ depth after enabling")
+        elif check_id == "lambda.function.public_url":
+            warnings.append("Changing function URL auth can break unauthenticated clients — confirm intended callers before requiring IAM auth")
 
         return {
             "resource_type": "lambda_function",
@@ -2531,7 +2604,26 @@ def blast_radius(
             "region": fn.region,
             "runtime": fn.runtime,
             "has_dlq": fn.has_dlq,
+            "function_url": fn.function_url,
+            "function_url_auth_type": fn.function_url_auth_type,
             "warnings": warnings,
+        }
+
+    # ── ECR Repository ────────────────────────────────────────────────────────
+    if check_id.startswith("ecr.repository."):
+        repo = db.scalar(
+            select(EcrRepository).where(EcrRepository.account_id == acc.id, EcrRepository.repository_arn == resource_arn)
+        )
+        if not repo:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "ECR repository not found — run a scan first")
+        return {
+            "resource_type": "ecr_repository",
+            "confidence": "high",
+            "repository_name": repo.repository_name,
+            "region": repo.region,
+            "scan_on_push": repo.scan_on_push,
+            "encryption_type": repo.encryption_type,
+            "warnings": ["Scan-on-push only evaluates newly pushed images — run an explicit image scan for existing tags"],
         }
 
     # ── Secrets Manager ──────────────────────────────────────────────────────

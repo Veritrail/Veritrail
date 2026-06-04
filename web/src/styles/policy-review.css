@@ -1,0 +1,9 @@
+.policy-json-editor--roomy .policy-json-line-num {
+  width: 2.75rem;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+
+.policy-json-editor--roomy .policy-json-line-code {
+  padding: 0.2rem 1rem 0.2rem 0.85rem;
+}

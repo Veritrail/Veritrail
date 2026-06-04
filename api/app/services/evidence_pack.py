@@ -461,10 +461,16 @@ def _entity_types_for_checks(check_ids: list[str]) -> list[str]:
             types.add("elb_load_balancer")
         elif cid.startswith("dynamodb."):
             types.add("dynamodb_table")
+        elif cid.startswith("ecr."):
+            types.add("ecr_repository")
+        elif cid.startswith("eks."):
+            types.add("eks_cluster")
         elif cid.startswith("sns."):
             types.add("sns_topic")
         elif cid.startswith("sqs."):
             types.add("sqs_queue")
+        elif cid.startswith("rds.snapshot."):
+            types.add("rds_snapshot")
         elif cid.startswith("rds."):
             types.add("rds_instance")
         elif cid.startswith("github."):

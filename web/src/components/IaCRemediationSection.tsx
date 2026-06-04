@@ -153,7 +153,7 @@ function ssmImpactDisplay(
   if (severity !== "critical" && severity !== "high") return null;
   const actionText =
     checkId === "iam.role.full_admin_policy"
-      ? "Detach full-admin policies"
+      ? "Review least-privilege replacement"
       : actionLabel.replace(/\bfull admin\b/gi, "full-admin");
   return { actionText };
 }
@@ -161,7 +161,7 @@ function ssmImpactDisplay(
 function ssmPlanDetail(checkId: string, resourceLabel: string): string {
   const target = resourceLabel || "this resource";
   if (checkId === "iam.role.full_admin_policy") {
-    return `Detaches full-admin policies from ${target}.`;
+    return `Reviews a least-privilege replacement for ${target}.`;
   }
   if (checkId.startsWith("ec2.security_group.")) {
     return `Revokes the public ingress rule on ${target}.`;
@@ -172,7 +172,7 @@ function ssmPlanDetail(checkId: string, resourceLabel: string): string {
 function ssmApprovalImpactLine(checkId: string, actionLabel: string, resourceLabel: string): string {
   const target = resourceLabel || "this resource";
   if (checkId === "iam.role.full_admin_policy") {
-    return `Impact: detaches full-admin policies from ${target}.`;
+    return `Impact: prepares a reviewed least-privilege change for ${target}.`;
   }
   if (checkId.startsWith("ec2.security_group.")) {
     return `Impact: revokes public ingress on ${target}.`;
@@ -462,9 +462,12 @@ function SsmRemediationPanel({
   ssm: SsmRemediationMeta;
 }) {
   const [dispatch, setDispatch] = useState<DispatchResponse | null>(null);
+  const [cloudTrailBucketName, setCloudTrailBucketName] = useState("");
+  const [cloudTrailName, setCloudTrailName] = useState("VigilCloudTrail");
   /** True after user clicks Run remediation this drawer session (avoids stale DB failures on Ready). */
   const [attemptedStart, setAttemptedStart] = useState(false);
   const qc = useQueryClient();
+  const isCloudTrailCreate = checkId === "cloudtrail.trail.not_enabled";
 
   const { data: runnerStatus, isLoading: runnerLoading } = useQuery({
     queryKey: ["remediation-runner-status", accountId, checkId, resourceRegion],
@@ -482,7 +485,17 @@ function SsmRemediationPanel({
     mutationFn: () =>
       api<DispatchResponse>(`/v1/findings/${findingId}/remediation/dispatch`, {
         method: "POST",
-        body: JSON.stringify({ execute: true }),
+        body: JSON.stringify({
+          execute: true,
+          ...(isCloudTrailCreate
+            ? {
+                parameter_overrides: {
+                  TrailName: cloudTrailName.trim() || "VigilCloudTrail",
+                  S3BucketName: cloudTrailBucketName.trim(),
+                },
+              }
+            : {}),
+        }),
       }),
     onSuccess: (res) => {
       setDispatch(res);
@@ -494,6 +507,8 @@ function SsmRemediationPanel({
   useEffect(() => {
     setDispatch(null);
     setAttemptedStart(false);
+    setCloudTrailBucketName("");
+    setCloudTrailName("VigilCloudTrail");
   }, [findingId]);
 
   useEffect(() => {
@@ -591,6 +606,7 @@ function SsmRemediationPanel({
   const planLabels = ssmHumanPlanLabels(checkId, provider);
   const planDetail = ssmPlanDetail(checkId, resourceLabel);
   const approvalImpactLine = ssmApprovalImpactLine(checkId, ssm.action_label, resourceLabel);
+  const cloudTrailInputsReady = !isCloudTrailCreate || cloudTrailBucketName.trim().length > 2;
 
   const statusBadge = runnerLoading ? (
     <SsmStatusBadge tone="loading">Checking</SsmStatusBadge>
@@ -657,9 +673,51 @@ function SsmRemediationPanel({
                 roleTechnicalName={ssm.automation_role_name}
                 automationRegion={ssm.automation_region}
               />
+              {isCloudTrailCreate && (
+                <div className="rounded-2xl border border-sky-100 bg-sky-50/45 p-4">
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-sky-700 ring-1 ring-sky-100">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 7.5h16.5M6 7.5V18a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 18V7.5M8.25 7.5V6A2.25 2.25 0 0 1 10.5 3.75h3A2.25 2.25 0 0 1 15.75 6v1.5" />
+                      </svg>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-zinc-950">CloudTrail log destination</p>
+                      <p className="mt-1 text-[12px] leading-relaxed text-zinc-600">
+                        Use an existing central log bucket, or create a dedicated CloudTrail bucket first. The AWS runbook needs this bucket before it can create the trail.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1.3fr_1fr]">
+                    <label className="block">
+                      <span className="text-[11px] font-semibold text-zinc-700">S3 log bucket</span>
+                      <input
+                        value={cloudTrailBucketName}
+                        onChange={(e) => setCloudTrailBucketName(e.target.value)}
+                        placeholder="company-cloudtrail-logs"
+                        className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[13px] text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] font-semibold text-zinc-700">Trail name</span>
+                      <input
+                        value={cloudTrailName}
+                        onChange={(e) => setCloudTrailName(e.target.value)}
+                        placeholder="VigilCloudTrail"
+                        className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[13px] text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                      />
+                    </label>
+                  </div>
+                  {!cloudTrailInputsReady && (
+                    <p className="mt-2 text-[11px] font-medium text-amber-800">
+                      Enter a bucket name to run this guided remediation.
+                    </p>
+                  )}
+                </div>
+              )}
               <SsmRunRemediationButton
                 running={running}
-                disabled={running || !accountId}
+                disabled={running || !accountId || !cloudTrailInputsReady}
                 onStart={() => {
                   setAttemptedStart(true);
                   startMutation.mutate();

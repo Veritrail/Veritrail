@@ -24,20 +24,29 @@ export function ImpactAnalysisEmpty({ onRun }: { onRun: () => void }) {
   return (
     <div className="impact-tab-content">
       <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-50 text-indigo-500">
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l3.75 3.75L21.75 6" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-50 text-indigo-500">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l3.75 3.75L21.75 6" />
+                </svg>
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Impact analysis</span>
+            </div>
+            <h3 className="mt-2.5 text-lg font-bold tracking-tight text-zinc-900">What happens if we fix this?</h3>
+          </div>
+          <button type="button" onClick={onRun} className="impact-analyse-button shrink-0 gap-1.5">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
             </svg>
-          </span>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Impact analysis</span>
+            Analyze
+          </button>
         </div>
-        <h3 className="mt-2.5 text-lg font-bold tracking-tight text-zinc-900">What happens if we fix this?</h3>
         <p className="mt-1 text-sm leading-relaxed text-zinc-500">
           Review recent usage, dependencies, and likely blast radius before remediation.
         </p>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <ImpactChip
             label="Usage"
             icon={
@@ -64,13 +73,6 @@ export function ImpactAnalysisEmpty({ onRun }: { onRun: () => void }) {
               </svg>
             }
           />
-          </div>
-          <button type="button" onClick={onRun} className="impact-analyse-button gap-1.5">
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
-            </svg>
-            Analyze
-          </button>
         </div>
       </div>
     </div>

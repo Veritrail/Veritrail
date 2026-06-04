@@ -78,6 +78,25 @@ const CONTROL_SORT_OPTIONS: { id: ControlSortMode; label: string; title: string 
   },
 ];
 
+function ComplianceSortGlyph({ active }: { active: boolean }) {
+  return (
+    <svg
+      className={`h-3.5 w-3.5 shrink-0 transition-colors ${active ? "text-blue-600" : "text-zinc-400"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      {active ? (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 17V7m0 0 3 3M8 7l-3 3m11-3v10m0 0 3-3m-3 3-3-3" />
+      ) : (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 7h14M8 12h8m-5 5h2" />
+      )}
+    </svg>
+  );
+}
+
 const statusAccent: Record<string, string> = {
   pass: "border-l-emerald-300/50",
   fail: "border-l-red-300/50",
@@ -380,6 +399,8 @@ function checkGroupLabel(id: string): string {
   if (id.startsWith("vpc.")) return "VPC";
   if (id.startsWith("lambda.")) return "Lambda";
   if (id.startsWith("dynamodb.")) return "DynamoDB";
+  if (id.startsWith("ecr.")) return "ECR";
+  if (id.startsWith("eks.")) return "EKS";
   if (id.startsWith("acm.")) return "ACM";
   if (id.startsWith("elb.")) return "ELB";
   if (id.startsWith("secretsmanager.")) return "Secrets";
@@ -390,7 +411,7 @@ function checkGroupLabel(id: string): string {
   return prefix.charAt(0).toUpperCase() + prefix.slice(1);
 }
 
-const CHECK_GROUP_ORDER = ["IAM", "GitHub", "GitLab", "S3", "KMS", "CloudTrail", "EC2", "RDS", "Lambda", "DynamoDB", "ACM", "ELB", "Secrets", "SSM", "SNS", "SQS", "GuardDuty", "AWS", "VPC"];
+const CHECK_GROUP_ORDER = ["IAM", "GitHub", "GitLab", "S3", "KMS", "CloudTrail", "EC2", "RDS", "Lambda", "DynamoDB", "ECR", "EKS", "ACM", "ELB", "Secrets", "SSM", "SNS", "SQS", "GuardDuty", "AWS", "VPC"];
 
 function groupCheckIds(checkIds: string[]) {
   const groups = new Map<string, string[]>();
@@ -1396,29 +1417,30 @@ export default function Controls() {
                       );
                     })}
                   </div>
-                  <div
-                    className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-zinc-200/80 bg-white px-2 py-1 shadow-sm shadow-zinc-950/[0.03]"
-                    role="group"
-                    aria-label="Sort controls"
-                  >
-                    <span className="pl-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Sort by</span>
-                    {CONTROL_SORT_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
+	                  <div
+	                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#dce5f1] bg-white p-1 shadow-sm shadow-zinc-950/[0.035]"
+	                    role="group"
+	                    aria-label="Sort controls"
+	                  >
+	                    <span className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Sort by</span>
+	                    {CONTROL_SORT_OPTIONS.map((opt) => (
+	                      <button
+	                        key={opt.id}
+	                        type="button"
                         title={opt.title}
                         onClick={() => {
                           setControlSort(opt.id);
                           setExpanded(null);
                         }}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                          controlSort === opt.id
-                            ? "bg-zinc-100 text-zinc-900 ring-1 ring-zinc-200/80"
-                            : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
+	                        className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-all ${
+	                          controlSort === opt.id
+	                            ? "border-[#b8cdf0] bg-gradient-to-b from-[#f8fbff] to-white text-[#123f63] shadow-sm shadow-blue-600/[0.06] ring-1 ring-inset ring-[#dbe7fb]"
+	                            : "border-transparent text-zinc-500 hover:border-[#dce5f1] hover:bg-white hover:text-zinc-900 hover:shadow-sm"
+	                        }`}
+	                      >
+	                        <ComplianceSortGlyph active={controlSort === opt.id} />
+	                        {opt.label}
+	                      </button>
                     ))}
                   </div>
                 </div>

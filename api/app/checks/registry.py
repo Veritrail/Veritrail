@@ -62,6 +62,7 @@ from app.checks import (
     rds_no_encryption,
     rds_no_automated_backup,
     rds_publicly_accessible,
+    rds_snapshot_public,
     role_trust_wildcard,
     role_unassumed_90d,
     role_unused_services,
@@ -99,8 +100,11 @@ from app.checks import (
     elb_weak_tls,
     dynamodb_no_pitr,
     dynamodb_no_encryption,
+    ecr_image_scan_disabled,
+    eks_public_endpoint,
     sns_no_encryption,
     sqs_no_encryption,
+    lambda_public_function_url,
 )
 
 ALL_CHECKS = [
@@ -186,6 +190,7 @@ ALL_CHECKS = [
     rds_publicly_accessible,
     rds_no_encryption,
     rds_no_automated_backup,
+    rds_snapshot_public,
     # GitHub identity
     github_org_mfa,
     github_org_dormant,
@@ -215,6 +220,7 @@ ALL_CHECKS = [
     acm_cert_expiring,
     lambda_deprecated_runtime,
     lambda_no_dlq,
+    lambda_public_function_url,
     rds_no_deletion_protection,
     rds_no_multi_az,
     secrets_no_rotation,
@@ -223,6 +229,8 @@ ALL_CHECKS = [
     elb_weak_tls,
     dynamodb_no_pitr,
     dynamodb_no_encryption,
+    ecr_image_scan_disabled,
+    eks_public_endpoint,
     sns_no_encryption,
     sqs_no_encryption,
 ]

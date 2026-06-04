@@ -55,21 +55,15 @@ export function SemanticNarrativeBlock({
   icon?: ReactNode;
 }) {
   const t = TONE_STYLES[tone];
+  const heading = title ?? tag.charAt(0).toUpperCase() + tag.slice(1).toLowerCase();
+
   return (
     <div className={`overflow-hidden rounded-xl border bg-white ${t.shell}`}>
-      <div className={`flex items-start gap-3 px-4 py-2.5 pr-5 ${t.header}`}>
-        {icon ?? (
-          <span
-            className={`mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${t.tag}`}
-          >
-            {tag}
-          </span>
-        )}
-        {title ? (
-          <span className="pt-0.5 text-[13px] font-semibold leading-snug text-zinc-900">{title}</span>
-        ) : null}
+      <div className={`flex items-center gap-2.5 px-4 py-3 pr-5 ${t.header}`}>
+        {icon ? <span className="shrink-0">{icon}</span> : null}
+        <h3 className="text-[14px] font-semibold leading-5 text-zinc-950">{heading}</h3>
       </div>
-      <div className="border-t border-zinc-100/90 px-4 py-3 pr-5 text-[13px] leading-relaxed text-zinc-700">
+      <div className="border-t border-zinc-100/90 px-4 py-4 pr-5 text-[14px] leading-7 text-zinc-700">
         {children}
       </div>
     </div>

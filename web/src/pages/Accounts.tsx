@@ -18,6 +18,7 @@ import {
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
+import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
@@ -584,9 +585,10 @@ type ScanFreshness = "scanning" | "fresh" | "recent" | "aging" | "stale" | "none
 function AwsIcon({ className = "h-full w-full max-h-16 object-contain" }: { className?: string }) {
   return (
     <img
-      src="/integrations/aws-logo.svg"
+      src={AWS_LOGO_LIGHT}
       alt="Amazon Web Services"
       className={`rounded-xl object-contain ${className}`}
+      decoding="async"
     />
   );
 }
@@ -1306,20 +1308,31 @@ function RemediationAutomationSection({
           <ul className="mt-3 ml-7 space-y-2">
             {REMEDIATION_MODULE_SPECS.map((spec) => (
               <li key={spec.id}>
+                {(() => {
+                  const analysisOnly = !spec.runnerSupported;
+                  const checked = analysisOnly ? false : modules[spec.id];
+                  return (
                 <label
                   className={`flex items-center gap-2 text-sm ${
-                    disabled ? "cursor-not-allowed" : "cursor-pointer"
+                    disabled || analysisOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                   }`}
                 >
                   <input
                     type="checkbox"
                     className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500/30"
-                    checked={modules[spec.id]}
-                    disabled={disabled}
+                    checked={checked}
+                    disabled={disabled || analysisOnly}
                     onChange={(e) => onChange({ ...modules, [spec.id]: e.target.checked })}
                   />
                   <span className="text-zinc-800">{spec.label}</span>
+                  {analysisOnly && (
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                      Analysis only
+                    </span>
+                  )}
                 </label>
+                  );
+                })()}
               </li>
             ))}
           </ul>
@@ -1359,8 +1372,9 @@ function RemediationAutomationSection({
             const verify = moduleVerify?.[spec.id];
             const deployed = Boolean(modulesDeployed[spec.id]);
             const locked = capabilityLockedInAws(verify, deployed);
-            const moduleChecked = locked ? true : selected;
-            const moduleDisabled = disabled || locked;
+            const analysisOnly = !spec.runnerSupported;
+            const moduleChecked = locked ? true : analysisOnly ? false : selected;
+            const moduleDisabled = disabled || locked || analysisOnly;
 
             return (
               <div
@@ -1393,7 +1407,13 @@ function RemediationAutomationSection({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium leading-snug text-zinc-900">{spec.label}</p>
-                          <CapabilityAccessBadge kind="scoped-write" />
+                          {analysisOnly ? (
+                            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                              Analysis only
+                            </span>
+                          ) : (
+                            <CapabilityAccessBadge kind="scoped-write" />
+                          )}
                         </div>
                         <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{spec.summary}</p>
                       </div>
@@ -1438,17 +1458,19 @@ function RemediationAutomationSection({
                       )}
                     </div>
 
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                        Permissions added to VigilRemediationRole
-                      </p>
-                      <div className="mt-2">
-                        <RemediationPermissionsBlock
-                          permissions={spec.permissions}
-                          verifyRows={verify?.permissions}
-                        />
+                    {!analysisOnly && (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Permissions added to VigilRemediationRole
+                        </p>
+                        <div className="mt-2">
+                          <RemediationPermissionsBlock
+                            permissions={spec.permissions}
+                            verifyRows={verify?.permissions}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
