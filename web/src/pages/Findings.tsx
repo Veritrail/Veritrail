@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountSelect, LastScanChip } from "../components/AccountSelect";
+import {
+  BenchmarkFrameworkSelect,
+  benchmarkSelectionLabel,
+  parseFrameworkParam,
+  serializeFrameworkParam,
+} from "../components/BenchmarkFrameworkSelect";
 import { api, token } from "../api";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import NotificationsBell from "../components/NotificationsBell";
@@ -9,7 +15,7 @@ import ScanProgressBar from "../components/ScanProgressBar";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
-import { FRAMEWORKS, frameworkLabel, type FrameworkId } from "../data/frameworks";
+import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
 import { severityLabel } from "../lib/findingDisplay";
 import { isAccountConnected } from "../lib/accountConnection";
@@ -54,7 +60,6 @@ const severityTabs: { id: SeverityFilter; label: string; urgent?: boolean }[] = 
   { id: "low", label: "Low" },
 ];
 type SortKey = "severity" | "score" | "first_seen";
-type BenchmarkFilter = "all" | FrameworkId;
 
 const statusTabs: StatusTab[] = ["open", "excepted", "resolved", "all"];
 const statusTabLabels: Record<StatusTab, string> = {
@@ -78,6 +83,47 @@ function emptyFindingsLabel(status: StatusTab): string {
   return `No ${status} findings`;
 }
 
+function FindingsScanButton({
+  connectedId,
+  isRunning,
+  scanTriggered,
+  onScan,
+}: {
+  connectedId: string;
+  isRunning: boolean;
+  scanTriggered: boolean;
+  onScan: (accountId: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onScan(connectedId)}
+      disabled={scanTriggered || isRunning}
+      className="findings-v2-scan-btn findings-v2-scan-btn--header"
+    >
+      <span className="findings-v2-scan-btn-icon" aria-hidden>
+        {isRunning || scanTriggered ? (
+          <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : (
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+            />
+          </svg>
+        )}
+      </span>
+      <span className="findings-v2-scan-btn-label">
+        {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
+      </span>
+    </button>
+  );
+}
+
 function matchesSeverityFilter(f: Finding, filter: SeverityFilter): boolean {
   if (filter === "all") return true;
   return f.severity === filter;
@@ -87,9 +133,14 @@ function frameworksForCheck(checkId: string, apiMap: Record<string, string[]> | 
   return apiMap?.[checkId] ?? CHECK_FRAMEWORK_MAP[checkId] ?? [];
 }
 
-function matchesBenchmarkFilter(f: Finding, filter: BenchmarkFilter, apiMap: Record<string, string[]> | undefined): boolean {
-  if (filter === "all") return true;
-  return frameworksForCheck(f.check_id, apiMap).includes(filter);
+function matchesBenchmarkFilter(
+  f: Finding,
+  selected: FrameworkId[],
+  apiMap: Record<string, string[]> | undefined,
+): boolean {
+  if (selected.length === 0) return true;
+  const fws = frameworksForCheck(f.check_id, apiMap);
+  return selected.some((id) => fws.includes(id));
 }
 
 function SeverityIndicator({ severity }: { severity: string }) {
@@ -232,11 +283,9 @@ export default function Findings() {
     const raw = searchParams.get("checks");
     return raw ? raw.split(",").filter(Boolean) : [];
   });
-  const [benchmarkFilter, setBenchmarkFilter] = useState<BenchmarkFilter>(() => {
-    const fw = searchParams.get("framework");
-    if (fw && FRAMEWORKS.some((f) => f.id === fw)) return fw as FrameworkId;
-    return "all";
-  });
+  const [selectedFrameworks, setSelectedFrameworks] = useState<FrameworkId[]>(() =>
+    parseFrameworkParam(searchParams.get("framework")),
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get("account") ?? "");
   const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, reportScanFailure, clearDrawerVerifyFlash } =
@@ -332,8 +381,8 @@ export default function Findings() {
   const verifyUnchanged = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "unchanged");
 
   const benchmarkScopedFindings = useMemo(
-    () => findings.filter((f) => matchesBenchmarkFilter(f, benchmarkFilter, checkFrameworksApi)),
-    [findings, benchmarkFilter, checkFrameworksApi],
+    () => findings.filter((f) => matchesBenchmarkFilter(f, selectedFrameworks, checkFrameworksApi)),
+    [findings, selectedFrameworks, checkFrameworksApi],
   );
 
   const rows = useMemo(() => {
@@ -403,14 +452,15 @@ export default function Findings() {
     clearDrawerVerifyFlash();
   }
 
-  function handleBenchmarkChange(fw: BenchmarkFilter) {
-    setBenchmarkFilter(fw);
+  function handleBenchmarkChange(next: FrameworkId[]) {
+    setSelectedFrameworks(next);
+    const serialized = serializeFrameworkParam(next);
     setSearchParams(
       (prev) => {
-        const next = new URLSearchParams(prev);
-        if (fw === "all") next.delete("framework");
-        else next.set("framework", fw);
-        return next;
+        const params = new URLSearchParams(prev);
+        if (serialized) params.set("framework", serialized);
+        else params.delete("framework");
+        return params;
       },
       { replace: true },
     );
@@ -485,19 +535,30 @@ export default function Findings() {
     <div className="findings-v2-page findings-v2-shell min-h-full">
       <div className="w-full px-8 py-8">
         <header className="mb-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {connectedAccounts.length > 0 && (
-                  <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
-                )}
-                {lastScanAt && <LastScanChip iso={lastScanAt} />}
-              </div>
-            </div>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
             <NotificationsBell />
           </div>
-
+          <div className="findings-v2-page-meta-row">
+            <div className="findings-v2-page-meta">
+              {connectedAccounts.length > 0 && (
+                <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
+              )}
+              {lastScanAt ? (
+                <LastScanChip iso={lastScanAt} />
+              ) : (
+                <span className="findings-v2-scan-placeholder">No scan yet</span>
+              )}
+            </div>
+            {connectedId && (
+              <FindingsScanButton
+                connectedId={connectedId}
+                isRunning={isRunning}
+                scanTriggered={scanTriggered}
+                onScan={triggerScan}
+              />
+            )}
+          </div>
         </header>
 
         {isScanActive && (
@@ -545,8 +606,8 @@ export default function Findings() {
             <p className="text-sm font-semibold text-zinc-700">
               {searchTags.length > 0
                 ? "No findings match the selected checks"
-                : benchmarkFilter !== "all"
-                  ? `No findings for ${frameworkLabel(benchmarkFilter)}`
+                : selectedFrameworks.length > 0
+                  ? `No findings for ${benchmarkSelectionLabel(selectedFrameworks)}`
                   : emptyFindingsLabel(status)}
             </p>
             <p className="mt-1 text-xs text-zinc-400">{status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}</p>
@@ -602,79 +663,7 @@ export default function Findings() {
                     <p className="text-sm font-semibold text-[#111827]">{statusTabLabels[status]}</p>
                   )}
 
-	                  <div className="relative shrink-0">
-	                    <label htmlFor="findings-status-filter" className="sr-only">
-	                      Status
-                    </label>
-                    <select
-                      id="findings-status-filter"
-                      value={status}
-                      onChange={(e) => {
-                        const next = e.target.value as StatusTab;
-                        setStatus(next);
-                        if (next !== "open") setSeverityFilter("all");
-                      }}
-                      className="findings-v2-status-select"
-                    >
-                      {statusTabs.map((s) => (
-                        <option key={s} value={s}>
-                          {statusTabLabels[s]}
-                        </option>
-                      ))}
-                    </select>
-                    <svg
-                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                      aria-hidden
-                    >
-	                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-	                    </svg>
-	                  </div>
-	                  <div className="relative shrink-0">
-	                    <label htmlFor="findings-benchmark-filter" className="sr-only">
-	                      Benchmark scope
-	                    </label>
-	                    <select
-	                      id="findings-benchmark-filter"
-	                      value={benchmarkFilter}
-	                      onChange={(e) => handleBenchmarkChange(e.target.value as BenchmarkFilter)}
-	                      className={`findings-v2-status-select min-w-[10.75rem] ${benchmarkFilter === "all" ? "pl-9" : ""}`}
-	                    >
-	                      <option value="all">All benchmarks</option>
-	                      {FRAMEWORKS.map((fw) => (
-	                        <option key={fw.id} value={fw.id}>
-	                          {fw.label}
-	                        </option>
-	                      ))}
-	                    </select>
-	                    {benchmarkFilter === "all" && (
-	                      <span
-	                        className="pointer-events-none absolute left-2.5 top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-[9px] font-black leading-none text-white shadow-sm shadow-blue-600/20 ring-1 ring-blue-400/30"
-	                        aria-hidden
-	                      >
-	                        <svg className="absolute inset-0 h-full w-full" fill="none" viewBox="0 0 20 20" aria-hidden>
-	                          <path
-	                            d="M10 2.25 16 4.5v4.2c0 3.7-2.35 6.95-6 8.85-3.65-1.9-6-5.15-6-8.85V4.5l6-2.25Z"
-	                            fill="currentColor"
-	                          />
-	                        </svg>
-	                        <span className="relative">V</span>
-	                      </span>
-	                    )}
-	                    <svg
-	                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
-	                      fill="none"
-	                      stroke="currentColor"
-	                      strokeWidth={2}
-	                      viewBox="0 0 24 24"
-	                      aria-hidden
-	                    >
-	                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-	                    </svg>
-	                  </div>
+                  <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
 	                </div>
 
                 <div className="findings-v2-control-cluster">
@@ -726,34 +715,37 @@ export default function Findings() {
                       </svg>
                       Export
                     </button>
-                    {connectedId && (
-                      <button
-                        type="button"
-                        onClick={() => triggerScan(connectedId)}
-                        disabled={scanTriggered || isRunning}
-                        className="findings-v2-scan-btn"
-                      >
-                        <span className="findings-v2-scan-btn-icon" aria-hidden>
-                          {isRunning || scanTriggered ? (
-                            <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                          ) : (
-                            <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-                              />
-                            </svg>
-                          )}
-                        </span>
-                        <span className="findings-v2-scan-btn-label">
-                          {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
-                        </span>
-                      </button>
-                    )}
+                  </div>
+                  <div className="findings-v2-toolbar-group findings-v2-status-group relative shrink-0">
+                    <label htmlFor="findings-status-filter" className="sr-only">
+                      Status
+                    </label>
+                    <select
+                      id="findings-status-filter"
+                      value={status}
+                      onChange={(e) => {
+                        const next = e.target.value as StatusTab;
+                        setStatus(next);
+                        if (next !== "open") setSeverityFilter("all");
+                      }}
+                      className="findings-v2-status-select"
+                    >
+                      {statusTabs.map((s) => (
+                        <option key={s} value={s}>
+                          {statusTabLabels[s]}
+                        </option>
+                      ))}
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                 </div>
               </div>

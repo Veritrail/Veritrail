@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { AzureMark, GcpMark } from "./IntegrationsUi";
 
 export type CloudProvider = "aws" | "gcp" | "azure";
@@ -11,8 +12,22 @@ export type AccountOption = {
   provider?: CloudProvider;
 };
 
+const CONTEXT_PILL =
+  "inline-flex h-9 items-center gap-2 rounded-full border border-zinc-200/90 bg-white px-3.5 shadow-sm shadow-zinc-950/[0.03] transition-colors";
+
 function AwsMark({ className }: { className?: string }) {
-  return <img src="/aws-account-icon.png" alt="" className={`${className ?? ""} object-contain`} aria-hidden />;
+  return (
+    <img
+      src="/aws-account-icon.png"
+      alt=""
+      className={`${className ?? ""} object-contain object-left`}
+      aria-hidden
+      onError={(e) => {
+        e.currentTarget.onerror = null;
+        e.currentTarget.src = AWS_LOGO_LIGHT;
+      }}
+    />
+  );
 }
 
 function CloudIcon({ className }: { className?: string }) {
@@ -61,13 +76,19 @@ function absoluteScan(iso: string): string {
 }
 
 export function LastScanChip({ iso }: { iso: string }) {
+  const dotClass = scanDotClass(iso);
   return (
     <span
-      className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#d9e1ec] bg-white px-3.5 text-[15px] font-semibold tracking-[-0.01em] text-[#344054] shadow-sm shadow-zinc-950/[0.03]"
+      className={`${CONTEXT_PILL} text-sm font-medium tracking-[-0.01em] text-zinc-600`}
       title={`Last scan ${absoluteScan(iso)}`}
     >
-      <span className={`h-2 w-2 rounded-full ${scanDotClass(iso)}`} aria-hidden />
-      Scanned {relativeScan(iso)}
+      <span className="relative flex h-2 w-2 shrink-0 items-center justify-center" aria-hidden>
+        <span className={`absolute inset-0 rounded-full opacity-30 ${dotClass}`} />
+        <span className={`relative h-1.5 w-1.5 rounded-full ${dotClass}`} />
+      </span>
+      <span>
+        Scanned <span className="font-semibold text-zinc-800">{relativeScan(iso)}</span>
+      </span>
     </span>
   );
 }
@@ -105,27 +126,34 @@ export function AccountSelect({
 
 	  return (
 	    <div ref={ref} className="relative">
-		      <button
-		        type="button"
-		        onClick={() => setOpen((o) => !o)}
-		        aria-haspopup="listbox"
-		        aria-expanded={open}
-		        className="inline-flex h-9 min-w-[245px] cursor-pointer items-center gap-2.5 rounded-[10px] border border-[#d9e1ec] bg-white px-3 text-left shadow-sm shadow-zinc-950/[0.03] transition hover:border-[#c5d0dd] hover:bg-[#fbfdff]"
-		      >
-		        <ProviderMark provider={current.provider} className="h-6 w-6 shrink-0" />
-		        <span className="min-w-0 flex-1 truncate text-[17px] font-bold leading-none tracking-[-0.02em] text-[#111827]">
-		          {current.label || groupAccountId(current.account_id ?? "")}
-		        </span>
-		        <svg className={`h-[18px] w-[18px] shrink-0 text-[#98a2b3] transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24" aria-hidden>
-		          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-		        </svg>
-		      </button>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`${CONTEXT_PILL} min-w-[12.5rem] max-w-[16rem] cursor-pointer text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
+      >
+        <ProviderMark provider={current.provider} className="h-[1.125rem] w-[2.25rem] shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none tracking-[-0.02em] text-zinc-900">
+          {current.label || groupAccountId(current.account_id ?? "")}
+        </span>
+        <svg
+          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
 
       {open && (
-		        <div
-		          role="listbox"
-		          className="absolute left-0 top-full z-30 mt-2 w-[360px] overflow-hidden rounded-2xl border border-[#e4e9f1] bg-white shadow-xl shadow-zinc-900/10"
-		        >
+        <div
+          role="listbox"
+          className="absolute left-0 top-full z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg shadow-zinc-900/10"
+        >
 	          {accounts.map((a) => {
 	            const active = a.id === value;
 	            const hasLabel = !!a.label && a.label !== a.account_id;
@@ -139,33 +167,35 @@ export function AccountSelect({
 	                  onChange(a.id);
 	                  setOpen(false);
 	                }}
-		                className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${active ? "bg-[#f8fafc]" : "hover:bg-[#fbfdff]"}`}
-		              >
-		                <ProviderMark provider={a.provider} className="h-9 w-9 shrink-0" />
-		                <span className="min-w-0 flex-1">
-		                  <span className="block truncate text-[20px] font-bold leading-tight tracking-[-0.02em] text-[#111827]">
-		                    {hasLabel ? a.label : groupAccountId(a.account_id ?? "")}
-		                  </span>
-		                  <span className="mt-1 block text-[16px] font-medium tabular-nums tracking-[0.08em] text-[#98a2b3]">
-		                    {groupAccountId(a.account_id ?? "")}
-		                  </span>
-	                </span>
-	                {active && (
-	                  <svg className="h-5 w-5 shrink-0 text-indigo-600" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24" aria-hidden>
-	                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-	                  </svg>
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${active ? "bg-zinc-50" : "hover:bg-zinc-50/70"}`}
+              >
+                <ProviderMark provider={a.provider} className="h-5 w-10 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold leading-tight tracking-[-0.02em] text-zinc-900">
+                    {hasLabel ? a.label : groupAccountId(a.account_id ?? "")}
+                  </span>
+                  {hasLabel ? (
+                    <span className="mt-0.5 block truncate text-xs font-medium tabular-nums tracking-wide text-zinc-400">
+                      {groupAccountId(a.account_id ?? "")}
+                    </span>
+                  ) : null}
+                </span>
+                {active && (
+                  <svg className="h-4 w-4 shrink-0 text-indigo-600" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
                 )}
               </button>
             );
           })}
-	          <Link
-	            to="/accounts"
-	            onClick={() => setOpen(false)}
-		            className="flex items-center gap-3.5 border-t border-[#eef2f6] px-5 py-4 text-[20px] font-medium tracking-[-0.02em] text-[#635bff] transition hover:bg-indigo-50/50"
-		          >
-		            <svg className="h-6 w-6 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-	              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-	            </svg>
+          <Link
+            to="/accounts"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 border-t border-zinc-100 px-4 py-3 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50/50"
+          >
+            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
             Manage accounts
           </Link>
         </div>
