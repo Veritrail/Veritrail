@@ -146,9 +146,10 @@
   height: 1.05rem;
   align-items: center;
   justify-content: center;
-  align-self: flex-start;
+  align-self: center;
   flex-shrink: 0;
-  margin-top: 0.12rem;
+  margin-top: 0;
+  transform: translateY(0.08rem);
   color: #6b7280;
 }
 
