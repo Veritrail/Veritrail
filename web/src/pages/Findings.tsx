@@ -529,32 +529,6 @@ export default function Findings() {
               ))}
             </div>
 
-            {connectedId && (
-              <div className="flex shrink-0 items-center gap-2.5 self-center">
-                <button
-                  type="button"
-                  onClick={() => triggerScan(connectedId)}
-                  disabled={scanTriggered || isRunning}
-                  className="findings-v2-scan-btn"
-                >
-                  <span className="findings-v2-scan-btn-icon" aria-hidden>
-                    {isRunning || scanTriggered ? (
-                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                    ) : (
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="findings-v2-scan-btn-label">
-                    {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
-                  </span>
-                </button>
-              </div>
-            )}
           </div>
         </header>
 
@@ -700,23 +674,7 @@ export default function Findings() {
                     placeholder="Search finding, ARN, resource…"
                     className="h-8 min-w-[12rem] flex-1 basis-[12rem] rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
                   />
-                  <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Sort findings">
-                    {SORT_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => toggleSort(opt.id)}
-                        className={`findings-v2-toolbar-btn ${sortKey === opt.id ? "is-active" : ""}`}
-                      >
-                        {opt.label}
-                        {sortKey === opt.id ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider">
-                    <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
-                      Export
-                    </button>
+                  <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
                     <button
                       type="button"
                       onClick={() => {
@@ -724,10 +682,68 @@ export default function Findings() {
                         setIsRefreshing(true);
                       }}
                       disabled={isRefreshing}
-                      className="findings-v2-toolbar-btn"
+                      className="findings-v2-toolbar-btn findings-v2-toolbar-icon-btn"
+                      aria-label={isRefreshing ? "Refreshing findings" : "Refresh findings"}
+                      title={isRefreshing ? "Refreshing" : "Refresh"}
                     >
-                      {isRefreshing ? "Refreshing…" : "Refresh"}
+                      <svg className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4m-4 4a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4" />
+                      </svg>
                     </button>
+                  </div>
+                  <div className="findings-v2-toolbar-group" role="group" aria-label="Sort findings">
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => toggleSort(opt.id)}
+                          className={`findings-v2-toolbar-btn ${sortKey === opt.id ? "is-active" : ""}`}
+                      >
+                        {opt.label}
+                        {opt.id === "severity" && (
+                          <svg className="h-4 w-4 text-[#667085]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h10M4 12h7M4 17h4" />
+                          </svg>
+                        )}
+                        {sortKey === opt.id ? <span className="text-[15px] leading-none">{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="findings-v2-toolbar-group">
+                    <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                      </svg>
+                      Export
+                    </button>
+                    {connectedId && (
+                      <button
+                        type="button"
+                        onClick={() => triggerScan(connectedId)}
+                        disabled={scanTriggered || isRunning}
+                        className="findings-v2-scan-btn"
+                      >
+                        <span className="findings-v2-scan-btn-icon" aria-hidden>
+                          {isRunning || scanTriggered ? (
+                            <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="findings-v2-scan-btn-label">
+                          {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

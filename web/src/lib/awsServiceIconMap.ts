@@ -34,6 +34,44 @@ export const AWS_ICON_FILES: Record<string, string> = {
   EKS: "eks.png",
   ECR: "ecr.png",
   ACM: "acm.png",
+  CLOUDFRONT: "cloudfront.png",
+  ELASTICACHE: "elasticache.png",
+  EVENTBRIDGE: "eventbridge.png",
+  CLOUDWATCHLOGS: "cloudwatch-logs.png",
+  APIGATEWAY: "apigateway.png",
+  ROUTE53: "route53.png",
+  ES: "opensearch.png",
+  FIREHOSE: "firehose.png",
+  KINESIS: "kinesis.png",
+  STS: "sts.png",
+};
+
+/** IAM action prefix labels (uppercase, non-alphanumeric stripped) → Architecture Icon key. */
+const SERVICE_LABEL_TO_ICON_KEY: Record<string, string> = {
+  ECRPUBLIC: "ECR",
+  LOGS: "CLOUDWATCHLOGS",
+  EVENTS: "EVENTBRIDGE",
+  EVENTBRIDGE: "EVENTBRIDGE",
+  CLOUDFRONT: "CLOUDFRONT",
+  ELASTICACHE: "ELASTICACHE",
+  ES: "ES",
+  ELASTICSEARCH: "ES",
+  OPENSEARCH: "ES",
+  FIREHOSE: "FIREHOSE",
+  KINESIS: "KINESIS",
+  APIGATEWAY: "APIGATEWAY",
+  ROUTE53: "ROUTE53",
+  ROUTE53DOMAINS: "ROUTE53",
+  STS: "STS",
+  SDB: "AWS",
+  SWF: "AWS",
+  AUTOSCALING: "EC2",
+  ELASTICBEANSTALK: "EC2",
+  CLOUDFORMATION: "CONFIG",
+  CODEBUILD: "AWS",
+  CODECOMMIT: "AWS",
+  CODEDEPLOY: "AWS",
+  CODEPIPELINE: "AWS",
 };
 
 /** CDN source paths used by vendor-aws-icons.sh */
@@ -62,6 +100,16 @@ export const AWS_ICON_CDN_PATHS: Record<string, string> = {
   EKS: "Containers/ElasticKubernetesService.png",
   ECR: "Containers/ElasticContainerRegistry.png",
   ACM: "SecurityIdentityCompliance/CertificateManager.png",
+  CLOUDFRONT: "NetworkingContentDelivery/CloudFront.png",
+  ELASTICACHE: "Database/ElastiCache.png",
+  EVENTBRIDGE: "ApplicationIntegration/EventBridge.png",
+  CLOUDWATCHLOGS: "ManagementGovernance/CloudWatchLogs.png",
+  APIGATEWAY: "NetworkingContentDelivery/APIGateway.png",
+  ROUTE53: "NetworkingContentDelivery/Route53.png",
+  ES: "Analytics/OpenSearchService.png",
+  FIREHOSE: "Analytics/DataFirehose.png",
+  KINESIS: "Analytics/Kinesis.png",
+  STS: "SecurityIdentityCompliance/IdentityAccessManagementAWSSTS.png",
 };
 
 /** Longest-prefix wins — maps every Vigil check_id family to an Architecture Icon key. */
@@ -100,6 +148,14 @@ export function iconKeyForCheckId(checkId: string): string {
   return DEFAULT_ICON_KEY;
 }
 
+/** Map IAM service prefix labels (e.g. LOGS, CLOUDFRONT, ECR-PUBLIC) to Architecture Icon keys. */
+export function iconKeyForServiceLabel(serviceLabel: string): string {
+  const normalized = serviceLabel.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (SERVICE_LABEL_TO_ICON_KEY[normalized]) return SERVICE_LABEL_TO_ICON_KEY[normalized];
+  if (AWS_ICON_FILES[normalized]) return normalized;
+  return DEFAULT_ICON_KEY;
+}
+
 function localIconUrl(key: string): string | null {
   const file = AWS_ICON_FILES[key];
   return file ? `${ICON_LOCAL_BASE}/${file}` : null;
@@ -110,25 +166,16 @@ function cdnIconUrl(key: string): string {
   return `${ICON_CDN_BASE}/${path}`;
 }
 
-/** Always resolves to an official Architecture Icon URL (local first, then CDN). */
-export function awsIconUrlForCheckId(checkId: string): string {
-  const key = iconKeyForCheckId(checkId);
+function awsIconUrlForKey(key: string): string {
   return localIconUrl(key) ?? cdnIconUrl(key);
 }
 
-/** @deprecated Prefer awsIconUrlForCheckId — kept for ARN-derived service labels in drawer. */
+/** Always resolves to an official Architecture Icon URL (local first, then CDN). */
+export function awsIconUrlForCheckId(checkId: string): string {
+  return awsIconUrlForKey(iconKeyForCheckId(checkId));
+}
+
+/** IAM service prefix from policy actions (ec2:DescribeInstances → EC2). */
 export function awsServiceIconUrl(serviceLabel: string): string {
-  const normalized = serviceLabel.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const alias: Record<string, string> = {
-    CLOUDTRAIL: "CLOUDTRAIL",
-    GUARDDUTY: "GUARDDUTY",
-    SECRETSMANAGER: "SECRETSMANAGER",
-    SECURITYHUB: "SECURITYHUB",
-    DYNAMODB: "DYNAMODB",
-    LAMBDA: "LAMBDA",
-    CONFIG: "CONFIG",
-  };
-  const key = alias[normalized] ?? normalized;
-  if (AWS_ICON_FILES[key]) return localIconUrl(key) ?? cdnIconUrl(key);
-  return awsIconUrlForCheckId(`aws.${serviceLabel.toLowerCase()}`);
+  return awsIconUrlForKey(iconKeyForServiceLabel(serviceLabel));
 }

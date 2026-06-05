@@ -51,6 +51,7 @@ import {
   isVcsResourceIdentifier,
   severityLabel,
   severityPillClassName,
+  formatIamServiceDisplayName,
 } from "../lib/findingDisplay";
 import {
   applyCliPlaceholders,
@@ -93,7 +94,10 @@ import {
 
 const DRAWER_MAX_W = "max-w-[640px]";
 const DRAWER_WIDE_MAX_W = "max-w-[min(96vw,1180px)]";
-const DRAWER_POLICY_TRIPLE_MAX_W = "max-w-[min(98vw,1440px)]";
+const DRAWER_POLICY_TRIPLE_MAX_W = "max-w-[min(98vw,1620px)]";
+/** Left rail · analysis · review — keep the remediation picker readable. */
+const DRAWER_POLICY_TRIPLE_GRID =
+  "grid min-h-0 flex-1 grid-cols-[minmax(300px,30%)_minmax(320px,0.68fr)_minmax(400px,0.75fr)] overflow-hidden border-t border-zinc-200/80";
 
 /** Resource label in drawer header (matches drawerFieldLabel). */
 const drawerFieldLabelBlock = drawerFieldLabel;
@@ -208,7 +212,7 @@ const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
 };
 
 function RemediationModeIcon({ mode }: { mode: RemediationMode }) {
-  const cls = "h-4 w-4 shrink-0";
+  const cls = "h-5 w-5 shrink-0";
   if (mode === "console") {
     return (
       <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
@@ -272,7 +276,7 @@ function RemediationModePicker({
       <div className={drawerSectionHead}>
         <h3 className={drawerSectionTitle}>Generate remediation steps for</h3>
       </div>
-      <div className={`${drawerSectionBody} grid grid-cols-2 gap-2 sm:grid-cols-3`}>
+      <div className={`${drawerSectionBody} grid grid-cols-3 gap-2`}>
         {modes.map((mode) => {
           const selected = active === mode;
           return (
@@ -280,14 +284,16 @@ function RemediationModePicker({
               key={mode}
               type="button"
               onClick={() => onSelect(mode)}
-              className={`flex min-h-[4.25rem] flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-all duration-150 ${
+              className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-center transition-all duration-150 ${
                 selected
                   ? "border-indigo-300 bg-indigo-50/80 text-indigo-950 shadow-sm ring-2 ring-indigo-200/80"
                   : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/80"
               }`}
             >
               <RemediationModeIcon mode={mode} />
-              <span className="text-[11px] font-semibold leading-tight">{REMEDIATION_MODE_LABELS[mode]}</span>
+              <span className="text-[13px] font-semibold leading-snug tracking-[-0.01em]">
+                {REMEDIATION_MODE_LABELS[mode]}
+              </span>
             </button>
           );
         })}
@@ -4423,10 +4429,12 @@ function PolicyWorkspacePaneShell({
   children: ReactNode;
   className?: string;
   bodyVariant?: "default" | "split";
-  bodySpacing?: "default" | "relaxed";
+  bodySpacing?: "default" | "relaxed" | "roomy";
 }) {
-  const bodyPad = bodySpacing === "relaxed" ? "px-6 py-6" : "px-5 py-5";
-  const bodyGap = bodySpacing === "relaxed" ? "space-y-6" : "space-y-5";
+  const bodyPad =
+    bodySpacing === "roomy" ? "px-7 py-6" : bodySpacing === "relaxed" ? "px-6 py-6" : "px-5 py-5";
+  const bodyGap =
+    bodySpacing === "roomy" ? "space-y-7" : bodySpacing === "relaxed" ? "space-y-6" : "space-y-5";
 
   return (
     <div className={`flex min-h-0 min-w-0 flex-col border-l border-zinc-200/90 bg-[#f7f9fc] ${className}`}>
@@ -4489,6 +4497,7 @@ function PolicyJsonEditor({
   const lines = maxLines ? allLines.slice(0, maxLines) : allLines;
   const truncated = maxLines != null && allLines.length > maxLines;
   const displayLines = lines;
+  const hasCode = code.length > 0 && code !== "undefined";
 
   const copy = () => {
     void navigator.clipboard.writeText(code).then(() => {
@@ -4537,9 +4546,23 @@ function PolicyJsonEditor({
             <button
               type="button"
               onClick={download}
-              className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+              aria-label="Download policy"
+              className="rounded-md p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
             >
-              Download
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4"
+                />
+              </svg>
             </button>
           </div>
         </div>
@@ -4547,7 +4570,7 @@ function PolicyJsonEditor({
       <div
         className={`font-mono text-[12px] leading-[1.7] ${
           expandFull
-            ? "overflow-visible"
+            ? "min-h-[min(42vh,360px)] overflow-auto"
             : fillHeight
               ? "min-h-0 flex-1 overflow-auto"
               : maxLines
@@ -4555,6 +4578,11 @@ function PolicyJsonEditor({
                 : "max-h-[min(52vh,480px)] overflow-auto"
         }`}
       >
+        {!hasCode ? (
+          <div className="flex min-h-[12rem] items-center justify-center px-4 text-[13px] font-medium text-zinc-500">
+            Loading policy…
+          </div>
+        ) : (
         <div className="min-w-max pb-2 pt-1">
           {displayLines.map((line, i) => (
             <div key={i} className="flex hover:bg-zinc-900/80">
@@ -4570,6 +4598,7 @@ function PolicyJsonEditor({
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );
@@ -4583,25 +4612,22 @@ function policyActionLabel(action: string): { verb: string; full: string } {
   return { verb: action.slice(colon + 1), full: action };
 }
 
-function PolicyScopedActionList({ actions }: { actions: string[] }) {
+function PolicyScopedActionList({ actions, servicePrefix }: { actions: string[]; servicePrefix?: string }) {
+  const prefix =
+    servicePrefix && servicePrefix.length > 0
+      ? `${servicePrefix.trim().toLowerCase()}:`
+      : null;
   return (
-    <ul className="space-y-1.5 px-4 py-3">
+    <ul className="policy-services__action-list">
       {actions.map((action) => {
         const { verb, full } = policyActionLabel(action);
         return (
-          <li
-            key={full}
-            className="flex items-center gap-2.5 rounded-lg border border-zinc-200/80 bg-white px-3 py-2 shadow-sm shadow-zinc-950/[0.02]"
-          >
-            <span
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700"
-              aria-hidden
-            >
-              <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
+          <li key={full} className="policy-services__action-item">
+            <span className="policy-services__action-mark" aria-hidden>
+              +
             </span>
-            <span className="min-w-0 flex-1 font-mono text-[12px] leading-snug text-zinc-800" title={full}>
+            {prefix ? <span className="policy-services__action-prefix">{prefix}</span> : null}
+            <span className="policy-services__action-name" title={full}>
               {verb}
             </span>
           </li>
@@ -4645,17 +4671,15 @@ function PolicyDiffTabBar({
     { id: "services", label: "Services" },
   ];
   return (
-    <div className="flex gap-6 border-b border-zinc-200/90">
+    <div className="policy-review-tabs" role="tablist" aria-label="Policy review">
       {tabs.map(({ id, label }) => (
         <button
           key={id}
           type="button"
+          role="tab"
+          aria-selected={tab === id}
           onClick={() => onChange(id)}
-          className={`-mb-px border-b-2 pb-2.5 text-[13px] font-semibold transition-colors ${
-            tab === id
-              ? "border-indigo-600 text-indigo-700"
-              : "border-transparent text-zinc-500 hover:text-zinc-700"
-          }`}
+          className={`policy-review-tabs__tab ${tab === id ? "policy-review-tabs__tab--active" : ""}`}
         >
           {label}
         </button>
@@ -4716,21 +4740,18 @@ function PolicyDiffServiceBreakdown({
   const visible =
     variant === "preview" ? grouped.slice(0, POLICY_DIFF_SERVICE_PREVIEW) : grouped;
   const hiddenCount = Math.max(0, grouped.length - POLICY_DIFF_SERVICE_PREVIEW);
-  const [expandedService, setExpandedService] = useState<string | null>(() =>
-    variant === "full" && grouped[0] ? grouped[0].service : null,
-  );
+  const [expandedService, setExpandedService] = useState<string | null>(null);
 
   useEffect(() => {
-    if (variant !== "full" || grouped.length === 0) return;
     setExpandedService((prev) => {
-      if (prev && grouped.some((g) => g.service === prev)) return prev;
-      return grouped[0].service;
+      if (!prev) return null;
+      return grouped.some((g) => g.service === prev) ? prev : null;
     });
-  }, [variant, grouped]);
+  }, [grouped]);
 
   return (
-    <div className="space-y-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Service breakdown</p>
+    <div className="policy-services">
+      <p className="policy-services__label">Service breakdown</p>
       <div className="relative">
         <svg
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
@@ -4747,30 +4768,31 @@ function PolicyDiffServiceBreakdown({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search services…"
-          className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          className="policy-services__search"
         />
       </div>
-      <div className={`${drawerPanel} divide-y divide-zinc-100 overflow-hidden`}>
+      <div className="policy-services__list divide-y divide-zinc-100">
         {visible.length > 0 ? (
           visible.map(({ service, actions }) => {
             const open = expandedService === service;
+            const displayName = formatIamServiceDisplayName(service);
+            const servicePrefix = service.trim().toLowerCase();
             return (
               <div key={service}>
                 <button
                   type="button"
                   onClick={() => setExpandedService(open ? null : service)}
-                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition ${
-                    open ? "bg-indigo-50/60" : "hover:bg-zinc-50/90"
-                  }`}
+                  className={`policy-services__row-btn ${open ? "policy-services__row-btn--open" : ""}`}
                   aria-expanded={open}
                 >
-                  <AwsServiceIcon service={service} size={32} />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-zinc-900">{service}</span>
-                  <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-zinc-600">
-                    {actions.length}
+                  <AwsServiceIcon service={service} size={28} className="h-7 w-7 shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-zinc-200/80" />
+                  <span className="policy-services__service-name">{displayName}</span>
+                  <span className="policy-services__count">
+                    <strong>{actions.length}</strong>
+                    {actions.length === 1 ? " action" : " actions"}
                   </span>
                   <svg
-                    className={`h-4 w-4 shrink-0 text-zinc-400 transition ${open ? "rotate-180" : ""}`}
+                    className="policy-services__chevron"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2}
@@ -4781,18 +4803,16 @@ function PolicyDiffServiceBreakdown({
                   </svg>
                 </button>
                 {open && (
-                  <div className="border-t border-zinc-100 bg-zinc-50/80">
-                    <p className="px-4 pt-2.5 text-[11px] font-medium text-zinc-500">
-                      Scoped actions kept in the suggested policy
-                    </p>
-                    <PolicyScopedActionList actions={actions} />
+                  <div className="policy-services__detail">
+                    <p className="policy-services__detail-hint">Kept in the suggested policy</p>
+                    <PolicyScopedActionList actions={actions} servicePrefix={servicePrefix} />
                   </div>
                 )}
               </div>
             );
           })
         ) : (
-          <p className="px-4 py-6 text-center text-[13px] text-zinc-500">
+          <p className="policy-services__empty">
             {q ? `No services match “${query}”` : "No scoped actions to list."}
           </p>
         )}
@@ -4800,23 +4820,23 @@ function PolicyDiffServiceBreakdown({
           <button
             type="button"
             onClick={onShowAll}
-            className="flex w-full items-center gap-2 px-3 py-3 text-left text-[13px] font-medium text-indigo-700 transition hover:bg-indigo-50/50"
+            className="policy-services__row-btn text-indigo-700 hover:bg-indigo-50/40"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-zinc-500">
               +
             </span>
-            <span>
+            <span className="text-sm font-medium tracking-[-0.01em]">
               {hiddenCount} more service{hiddenCount !== 1 ? "s" : ""}
             </span>
-            <svg className="ml-auto h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <svg className="policy-services__chevron ml-auto text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
           </button>
         )}
       </div>
       {variant === "full" && diff.removed.includes("*") && (
-        <p className="text-[12px] leading-relaxed text-zinc-500">
-          Wildcard <span className="font-mono text-red-700">Action:*</span> was removed from the original policy.
+        <p className="policy-services__footnote">
+          Wildcard <code>Action:*</code> was removed from the original policy.
         </p>
       )}
     </div>
@@ -4837,7 +4857,7 @@ function PolicyDiffSuggestedPreview({
   isRefreshing?: boolean;
 }) {
   return (
-    <div className="relative space-y-4">
+    <div className="relative">
       {isRefreshing && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-zinc-950/40 backdrop-blur-[1px]">
           <span className="rounded-full bg-zinc-900/90 px-3 py-1.5 text-[12px] font-medium text-zinc-300">
@@ -4845,7 +4865,6 @@ function PolicyDiffSuggestedPreview({
           </span>
         </div>
       )}
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Suggested policy</p>
       <PolicyJsonEditor
         code={previewJson}
         downloadName={downloadName}
@@ -4909,11 +4928,13 @@ function SuggestedPolicyWorkspace({
   finding,
   cloudTrailLogging,
   showPolicyChangePane,
+  onCloseWorkspace,
 }: {
   accountId: string;
   finding: Finding;
   cloudTrailLogging: boolean;
   showPolicyChangePane: boolean;
+  onCloseWorkspace: () => void;
 }) {
   const [policySource, setPolicySource] = useState<"cleaned" | "original">("cleaned");
   const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedPolicy>({
@@ -4945,11 +4966,15 @@ function SuggestedPolicyWorkspace({
     data?.original_policies && Object.keys(data.original_policies).length === 1
       ? Object.values(data.original_policies)[0]
       : data?.original_policies;
-  const previewJson = JSON.stringify(
-    policySource === "cleaned" ? cleanedDoc : originalDoc,
-    null,
-    2,
-  );
+  const previewJson = useMemo(() => {
+    const doc = policySource === "cleaned" ? cleanedDoc : originalDoc;
+    if (doc == null) return "";
+    try {
+      return JSON.stringify(doc, null, 2);
+    } catch {
+      return "";
+    }
+  }, [policySource, cleanedDoc, originalDoc]);
 
   const actionDiff =
     data?.original_policies && data?.cleaned_policies
@@ -4961,7 +4986,8 @@ function SuggestedPolicyWorkspace({
       <PolicyWorkspacePaneShell
         title="Suggested policy"
         subtitle="Remediation"
-        className="min-w-0 flex-[1.05]"
+        className="min-w-0 flex-[1.1]"
+        onClose={onCloseWorkspace}
       >
         <RemediationDetailCard
           title="How this works"
@@ -5015,8 +5041,8 @@ function SuggestedPolicyWorkspace({
         <PolicyWorkspacePaneShell
           title="Suggested policy change"
           subtitle="Review policy"
-          className="min-w-0 flex-[1.15]"
-          bodySpacing="relaxed"
+          className="min-w-0 flex-[1]"
+          bodySpacing="roomy"
         >
           {Object.keys(data.cleaned_policies).map((policyName) => {
             const hint = policyRenameHint(policyName, finding.resource_arn, (data.statements_modified ?? 0) > 0);
@@ -5031,7 +5057,7 @@ function SuggestedPolicyWorkspace({
                     <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
                   </svg>
                 </span>
-                <p className="text-[13px] leading-relaxed text-indigo-950">{hint}</p>
+                <p className="policy-review-callout">{hint}</p>
               </div>
             );
           })}
@@ -5324,7 +5350,7 @@ function GeneratePolicySection({
                       <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
                     </svg>
                   </span>
-                  <p className="text-[13px] leading-relaxed text-indigo-950">{hint}</p>
+                  <p className="policy-review-callout">{hint}</p>
                 </div>
               );
             })}
@@ -6036,6 +6062,8 @@ export function FindingDrawer({
 }) {
   const prevCheckId = useRef<string | null>(null);
   const drawerSheetRef = useRef<HTMLDivElement>(null);
+  /** User closed the detail pane (X) — do not auto-reopen suggested policy. */
+  const remediationDetailDismissedRef = useRef(false);
   const [remDetailMode, setRemDetailMode] = useState<FindingRemediationMode | null>(null);
 
   const { data: accountMeta } = useQuery({
@@ -6079,9 +6107,11 @@ export function FindingDrawer({
   useEffect(() => {
     if (!finding) {
       prevCheckId.current = null;
+      remediationDetailDismissedRef.current = false;
       setRemDetailMode(null);
       return;
     }
+    remediationDetailDismissedRef.current = false;
     setRemDetailMode(null);
     const differentCheck =
       prevCheckId.current !== null && prevCheckId.current !== finding.check_id;
@@ -6100,11 +6130,18 @@ export function FindingDrawer({
     if (!finding || !accountId || tab !== "remediation") return;
     if (!ROLE_POLICY_GEN_CHECKS.has(finding.check_id)) return;
     if (remDetailMode !== null) return;
+    if (remediationDetailDismissedRef.current) return;
     setRemDetailMode("suggested_policy");
     onRemTabChange("suggested_policy");
   }, [finding?.id, finding?.check_id, accountId, tab, remDetailMode, onRemTabChange]);
 
+  const closeRemediationDetail = () => {
+    remediationDetailDismissedRef.current = true;
+    setRemDetailMode(null);
+  };
+
   const openRemediationDetail = (mode: FindingRemediationMode) => {
+    remediationDetailDismissedRef.current = false;
     onRemTabChange(mode);
     setRemDetailMode(mode);
   };
@@ -6212,6 +6249,8 @@ export function FindingDrawer({
     : policyWorkspaceSplit || remediationSplit
       ? DRAWER_WIDE_MAX_W
       : DRAWER_MAX_W;
+  const drawerWidthTransitionClass =
+    remediationSplit || policyWorkspaceSplit ? "transition-none" : "transition-[max-width] duration-200 ease-out";
 
   const overlay = (
     <>
@@ -6222,7 +6261,7 @@ export function FindingDrawer({
       />
       <div
         ref={drawerSheetRef}
-        className={`fixed top-0 right-0 bottom-0 z-[110] flex w-full flex-col overflow-hidden bg-white shadow-2xl transition-[max-width] duration-300 ease-out ${drawerWideClass}`}
+        className={`fixed top-0 right-0 bottom-0 z-[110] flex w-full flex-col overflow-hidden bg-white shadow-2xl ${drawerWidthTransitionClass} ${drawerWideClass}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="finding-drawer-title"
@@ -6431,7 +6470,7 @@ export function FindingDrawer({
           <div
             className={
               policyTriplePane
-                ? "grid min-h-0 flex-1 grid-cols-[minmax(280px,30%)_minmax(0,1fr)_minmax(0,1fr)] overflow-hidden border-t border-zinc-200/80"
+                ? DRAWER_POLICY_TRIPLE_GRID
                 : policyWorkspaceSplit
                   ? "grid min-h-0 flex-1 grid-cols-[minmax(280px,34%)_minmax(0,1fr)] overflow-hidden border-t border-zinc-200/80"
                   : remediationSplit
@@ -6442,7 +6481,9 @@ export function FindingDrawer({
             <div
               className={
                 remediationSplit
-                  ? "min-h-0 space-y-3 overflow-y-auto border-r border-zinc-200/90 bg-[#f7f9fc] px-4 py-4"
+                  ? `min-h-0 space-y-3 overflow-y-auto border-r border-zinc-200/90 bg-[#f7f9fc] py-4 ${
+                      policyTriplePane ? "px-5" : "px-4"
+                    }`
                   : "space-y-2.5"
               }
             >
@@ -6484,10 +6525,11 @@ export function FindingDrawer({
                 finding={finding}
                 cloudTrailLogging={cloudTrailLogging}
                 showPolicyChangePane={showPolicyChangePane}
+                onCloseWorkspace={closeRemediationDetail}
               />
             )}
             {remDetailMode && !policyWorkspaceSplit && (
-              <RemediationDetailPanel mode={remDetailMode} onClose={() => setRemDetailMode(null)}>
+              <RemediationDetailPanel mode={remDetailMode} onClose={closeRemediationDetail}>
                 {(isIdentityCheck || remDetailMode === "console") && (
                   <RemediationDetailCard title="Console steps">
                     <ol className="space-y-3.5">

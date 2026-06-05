@@ -576,6 +576,61 @@ export function awsServiceLabelForCheck(checkId: string): string {
   return labels[prefix] ?? prefix.charAt(0).toUpperCase() + prefix.slice(1);
 }
 
+/** Human-readable AWS service name for IAM action prefixes (policy Services tab). */
+const IAM_SERVICE_DISPLAY_NAMES: Record<string, string> = {
+  ACM: "Certificate Manager",
+  APIGATEWAY: "API Gateway",
+  AUTOSCALING: "Auto Scaling",
+  CLOUDFORMATION: "CloudFormation",
+  CLOUDFRONT: "CloudFront",
+  CLOUDTRAIL: "CloudTrail",
+  CLOUDWATCH: "CloudWatch",
+  CLOUDWATCHLOGS: "CloudWatch Logs",
+  CONFIG: "AWS Config",
+  DYNAMODB: "DynamoDB",
+  EC2: "EC2",
+  ECR: "ECR",
+  ECRPUBLIC: "ECR Public",
+  EKS: "EKS",
+  ELASTICACHE: "ElastiCache",
+  ELASTICBEANSTALK: "Elastic Beanstalk",
+  ELB: "Elastic Load Balancing",
+  ES: "OpenSearch",
+  EVENTBRIDGE: "EventBridge",
+  EVENTS: "EventBridge",
+  FIREHOSE: "Kinesis Data Firehose",
+  GUARDDUTY: "GuardDuty",
+  IAM: "IAM",
+  KINESIS: "Kinesis",
+  KMS: "KMS",
+  LAMBDA: "Lambda",
+  LOGS: "CloudWatch Logs",
+  ORGANIZATIONS: "Organizations",
+  RDS: "RDS",
+  ROUTE53: "Route 53",
+  ROUTE53DOMAINS: "Route 53 Domains",
+  S3: "S3",
+  SECRETSMANAGER: "Secrets Manager",
+  SECURITYHUB: "Security Hub",
+  SNS: "SNS",
+  SQS: "SQS",
+  SSM: "Systems Manager",
+  STS: "STS",
+  VPC: "VPC",
+};
+
+export function formatIamServiceDisplayName(serviceLabel: string): string {
+  const key = serviceLabel.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (IAM_SERVICE_DISPLAY_NAMES[key]) return IAM_SERVICE_DISPLAY_NAMES[key];
+  const lower = serviceLabel.trim().toLowerCase();
+  if (!lower) return serviceLabel;
+  return lower.replace(/(^|[^a-z0-9]+)([a-z0-9]+)/g, (_, sep, word) => {
+    const w = word as string;
+    if (w.length <= 4 && w === w.toUpperCase()) return (sep as string) + w.toUpperCase();
+    return (sep as string) + w.charAt(0).toUpperCase() + w.slice(1);
+  });
+}
+
 export type AssetTypePillEntry = { checkId: string; label: string };
 
 /** Unique asset type pills for a grouped findings row (stable order). */
