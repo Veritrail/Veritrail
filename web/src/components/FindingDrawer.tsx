@@ -3874,15 +3874,15 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
         <p className={drawerFieldLabel}>Source</p>
         <p className="mt-1 text-zinc-800">{data.source_label ?? "IAM last accessed"}</p>
       </div>
-      <p className="text-zinc-800">
-        {preserved.length > 0
-          ? "Vigil narrowed the full-admin policy to observed actions. Some services only returned service-level usage, so their wildcard permissions were preserved to avoid breaking the workload."
-          : observed > 0 && jobCompleted
+      {preserved.length === 0 && (
+        <p className="text-zinc-800">
+          {observed > 0 && jobCompleted
             ? `Vigil narrowed Action:* to ${observed} observed actions using IAM last-accessed and CloudTrail policy generation.`
             : observed > 0
               ? `Vigil narrowed the policy to ${observed} observed actions from IAM last-accessed data.`
               : "Review the suggested policy against your workload before applying."}
-      </p>
+        </p>
+      )}
       {observed > 0 && !cov.resources && (
         <p className="mt-2 text-zinc-600">
           {preserved.length > 0
@@ -4926,13 +4926,11 @@ function PolicyVisualDiffExplorer({
 function SuggestedPolicyWorkspace({
   accountId,
   finding,
-  cloudTrailLogging,
   showPolicyChangePane,
   onCloseWorkspace,
 }: {
   accountId: string;
   finding: Finding;
-  cloudTrailLogging: boolean;
   showPolicyChangePane: boolean;
   onCloseWorkspace: () => void;
 }) {
@@ -4946,17 +4944,6 @@ function SuggestedPolicyWorkspace({
     enabled: true,
     staleTime: 0,
   });
-
-  const rebuildAction = (
-    <button
-      type="button"
-      onClick={() => void refetch()}
-      disabled={isFetching}
-      className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60"
-    >
-      {isFetching ? "Refreshing…" : "Rebuild"}
-    </button>
-  );
 
   const cleanedDoc =
     data?.cleaned_policies && Object.keys(data.cleaned_policies).length === 1
@@ -4989,15 +4976,30 @@ function SuggestedPolicyWorkspace({
         className="min-w-0 flex-[1.1]"
         onClose={onCloseWorkspace}
       >
-        <RemediationDetailCard
-          title="How this works"
-          action={data || isLoading || isFetching ? rebuildAction : undefined}
-        >
-          <p className="text-[13px] leading-relaxed text-zinc-700">{generatePolicyIntro(cloudTrailLogging)}</p>
-        </RemediationDetailCard>
-        {isLoading && <p className="text-[13px] text-zinc-500">Building suggestion…</p>}
+        {isLoading && (
+          <div
+            className="flex min-h-[16rem] flex-col items-center justify-center gap-3 rounded-xl border border-zinc-200 bg-white px-6 py-12 text-center shadow-sm shadow-zinc-950/[0.03]"
+            role="status"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <svg className="h-6 w-6 animate-spin text-indigo-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <div>
+              <p className="text-[13px] font-semibold text-zinc-900">Building suggested policy</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">
+                Reviewing IAM access data and recent usage for this role.
+              </p>
+            </div>
+          </div>
+        )}
         {error && (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{String(error)}</p>
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] leading-relaxed text-red-700">
+            <p className="font-semibold text-red-800">Could not build suggested policy</p>
+            <p className="mt-1">{formatApiError(error)}</p>
+          </div>
         )}
         {data && (
           <>
@@ -5039,28 +5041,11 @@ function SuggestedPolicyWorkspace({
         data.cleaned_policies &&
         actionDiff && (
         <PolicyWorkspacePaneShell
-          title="Suggested policy change"
+          title="Generated policy"
           subtitle="Review policy"
           className="min-w-0 flex-[1]"
           bodySpacing="roomy"
         >
-          {Object.keys(data.cleaned_policies).map((policyName) => {
-            const hint = policyRenameHint(policyName, finding.resource_arn, (data.statements_modified ?? 0) > 0);
-            if (!hint) return null;
-            return (
-              <div
-                key={policyName}
-                className="flex gap-3 rounded-xl border border-indigo-200/90 bg-indigo-50/90 px-5 py-4 ring-1 ring-indigo-100"
-              >
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-                  </svg>
-                </span>
-                <p className="policy-review-callout">{hint}</p>
-              </div>
-            );
-          })}
           <PolicyVisualDiffExplorer
             diff={actionDiff}
             data={data}
@@ -6126,15 +6111,6 @@ export function FindingDrawer({
     if (tab !== "remediation") setRemDetailMode(null);
   }, [tab]);
 
-  useEffect(() => {
-    if (!finding || !accountId || tab !== "remediation") return;
-    if (!ROLE_POLICY_GEN_CHECKS.has(finding.check_id)) return;
-    if (remDetailMode !== null) return;
-    if (remediationDetailDismissedRef.current) return;
-    setRemDetailMode("suggested_policy");
-    onRemTabChange("suggested_policy");
-  }, [finding?.id, finding?.check_id, accountId, tab, remDetailMode, onRemTabChange]);
-
   const closeRemediationDetail = () => {
     remediationDetailDismissedRef.current = true;
     setRemDetailMode(null);
@@ -6142,7 +6118,6 @@ export function FindingDrawer({
 
   const openRemediationDetail = (mode: FindingRemediationMode) => {
     remediationDetailDismissedRef.current = false;
-    onRemTabChange(mode);
     setRemDetailMode(mode);
   };
 
@@ -6186,7 +6161,10 @@ export function FindingDrawer({
   const ssmExecSuccess =
     remediationExecution?.status === "success" ||
     Boolean((remediationExecution?.result as { ok?: boolean } | undefined)?.ok);
-  const ssmAutomationRemTab = remTab === "automation";
+  const savedRemediationMode =
+    remTab === "suggested_policy" ? defaultFindingRemediationMode(finding.check_id) : remTab;
+  const activeRemediationMode = remDetailMode ?? savedRemediationMode;
+  const ssmAutomationRemTab = activeRemediationMode === "automation";
   const verifyFooterMuted =
     ssmAutomationRemTab && !ssmExecSuccess && !verified && !verifying && !showReopenFooter;
 
@@ -6504,7 +6482,7 @@ export function FindingDrawer({
               ) : (
                 <>
                   <RemediationModePicker
-                    active={remDetailMode ?? remTab}
+                    active={activeRemediationMode}
                     onSelect={openRemediationDetail}
                     hideTerraform={SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
                     showSuggestedPolicy={showSuggestedPolicy}
@@ -6523,7 +6501,6 @@ export function FindingDrawer({
               <SuggestedPolicyWorkspace
                 accountId={accountId}
                 finding={finding}
-                cloudTrailLogging={cloudTrailLogging}
                 showPolicyChangePane={showPolicyChangePane}
                 onCloseWorkspace={closeRemediationDetail}
               />

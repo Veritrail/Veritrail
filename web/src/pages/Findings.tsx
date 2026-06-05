@@ -97,24 +97,24 @@ function SeverityIndicator({ severity }: { severity: string }) {
     "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium";
   if (severity === "critical") {
     return (
-      <span className={`${badgeClass} bg-red-50/80 text-red-700 ring-1 ring-red-200/45`}>
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/75" aria-hidden />
+      <span className={`${badgeClass} bg-red-50 text-red-800 ring-1 ring-red-300/70`}>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" aria-hidden />
         Critical
       </span>
     );
   }
   if (severity === "high") {
     return (
-      <span className={`${badgeClass} bg-amber-50/90 text-amber-800 ring-1 ring-amber-200/50`}>
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/80" aria-hidden />
+      <span className={`${badgeClass} bg-red-50/85 text-red-700 ring-1 ring-red-200/65`}>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/80" aria-hidden />
         High
       </span>
     );
   }
   if (severity === "medium") {
     return (
-      <span className={`${badgeClass} bg-zinc-100/90 text-zinc-600 ring-1 ring-zinc-200/70`}>
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400/80" aria-hidden />
+      <span className={`${badgeClass} bg-amber-50/90 text-amber-800 ring-1 ring-amber-200/70`}>
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500/85" aria-hidden />
         Medium
       </span>
     );
@@ -130,10 +130,12 @@ function SeverityIndicator({ severity }: { severity: string }) {
 function RiskScoreDisplay({ score, severity }: { score: number; severity: string }) {
   const styles =
     severity === "critical"
-      ? "bg-red-50 text-red-700 border-red-500 ring-red-100"
+      ? "bg-red-50 text-red-800 border-red-500 ring-red-200/70"
       : severity === "high"
-        ? "bg-amber-50 text-amber-800 border-amber-400 ring-amber-100"
-        : "bg-zinc-100 text-zinc-600 border-zinc-300 ring-zinc-200/70";
+        ? "bg-red-50/90 text-red-700 border-red-400 ring-red-200/60"
+        : severity === "medium"
+          ? "bg-amber-50 text-amber-800 border-amber-400 ring-amber-200/70"
+          : "bg-slate-50 text-slate-600 border-slate-300 ring-slate-200/70";
 
   return (
     <span
@@ -184,7 +186,7 @@ function FindingRow({
     >
       <div className="hidden w-5 shrink-0 items-center justify-center sm:flex">
         <svg
-          className="h-3.5 w-3.5 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-[#1f4e79]"
+          className="h-3.5 w-3.5 text-[var(--chevron)] transition group-hover:translate-x-0.5 group-hover:text-[var(--chevron-hover)]"
           fill="none"
           stroke="currentColor"
           strokeWidth={2.5}
@@ -496,40 +498,6 @@ export default function Findings() {
             <NotificationsBell />
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-[#e6ebf2] pb-3">
-            <div
-              className="inline-flex min-w-0 flex-wrap rounded-lg border border-[#e6ebf2] bg-[#f8fafc] p-0.5"
-              role="tablist"
-              aria-label="Benchmark scope"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={benchmarkFilter === "all"}
-                onClick={() => handleBenchmarkChange("all")}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                  benchmarkFilter === "all" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
-                }`}
-              >
-                All benchmarks
-              </button>
-              {FRAMEWORKS.map((fw) => (
-                <button
-                  key={fw.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={benchmarkFilter === fw.id}
-                  onClick={() => handleBenchmarkChange(fw.id)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
-                    benchmarkFilter === fw.id ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
-                  }`}
-                >
-                  {fw.label}
-                </button>
-              ))}
-            </div>
-
-          </div>
         </header>
 
         {isScanActive && (
@@ -588,11 +556,11 @@ export default function Findings() {
         {!q.isLoading && rows.length > 0 && (
           <section className="min-w-0">
             <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-[#eef2f6] bg-[#f8fafc]/80 px-4 py-3.5 sm:px-5">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="findings-v2-table-toolbar">
+                <div className="findings-v2-filter-cluster">
                   {status === "open" ? (
                     <div
-                      className="inline-flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-[#e6ebf2] bg-white p-1"
+                      className="findings-v2-severity-tabs"
                       role="tablist"
                       aria-label="Severity"
                     >
@@ -634,9 +602,9 @@ export default function Findings() {
                     <p className="text-sm font-semibold text-[#111827]">{statusTabLabels[status]}</p>
                   )}
 
-                  <div className="relative shrink-0">
-                    <label htmlFor="findings-status-filter" className="sr-only">
-                      Status
+	                  <div className="relative shrink-0">
+	                    <label htmlFor="findings-status-filter" className="sr-only">
+	                      Status
                     </label>
                     <select
                       id="findings-status-filter"
@@ -662,17 +630,59 @@ export default function Findings() {
                       viewBox="0 0 24 24"
                       aria-hidden
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
+	                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+	                    </svg>
+	                  </div>
+	                  <div className="relative shrink-0">
+	                    <label htmlFor="findings-benchmark-filter" className="sr-only">
+	                      Benchmark scope
+	                    </label>
+	                    <select
+	                      id="findings-benchmark-filter"
+	                      value={benchmarkFilter}
+	                      onChange={(e) => handleBenchmarkChange(e.target.value as BenchmarkFilter)}
+	                      className={`findings-v2-status-select min-w-[10.75rem] ${benchmarkFilter === "all" ? "pl-9" : ""}`}
+	                    >
+	                      <option value="all">All benchmarks</option>
+	                      {FRAMEWORKS.map((fw) => (
+	                        <option key={fw.id} value={fw.id}>
+	                          {fw.label}
+	                        </option>
+	                      ))}
+	                    </select>
+	                    {benchmarkFilter === "all" && (
+	                      <span
+	                        className="pointer-events-none absolute left-2.5 top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-md bg-blue-600 text-[9px] font-black leading-none text-white shadow-sm shadow-blue-600/20 ring-1 ring-blue-400/30"
+	                        aria-hidden
+	                      >
+	                        <svg className="absolute inset-0 h-full w-full" fill="none" viewBox="0 0 20 20" aria-hidden>
+	                          <path
+	                            d="M10 2.25 16 4.5v4.2c0 3.7-2.35 6.95-6 8.85-3.65-1.9-6-5.15-6-8.85V4.5l6-2.25Z"
+	                            fill="currentColor"
+	                          />
+	                        </svg>
+	                        <span className="relative">V</span>
+	                      </span>
+	                    )}
+	                    <svg
+	                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
+	                      fill="none"
+	                      stroke="currentColor"
+	                      strokeWidth={2}
+	                      viewBox="0 0 24 24"
+	                      aria-hidden
+	                    >
+	                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+	                    </svg>
+	                  </div>
+	                </div>
 
-                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:gap-3">
+                <div className="findings-v2-control-cluster">
                   <input
                     value={searchText}
                     onChange={(e) => handleSearch(e.target.value)}
                     placeholder="Search finding, ARN, resource…"
-                    className="h-8 min-w-[12rem] flex-1 basis-[12rem] rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
+                    className="findings-v2-search h-8 rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
                   />
                   <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
                     <button
@@ -709,7 +719,7 @@ export default function Findings() {
                       </button>
                     ))}
                   </div>
-                  <div className="findings-v2-toolbar-group">
+                  <div className="findings-v2-toolbar-group findings-v2-actions-group">
                     <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
