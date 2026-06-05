@@ -1,5 +1,76 @@
 /* Policy review — Services tab & scoped-action typography */
 
+.policy-workspace-pane {
+  animation: policy-workspace-pane-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+.policy-workspace-pane__body {
+  animation: policy-workspace-pane-body-enter 280ms cubic-bezier(0.16, 1, 0.3, 1) 70ms both;
+  will-change: opacity, transform;
+}
+
+.policy-workspace-pane--exit {
+  animation: policy-workspace-pane-exit 160ms cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
+.policy-workspace-pane--exit .policy-workspace-pane__body {
+  animation: policy-workspace-pane-body-exit 140ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes policy-workspace-pane-enter {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes policy-workspace-pane-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+@keyframes policy-workspace-pane-body-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes policy-workspace-pane-body-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .policy-workspace-pane,
+  .policy-workspace-pane__body {
+    animation: none;
+    will-change: auto;
+  }
+}
+
 .policy-review-tabs {
   display: flex;
   gap: 1.5rem;
@@ -118,6 +189,19 @@
 .policy-services__count strong {
   font-weight: 600;
   color: rgb(63 63 70);
+}
+
+.policy-services__preserved-badge {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 1px solid rgb(253 230 138);
+  background: rgb(255 251 235);
+  padding: 0.25rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  color: rgb(146 64 14);
 }
 
 .policy-services__chevron {

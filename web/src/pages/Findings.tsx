@@ -198,16 +198,95 @@ function RiskScoreDisplay({ score, severity }: { score: number; severity: string
   );
 }
 
-function joinResources(names: string[], limit = 72): { text: string; overflow: number } {
-  const shown: string[] = [];
-  let len = 0;
-  for (const n of names) {
-    const add = (shown.length ? 2 : 0) + n.length;
-    if (shown.length > 0 && len + add > limit) break;
-    shown.push(n);
-    len += add;
-  }
-  return { text: shown.join(", "), overflow: names.length - shown.length };
+type ResourceOption = {
+  key: string;
+  label: string;
+  finding: Finding;
+};
+
+function ResourcePicker({
+  options,
+  onSelect,
+}: {
+  options: ResourceOption[];
+  onSelect: (finding: Finding) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const target = e.target as Node;
+      if (pickerRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (options.length === 0) return null;
+
+  const summary = `${options.length} resource${options.length === 1 ? "" : "s"}`;
+
+  return (
+    <div
+      ref={pickerRef}
+      className="findings-v2-resource-picker"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        className={`findings-v2-resource-trigger ${open ? "is-open" : ""}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        title={options.length === 1 ? options[0].label : "Select resource"}
+      >
+        <span className="truncate">{summary}</span>
+        <svg
+          className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="findings-v2-resource-menu" role="menu" aria-label="Resources">
+          <div className="findings-v2-resource-menu-title">
+            {options.length === 1 ? "Resource" : `${options.length} resources`}
+          </div>
+          {options.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              role="menuitem"
+              className="findings-v2-resource-option"
+              title={option.label}
+              onClick={() => {
+                setOpen(false);
+                onSelect(option.finding);
+              }}
+            >
+              <span className="truncate font-mono">{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FindingRow({
@@ -222,16 +301,33 @@ function FindingRow({
   const sev = items[0]?.severity ?? "low";
   const title = checkLabels[checkId] ?? items[0]?.title ?? checkId;
   const topRisk = Math.max(...items.map((f) => f.risk_score));
-  const resources = joinResources(items.map((f) => shortArn(f.resource_arn)));
+  const resources = useMemo<ResourceOption[]>(() => {
+    const seen = new Set<string>();
+    return items.flatMap((finding) => {
+      const label = shortArn(finding.resource_arn);
+      if (seen.has(label)) return [];
+      seen.add(label);
+      return [{ key: `${finding.id}:${label}`, label, finding }];
+    });
+  }, [items]);
   const railClass =
     sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
       ? `findings-v2-row--${sev}`
       : "findings-v2-row--low";
+  const openGroup = () => onReview(items);
 
   return (
-    <button
-      type="button"
-      onClick={() => onReview(items)}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={openGroup}
+      onKeyDown={(event) => {
+        if (event.defaultPrevented) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openGroup();
+        }
+      }}
       aria-label={`Review ${title}, ${severityLabel(sev)}`}
       className={`findings-v2-row ${railClass} group grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 last:rounded-b-2xl sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4`}
     >
@@ -254,16 +350,13 @@ function FindingRow({
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
-        <p className="mt-1 flex items-center gap-1.5 text-[11.5px] leading-tight text-[#64748b]">
-          <span className="truncate font-mono font-medium">{resources.text}</span>
-          {resources.overflow > 0 && <span className="shrink-0 font-semibold text-[#94a3b8]">+{resources.overflow}</span>}
-        </p>
+        <ResourcePicker options={resources} onSelect={(finding) => onReview([finding])} />
       </div>
 
       <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-center">
         <RiskScoreDisplay score={topRisk} severity={sev} />
       </div>
-    </button>
+    </div>
   );
 }
 
