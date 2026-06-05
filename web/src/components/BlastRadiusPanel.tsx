@@ -286,10 +286,12 @@ function DecisionSection({
 
 export function RoleServiceUsageAnalysis({
   services,
+  showStats = true,
 }: {
   services: BlastRadiusService[];
   activeCount?: number;
   unusedCount?: number;
+  showStats?: boolean;
 }) {
   const { recentlyActive, historicallyUsed, likelySafe } = bucketServicesByUsage(services);
   const [explorerOpen, setExplorerOpen] = useState(false);
@@ -298,12 +300,14 @@ export function RoleServiceUsageAnalysis({
   return (
     <>
       <div className="space-y-2.5">
-        <ImpactUsageStats
-          granted={services.length}
-          recent={recentlyActive.length}
-          historical={historicallyUsed.length}
-          safe={likelySafe.length}
-        />
+        {showStats ? (
+          <ImpactUsageStats
+            granted={services.length}
+            recent={recentlyActive.length}
+            historical={historicallyUsed.length}
+            safe={likelySafe.length}
+          />
+        ) : null}
 
         <div className="space-y-2">
           <p className="impact-section-label px-0.5">Service usage</p>

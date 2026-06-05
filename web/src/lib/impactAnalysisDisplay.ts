@@ -43,7 +43,7 @@ export function impactConfidencePill(
   confidence: "high" | "medium" | "low",
   tone: ImpactTone,
 ): string {
-  if (tone === "safe") return "Safe";
+  if (tone === "safe") return "Low impact";
   if (confidence === "low") return "High impact";
   if (confidence === "medium") return "Review first";
   return "Proceed with caution";
@@ -58,17 +58,20 @@ export function impactVerdictCopy(
 
   if (data.resource_type === "iam_root" && tone === "safe") {
     return {
-      title: "Safe to remediate",
-      subtitle: "No application workloads affected — only the root account identity.",
+      title: "Low expected impact",
+      subtitle: "No application workloads affected — only the root account identity. Validate in non-prod before applying.",
     };
   }
 
   if (tone === "safe") {
     const first = verdict.text.split(/(?<=[.!])\s+/)[0]?.trim() ?? verdict.text;
     const rest = verdict.text.slice(first.length).trim();
+    const subtitle = first.endsWith(".") ? first : `${first}.`;
+    const needsValidation =
+      !/validate in non-prod/i.test(subtitle) && !/non-prod/i.test(subtitle);
     return {
-      title: "Safe to remediate",
-      subtitle: first.endsWith(".") ? first : `${first}.`,
+      title: "Low expected impact",
+      subtitle: needsValidation ? `${subtitle} Validate in non-prod before applying.` : subtitle,
       detail: rest || undefined,
     };
   }

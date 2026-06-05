@@ -69,8 +69,13 @@ import {
 import {
   ImpactAnalysisEmpty,
   ImpactAnalysisShell,
+  ImpactReportEmpty,
+  ImpactReportTabs,
+  ImpactUsageStats,
   ImpactVerdictCard,
+  type ImpactReportTab,
 } from "./ImpactAnalysisPanel";
+import { bucketServicesByUsage } from "../lib/blastRadiusDisplay";
 import {
   impactConfidencePill,
   impactVerdictCopy,
@@ -2939,9 +2944,11 @@ function BlastRadiusSection({
   finding: Finding;
 }) {
   const [enabled, setEnabled] = useState(false);
+  const [reportTab, setReportTab] = useState<ImpactReportTab>("usage");
 
   useEffect(() => {
     setEnabled(false);
+    setReportTab("usage");
   }, [finding.id, finding.check_id, finding.resource_arn]);
 
   const { data, isLoading, error } = useQuery<BlastRadiusData>({
@@ -2972,7 +2979,7 @@ function BlastRadiusSection({
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        <p className="text-xs text-zinc-500">Running impact analysis…</p>
+        <p className="text-xs text-zinc-500">Analyzing impact…</p>
       </div>
     );
   }
@@ -3050,6 +3057,23 @@ function BlastRadiusSection({
     return true;
   });
 
+  const iamRoleReport = data.resource_type === "iam_role";
+  const serviceStats =
+    iamRoleReport && data.services && data.services.length > 0
+      ? (() => {
+          const { recentlyActive, historicallyUsed, likelySafe } = bucketServicesByUsage(data.services);
+          return {
+            granted: data.services.length,
+            recent: recentlyActive.length,
+            historical: historicallyUsed.length,
+            safe: likelySafe.length,
+          };
+        })()
+      : null;
+  const hasTrust = Boolean(data.trust_principals && data.trust_principals.length > 0);
+  const rolePolicies = data.attached_policies?.filter((pol): pol is AttachedPolicyAnalysis => "action" in pol) ?? [];
+  const hasPolicies = rolePolicies.length > 0;
+
   return (
     <ImpactAnalysisShell>
       <ImpactVerdictCard
@@ -3060,6 +3084,73 @@ function BlastRadiusSection({
         pill={visualTone === "safe" ? undefined : impactPill}
       />
 
+      {iamRoleReport ? (
+        <>
+          {serviceStats ? <ImpactUsageStats {...serviceStats} /> : null}
+          <ImpactReportTabs active={reportTab} onChange={setReportTab} />
+          <div className="impact-report-panel">
+            {reportTab === "usage" ? (
+              data.services && data.services.length > 0 ? (
+                <RoleServiceUsageAnalysis
+                  services={data.services}
+                  activeCount={data.active_service_count}
+                  unusedCount={data.unused_service_count}
+                  showStats={false}
+                />
+              ) : (
+                <ImpactReportEmpty message="No service usage recorded for this role." />
+              )
+            ) : null}
+
+            {reportTab === "dependencies" ? (
+              hasTrust || hasPolicies ? (
+                <>
+                  {hasTrust ? <RoleTrustPrincipals principals={data.trust_principals!} /> : null}
+                  {hasPolicies ? (
+                    <RolePoliciesAnalysis
+                      policies={rolePolicies}
+                      renderConsoleLink={(pol) => (
+                        <ConsoleLink
+                          href={
+                            pol.action === "detach_and_replace"
+                              ? iamRolePermissionsConsoleUrl(finding.resource_arn)
+                              : iamPolicyConsoleUrl(pol.policy_arn)
+                          }
+                          title={
+                            pol.action === "detach_and_replace"
+                              ? "Open role permissions in AWS Console to detach this managed policy"
+                              : "Open policy in AWS Console to edit"
+                          }
+                        >
+                          {pol.action === "detach_and_replace" ? "Detach + replace" : "Edit policy"}
+                        </ConsoleLink>
+                      )}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <ImpactReportEmpty message="No trust principals or attached policies to review." />
+              )
+            ) : null}
+
+            {reportTab === "blast" ? (
+              <>
+                {infoRows.length > 0 ? <BlastRadiusConsiderations items={infoRows} tone="info" /> : null}
+                {warningRows.length > 0 ? <BlastRadiusConsiderations items={warningRows} tone="warning" /> : null}
+                <p className="text-[11px] text-zinc-500 px-0.5">
+                  {data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
+                    ? `Role last assumed ${data.days_since_last_assumed} days ago`
+                    : "Role has never been assumed"}
+                </p>
+                {infoRows.length === 0 && warningRows.length === 0 ? (
+                  <ImpactReportEmpty message="No breakage warnings identified for this remediation." />
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
       <div className="space-y-3">
         {data.resource_type === "vpc" && (
           <InfoNote>
@@ -3069,51 +3160,9 @@ function BlastRadiusSection({
           </InfoNote>
         )}
 
-        {infoRows.length > 0 && <BlastRadiusConsiderations items={infoRows} tone="info" />}
+        {infoRows.length > 0 && !iamRoleReport && <BlastRadiusConsiderations items={infoRows} tone="info" />}
 
-        {warningRows.length > 0 && <BlastRadiusConsiderations items={warningRows} tone="warning" />}
-
-        {data.resource_type === "iam_role" && data.services && data.services.length > 0 && (
-          <RoleServiceUsageAnalysis
-            services={data.services}
-            activeCount={data.active_service_count}
-            unusedCount={data.unused_service_count}
-          />
-        )}
-
-        {data.resource_type === "iam_role" && data.trust_principals && data.trust_principals.length > 0 && (
-          <RoleTrustPrincipals principals={data.trust_principals} />
-        )}
-
-        {data.resource_type === "iam_role" && data.attached_policies && data.attached_policies.length > 0 && (
-          <RolePoliciesAnalysis
-            policies={data.attached_policies.filter((pol): pol is AttachedPolicyAnalysis => "action" in pol)}
-            renderConsoleLink={(pol) => (
-              <ConsoleLink
-                href={
-                  pol.action === "detach_and_replace"
-                    ? iamRolePermissionsConsoleUrl(finding.resource_arn)
-                    : iamPolicyConsoleUrl(pol.policy_arn)
-                }
-                title={
-                  pol.action === "detach_and_replace"
-                    ? "Open role permissions in AWS Console to detach this managed policy"
-                    : "Open policy in AWS Console to edit"
-                }
-              >
-                {pol.action === "detach_and_replace" ? "Detach + replace" : "Edit policy"}
-              </ConsoleLink>
-            )}
-          />
-        )}
-
-        {data.resource_type === "iam_role" && (
-          <p className="text-[11px] text-zinc-500 px-0.5">
-            {data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
-              ? `Role last assumed ${data.days_since_last_assumed} days ago`
-              : "Role has never been assumed"}
-          </p>
-        )}
+        {warningRows.length > 0 && !iamRoleReport && <BlastRadiusConsiderations items={warningRows} tone="warning" />}
 
         {/* Access key: key list */}
         {data.resource_type === "iam_access_key" && data.keys && data.keys.length > 0 && (
