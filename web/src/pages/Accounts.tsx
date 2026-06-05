@@ -592,9 +592,19 @@ function AwsIcon({ className = "h-full w-full object-contain" }: { className?: s
       src={AWS_LOGO_LIGHT}
       alt=""
       aria-hidden
-      className={`rounded-xl object-contain ${className}`}
+      className={className}
       decoding="async"
     />
+  );
+}
+
+function AwsIconTile({ className }: { className?: string }) {
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-xl border border-zinc-200/90 bg-white p-3 shadow-sm shadow-zinc-950/[0.03] ${className ?? "h-[4.5rem] w-[4.5rem]"}`}
+    >
+      <AwsIcon className="h-full w-full" />
+    </div>
   );
 }
 
@@ -1733,9 +1743,7 @@ function FirstAccountOnboarding({
         <OnboardingFlowProgress activeStep={1} />
 
         <div className="mt-6 flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center">
-            <AwsIcon className="h-11 w-11" />
-          </div>
+          <AwsIconTile className="h-11 w-11 p-2" />
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
               Connect your AWS account
@@ -2734,9 +2742,7 @@ function AccountCard({
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
       <div className="flex items-center gap-4 px-5 py-4">
         <div className="flex min-w-0 flex-1 items-center gap-4">
-          <div className="flex w-[4.5rem] shrink-0 items-center justify-center">
-            <AwsIcon className="h-[4.5rem] w-full max-w-[4.5rem]" />
-          </div>
+          <AwsIconTile />
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-lg font-bold leading-tight text-zinc-900">{acc.label}</h2>
             {connected && acc.account_id ? (

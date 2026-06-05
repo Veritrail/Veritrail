@@ -15,6 +15,7 @@ import {
 import { isAccountConnected } from "../lib/accountConnection";
 import { AccountSelect } from "../components/AccountSelect";
 import NotificationsBell from "../components/NotificationsBell";
+import "../styles/findings-v2.css";
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
 
@@ -1276,13 +1277,9 @@ export default function Controls() {
                 onClick={() => setExportOpen((open) => !open)}
                 aria-expanded={exportOpen}
                 aria-haspopup="dialog"
-                className={`inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-4 py-2.5 text-sm font-semibold text-white transition-[box-shadow,transform,filter] duration-150 ${
-                  exportOpen
-                    ? "shadow-[0_2px_8px_-2px_rgba(99,102,241,0.5)]"
-                    : "shadow-[0_4px_14px_-3px_rgba(99,102,241,0.45)] hover:-translate-y-px hover:brightness-105 hover:shadow-[0_7px_20px_-3px_rgba(99,102,241,0.55)]"
-                }`}
+                className="findings-v2-toolbar-btn findings-v2-toolbar-btn--scan"
               >
-                <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Generate Audit Package

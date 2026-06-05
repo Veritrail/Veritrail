@@ -8,6 +8,7 @@ import {
   parseFrameworkParam,
   serializeFrameworkParam,
 } from "../components/BenchmarkFrameworkSelect";
+import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import NotificationsBell from "../components/NotificationsBell";
@@ -61,13 +62,6 @@ const severityTabs: { id: SeverityFilter; label: string; urgent?: boolean }[] = 
 ];
 type SortKey = "severity" | "score" | "first_seen";
 
-const statusTabs: StatusTab[] = ["open", "excepted", "resolved", "all"];
-const statusTabLabels: Record<StatusTab, string> = {
-  open: "Open",
-  excepted: "Exceptions",
-  resolved: "Resolved",
-  all: "All",
-};
 const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
 const SORT_OPTIONS: { id: SortKey; label: string }[] = [
@@ -99,7 +93,7 @@ function FindingsScanButton({
       type="button"
       onClick={() => onScan(connectedId)}
       disabled={scanTriggered || isRunning}
-      className="findings-v2-scan-btn findings-v2-scan-btn--header"
+      className="findings-v2-toolbar-btn findings-v2-toolbar-btn--scan"
     >
       {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
     </button>
@@ -460,7 +454,7 @@ export default function Findings() {
   const rows = useMemo(() => {
     const qtext = searchText.trim().toLowerCase();
     const arr = benchmarkScopedFindings.filter((f) => {
-      if (status === "open" && !matchesSeverityFilter(f, severityFilter)) return false;
+      if (!matchesSeverityFilter(f, severityFilter)) return false;
       if (searchTags.length > 0) {
         const matchesCheck = searchTags.some((tag) => {
           if (f.check_id === tag) return true;
@@ -504,7 +498,6 @@ export default function Findings() {
 
   const severityCounts = useMemo(() => {
     const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0 };
-    if (status !== "open") return counts;
     for (const f of benchmarkScopedFindings) {
       counts.all += 1;
       if (f.severity === "critical") counts.critical += 1;
@@ -513,7 +506,7 @@ export default function Findings() {
       else if (f.severity === "low") counts.low += 1;
     }
     return counts;
-  }, [benchmarkScopedFindings, status]);
+  }, [benchmarkScopedFindings]);
 
   function openReview(items: Finding[]) {
     const top = items.reduce((best, f) => (f.risk_score > best.risk_score ? f : best), items[0]);
@@ -660,101 +653,57 @@ export default function Findings() {
 
         {q.isLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
 
-        {!q.isLoading && rows.length === 0 && (
-          <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-16 text-center shadow-sm">
-            <p className="text-sm font-semibold text-zinc-700">
-              {searchTags.length > 0
-                ? "No findings match the selected checks"
-                : selectedFrameworks.length > 0
-                  ? `No findings for ${benchmarkSelectionLabel(selectedFrameworks)}`
-                  : emptyFindingsLabel(status)}
-            </p>
-            <p className="mt-1 text-xs text-zinc-400">{status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}</p>
-          </div>
-        )}
-
-        {!q.isLoading && rows.length > 0 && (
+        {!q.isLoading && (
           <section className="min-w-0">
             <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
               <div className="findings-v2-table-toolbar">
                 <div className="findings-v2-filter-cluster">
-                  {status === "open" ? (
-                    <div
-                      className="findings-v2-severity-tabs"
-                      role="tablist"
-                      aria-label="Severity"
-                    >
-                      {severityTabs.map((tab) => {
-                        const isSelected = severityFilter === tab.id;
-                        const count = severityCounts[tab.id];
-                        const showUrgent = tab.urgent && count > 0;
-                        return (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={isSelected}
-                            onClick={() => setSeverityFilter(tab.id)}
-                            className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
-                              isSelected
-                                ? "bg-[#f8fafc] text-[#1f4e79] ring-1 ring-[#dce3ec]"
-                                : "text-[#6b7280] hover:bg-[#f8fafc] hover:text-[#111827]"
-                            }`}
+                  <div
+                    className="findings-v2-severity-tabs"
+                    role="tablist"
+                    aria-label="Severity"
+                  >
+                    {severityTabs.map((tab) => {
+                      const isSelected = severityFilter === tab.id;
+                      const count = severityCounts[tab.id];
+                      const showUrgent = tab.urgent && count > 0;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={isSelected}
+                          onClick={() => setSeverityFilter(tab.id)}
+                          className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
+                            isSelected
+                              ? "bg-[#f8fafc] text-[#1f4e79] ring-1 ring-[#dce3ec]"
+                              : "text-[#6b7280] hover:bg-[#f8fafc] hover:text-[#111827]"
+                          }`}
+                        >
+                          {tab.label}
+                          <span
+                            className={
+                              showUrgent && !isSelected
+                                ? "text-red-500/90"
+                                : isSelected
+                                  ? "text-[#1f4e79]/70"
+                                  : "text-[#98a2b3]"
+                            }
                           >
-                            {tab.label}
-                            <span
-                              className={
-                                showUrgent && !isSelected
-                                  ? "text-red-500/90"
-                                  : isSelected
-                                    ? "text-[#1f4e79]/70"
-                                    : "text-[#98a2b3]"
-                              }
-                            >
-                              {" "}
-                              · {count}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-sm font-semibold text-[#111827]">{statusTabLabels[status]}</p>
-                  )}
+                            {" "}
+                            · {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
 
                   <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
-                  <div className="relative shrink-0">
-                    <label htmlFor="findings-status-filter" className="sr-only">
-                      Status
-                    </label>
-                    <select
-                      id="findings-status-filter"
-                      value={status}
-                      onChange={(e) => {
-                        const next = e.target.value as StatusTab;
-                        setStatus(next);
-                        if (next !== "open") setSeverityFilter("all");
-                      }}
-                      className="findings-v2-status-select"
-                    >
-                      {statusTabs.map((s) => (
-                        <option key={s} value={s}>
-                          {statusTabLabels[s]}
-                        </option>
-                      ))}
-                    </select>
-                    <svg
-                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                      aria-hidden
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-	                </div>
+                  <FindingsStatusSelect
+                    value={status}
+                    onChange={setStatus}
+                  />
+                </div>
 
                 <div className="findings-v2-control-cluster">
                   <input
@@ -811,21 +760,38 @@ export default function Findings() {
                 </div>
               </div>
 
-              <div
-                className="findings-v2-col-head hidden sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4"
-                role="row"
-              >
-                <span className="w-5" aria-hidden />
-                <span className="w-[5.5rem]">Severity</span>
-                <span>Finding</span>
-                <span className="w-16 text-center">Risk</span>
-              </div>
+              {rows.length === 0 ? (
+                <div className="px-6 py-16 text-center">
+                  <p className="text-sm font-semibold text-zinc-700">
+                    {searchTags.length > 0
+                      ? "No findings match the selected checks"
+                      : selectedFrameworks.length > 0
+                        ? `No findings for ${benchmarkSelectionLabel(selectedFrameworks)}`
+                        : emptyFindingsLabel(status)}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    {status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div
+                    className="findings-v2-col-head hidden sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4"
+                    role="row"
+                  >
+                    <span className="w-5" aria-hidden />
+                    <span className="w-[5.5rem]">Severity</span>
+                    <span>Finding</span>
+                    <span className="w-16 text-center">Risk</span>
+                  </div>
 
-              <div className="divide-y divide-[#eef2f6]">
-                {displayGroups.map(([checkId, items]) => (
-                  <FindingRow key={checkId} checkId={checkId} items={items} onReview={openReview} />
-                ))}
-              </div>
+                  <div className="divide-y divide-[#eef2f6]">
+                    {displayGroups.map(([checkId, items]) => (
+                      <FindingRow key={checkId} checkId={checkId} items={items} onReview={openReview} />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </section>
         )}
