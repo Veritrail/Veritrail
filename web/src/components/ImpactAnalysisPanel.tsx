@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ImpactTone } from "../lib/impactAnalysisDisplay";
 import "../styles/impact-analysis.css";
+import "../styles/findings-v2.css";
 
 export function ImpactAnalysisShell({ children }: { children: ReactNode }) {
   return (
@@ -36,7 +37,7 @@ export function ImpactAnalysisEmpty({ onRun }: { onRun: () => void }) {
             </div>
             <h3 className="mt-2.5 text-lg font-bold tracking-tight text-zinc-900">What happens if we fix this?</h3>
           </div>
-          <button type="button" onClick={onRun} className="impact-analyse-button shrink-0 gap-1.5">
+          <button type="button" onClick={onRun} className="findings-v2-toolbar-btn findings-v2-toolbar-btn--scan shrink-0">
             <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
             </svg>

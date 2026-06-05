@@ -123,7 +123,11 @@ export function findingScopeProvider(f: {
 
 /** Display name for the Account column — AWS account alias or Git org/group. */
 export function findingScopeDisplayName(
-  f: FindingLike & { account_name?: string | null; account_label?: string | null },
+  f: FindingLike & {
+    account_id?: string | null;
+    account_name?: string | null;
+    account_label?: string | null;
+  },
   awsAccountsById?: Map<string, { label?: string | null; account_id?: string | null; account_name?: string | null }>,
 ): string {
   const provider = findingScopeProvider(f);

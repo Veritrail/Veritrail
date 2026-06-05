@@ -83,6 +83,8 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
         "collect_dynamodb",
         "collect_sns",
         "collect_sqs",
+        "collect_ecr",
+        "collect_eks",
     }
     for name in dict_collectors:
         if name == "collect_ec2":

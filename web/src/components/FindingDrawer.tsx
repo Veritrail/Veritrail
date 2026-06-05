@@ -208,7 +208,7 @@ const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
   cli: "CLI",
   terraform: "Terraform",
   automation: "Automated fix",
-  suggested_policy: "Least-privilege",
+  suggested_policy: "Suggested policy",
 };
 
 function RemediationModeIcon({ mode }: { mode: RemediationMode }) {
@@ -304,18 +304,23 @@ function RemediationModePicker({
 
 function SuggestedRemediationSummary({
   rem,
+  policyMode = false,
 }: {
   rem: Remediation;
+  policyMode?: boolean;
 }) {
+  const summary = policyMode
+    ? "Replace full-admin access with a scoped least-privilege policy generated from observed usage."
+    : rem.why;
+
   return (
-    <div className="rounded-xl border border-[#e7ecf3] bg-white/95 px-4 py-3.5 shadow-sm shadow-zinc-950/[0.025]">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="h-1.5 w-1.5 rounded-full bg-indigo-400/70" aria-hidden />
-        <h3 className="text-[12px] font-semibold tracking-[-0.01em] text-zinc-700">Recommended fix</h3>
+    <div className={`${drawerPanel} overflow-hidden`}>
+      <div className={drawerSectionHead}>
+        <h3 className={drawerSectionTitle}>Suggested remediation</h3>
       </div>
-      <div className="space-y-2">
-        <p className="text-[13px] leading-relaxed text-zinc-600">{rem.why}</p>
-        {rem.risk ? <p className="text-[12px] leading-relaxed text-zinc-500">{rem.risk}</p> : null}
+      <div className={`${drawerSectionBody} space-y-2`}>
+        <p className="text-[13px] leading-relaxed text-zinc-600">{summary}</p>
+        {!policyMode && rem.risk ? <p className="text-[12px] leading-relaxed text-zinc-500">{rem.risk}</p> : null}
       </div>
     </div>
   );
@@ -3869,7 +3874,7 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
   ) : null;
 
   return (
-    <RemediationDetailCard title="Policy rationale" action={confidenceBadge}>
+    <RemediationDetailCard title="Generation summary" action={confidenceBadge}>
       <div className="flex flex-wrap gap-2">
         <span
           className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
@@ -5136,11 +5141,6 @@ function SuggestedPolicyWorkspace({
               cloudTrailLogging={cloudTrailLogging}
               onRefresh={() => void refetch()}
             />
-            {!data.has_inline_policies && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
-                {data.note ?? "No inline policies found. Permissions come from attached managed policies."}
-              </div>
-            )}
             {data.has_inline_policies && data.cleaned_policies && !canReviewGeneratedPolicy && !showPolicyChangePane && (
               <RemediationDetailCard title="Policy preview">
                 <PolicyJsonEditor
@@ -5352,11 +5352,6 @@ function GeneratePolicySection({
           />
         </>
       )}
-      {enabled && data && !data.has_inline_policies && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900">
-          {data.note ?? "No inline policies found. Permissions come from attached managed policies."}
-        </div>
-      )}
       {enabled && data && data.has_inline_policies && data.original_policies && data.cleaned_policies && (
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -5453,11 +5448,6 @@ function GeneratePolicySection({
               onRefresh={() => void refetch()}
             />
           </>
-        )}
-        {enabled && data && !data.has_inline_policies && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
-            {data.note ?? "No inline policies found. Permissions come from attached managed policies."}
-          </div>
         )}
         {enabled && data && data.has_inline_policies && data.original_policies && data.cleaned_policies && (
           <RemediationDetailCard
@@ -6626,7 +6616,10 @@ export function FindingDrawer({
                   : "space-y-2.5"
               }
             >
-              <SuggestedRemediationSummary rem={rem} />
+              <SuggestedRemediationSummary
+                rem={rem}
+                policyMode={remDetailMode === "suggested_policy" && showPolicyGen}
+              />
               {isIdentityCheck ? (
                 <div className={`${drawerPanel} overflow-hidden`}>
                   <div className={drawerSectionBody}>
@@ -6651,7 +6644,7 @@ export function FindingDrawer({
                   {!remDetailMode && (
                     <p className="px-1 text-[12px] leading-relaxed text-zinc-500">
                       {showSuggestedPolicy
-                        ? "Pick a format — including Least-privilege for a scoped diff from recorded usage."
+                        ? "Pick a format — including Suggested policy for a scoped diff from recorded usage."
                         : "Pick a format to open step-by-step instructions alongside this summary."}
                     </p>
                   )}
