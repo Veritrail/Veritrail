@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { AccountSelect, LastScanChip } from "../components/AccountSelect";
+import { AccountSelect } from "../components/AccountSelect";
 import {
   BenchmarkFrameworkSelect,
   benchmarkSelectionLabel,
@@ -399,7 +399,6 @@ export default function Findings() {
     (selectedAccountId && connectedAccounts.some((a) => a.id === selectedAccountId)
       ? selectedAccountId
       : connectedAccounts[0]?.id) || "";
-  const selectedAccount = connectedAccounts.find((a) => a.id === effectiveAccountId) ?? connectedAccounts[0];
   const connectedId = effectiveAccountId || undefined;
 
   const q = useQuery({
@@ -414,8 +413,6 @@ export default function Findings() {
     connectedId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
   );
-
-  const lastScanAt = selectedAccount?.last_scan_at ?? scanRun.data?.finished_at ?? null;
 
   useEffect(() => {
     if (!(scanStatus === "error" && scanRun.data?.error)) return;
@@ -636,11 +633,6 @@ export default function Findings() {
             <div className="findings-v2-page-meta">
               {connectedAccounts.length > 0 && (
                 <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
-              )}
-              {lastScanAt ? (
-                <LastScanChip iso={lastScanAt} />
-              ) : (
-                <span className="findings-v2-scan-placeholder">No scan yet</span>
               )}
             </div>
             {connectedId && (

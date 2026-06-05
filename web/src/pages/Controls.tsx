@@ -13,7 +13,7 @@ import {
   showControlEvidenceSection,
 } from "../lib/frameworkEvidenceCoverage";
 import { isAccountConnected } from "../lib/accountConnection";
-import { AccountSelect, LastScanChip } from "../components/AccountSelect";
+import { AccountSelect } from "../components/AccountSelect";
 import NotificationsBell from "../components/NotificationsBell";
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
@@ -1238,7 +1238,6 @@ export default function Controls() {
               {connectedAccounts.length > 0 && activeAccount && (
                 <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
               )}
-              {activeAccount?.last_scan_at && <LastScanChip iso={activeAccount.last_scan_at} />}
             </div>
           </div>
           <NotificationsBell />

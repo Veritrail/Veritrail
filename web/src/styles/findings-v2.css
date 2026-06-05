@@ -41,20 +41,6 @@
   min-width: 0;
 }
 
-.findings-v2-scan-placeholder {
-  display: inline-flex;
-  height: 2.25rem;
-  align-items: center;
-  border-radius: 9999px;
-  border: 1px solid var(--fv-ghost-border);
-  background: #fff;
-  padding: 0 0.875rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--fv-meta);
-}
-
 .findings-v2-status-select {
   display: block;
   height: 2.375rem;

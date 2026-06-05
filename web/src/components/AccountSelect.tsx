@@ -20,7 +20,7 @@ function AwsMark({ className }: { className?: string }) {
     <img
       src="/aws-account-icon.png"
       alt=""
-      className={`${className ?? ""} object-contain object-left`}
+      className={`${className ?? "h-[1.125rem] w-[2.25rem]"} shrink-0 object-contain object-left`}
       aria-hidden
       onError={(e) => {
         e.currentTarget.onerror = null;
@@ -131,9 +131,9 @@ export function AccountSelect({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`${CONTEXT_PILL} min-w-[12.5rem] max-w-[16rem] cursor-pointer text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
+        className={`${CONTEXT_PILL} max-w-[16rem] cursor-pointer text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
       >
-        <ProviderMark provider={current.provider} className="h-[1.125rem] w-[2.25rem] shrink-0" />
+        <ProviderMark provider={current.provider} className="h-[1.125rem] w-[2.25rem]" />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none tracking-[-0.02em] text-zinc-900">
           {current.label || groupAccountId(current.account_id ?? "")}
         </span>
