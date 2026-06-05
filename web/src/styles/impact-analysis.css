@@ -64,18 +64,8 @@
   margin-bottom: 6px;
 }
 
-.impact-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 4px;
-}
-
 .impact-empty-title {
-  min-width: 0;
-  flex: 1;
-  margin: 0;
+  margin: 0 0 4px;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -107,45 +97,60 @@
 }
 
 .impact-empty-lead {
-  margin: 0 0 20px;
+  margin: 0;
   font-size: 13px;
   font-weight: 400;
   line-height: 1.45;
   color: #5f6673;
 }
 
+.impact-empty-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 22px;
+}
+
 .impact-capability-grid {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 24px;
-  margin-top: 0;
+  gap: 32px;
+  min-width: 0;
+  flex: 1;
 }
 
 .impact-capability-tile {
-  display: flex;
+  display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 0;
 }
 
 .impact-capability-tile-icon {
-  display: flex;
-  height: 24px;
-  width: 24px;
-  shrink: 0;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #8b95a7;
+}
+
+.impact-capability-tile-icon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
 }
 
 .impact-capability-tile-title {
-  margin: 0;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 16px;
   letter-spacing: -0.01em;
-  color: #344054;
+  color: #475467;
 }
 
 .impact-report-tabs {
@@ -197,9 +202,10 @@
 }
 
 @media (max-width: 640px) {
-  .impact-title-row {
+  .impact-empty-footer {
     flex-direction: column;
     align-items: stretch;
+    gap: 16px;
   }
 
   .impact-capability-grid {
