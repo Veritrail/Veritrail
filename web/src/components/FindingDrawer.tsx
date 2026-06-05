@@ -208,7 +208,7 @@ const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
   cli: "CLI",
   terraform: "Terraform",
   automation: "Automated fix",
-  suggested_policy: "Suggested policy",
+  suggested_policy: "Least-privilege",
 };
 
 function RemediationModeIcon({ mode }: { mode: RemediationMode }) {
@@ -311,7 +311,7 @@ function SuggestedRemediationSummary({
     <div className="rounded-xl border border-[#e7ecf3] bg-white/95 px-4 py-3.5 shadow-sm shadow-zinc-950/[0.025]">
       <div className="mb-2 flex items-center gap-2">
         <span className="h-1.5 w-1.5 rounded-full bg-indigo-400/70" aria-hidden />
-        <h3 className="text-[12px] font-semibold tracking-[-0.01em] text-zinc-700">Suggested remediation</h3>
+        <h3 className="text-[12px] font-semibold tracking-[-0.01em] text-zinc-700">Recommended fix</h3>
       </div>
       <div className="space-y-2">
         <p className="text-[13px] leading-relaxed text-zinc-600">{rem.why}</p>
@@ -927,11 +927,11 @@ aws iam delete-role --role-name <role-name>`,
   "iam.role.wildcard_action": {
     why: 'Action: "*" in an inline policy is admin-like unless constrained by resource, condition, or permissions boundary. It should be reviewed and scoped to the actions the role actually needs.',
     console: [
-      'Use "Suggested policy" above (Generate) to preview a scoped policy from recorded usage',
+      'Use "Least-privilege proposal" above (Generate) to preview a scoped policy from recorded usage',
       "Open IAM → Roles → select the role → Permissions → edit or replace the inline policy",
       "Apply the generated policy document, then verify the workload",
     ],
-    cli: `# Option A — use Suggested policy (Generate) in this drawer, then:
+    cli: `# Option A — use Least-privilege proposal (Generate) in this drawer, then:
 aws iam put-role-policy --role-name <role-name> --policy-name <policy-name> --policy-document file://scoped-policy.json
 
 # Option B — review inline policy manually
@@ -944,7 +944,7 @@ aws iam get-role-policy --role-name <role-name> --policy-name <policy-name>`,
       "Open IAM → Roles → select the role → Permissions tab",
       "Review the actions listed in the finding evidence",
       "For each unused action, remove it from the role's inline or attached policies",
-      'Use "Suggested policy" above (Generate) to preview a least-privilege policy from recorded usage',
+      'Use "Least-privilege proposal" above (Generate) to preview a least-privilege policy from recorded usage',
       "Test the workload after each change to confirm functionality",
     ],
     cli: `# View current role policy
@@ -1092,7 +1092,7 @@ aws s3api put-public-access-block \\
   "s3.bucket.no_https_policy": {
     why: "A deny-HTTP bucket policy is defense in depth — it blocks the rare client that still uses http:// even though AWS SDKs, CLI, and Terraform default to HTTPS. Auditors often expect this as evidence of encryption in transit.",
     console: [
-      "Remediation tab → Suggested policy → Generate (reads live bucket policy from AWS)",
+      "Remediation tab → Least-privilege proposal → Generate (reads live bucket policy from AWS)",
       "Open S3 → select the bucket → Permissions → Bucket policy",
       "Paste the merged policy from Generate → Save",
     ],
@@ -1868,7 +1868,7 @@ aws configservice start-configuration-recorder --configuration-recorder-name def
     risk: "Access reviews and evidence packs may omit principals until inventory is complete.",
   },
   "iam.role.full_admin_policy": {
-    why: "Use Suggested policy to replace full-admin access with a scoped policy from observed usage.",
+    why: "Use the least-privilege proposal to replace full-admin access with a scoped policy from observed usage.",
     console: [
       "Open IAM → Roles → select the role",
       "Review inline and customer-managed attached policies",
@@ -2252,7 +2252,7 @@ function generatePolicyIntro(cloudTrailLogging: boolean) {
   const build =
     "Build suggestion uses IAM last-accessed data and, when available, the latest completed AWS CloudTrail policy-generation job for this role. It does not start a new AWS analysis.";
   const resource = cloudTrailLogging
-    ? "Use “Start CloudTrail analysis” below when you need a fresher job; resource ARNs are only applied when AWS returns concrete (non-template) ARNs."
+    ? "Use CloudTrail validation below when you need a fresher job; resource ARNs are only applied when AWS returns concrete (non-template) ARNs."
     : "Without CloudTrail logging, action scope comes from IAM last-accessed only; resources stay *.";
   return `${build} ${resource}`;
 }
@@ -3856,7 +3856,7 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
         ? "AWS reported recent usage for these services but did not return action or resource-level detail for this role."
         : observed > 0
           ? "AWS returned observed action usage and apply-ready resource detail for this role."
-          : "Review the suggested policy against your workload before applying.";
+          : "Review the least-privilege proposal against your workload before applying.";
 
   const confidenceBadge = data.confidence ? (
     <span
@@ -3869,7 +3869,7 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
   ) : null;
 
   return (
-    <RemediationDetailCard title="Analysis" action={confidenceBadge}>
+    <RemediationDetailCard title="Policy rationale" action={confidenceBadge}>
       <div className="flex flex-wrap gap-2">
         <span
           className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
@@ -5008,7 +5008,7 @@ function PolicyVisualDiffExplorer({
 }
 
 function SuggestedPolicyLoadingCard({
-  title = "Building suggested policy",
+  title = "Building least-privilege proposal",
   description = "Reviewing IAM access data and recent usage for this role.",
 }: {
   title?: string;
@@ -5032,24 +5032,14 @@ function SuggestedPolicyLoadingCard({
   );
 }
 
-function GeneratedPolicyReviewPrompt({ onOpen }: { onOpen: () => void }) {
+function ReviewPolicyButton({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="group flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3.5 text-left shadow-sm shadow-zinc-950/[0.025] transition hover:border-indigo-200 hover:bg-indigo-50/40"
+      className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#d8e0ec] bg-white px-3.5 py-2 text-[11px] font-semibold text-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc]"
     >
-      <div className="min-w-0">
-        <p className="text-[13px] font-semibold tracking-[-0.01em] text-zinc-900">Review generated policy</p>
-        <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
-          Open the cleaned JSON and service breakdown when you are ready to inspect the change.
-        </p>
-      </div>
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-400 transition group-hover:border-indigo-200 group-hover:text-indigo-700">
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
-        </svg>
-      </span>
+      Review policy
     </button>
   );
 }
@@ -5117,16 +5107,21 @@ function SuggestedPolicyWorkspace({
   return (
     <>
       <PolicyWorkspacePaneShell
-        title="Suggested policy"
+        title="Least-privilege proposal"
         subtitle="Remediation"
         className="min-w-0 flex-[1.1]"
         onClose={onCloseWorkspace}
-        closeLabel="Close suggested policy"
+        closeLabel="Close least-privilege proposal"
+        action={
+          canReviewGeneratedPolicy && !showPolicyChangePane ? (
+            <ReviewPolicyButton onOpen={onOpenPolicyChangePane} />
+          ) : null
+        }
       >
         {preparingPolicy && <SuggestedPolicyLoadingCard />}
         {error && !preparingPolicy && (
           <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] leading-relaxed text-red-700">
-            <p className="font-semibold text-red-800">Could not build suggested policy</p>
+            <p className="font-semibold text-red-800">Could not build least-privilege proposal</p>
             <p className="mt-1">{formatSuggestedPolicyError(error)}</p>
           </div>
         )}
@@ -5145,9 +5140,6 @@ function SuggestedPolicyWorkspace({
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
                 {data.note ?? "No inline policies found. Permissions come from attached managed policies."}
               </div>
-            )}
-            {canReviewGeneratedPolicy && !showPolicyChangePane && (
-              <GeneratedPolicyReviewPrompt onOpen={onOpenPolicyChangePane} />
             )}
             {data.has_inline_policies && data.cleaned_policies && !canReviewGeneratedPolicy && !showPolicyChangePane && (
               <RemediationDetailCard title="Policy preview">
@@ -5250,8 +5242,8 @@ function PolicyCloudTrailStartAction({
     <div className={`${drawerPanel} overflow-hidden shadow-sm shadow-zinc-900/[0.03]`}>
       <div className={`${drawerSectionHead} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="min-w-0">
-          <h4 className={drawerSectionTitle}>CloudTrail analysis</h4>
-          <p className="mt-0.5 text-[12px] text-zinc-500">~15 min · resource ARNs · IAM unchanged until you apply</p>
+          <h4 className={drawerSectionTitle}>CloudTrail validation</h4>
+          <p className="mt-0.5 text-[12px] text-zinc-500">~15 min · checks resource ARNs · IAM unchanged until you apply</p>
         </div>
         {!inProgress && !needsTrailSetup && (
           <button
@@ -5260,7 +5252,7 @@ function PolicyCloudTrailStartAction({
             onClick={start}
             className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#d8e0ec] bg-white px-3.5 py-2 text-[11px] font-semibold text-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? "Starting…" : "Start analysis"}
+            {busy ? "Starting…" : "Run analysis"}
           </button>
         )}
         {needsTrailSetup && (
@@ -5525,7 +5517,7 @@ function GeneratePolicySection({
 
   return (
     <DrawerSection
-      title="Suggested policy"
+      title="Least-privilege proposal"
       action={
         !enabled ? (
           <button
@@ -5716,7 +5708,7 @@ function GenerateS3HttpsPolicySection({
 
   return (
     <DrawerSection
-      title="Suggested policy"
+      title="Least-privilege proposal"
       action={
         !enabled ? (
           <button
@@ -6659,7 +6651,7 @@ export function FindingDrawer({
                   {!remDetailMode && (
                     <p className="px-1 text-[12px] leading-relaxed text-zinc-500">
                       {showSuggestedPolicy
-                        ? "Pick a format — including Suggested policy for a scoped diff from recorded usage."
+                        ? "Pick a format — including Least-privilege for a scoped diff from recorded usage."
                         : "Pick a format to open step-by-step instructions alongside this summary."}
                     </p>
                   )}
