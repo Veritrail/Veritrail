@@ -617,14 +617,6 @@ export default function Findings() {
                 <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
               )}
             </div>
-            {connectedId && (
-              <FindingsScanButton
-                connectedId={connectedId}
-                isRunning={isRunning}
-                scanTriggered={scanTriggered}
-                onScan={triggerScan}
-              />
-            )}
           </div>
         </header>
 
@@ -803,10 +795,18 @@ export default function Findings() {
                       </button>
                     ))}
                   </div>
-                  <div className="findings-v2-toolbar-group findings-v2-actions-group">
+                  <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
                     <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
                       Export
                     </button>
+                    {connectedId ? (
+                      <FindingsScanButton
+                        connectedId={connectedId}
+                        isRunning={isRunning}
+                        scanTriggered={scanTriggered}
+                        onScan={triggerScan}
+                      />
+                    ) : null}
                   </div>
                 </div>
               </div>

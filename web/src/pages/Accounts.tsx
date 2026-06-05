@@ -2907,39 +2907,39 @@ function AccountCard({
   );
 }
 
-function PostureGlyphCloud() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-    </svg>
-  );
-}
-
-function PostureGlyphFlag() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
-    </svg>
-  );
-}
-
-function PostureGlyphShield() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Zm0 13.036h.008v.008H12v-.008Z" />
-    </svg>
-  );
-}
-
-function PostureGlyphUsers() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-    </svg>
-  );
-}
-
 type PostureTone = "good" | "warn" | "bad" | "muted";
+
+function PostureTrend({
+  count,
+  label,
+  tone,
+}: {
+  count: number;
+  label: string;
+  tone: PostureTone;
+}) {
+  const toneText: Record<PostureTone, string> = {
+    good: "text-emerald-600",
+    warn: "text-amber-600",
+    bad: "text-red-600",
+    muted: "text-zinc-500",
+  };
+
+  return (
+    <p className={`mt-2.5 flex items-center gap-1 text-xs font-medium ${toneText[tone]}`}>
+      {count === 0 ? (
+        <span className="text-zinc-400" aria-hidden>
+          —
+        </span>
+      ) : (
+        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+        </svg>
+      )}
+      <span>{label}</span>
+    </p>
+  );
+}
 
 type PortfolioMetrics = {
   totalOpen: number;
@@ -2995,38 +2995,6 @@ function buildPortfolioMetrics(
   };
 }
 
-function PostureTrend({
-  count,
-  label,
-  tone,
-}: {
-  count: number;
-  label: string;
-  tone: PostureTone;
-}) {
-  const toneText: Record<PostureTone, string> = {
-    good: "text-emerald-600",
-    warn: "text-amber-600",
-    bad: "text-red-600",
-    muted: "text-zinc-500",
-  };
-
-  return (
-    <p className={`mt-2 flex items-center gap-1 text-[11px] font-medium ${toneText[tone]}`}>
-      {count === 0 ? (
-        <span className="w-3 text-center text-zinc-400" aria-hidden>
-          —
-        </span>
-      ) : (
-        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-        </svg>
-      )}
-      <span>{label}</span>
-    </p>
-  );
-}
-
 function PostureSummary({
   accounts,
   statsMap,
@@ -3042,8 +3010,7 @@ function PostureSummary({
   const tiles: {
     label: string;
     value: number;
-    tint: string;
-    icon: ReactNode;
+    accent: string;
     trendCount: number;
     trendLabel: string;
     trendTone: PostureTone;
@@ -3051,8 +3018,7 @@ function PostureSummary({
     {
       label: "Connected",
       value: connected.length,
-      tint: "bg-sky-50 text-sky-500",
-      icon: <PostureGlyphCloud />,
+      accent: "bg-sky-400",
       trendCount: metrics.connectedThisWeek,
       trendLabel: metrics.connectedThisWeek === 0 ? "No change" : `${metrics.connectedThisWeek} this week`,
       trendTone: metrics.connectedThisWeek > 0 ? "good" : "muted",
@@ -3060,8 +3026,7 @@ function PostureSummary({
     {
       label: "Open findings",
       value: metrics.totalOpen,
-      tint: "bg-orange-50 text-orange-500",
-      icon: <PostureGlyphFlag />,
+      accent: "bg-orange-400",
       trendCount: metrics.openNew7d,
       trendLabel: metrics.openNew7d === 0 ? "No change" : `${metrics.openNew7d} vs last 7 days`,
       trendTone: metrics.openNew7d > 0 ? "warn" : "muted",
@@ -3069,8 +3034,7 @@ function PostureSummary({
     {
       label: "Critical + high",
       value: metrics.totalCrit,
-      tint: "bg-red-50 text-red-500",
-      icon: <PostureGlyphShield />,
+      accent: "bg-rose-400",
       trendCount: metrics.critHighNew7d,
       trendLabel: metrics.critHighNew7d === 0 ? "No change" : `${metrics.critHighNew7d} vs last 7 days`,
       trendTone: metrics.critHighNew7d > 0 ? "bad" : metrics.totalCrit > 0 ? "muted" : "good",
@@ -3078,8 +3042,7 @@ function PostureSummary({
     {
       label: "Accounts at risk",
       value: metrics.needsAttention,
-      tint: "bg-amber-50 text-amber-500",
-      icon: <PostureGlyphUsers />,
+      accent: "bg-amber-300",
       trendCount: metrics.atRiskNew7d,
       trendLabel: metrics.atRiskNew7d === 0 ? "No change" : `${metrics.atRiskNew7d} vs last 7 days`,
       trendTone: metrics.atRiskNew7d > 0 ? "warn" : "muted",
@@ -3087,16 +3050,16 @@ function PostureSummary({
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {tiles.map((t) => (
         <div
           key={t.label}
-          className="flex items-center gap-5 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm shadow-zinc-950/[0.03] transition duration-200 hover:border-zinc-300 hover:shadow-md"
+          className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]"
         >
-          <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${t.tint}`}>{t.icon}</span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{t.label}</p>
-            <p className="mt-0.5 text-3xl font-bold leading-none tracking-tight tabular-nums text-zinc-900">{t.value}</p>
+          <div className={`h-1 ${t.accent}`} aria-hidden />
+          <div className="px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-400">{t.label}</p>
+            <p className="mt-2 text-[2rem] font-bold leading-none tracking-tight tabular-nums text-zinc-900">{t.value}</p>
             <PostureTrend count={t.trendCount} label={t.trendLabel} tone={t.trendTone} />
           </div>
         </div>
