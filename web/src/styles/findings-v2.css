@@ -159,14 +159,10 @@
 
 .findings-v2-control-cluster {
   display: grid;
-  grid-template-columns: minmax(18rem, 26rem) max-content max-content max-content max-content;
+  grid-template-columns: minmax(18rem, 26rem) max-content max-content max-content;
   width: 100%;
   justify-self: stretch;
   justify-content: flex-end;
-}
-
-.findings-v2-status-group {
-  margin-left: 0.125rem;
 }
 
 .findings-v2-severity-tabs {
@@ -448,7 +444,7 @@
   }
 
   .findings-v2-control-cluster {
-    grid-template-columns: minmax(14rem, 18rem) max-content max-content max-content max-content;
+    grid-template-columns: minmax(14rem, 18rem) max-content max-content max-content;
   }
 
   .findings-v2-toolbar-group--divider {

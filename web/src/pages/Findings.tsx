@@ -664,6 +664,37 @@ export default function Findings() {
                   )}
 
                   <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
+                  <div className="relative shrink-0">
+                    <label htmlFor="findings-status-filter" className="sr-only">
+                      Status
+                    </label>
+                    <select
+                      id="findings-status-filter"
+                      value={status}
+                      onChange={(e) => {
+                        const next = e.target.value as StatusTab;
+                        setStatus(next);
+                        if (next !== "open") setSeverityFilter("all");
+                      }}
+                      className="findings-v2-status-select"
+                    >
+                      {statusTabs.map((s) => (
+                        <option key={s} value={s}>
+                          {statusTabLabels[s]}
+                        </option>
+                      ))}
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
 	                </div>
 
                 <div className="findings-v2-control-cluster">
@@ -715,37 +746,6 @@ export default function Findings() {
                       </svg>
                       Export
                     </button>
-                  </div>
-                  <div className="findings-v2-toolbar-group findings-v2-status-group relative shrink-0">
-                    <label htmlFor="findings-status-filter" className="sr-only">
-                      Status
-                    </label>
-                    <select
-                      id="findings-status-filter"
-                      value={status}
-                      onChange={(e) => {
-                        const next = e.target.value as StatusTab;
-                        setStatus(next);
-                        if (next !== "open") setSeverityFilter("all");
-                      }}
-                      className="findings-v2-status-select"
-                    >
-                      {statusTabs.map((s) => (
-                        <option key={s} value={s}>
-                          {statusTabLabels[s]}
-                        </option>
-                      ))}
-                    </select>
-                    <svg
-                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#98a2b3]"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                      aria-hidden
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
                   </div>
                 </div>
               </div>
