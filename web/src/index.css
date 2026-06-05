@@ -153,3 +153,16 @@
   font-weight: 650;
   letter-spacing: -0.01em;
 }
+
+/* Findings severity rail — no translucent overlap at row seams. */
+.findings-v2-page.findings-v2-shell {
+  --fv-rail-critical: #fdd0d0;
+  --fv-rail-high: #fdd0d0;
+  --fv-rail-medium: #fde69b;
+  --fv-rail-low: #dae1e9;
+}
+
+.findings-v2-page .findings-v2-row::before {
+  top: 0;
+  bottom: 0;
+}
