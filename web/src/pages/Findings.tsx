@@ -341,7 +341,6 @@ export default function Findings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState<StatusTab>("open");
   const [selected, setSelected] = useState<Finding | null>(null);
-  const [drawerGroup, setDrawerGroup] = useState<Finding[] | null>(null);
   const [drawerTab, setDrawerTab] = useState<FindingDrawerTab>("overview");
   const [remTab, setRemTab] = useState<FindingRemediationMode>("console");
   const [sortKey, setSortKey] = useState<SortKey>("severity");
@@ -510,7 +509,6 @@ export default function Findings() {
 
   function openReview(items: Finding[]) {
     const top = items.reduce((best, f) => (f.risk_score > best.risk_score ? f : best), items[0]);
-    setDrawerGroup(items.length > 1 ? items : null);
     setSelected(top);
     setDrawerTab("overview");
     setRemTab(defaultFindingRemediationMode(top.check_id));
@@ -799,8 +797,6 @@ export default function Findings() {
 
       <FindingDrawer
         finding={selected}
-        relatedFindings={drawerGroup ?? undefined}
-        onSelectRelated={(f) => setSelected(f)}
         accountId={selected?.account_id ?? connectedId ?? null}
         tab={drawerTab}
         onTabChange={setDrawerTab}
@@ -812,7 +808,6 @@ export default function Findings() {
         onDismissVerifyOutcome={clearDrawerVerifyFlash}
         onClose={() => {
           setSelected(null);
-          setDrawerGroup(null);
           clearDrawerVerifyFlash();
         }}
         onAction={(id, action) => {

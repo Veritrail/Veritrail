@@ -45,8 +45,6 @@ import {
   resourceIdentifierLabel,
   resourceIdentifierValue,
   resourceRegionForFinding,
-  resourceShortName,
-  resourceTypeLabel,
   isAwsRootFinding,
   isVcsResourceIdentifier,
   severityLabel,
@@ -80,7 +78,6 @@ import {
   impactConfidencePill,
   impactVerdictCopy,
   impactVisualTone,
-  isShortResourceLabel,
 } from "../lib/impactAnalysisDisplay";
 import "../styles/impact-analysis.css";
 import "../styles/policy-review.css";
@@ -93,7 +90,6 @@ import {
   PostureMetricsRow,
   ResourceFieldRow,
   ResourceGroup,
-  ResourceInspectorHero,
   SemanticNarrativeBlock,
 } from "./FindingDrawerSemantic";
 
@@ -437,13 +433,7 @@ function awsAccountIdFromArn(arn: string): string | null {
   return m ? m[1] : null;
 }
 
-function SelectedResourceInspector({
-  finding,
-  attachedToList = false,
-}: {
-  finding: Finding;
-  attachedToList?: boolean;
-}) {
+function SelectedResourceInspector({ finding }: { finding: Finding }) {
   const accountId = awsAccountIdFromArn(finding.resource_arn);
   const ev = finding.evidence;
   const isUnusedRoleFinding = finding.check_id === "iam.role.unused_services_90d";
@@ -504,11 +494,7 @@ function SelectedResourceInspector({
 
   if (rootInspector) {
     return (
-      <div
-        className={`${drawerPanel} overflow-hidden ${
-          attachedToList ? "border-l-2 border-l-zinc-400/30 shadow-sm shadow-zinc-950/[0.04]" : ""
-        }`}
-      >
+      <div className={`${drawerPanel} overflow-hidden`}>
         <div className={drawerSectionHead}>
           <h3 className={drawerSectionTitle}>Resource details</h3>
         </div>
@@ -526,28 +512,13 @@ function SelectedResourceInspector({
   }
 
   return (
-    <div
-      className={`${drawerPanel} overflow-hidden ${
-        attachedToList ? "border-l-2 border-l-zinc-400/30 shadow-sm shadow-zinc-950/[0.04]" : ""
-      }`}
-    >
+    <div className={`${drawerPanel} overflow-hidden`}>
       <div className={drawerSectionHead}>
         <h3 className={drawerSectionTitle}>Resource details</h3>
       </div>
-      {!attachedToList && (
-        <ResourceInspectorHero
-          badge={resourceTypeLabel(finding.check_id)}
-          title={resourceShortName(finding)}
-          severity={finding.severity}
-        />
-      )}
 
       {showFieldList && (
-        <dl
-          className={`border-b border-zinc-100 bg-white px-4 py-1 ${
-            attachedToList ? "pt-3" : ""
-          }`}
-        >
+        <dl className="border-b border-zinc-100 bg-white px-4 py-1 pt-3">
           {fieldDetailRows.map((row) => (
             <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
               {row.value}
@@ -6123,90 +6094,8 @@ function ExceptionButton({
 }
 
 
-function AffectedResourcesPanel({
-  findings,
-  activeId,
-  onSelect,
-  checkId,
-}: {
-  findings: Finding[];
-  activeId: string;
-  onSelect: (f: Finding) => void;
-  checkId: string;
-}) {
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return findings;
-    return findings.filter((f) => {
-      const name = resourceDisplayName(f).toLowerCase();
-      return name.includes(q) || f.resource_arn.toLowerCase().includes(q);
-    });
-  }, [findings, search]);
-
-  const typeLabel = resourceTypeLabel(checkId);
-
-  return (
-    <DrawerSection
-      title={typeLabel}
-      action={
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-medium tabular-nums text-[#98a2b3]">{findings.length}</span>
-          {findings.length > 6 && (
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
-              className="h-7 w-28 rounded-[8px] border border-[#dce3ec] bg-white px-2 text-[11px] text-[#344054] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
-            />
-          )}
-        </div>
-      }
-    >
-      <ul className="max-h-44 space-y-1 overflow-y-auto px-3 py-2.5">
-        {filtered.map((f) => {
-          const active = f.id === activeId;
-          return (
-            <li key={f.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(f)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl border py-2.5 pl-3 pr-3 text-left transition-all duration-150 ${
-                  active
-                    ? "border-[#cfe0f2] bg-white shadow-sm shadow-[#1f4e79]/10 ring-1 ring-inset ring-[#e7eff8]"
-                    : "border-transparent hover:border-[#d7e6f6] hover:bg-white hover:shadow-sm hover:shadow-[#1f4e79]/[0.06]"
-                }`}
-              >
-                <span className="min-w-0">
-                  <span
-                    className={`block truncate text-[13px] leading-snug ${
-                      active ? "font-semibold text-[#111827]" : "font-medium text-[#344054]"
-                    }`}
-                  >
-                    {resourceDisplayName(f)}
-                  </span>
-                  {f.check_id.startsWith("ec2.security_group.") && (
-                    <span className="mt-0.5 block truncate font-mono text-[11px] text-[#98a2b3]">
-                      {(f.evidence.group_id as string) || f.resource_arn.split("/").pop()}
-                    </span>
-                  )}
-                </span>
-                <span className="shrink-0 pl-2 text-[11px] tabular-nums text-[#98a2b3]">{daysAgo(f.first_seen)}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </DrawerSection>
-  );
-}
-
 export function FindingDrawer({
   finding,
-  relatedFindings,
-  onSelectRelated,
   accountId,
   onClose,
   onAction,
@@ -6220,8 +6109,6 @@ export function FindingDrawer({
   onDismissVerifyOutcome,
 }: {
   finding: Finding | null;
-  relatedFindings?: Finding[];
-  onSelectRelated?: (f: Finding) => void;
   accountId: string | null;
   onClose: () => void;
   onAction: (id: string, action: "recheck" | "reopen") => void;
@@ -6327,7 +6214,6 @@ export function FindingDrawer({
     }
   }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
 
-  const multiResource = (relatedFindings?.length ?? 0) > 1;
   const showBlastRadius = !!finding && supportsBlastRadius(finding.check_id) && !!accountId;
 
   useEffect(() => {
@@ -6480,80 +6366,8 @@ export function FindingDrawer({
       <h2 id="finding-drawer-title" className="mt-1.5 pr-8 text-base font-semibold leading-snug text-zinc-900">
         {checkLabels[finding.check_id] ?? finding.title}
       </h2>
-      {(() => {
-        const resourceLabel = resourceDisplayName(finding);
-        const resourceNav =
-          multiResource && relatedFindings && onSelectRelated ? (
-            (() => {
-              const idx = relatedFindings.findIndex((f) => f.id === finding.id);
-              const at = idx >= 0 ? idx : 0;
-              return (
-	                <div className="flex shrink-0 items-center gap-1">
-	                  <button
-	                    type="button"
-	                    disabled={at <= 0}
-	                    onClick={() => onSelectRelated(relatedFindings[at - 1])}
-	                    className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
-	                    aria-label="Previous resource"
-	                  >
-	                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-	                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-	                    </svg>
-	                  </button>
-	                  <span className="min-w-[3rem] text-center text-[11px] tabular-nums text-zinc-500">
-	                    {at + 1} of {relatedFindings.length}
-	                  </span>
-	                  <button
-	                    type="button"
-	                    disabled={at >= relatedFindings.length - 1}
-	                    onClick={() => onSelectRelated(relatedFindings[at + 1])}
-	                    className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
-	                    aria-label="Next resource"
-	                  >
-	                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-	                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-	                    </svg>
-	                  </button>
-                </div>
-              );
-            })()
-          ) : null;
-
-        if (isRootFinding) {
-          if (!resourceNav) return null;
-          return <div className="mt-2 flex justify-end">{resourceNav}</div>;
-        }
-
-        const useMono = isShortResourceLabel(resourceLabel)
-          ? resourceLabel.includes(":") || resourceLabel.includes("/")
-          : true;
-        return (
-          <div className="mt-2 rounded-lg border border-zinc-200/80 bg-white px-3 py-2 shadow-sm shadow-zinc-950/[0.02]">
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="group relative flex min-w-0 flex-1 items-baseline gap-1.5 text-[13px] text-zinc-600">
-                <span className="shrink-0 text-zinc-500">Resource</span>
-                <span className="shrink-0 text-zinc-300" aria-hidden>
-                  ·
-                </span>
-                <p
-                  className={`truncate leading-snug text-zinc-700 ${useMono ? "font-mono text-[12px]" : "text-[13px]"}`}
-                  title={finding.resource_arn}
-                >
-                  {resourceLabel}
-                </p>
-                <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-sm rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg group-hover:block">
-                  <p className="break-all font-mono text-[12px] leading-relaxed text-zinc-700">
-                    {isVcsResourceIdentifier(finding.resource_arn) ? resourceLabel : finding.resource_arn}
-                  </p>
-                </div>
-              </div>
-              {resourceNav}
-            </div>
-          </div>
-        );
-      })()}
       {/* Segmented tab control — w-fit keeps track background from stretching full width */}
-      <div className={isRootFinding ? "mt-2.5" : "mt-3"}>
+      <div className="mt-3">
         <div className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-zinc-900/[0.06] p-0.5">
         {tabs.map((t) => (
           <button
@@ -6621,19 +6435,7 @@ export function FindingDrawer({
           />
         </>
       )}
-      {tab === "resources" && (
-        <div className="space-y-3.5">
-          {multiResource && relatedFindings && onSelectRelated && (
-            <AffectedResourcesPanel
-              findings={relatedFindings}
-              activeId={finding.id}
-              onSelect={onSelectRelated}
-              checkId={finding.check_id}
-            />
-          )}
-          <SelectedResourceInspector finding={finding} attachedToList={!!multiResource} />
-        </div>
-      )}
+      {tab === "resources" && <SelectedResourceInspector finding={finding} />}
       {tab === "compliance" && (
         <ComplianceTabContent checkId={finding.check_id} accountId={accountId} />
       )}
