@@ -200,6 +200,8 @@ const SG_AUTOMATION_ONLY_CHECKS = new Set([
   "ec2.security_group.unrestricted_rdp",
 ]);
 
+const NO_CLI_REMEDIATION_CHECKS = new Set(["iam.user.no_mfa"]);
+
 export function defaultFindingRemediationMode(checkId: string): FindingRemediationMode {
   return SG_AUTOMATION_ONLY_CHECKS.has(checkId) ? "automation" : "console";
 }
@@ -810,9 +812,6 @@ const remediations: Record<string, Remediation> = {
       'Open the "Security credentials" tab → "Multi-factor authentication" → "Assign MFA device"',
       "Complete the MFA enrollment wizard",
     ],
-    cli: `aws iam create-virtual-mfa-device --virtual-mfa-device-name <name> --outfile /tmp/qr.png --bootstrap-method QRCodePNG
-
-aws iam enable-mfa-device --user-name <user> --serial-number <arn> --authentication-code1 <code1> --authentication-code2 <code2>`,
     risk: "Until MFA is enabled, a leaked password can be enough to sign in to the console.",
   },
   "iam.user.inactive_90d": {
@@ -6533,7 +6532,13 @@ export function FindingDrawer({
                 )}
                 {!isIdentityCheck && remDetailMode === "cli" && (
                   <RemediationDetailCard title="AWS CLI">
-                    <RemediationCliBlock finding={finding} />
+                    {NO_CLI_REMEDIATION_CHECKS.has(finding.check_id) ? (
+                      <p className="text-[13px] leading-relaxed text-zinc-600">
+                        CLI isn&apos;t available for this finding.
+                      </p>
+                    ) : (
+                      <RemediationCliBlock finding={finding} />
+                    )}
                   </RemediationDetailCard>
                 )}
                 {!isIdentityCheck && remDetailMode === "terraform" && (
