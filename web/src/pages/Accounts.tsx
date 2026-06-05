@@ -2512,7 +2512,7 @@ function AccountCardActionBar({
           View findings
         </button>
         <button type="button" onClick={onRescan} disabled={scanDisabled} className={cardRescanBtn}>
-          {scanRunning ? "Scanning…" : "Rescan"}
+          {scanRunning ? "Scanning…" : "Scan"}
         </button>
       </div>
     </div>

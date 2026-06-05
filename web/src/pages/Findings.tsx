@@ -101,25 +101,7 @@ function FindingsScanButton({
       disabled={scanTriggered || isRunning}
       className="findings-v2-scan-btn findings-v2-scan-btn--header"
     >
-      <span className="findings-v2-scan-btn-icon" aria-hidden>
-        {isRunning || scanTriggered ? (
-          <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        ) : (
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-            />
-          </svg>
-        )}
-      </span>
-      <span className="findings-v2-scan-btn-label">
-        {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
-      </span>
+      {isRunning ? "Scanning…" : scanTriggered ? "Starting…" : "Scan"}
     </button>
   );
 }
@@ -812,23 +794,17 @@ export default function Findings() {
                         key={opt.id}
                         type="button"
                         onClick={() => toggleSort(opt.id)}
-                          className={`findings-v2-toolbar-btn ${sortKey === opt.id ? "is-active" : ""}`}
+                        className="findings-v2-toolbar-btn"
                       >
                         {opt.label}
-                        {opt.id === "severity" && (
-                          <svg className="h-4 w-4 text-[#667085]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h10M4 12h7M4 17h4" />
-                          </svg>
-                        )}
-                        {sortKey === opt.id ? <span className="text-[15px] leading-none">{sortDir === "asc" ? "↑" : "↓"}</span> : null}
+                        {sortKey === opt.id ? (
+                          <span className="text-[13px] leading-none text-zinc-500">{sortDir === "asc" ? "↑" : "↓"}</span>
+                        ) : null}
                       </button>
                     ))}
                   </div>
                   <div className="findings-v2-toolbar-group findings-v2-actions-group">
                     <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-                      </svg>
                       Export
                     </button>
                   </div>
