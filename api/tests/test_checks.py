@@ -73,6 +73,29 @@ class TestNoMfa:
         assert drafts == []
 
 
+class TestCloudTrailNotEnabled:
+    def test_org_trail_coverage_is_not_a_finding(self, mock_db):
+        from app.checks import cloudtrail_not_enabled
+
+        acc_id = uuid.uuid4()
+        acc = MagicMock()
+        acc.account_id = "123456789012"
+        mock_db.get.return_value = acc
+
+        active_query = MagicMock()
+        active_query.first.return_value = None
+        org_query = MagicMock()
+        org_trail = MagicMock()
+        org_trail.is_organization_trail = True
+        org_trail.management_account_id = "999999999999"
+        org_query.first.return_value = org_trail
+        mock_db.scalars.side_effect = [active_query, org_query]
+
+        drafts = cloudtrail_not_enabled.run(mock_db, acc_id)
+
+        assert drafts == []
+
+
 # --- iam.access_key.unused_90d ---
 
 class TestAccessKeyUnused:
@@ -844,3 +867,104 @@ class TestUserDirectPolicy:
         mock_db.scalars.return_value.all.return_value = [u]
         drafts = iam_user_direct_policy.run(mock_db, uuid.uuid4())
         assert drafts == []
+
+
+class TestEcrImageScanDisabled:
+    def test_flags_repository_without_scan_on_push(self, mock_db):
+        from app.checks import ecr_image_scan_disabled
+        repo = MagicMock()
+        repo.repository_arn = "arn:aws:ecr:us-east-1:123456789012:repository/app"
+        repo.repository_name = "app"
+        repo.region = "us-east-1"
+        repo.scan_on_push = False
+        repo.encryption_type = "AES256"
+        mock_db.scalars.return_value.all.return_value = [repo]
+
+        drafts = ecr_image_scan_disabled.run(mock_db, uuid.uuid4())
+
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "ecr.repository.image_scan_disabled"
+        assert drafts[0].severity == "medium"
+        assert drafts[0].evidence["repository_name"] == "app"
+
+    def test_passes_repository_with_scan_on_push(self, mock_db):
+        from app.checks import ecr_image_scan_disabled
+        mock_db.scalars.return_value.all.return_value = []
+        assert ecr_image_scan_disabled.run(mock_db, uuid.uuid4()) == []
+
+
+class TestLambdaPublicFunctionUrl:
+    def test_flags_function_url_with_no_auth(self, mock_db):
+        from app.checks import lambda_public_function_url
+        fn = MagicMock()
+        fn.arn = "arn:aws:lambda:us-east-1:123456789012:function:public-api"
+        fn.function_name = "public-api"
+        fn.region = "us-east-1"
+        fn.function_url = "https://abc.lambda-url.us-east-1.on.aws/"
+        fn.function_url_auth_type = "NONE"
+        mock_db.scalars.return_value.all.return_value = [fn]
+
+        drafts = lambda_public_function_url.run(mock_db, uuid.uuid4())
+
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "lambda.function.public_url"
+        assert drafts[0].severity == "high"
+        assert drafts[0].evidence["auth_type"] == "NONE"
+
+    def test_passes_function_without_public_url(self, mock_db):
+        from app.checks import lambda_public_function_url
+        mock_db.scalars.return_value.all.return_value = []
+        assert lambda_public_function_url.run(mock_db, uuid.uuid4()) == []
+
+
+class TestRdsSnapshotPublic:
+    def test_flags_public_rds_snapshot(self, mock_db):
+        from app.checks import rds_snapshot_public
+        snap = MagicMock()
+        snap.arn = "arn:aws:rds:us-east-1:123456789012:snapshot:prod-copy"
+        snap.snapshot_id = "prod-copy"
+        snap.region = "us-east-1"
+        snap.engine = "postgres"
+        snap.encrypted = True
+        mock_db.scalars.return_value.all.return_value = [snap]
+
+        drafts = rds_snapshot_public.run(mock_db, uuid.uuid4())
+
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "rds.snapshot.public"
+        assert drafts[0].severity == "critical"
+        assert drafts[0].evidence["snapshot_id"] == "prod-copy"
+
+    def test_passes_private_snapshots(self, mock_db):
+        from app.checks import rds_snapshot_public
+        mock_db.scalars.return_value.all.return_value = []
+        assert rds_snapshot_public.run(mock_db, uuid.uuid4()) == []
+
+
+class TestEksPublicEndpoint:
+    def test_flags_public_endpoint_open_to_world(self, mock_db):
+        from app.checks import eks_public_endpoint
+        cluster = MagicMock()
+        cluster.arn = "arn:aws:eks:us-east-1:123456789012:cluster/prod"
+        cluster.name = "prod"
+        cluster.region = "us-east-1"
+        cluster.public_access_cidrs = ["0.0.0.0/0"]
+        cluster.endpoint_private_access = True
+        cluster.version = "1.30"
+        cluster.status = "ACTIVE"
+        mock_db.scalars.return_value.all.return_value = [cluster]
+
+        drafts = eks_public_endpoint.run(mock_db, uuid.uuid4())
+
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "eks.cluster.public_endpoint"
+        assert drafts[0].severity == "high"
+        assert drafts[0].evidence["cluster_name"] == "prod"
+
+    def test_passes_public_endpoint_restricted_to_known_cidrs(self, mock_db):
+        from app.checks import eks_public_endpoint
+        cluster = MagicMock()
+        cluster.public_access_cidrs = ["203.0.113.0/24"]
+        mock_db.scalars.return_value.all.return_value = [cluster]
+
+        assert eks_public_endpoint.run(mock_db, uuid.uuid4()) == []

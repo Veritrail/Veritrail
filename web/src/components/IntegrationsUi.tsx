@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 
 export function formatSync(value: string | null | undefined) {
   if (!value) return "Never";
@@ -284,6 +285,18 @@ export function GitLabMark({ className = "h-5 w-5" }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
       <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51a.42.42 0 0 1 .11-.18.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z" />
     </svg>
+  );
+}
+
+/** AWS wordmark on white tile — for light UI surfaces. */
+export function AwsBrandIcon({ className = "h-11 w-11" }: { className?: string }) {
+  return (
+    <img
+      src={AWS_LOGO_LIGHT}
+      alt=""
+      aria-hidden
+      className={`rounded-xl object-contain ring-1 ring-zinc-200/80 ${className}`}
+    />
   );
 }
 

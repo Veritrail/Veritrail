@@ -36,8 +36,6 @@ AUTOMATION_CHECKS = frozenset(
         "iam.access_key.unused_45d",
         "iam.access_key.unused_90d",
         "s3.bucket.public_access_not_blocked",
-        "iam.role.full_admin_policy",
-        "iam.policy.wildcard_resource",
         "cloudtrail.trail.not_enabled",
     }
 )
@@ -90,8 +88,6 @@ _ACTION_LABELS: dict[str, str] = {
     "revoke_public_ingress": "Revoke public ingress",
     "put_public_access_block": "Block public access",
     "migrate_ssm_string_to_secure_string": "Migrate parameter to SecureString",
-    "detach_full_admin": "Detach full admin policies",
-    "replace_wildcard_inline": "Replace wildcard inline policy",
 }
 
 
@@ -545,8 +541,7 @@ def _s3_sse(finding: Finding, ev: dict) -> dict[str, Any]:
 
 def _cloudtrail_enable(finding: Finding, ev: dict) -> dict[str, Any]:
     tf = '''resource "aws_s3_bucket" "cloudtrail_logs" {
-  bucket        = "${var.aws_account_id}-cloudtrail-logs"
-  force_destroy = true
+  bucket = "${var.aws_account_id}-cloudtrail-logs"
 }
 
 resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {

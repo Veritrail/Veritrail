@@ -459,16 +459,42 @@ def export_findings_csv(
     q = q.order_by(Finding.risk_score.desc())
     rows = db.scalars(q).all()
 
+    from app.routes.findings import _account_display_name, _load_org_accounts
+
+    accounts = _load_org_accounts(db, uuid.UUID(p["org_id"]))
+
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow([
-        "id", "check_id", "resource_arn", "title", "severity", "risk_score", "status",
-        "first_seen", "last_seen", "exception_reason", "exception_approved_by", "exception_expires_at",
+        "id",
+        "account_name",
+        "account_provider",
+        "check_id",
+        "resource_arn",
+        "title",
+        "severity",
+        "risk_score",
+        "status",
+        "first_seen",
+        "last_seen",
+        "exception_reason",
+        "exception_approved_by",
+        "exception_expires_at",
     ])
     for f in rows:
+        acc = accounts.get(f.account_id)
         w.writerow([
-            str(f.id), f.check_id, f.resource_arn, f.title, f.severity, f.risk_score, f.status,
-            f.first_seen.isoformat(), f.last_seen.isoformat(),
+            str(f.id),
+            _account_display_name(acc) if acc else "",
+            "aws",
+            f.check_id,
+            f.resource_arn,
+            f.title,
+            f.severity,
+            f.risk_score,
+            f.status,
+            f.first_seen.isoformat(),
+            f.last_seen.isoformat(),
             f.exception_reason or "",
             f.exception_approved_by or "",
             f.exception_expires_at.isoformat() if f.exception_expires_at else "",

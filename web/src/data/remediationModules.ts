@@ -75,10 +75,10 @@ export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
   {
     id: "iam_policies",
     label: "IAM policies",
-    badgeLabel: "IAM policy remediation",
+    badgeLabel: "IAM policy analysis",
     cfnParameter: "EnableIamPolicyRemediation",
-    summary: "Remove excessive permissions",
-    bullets: ["Detach overly broad policies", "Scope inline policies when approved"],
+    summary: "Analyze excessive permissions before changing IAM",
+    bullets: ["Generate least-privilege candidates", "Apply scoped policies through reviewed PRs or manual IAM changes"],
     permissions: [
       "iam:PutRolePolicy",
       "iam:DetachRolePolicy",
@@ -86,7 +86,7 @@ export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
       "iam:CreatePolicyVersion",
       "iam:DeletePolicyVersion",
     ],
-    runnerSupported: true,
+    runnerSupported: false,
   },
   {
     id: "ssm_parameters",

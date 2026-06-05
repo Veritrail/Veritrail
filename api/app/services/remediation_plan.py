@@ -28,12 +28,7 @@ IAM_ACCESS_KEY_CHECKS = frozenset(
 )
 
 # Custom Vigil document runs from one automation home region; PlanJson carries resource_region.
-VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS | frozenset(
-    {
-        "iam.role.full_admin_policy",
-        "iam.policy.wildcard_resource",
-    }
-)
+VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS
 # Back-compat alias (was IAM-only before SG/SSM used home region too).
 IAM_GLOBAL_SSM_CHECKS = IAM_ACCESS_KEY_CHECKS
 
@@ -86,10 +81,6 @@ def _supported_action(check_id: str) -> str | None:
         return "migrate_ssm_string_to_secure_string"
     if check_id in IAM_ACCESS_KEY_CHECKS:
         return "deactivate_access_key"
-    if check_id == "iam.role.full_admin_policy":
-        return "detach_full_admin"
-    if check_id == "iam.policy.wildcard_resource":
-        return "replace_wildcard_inline"
     return None
 
 
@@ -216,13 +207,15 @@ def _steps_for_check(finding: Finding) -> list[dict[str, str]]:
         ]
     if cid == "iam.policy.wildcard_resource":
         return [
-            {"action": "review", "detail": "Review the generated least-privilege policy in the Vigil drawer before replacing"},
-            {"action": "execute", "detail": "SSM Automation replaces the inline policy with the scoped version"},
+            {"action": "analyze", "detail": "Review IAM service-last-accessed, generated policy, and CloudTrail usage before narrowing resources"},
+            {"action": "apply", "detail": "Apply the scoped policy through a reviewed Terraform/PR or manual IAM policy change"},
+            {"action": "verify", "detail": "Re-scan after a workload cycle and add back any observed required permissions"},
         ]
     if cid == "iam.role.full_admin_policy":
         return [
-            {"action": "review", "detail": "Confirm the customer-managed full-admin policy can be safely detached"},
-            {"action": "execute", "detail": "SSM Automation detaches the listed policies from the role"},
+            {"action": "analyze", "detail": "Review role usage, attached policies, and generated least-privilege alternatives before removing admin access"},
+            {"action": "apply", "detail": "Replace full-admin access with a reviewed scoped policy through Terraform/PR or a manual IAM change"},
+            {"action": "verify", "detail": "Re-scan and monitor CloudTrail for denied or newly observed required actions"},
         ]
     if cid.startswith("iam.access_key"):
         return [

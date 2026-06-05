@@ -18,6 +18,7 @@ import {
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
+import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
@@ -136,6 +137,12 @@ const workflowInlineBtn =
 
 const workflowInlineActionBtn =
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_-3px_rgba(99,102,241,0.45)] transition-[box-shadow,transform,filter] duration-150 hover:-translate-y-px hover:brightness-105 hover:shadow-[0_7px_20px_-3px_rgba(99,102,241,0.55)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:brightness-100";
+
+const cardOutlineBtn =
+  "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
+
+const cardRescanBtn =
+  "inline-flex h-9 shrink-0 items-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-[13px] font-semibold text-white shadow-sm transition hover:border-blue-700 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50";
 
 function WorkflowCheckIcon() {
   return (
@@ -579,49 +586,27 @@ function isWithinLastDays(iso: string | null | undefined, days: number): boolean
 
 type FindingStats = { critHigh: number; medium: number; open: number };
 
-type ScanFreshness = "scanning" | "fresh" | "recent" | "aging" | "stale" | "none";
-
-function AwsIcon({ className = "h-full w-full max-h-16 object-contain" }: { className?: string }) {
-  return <img src="/aws.png" alt="AWS" className={className} />;
+function AwsIcon({ className = "h-full w-full object-contain" }: { className?: string }) {
+  return (
+    <img
+      src={AWS_LOGO_LIGHT}
+      alt=""
+      aria-hidden
+      className={className}
+      decoding="async"
+    />
+  );
 }
 
-function scanAgeMs(iso: string | null): number | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return Date.now() - d.getTime();
+function AwsIconTile({ className }: { className?: string }) {
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-xl border border-zinc-200/90 bg-white p-3 shadow-sm shadow-zinc-950/[0.03] ${className ?? "h-[4.5rem] w-[4.5rem]"}`}
+    >
+      <AwsIcon className="h-full w-full" />
+    </div>
+  );
 }
-
-function formatLastScan(iso: string | null) {
-  const ms = scanAgeMs(iso);
-  if (ms == null) return null;
-  if (ms < 60_000) return "just now";
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
-  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
-  return new Date(iso!).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function scanFreshness(iso: string | null, isScanActive: boolean): ScanFreshness {
-  if (isScanActive) return "scanning";
-  const ms = scanAgeMs(iso);
-  if (ms == null) return "none";
-  if (ms < 3_600_000) return "fresh";
-  if (ms < 86_400_000) return "recent";
-  if (ms < 7 * 86_400_000) return "aging";
-  return "stale";
-}
-
-const FRESHNESS_META: Record<
-  ScanFreshness,
-  { dot: string; text: string; hint?: string }
-> = {
-  scanning: { dot: "bg-indigo-500 animate-pulse", text: "text-indigo-600" },
-  fresh: { dot: "bg-emerald-500", text: "text-zinc-600" },
-  recent: { dot: "bg-emerald-400", text: "text-zinc-600" },
-  aging: { dot: "bg-amber-400", text: "text-zinc-600", hint: "consider rescanning" },
-  stale: { dot: "bg-red-400", text: "text-zinc-600", hint: "outdated" },
-  none: { dot: "bg-zinc-300", text: "text-zinc-500" },
-};
 
 function CopyInputField({
   label,
@@ -862,13 +847,13 @@ const dangerGhostBtn =
   "inline-flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 const ssmRemediationBadgeClass =
-  "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-amber-200/60";
+  "rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/60";
 
 function ConnectorTemplateBadge({ version }: { version: string | null }) {
   if (!version) return null;
   return (
     <span
-      className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-800 ring-1 ring-sky-200/70"
+      className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/70"
       title="Latest Vigil connector CloudFormation template version"
     >
       CFN v{version}
@@ -911,13 +896,13 @@ function CapabilityBadges({
   const ssmCollapsed = remediationBadgesCollapsed(acc, remediationModules, capabilityVerify);
 
   return (
-    <div className="mt-1.5 flex flex-wrap gap-1">
-      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
+    <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
         Core Scanner
       </span>
       {(policyGenDeployed || policyGenSelected) && (
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ${
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
             policyGenDeployed
               ? "bg-indigo-50 text-indigo-800 ring-indigo-200/60"
               : "bg-indigo-50/50 text-indigo-700 ring-indigo-200/40"
@@ -942,7 +927,7 @@ function CapabilityBadges({
               className={
                 deployed || !connected
                   ? ssmRemediationBadgeClass
-                  : "rounded-full bg-amber-50/40 px-2 py-0.5 text-[10px] font-medium text-amber-800/70 ring-1 ring-amber-200/40"
+                  : "rounded-full bg-amber-50/40 px-2.5 py-1 text-[11px] font-medium text-amber-800/70 ring-1 ring-amber-200/40"
               }
             >
               {m.badgeLabel}
@@ -994,11 +979,11 @@ function ManageCapabilitiesPanel({
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <ConnectorTemplateBadge version={acc.cfn_template_version} />
             <span className="text-[11px] text-zinc-500">After deploy:</span>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
               Core Scanner
             </span>
             {draft.enable_advanced_policy_generation && (
-              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-800 ring-1 ring-indigo-200/60">
+              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-800 ring-1 ring-indigo-200/60">
                 Policy Generation
               </span>
             )}
@@ -1008,7 +993,7 @@ function ManageCapabilitiesPanel({
               REMEDIATION_MODULE_SPECS.filter((m) => draft.remediation_modules[m.id]).map((m) => (
                 <span
                   key={m.id}
-                  className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 ring-1 ring-amber-200/60"
+                  className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200/60"
                 >
                   {m.badgeLabel}
                 </span>
@@ -1300,20 +1285,31 @@ function RemediationAutomationSection({
           <ul className="mt-3 ml-7 space-y-2">
             {REMEDIATION_MODULE_SPECS.map((spec) => (
               <li key={spec.id}>
+                {(() => {
+                  const analysisOnly = !spec.runnerSupported;
+                  const checked = analysisOnly ? false : modules[spec.id];
+                  return (
                 <label
                   className={`flex items-center gap-2 text-sm ${
-                    disabled ? "cursor-not-allowed" : "cursor-pointer"
+                    disabled || analysisOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                   }`}
                 >
                   <input
                     type="checkbox"
                     className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500/30"
-                    checked={modules[spec.id]}
-                    disabled={disabled}
+                    checked={checked}
+                    disabled={disabled || analysisOnly}
                     onChange={(e) => onChange({ ...modules, [spec.id]: e.target.checked })}
                   />
                   <span className="text-zinc-800">{spec.label}</span>
+                  {analysisOnly && (
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                      Analysis only
+                    </span>
+                  )}
                 </label>
+                  );
+                })()}
               </li>
             ))}
           </ul>
@@ -1353,8 +1349,9 @@ function RemediationAutomationSection({
             const verify = moduleVerify?.[spec.id];
             const deployed = Boolean(modulesDeployed[spec.id]);
             const locked = capabilityLockedInAws(verify, deployed);
-            const moduleChecked = locked ? true : selected;
-            const moduleDisabled = disabled || locked;
+            const analysisOnly = !spec.runnerSupported;
+            const moduleChecked = locked ? true : analysisOnly ? false : selected;
+            const moduleDisabled = disabled || locked || analysisOnly;
 
             return (
               <div
@@ -1387,7 +1384,13 @@ function RemediationAutomationSection({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium leading-snug text-zinc-900">{spec.label}</p>
-                          <CapabilityAccessBadge kind="scoped-write" />
+                          {analysisOnly ? (
+                            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                              Analysis only
+                            </span>
+                          ) : (
+                            <CapabilityAccessBadge kind="scoped-write" />
+                          )}
                         </div>
                         <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{spec.summary}</p>
                       </div>
@@ -1432,17 +1435,19 @@ function RemediationAutomationSection({
                       )}
                     </div>
 
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                        Permissions added to VigilRemediationRole
-                      </p>
-                      <div className="mt-2">
-                        <RemediationPermissionsBlock
-                          permissions={spec.permissions}
-                          verifyRows={verify?.permissions}
-                        />
+                    {!analysisOnly && (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          Permissions added to VigilRemediationRole
+                        </p>
+                        <div className="mt-2">
+                          <RemediationPermissionsBlock
+                            permissions={spec.permissions}
+                            verifyRows={verify?.permissions}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1738,9 +1743,7 @@ function FirstAccountOnboarding({
         <OnboardingFlowProgress activeStep={1} />
 
         <div className="mt-6 flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-200/80 bg-[#FF9900]/10">
-            <AwsIcon className="h-6 w-6 object-contain" />
-          </div>
+          <AwsIconTile className="h-11 w-11 p-2" />
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
               Connect your AWS account
@@ -2151,55 +2154,6 @@ function buildStatsMap(items: Finding[] | undefined): Map<string, FindingStats> 
   return map;
 }
 
-function ScanFreshnessBadge({
-  iso,
-  isScanActive,
-}: {
-  iso: string | null;
-  isScanActive: boolean;
-}) {
-  const freshness = scanFreshness(iso, isScanActive);
-  const meta = FRESHNESS_META[freshness];
-  const ago = formatLastScan(iso);
-
-  if (freshness === "scanning") {
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-indigo-600">
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`} />
-        <span className="font-medium">Scan in progress</span>
-      </div>
-    );
-  }
-
-  if (freshness === "none") {
-    return (
-      <div className={`flex items-center gap-1.5 text-xs ${meta.text}`}>
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`} />
-        <span>No scan yet</span>
-      </div>
-    );
-  }
-
-  if (freshness === "fresh" || freshness === "recent") {
-    return (
-      <div className={`flex items-center gap-1.5 text-xs ${meta.text}`}>
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`} />
-        <span className="font-medium text-emerald-700">Fresh scan</span>
-        {ago && <span className="text-zinc-400">· {ago}</span>}
-      </div>
-    );
-  }
-
-  return (
-    <div className={`flex items-center gap-1.5 text-xs ${meta.text}`}>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`} />
-      <span className="font-medium text-amber-700">Scan outdated</span>
-      {ago && <span className="text-zinc-400">· {ago}</span>}
-      {meta.hint && <span className="text-zinc-400">· {meta.hint}</span>}
-    </div>
-  );
-}
-
 type ScanScheduleData = {
   scanning: { enabled: boolean; interval: "daily" | "weekly" | "custom" | "manual"; custom_hours: number | null };
   scan_status: { next_scan_at: string | null };
@@ -2232,18 +2186,11 @@ function formatFooterScanDate(iso: string | null | undefined, opts?: { utc?: boo
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  const parts: Intl.DateTimeFormatOptions = {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  };
-  if (opts?.utc) {
-    return `${d.toLocaleString("en-US", { ...parts, timeZone: "UTC" })} UTC`;
-  }
-  return d.toLocaleString(undefined, parts);
+  const locale = opts?.utc ? "en-US" : undefined;
+  const timeZone = opts?.utc ? "UTC" : undefined;
+  const date = d.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric", timeZone });
+  const time = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", hour12: true, timeZone });
+  return opts?.utc ? `${date} ${time} UTC` : `${date} ${time}`;
 }
 
 function formatElapsed(ms: number | null | undefined): string | null {
@@ -2307,14 +2254,12 @@ function SeverityCounts({ stats }: { stats: FindingStats }) {
   return (
     <div className="inline-flex items-center">
       {items.map((it, i) => (
-        <div
-          key={it.label}
-          className={`min-w-[4.25rem] px-4 py-2 text-center ${i > 0 ? "border-l border-zinc-200" : ""}`}
-        >
-          <p className={`text-[1.35rem] font-bold leading-none tracking-tight tabular-nums ${it.cls}`}>
+        <div key={it.label} className="relative min-w-[4.25rem] px-3 py-0.5 text-center sm:min-w-[4.75rem] sm:px-4">
+          {i > 0 && <span className="absolute left-0 top-1/2 h-8 w-px -translate-y-1/2 bg-zinc-200/80" aria-hidden />}
+          <p className={`text-xl font-bold leading-none tracking-tight tabular-nums sm:text-2xl ${it.cls}`}>
             {it.value}
           </p>
-          <p className="mt-0.5 text-[11px] font-medium text-zinc-500">{it.label}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-zinc-500 sm:text-xs">{it.label}</p>
         </div>
       ))}
     </div>
@@ -2329,15 +2274,6 @@ type AccountMenuProps = {
   scanDisabled?: boolean;
   disconnectPending?: boolean;
 };
-
-function AccountSeverityStrip({ stats, menu }: { stats: FindingStats; menu: AccountMenuProps }) {
-  return (
-    <div className="inline-flex items-center gap-2">
-      <SeverityCounts stats={stats} />
-      <AccountMenu {...menu} />
-    </div>
-  );
-}
 
 function AccountMenu({
   onUpdateConnector,
@@ -2442,7 +2378,7 @@ function ScanPhaseBlock({
       ? mapWorkerStepToUiPhase(progressStep, progressTotal)
       : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
   return (
-    <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-5 py-4">
+    <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-6 py-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <svg className="h-5 w-5 shrink-0 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -2459,32 +2395,54 @@ function ScanPhaseBlock({
         </div>
         {!indeterminate && <span className="shrink-0 text-sm font-bold tabular-nums text-indigo-600">{pct}%</span>}
       </div>
-      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70">
-        <div
-          className={`h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 ${indeterminate ? "w-1/3 animate-pulse" : "transition-[width] duration-500"}`}
-          style={indeterminate ? undefined : { width: `${pct}%` }}
-        />
+      <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70">
+        {indeterminate ? (
+          <div className="scan-bar-indeterminate bg-gradient-to-r from-sky-500 to-indigo-500" />
+        ) : (
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-[width] duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        )}
       </div>
-      <div className="mt-3.5 grid w-full grid-cols-3 gap-x-3 gap-y-3 sm:grid-cols-6 sm:gap-x-2 sm:gap-y-0">
+      <div className="mt-4 flex items-start">
         {SCAN_PHASES.map((label, i) => {
           const done = i < activeIdx;
           const active = i === activeIdx;
+          const last = i === SCAN_PHASES.length - 1;
           return (
-            <div key={label} className="flex min-w-0 flex-col items-center gap-1 px-0.5 text-center">
-              <span
-                className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
-                  done ? "bg-emerald-500 text-white" : active ? "bg-indigo-600 text-white" : "bg-zinc-200 text-zinc-500"
-                }`}
-              >
-                {done ? (
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
+            <div key={label} className="flex min-w-0 flex-1 flex-col items-center text-center">
+              {/* circle + connecting rails */}
+              <div className="flex w-full items-center">
+                <div
+                  className={`h-0.5 flex-1 rounded-full ${i === 0 ? "opacity-0" : i <= activeIdx ? "bg-emerald-400/80" : "bg-zinc-200"}`}
+                  aria-hidden
+                />
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
+                    done
+                      ? "bg-emerald-500 text-white"
+                      : active
+                        ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
+                        : "bg-zinc-200 text-zinc-500"
+                  }`}
+                >
+                  {done ? (
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <div
+                  className={`h-0.5 flex-1 rounded-full ${last ? "opacity-0" : i < activeIdx ? "bg-emerald-400/80" : "bg-zinc-200"}`}
+                  aria-hidden
+                />
+              </div>
+              <span className={`mt-1.5 px-1 text-[11px] leading-tight ${active ? "font-semibold text-indigo-700" : done ? "text-zinc-600" : "text-zinc-400"}`}>
+                {label}
               </span>
-              <span className={`text-[11px] leading-tight ${active ? "font-semibold text-indigo-700" : done ? "text-zinc-600" : "text-zinc-400"}`}>{label}</span>
               <span className="text-[10px] text-zinc-400">{done ? "Completed" : active ? "In progress" : "Pending"}</span>
             </div>
           );
@@ -2507,10 +2465,11 @@ function FooterStat({
 }) {
   return (
     <div
-      className={`flex min-w-0 items-center gap-2 px-4 py-2.5 ${
-        divided ? "border-b border-zinc-100 sm:border-b-0 sm:border-r sm:border-zinc-100" : ""
+      className={`relative flex min-w-0 items-center gap-2.5 px-4 py-2.5 ${
+        divided ? "border-b border-zinc-100 sm:border-b-0" : ""
       }`}
     >
+      {divided && <span className="absolute right-0 top-1/2 hidden h-7 w-px -translate-y-1/2 bg-zinc-200/70 sm:block" aria-hidden />}
       <span className="shrink-0 text-zinc-400/90">{icon}</span>
       <div className="min-w-0">
         <p className="text-[11px] font-normal leading-tight text-zinc-500">{label}</p>
@@ -2553,54 +2512,15 @@ function AccountCardActionBar({
           type="button"
           onClick={onToggleDetails}
           aria-expanded={expanded}
-          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50"
+          className={cardOutlineBtn}
         >
-          <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-          </svg>
           View details
-          <svg
-            className={`h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-          </svg>
         </button>
-        <button
-          type="button"
-          onClick={onViewFindings}
-          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50"
-        >
-          <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v3.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-            />
-          </svg>
+        <button type="button" onClick={onViewFindings} className={cardOutlineBtn}>
           View findings
         </button>
-        <button
-          type="button"
-          onClick={onRescan}
-          disabled={scanDisabled}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <svg
-            className={`h-4 w-4 ${scanRunning ? "animate-spin" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {scanRunning ? "Scanning…" : "Rescan"}
+        <button type="button" onClick={onRescan} disabled={scanDisabled} className={cardRescanBtn}>
+          {scanRunning ? "Scanning…" : "Scan"}
         </button>
       </div>
     </div>
@@ -2820,43 +2740,31 @@ function AccountCard({
 
   return (
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
-      <div className="flex items-start gap-4 px-5 py-4">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white shadow-sm">
-            <AwsIcon className="h-7 w-7 object-contain" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="truncate text-base font-bold text-zinc-900">{acc.label}</h2>
+      <div className="flex items-center gap-4 px-5 py-4">
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <AwsIconTile />
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-lg font-bold leading-tight text-zinc-900">{acc.label}</h2>
             {connected && acc.account_id ? (
-              <div className="flex items-center gap-1">
+              <div className="mt-0.5 flex items-center gap-1">
                 <p className="font-mono text-xs tabular-nums text-zinc-500">{acc.account_id}</p>
                 <CopyIdButton text={acc.account_id} />
               </div>
             ) : (
-              <p className="text-xs text-zinc-500">Setup required</p>
+              <p className="mt-0.5 text-xs text-zinc-500">Setup required</p>
             )}
             <CapabilityBadges
               acc={acc}
               connectionOptions={connected ? undefined : setupConnectionOptions}
               capabilityVerify={capabilityVerify}
             />
-            {connected && (
-              <div className="mt-1.5">
-                <ScanFreshnessBadge iso={acc.last_scan_at} isScanActive={isScanActive} />
-              </div>
-            )}
           </div>
         </div>
 
         {connected ? (
-          <div className="flex shrink-0 items-center">
-            {hasStats && stats ? (
-              <div className="hidden sm:block">
-                <AccountSeverityStrip stats={stats} menu={accountMenu} />
-              </div>
-            ) : (
-              <AccountMenu {...accountMenu} />
-            )}
+          <div className="flex shrink-0 items-center gap-2">
+            {hasStats && stats ? <SeverityCounts stats={stats} /> : null}
+            <AccountMenu {...accountMenu} />
           </div>
         ) : (
           <div className="flex shrink-0 items-center gap-2">
@@ -2874,12 +2782,6 @@ function AccountCard({
           </div>
         )}
       </div>
-
-      {hasStats && stats && (
-        <div className="flex justify-end border-t border-zinc-100/80 px-5 py-2.5 sm:hidden">
-          <AccountSeverityStrip stats={stats} menu={accountMenu} />
-        </div>
-      )}
 
       {connected && isScanActive && (
         <ScanPhaseBlock
@@ -3011,39 +2913,39 @@ function AccountCard({
   );
 }
 
-function PostureGlyphCloud() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-    </svg>
-  );
-}
-
-function PostureGlyphFlag() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
-    </svg>
-  );
-}
-
-function PostureGlyphShield() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Zm0 13.036h.008v.008H12v-.008Z" />
-    </svg>
-  );
-}
-
-function PostureGlyphUsers() {
-  return (
-    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-    </svg>
-  );
-}
-
 type PostureTone = "good" | "warn" | "bad" | "muted";
+
+function PostureTrend({
+  count,
+  label,
+  tone,
+}: {
+  count: number;
+  label: string;
+  tone: PostureTone;
+}) {
+  const toneText: Record<PostureTone, string> = {
+    good: "text-emerald-600",
+    warn: "text-amber-600",
+    bad: "text-red-600",
+    muted: "text-zinc-500",
+  };
+
+  return (
+    <p className={`mt-2.5 flex items-center gap-1 text-xs font-medium ${toneText[tone]}`}>
+      {count === 0 ? (
+        <span className="text-zinc-400" aria-hidden>
+          —
+        </span>
+      ) : (
+        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+        </svg>
+      )}
+      <span>{label}</span>
+    </p>
+  );
+}
 
 type PortfolioMetrics = {
   totalOpen: number;
@@ -3099,38 +3001,6 @@ function buildPortfolioMetrics(
   };
 }
 
-function PostureTrend({
-  count,
-  label,
-  tone,
-}: {
-  count: number;
-  label: string;
-  tone: PostureTone;
-}) {
-  const toneText: Record<PostureTone, string> = {
-    good: "text-emerald-600",
-    warn: "text-amber-600",
-    bad: "text-red-600",
-    muted: "text-zinc-500",
-  };
-
-  return (
-    <p className={`mt-2 flex items-center gap-1 text-[11px] font-medium ${toneText[tone]}`}>
-      {count === 0 ? (
-        <span className="w-3 text-center text-zinc-400" aria-hidden>
-          —
-        </span>
-      ) : (
-        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-        </svg>
-      )}
-      <span>{label}</span>
-    </p>
-  );
-}
-
 function PostureSummary({
   accounts,
   statsMap,
@@ -3146,8 +3016,7 @@ function PostureSummary({
   const tiles: {
     label: string;
     value: number;
-    tint: string;
-    icon: ReactNode;
+    accent: string;
     trendCount: number;
     trendLabel: string;
     trendTone: PostureTone;
@@ -3155,8 +3024,7 @@ function PostureSummary({
     {
       label: "Connected",
       value: connected.length,
-      tint: "bg-sky-50 text-sky-500",
-      icon: <PostureGlyphCloud />,
+      accent: "bg-sky-400",
       trendCount: metrics.connectedThisWeek,
       trendLabel: metrics.connectedThisWeek === 0 ? "No change" : `${metrics.connectedThisWeek} this week`,
       trendTone: metrics.connectedThisWeek > 0 ? "good" : "muted",
@@ -3164,8 +3032,7 @@ function PostureSummary({
     {
       label: "Open findings",
       value: metrics.totalOpen,
-      tint: "bg-orange-50 text-orange-500",
-      icon: <PostureGlyphFlag />,
+      accent: "bg-orange-400",
       trendCount: metrics.openNew7d,
       trendLabel: metrics.openNew7d === 0 ? "No change" : `${metrics.openNew7d} vs last 7 days`,
       trendTone: metrics.openNew7d > 0 ? "warn" : "muted",
@@ -3173,8 +3040,7 @@ function PostureSummary({
     {
       label: "Critical + high",
       value: metrics.totalCrit,
-      tint: "bg-red-50 text-red-500",
-      icon: <PostureGlyphShield />,
+      accent: "bg-rose-400",
       trendCount: metrics.critHighNew7d,
       trendLabel: metrics.critHighNew7d === 0 ? "No change" : `${metrics.critHighNew7d} vs last 7 days`,
       trendTone: metrics.critHighNew7d > 0 ? "bad" : metrics.totalCrit > 0 ? "muted" : "good",
@@ -3182,8 +3048,7 @@ function PostureSummary({
     {
       label: "Accounts at risk",
       value: metrics.needsAttention,
-      tint: "bg-amber-50 text-amber-500",
-      icon: <PostureGlyphUsers />,
+      accent: "bg-amber-300",
       trendCount: metrics.atRiskNew7d,
       trendLabel: metrics.atRiskNew7d === 0 ? "No change" : `${metrics.atRiskNew7d} vs last 7 days`,
       trendTone: metrics.atRiskNew7d > 0 ? "warn" : "muted",
@@ -3195,12 +3060,12 @@ function PostureSummary({
       {tiles.map((t) => (
         <div
           key={t.label}
-          className="flex items-center gap-4 rounded-2xl border border-zinc-200/80 bg-white px-5 py-5 shadow-sm shadow-zinc-950/[0.03] transition duration-200 hover:border-zinc-300 hover:shadow-md"
+          className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]"
         >
-          <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${t.tint}`}>{t.icon}</span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{t.label}</p>
-            <p className="mt-0.5 text-3xl font-bold leading-none tracking-tight tabular-nums text-zinc-900">{t.value}</p>
+          <div className={`h-1 ${t.accent}`} aria-hidden />
+          <div className="px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-400">{t.label}</p>
+            <p className="mt-2 text-[2rem] font-bold leading-none tracking-tight tabular-nums text-zinc-900">{t.value}</p>
             <PostureTrend count={t.trendCount} label={t.trendLabel} tone={t.trendTone} />
           </div>
         </div>
@@ -3279,10 +3144,10 @@ export default function Accounts() {
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-screen-2xl space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {showFirstAccountOnboarding
               ? "Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and generate evidence for your auditor."
@@ -3295,9 +3160,9 @@ export default function Accounts() {
             onClick={() => create.mutate(pendingConnectionOptions)}
             disabled={create.isPending || hasPending}
             title={hasPending ? "Finish setting up the pending account first" : undefined}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-3.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className={cardOutlineBtn}
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             {create.isPending ? "Adding…" : "Add account"}

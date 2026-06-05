@@ -90,8 +90,11 @@
       "ec2.instance.imdsv2_not_required",
       "ec2.ebs.snapshot_public",
       "ec2.ami.public",
+      "rds.snapshot.public",
+      "eks.cluster.public_endpoint",
       "s3.bucket.no_default_encryption",
       "elb.load_balancer.weak_tls_policy",
+      "lambda.function.public_url",
       "dynamodb.table.no_encryption",
       "cloudtrail.event.security_group_open_to_world"
     ]
@@ -530,6 +533,7 @@
       "ec2.instance.imdsv2_not_required",
       "acm.certificate.expiring",
       "lambda.function.deprecated_runtime",
+      "ecr.repository.image_scan_disabled",
       "ec2.ami.aged",
       "cloudtrail.event.guardduty_disabled",
       "cloudtrail.event.ec2_instance_tampering",
@@ -547,6 +551,8 @@
       "ec2.security_group.unrestricted_rdp",
       "ec2.security_group.default_allows_traffic",
       "vpc.flow_logs.not_enabled",
+      "lambda.function.public_url",
+      "eks.cluster.public_endpoint",
       "cloudtrail.event.security_group_open_to_world"
     ]
   },

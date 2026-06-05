@@ -301,6 +301,16 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     risk: "Failed invocations disappear silently.",
     fix: "Attach SQS/SNS DLQ with retry limit.",
   },
+  "lambda.function.public_url": {
+    impact: "Lambda function URL accepts unauthenticated requests.",
+    risk: "Internet callers can invoke code directly.",
+    fix: "Require IAM auth or remove the function URL.",
+  },
+  "ecr.repository.image_scan_disabled": {
+    impact: "Container images are not scanned on push.",
+    risk: "Known vulnerable images can reach runtime unnoticed.",
+    fix: "Enable ECR scan-on-push or enhanced scanning.",
+  },
   "rds.instance.no_deletion_protection": {
     impact: "RDS deletion protection off.",
     risk: "One API call can destroy the database.",
@@ -310,6 +320,16 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     impact: "RDS single-AZ deployment.",
     risk: "No automatic failover on host failure.",
     fix: "Enable Multi-AZ during maintenance window.",
+  },
+  "rds.snapshot.public": {
+    impact: "RDS snapshot is publicly restorable.",
+    risk: "Database contents may be copied externally.",
+    fix: "Remove public restore permissions immediately.",
+  },
+  "eks.cluster.public_endpoint": {
+    impact: "EKS API endpoint is internet reachable.",
+    risk: "Attackers can probe Kubernetes API auth paths.",
+    fix: "Restrict public CIDRs or use private endpoint access.",
   },
   "secretsmanager.secret.no_rotation": {
     impact: "Secret has no automatic rotation.",

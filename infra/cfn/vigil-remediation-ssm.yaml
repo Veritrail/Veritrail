@@ -176,7 +176,7 @@ Resources:
             timeoutSeconds: 300
             inputs:
               Runtime: python3.11
-              Handler: handler
+              Handler: revoke_sg_ingress.handler
               Attachment: revoke_sg_ingress.py
               InputPayload:
                 PlanJson: "{{ PlanJson }}"
@@ -215,7 +215,7 @@ Resources:
             timeoutSeconds: 300
             inputs:
               Runtime: python3.11
-              Handler: handler
+              Handler: deactivate_access_key.handler
               Attachment: deactivate_access_key.py
               InputPayload:
                 PlanJson: "{{ PlanJson }}"
@@ -254,7 +254,7 @@ Resources:
             timeoutSeconds: 300
             inputs:
               Runtime: python3.11
-              Handler: handler
+              Handler: migrate_to_secure_string.handler
               Attachment: migrate_to_secure_string.py
               InputPayload:
                 PlanJson: "{{ PlanJson }}"
@@ -293,7 +293,7 @@ Resources:
             timeoutSeconds: 300
             inputs:
               Runtime: python3.11
-              Handler: handler
+              Handler: remediate_excess_permissions.handler
               Attachment: remediate_excess_permissions.py
               InputPayload:
                 PlanJson: "{{ PlanJson }}"

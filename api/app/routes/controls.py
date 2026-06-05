@@ -347,10 +347,16 @@ def _entity_types_for_check_ids(check_ids: list[str]) -> list[str]:
         elif cid.startswith("ec2.ebs"):
             types.add("ebs_volume")
             types.add("ebs_encryption_default")
+        elif cid.startswith("rds.snapshot."):
+            types.add("rds_snapshot")
         elif cid.startswith("rds."):
             types.add("rds_instance")
         elif cid.startswith("dynamodb."):
             types.add("dynamodb_table")
+        elif cid.startswith("ecr."):
+            types.add("ecr_repository")
+        elif cid.startswith("eks."):
+            types.add("eks_cluster")
         elif cid.startswith("lambda."):
             types.add("lambda_function")
         elif cid.startswith("acm."):

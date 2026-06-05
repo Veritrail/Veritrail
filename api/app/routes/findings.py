@@ -23,6 +23,9 @@ router = APIRouter()
 class FindingOut(BaseModel):
     id: str
     account_id: str
+    account_label: str | None = None
+    account_name: str | None = None
+    account_provider: str = "aws"
     check_id: str
     resource_arn: str
     title: str
@@ -38,6 +41,58 @@ class FindingOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+def _account_display_name(acc: AwsAccount) -> str:
+    label = (acc.label or "").strip()
+    aid = (acc.account_id or "").strip()
+    if label and label != aid:
+        return label
+    if label and not aid:
+        return label
+    return "AWS account"
+
+
+def _vcs_provider(check_id: str) -> str | None:
+    if check_id.startswith("github."):
+        return "github"
+    if check_id.startswith("gitlab."):
+        return "gitlab"
+    return None
+
+
+def _vcs_scope_name(f: Finding) -> str:
+    evidence = f.evidence if isinstance(f.evidence, dict) else {}
+    for key in ("source", "org", "organization"):
+        raw = evidence.get(key)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip().lstrip("/")
+    arn = (f.resource_arn or "").strip()
+    if "://org/" in arn:
+        slug = arn.split("://org/", 1)[-1].split("/")[0].split("?")[0]
+        if slug:
+            return slug
+    for prefix in ("github://", "gitlab://"):
+        if arn.startswith(prefix):
+            rest = arn[len(prefix) :].lstrip("/")
+            if rest.startswith("repo/"):
+                rest = rest[5:]
+            if rest.startswith("org/"):
+                rest = rest[4:]
+            segment = rest.split("/")[0] if rest else ""
+            if segment:
+                return segment
+    provider = _vcs_provider(f.check_id)
+    if provider == "github":
+        return "GitHub organization"
+    if provider == "gitlab":
+        return "GitLab group"
+    return "Git organization"
+
+
+def _load_org_accounts(db: Session, org_id: uuid.UUID) -> dict[uuid.UUID, AwsAccount]:
+    rows = db.scalars(select(AwsAccount).where(AwsAccount.org_id == org_id)).all()
+    return {a.id: a for a in rows}
 
 
 class FindingPage(BaseModel):
@@ -72,10 +127,36 @@ class ExceptionIn(BaseModel):
     expires_at: datetime | None = None
 
 
-def _to_out(f: Finding) -> FindingOut:
+def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> FindingOut:
+    vcs = _vcs_provider(f.check_id)
+    if vcs:
+        scope = _vcs_scope_name(f)
+        return FindingOut(
+            id=str(f.id),
+            account_id=str(f.account_id),
+            account_label=scope,
+            account_name=scope,
+            account_provider=vcs,
+            check_id=f.check_id,
+            resource_arn=f.resource_arn,
+            title=f.title,
+            severity=f.severity,
+            risk_score=f.risk_score,
+            status=f.status,
+            evidence=f.evidence,
+            first_seen=f.first_seen,
+            last_seen=f.last_seen,
+            exception_reason=f.exception_reason,
+            exception_approved_by=f.exception_approved_by,
+            exception_expires_at=f.exception_expires_at,
+        )
+    acc = (accounts or {}).get(f.account_id)
     return FindingOut(
         id=str(f.id),
         account_id=str(f.account_id),
+        account_label=acc.label if acc else None,
+        account_name=_account_display_name(acc) if acc else None,
+        account_provider="aws",
         check_id=f.check_id,
         resource_arn=f.resource_arn,
         title=f.title,
@@ -136,7 +217,12 @@ def list_findings(
     items = rows[:limit]
     next_cursor = _encode_cursor(items[-1].risk_score, items[-1].id) if has_more and items else None
 
-    return FindingPage(items=[_to_out(f) for f in items], total=total, next_cursor=next_cursor)
+    accounts = _load_org_accounts(db, org_id)
+    return FindingPage(
+        items=[_to_out(f, accounts) for f in items],
+        total=total,
+        next_cursor=next_cursor,
+    )
 
 
 def _get_owned(db: Session, p, finding_id: str) -> Finding:
@@ -153,7 +239,8 @@ def snooze(finding_id: str, body: SnoozeIn, p=Depends(current_principal), db: Se
     f.snooze_until = datetime.now(timezone.utc) + timedelta(days=body.days)
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="snoozed", actor=p["sub"], note=body.note))
     db.commit()
-    return _to_out(f)
+    accounts = _load_org_accounts(db, f.org_id)
+    return _to_out(f, accounts)
 
 
 @router.post("/{finding_id}/resolve", response_model=FindingOut)
@@ -170,7 +257,8 @@ def resolve(finding_id: str, body: ResolveIn, p=Depends(current_principal), db: 
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="resolved", actor=p["sub"], note=body.note))
     resolve_retired_for_resource(db, canonical=f, now=now, actor=p["sub"])
     db.commit()
-    return _to_out(f)
+    accounts = _load_org_accounts(db, f.org_id)
+    return _to_out(f, accounts)
 
 
 @router.post("/{finding_id}/reopen", response_model=FindingOut)
@@ -183,7 +271,8 @@ def reopen(finding_id: str, p=Depends(current_principal), db: Session = Depends(
     f.snooze_until = None
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="reopened", actor=p["sub"]))
     db.commit()
-    return _to_out(f)
+    accounts = _load_org_accounts(db, f.org_id)
+    return _to_out(f, accounts)
 
 
 @router.post("/{finding_id}/ignore", response_model=FindingOut)
@@ -192,7 +281,8 @@ def ignore(finding_id: str, p=Depends(current_principal), db: Session = Depends(
     f.status = "ignored"
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="ignored", actor=p["sub"]))
     db.commit()
-    return _to_out(f)
+    accounts = _load_org_accounts(db, f.org_id)
+    return _to_out(f, accounts)
 
 
 @router.post("/{finding_id}/exception", response_model=FindingOut)
@@ -210,7 +300,8 @@ def create_exception(finding_id: str, body: ExceptionIn, p=Depends(current_princ
         note=f"Approved by {body.approved_by}: {body.reason}",
     ))
     db.commit()
-    return _to_out(f)
+    accounts = _load_org_accounts(db, f.org_id)
+    return _to_out(f, accounts)
 
 
 @router.get("/{finding_id}/remediation-plan")
@@ -328,6 +419,7 @@ def get_remediation_execution(finding_id: str, p=Depends(current_principal), db:
 
 class RemediationDispatchIn(BaseModel):
     execute: bool = False
+    parameter_overrides: dict[str, str] | None = None
 
 
 @router.post("/{finding_id}/remediation/dispatch")
@@ -348,6 +440,7 @@ def remediation_dispatch(
         db=db,
         org_id=uuid.UUID(p["org_id"]),
         execute=body.execute,
+        parameter_overrides=body.parameter_overrides,
     )
 
 

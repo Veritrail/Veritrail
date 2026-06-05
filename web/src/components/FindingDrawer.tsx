@@ -4,6 +4,7 @@ import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
+import AwsServiceIcon from "./AwsServiceIcon";
 import { IaCRemediationSection } from "./IaCRemediationSection";
 import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import { DrawerDateField } from "./DrawerDateField";
@@ -48,6 +49,9 @@ import {
   resourceTypeLabel,
   isAwsRootFinding,
   isVcsResourceIdentifier,
+  severityLabel,
+  severityPillClassName,
+  formatIamServiceDisplayName,
 } from "../lib/findingDisplay";
 import {
   applyCliPlaceholders,
@@ -74,6 +78,7 @@ import {
   isShortResourceLabel,
 } from "../lib/impactAnalysisDisplay";
 import "../styles/impact-analysis.css";
+import "../styles/policy-review.css";
 import {
   DrawerFlowLabel,
   ExceptionFlowPanel,
@@ -88,91 +93,22 @@ import {
 } from "./FindingDrawerSemantic";
 
 const DRAWER_MAX_W = "max-w-[640px]";
+const DRAWER_WIDE_MAX_W = "max-w-[min(96vw,1180px)]";
+const DRAWER_POLICY_TRIPLE_MAX_W = "max-w-[min(98vw,1620px)]";
+/** Left rail · analysis · review — keep the remediation picker readable. */
+const DRAWER_POLICY_TRIPLE_GRID =
+  "grid min-h-0 flex-1 grid-cols-[minmax(300px,30%)_minmax(320px,0.68fr)_minmax(400px,0.75fr)] overflow-hidden border-t border-zinc-200/80";
 
 /** Resource label in drawer header (matches drawerFieldLabel). */
 const drawerFieldLabelBlock = drawerFieldLabel;
 const drawerFooterCardBase =
-  "relative flex h-14 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border px-3.5 transition hover:shadow-md active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50";
+  "relative flex min-h-[4.25rem] min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border bg-white px-4 py-3 transition hover:shadow-sm active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50";
 const drawerFooterReopen = `${drawerFooterCardBase} w-full justify-center border-zinc-200 bg-zinc-50/80 text-[13px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50`;
-const drawerFooterVerifyCard = `${drawerFooterCardBase} border-emerald-200 bg-emerald-50/70 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50`;
-const drawerFooterVerifyMutedCard = `${drawerFooterCardBase} border-slate-200 bg-slate-50/90 text-slate-400 hover:border-slate-300 hover:bg-slate-50`;
-const drawerFooterVerifyDoneCard = `${drawerFooterCardBase} border-emerald-300 bg-emerald-50 text-emerald-700`;
-const drawerFooterExceptionCard = `${drawerFooterCardBase} border-orange-200 bg-orange-50/70 text-orange-600 hover:border-orange-300 hover:bg-orange-50`;
-
-function DrawerFooterIconBadge({
-  children,
-  tone,
-}: {
-  children: ReactNode;
-  tone: "emerald" | "orange" | "slate" | "emerald-done";
-}) {
-  const shell =
-    tone === "orange"
-      ? "bg-orange-100/90"
-      : tone === "slate"
-        ? "bg-slate-100"
-        : tone === "emerald-done"
-          ? "bg-emerald-100"
-          : "bg-emerald-100/90";
-  return (
-    <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${shell}`}
-      aria-hidden
-    >
-      {children}
-    </span>
-  );
-}
-
-function DrawerFooterChevron() {
-  return (
-    <svg className="h-4 w-4 shrink-0 opacity-80" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-    </svg>
-  );
-}
-
-function DrawerFooterCardLead({
-  icon,
-  label,
-  tone,
-}: {
-  icon: ReactNode;
-  label: string;
-  tone: "emerald" | "orange" | "slate" | "emerald-done";
-}) {
-  return (
-    <span className="flex min-w-0 flex-1 items-center gap-2.5">
-      <DrawerFooterIconBadge tone={tone}>{icon}</DrawerFooterIconBadge>
-      <span className="truncate text-[13px] font-semibold leading-tight">{label}</span>
-    </span>
-  );
-}
-
-function DrawerFooterShieldCheckIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-      />
-    </svg>
-  );
-}
-
-function DrawerFooterExceptionBubbleIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a2.252 2.252 0 0 0 1.126-1.92c0-.817-.546-1.55-1.346-1.894a48.508 48.508 0 0 0-8.558-2.535c-.966-.14-1.936-.21-2.908-.21"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 0h.008v.008H12V12.75Z" />
-    </svg>
-  );
-}
+const drawerFooterActionBase =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-[13px] font-semibold transition-all duration-150 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60";
+const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#059669] text-white shadow-[0_6px_16px_rgba(5,150,105,0.16)] hover:bg-[#047857] hover:shadow-[0_8px_18px_rgba(4,120,87,0.18)]`;
+const drawerFooterVerifySoft = `${drawerFooterActionBase} flex-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70`;
+const drawerFooterExceptionGhost = `${drawerFooterActionBase} flex-[0.8] border border-zinc-200 bg-white text-zinc-600 shadow-sm shadow-zinc-900/[0.02] hover:border-amber-200 hover:bg-amber-50/60 hover:text-amber-700`;
 
 function DrawerChevronButton({
   expanded,
@@ -249,7 +185,14 @@ function DrawerSection({
   );
 }
 
-type RemediationMode = "console" | "cli" | "terraform" | "automation";
+export type FindingRemediationMode =
+  | "console"
+  | "cli"
+  | "terraform"
+  | "automation"
+  | "suggested_policy";
+
+type RemediationMode = FindingRemediationMode;
 
 const SG_AUTOMATION_ONLY_CHECKS = new Set([
   "ec2.security_group.unrestricted_ssh",
@@ -260,35 +203,224 @@ export function defaultFindingRemediationMode(checkId: string): FindingRemediati
   return SG_AUTOMATION_ONLY_CHECKS.has(checkId) ? "automation" : "console";
 }
 
-function RemediationModeToggle({
-  value,
-  onChange,
+const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
+  console: "Console",
+  cli: "CLI",
+  terraform: "Terraform",
+  automation: "Automated fix",
+  suggested_policy: "Suggested policy",
+};
+
+function RemediationModeIcon({ mode }: { mode: RemediationMode }) {
+  const cls = "h-5 w-5 shrink-0";
+  if (mode === "console") {
+    return (
+      <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    );
+  }
+  if (mode === "cli") {
+    return (
+      <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    );
+  }
+  if (mode === "terraform") {
+    return (
+      <svg className={cls} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M12 2 2 7v10l10 5 10-5V7L12 2zm0 2.2 7.5 3.75v7.5L12 19.3 4.5 15.45v-7.5L12 4.2z" opacity={0.35} />
+        <path d="M12 6.5 6.5 9.25v5.5L12 17.5l5.5-2.75v-5.5L12 6.5z" />
+      </svg>
+    );
+  }
+  if (mode === "suggested_policy") {
+    return (
+      <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+    </svg>
+  );
+}
+
+function RemediationModePicker({
+  active,
+  onSelect,
   hideTerraform,
+  showSuggestedPolicy,
 }: {
-  value: RemediationMode;
-  onChange: (mode: RemediationMode) => void;
+  active: RemediationMode | null;
+  onSelect: (mode: RemediationMode) => void;
   hideTerraform?: boolean;
+  showSuggestedPolicy?: boolean;
 }) {
-  const modes: { id: RemediationMode; label: string }[] = [
-    { id: "console", label: "Console" },
-    { id: "cli", label: "CLI" },
-    ...(hideTerraform ? [] : [{ id: "terraform" as const, label: "Terraform" }]),
-    { id: "automation", label: "Automated fix" },
+  const modes: RemediationMode[] = [
+    "console",
+    ...(showSuggestedPolicy ? (["suggested_policy"] as RemediationMode[]) : []),
+    "cli",
+    ...(hideTerraform ? [] : (["terraform"] as RemediationMode[])),
+    "automation",
   ];
   return (
-    <div className="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg bg-zinc-100/80 p-0.5">
-      {modes.map((mode) => (
+    <div className={`${drawerPanel} overflow-hidden`}>
+      <div className={drawerSectionHead}>
+        <h3 className={drawerSectionTitle}>Generate remediation steps for</h3>
+      </div>
+      <div className={`${drawerSectionBody} grid grid-cols-3 gap-2`}>
+        {modes.map((mode) => {
+          const selected = active === mode;
+          return (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => onSelect(mode)}
+              className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-center transition-all duration-150 ${
+                selected
+                  ? "border-indigo-300 bg-indigo-50/80 text-indigo-950 shadow-sm ring-2 ring-indigo-200/80"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/80"
+              }`}
+            >
+              <RemediationModeIcon mode={mode} />
+              <span className="text-[13px] font-semibold leading-snug tracking-[-0.01em]">
+                {REMEDIATION_MODE_LABELS[mode]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SuggestedRemediationSummary({
+  rem,
+  policyMode = false,
+}: {
+  rem: Remediation;
+  policyMode?: boolean;
+}) {
+  const summary = policyMode
+    ? "Replace full-admin access with a scoped least-privilege policy generated from observed usage."
+    : rem.why;
+
+  return (
+    <div className={`${drawerPanel} overflow-hidden`}>
+      <div className={drawerSectionHead}>
+        <h3 className={drawerSectionTitle}>Suggested remediation</h3>
+      </div>
+      <div className={`${drawerSectionBody} space-y-2`}>
+        <p className="text-[13px] leading-relaxed text-zinc-600">{summary}</p>
+        {!policyMode && rem.risk ? <p className="text-[12px] leading-relaxed text-zinc-500">{rem.risk}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function RemediationDetailCard({
+  title,
+  action,
+  children,
+  className = "",
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`${drawerPanel} overflow-hidden ${className}`}>
+      <div className={`${drawerSectionHead} flex items-center justify-between gap-3`}>
+        <h4 className={drawerSectionTitle}>{title}</h4>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      <div className={drawerSectionBody}>{children}</div>
+    </div>
+  );
+}
+
+function RemediationDetailPanel({
+  mode,
+  onClose,
+  children,
+}: {
+  mode: RemediationMode;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-zinc-200/90 bg-[#f7f9fc]">
+      <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#e6ebf2] bg-white px-6 py-4 shadow-sm shadow-zinc-950/[0.03]">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-200/90 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-900/[0.04]">
+            <RemediationModeIcon mode={mode} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">Remediation</p>
+            <h3 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-zinc-900">
+              {REMEDIATION_MODE_LABELS[mode]}
+            </h3>
+          </div>
+        </div>
         <button
-          key={mode.id}
           type="button"
-          onClick={() => onChange(mode.id)}
-          className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-150 ${
-            value === mode.id
-              ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5"
-              : "text-zinc-500 hover:text-zinc-700"
+          onClick={onClose}
+          className="rounded-lg border border-zinc-200 bg-white p-2 text-zinc-400 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-700"
+          aria-label="Close remediation details"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="space-y-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function PolicyViewToggle<T extends string>({
+  options,
+  value,
+  onChange,
+  formatLabel,
+  variant = "light",
+}: {
+  options: readonly T[];
+  value: T;
+  onChange: (v: T) => void;
+  formatLabel?: (v: T) => string;
+  variant?: "light" | "dark";
+}) {
+  const shell = variant === "dark" ? "rounded-md bg-zinc-800/90 p-0.5" : "rounded-lg bg-zinc-100/90 p-0.5";
+  const active =
+    variant === "dark"
+      ? "bg-zinc-600 text-white shadow-sm"
+      : "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5";
+  const idle = variant === "dark" ? "text-zinc-400 hover:text-zinc-200" : "text-zinc-600 hover:text-zinc-800";
+
+  return (
+    <div className={`inline-flex shrink-0 gap-0.5 ${shell}`}>
+      {options.map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={`rounded-md px-3 py-1 text-[12px] font-medium transition-all duration-150 ${
+            value === v ? active : idle
           }`}
         >
-          {mode.label}
+          {formatLabel ? formatLabel(v) : v.charAt(0).toUpperCase() + v.slice(1)}
         </button>
       ))}
     </div>
@@ -350,17 +482,18 @@ function SelectedResourceInspector({
   const rootInspector = isAwsRootFinding(finding);
 
   const timelineBlock = (
-    <div className="border-t border-zinc-100 bg-zinc-50/40 px-4 py-3.5">
-      <p className="mb-2.5 text-[11px] font-semibold text-zinc-700">Finding timeline</p>
-      <PostureMetricsRow>
-        <PostureMetricCell label="Risk score" value={finding.risk_score} valueClassName={riskTone} />
-        <PostureMetricCell
-          label="Status"
-          value={<span className="capitalize">{statusLabel}</span>}
-        />
-        <PostureMetricCell label="First seen" value={daysAgo(finding.first_seen)} />
-        <PostureMetricCell label="Last seen" value={daysAgo(finding.last_seen)} />
-      </PostureMetricsRow>
+    <div className="border-t border-zinc-100 bg-white px-4 pb-1.5 pt-3">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Finding timeline</p>
+      <dl>
+        <ResourceFieldRow label="Risk score">
+          <span className={`font-semibold ${riskTone}`}>{finding.risk_score}</span>
+        </ResourceFieldRow>
+        <ResourceFieldRow label="Status">
+          <span className="capitalize">{statusLabel}</span>
+        </ResourceFieldRow>
+        <ResourceFieldRow label="First seen">{daysAgo(finding.first_seen)}</ResourceFieldRow>
+        <ResourceFieldRow label="Last seen">{daysAgo(finding.last_seen)}</ResourceFieldRow>
+      </dl>
     </div>
   );
 
@@ -371,6 +504,9 @@ function SelectedResourceInspector({
           attachedToList ? "border-l-2 border-l-zinc-400/30 shadow-sm shadow-zinc-950/[0.04]" : ""
         }`}
       >
+        <div className={drawerSectionHead}>
+          <h3 className={drawerSectionTitle}>Resource details</h3>
+        </div>
         <dl className="border-b border-zinc-100 bg-white px-4 py-0.5">
           {accountId ? (
             <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>
@@ -390,6 +526,9 @@ function SelectedResourceInspector({
         attachedToList ? "border-l-2 border-l-zinc-400/30 shadow-sm shadow-zinc-950/[0.04]" : ""
       }`}
     >
+      <div className={drawerSectionHead}>
+        <h3 className={drawerSectionTitle}>Resource details</h3>
+      </div>
       {!attachedToList && (
         <ResourceInspectorHero
           badge={resourceTypeLabel(finding.check_id)}
@@ -537,12 +676,6 @@ type Remediation = {
   risk: string;
 };
 
-function remediationImpactBadge(severity: string): { label: string; variant: "high" | "caution" | "muted" } {
-  if (severity === "critical" || severity === "high") return { label: "High impact", variant: "high" };
-  if (severity === "medium") return { label: "Verify impact", variant: "caution" };
-  return { label: "Lower impact", variant: "muted" };
-}
-
 function frameworkCompact(framework: string): string {
   if (framework === "soc2") return "SOC2";
   if (framework === "cis_aws_l1") return "CIS AWS";
@@ -632,15 +765,8 @@ function OverviewTabContent({
   const businessImpact = documentation?.overview?.exposure ?? risk;
   const recommendedAction = documentation?.overview?.fix ?? fix;
   const frameworkImpact = credentialUnusedFrameworkImpact(finding.check_id);
-  const severityDisplay = finding.severity.charAt(0).toUpperCase() + finding.severity.slice(1);
-  const severityPillClass =
-    finding.severity === "critical"
-      ? "inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[12px] font-semibold text-red-800 ring-1 ring-red-200/60"
-      : finding.severity === "high"
-        ? "inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-semibold text-amber-900 ring-1 ring-amber-200/60"
-        : finding.severity === "medium"
-          ? "inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[12px] font-semibold text-zinc-700 ring-1 ring-zinc-200/70"
-          : "inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[12px] font-semibold text-zinc-600 ring-1 ring-zinc-200/70";
+  const severityDisplay = severityLabel(finding.severity);
+  const severityPillClass = severityPillClassName(finding.severity);
 
   const { data: controlBundle, isLoading: controlsLoading } = useQuery({
     queryKey: ["controls-by-check", finding.check_id],
@@ -806,11 +932,11 @@ aws iam delete-role --role-name <role-name>`,
   "iam.role.wildcard_action": {
     why: 'Action: "*" in an inline policy is admin-like unless constrained by resource, condition, or permissions boundary. It should be reviewed and scoped to the actions the role actually needs.',
     console: [
-      'Use "Suggested policy" above (Generate) to preview a scoped policy from recorded usage',
+      'Use "Least-privilege proposal" above (Generate) to preview a scoped policy from recorded usage',
       "Open IAM → Roles → select the role → Permissions → edit or replace the inline policy",
       "Apply the generated policy document, then verify the workload",
     ],
-    cli: `# Option A — use Suggested policy (Generate) in this drawer, then:
+    cli: `# Option A — use Least-privilege proposal (Generate) in this drawer, then:
 aws iam put-role-policy --role-name <role-name> --policy-name <policy-name> --policy-document file://scoped-policy.json
 
 # Option B — review inline policy manually
@@ -823,7 +949,7 @@ aws iam get-role-policy --role-name <role-name> --policy-name <policy-name>`,
       "Open IAM → Roles → select the role → Permissions tab",
       "Review the actions listed in the finding evidence",
       "For each unused action, remove it from the role's inline or attached policies",
-      'Use "Suggested policy" above (Generate) to preview a least-privilege policy from recorded usage',
+      'Use "Least-privilege proposal" above (Generate) to preview a least-privilege policy from recorded usage',
       "Test the workload after each change to confirm functionality",
     ],
     cli: `# View current role policy
@@ -971,7 +1097,7 @@ aws s3api put-public-access-block \\
   "s3.bucket.no_https_policy": {
     why: "A deny-HTTP bucket policy is defense in depth — it blocks the rare client that still uses http:// even though AWS SDKs, CLI, and Terraform default to HTTPS. Auditors often expect this as evidence of encryption in transit.",
     console: [
-      "Remediation tab → Suggested policy → Generate (reads live bucket policy from AWS)",
+      "Remediation tab → Least-privilege proposal → Generate (reads live bucket policy from AWS)",
       "Open S3 → select the bucket → Permissions → Bucket policy",
       "Paste the merged policy from Generate → Save",
     ],
@@ -1425,6 +1551,47 @@ aws lambda update-function-configuration \\
   --dead-letter-config TargetArn=<dlq-arn>`,
     risk: "Low risk — adding a DLQ does not change successful invocation behaviour. Monitor DLQ depth after enabling.",
   },
+  "lambda.function.public_url": {
+    why: "A Lambda function URL with AuthType NONE can be invoked directly from the internet. That may be intended for public APIs, but it should be explicit and protected by app-layer controls.",
+    console: [
+      "Open Lambda → Functions → select the function",
+      'Click "Configuration" → "Function URL"',
+      "Change Auth type from NONE to AWS_IAM, or delete the function URL if it is not required",
+      "If the endpoint must stay public, confirm application authentication, rate limits, and logging are in place",
+    ],
+    cli: `# Require IAM authentication on the function URL
+aws lambda update-function-url-config \\
+  --function-name <function-name> \\
+  --region <region> \\
+  --auth-type AWS_IAM
+
+# Or remove the public URL entirely
+aws lambda delete-function-url-config \\
+  --function-name <function-name> \\
+  --region <region>`,
+    risk: "Changing function URL auth can break unauthenticated clients. Confirm callers before requiring IAM auth or deleting the URL.",
+  },
+  "ecr.repository.image_scan_disabled": {
+    why: "Without scan-on-push, newly published container images may carry known vulnerabilities into ECS, EKS, Lambda container images, or CI artifacts before anyone notices.",
+    console: [
+      "Open Amazon ECR → Repositories → select the repository",
+      'Open "Edit" or "Scanning configuration"',
+      "Enable scan on push, or enable enhanced scanning at the registry level",
+      "Run an explicit image scan for existing pushed tags",
+    ],
+    cli: `# Enable basic scan-on-push for the repository
+aws ecr put-image-scanning-configuration \\
+  --repository-name <repository-name> \\
+  --region <region> \\
+  --image-scanning-configuration scanOnPush=true
+
+# Scan an existing image tag now
+aws ecr start-image-scan \\
+  --repository-name <repository-name> \\
+  --image-id imageTag=<tag> \\
+  --region <region>`,
+    risk: "Low runtime risk — enabling scan-on-push does not block image pulls. Existing tags need an explicit scan or enhanced scanning to get coverage.",
+  },
   "rds.instance.no_deletion_protection": {
     why: "Without deletion protection, a mistaken `delete-db-instance` call (human error, bad automation, or compromised credentials) permanently destroys the database.",
     console: [
@@ -1455,6 +1622,43 @@ aws lambda update-function-configuration \\
   --multi-az \\
   --apply-immediately`,
     risk: "Enabling Multi-AZ doubles instance cost and triggers a failover with brief downtime. Plan a maintenance window.",
+  },
+  "rds.snapshot.public": {
+    why: "A public RDS snapshot can be restored by any AWS account. If it contains production data, assume it may already have been copied outside your account.",
+    console: [
+      "Open RDS → Snapshots → Manual snapshots",
+      "Select the snapshot",
+      'Open "Actions" → "Share snapshot"',
+      "Remove public access / remove the `all` restore permission",
+      "Rotate database credentials and review sensitive data exposure",
+    ],
+    cli: `aws rds modify-db-snapshot-attribute \\
+  --db-snapshot-identifier <snapshot-id> \\
+  --region <region> \\
+  --attribute-name restore \\
+  --values-to-remove all`,
+    risk: "Remove public access immediately. The change is safe for the snapshot itself, but it cannot revoke copies already made by external accounts.",
+  },
+  "eks.cluster.public_endpoint": {
+    why: "A public EKS API endpoint open to 0.0.0.0/0 allows anyone on the internet to reach Kubernetes authentication and authorization paths. AWS IAM and Kubernetes RBAC still apply, but exposure increases attack surface.",
+    console: [
+      "Open EKS → Clusters → select the cluster",
+      'Open "Networking" → "Manage endpoint access"',
+      "Restrict public access CIDRs to known office/VPN/CI ranges, or disable public access after private connectivity is ready",
+      "Confirm kubectl access from admin and CI networks before saving",
+    ],
+    cli: `# Restrict public endpoint to known CIDRs
+aws eks update-cluster-config \\
+  --name <cluster-name> \\
+  --region <region> \\
+  --resources-vpc-config endpointPublicAccess=true,publicAccessCidrs=<cidr-1>,<cidr-2>
+
+# Or move to private endpoint only after private connectivity is confirmed
+aws eks update-cluster-config \\
+  --name <cluster-name> \\
+  --region <region> \\
+  --resources-vpc-config endpointPublicAccess=false,endpointPrivateAccess=true`,
+    risk: "Changing endpoint access can lock out admins or CI runners. Confirm private network or allowed CIDR access before applying.",
   },
   "secretsmanager.secret.no_rotation": {
     why: "Secrets without automatic rotation stay static indefinitely. Long-lived database passwords and API keys are harder to revoke and more valuable if leaked.",
@@ -1669,7 +1873,7 @@ aws configservice start-configuration-recorder --configuration-recorder-name def
     risk: "Access reviews and evidence packs may omit principals until inventory is complete.",
   },
   "iam.role.full_admin_policy": {
-    why: "A customer-managed policy attached to this role grants Action:* on Resource:* (full administrative access). CIS 1.22 targets this pattern specifically.",
+    why: "Use the least-privilege proposal to replace full-admin access with a scoped policy from observed usage.",
     console: [
       "Open IAM → Roles → select the role",
       "Review inline and customer-managed attached policies",
@@ -1678,7 +1882,7 @@ aws configservice start-configuration-recorder --configuration-recorder-name def
     ],
     cli: `aws iam list-attached-role-policies --role-name <role-name>
 aws iam get-policy-version --policy-arn <arn> --version-id <v>`,
-    risk: "Any principal that can assume this role has unrestricted account control.",
+    risk: "",
   },
   "github.repo.no_codeowners": {
     why: "Optional security check: no CODEOWNERS file in standard Git repo paths. SOC 2 change management typically relies on branch protection and required reviews, not CODEOWNERS.",
@@ -2053,9 +2257,32 @@ function generatePolicyIntro(cloudTrailLogging: boolean) {
   const build =
     "Build suggestion uses IAM last-accessed data and, when available, the latest completed AWS CloudTrail policy-generation job for this role. It does not start a new AWS analysis.";
   const resource = cloudTrailLogging
-    ? "Use “Start CloudTrail analysis” below when you need a fresher job; resource ARNs are only applied when AWS returns concrete (non-template) ARNs."
+    ? "Use CloudTrail validation below when you need a fresher job; resource ARNs are only applied when AWS returns concrete (non-template) ARNs."
     : "Without CloudTrail logging, action scope comes from IAM last-accessed only; resources stay *.";
   return `${build} ${resource}`;
+}
+
+const SUGGESTED_POLICY_CONNECTOR_ERROR =
+  "Could not build the suggested policy because Vigil could not verify the AWS connector permissions. Verify the connector role, then try again.";
+
+function formatSuggestedPolicyError(error: unknown): string {
+  const message = formatApiError(error);
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("missing token") ||
+    lower.includes("missing credentials") ||
+    lower.includes("session expired") ||
+    lower.includes("access denied") ||
+    lower.includes("accessdenied") ||
+    lower.includes("not authorized") ||
+    lower.includes("unauthorized") ||
+    lower.includes("forbidden") ||
+    lower.includes("assume role") ||
+    lower.includes("sts:")
+  ) {
+    return SUGGESTED_POLICY_CONNECTOR_ERROR;
+  }
+  return message;
 }
 
 function KeyActivityCard({ keyData }: { keyData: { key_id: string; last_used: string | null; days_ago: number | null; last_used_service: string | null; last_used_region: string | null; active: boolean } }) {
@@ -2494,6 +2721,14 @@ function buildVerdict(data: BlastRadiusData, checkId?: string): { text: string; 
     return { text: "Verify connectivity before applying — disabling public access removes the external endpoint. Ensure your app connects via VPC.", type: "caution" };
   }
 
+  if (resource_type === "rds_snapshot") {
+    return { text: "Remove public restore access immediately — assume external accounts may already have copied the snapshot.", type: "warning" };
+  }
+
+  if (resource_type === "eks_cluster") {
+    return { text: "Restrict carefully — changing EKS endpoint access can lock out admins and CI unless private access or allowed CIDRs are ready.", type: "caution" };
+  }
+
   if (resource_type === "dynamodb_table") {
     if (checkId === "dynamodb.table.no_pitr") {
       return { text: "Safe to enable — point-in-time recovery is turned on in place with no downtime or application changes.", type: "safe" };
@@ -2521,7 +2756,14 @@ function buildVerdict(data: BlastRadiusData, checkId?: string): { text: string; 
     if (checkId === "lambda.function.deprecated_runtime") {
       return { text: "Test runtime upgrade in a staging alias first — dependency incompatibilities are common.", type: "caution" };
     }
+    if (checkId === "lambda.function.public_url") {
+      return { text: "Confirm public callers before changing auth — AWS_IAM or URL removal can break unauthenticated integrations.", type: "caution" };
+    }
     return { text: "Safe to add — DLQ only captures failed async invocations; successful calls are unaffected.", type: "safe" };
+  }
+
+  if (resource_type === "ecr_repository") {
+    return { text: "Safe to enable — scan-on-push does not block pulls, but existing tags still need an explicit scan.", type: "safe" };
   }
 
   if (resource_type === "secrets_manager_secret") {
@@ -3382,7 +3624,6 @@ function BlastRadiusSection({
 }
 
 export type FindingDrawerTab = "overview" | "resources" | "compliance" | "remediation" | "whatif";
-export type FindingRemediationMode = "console" | "cli" | "terraform" | "automation";
 
 type Tab = FindingDrawerTab;
 
@@ -3613,79 +3854,85 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
   const jobCompleted = Boolean(data.access_analyzer?.job_id);
   const showNoJobHint =
     data.access_analyzer && !data.access_analyzer.available && data.access_analyzer.reason;
+  const whyCopy =
+    preserved.length > 0
+      ? "AWS reported recent usage for preserved services but did not return action or resource-level detail for them; Resource remains * where needed."
+      : observed > 0 && !cov.resources
+        ? "AWS reported recent usage for these services but did not return action or resource-level detail for this role."
+        : observed > 0
+          ? "AWS returned observed action usage and apply-ready resource detail for this role."
+          : "Review the least-privilege proposal against your workload before applying.";
+
+  const confidenceBadge = data.confidence ? (
+    <span
+      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold capitalize tracking-wide ${
+        POLICY_CONFIDENCE_STYLE[data.confidence] ?? POLICY_CONFIDENCE_STYLE.low
+      }`}
+    >
+      {data.confidence} confidence
+    </span>
+  ) : null;
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-zinc-50/90 px-3 py-2.5 text-[11px] leading-relaxed text-zinc-700">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {data.confidence && (
-          <span
-            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize tracking-wide ${
-              POLICY_CONFIDENCE_STYLE[data.confidence] ?? POLICY_CONFIDENCE_STYLE.low
-            }`}
-          >
-            {data.confidence} confidence
-          </span>
-        )}
-        <p className="text-zinc-800">
-          <span className={cov.actions ? "text-emerald-800" : "text-amber-800"}>
-            {cov.actions ? "✓ Actions scoped" : "✗ Actions not scoped"}
-          </span>
-          <span className="mx-2 text-zinc-300">·</span>
-          <span className={cov.resources ? "text-emerald-800" : "text-zinc-600"}>
-            {cov.resources ? "✓ Resource scope applied" : "✕ Resources unchanged"}
-          </span>
-        </p>
+    <RemediationDetailCard title="Generation summary" action={confidenceBadge}>
+      <div className="flex flex-wrap gap-2">
+        <span
+          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+            cov.actions
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-amber-200 bg-amber-50 text-amber-900"
+          }`}
+        >
+          {cov.actions ? "✓ Actions scoped" : "✗ Actions not scoped"}
+        </span>
+        <span
+          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+            cov.resources
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-zinc-200 bg-zinc-50 text-zinc-600"
+          }`}
+        >
+          {cov.resources ? "✓ Resource scope applied" : "✕ Resources unchanged"}
+        </span>
       </div>
-      {data.confidence_note && <p className="mt-1 text-zinc-600">{data.confidence_note}</p>}
-      <p className="mt-1 text-zinc-500">
-        <span className="font-medium text-zinc-600">Source</span>
-        <br />
-        {data.source_label ?? "IAM last accessed"}
-      </p>
-      <p className="mt-2 text-zinc-700">
-        {preserved.length > 0
-          ? "Vigil narrowed the full-admin policy to observed actions. Some services only returned service-level usage, so their wildcard permissions were preserved to avoid breaking the workload."
-          : observed > 0 && jobCompleted
-            ? `Vigil narrowed Action:* to ${observed} observed actions using IAM last-accessed and CloudTrail policy generation.`
-            : observed > 0
-              ? `Vigil narrowed the policy to ${observed} observed actions from IAM last-accessed data.`
-              : "Review the suggested policy against your workload before applying."}
-      </p>
-      {observed > 0 && !cov.resources && (
-        <p className="mt-2 text-zinc-600">
-          {preserved.length > 0
-            ? "AWS did not return apply-ready resource ARNs for some services; Resource remains * where needed."
-            : "AWS did not return apply-ready resource ARNs for this role, so Resource remains *."}
-        </p>
-      )}
-      {data.access_analyzer?.reason === "in_progress" && (
-        <p className="mt-2 rounded-md border border-indigo-200/80 bg-indigo-50/80 px-2 py-1.5 text-indigo-950">
-          {policyGenerationReasonLabel("in_progress")}
-        </p>
-      )}
-      {preserved.length > 0 && (
-        <p className="mt-2">
-          <span className="font-medium text-zinc-800">Preserved service wildcards</span>
-          <br />
-          <span className="font-mono text-[10px] text-zinc-700">{preserved.join(" · ")}</span>
-        </p>
-      )}
-      {preserved.length > 0 && (
-        <p className="mt-2 text-zinc-600">
-          <span className="font-medium text-zinc-700">Why</span> — AWS reported recent usage for these services but
-          did not return action or resource-level detail for this role.
-        </p>
-      )}
-      {observed > 0 && (
-        <p className="mt-2 text-zinc-600">
-          <span className="font-medium text-zinc-700">Result</span> —{" "}
-          {preserved.length > 0
-            ? `Action:* was replaced with ${observed} observed actions. Resource remains *.`
-            : cov.resources
-              ? `${observed} observed actions with resource ARNs where available.`
-              : `${observed} observed actions scoped. Resource remains *.`}
-        </p>
-      )}
+        <div className="mt-4 space-y-3.5 text-[13px] leading-relaxed text-zinc-700">
+          <div>
+            <div className="mt-1 space-y-1.5 text-zinc-600">
+              {data.confidence_note && <p>{data.confidence_note}</p>}
+              <p className="text-zinc-500">
+                <span className="font-semibold text-zinc-600">Why — </span>
+                {whyCopy}
+              </p>
+              {preserved.length > 0 && (
+                <p className="font-mono text-[10px] text-zinc-700">
+                  Preserved: {preserved.join(" · ")}
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-zinc-500">Source</p>
+            <p className="mt-1 text-[13px] font-medium leading-relaxed text-zinc-800">
+              {data.source_label ?? "IAM last accessed"}
+            </p>
+          </div>
+          {data.access_analyzer?.reason === "in_progress" && (
+            <p className="mt-2 rounded-md border border-indigo-200/80 bg-indigo-50/80 px-2 py-1.5 text-indigo-950">
+              {policyGenerationReasonLabel("in_progress")}
+            </p>
+          )}
+          {observed > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-zinc-500">Result</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">
+                {preserved.length > 0
+                  ? `Action:* was replaced with ${observed} observed actions. Resource remains *.`
+                  : cov.resources
+                    ? `${observed} observed actions with resource ARNs where available.`
+                    : `${observed} observed actions scoped. Resource remains *.`}
+              </p>
+            </div>
+          )}
       {showNoJobHint && (
         <p className="mt-2 text-amber-900">
           {policyGenerationReasonLabel(data.access_analyzer!.reason) ?? data.access_analyzer!.reason}
@@ -3717,16 +3964,16 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
         </p>
       )}
       {(jobCompleted || (data.access_analyzer?.placeholder_resources?.length ?? 0) > 0) && (
-        <div className="mt-2 border-t border-zinc-200/80 pt-2">
+        <div className="border-t border-zinc-100 pt-3">
           <button
             type="button"
             onClick={() => setTechOpen((o) => !o)}
-            className="text-[10px] font-medium text-zinc-500 hover:text-zinc-800"
+            className="text-[12px] font-medium text-zinc-500 hover:text-zinc-800"
           >
             {techOpen ? "Hide" : "Show"} technical details
           </button>
           {techOpen && (
-            <div className="mt-1.5 space-y-1 text-[10px] text-zinc-500">
+            <div className="mt-2 space-y-1.5 text-[12px] text-zinc-500">
               <p>
                 CloudTrail policy generation:{" "}
                 {jobCompleted
@@ -3752,7 +3999,8 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
           )}
         </div>
       )}
-    </div>
+      </div>
+    </RemediationDetailCard>
   );
 }
 
@@ -4110,26 +4358,862 @@ function PolicyDiffView({
   );
 }
 
+type PolicyActionDiff = { removed: string[]; added: string[]; unchanged: number };
+
+function collectPolicyActions(policies: Record<string, unknown>): Set<string> {
+  const out = new Set<string>();
+  for (const doc of Object.values(policies)) {
+    const stmts: PolicyStatement[] = (doc as { Statement?: PolicyStatement[] })?.Statement ?? [];
+    for (const stmt of stmts) {
+      for (const action of asPolicyList(stmt.Action)) {
+        if (action !== "*") out.add(action);
+      }
+    }
+  }
+  return out;
+}
+
+function policyHadStarAction(policies: Record<string, unknown>): boolean {
+  for (const doc of Object.values(policies)) {
+    const stmts: PolicyStatement[] = (doc as { Statement?: PolicyStatement[] })?.Statement ?? [];
+    for (const stmt of stmts) {
+      if (asPolicyList(stmt.Action).includes("*")) return true;
+    }
+  }
+  return false;
+}
+
+function computePolicyActionDiff(
+  original: Record<string, unknown>,
+  cleaned: Record<string, unknown>,
+): PolicyActionDiff {
+  const origSet = collectPolicyActions(original);
+  const cleanSet = collectPolicyActions(cleaned);
+  const removed: string[] = [];
+  if (policyHadStarAction(original)) removed.push("*");
+  for (const a of origSet) {
+    if (!cleanSet.has(a)) removed.push(a);
+  }
+  const added: string[] = [];
+  for (const a of cleanSet) {
+    if (!origSet.has(a)) added.push(a);
+  }
+  added.sort((a, b) => a.localeCompare(b));
+  return { removed, added, unchanged: 0 };
+}
+
+function hasGeneratedPolicyChange(
+  data: GeneratedPolicy | undefined,
+  actionDiff: PolicyActionDiff | null,
+): boolean {
+  if (!data?.has_inline_policies || !data.original_policies || !data.cleaned_policies || !actionDiff) {
+    return false;
+  }
+  if ((data.statements_modified ?? 0) > 0 || (data.statements_removed ?? 0) > 0) return true;
+  return actionDiff.removed.length > 0 || actionDiff.added.length > 0;
+}
+
+function groupActionsByService(actions: string[]): { service: string; actions: string[] }[] {
+  const map = new Map<string, string[]>();
+  for (const action of actions) {
+    const svc = actionService(action) ?? "other";
+    const label = svc.toUpperCase();
+    const list = map.get(label) ?? [];
+    list.push(action);
+    map.set(label, list);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([service, acts]) => ({ service, actions: acts.sort((x, y) => x.localeCompare(y)) }));
+}
+
+function PolicyWorkspacePaneShell({
+  title,
+  subtitle,
+  onClose,
+  closeLabel = "Close panel",
+  action,
+  children,
+  className = "",
+  bodyVariant = "default",
+  bodySpacing = "default",
+  paneAnimated = true,
+  bodyAnimated = true,
+}: {
+  title: string;
+  subtitle?: string;
+  onClose?: () => void;
+  closeLabel?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyVariant?: "default" | "split";
+  bodySpacing?: "default" | "relaxed" | "roomy";
+  paneAnimated?: boolean;
+  bodyAnimated?: boolean;
+}) {
+  const bodyPad =
+    bodySpacing === "roomy" ? "px-7 py-6" : bodySpacing === "relaxed" ? "px-6 py-6" : "px-5 py-5";
+  const bodyGap =
+    bodySpacing === "roomy" ? "space-y-7" : bodySpacing === "relaxed" ? "space-y-6" : "space-y-5";
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleClose = () => {
+    if (!onClose || isClosing) return;
+    setIsClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      onClose();
+    }, 160);
+  };
+
+  const paneAnimationClass = paneAnimated ? "" : "policy-workspace-pane--static";
+  const bodyAnimationClass = bodyAnimated ? "policy-workspace-pane__body" : "policy-workspace-pane__body--static";
+
+  return (
+    <div className={`policy-workspace-pane ${paneAnimationClass} ${isClosing ? "policy-workspace-pane--exit" : ""} flex min-h-0 min-w-0 flex-col border-l border-zinc-200/90 bg-[#f7f9fc] ${className}`}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e6ebf2] bg-white px-6 py-4 shadow-sm shadow-zinc-950/[0.02]">
+        <div className="min-w-0">
+          {subtitle ? (
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">{subtitle}</p>
+          ) : null}
+          <h3 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-zinc-900">{title}</h3>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {action}
+          {onClose ? (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded-lg border border-zinc-200 bg-white p-2 text-zinc-400 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-700"
+              aria-label={closeLabel}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {bodyVariant === "split" ? (
+        <div className={`${bodyAnimationClass} flex min-h-0 flex-1 flex-col overflow-hidden`}>{children}</div>
+      ) : (
+        <div className={`${bodyAnimationClass} min-h-0 flex-1 overflow-y-auto ${bodyPad}`}>
+          <div className={bodyGap}>{children}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PolicyJsonEditor({
+  code,
+  downloadName = "suggested-policy.json",
+  policySource,
+  onPolicySourceChange,
+  fillHeight = false,
+  maxLines,
+  showToolbar = true,
+  expandFull = false,
+}: {
+  code: string;
+  downloadName?: string;
+  policySource?: "cleaned" | "original";
+  onPolicySourceChange?: (source: "cleaned" | "original") => void;
+  fillHeight?: boolean;
+  maxLines?: number;
+  showToolbar?: boolean;
+  /** No max-height clip — parent pane scrolls; shows entire document. */
+  expandFull?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  const allLines = code.split("\n");
+  const lines = maxLines ? allLines.slice(0, maxLines) : allLines;
+  const truncated = maxLines != null && allLines.length > maxLines;
+  const displayLines = lines;
+  const hasCode = code.length > 0 && code !== "undefined";
+
+  const copy = () => {
+    void navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    });
+  };
+
+  const download = () => {
+    const blob = new Blob([code], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = downloadName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div
+      className={`policy-json-editor--roomy flex flex-col overflow-hidden rounded-2xl border border-zinc-800/90 bg-zinc-950 shadow-inner ring-1 ring-zinc-800/50 ${
+        fillHeight ? "h-full min-h-0" : ""
+      } ${expandFull ? "" : ""}`}
+    >
+      {showToolbar && (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
+          {policySource && onPolicySourceChange ? (
+            <PolicyViewToggle
+              options={["cleaned", "original"] as const}
+              value={policySource}
+              onChange={onPolicySourceChange}
+              formatLabel={(v) => (v === "cleaned" ? "Cleaned" : "Original")}
+              variant="dark"
+            />
+          ) : (
+            <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">JSON</span>
+          )}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={copy}
+              className="rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+            <button
+              type="button"
+              onClick={download}
+              aria-label="Download policy"
+              className="rounded-md p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+            >
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+      <div
+        className={`font-mono text-[12px] leading-[1.7] ${
+          expandFull
+            ? "min-h-[min(42vh,360px)] overflow-auto"
+            : fillHeight
+              ? "min-h-0 flex-1 overflow-auto"
+              : maxLines
+                ? "max-h-[13rem] overflow-auto"
+                : "max-h-[min(52vh,480px)] overflow-auto"
+        }`}
+      >
+        {!hasCode ? (
+          <div className="flex min-h-[12rem] items-center justify-center px-4 text-[13px] font-medium text-zinc-500">
+            Loading policy…
+          </div>
+        ) : (
+        <div className="min-w-max pb-2 pt-1">
+          {displayLines.map((line, i) => (
+            <div key={i} className="policy-json-row flex hover:bg-zinc-900/80">
+              <span className="policy-json-line-num shrink-0 select-none border-r border-zinc-800/80 py-0.5 text-right tabular-nums text-zinc-600">
+                {i + 1}
+              </span>
+              <code className="policy-json-line-code whitespace-pre text-emerald-200/95">{line || " "}</code>
+            </div>
+          ))}
+          {truncated && (
+            <div className="border-t border-zinc-800/80 px-4 py-2 text-[11px] text-zinc-500">
+              … {allLines.length - maxLines!} more lines
+            </div>
+          )}
+        </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const POLICY_DIFF_SERVICE_PREVIEW = 6;
+
+function policyActionLabel(action: string): { verb: string; full: string } {
+  const colon = action.indexOf(":");
+  if (colon < 0) return { verb: action, full: action };
+  return { verb: action.slice(colon + 1), full: action };
+}
+
+function PolicyScopedActionList({ actions, servicePrefix }: { actions: string[]; servicePrefix?: string }) {
+  const prefix =
+    servicePrefix && servicePrefix.length > 0
+      ? `${servicePrefix.trim().toLowerCase()}:`
+      : null;
+  return (
+    <ul className="policy-services__action-list">
+      {actions.map((action) => {
+        const { verb, full } = policyActionLabel(action);
+        return (
+          <li key={full} className="policy-services__action-item">
+            <span className="policy-services__action-mark" aria-hidden>
+              +
+            </span>
+            {prefix ? <span className="policy-services__action-prefix">{prefix}</span> : null}
+            <span className="policy-services__action-name" title={full}>
+              {verb}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+type PolicyReviewTab = "summary" | "services";
+
+const POLICY_REVIEW_TAB_KEY = "vigil-policy-review-tab";
+
+function loadPreferredPolicyReviewTab(): PolicyReviewTab {
+  try {
+    const stored = localStorage.getItem(POLICY_REVIEW_TAB_KEY);
+    if (stored === "services" || stored === "summary") return stored;
+  } catch {
+    /* ignore */
+  }
+  return "summary";
+}
+
+function savePreferredPolicyReviewTab(tab: PolicyReviewTab) {
+  try {
+    localStorage.setItem(POLICY_REVIEW_TAB_KEY, tab);
+  } catch {
+    /* ignore */
+  }
+}
+
+function PolicyDiffTabBar({
+  tab,
+  onChange,
+}: {
+  tab: PolicyReviewTab;
+  onChange: (tab: PolicyReviewTab) => void;
+}) {
+  const tabs: { id: PolicyReviewTab; label: string }[] = [
+    { id: "summary", label: "Summary" },
+    { id: "services", label: "Services" },
+  ];
+  return (
+    <div className="policy-review-tabs" role="tablist" aria-label="Policy review">
+      {tabs.map(({ id, label }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={tab === id}
+          onClick={() => onChange(id)}
+          className={`policy-review-tabs__tab ${tab === id ? "policy-review-tabs__tab--active" : ""}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type PolicyDiffAnalysis = {
+  removedWildcard: boolean;
+  explicitActionCount: number;
+  preservedWildcards: string[];
+  groupedExplicit: { service: string; actions: string[] }[];
+  resourceScoped: boolean;
+  actionsScoped: boolean;
+};
+
+type PolicyServiceGroup = {
+  service: string;
+  actions: string[];
+  preservedWildcard: boolean;
+};
+
+function buildPolicyDiffAnalysis(diff: PolicyActionDiff, data: GeneratedPolicy): PolicyDiffAnalysis {
+  const preservedSet = new Set((data.preserved_service_wildcards ?? []).map((a) => a.toLowerCase()));
+  const explicitAdded = diff.added.filter((a) => a !== "*" && !isSubsumedByPreservedWildcard(a, preservedSet));
+  const preservedWildcards = [
+    ...new Set([
+      ...(data.preserved_service_wildcards ?? []),
+      ...diff.added.filter((a) => a.endsWith(":*")),
+    ]),
+  ].sort((a, b) => a.localeCompare(b));
+  const cov = data.coverage ?? { actions: explicitAdded.length > 0, resources: false };
+  return {
+    removedWildcard: diff.removed.includes("*"),
+    explicitActionCount: explicitAdded.length,
+    preservedWildcards,
+    groupedExplicit: groupActionsByService(explicitAdded),
+    resourceScoped: cov.resources,
+    actionsScoped: cov.actions || explicitAdded.length > 0,
+  };
+}
+
+function groupPreservedWildcards(actions: string[]): PolicyServiceGroup[] {
+  return actions.map((action) => {
+    const service = ((actionService(action) ?? action.replace(/:\*$/, "")) || "other").toUpperCase();
+    return { service, actions: [action], preservedWildcard: true };
+  });
+}
+
+function mergePolicyServiceGroups(explicit: { service: string; actions: string[] }[], preserved: string[]): PolicyServiceGroup[] {
+  const groups = new Map<string, PolicyServiceGroup>();
+  for (const group of explicit) {
+    groups.set(group.service, {
+      service: group.service,
+      actions: [...group.actions],
+      preservedWildcard: false,
+    });
+  }
+  for (const group of groupPreservedWildcards(preserved)) {
+    const existing = groups.get(group.service);
+    if (existing) {
+      existing.actions = [...new Set([...existing.actions, ...group.actions])].sort((a, b) => a.localeCompare(b));
+      existing.preservedWildcard = true;
+    } else {
+      groups.set(group.service, group);
+    }
+  }
+  return [...groups.values()].sort((a, b) => a.service.localeCompare(b.service));
+}
+
+function PolicyDiffServiceBreakdown({
+  diff,
+  analysis,
+  variant,
+  onShowAll,
+}: {
+  diff: PolicyActionDiff;
+  analysis: PolicyDiffAnalysis;
+  variant: "preview" | "full";
+  onShowAll?: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const grouped = useMemo(
+    () =>
+      mergePolicyServiceGroups(analysis.groupedExplicit, analysis.preservedWildcards)
+        .map((g) => ({
+          ...g,
+          actions: g.actions.filter(
+            (a) => !q || a.toLowerCase().includes(q) || g.service.toLowerCase().includes(q),
+          ),
+        }))
+        .filter((g) => g.actions.length > 0),
+    [analysis.groupedExplicit, analysis.preservedWildcards, q],
+  );
+  const visible =
+    variant === "preview" ? grouped.slice(0, POLICY_DIFF_SERVICE_PREVIEW) : grouped;
+  const hiddenCount = Math.max(0, grouped.length - POLICY_DIFF_SERVICE_PREVIEW);
+  const [expandedService, setExpandedService] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExpandedService((prev) => {
+      if (!prev) return null;
+      return grouped.some((g) => g.service === prev) ? prev : null;
+    });
+  }, [grouped]);
+
+  return (
+    <div className="policy-services">
+      <p className="policy-services__label">Service breakdown</p>
+      <div className="relative">
+        <svg
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search services…"
+          className="policy-services__search"
+        />
+      </div>
+      <div className="policy-services__list divide-y divide-zinc-100">
+        {visible.length > 0 ? (
+          visible.map(({ service, actions, preservedWildcard }) => {
+            const open = expandedService === service;
+            const displayName = formatIamServiceDisplayName(service);
+            const servicePrefix = service.trim().toLowerCase();
+            return (
+              <div key={service}>
+                <button
+                  type="button"
+                  onClick={() => setExpandedService(open ? null : service)}
+                  className={`policy-services__row-btn ${open ? "policy-services__row-btn--open" : ""}`}
+                  aria-expanded={open}
+                >
+                  <AwsServiceIcon service={service} size={28} className="h-7 w-7 shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-zinc-200/80" />
+                  <span className="policy-services__service-name">{displayName}</span>
+                  {preservedWildcard ? (
+                    <span className="policy-services__preserved-badge">Wildcard preserved</span>
+                  ) : (
+                    <span className="policy-services__count">
+                      <strong>{actions.length}</strong>
+                      {actions.length === 1 ? " action" : " actions"}
+                    </span>
+                  )}
+                  <svg
+                    className="policy-services__chevron"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {open && (
+                  <div className="policy-services__detail">
+                    <p className="policy-services__detail-hint">
+                      {preservedWildcard
+                        ? "Preserved because AWS reported usage but did not return action or resource-level detail."
+                        : "Kept in the suggested policy"}
+                    </p>
+                    <PolicyScopedActionList actions={actions} servicePrefix={servicePrefix} />
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <p className="policy-services__empty">
+            {q ? `No services match “${query}”` : "No scoped actions to list."}
+          </p>
+        )}
+        {variant === "preview" && hiddenCount > 0 && onShowAll && (
+          <button
+            type="button"
+            onClick={onShowAll}
+            className="policy-services__row-btn text-indigo-700 hover:bg-indigo-50/40"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-zinc-500">
+              +
+            </span>
+            <span className="text-sm font-medium tracking-[-0.01em]">
+              {hiddenCount} more service{hiddenCount !== 1 ? "s" : ""}
+            </span>
+            <svg className="policy-services__chevron ml-auto text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
+        )}
+      </div>
+      {variant === "full" && diff.removed.includes("*") && (
+        <p className="policy-services__footnote">
+          Wildcard <code>Action:*</code> was removed from the original policy.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PolicyDiffSuggestedPreview({
+  previewJson,
+  policySource,
+  onPolicySourceChange,
+  downloadName,
+  isRefreshing,
+}: {
+  previewJson: string;
+  policySource: "cleaned" | "original";
+  onPolicySourceChange: (source: "cleaned" | "original") => void;
+  downloadName: string;
+  isRefreshing?: boolean;
+}) {
+  return (
+    <div className="relative">
+      {isRefreshing && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-zinc-950/40 backdrop-blur-[1px]">
+          <span className="rounded-full bg-zinc-900/90 px-3 py-1.5 text-[12px] font-medium text-zinc-300">
+            Refreshing policy…
+          </span>
+        </div>
+      )}
+      <PolicyJsonEditor
+        code={previewJson}
+        downloadName={downloadName}
+        policySource={policySource}
+        onPolicySourceChange={onPolicySourceChange}
+        expandFull
+        showToolbar
+      />
+    </div>
+  );
+}
+
+function PolicyVisualDiffExplorer({
+  diff,
+  data,
+  previewJson,
+  policySource,
+  onPolicySourceChange,
+  downloadName,
+  isRefreshing,
+}: {
+  diff: PolicyActionDiff;
+  data: GeneratedPolicy;
+  previewJson: string;
+  policySource: "cleaned" | "original";
+  onPolicySourceChange: (source: "cleaned" | "original") => void;
+  downloadName: string;
+  isRefreshing?: boolean;
+}) {
+  const [tab, setTab] = useState<PolicyReviewTab>(() => loadPreferredPolicyReviewTab());
+  const analysis = useMemo(() => buildPolicyDiffAnalysis(diff, data), [diff, data]);
+
+  const setReviewTab = (next: PolicyReviewTab) => {
+    setTab(next);
+    savePreferredPolicyReviewTab(next);
+  };
+
+  return (
+    <div className="space-y-6">
+      <PolicyDiffTabBar tab={tab} onChange={setReviewTab} />
+
+      {tab === "summary" && (
+        <PolicyDiffSuggestedPreview
+          previewJson={previewJson}
+          policySource={policySource}
+          onPolicySourceChange={onPolicySourceChange}
+          downloadName={downloadName}
+          isRefreshing={isRefreshing}
+        />
+      )}
+
+      {tab === "services" && (
+        <PolicyDiffServiceBreakdown diff={diff} analysis={analysis} variant="full" />
+      )}
+    </div>
+  );
+}
+
+function SuggestedPolicyLoadingCard({
+  title = "Building least-privilege proposal",
+  description = "Reviewing IAM access data and recent usage for this role.",
+}: {
+  title?: string;
+  description?: string;
+}) {
+  return (
+    <div
+      className="policy-preparing-card flex min-h-[16rem] flex-col items-center justify-center gap-3 rounded-xl border border-zinc-200 bg-white px-6 py-12 text-center shadow-sm shadow-zinc-950/[0.03]"
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-indigo-50" aria-hidden>
+        <span className="policy-preparing-bar block h-full w-1/2 rounded-full bg-indigo-500/70" />
+      </div>
+      <div>
+        <p className="text-[13px] font-semibold text-zinc-900">{title}</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function ReviewPolicyButton({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#d8e0ec] bg-white px-3.5 py-2 text-[11px] font-semibold text-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc]"
+    >
+      Review policy
+    </button>
+  );
+}
+
+function SuggestedPolicyWorkspace({
+  accountId,
+  finding,
+  cloudTrailLogging,
+  showPolicyChangePane,
+  onOpenPolicyChangePane,
+  onClosePolicyChangePane,
+  onCloseWorkspace,
+}: {
+  accountId: string;
+  finding: Finding;
+  cloudTrailLogging: boolean;
+  showPolicyChangePane: boolean;
+  onOpenPolicyChangePane: () => void;
+  onClosePolicyChangePane: () => void;
+  onCloseWorkspace: () => void;
+}) {
+  const [policySource, setPolicySource] = useState<"cleaned" | "original">("cleaned");
+  const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedPolicy>({
+    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen],
+    queryFn: () =>
+      api(
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=true`,
+      ),
+    enabled: true,
+    staleTime: 0,
+  });
+
+  const cleanedDoc =
+    data?.cleaned_policies && Object.keys(data.cleaned_policies).length === 1
+      ? Object.values(data.cleaned_policies)[0]
+      : data?.cleaned_policies;
+  const originalDoc =
+    data?.original_policies && Object.keys(data.original_policies).length === 1
+      ? Object.values(data.original_policies)[0]
+      : data?.original_policies;
+  const previewJson = useMemo(() => {
+    const doc = policySource === "cleaned" ? cleanedDoc : originalDoc;
+    if (doc == null) return "";
+    try {
+      return JSON.stringify(doc, null, 2);
+    } catch {
+      return "";
+    }
+  }, [policySource, cleanedDoc, originalDoc]);
+
+  const actionDiff =
+    data?.original_policies && data?.cleaned_policies
+      ? computePolicyActionDiff(data.original_policies, data.cleaned_policies)
+      : null;
+  const preparingPolicy = isLoading && !data;
+  const showPolicyData = !!data && !error;
+  const canReviewGeneratedPolicy = Boolean(
+    showPolicyData &&
+      data?.has_inline_policies &&
+      data?.original_policies &&
+      data?.cleaned_policies &&
+      actionDiff,
+  );
+
+  return (
+    <>
+      <PolicyWorkspacePaneShell
+        title="Least-privilege proposal"
+        subtitle="Remediation"
+        className="min-w-0 flex-[1.1]"
+        onClose={onCloseWorkspace}
+        closeLabel="Close least-privilege proposal"
+        action={
+          canReviewGeneratedPolicy && !showPolicyChangePane ? (
+            <ReviewPolicyButton onOpen={onOpenPolicyChangePane} />
+          ) : null
+        }
+      >
+        {preparingPolicy && <SuggestedPolicyLoadingCard />}
+        {error && !preparingPolicy && (
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] leading-relaxed text-red-700">
+            <p className="font-semibold text-red-800">Could not build least-privilege proposal</p>
+            <p className="mt-1">{formatSuggestedPolicyError(error)}</p>
+          </div>
+        )}
+        {showPolicyData && (
+          <div className="policy-reveal-stack space-y-5">
+            <PolicyCoverageMeta data={data} />
+            <PolicyCloudTrailStartAction
+              findingId={finding.id}
+              accountId={accountId}
+              roleArn={finding.resource_arn}
+              data={data}
+              cloudTrailLogging={cloudTrailLogging}
+              onRefresh={() => void refetch()}
+            />
+            {data.has_inline_policies && data.cleaned_policies && !canReviewGeneratedPolicy && !showPolicyChangePane && (
+              <RemediationDetailCard title="Policy preview">
+                <PolicyJsonEditor
+                  code={previewJson}
+                  downloadName={`${roleShortName(finding.resource_arn)}-${policySource}.json`}
+                  policySource={policySource}
+                  onPolicySourceChange={setPolicySource}
+                />
+              </RemediationDetailCard>
+            )}
+            {data.granularity === "service" && !data.access_analyzer?.job_id && (
+              <p className="text-[12px] leading-relaxed text-zinc-500">
+                Per-action usage not available yet — scoped to services with recorded activity. Run another scan to refresh.
+              </p>
+            )}
+          </div>
+        )}
+      </PolicyWorkspacePaneShell>
+
+      {showPolicyChangePane &&
+        showPolicyData &&
+        data.has_inline_policies &&
+        data.original_policies &&
+        data.cleaned_policies &&
+        actionDiff && (
+        <PolicyWorkspacePaneShell
+          title="Generated policy"
+          subtitle="Review policy"
+          className="min-w-0 flex-[1]"
+          bodySpacing="roomy"
+          onClose={onClosePolicyChangePane}
+          closeLabel="Close generated policy"
+          paneAnimated={false}
+          bodyAnimated={false}
+        >
+          <PolicyVisualDiffExplorer
+            diff={actionDiff}
+            data={data}
+            previewJson={previewJson}
+            policySource={policySource}
+            onPolicySourceChange={setPolicySource}
+            downloadName={`${roleShortName(finding.resource_arn)}-${policySource}.json`}
+            isRefreshing={isFetching}
+          />
+        </PolicyWorkspacePaneShell>
+      )}
+    </>
+  );
+}
+
 function PolicyCloudTrailStartAction({
   findingId,
   accountId,
   roleArn,
   data,
+  cloudTrailLogging,
   onRefresh,
 }: {
   findingId: string;
   accountId: string;
   roleArn: string;
   data: GeneratedPolicy;
+  cloudTrailLogging: boolean;
   onRefresh: () => void;
 }) {
   const { startCloudTrailAnalysis, failCloudTrailAnalysis } = useRecheckNotifications();
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const inProgress = data.access_analyzer?.reason === "in_progress";
-  const canStart = data.improve_via_cloudtrail && data.confidence !== "high";
+  const needsTrailSetup = Boolean(data.improve_via_cloudtrail && data.confidence !== "high" && !cloudTrailLogging);
+  const canStart = Boolean(data.improve_via_cloudtrail && data.confidence !== "high" && cloudTrailLogging);
 
-  if (!canStart && !inProgress) return null;
+  if (!canStart && !inProgress && !needsTrailSetup) return null;
 
   const feedbackDisplay = feedback ? formatCloudTrailStartFeedback(feedback) : null;
 
@@ -4155,23 +5239,34 @@ function PolicyCloudTrailStartAction({
   };
 
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-900/[0.04]">
-      <div className="flex flex-col gap-3 border-b border-zinc-100 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`${drawerPanel} overflow-hidden shadow-sm shadow-zinc-900/[0.03]`}>
+      <div className={`${drawerSectionHead} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="min-w-0">
-          <p className="text-[12px] font-semibold text-zinc-900">CloudTrail Analyzes</p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">~15 min · resource ARNs · IAM unchanged until you apply</p>
+          <h4 className={drawerSectionTitle}>CloudTrail validation</h4>
+          <p className="mt-0.5 text-[12px] text-zinc-500">~15 min · checks resource ARNs · IAM unchanged until you apply</p>
         </div>
-        {!inProgress && (
+        {!inProgress && !needsTrailSetup && (
           <button
             type="button"
             disabled={busy}
             onClick={start}
-            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-zinc-900 px-3.5 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#d8e0ec] bg-white px-3.5 py-2 text-[11px] font-semibold text-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? "Starting…" : "Start analysis"}
+            {busy ? "Starting…" : "Run analysis"}
           </button>
         )}
+        {needsTrailSetup && (
+          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-[11px] font-semibold text-amber-900">
+            Trail required
+          </span>
+        )}
       </div>
+      {needsTrailSetup && (
+        <div className="border-b border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
+          No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated
+          S3 log bucket, run a scan so Vigil can detect it, then start analysis.
+        </div>
+      )}
       {inProgress && (
         <div className="flex items-start gap-2.5 border-b border-indigo-100 bg-indigo-50/60 px-4 py-3">
           <svg
@@ -4205,157 +5300,23 @@ function PolicyCloudTrailStartAction({
   );
 }
 
-function ApplyPolicyFooter({
-  accountId,
-  roleArn,
-  data,
-  onApplied,
-}: {
-  accountId: string;
-  roleArn: string;
-  data: GeneratedPolicy;
-  onApplied: () => void;
-}) {
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dryRun, setDryRun] = useState(false);
-
-  if (!data.cleaned_policies || !data.has_inline_policies) return null;
-
-  const policyName = Object.keys(data.cleaned_policies)[0];
-  const cleanedPolicy = data.cleaned_policies[policyName];
-  const originalPolicy = (data.original_policies ?? {})[policyName];
-
-  async function handleApply() {
-    setApplying(true);
-    setError(null);
-    try {
-      const result = await api<{ dry_run?: boolean }>(
-        `/v1/accounts/${accountId}/roles/apply-policy`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            role_arn: roleArn,
-            policy_name: policyName,
-            cleaned_policy: cleanedPolicy,
-            dry_run: dryRun,
-          }),
-        },
-      );
-      if (result.dry_run) {
-        setError(null);
-        setShowConfirm(true);
-      } else {
-        setApplied(true);
-        onApplied();
-      }
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setApplying(false);
-    }
-  }
-
-  return (
-    <>
-      <div className="flex items-center gap-2 pt-2 border-t border-zinc-100 mt-2">
-        {applied ? (
-          <span className="text-[11px] font-medium text-emerald-600">✓ Policy applied</span>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={applying}
-              className="rounded-md bg-zinc-800 px-2.5 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-60"
-            >
-              {applying ? "Applying…" : "Apply policy"}
-            </button>
-            {error && <span className="text-[11px] text-red-600">{error}</span>}
-          </>
-        )}
-      </div>
-
-      {showConfirm && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6">
-          <div
-            className="absolute inset-0 bg-zinc-950/25 backdrop-blur-[2px]"
-            onClick={() => setShowConfirm(false)}
-            aria-hidden
-          />
-          <div
-            role="dialog"
-            aria-labelledby="apply-policy-dialog-title"
-            className="relative w-full max-w-[520px] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50 shadow-2xl shadow-zinc-900/15"
-          >
-            <div className="border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
-              <span className="font-semibold">⚠️ This will modify IAM.</span> The cleaned policy will replace the current inline policy on the role.
-            </div>
-            <div className="p-6">
-              <h3 id="apply-policy-dialog-title" className="text-base font-semibold text-zinc-900">
-                Confirm policy apply
-              </h3>
-              <p className="mt-2 text-sm text-zinc-600">
-                You{'\''}re about to apply the cleaned policy <span className="font-mono text-zinc-800">{policyName}</span> to role{" "}
-                <span className="font-mono text-zinc-800">{(roleArn || "").split("/").pop()}</span>.
-              </p>
-              <div className="mt-4 max-h-[200px] overflow-y-auto rounded-lg border border-zinc-200 bg-white p-3">
-                <pre className="font-mono text-[11px] leading-relaxed text-zinc-700 whitespace-pre-wrap">
-                  {JSON.stringify(cleanedPolicy, null, 2)}
-                </pre>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <label className="flex items-center gap-2 text-xs text-zinc-600">
-                  <input
-                    type="checkbox"
-                    checked={dryRun}
-                    onChange={(e) => setDryRun(e.target.checked)}
-                    className="rounded"
-                  />
-                  Dry run (validate only)
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(false)}
-                    className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleApply}
-                    disabled={applying}
-                    className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
-                  >
-                    {applying ? "Applying…" : dryRun ? "Validate" : "Apply"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
 
 function GeneratePolicySection({
   accountId,
   finding,
   cloudTrailLogging,
-  compact = false,
+  embedded = false,
+  autoLoad = false,
 }: {
   accountId: string;
   finding: Finding;
   cloudTrailLogging: boolean;
-  /** Collapsed by default — used when Automated fix is the primary path. */
-  compact?: boolean;
+  /** Render inside remediation detail pane (no collapsible section chrome). */
+  embedded?: boolean;
+  /** Fetch policy as soon as the pane opens. */
+  autoLoad?: boolean;
 }) {
-  const [enabled, setEnabled] = useState(false);
-  const [policyOpen, setPolicyOpen] = useState(!compact);
+  const [enabled, setEnabled] = useState(autoLoad);
   const [view, setView] = useState<"diff" | "cleaned" | "original">("diff");
   const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedPolicy>({
     queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen],
@@ -4367,62 +5328,17 @@ function GeneratePolicySection({
     staleTime: 0,
   });
 
-  const policySummary =
-    enabled && data && data.has_inline_policies && data.original_policies && data.cleaned_policies
-      ? policyChangeSummary(data)
-      : null;
+  useEffect(() => {
+    if (autoLoad) setEnabled(true);
+  }, [autoLoad, finding.id, finding.resource_arn]);
 
-  return (
-    <DrawerSection
-      title="Suggested policy"
-      collapsible={compact || enabled}
-      defaultExpanded={!compact}
-      expanded={policyOpen}
-      onExpandedChange={setPolicyOpen}
-      className={
-        compact ? "border-zinc-200/70 bg-zinc-50/50 shadow-none ring-0" : ""
-      }
-      action={
-        <div className="flex max-w-[70%] items-center justify-end gap-2">
-          {compact && !policyOpen && policySummary ? (
-            <span className="hidden truncate text-[11px] text-zinc-500 sm:inline">{policySummary}</span>
-          ) : null}
-          {!enabled ? (
-            <button
-              onClick={() => {
-                setEnabled(true);
-                setPolicyOpen(true);
-              }}
-              className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-            >
-              Build suggestion
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void refetch()}
-              disabled={isFetching}
-              className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60"
-            >
-              {isFetching ? "Refreshing…" : "Rebuild"}
-            </button>
-          )}
-        </div>
-      }
-    >
-      <div className={drawerSectionBody}>
+  const body = (
+    <>
       {!enabled && (
-        <p className={`leading-snug text-zinc-600 ${compact ? "text-[11px] text-zinc-500" : "text-[13px]"}`}>
-          {compact
-            ? "Optional: preview a scoped IAM policy from recorded usage."
-            : generatePolicyIntro(cloudTrailLogging)}
-        </p>
+        <p className="text-[13px] leading-snug text-zinc-600">{generatePolicyIntro(cloudTrailLogging)}</p>
       )}
       {enabled && isLoading && <div className="py-2 text-[13px] text-zinc-500">Building suggestion…</div>}
-      {enabled && error && <div className="py-1 text-[13px] text-red-600">{String(error)}</div>}
-      {enabled && data && !data.has_inline_policies && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900">{data.note ?? "No inline policies found. Permissions come from attached managed policies."}</div>
-      )}
+      {enabled && error && <div className="py-1 text-[13px] text-red-600">{formatSuggestedPolicyError(error)}</div>}
       {enabled && data && (
         <>
           <PolicyCoverageMeta data={data} />
@@ -4431,19 +5347,23 @@ function GeneratePolicySection({
             accountId={accountId}
             roleArn={finding.resource_arn}
             data={data}
+            cloudTrailLogging={cloudTrailLogging}
             onRefresh={() => void refetch()}
           />
         </>
       )}
       {enabled && data && data.has_inline_policies && data.original_policies && data.cleaned_policies && (
-        <div className="mt-2.5 space-y-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-zinc-600">
-              {policyChangeSummary(data)}
-            </span>
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[12px] font-medium text-zinc-700">{policyChangeSummary(data)}</span>
             <div className="flex gap-0.5 rounded-md bg-zinc-100 p-0.5">
               {(["diff", "cleaned", "original"] as const).map((v) => (
-                <button key={v} onClick={() => setView(v)} className={`rounded px-2 py-0.5 text-[11px] font-medium capitalize transition-colors ${view === v ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-800"}`}>
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium capitalize transition-colors ${view === v ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-800"}`}
+                >
                   {v}
                 </button>
               ))}
@@ -4453,7 +5373,10 @@ function GeneratePolicySection({
             const hint = policyRenameHint(policyName, finding.resource_arn, (data.statements_modified ?? 0) > 0);
             if (!hint) return null;
             return (
-              <div key={policyName} className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-[13px] leading-snug text-indigo-900">
+              <div
+                key={policyName}
+                className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-[13px] leading-snug text-indigo-900"
+              >
                 {hint}
               </div>
             );
@@ -4467,16 +5390,146 @@ function GeneratePolicySection({
               preservedServiceWildcards={data.preserved_service_wildcards}
             />
           )}
-          {view !== "diff" && <CliBlock code={JSON.stringify(view === "cleaned" ? data.cleaned_policies : data.original_policies, null, 2)} />}
+          {view !== "diff" && (
+            <CliBlock code={JSON.stringify(view === "cleaned" ? data.cleaned_policies : data.original_policies, null, 2)} />
+          )}
           {data.granularity === "service" && !data.access_analyzer?.job_id && (
             <p className="text-[11px] leading-snug text-zinc-500">
               Per-action usage not available yet — scoped to services with recorded activity. Run another scan to refresh.
             </p>
           )}
-          <ApplyPolicyFooter accountId={accountId} roleArn={finding.resource_arn} data={data} onApplied={() => void refetch()} />
         </div>
       )}
+    </>
+  );
+
+  const rebuildAction = !enabled ? (
+    <button
+      type="button"
+      onClick={() => setEnabled(true)}
+      className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+    >
+      Build suggestion
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => void refetch()}
+      disabled={isFetching}
+      className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60"
+    >
+      {isFetching ? "Refreshing…" : "Rebuild"}
+    </button>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-5">
+        <RemediationDetailCard title="How this works" action={rebuildAction}>
+          <p className="text-[13px] leading-relaxed text-zinc-700">{generatePolicyIntro(cloudTrailLogging)}</p>
+        </RemediationDetailCard>
+        {enabled && isLoading && (
+          <p className="px-1 text-[13px] text-zinc-500">Building suggestion…</p>
+        )}
+        {enabled && error && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
+            {formatSuggestedPolicyError(error)}
+          </p>
+        )}
+        {enabled && data && (
+          <>
+            <PolicyCoverageMeta data={data} />
+            <PolicyCloudTrailStartAction
+              findingId={finding.id}
+              accountId={accountId}
+              roleArn={finding.resource_arn}
+              data={data}
+              cloudTrailLogging={cloudTrailLogging}
+              onRefresh={() => void refetch()}
+            />
+          </>
+        )}
+        {enabled && data && data.has_inline_policies && data.original_policies && data.cleaned_policies && (
+          <RemediationDetailCard
+            title="Policy diff"
+            action={
+              <PolicyViewToggle
+                options={["diff", "cleaned", "original"] as const}
+                value={view}
+                onChange={setView}
+              />
+            }
+          >
+            {Object.keys(data.cleaned_policies).map((policyName) => {
+              const hint = policyRenameHint(policyName, finding.resource_arn, (data.statements_modified ?? 0) > 0);
+              if (!hint) return null;
+              return (
+                <div
+                  key={policyName}
+                  className="mb-4 flex gap-2.5 rounded-xl border border-indigo-200/90 bg-indigo-50/90 px-4 py-3 ring-1 ring-indigo-100"
+                >
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                    </svg>
+                  </span>
+                  <p className="policy-review-callout">{hint}</p>
+                </div>
+              );
+            })}
+            <div className="max-h-[min(52vh,520px)] overflow-auto rounded-xl border border-zinc-200/90 bg-zinc-50/50">
+              {view === "diff" && (
+                <PolicyDiffView
+                  original={data.original_policies}
+                  cleaned={data.cleaned_policies}
+                  granularity={data.granularity}
+                  hideUnchangedResources={finding.check_id === "iam.role.unused_services_90d"}
+                  preservedServiceWildcards={data.preserved_service_wildcards}
+                />
+              )}
+              {view !== "diff" && (
+                <CliBlock
+                  code={JSON.stringify(view === "cleaned" ? data.cleaned_policies : data.original_policies, null, 2)}
+                />
+              )}
+            </div>
+            {data.granularity === "service" && !data.access_analyzer?.job_id && (
+              <p className="mt-3 text-[12px] leading-relaxed text-zinc-500">
+                Per-action usage not available yet — scoped to services with recorded activity. Run another scan to
+                refresh.
+              </p>
+            )}
+          </RemediationDetailCard>
+        )}
       </div>
+    );
+  }
+
+  return (
+    <DrawerSection
+      title="Least-privilege proposal"
+      action={
+        !enabled ? (
+          <button
+            type="button"
+            onClick={() => setEnabled(true)}
+            className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Build suggestion
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60"
+          >
+            {isFetching ? "Refreshing…" : "Rebuild"}
+          </button>
+        )
+      }
+    >
+      <div className={drawerSectionBody}>{body}</div>
     </DrawerSection>
   );
 }
@@ -4484,14 +5537,17 @@ function GeneratePolicySection({
 function GenerateS3HttpsPolicySection({
   accountId,
   finding,
+  embedded = false,
+  autoLoad = false,
 }: {
   accountId: string;
   finding: Finding;
+  embedded?: boolean;
+  autoLoad?: boolean;
 }) {
-  const [enabled, setEnabled] = useState(false);
-  const [policyOpen, setPolicyOpen] = useState(true);
+  const [enabled, setEnabled] = useState(autoLoad);
   const [view, setView] = useState<"diff" | "merged" | "original">("diff");
-  const { data, isLoading, error } = useQuery<GeneratedS3HttpsPolicy>({
+  const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedS3HttpsPolicy>({
     queryKey: ["generated-s3-https-policy", accountId, finding.resource_arn, finding.last_seen],
     queryFn: () =>
       api(
@@ -4501,6 +5557,10 @@ function GenerateS3HttpsPolicySection({
     staleTime: 0,
   });
 
+  useEffect(() => {
+    if (autoLoad) setEnabled(true);
+  }, [autoLoad, finding.id, finding.resource_arn]);
+
   const originalPolicies = data
     ? {
         "Bucket policy": data.original_policy ?? { Version: "2012-10-17", Statement: [] },
@@ -4508,55 +5568,115 @@ function GenerateS3HttpsPolicySection({
     : undefined;
   const mergedPolicies = data ? { "Bucket policy": data.merged_policy } : undefined;
 
-  return (
-    <DrawerSection
-      title="Suggested policy"
-      collapsible={enabled}
-      expanded={policyOpen}
-      onExpandedChange={setPolicyOpen}
-      action={
-        !enabled ? (
-          <button
-            onClick={() => {
-              setEnabled(true);
-              setPolicyOpen(true);
-            }}
-            className="rounded-md border border-zinc-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            Generate
-          </button>
-        ) : undefined
-      }
+  const body = (
+    <>
+      {!enabled && (
+        <p className="text-[13px] leading-snug text-zinc-600">
+          Preview a bucket policy statement that denies insecure HTTP transport.
+        </p>
+      )}
+      {enabled && isLoading && <div className="py-2 text-[13px] text-zinc-500">Generating…</div>}
+      {enabled && error && <div className="py-1 text-[13px] text-red-600">{formatSuggestedPolicyError(error)}</div>}
+      {enabled && data?.already_has_https_deny && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900">
+          Live bucket policy already denies requests where{" "}
+          <span className="font-mono text-[12px]">aws:SecureTransport</span> is false. Re-scan after any change if this
+          finding still appears.
+        </div>
+      )}
+      {enabled && data && !data.already_has_https_deny && originalPolicies && mergedPolicies && (
+        <div className="space-y-2.5">
+          <div className="flex justify-end">
+            <div className="flex gap-0.5 rounded-md bg-zinc-100 p-0.5">
+              {(["diff", "merged", "original"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium capitalize transition-colors ${view === v ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-800"}`}
+                >
+                  {v === "merged" ? "merged" : v}
+                </button>
+              ))}
+            </div>
+          </div>
+          {view === "diff" &&
+            (!data.had_policy ? (
+              <div className="space-y-2">
+                <p className="text-[12px] text-zinc-500">This bucket never had a policy.</p>
+                <PolicyStatementDiffBlock
+                  lines={buildNewStatementDiffLines(
+                    ((data.merged_policy.Statement as PolicyStatement[]) ?? [])[0] ?? {},
+                  )}
+                />
+              </div>
+            ) : (
+              <PolicyDiffView original={originalPolicies} cleaned={mergedPolicies} />
+            ))}
+          {view === "merged" && <CliBlock code={JSON.stringify(data.merged_policy, null, 2)} label="Policy" />}
+          {view === "original" && (
+            <CliBlock code={JSON.stringify(originalPolicies["Bucket policy"], null, 2)} label="Policy" />
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const rebuildAction = !enabled ? (
+    <button
+      type="button"
+      onClick={() => setEnabled(true)}
+      className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
     >
-      <div className={drawerSectionBody}>
-        {enabled && isLoading && <div className="py-2 text-[13px] text-zinc-500">Generating…</div>}
-        {enabled && error && <div className="py-1 text-[13px] text-red-600">{String(error)}</div>}
+      Generate
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => void refetch()}
+      disabled={isFetching}
+      className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60"
+    >
+      {isFetching ? "Refreshing…" : "Rebuild"}
+    </button>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-5">
+        <RemediationDetailCard title="How this works" action={rebuildAction}>
+          <p className="text-[13px] leading-relaxed text-zinc-700">
+            Merge an HTTPS-only deny into the live bucket policy.
+          </p>
+        </RemediationDetailCard>
+        {enabled && isLoading && <p className="px-1 text-[13px] text-zinc-500">Generating…</p>}
+        {enabled && error && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
+            {formatSuggestedPolicyError(error)}
+          </p>
+        )}
         {enabled && data?.already_has_https_deny && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
             Live bucket policy already denies requests where{" "}
             <span className="font-mono text-[12px]">aws:SecureTransport</span> is false. Re-scan after any change if this
             finding still appears.
           </div>
         )}
         {enabled && data && !data.already_has_https_deny && originalPolicies && mergedPolicies && (
-          <div className="space-y-2.5">
-            <div className="flex justify-end">
-              <div className="flex gap-0.5 rounded-md bg-zinc-100 p-0.5">
-                {(["diff", "merged", "original"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setView(v)}
-                    className={`rounded px-2 py-0.5 text-[11px] font-medium capitalize transition-colors ${view === v ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-800"}`}
-                  >
-                    {v === "merged" ? "merged" : v}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <RemediationDetailCard
+            title="Policy changes"
+            action={
+              <PolicyViewToggle
+                options={["diff", "merged", "original"] as const}
+                value={view}
+                onChange={setView}
+              />
+            }
+          >
             {view === "diff" &&
               (!data.had_policy ? (
-                <div className="space-y-2">
-                  <p className="text-[12px] text-zinc-500">This bucket never had a policy.</p>
+                <div className="space-y-3">
+                  <p className="text-[13px] text-zinc-600">This bucket never had a policy.</p>
                   <PolicyStatementDiffBlock
                     lines={buildNewStatementDiffLines(
                       ((data.merged_policy.Statement as PolicyStatement[]) ?? [])[0] ?? {},
@@ -4570,10 +5690,52 @@ function GenerateS3HttpsPolicySection({
             {view === "original" && (
               <CliBlock code={JSON.stringify(originalPolicies["Bucket policy"], null, 2)} label="Policy" />
             )}
-          </div>
+          </RemediationDetailCard>
         )}
       </div>
+    );
+  }
+
+  return (
+    <DrawerSection
+      title="Least-privilege proposal"
+      action={
+        !enabled ? (
+          <button
+            type="button"
+            onClick={() => setEnabled(true)}
+            className="rounded-md border border-zinc-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+          >
+            Generate
+          </button>
+        ) : undefined
+      }
+    >
+      <div className={drawerSectionBody}>{body}</div>
     </DrawerSection>
+  );
+}
+
+function SuggestedPolicyRemediationContent({
+  accountId,
+  finding,
+  cloudTrailLogging,
+}: {
+  accountId: string;
+  finding: Finding;
+  cloudTrailLogging: boolean;
+}) {
+  if (finding.check_id === "s3.bucket.no_https_policy") {
+    return <GenerateS3HttpsPolicySection accountId={accountId} finding={finding} embedded autoLoad />;
+  }
+  return (
+    <GeneratePolicySection
+      accountId={accountId}
+      finding={finding}
+      cloudTrailLogging={cloudTrailLogging}
+      embedded
+      autoLoad
+    />
   );
 }
 
@@ -4611,6 +5773,39 @@ function CliBlock({ code, label = "Command" }: { code: string; label?: string })
   );
 }
 
+function ExceptionDocIcon() {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    // Fallback when /exception-shield.png is not present — clean indigo doc tile.
+    return (
+	      <svg className="h-[72px] w-[72px] shrink-0" viewBox="0 0 48 48" fill="none" aria-hidden>
+        <rect x="2" y="2" width="44" height="44" rx="13" fill="#E7E6FB" />
+        <path d="M15 13h11l6 6v15a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V15a2 2 0 0 1 2-2Z" fill="#6E72E4" />
+        <path d="M26 13l6 6h-4.5A1.5 1.5 0 0 1 26 17.5V13Z" fill="#ADAEF1" />
+        <rect x="17" y="23" width="10" height="2.6" rx="1.3" fill="#AEB0F2" />
+        <rect x="17" y="28" width="6.5" height="2.6" rx="1.3" fill="#AEB0F2" />
+        <path
+          d="M30.5 26.5l6.2 2.25v4.4c0 3.6-2.45 6.6-6.2 7.7-3.75-1.1-6.2-4.1-6.2-7.7v-4.4l6.2-2.25Z"
+          fill="#6366F1"
+          stroke="#ffffff"
+          strokeWidth="2.3"
+          strokeLinejoin="round"
+        />
+        <path d="m27.6 33 1.9 1.9 3.4-3.6" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <img
+      src="/exception-shield.png"
+      alt=""
+      aria-hidden
+      onError={() => setFailed(true)}
+	      className="h-[72px] w-[72px] shrink-0 rounded-2xl object-contain"
+    />
+  );
+}
+
 function ExceptionButton({
   findingId,
   onDone,
@@ -4629,6 +5824,18 @@ function ExceptionButton({
   const [expiresAt, setExpiresAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const [sheetDragging, setSheetDragging] = useState(false);
+  const dragStartY = useRef<number | null>(null);
+  const sheetDragYRef = useRef(0);
+  const exceptionSheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSheetDragY(0);
+    sheetDragYRef.current = 0;
+    setSheetDragging(false);
+    dragStartY.current = null;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -4659,28 +5866,61 @@ function ExceptionButton({
     }
   }
 
+  function startSheetDrag(e: React.PointerEvent<HTMLButtonElement>) {
+    if (submitting) return;
+    dragStartY.current = e.clientY;
+    setSheetDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function moveSheetDrag(e: React.PointerEvent<HTMLButtonElement>) {
+    if (dragStartY.current == null || submitting) return;
+    const nextDragY = Math.max(0, e.clientY - dragStartY.current);
+    sheetDragYRef.current = nextDragY;
+    setSheetDragY(nextDragY);
+  }
+
+  function endSheetDrag(e: React.PointerEvent<HTMLButtonElement>) {
+    const sheetHeight = exceptionSheetRef.current?.getBoundingClientRect().height ?? 0;
+    const shouldClose = sheetHeight > 0 && sheetDragYRef.current > sheetHeight * 0.5;
+    dragStartY.current = null;
+    setSheetDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (shouldClose) {
+      setSheetDragY(sheetHeight);
+      sheetDragYRef.current = sheetHeight;
+      window.setTimeout(() => setOpen(false), 120);
+    } else {
+      setSheetDragY(0);
+      sheetDragYRef.current = 0;
+    }
+  }
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label={done ? "Exception recorded" : "Create exception"}
-        className={`${className ?? drawerFooterExceptionCard} ${done ? "!border-emerald-300 !bg-emerald-50 !text-emerald-700" : ""}`}
+        className={`${className ?? drawerFooterExceptionGhost}${done ? " !text-emerald-700 hover:!bg-emerald-50" : ""}`}
       >
-        <DrawerFooterCardLead
-          tone={done ? "emerald-done" : "orange"}
-          label={done ? "Exception recorded" : "Create exception"}
-          icon={
-            done ? (
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            ) : (
-              <DrawerFooterExceptionBubbleIcon />
-            )
-          }
-        />
-        <DrawerFooterChevron />
+        {done ? (
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z"
+            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6" />
+          </svg>
+        )}
+        {done ? "Exception recorded" : "Create exception"}
       </button>
       {open &&
         sheetContainerRef.current &&
@@ -4693,54 +5933,86 @@ function ExceptionButton({
               aria-label="Dismiss exception form"
             />
             <div
+              ref={exceptionSheetRef}
               role="dialog"
               aria-modal="true"
               aria-labelledby="exception-dialog-title"
-              className="relative flex max-h-[min(85%,32rem)] w-full flex-col overflow-hidden rounded-t-2xl border border-b-0 border-zinc-200 bg-zinc-50 shadow-[0_-12px_40px_rgba(15,23,42,0.12)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="shrink-0 border-b border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-[12px] leading-snug text-amber-950">
-                <span className="font-semibold">Audit evidence.</span> This exception, approver, and expiry will appear in
-                your evidence pack.
-              </div>
-              <div className="min-h-0 overflow-y-auto p-5">
+		              className="relative flex max-h-[min(97%,52rem)] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_-12px_40px_rgba(15,23,42,0.16)] ring-1 ring-zinc-200/70"
+              style={{
+                transform: `translate3d(0, ${sheetDragY}px, 0)`,
+                transition: sheetDragging ? "none" : "transform 180ms ease-out",
+              }}
+		              onClick={(e) => e.stopPropagation()}
+		            >
+	              <button
+	                type="button"
+	                onPointerDown={startSheetDrag}
+	                onPointerMove={moveSheetDrag}
+	                onPointerUp={endSheetDrag}
+	                onPointerCancel={endSheetDrag}
+	                onClick={(e) => e.preventDefault()}
+	                className="flex shrink-0 cursor-grab touch-none justify-center pt-3 active:cursor-grabbing"
+	                aria-label="Drag down to close exception form"
+	              >
+	                <span className="h-1 w-10 rounded-full bg-zinc-200 transition-colors hover:bg-zinc-300" aria-hidden />
+	              </button>
+	              <div className="shrink-0 px-5 pb-4 pt-4">
+	                <div className="flex items-start gap-2.5 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-amber-950">
+	                  <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+	                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
+	                  </svg>
+	                  <div className="min-w-0 text-[12px] leading-snug">
+	                    <p className="font-semibold">Included in evidence pack</p>
+	                    <p className="text-amber-900/90">This exception, approver, and expiry will be included in your evidence pack.</p>
+	                  </div>
+	                </div>
+	              </div>
+	              <div className="min-h-0 overflow-y-auto px-6 pb-7 pt-2">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
-                      Document exception
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-zinc-500">
-                      Exceptions are retained in the evidence pack. Auditors can review the reason, approver, and expiry.
-                    </p>
+                  <div className="flex items-start gap-3.5">
+                    <ExceptionDocIcon />
+                    <div className="min-w-0">
+                      <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
+                        Document exception
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-zinc-500">
+                        Exceptions are retained in the evidence pack. Auditors can review the reason, approver, and expiry.
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
                     disabled={submitting}
-                    className="shrink-0 rounded-lg p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-zinc-200 p-1.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50"
                     aria-label="Close"
                   >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
-                <form onSubmit={submit} className="mt-5 space-y-4">
+	                <form onSubmit={submit} className="mt-6 space-y-5">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-700">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-700">
                       Reason <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      rows={3}
+	                      rows={5}
+                      maxLength={500}
                       placeholder="e.g. Internal sandbox repo — no production code. Risk accepted by CTO."
                       className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
                       required
                     />
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-xs text-zinc-400">Provide a clear reason for this exception.</p>
+                      <p className="shrink-0 text-xs tabular-nums text-zinc-400">{reason.length} / 500</p>
+                    </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-700">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-700">
                       Approved by <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -4751,35 +6023,45 @@ function ExceptionButton({
                       className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm placeholder:text-zinc-400 focus:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
                       required
                     />
+                    <p className="mt-1 text-xs text-zinc-400">Full name and role of the approver.</p>
                   </div>
                   <div>
-                    <label htmlFor="exception-expires" className="mb-1 block text-xs font-medium text-zinc-700">
-                      Expires (optional)
+                    <label htmlFor="exception-expires" className="mb-1.5 block text-xs font-medium text-zinc-700">
+                      Expires <span className="font-normal text-zinc-400">(optional)</span>
                     </label>
                     <DrawerDateField
                       id="exception-expires"
                       value={expiresAt}
                       onChange={setExpiresAt}
                       minIso={todayIso()}
-                      placeholder="No expiry date"
+                      placeholder="Select expiry date"
                     />
+                    <p className="mt-1 text-xs text-zinc-400">Set when this exception should be reviewed or expire.</p>
                   </div>
-                  <div className="flex flex-col-reverse gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setOpen(false)}
-                      disabled={submitting}
-                      className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50 sm:min-w-[7rem]"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitting || !reason.trim() || !approvedBy.trim()}
-                      className="rounded-lg border border-zinc-800 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
-                    >
-                      {submitting ? "Saving…" : "Save exception"}
-                    </button>
+                  <div className="border-t border-zinc-100 pt-4">
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        disabled={submitting}
+                        className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:opacity-50 sm:min-w-[7rem]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitting || !reason.trim() || !approvedBy.trim()}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6a2.25 2.25 0 0 1 2.25-2.25Z" />
+                        </svg>
+                        {submitting ? "Saving…" : "Save exception"}
+                      </button>
+                    </div>
+                    {!submitting && (!reason.trim() || !approvedBy.trim()) && (
+                      <p className="mt-2 text-right text-xs text-zinc-400">Complete required fields to save</p>
+                    )}
                   </div>
                 </form>
               </div>
@@ -4834,7 +6116,7 @@ function AffectedResourcesPanel({
         </div>
       }
     >
-      <ul className="max-h-44 space-y-0.5 overflow-y-auto px-3 py-2">
+      <ul className="max-h-44 space-y-1 overflow-y-auto px-3 py-2.5">
         {filtered.map((f) => {
           const active = f.id === activeId;
           return (
@@ -4842,10 +6124,10 @@ function AffectedResourcesPanel({
               <button
                 type="button"
                 onClick={() => onSelect(f)}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg border-l-2 py-2.5 pl-3 pr-3 text-left transition ${
+                className={`flex w-full items-center justify-between gap-3 rounded-xl border py-2.5 pl-3 pr-3 text-left transition-all duration-150 ${
                   active
-                    ? "border-l-[#1f4e79] bg-[#f8fafc] pl-2.5"
-                    : "border-l-transparent hover:bg-[#f8fafc]/80"
+                    ? "border-[#cfe0f2] bg-white shadow-sm shadow-[#1f4e79]/10 ring-1 ring-inset ring-[#e7eff8]"
+                    : "border-transparent hover:border-[#d7e6f6] hover:bg-white hover:shadow-sm hover:shadow-[#1f4e79]/[0.06]"
                 }`}
               >
                 <span className="min-w-0">
@@ -4905,6 +6187,10 @@ export function FindingDrawer({
 }) {
   const prevCheckId = useRef<string | null>(null);
   const drawerSheetRef = useRef<HTMLDivElement>(null);
+  /** User closed the detail pane (X) — do not auto-reopen suggested policy. */
+  const remediationDetailDismissedRef = useRef(false);
+  const [remDetailMode, setRemDetailMode] = useState<FindingRemediationMode | null>(null);
+  const [policyChangePaneVisible, setPolicyChangePaneVisible] = useState(false);
 
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
@@ -4915,13 +6201,54 @@ export function FindingDrawer({
   });
   const cloudTrailLogging = accountMeta?.meta?.cloudtrail_logging ?? false;
 
+  const policyWorkspaceQueryEnabled =
+    !!finding &&
+    !!accountId &&
+    tab === "remediation" &&
+    remDetailMode === "suggested_policy" &&
+    ROLE_POLICY_GEN_CHECKS.has(finding.check_id);
+
+  const { data: policyGenData } = useQuery<GeneratedPolicy>({
+    queryKey: ["generated-policy", accountId, finding?.resource_arn, finding?.last_seen],
+    queryFn: () =>
+      api(
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding!.resource_arn)}&advanced=true`,
+      ),
+    enabled: policyWorkspaceQueryEnabled,
+    staleTime: 0,
+  });
+
+  const policyActionDiff = useMemo(() => {
+    if (!policyGenData?.original_policies || !policyGenData?.cleaned_policies) return null;
+    return computePolicyActionDiff(policyGenData.original_policies, policyGenData.cleaned_policies);
+  }, [policyGenData]);
+
+  const showPolicyChangePane = useMemo(
+    () => hasGeneratedPolicyChange(policyGenData, policyActionDiff),
+    [policyGenData, policyActionDiff],
+  );
+
+  useEffect(() => {
+    setPolicyChangePaneVisible(false);
+  }, [finding?.id, finding?.resource_arn, remDetailMode]);
+
+  useEffect(() => {
+    if (!policyWorkspaceQueryEnabled || !showPolicyChangePane) {
+      setPolicyChangePaneVisible(false);
+    }
+  }, [policyWorkspaceQueryEnabled, showPolicyChangePane, finding?.id, finding?.resource_arn]);
+
   const { data: remediationExecution } = useRemediationExecution(finding?.id ?? "");
 
   useEffect(() => {
     if (!finding) {
       prevCheckId.current = null;
+      remediationDetailDismissedRef.current = false;
+      setRemDetailMode(null);
       return;
     }
+    remediationDetailDismissedRef.current = false;
+    setRemDetailMode(null);
     const differentCheck =
       prevCheckId.current !== null && prevCheckId.current !== finding.check_id;
     if (differentCheck) {
@@ -4930,6 +6257,20 @@ export function FindingDrawer({
     }
     prevCheckId.current = finding.check_id;
   }, [finding?.id, finding?.check_id, onTabChange, onRemTabChange]);
+
+  useEffect(() => {
+    if (tab !== "remediation") setRemDetailMode(null);
+  }, [tab]);
+
+  const closeRemediationDetail = () => {
+    remediationDetailDismissedRef.current = true;
+    setRemDetailMode(null);
+  };
+
+  const openRemediationDetail = (mode: FindingRemediationMode) => {
+    remediationDetailDismissedRef.current = false;
+    setRemDetailMode(mode);
+  };
 
   useEffect(() => {
     if (finding && SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id) && remTab === "terraform") {
@@ -4971,7 +6312,10 @@ export function FindingDrawer({
   const ssmExecSuccess =
     remediationExecution?.status === "success" ||
     Boolean((remediationExecution?.result as { ok?: boolean } | undefined)?.ok);
-  const ssmAutomationRemTab = remTab === "automation";
+  const savedRemediationMode =
+    remTab === "suggested_policy" ? defaultFindingRemediationMode(finding.check_id) : remTab;
+  const activeRemediationMode = remDetailMode ?? savedRemediationMode;
+  const ssmAutomationRemTab = activeRemediationMode === "automation";
   const verifyFooterMuted =
     ssmAutomationRemTab && !ssmExecSuccess && !verified && !verifying && !showReopenFooter;
 
@@ -5010,6 +6354,8 @@ export function FindingDrawer({
   const category = Object.entries(categoryLabel).find(([prefix]) => finding.check_id.startsWith(prefix))?.[1] ?? "Finding";
   const isRootFinding = isAwsRootFinding(finding);
   const showPolicyGen = ROLE_POLICY_GEN_CHECKS.has(finding.check_id) && !!accountId;
+  const showSuggestedPolicy =
+    showPolicyGen || (finding.check_id === "s3.bucket.no_https_policy" && !!accountId);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
@@ -5023,6 +6369,18 @@ export function FindingDrawer({
     !!finding.exception_reason ||
     !!finding.exception_approved_by;
 
+  const remediationSplit = tab === "remediation" && remDetailMode !== null;
+  const policyWorkspaceSplit =
+    remediationSplit && remDetailMode === "suggested_policy" && showPolicyGen && !!accountId;
+  const policyTriplePane = policyWorkspaceSplit && policyChangePaneVisible;
+  const drawerWideClass = policyTriplePane
+    ? DRAWER_POLICY_TRIPLE_MAX_W
+    : policyWorkspaceSplit || remediationSplit
+      ? DRAWER_WIDE_MAX_W
+      : DRAWER_MAX_W;
+  const drawerWidthTransitionClass =
+    remediationSplit || policyWorkspaceSplit ? "transition-none" : "transition-[max-width] duration-200 ease-out";
+
   const overlay = (
     <>
       <div
@@ -5032,7 +6390,7 @@ export function FindingDrawer({
       />
       <div
         ref={drawerSheetRef}
-        className={`fixed top-0 right-0 bottom-0 z-[110] flex w-full ${DRAWER_MAX_W} flex-col overflow-hidden bg-white shadow-2xl`}
+        className={`fixed top-0 right-0 bottom-0 z-[110] flex w-full flex-col overflow-hidden bg-white shadow-2xl ${drawerWidthTransitionClass} ${drawerWideClass}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="finding-drawer-title"
@@ -5081,32 +6439,32 @@ export function FindingDrawer({
               const idx = relatedFindings.findIndex((f) => f.id === finding.id);
               const at = idx >= 0 ? idx : 0;
               return (
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    type="button"
-                    disabled={at <= 0}
-                    onClick={() => onSelectRelated(relatedFindings[at - 1])}
-                    className="rounded p-0.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-30"
-                    aria-label="Previous resource"
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                    </svg>
-                  </button>
-                  <span className="min-w-[2.5rem] text-center text-[10px] tabular-nums text-zinc-500">
-                    {at + 1} of {relatedFindings.length}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={at >= relatedFindings.length - 1}
-                    onClick={() => onSelectRelated(relatedFindings[at + 1])}
-                    className="rounded p-0.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-30"
-                    aria-label="Next resource"
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                    </svg>
-                  </button>
+	                <div className="flex shrink-0 items-center gap-1">
+	                  <button
+	                    type="button"
+	                    disabled={at <= 0}
+	                    onClick={() => onSelectRelated(relatedFindings[at - 1])}
+	                    className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
+	                    aria-label="Previous resource"
+	                  >
+	                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+	                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+	                    </svg>
+	                  </button>
+	                  <span className="min-w-[3rem] text-center text-[11px] tabular-nums text-zinc-500">
+	                    {at + 1} of {relatedFindings.length}
+	                  </span>
+	                  <button
+	                    type="button"
+	                    disabled={at >= relatedFindings.length - 1}
+	                    onClick={() => onSelectRelated(relatedFindings[at + 1])}
+	                    className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-30"
+	                    aria-label="Next resource"
+	                  >
+	                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+	                      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+	                    </svg>
+	                  </button>
                 </div>
               );
             })()
@@ -5117,36 +6475,23 @@ export function FindingDrawer({
           return <div className="mt-2 flex justify-end">{resourceNav}</div>;
         }
 
-        if (isShortResourceLabel(resourceLabel)) {
-          const useMono = resourceLabel.includes(":") || resourceLabel.includes("/");
-          return (
-            <div className="mt-2 flex items-baseline justify-between gap-3">
-              <p className="flex min-w-0 items-baseline gap-1.5 truncate text-[13px] leading-snug text-zinc-600">
-                <span className="shrink-0 text-zinc-500">Resource</span>
-                <span className="shrink-0 text-zinc-300" aria-hidden>
-                  ·
-                </span>
-                <span
-                  className={`truncate text-zinc-700 ${useMono ? "font-mono text-[12px]" : ""}`}
-                  title={finding.resource_arn}
-                >
-                  {resourceLabel}
-                </span>
-              </p>
-              {resourceNav}
-            </div>
-          );
-        }
-
+        const useMono = isShortResourceLabel(resourceLabel)
+          ? resourceLabel.includes(":") || resourceLabel.includes("/")
+          : true;
         return (
-          <div className="mt-2 rounded-lg border border-zinc-200/60 bg-white/70 px-3 py-1.5">
+          <div className="mt-2 rounded-lg border border-zinc-200/80 bg-white px-3 py-2 shadow-sm shadow-zinc-950/[0.02]">
             <div className="flex items-baseline justify-between gap-2">
               <div className="group relative flex min-w-0 flex-1 items-baseline gap-1.5 text-[13px] text-zinc-600">
                 <span className="shrink-0 text-zinc-500">Resource</span>
                 <span className="shrink-0 text-zinc-300" aria-hidden>
                   ·
                 </span>
-                <p className="truncate font-mono text-[12px] leading-snug text-zinc-700">{resourceLabel}</p>
+                <p
+                  className={`truncate leading-snug text-zinc-700 ${useMono ? "font-mono text-[12px]" : "text-[13px]"}`}
+                  title={finding.resource_arn}
+                >
+                  {resourceLabel}
+                </p>
                 <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden max-w-sm rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-lg group-hover:block">
                   <p className="break-all font-mono text-[12px] leading-relaxed text-zinc-700">
                     {isVcsResourceIdentifier(finding.resource_arn) ? resourceLabel : finding.resource_arn}
@@ -5191,7 +6536,9 @@ export function FindingDrawer({
         </div>
       </div>
     </div>
-    <div className={drawerBody}>
+    <div
+      className={`${drawerBody}${remediationSplit ? " !flex !flex-col !space-y-0 !overflow-hidden !px-0 !pb-0 !pt-0" : ""}`}
+    >
       {verifyUnchanged && !verified && (
         <div
           className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3.5 text-[12px] leading-relaxed text-amber-950"
@@ -5242,71 +6589,130 @@ export function FindingDrawer({
         <ComplianceTabContent checkId={finding.check_id} accountId={accountId} />
       )}
       {tab === "remediation" && (
-        <div className="space-y-2.5">
-          {showPolicyGen && (
-            <GeneratePolicySection
-              accountId={accountId!}
-              finding={finding}
-              cloudTrailLogging={cloudTrailLogging}
-              compact={remTab === "automation"}
-            />
-          )}
-          {finding.check_id === "s3.bucket.no_https_policy" && accountId && (
-            <GenerateS3HttpsPolicySection accountId={accountId} finding={finding} />
-          )}
-          <div className={`${drawerPanel} overflow-hidden shadow-sm shadow-zinc-900/[0.03]`}>
-            <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 bg-zinc-50/80 px-4 py-2.5">
-              {!isIdentityCheck && (
-                <RemediationModeToggle
-                  value={remTab}
-                  onChange={onRemTabChange}
-                  hideTerraform={SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
-                />
-              )}
-              {remTab !== "automation" && (
-                <FlowBadge variant={remediationImpactBadge(finding.severity).variant}>
-                  {remediationImpactBadge(finding.severity).label}
-                </FlowBadge>
+        <div
+          className={
+            remediationSplit
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+              : "space-y-2.5"
+          }
+        >
+          <div
+            className={
+              policyTriplePane
+                ? DRAWER_POLICY_TRIPLE_GRID
+                : policyWorkspaceSplit
+                  ? "grid min-h-0 flex-1 grid-cols-[minmax(280px,34%)_minmax(0,1fr)] overflow-hidden border-t border-zinc-200/80"
+                  : remediationSplit
+                    ? "grid min-h-0 flex-1 grid-cols-[minmax(400px,48%)_minmax(380px,1fr)] overflow-hidden border-t border-zinc-200/80"
+                    : "space-y-2.5"
+            }
+          >
+            <div
+              className={
+                remediationSplit
+                  ? `min-h-0 space-y-3 overflow-y-auto border-r border-zinc-200/90 bg-[#f7f9fc] py-4 ${
+                      policyTriplePane ? "px-5" : "px-4"
+                    }`
+                  : "space-y-2.5"
+              }
+            >
+              <SuggestedRemediationSummary
+                rem={rem}
+                policyMode={remDetailMode === "suggested_policy" && showPolicyGen}
+              />
+              {isIdentityCheck ? (
+                <div className={`${drawerPanel} overflow-hidden`}>
+                  <div className={drawerSectionBody}>
+                    <button
+                      type="button"
+                      onClick={() => openRemediationDetail("console")}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[12px] font-semibold text-zinc-800 transition hover:border-indigo-200 hover:bg-indigo-50/50"
+                    >
+                      <RemediationModeIcon mode="console" />
+                      View console steps
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <RemediationModePicker
+                    active={activeRemediationMode}
+                    onSelect={openRemediationDetail}
+                    hideTerraform={SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
+                    showSuggestedPolicy={showSuggestedPolicy}
+                  />
+                  {!remDetailMode && (
+                    <p className="px-1 text-[12px] leading-relaxed text-zinc-500">
+                      {showSuggestedPolicy
+                        ? "Pick a format — including Suggested policy for a scoped diff from recorded usage."
+                        : "Pick a format to open step-by-step instructions alongside this summary."}
+                    </p>
+                  )}
+                </>
               )}
             </div>
-            <div className="px-4 py-3.5 pr-5">
-              {(isIdentityCheck || remTab === "console") && (
-                <ol className="space-y-2.5">
-                  {rem.console.map((item, i) => (
-                    <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-zinc-800">
-                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold ${step}`}>{i + 1}</span>
-                      <span className="min-w-0 pt-px">{item}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              {!isIdentityCheck && remTab === "cli" && <RemediationCliBlock finding={finding} />}
-              {!isIdentityCheck && remTab === "terraform" && (
-                <IaCRemediationSection
-                  embedMode="terraform"
-                  findingId={finding.id}
-                  checkId={finding.check_id}
-                />
-              )}
-              {!isIdentityCheck && remTab === "automation" && (
-                <IaCRemediationSection
-                  embedMode="automation"
-                  findingId={finding.id}
-                  checkId={finding.check_id}
-                  accountId={accountId}
-                  resourceRegion={resourceRegionForFinding(finding)}
-                  resourceLabel={resourceDisplayName(finding)}
-                  severity={finding.severity}
-                />
-              )}
-            </div>
+            {policyWorkspaceSplit && accountId && (
+              <SuggestedPolicyWorkspace
+                accountId={accountId}
+                finding={finding}
+                cloudTrailLogging={cloudTrailLogging}
+                showPolicyChangePane={policyChangePaneVisible}
+                onOpenPolicyChangePane={() => setPolicyChangePaneVisible(true)}
+                onClosePolicyChangePane={() => setPolicyChangePaneVisible(false)}
+                onCloseWorkspace={closeRemediationDetail}
+              />
+            )}
+            {remDetailMode && !policyWorkspaceSplit && (
+              <RemediationDetailPanel mode={remDetailMode} onClose={closeRemediationDetail}>
+                {(isIdentityCheck || remDetailMode === "console") && (
+                  <RemediationDetailCard title="Console steps">
+                    <ol className="space-y-3.5">
+                      {rem.console.map((item, i) => (
+                        <li key={i} className="flex gap-3 text-[13px] leading-relaxed text-zinc-800">
+                          <span
+                            className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-bold ${step}`}
+                          >
+                            {i + 1}
+                          </span>
+                          <span className="min-w-0 pt-0.5">{item}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </RemediationDetailCard>
+                )}
+                {!isIdentityCheck && remDetailMode === "cli" && (
+                  <RemediationDetailCard title="AWS CLI">
+                    <RemediationCliBlock finding={finding} />
+                  </RemediationDetailCard>
+                )}
+                {!isIdentityCheck && remDetailMode === "terraform" && (
+                  <IaCRemediationSection
+                    embedMode="terraform"
+                    findingId={finding.id}
+                    checkId={finding.check_id}
+                  />
+                )}
+                {!isIdentityCheck && remDetailMode === "automation" && (
+                  <IaCRemediationSection
+                    embedMode="automation"
+                    findingId={finding.id}
+                    checkId={finding.check_id}
+                    accountId={accountId}
+                    resourceRegion={resourceRegionForFinding(finding)}
+                    resourceLabel={resourceDisplayName(finding)}
+                    severity={finding.severity}
+                  />
+                )}
+                {!isIdentityCheck && remDetailMode === "suggested_policy" && accountId && (
+                  <SuggestedPolicyRemediationContent
+                    accountId={accountId}
+                    finding={finding}
+                    cloudTrailLogging={cloudTrailLogging}
+                  />
+                )}
+              </RemediationDetailPanel>
+            )}
           </div>
-          {remTab !== "automation" && (
-            <FlowCallout tone="positive" title="Validate after remediation">
-              Click Verify fix below to confirm it in AWS. Most resource checks refresh in seconds; GitHub,
-              GitLab, and historical CloudTrail findings queue a background recheck.
-            </FlowCallout>
-          )}
         </div>
       )}
       {tab === "whatif" && showBlastRadius && (
@@ -5319,59 +6725,48 @@ export function FindingDrawer({
           Reopen finding
         </button>
       ) : (
-        <div className="flex w-full gap-3">
+        <div className="flex w-full items-center gap-3">
+          <ExceptionButton
+            findingId={finding.id}
+            onDone={onClose}
+            className={drawerFooterExceptionGhost}
+            sheetContainerRef={drawerSheetRef}
+          />
           <button
             type="button"
             disabled={verifying || verified}
             onClick={() => onAction(finding.id, "recheck")}
             aria-label={verified ? "Verified" : verifying ? "Verifying fix" : "Verify fix"}
-            className={`${
-              verified
-                ? drawerFooterVerifyDoneCard
-                : verifyFooterMuted
-                  ? drawerFooterVerifyMutedCard
-                  : drawerFooterVerifyCard
-            }`}
+            className={verified || verifyFooterMuted ? drawerFooterVerifySoft : drawerFooterVerifyPrimary}
           >
             {verifying ? (
               <>
-                <DrawerFooterCardLead
-                  tone="emerald"
-                  label="Verifying…"
-                  icon={
-                    <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  }
-                />
-                <DrawerFooterChevron />
+                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Verifying…
+              </>
+            ) : verified ? (
+              <>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+                </svg>
+                Verified
               </>
             ) : (
               <>
-                <DrawerFooterCardLead
-                  tone={verified ? "emerald-done" : verifyFooterMuted ? "slate" : "emerald"}
-                  label={verified ? "Verified" : "Verify fix"}
-                  icon={
-                    verified ? (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <DrawerFooterShieldCheckIcon />
-                    )
-                  }
-                />
-                <DrawerFooterChevron />
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+                  />
+                </svg>
+                Verify fix
               </>
             )}
           </button>
-          <ExceptionButton
-            findingId={finding.id}
-            onDone={onClose}
-            className={drawerFooterExceptionCard}
-            sheetContainerRef={drawerSheetRef}
-          />
         </div>
       )}
     </div>

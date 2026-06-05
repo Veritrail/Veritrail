@@ -17,7 +17,10 @@ export function friendlyPolicyGenerationError(raw: string): string {
     return "Could not start CloudTrail analysis due to a timestamp issue. Please try again in a moment.";
   }
   if (lower.includes("no logging cloudtrail") || lower.includes("no_trails")) {
-    return "No active CloudTrail trails found. Enable CloudTrail logging, run a scan, then try again.";
+    return (
+      "No active CloudTrail trails found. Create a multi-region CloudTrail trail with a dedicated S3 log bucket, " +
+      "run a scan, then start analysis again."
+    );
   }
   if (lower.includes("cloudtrail reader role") && (lower.includes("missing") || lower.includes("not in this account"))) {
     return raw;

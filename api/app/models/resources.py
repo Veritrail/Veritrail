@@ -270,6 +270,38 @@ class RdsInstance(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class RdsSnapshot(Base):
+    __tablename__ = "rds_snapshots"
+    __table_args__ = (UniqueConstraint("account_id", "region", "snapshot_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    snapshot_id: Mapped[str] = mapped_column(String(256))
+    arn: Mapped[str] = mapped_column(String(512))
+    engine: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    encrypted: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EksCluster(Base):
+    __tablename__ = "eks_clusters"
+    __table_args__ = (UniqueConstraint("account_id", "arn"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    name: Mapped[str] = mapped_column(String(256))
+    arn: Mapped[str] = mapped_column(String(512))
+    endpoint_public_access: Mapped[bool] = mapped_column(Boolean, default=False)
+    endpoint_private_access: Mapped[bool] = mapped_column(Boolean, default=False)
+    public_access_cidrs: Mapped[list] = mapped_column(JSON, default=list)
+    version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class EbsSnapshot(Base):
     __tablename__ = "ebs_snapshots"
     __table_args__ = (UniqueConstraint("account_id", "region", "snapshot_id"),)
@@ -369,6 +401,22 @@ class LambdaFunction(Base):
     arn: Mapped[str] = mapped_column(String(512))
     runtime: Mapped[str | None] = mapped_column(String(64), nullable=True)
     has_dlq: Mapped[bool] = mapped_column(Boolean, default=False)
+    function_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    function_url_auth_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EcrRepository(Base):
+    __tablename__ = "ecr_repositories"
+    __table_args__ = (UniqueConstraint("account_id", "repository_arn"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    repository_name: Mapped[str] = mapped_column(String(256))
+    repository_arn: Mapped[str] = mapped_column(String(512))
+    scan_on_push: Mapped[bool] = mapped_column(Boolean, default=False)
+    encryption_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -14,20 +14,10 @@ export const WORKER_FINALIZE_STEPS = 2;
 export function mapWorkerStepToUiPhase(step: number, total: number): number {
   const UI_PHASE_COUNT = 6;
   if (total <= 0 || step <= 0) return 0;
-
-  const collectorEnd = WORKER_COLLECTOR_STEPS;
-  const finalizeStart = Math.max(collectorEnd + 1, total - WORKER_FINALIZE_STEPS);
-
-  if (step <= collectorEnd) {
-    const t = step / collectorEnd;
-    return Math.min(2, Math.floor(t * 3));
-  }
-  if (step < finalizeStart) {
-    const span = Math.max(1, finalizeStart - collectorEnd);
-    const t = (step - collectorEnd) / span;
-    return 3 + Math.min(1, Math.floor(t * 2));
-  }
-  return UI_PHASE_COUNT - 1;
+  // Derive the phase from the same step/total fraction the % bar uses, so the lit
+  // phase always tracks how full the bar is (scales to any worker step count).
+  const ratio = Math.min(1, step / total);
+  return Math.min(UI_PHASE_COUNT - 1, Math.floor(ratio * UI_PHASE_COUNT));
 }
 
 export function loadExpectedScanDurationMs(): number {
@@ -112,16 +102,16 @@ export function useScanProgress(
     };
   }
 
-  const finishing = elapsedMs >= expectedMs;
-  const progress = finishing ? 95 : Math.min(95, (elapsedMs / expectedMs) * 100);
-
+  // Worker has not reported step progress yet. Show an indeterminate bar rather than
+  // a time-based estimate — the estimate would visibly snap backwards (e.g. 20% -> 4%)
+  // the moment real step counts arrive.
   return {
-    progress,
+    progress: 0,
     elapsedMs,
     remainingMs: null,
     expectedMs,
-    indeterminate: false,
-    finishing,
+    indeterminate: true,
+    finishing: false,
     progressStep: null,
     progressTotal: null,
   };

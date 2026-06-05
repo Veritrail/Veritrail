@@ -73,9 +73,15 @@ Templates on S3 must stay in sync: run `./scripts/upload-cfn.sh` (incremental `a
 | `ec2.security_group.unrestricted_rdp` | Revoke exact public RDP ingress from the finding plan |
 | `ssm.parameter.plaintext_secret` | Rewrite plaintext `String` parameter as `SecureString` |
 | `iam.access_key.unused_45d` / `unused_90d` | Deactivate access key (`Inactive`) via plan executor |
+| `s3.bucket.public_access_not_blocked` | AWS-owned runbook enables all four Block Public Access settings |
+| `cloudtrail.trail.not_enabled` | Guided AWS-owned runbook; requires customer-provided `S3BucketName` and `TrailName` |
 
 AWS-owned runbook mappings are tracked in `api/app/services/ssm_remediation_catalog.py`.
 They should be wired only when Vigil can provide the document's required parameters safely.
+
+IAM policy findings (`iam.role.full_admin_policy`, `iam.policy.wildcard_resource`) are intentionally analysis-first.
+Vigil can generate least-privilege candidates and Terraform/PR guidance, but it does not offer one-click SSM
+policy detachment/replacement because workload impact must be reviewed against observed usage.
 
 Lambda service findings are detected and documented, but not auto-executed yet:
 
@@ -114,6 +120,7 @@ Always re-scan before preparing a plan, then re-scan after successful remediatio
 
 | Symptom | Cause |
 |--------|-------|
+| Poll step fails: `Invalid Input - When attachment is provided only, Handler should be [file].[function]` | `aws:executeScript` used `Handler: handler` instead of `Handler: <script_basename>.handler` (must match `Attachment` without `.py`, e.g. `revoke_sg_ingress.handler` for `revoke_sg_ingress.py`). Update `vigil-remediation-ssm` nested stack so documents get a new version. |
 | `InvalidDocument` | SSM template not deployed in the automation region |
 | `plan_expired` / `content_sha256_mismatch` | Old or edited payload; prepare a fresh plan |
 | `stale_plan` | Resource changed since scan; re-scan and prepare a new plan |

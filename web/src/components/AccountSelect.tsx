@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { AzureMark, GcpMark } from "./IntegrationsUi";
 
 export type CloudProvider = "aws" | "gcp" | "azure";
@@ -10,6 +11,24 @@ export type AccountOption = {
   account_id: string | null;
   provider?: CloudProvider;
 };
+
+const CONTEXT_PILL =
+  "inline-flex h-9 items-center rounded-full border border-zinc-200/90 bg-white px-3.5 shadow-sm shadow-zinc-950/[0.03] transition-colors";
+
+function AwsMark({ className }: { className?: string }) {
+  return (
+    <img
+      src="/aws-account-icon.png"
+      alt=""
+      className={`${className ?? "h-[1.125rem] w-[2.25rem]"} shrink-0 object-contain object-left`}
+      aria-hidden
+      onError={(e) => {
+        e.currentTarget.onerror = null;
+        e.currentTarget.src = AWS_LOGO_LIGHT;
+      }}
+    />
+  );
+}
 
 function CloudIcon({ className }: { className?: string }) {
   return (
@@ -24,7 +43,7 @@ function CloudIcon({ className }: { className?: string }) {
 function ProviderMark({ provider, className }: { provider?: CloudProvider; className?: string }) {
   if (provider === "gcp") return <GcpMark className={className} />;
   if (provider === "azure") return <AzureMark className={className} />;
-  return <CloudIcon className={className} />;
+  return <AwsMark className={className} />;
 }
 
 export function groupAccountId(id: string): string {
@@ -57,13 +76,19 @@ function absoluteScan(iso: string): string {
 }
 
 export function LastScanChip({ iso }: { iso: string }) {
+  const dotClass = scanDotClass(iso);
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200/70"
+      className={`${CONTEXT_PILL} gap-2 text-sm font-medium tracking-[-0.01em] text-zinc-600`}
       title={`Last scan ${absoluteScan(iso)}`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${scanDotClass(iso)}`} aria-hidden />
-      Scanned {relativeScan(iso)}
+      <span className="relative flex h-2 w-2 shrink-0 items-center justify-center" aria-hidden>
+        <span className={`absolute inset-0 rounded-full opacity-30 ${dotClass}`} />
+        <span className={`relative h-1.5 w-1.5 rounded-full ${dotClass}`} />
+      </span>
+      <span>
+        Scanned <span className="font-semibold text-zinc-800">{relativeScan(iso)}</span>
+      </span>
     </span>
   );
 }
@@ -99,18 +124,27 @@ export function AccountSelect({
 
   if (!current) return null;
 
-  return (
-    <div ref={ref} className="relative">
+	  return (
+	    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-zinc-100/70 px-2.5 py-1 text-xs ring-1 ring-zinc-200/70 transition hover:bg-zinc-200/60"
+        className={`${CONTEXT_PILL} max-w-[16rem] cursor-pointer gap-1 text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
       >
-        <ProviderMark provider={current.provider} className="h-3.5 w-3.5 shrink-0" />
-        <span className="font-mono tabular-nums tracking-tight text-zinc-700">{groupAccountId(current.account_id ?? "")}</span>
-        <svg className={`h-3.5 w-3.5 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+        <ProviderMark provider={current.provider} className="h-[1.125rem] w-[1.625rem]" />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none tracking-[-0.02em] text-zinc-900">
+          {current.label || groupAccountId(current.account_id ?? "")}
+        </span>
+        <svg
+          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
         </svg>
       </button>
@@ -118,30 +152,33 @@ export function AccountSelect({
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full z-30 mt-1.5 w-64 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
+          className="absolute left-0 top-full z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg shadow-zinc-900/10"
         >
-          {accounts.length > 1 && (
-            <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Switch account</p>
-          )}
-          {accounts.map((a) => {
-            const active = a.id === value;
-            const hasLabel = !!a.label && a.label !== a.account_id;
+	          {accounts.map((a) => {
+	            const active = a.id === value;
+	            const hasLabel = !!a.label && a.label !== a.account_id;
             return (
               <button
                 key={a.id}
                 type="button"
                 role="option"
                 aria-selected={active}
-                onClick={() => {
-                  onChange(a.id);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition ${active ? "bg-indigo-50/70" : "hover:bg-zinc-50"}`}
+	                onClick={() => {
+	                  onChange(a.id);
+	                  setOpen(false);
+	                }}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${active ? "bg-zinc-50" : "hover:bg-zinc-50/70"}`}
               >
-                <ProviderMark provider={a.provider} className="h-4 w-4 shrink-0" />
+                <ProviderMark provider={a.provider} className="h-5 w-10 shrink-0" />
                 <span className="min-w-0 flex-1">
-                  {hasLabel && <span className="block truncate text-[13px] font-medium text-zinc-900">{a.label}</span>}
-                  <span className="block font-mono text-[11px] tabular-nums text-zinc-500">{groupAccountId(a.account_id ?? "")}</span>
+                  <span className="block truncate text-sm font-semibold leading-tight tracking-[-0.02em] text-zinc-900">
+                    {hasLabel ? a.label : groupAccountId(a.account_id ?? "")}
+                  </span>
+                  {hasLabel ? (
+                    <span className="mt-0.5 block truncate text-xs font-medium tabular-nums tracking-wide text-zinc-400">
+                      {groupAccountId(a.account_id ?? "")}
+                    </span>
+                  ) : null}
                 </span>
                 {active && (
                   <svg className="h-4 w-4 shrink-0 text-indigo-600" fill="none" stroke="currentColor" strokeWidth={2.25} viewBox="0 0 24 24" aria-hidden>
@@ -154,7 +191,7 @@ export function AccountSelect({
           <Link
             to="/accounts"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 border-t border-zinc-100 px-3 py-2 text-[13px] font-medium text-indigo-600 transition hover:bg-indigo-50/50"
+            className="flex items-center gap-2.5 border-t border-zinc-100 px-4 py-3 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50/50"
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />

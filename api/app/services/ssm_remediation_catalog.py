@@ -25,7 +25,6 @@ VIGIL_IAM_KEY_DOCUMENT = "Vigil-DeactivateIamAccessKey"
 VIGIL_SSM_PARAMETER_DOCUMENT = "Vigil-MigrateSsmParameterToSecureString"
 
 AWS_S3_BUCKET_PAB_DOCUMENT = "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
-VIGIL_IAM_REMEDIATION_DOCUMENT = "Vigil-RemediateIamExcessPermissions"
 
 RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     "ec2.security_group.unrestricted_ssh": SsmRemediationRunbook(
@@ -76,20 +75,6 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
         owner="aws",
         parameter_mode="aws_cloudtrail_enable_guided",
         note="AWS-owned runbook — requires user-supplied S3BucketName and TrailName. Not auto-execed without user input.",
-    ),
-    "iam.role.full_admin_policy": SsmRemediationRunbook(
-        check_id="iam.role.full_admin_policy",
-        document_name=VIGIL_IAM_REMEDIATION_DOCUMENT,
-        owner="vigil",
-        parameter_mode="plan_json",
-        note="Custom Vigil runbook detaches customer-managed full-admin policies from the reviewed role.",
-    ),
-    "iam.policy.wildcard_resource": SsmRemediationRunbook(
-        check_id="iam.policy.wildcard_resource",
-        document_name=VIGIL_IAM_REMEDIATION_DOCUMENT,
-        owner="vigil",
-        parameter_mode="plan_json",
-        note="Custom Vigil runbook replaces wildcard inline policies on the reviewed role with scoped versions from the signed plan.",
     ),
 }
 

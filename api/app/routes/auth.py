@@ -1,9 +1,11 @@
+import hashlib
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -14,8 +16,10 @@ from app.core.security import (
     current_principal,
     current_user_principal,
     decode_mfa_challenge_token,
+    decode_password_reset_token,
     decode_refresh_token,
     issue_mfa_challenge_token,
+    issue_password_reset_token,
     issue_refresh_token,
     issue_token,
 )
@@ -27,8 +31,23 @@ from app.core.auth_cookies import (
 )
 from app.core.totp import new_secret, provisioning_uri, qr_png_data_url, verify_totp
 from app.models import Org, User
+from app.core.config import get_settings
+from app.services.password_reset_email import send_password_reset_email
 
 router = APIRouter()
+settings = get_settings()
+
+
+def _normalize_backup_code(code: str) -> str:
+    return "".join(c for c in code.lower() if c.isalnum())
+
+
+def _hash_backup_code(code: str) -> str:
+    return hashlib.sha256(_normalize_backup_code(code).encode()).hexdigest()
+
+
+def _generate_backup_codes(n: int = 10) -> list[str]:
+    return [f"{secrets.token_hex(3)}-{secrets.token_hex(3)}" for _ in range(n)]
 
 
 class SignupIn(BaseModel):
@@ -158,8 +177,16 @@ def mfa_verify(request: Request, body: MfaVerifyIn, db: Session = Depends(get_db
     if not user or not user.totp_enabled or not user.totp_secret:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "MFA not configured")
     if not verify_totp(user.totp_secret, body.code):
-        record_mfa_failure(user_id)
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid code")
+        # Fall back to a one-time backup (recovery) code, then consume it.
+        code_hash = _hash_backup_code(body.code)
+        backup = list(user.mfa_backup_codes or [])
+        if code_hash in backup:
+            backup.remove(code_hash)
+            user.mfa_backup_codes = backup
+            db.commit()
+        else:
+            record_mfa_failure(user_id)
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid code")
     clear_mfa_lockout(user_id)
     remember_me = bool(payload.get("remember_me"))
     uid, oid = str(user.id), str(user.org_id)
@@ -241,7 +268,29 @@ def mfa_disable(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "password incorrect")
     user.totp_enabled = False
     user.totp_secret = None
+    user.mfa_backup_codes = None
     db.commit()
+
+
+class BackupCodesOut(BaseModel):
+    codes: list[str]
+
+
+@router.post("/me/mfa/backup-codes", response_model=BackupCodesOut)
+def generate_mfa_backup_codes(
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Generate 10 one-time recovery codes (replaces any existing set). Shown once."""
+    user = db.get(User, uuid.UUID(principal["sub"]))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    if not user.totp_enabled:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "enable two-factor authentication first")
+    codes = _generate_backup_codes(10)
+    user.mfa_backup_codes = [_hash_backup_code(c) for c in codes]
+    db.commit()
+    return BackupCodesOut(codes=codes)
 
 
 @router.post("/refresh")
@@ -278,6 +327,7 @@ class MeOut(BaseModel):
     google_id: str | None
     totp_enabled: bool
     has_password: bool
+    mfa_backup_codes_remaining: int = 0
 
 
 def get_current_user(
@@ -304,6 +354,7 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
         google_id=user.google_id,
         totp_enabled=user.totp_enabled,
         has_password=bool(user.password_hash),
+        mfa_backup_codes_remaining=len(user.mfa_backup_codes or []),
     )
 
 
@@ -335,6 +386,52 @@ def change_password(
         )
     user.password_hash = hash_password(body.new_password)
     db.commit()
+
+
+def _password_fingerprint(user: User) -> str:
+    """Stable tag of the current password hash; changes when the password changes,
+    so a reset token signed against it can only be used once."""
+    return hashlib.sha256((user.password_hash or "").encode()).hexdigest()[:16]
+
+
+class PasswordResetRequestIn(BaseModel):
+    email: EmailStr
+
+
+@router.post("/password-reset/request", status_code=204)
+@limiter.limit("5/minute")
+def password_reset_request(request: Request, body: PasswordResetRequestIn, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(func.lower(User.email) == body.email.lower()))
+    if user:
+        token = issue_password_reset_token(str(user.id), _password_fingerprint(user))
+        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+        send_password_reset_email(to=user.email, reset_url=reset_url)
+    # Always 204 — never reveal whether an account exists for this email.
+    return Response(status_code=204)
+
+
+class PasswordResetConfirmIn(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/password-reset/confirm", status_code=204)
+def password_reset_confirm(body: PasswordResetConfirmIn, db: Session = Depends(get_db)):
+    payload = decode_password_reset_token(body.token)
+    user = db.get(User, uuid.UUID(payload["sub"]))
+    if not user or payload.get("fp") != _password_fingerprint(user):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "reset link expired or already used — request a new one")
+    if len(body.new_password) < 12:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "password must be at least 12 characters")
+    count = pwned_count(body.new_password)
+    if count > 0:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"password has appeared in {count:,} data breaches — choose a different password",
+        )
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return Response(status_code=204)
 
 
 def _remaining_signin_methods(user: User, *, excluding: str) -> int:

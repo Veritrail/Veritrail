@@ -622,8 +622,7 @@ func patchCloudTrail(req PatchRequest, matches []ResourceMatch) PatchResponse {
 
 	// create_new — generate CloudTrail + S3 bucket + PAB + bucket policy
 	snippet := `resource "aws_s3_bucket" "cloudtrail_logs" {
-  bucket        = "${var.aws_account_id}-cloudtrail-logs"
-  force_destroy = true
+  bucket = "${var.aws_account_id}-cloudtrail-logs"
 }
 
 resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {
