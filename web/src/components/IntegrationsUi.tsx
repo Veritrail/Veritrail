@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 
 export function formatSync(value: string | null | undefined) {
   if (!value) return "Never";
@@ -291,8 +292,9 @@ export function GitLabMark({ className = "h-5 w-5" }: { className?: string }) {
 export function AwsBrandIcon({ className = "h-11 w-11" }: { className?: string }) {
   return (
     <img
-      src="/integrations/aws-logo-light.svg"
-      alt="Amazon Web Services"
+      src={AWS_LOGO_LIGHT}
+      alt=""
+      aria-hidden
       className={`rounded-xl object-contain ring-1 ring-zinc-200/80 ${className}`}
     />
   );

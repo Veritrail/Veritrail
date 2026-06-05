@@ -1,2 +1,2 @@
-/** Public-path AWS brand assets (see web/public/integrations/). */
-export const AWS_LOGO_LIGHT = "/integrations/aws-logo-light.svg";
+/** Public-path AWS brand assets (see web/public/). */
+export const AWS_LOGO_LIGHT = "/aws.png";
