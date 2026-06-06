@@ -18,6 +18,7 @@ import {
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
+import NotificationsBell from "../components/NotificationsBell";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
@@ -3145,7 +3146,7 @@ export default function Accounts() {
 
   return (
     <div className="mx-auto w-full max-w-screen-2xl space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
           <p className="mt-1 text-sm text-zinc-500">
@@ -3154,20 +3155,23 @@ export default function Accounts() {
               : "Connected accounts and scan freshness at a glance."}
           </p>
         </div>
-        {accs.length > 0 && (
-          <button
-            type="button"
-            onClick={() => create.mutate(pendingConnectionOptions)}
-            disabled={create.isPending || hasPending}
-            title={hasPending ? "Finish setting up the pending account first" : undefined}
-            className={cardOutlineBtn}
-          >
-            <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            {create.isPending ? "Adding…" : "Add account"}
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          <NotificationsBell />
+          {accs.length > 0 && (
+            <button
+              type="button"
+              onClick={() => create.mutate(pendingConnectionOptions)}
+              disabled={create.isPending || hasPending}
+              title={hasPending ? "Finish setting up the pending account first" : undefined}
+              className={cardOutlineBtn}
+            >
+              <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {create.isPending ? "Adding…" : "Add account"}
+            </button>
+          )}
+        </div>
       </div>
 
       {hasConnectedAccount && (

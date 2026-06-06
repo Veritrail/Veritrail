@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
@@ -11,7 +12,7 @@ import {
   type RemediationModules,
 } from "../data/remediationModules";
 import {
-  AwsBrandIcon,
+  AwsBrandTile,
   formatSync,
   GitHubMark,
   GitLabMark,
@@ -65,8 +66,9 @@ type Tone = "ok" | "warn" | "idle" | "sync";
 type IntegrationCard = {
   name: string;
   valueProp: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   iconBg: string;
+  framedIcon?: boolean;
   connected?: boolean;
   syncing?: boolean;
   loading?: boolean;
@@ -78,8 +80,13 @@ type IntegrationCard = {
   healthLabel: string;
   healthTone?: Tone;
   primarySource?: boolean;
-  hero?: boolean;
   accent?: "primary" | "connected" | "none";
+};
+
+type SummaryMetric = {
+  label: string;
+  value: string | number;
+  tone?: Tone;
 };
 
 function integrationCta(connected: boolean): string {
@@ -104,7 +111,7 @@ function StatusPill({ label, tone }: { label: string; tone: Tone }) {
           : "bg-zinc-100 text-zinc-500 ring-zinc-200";
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ring-1 ${cls}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${cls}`}
     >
       {tone === "sync" && <Spinner className="h-2.5 w-2.5" />}
       {label}
@@ -114,7 +121,7 @@ function StatusPill({ label, tone }: { label: string; tone: Tone }) {
 
 function PrimarySourceBadge() {
   return (
-    <span className="inline-flex shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 ring-1 ring-sky-200">
+    <span className="inline-flex shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200">
       Primary source
     </span>
   );
@@ -139,18 +146,14 @@ function StatValue({ value, tone }: { value: string; tone?: Tone }) {
 function StatsRow({
   children,
   compact,
-  fitDivider,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   compact?: boolean;
-  /** Divider spans stats columns only (hero card), not full card width. */
-  fitDivider?: boolean;
 }) {
-  const spacing = compact ? "mt-4 pt-4" : "mt-5 pt-5";
-  const widthCls = fitDivider ? "w-fit max-w-full" : "";
+  const spacing = compact ? "mt-4" : "mt-5";
   return (
-    <div className={`${widthCls} border-t border-zinc-100 ${spacing}`}>
-      <div className="flex w-fit max-w-full flex-wrap gap-x-8 gap-y-3 sm:gap-x-10">{children}</div>
+    <div className={spacing}>
+      <div className="grid gap-3 sm:grid-cols-3">{children}</div>
     </div>
   );
 }
@@ -161,13 +164,13 @@ function StatColumn({
   value,
   valueTone,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   valueTone?: Tone;
 }) {
   return (
-    <div className="w-[9.5rem] shrink-0 min-w-0 sm:w-[10rem]">
+    <div className="min-w-0 rounded-xl border border-zinc-100 bg-zinc-50/70 px-3 py-2.5">
       <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500">
         <span className="text-zinc-400">{icon}</span>
         {label}
@@ -183,7 +186,7 @@ function EvidenceTags({ types }: { types: string[] }) {
       {types.map((t) => (
         <span
           key={t}
-          className="rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-zinc-600"
+          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600"
         >
           {t}
         </span>
@@ -209,7 +212,11 @@ function CardAction({ href, label, connect = false }: { href: string; label: str
   return (
     <Link
       to={href}
-      className="inline-flex min-w-[116px] items-center justify-center gap-2.5 rounded-lg border border-indigo-200 bg-white px-5 py-2.5 text-sm font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50/40"
+      className={`inline-flex min-w-[116px] items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-semibold transition ${
+        connect
+          ? "border-indigo-200 bg-indigo-600 text-white shadow-sm shadow-indigo-950/10 hover:border-indigo-600 hover:bg-indigo-700"
+          : "border-indigo-200 bg-white text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50/40"
+      }`}
     >
       {connect ? <IconSync className="h-4 w-4" /> : <IconGear className="h-4 w-4" />}
       {label}
@@ -217,106 +224,101 @@ function CardAction({ href, label, connect = false }: { href: string; label: str
   );
 }
 
-function AwsHeroIllustration() {
-  return (
-    <img
-      src="/integrations/aws-hero.png"
-      alt=""
-      width={448}
-      height={448}
-      className="pointer-events-none h-40 w-40 shrink-0 object-contain sm:h-48 sm:w-48 lg:h-56 lg:w-56"
-      aria-hidden
-    />
-  );
-}
-
 function IntegrationCardView({ card }: { card: IntegrationCard }) {
   const status = integrationStatus(card);
-  const isHero = card.hero;
-  const iconSize = isHero ? "h-14 w-14 rounded-xl" : "h-12 w-12 rounded-xl";
-  const iconInner = isHero ? "h-full w-full" : "h-6 w-6";
-
-  const header = (
-    <div className="flex items-start gap-3">
-      <span
-        className={`flex shrink-0 items-center justify-center text-white shadow-sm ${card.iconBg} ${iconSize}`}
-      >
-        <span className={iconInner}>{card.icon}</span>
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className={`font-bold text-zinc-950 ${isHero ? "text-lg" : "text-base"}`}>{card.name}</h2>
-          <StatusPill label={status.label} tone={status.tone} />
-          {card.primarySource && <PrimarySourceBadge />}
-        </div>
-        <p className={`mt-1.5 text-zinc-600 ${isHero ? "text-sm leading-relaxed" : "text-xs leading-relaxed"}`}>
-          {card.valueProp}
-        </p>
-      </div>
-    </div>
-  );
-
-  const stats = (
-    <StatsRow compact={!isHero} fitDivider={isHero}>
-      <StatColumn icon={<IconClock className="h-3.5 w-3.5" />} label="Last collection" value={card.lastSync} />
-      <StatColumn
-        icon={<IconSync className="h-3.5 w-3.5" />}
-        label="Sync"
-        value={card.healthLabel}
-        valueTone={card.healthTone}
-      />
-      <StatColumn icon={<IconShield className="h-3.5 w-3.5" />} label="Permissions" value={card.permissionsLabel} />
-    </StatsRow>
-  );
-
-  const footer = (
-    <div
-      className={
-        isHero
-          ? "relative z-10 mt-3 flex w-full min-w-0 items-end justify-between gap-3"
-          : "mt-4 flex flex-wrap items-end justify-between gap-3"
-      }
-    >
-      <EvidenceTags types={card.evidenceTypes} />
-      <div className="relative z-10 shrink-0">
-        <CardAction href={card.href} label={card.cta} connect={!card.connected && card.cta === "Connect"} />
-      </div>
-    </div>
-  );
-
   const accentCls =
     card.accent === "primary"
-      ? "border-l-4 border-l-sky-400"
+      ? "border-l-[3px] border-l-sky-400"
       : card.accent === "connected"
-        ? "border-l-4 border-l-emerald-500"
+        ? "border-l-[3px] border-l-emerald-400"
         : "";
 
   return (
     <article
-      className={`flex flex-col overflow-visible rounded-xl border border-zinc-200/90 bg-white p-6 shadow-sm ${accentCls} ${isHero ? "relative" : ""}`}
+      className={`flex min-h-[17rem] flex-col overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.035] transition hover:border-zinc-300/80 hover:shadow-md hover:shadow-zinc-950/[0.055] ${accentCls}`}
     >
-      {isHero ? (
-        <>
-          <div
-            className="pointer-events-none absolute right-32 top-6 z-0 hidden sm:block"
-            aria-hidden
-          >
-            <AwsHeroIllustration />
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-start gap-3.5">
+          {card.framedIcon ? (
+            card.icon
+          ) : (
+            <span
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${card.iconBg}`}
+            >
+              <span className="h-6 w-6">{card.icon}</span>
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-bold tracking-[-0.01em] text-zinc-950">{card.name}</h2>
+              <StatusPill label={status.label} tone={status.tone} />
+              {card.primarySource && <PrimarySourceBadge />}
+            </div>
+            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-600">{card.valueProp}</p>
           </div>
-          <div className="relative z-10 w-full min-w-0 sm:pr-52 lg:pr-64">
-            {header}
-            {stats}
-          </div>
-          {footer}
-        </>
-      ) : (
-        <>
-          {header}
-          {stats}
-          {footer}
-        </>
-      )}
+        </div>
+
+        <StatsRow compact>
+          <StatColumn icon={<IconClock className="h-3.5 w-3.5" />} label="Last collection" value={card.lastSync} />
+          <StatColumn
+            icon={<IconSync className="h-3.5 w-3.5" />}
+            label="Sync"
+            value={card.healthLabel}
+            valueTone={card.healthTone}
+          />
+          <StatColumn icon={<IconShield className="h-3.5 w-3.5" />} label="Permissions" value={card.permissionsLabel} />
+        </StatsRow>
+      </div>
+
+      <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-[#d9e2ee] bg-slate-50/60 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
+        <EvidenceTags types={card.evidenceTypes} />
+        <CardAction href={card.href} label={card.cta} connect={!card.connected && card.cta === "Connect"} />
+      </div>
     </article>
+  );
+}
+
+function SummaryStrip({ items }: { items: SummaryMetric[] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.025]"
+        >
+          <span className="text-[12px] font-semibold text-zinc-500">{item.label}</span>
+          <span className="flex items-center gap-2 text-lg font-bold tabular-nums tracking-[-0.02em] text-zinc-950">
+            {item.tone && <StatusDot tone={item.tone} />}
+            {item.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function IntegrationSection({
+  title,
+  description,
+  cards,
+}: {
+  title: string;
+  description: string;
+  cards: IntegrationCard[];
+}) {
+  if (cards.length === 0) return null;
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-zinc-400">{title}</h2>
+        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {cards.map((card) => (
+          <IntegrationCardView key={card.name} card={card} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -369,19 +371,21 @@ function IntegrationsContent() {
   const connectedCount = [awsAccount?.status === "connected", !!github.data, !!gitlab.data, slackConnected].filter(
     Boolean,
   ).length;
+  const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing].filter(Boolean).length;
+  const errorCount = [accounts.isError, github.isError, gitlab.isError, settings.isError].filter(Boolean).length;
 
   const awsCard: IntegrationCard = {
     name: "AWS",
     valueProp: awsIntegrationValueProp(awsAccount),
-    icon: <AwsBrandIcon className="h-full w-full" />,
-    iconBg: "bg-transparent p-0 shadow-none",
+    icon: <AwsBrandTile className="h-14 w-14 p-2.5" />,
+    iconBg: "",
+    framedIcon: true,
     href: "/accounts",
     cta: integrationCta(awsAccount?.status === "connected"),
     connected: awsAccount?.status === "connected",
     syncing: awsScanRunning,
     loading: accounts.isLoading,
     primarySource: true,
-    hero: true,
     accent: "primary",
     evidenceTypes: ["IAM", "S3", "KMS", "CloudTrail", "Remediation"],
     lastSync: formatSync(awsAccount?.last_scan_at ?? null) || "—",
@@ -442,14 +446,23 @@ function IntegrationsContent() {
     healthTone: slackConnected ? "ok" : undefined,
     permissionsLabel: slackConnected ? "Webhook configured" : "Not configured",
   };
+  const allCards = [awsCard, githubCard, gitlabCard, slackCard];
+  const connectedCards = allCards.filter((card) => card.primarySource || card.connected || card.syncing);
+  const availableCards = allCards.filter((card) => !connectedCards.includes(card));
+  const evidenceSourceCount = connectedCards.filter((card) => card.name !== "Slack").length;
+  const summaryMetrics: SummaryMetric[] = [
+    { label: "Connected", value: connectedCount, tone: "ok" },
+    { label: "Syncing", value: syncingCount, tone: syncingCount > 0 ? "sync" : "idle" },
+    { label: "Errors", value: errorCount, tone: errorCount > 0 ? "warn" : "idle" },
+    { label: "Evidence sources", value: evidenceSourceCount, tone: evidenceSourceCount > 0 ? "ok" : "idle" },
+  ];
 
   return (
     <div className="min-h-full bg-[#f8fafc]">
       <div className="w-full space-y-6 pb-8">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">Connected sources</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-950">Integrations</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Integrations</h1>
             <p className="mt-1 max-w-2xl text-sm text-zinc-500">
               Connected sources that feed findings, compliance mapping, and audit evidence.
             </p>
@@ -460,16 +473,20 @@ function IntegrationsContent() {
           </span>
         </header>
 
+        <SummaryStrip items={summaryMetrics} />
+
         {awsScanRunning && <ScanProgressBanner />}
 
-        <IntegrationCardView card={awsCard} />
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <IntegrationCardView card={githubCard} />
-          <IntegrationCardView card={gitlabCard} />
-        </div>
-
-        <IntegrationCardView card={slackCard} />
+        <IntegrationSection
+          title="Connected sources"
+          description="Active sources that feed findings, compliance mappings, and audit evidence."
+          cards={connectedCards}
+        />
+        <IntegrationSection
+          title="Available integrations"
+          description="Optional destinations and evidence sources you can connect next."
+          cards={availableCards}
+        />
       </div>
     </div>
   );

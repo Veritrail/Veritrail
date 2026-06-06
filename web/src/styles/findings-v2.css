@@ -86,55 +86,42 @@
 }
 
 .findings-v2-table-toolbar {
-  display: grid;
-  grid-template-columns: max-content minmax(40rem, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: stretch;
+  justify-content: space-between;
   gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   padding: 0.875rem 1rem;
   border-bottom: 1px solid #eef2f6;
   border-radius: 1rem 1rem 0 0;
   background: rgba(248, 250, 252, 0.8);
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
-}
-
-.findings-v2-table-toolbar::-webkit-scrollbar {
-  height: 6px;
-}
-
-.findings-v2-table-toolbar::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #cbd5e1;
 }
 
 .findings-v2-filter-cluster,
 .findings-v2-control-cluster {
   display: flex;
-  min-width: max-content;
+  min-width: 0;
   align-items: center;
   gap: 8px;
 }
 
 .findings-v2-filter-cluster {
+  flex: 0 0 auto;
   flex-wrap: nowrap;
-  justify-self: start;
 }
 
 .findings-v2-control-cluster {
-  display: grid;
-  grid-template-columns: minmax(18rem, 26rem) max-content max-content max-content;
-  width: 100%;
-  justify-self: stretch;
+  flex: 1 1 34rem;
+  flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .findings-v2-severity-tabs {
   display: inline-flex;
-  min-width: 0;
-  max-width: min(100%, 43rem);
+  flex: 0 0 auto;
+  min-width: max-content;
+  max-width: none;
   align-items: center;
   gap: 0.25rem;
   overflow-x: auto;
@@ -150,9 +137,14 @@
   display: none;
 }
 
+.findings-v2-severity-tabs > button {
+  justify-content: center;
+  min-width: 5.625rem;
+}
+
 .findings-v2-search {
-  min-width: 0;
-  width: 100%;
+  flex: 1 1 18rem;
+  min-width: min(100%, 14rem);
   max-width: 26rem;
 }
 
@@ -425,15 +417,31 @@
 
 @media (max-width: 760px) {
   .findings-v2-table-toolbar {
-    grid-template-columns: max-content max-content;
     padding-inline: 0.75rem;
   }
 
   .findings-v2-control-cluster {
-    grid-template-columns: minmax(14rem, 18rem) max-content max-content max-content;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .findings-v2-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .findings-v2-toolbar-group {
+    min-width: 0;
+    flex-wrap: wrap;
   }
 
   .findings-v2-toolbar-group--divider {
+    padding-left: 0;
+    margin-left: 0;
+    border-left: 0;
+  }
+
+  .findings-v2-actions-group {
     padding-left: 0;
     margin-left: 0;
     border-left: 0;

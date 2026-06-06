@@ -300,6 +300,23 @@ export function AwsBrandIcon({ className = "h-11 w-11" }: { className?: string }
   );
 }
 
+/** Framed AWS tile — matches Accounts page and other integration brand boxes. */
+export function AwsBrandTile({ className = "h-12 w-12" }: { className?: string }) {
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-xl border border-zinc-200/90 bg-white p-2 shadow-sm shadow-zinc-950/[0.03] ${className}`}
+    >
+      <img
+        src={AWS_LOGO_LIGHT}
+        alt=""
+        aria-hidden
+        className="h-full w-full object-contain"
+        decoding="async"
+      />
+    </div>
+  );
+}
+
 export function AwsMark({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">

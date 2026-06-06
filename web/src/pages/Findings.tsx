@@ -672,7 +672,7 @@ export default function Findings() {
                           role="tab"
                           aria-selected={isSelected}
                           onClick={() => setSeverityFilter(tab.id)}
-                          className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
+                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
                             isSelected
                               ? "bg-[#f8fafc] text-[#1f4e79] ring-1 ring-[#dce3ec]"
                               : "text-[#6b7280] hover:bg-[#f8fafc] hover:text-[#111827]"
@@ -688,7 +688,6 @@ export default function Findings() {
                                   : "text-[#98a2b3]"
                             }
                           >
-                            {" "}
                             · {count}
                           </span>
                         </button>
