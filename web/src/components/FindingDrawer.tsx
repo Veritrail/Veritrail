@@ -650,7 +650,7 @@ const sevStep: Record<string, string> = {
 type Remediation = {
   why: string;
   console: string[];
-  cli: string;
+  cli?: string;
   risk: string;
 };
 
@@ -2379,7 +2379,7 @@ aws accessanalyzer get-generated-policy --job-id <job-id>`;
   }
   const rem = remediations[finding.check_id] ?? fallbackRemediationFor(finding.check_id);
   const placeholders = buildCliPlaceholders(finding, clientIp);
-  let cli = applyCliPlaceholders(rem.cli, placeholders);
+  let cli = applyCliPlaceholders(rem.cli ?? "", placeholders);
   cli = injectEc2RegionFlags(cli, placeholders["<region>"]);
   return formatCliStepSpacing(cli);
 }
