@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import { GitHubMark } from "../components/IntegrationsUi";
+import { GitHubMark, Spinner } from "../components/IntegrationsUi";
 
 type GitHubProvider = {
   login: string | null;
@@ -179,7 +179,6 @@ export default function GitHubIntegrationEdit() {
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">{orgLogins.length} selected</div>
           </div>
-          {orgs.isLoading && <div className="text-sm text-zinc-500">Loading GitHub sources...</div>}
           {orgs.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(orgs.error as Error).message}</div>}
           {!!availableOwners.length && (
             <div className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200">
@@ -213,7 +212,11 @@ export default function GitHubIntegrationEdit() {
           <input type="search" value={repoFilter} onChange={(event) => setRepoFilter(event.target.value)} placeholder="Filter repositories..." className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-950 outline-none placeholder:text-zinc-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
         </div>
 
-        {repos.isLoading && <div className="mt-6 text-sm text-zinc-500">Loading repositories...</div>}
+        {repos.isLoading && (
+          <div className="mt-6 flex justify-center py-8">
+            <Spinner className="h-6 w-6 text-zinc-400" />
+          </div>
+        )}
         {repos.error && <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(repos.error as Error).message}</div>}
         {repos.data && (
           <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-zinc-200">

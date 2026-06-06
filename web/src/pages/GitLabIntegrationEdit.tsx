@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import { GitLabMark } from "../components/IntegrationsUi";
+import { GitLabMark, Spinner } from "../components/IntegrationsUi";
 
 type GitLabProvider = {
   username: string | null;
@@ -168,7 +168,6 @@ export default function GitLabIntegrationEdit() {
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">{groupIds.length} selected</div>
           </div>
-          {groups.isLoading && <div className="text-sm text-zinc-500">Loading GitLab groups...</div>}
           {groups.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(groups.error as Error).message}</div>}
           {!!availableGroups.length && (
             <div className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200">
@@ -202,7 +201,11 @@ export default function GitLabIntegrationEdit() {
           <input type="search" value={repoFilter} onChange={(event) => setRepoFilter(event.target.value)} placeholder="Filter repositories..." className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-950 outline-none placeholder:text-zinc-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
         </div>
 
-        {repos.isLoading && <div className="mt-6 text-sm text-zinc-500">Loading repositories...</div>}
+        {repos.isLoading && (
+          <div className="mt-6 flex justify-center py-8">
+            <Spinner className="h-6 w-6 text-zinc-400" />
+          </div>
+        )}
         {repos.error && <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(repos.error as Error).message}</div>}
         {repos.data && (
           <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
