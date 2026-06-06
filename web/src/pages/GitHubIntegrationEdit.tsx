@@ -135,10 +135,7 @@ export default function GitHubIntegrationEdit() {
       <div className="mx-auto max-w-5xl rounded-lg border border-zinc-200 bg-white p-6">
         <h1 className="text-xl font-semibold text-zinc-950">GitHub is not connected</h1>
         <p className="mt-2 text-sm text-zinc-600">Connect GitHub before choosing evidence scope.</p>
-        <Link
-          to="/integrations/github"
-          className="mt-5 inline-flex rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-        >
+        <Link to="/integrations/github" className="mt-5 inline-flex rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
           Back to GitHub evidence
         </Link>
       </div>
@@ -147,10 +144,6 @@ export default function GitHubIntegrationEdit() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-10">
-      <p className="text-sm font-medium text-sky-700">
-        <Link to="/integrations" className="hover:underline">Integrations</Link> / GitHub evidence
-      </p>
-
       {justConnected && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           GitHub connected. Select at least one organization below, then save to start syncing evidence.
@@ -184,41 +177,24 @@ export default function GitHubIntegrationEdit() {
               <div className="text-sm font-medium text-zinc-950">Connected sources</div>
               <div className="mt-1 text-sm text-zinc-500">Choose which GitHub owners can feed evidence.</div>
             </div>
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">
-              {orgLogins.length} selected
-            </div>
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">{orgLogins.length} selected</div>
           </div>
           {orgs.isLoading && <div className="text-sm text-zinc-500">Loading GitHub sources...</div>}
-          {orgs.error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {(orgs.error as Error).message}
-            </div>
-          )}
+          {orgs.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(orgs.error as Error).message}</div>}
           {!!availableOwners.length && (
             <div className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200">
               {availableOwners.map((owner) => (
                 <label key={owner} className="flex cursor-pointer items-center justify-between gap-4 bg-white px-4 py-3 hover:bg-zinc-50">
                   <div>
                     <div className="text-sm font-medium text-zinc-950">{owner}</div>
-                    <div className="mt-1 text-xs text-zinc-500">
-                      {owner === provider.data?.login ? "Personal account" : "GitHub organization"}
-                    </div>
+                    <div className="mt-1 text-xs text-zinc-500">{owner === provider.data?.login ? "Personal account" : "GitHub organization"}</div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={orgLogins.includes(owner)}
-                    onChange={() => toggleOwner(owner)}
-                    className="h-4 w-4 rounded border-zinc-300 text-sky-600 focus:ring-sky-500"
-                  />
+                  <input type="checkbox" checked={orgLogins.includes(owner)} onChange={() => toggleOwner(owner)} className="h-4 w-4 rounded border-zinc-300 text-sky-600 focus:ring-sky-500" />
                 </label>
               ))}
             </div>
           )}
-          {!orgs.isLoading && !availableOwners.length && (
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-5 text-sm text-zinc-500">
-              No GitHub sources are visible yet. Manage access in GitHub and return to refresh this list.
-            </div>
-          )}
+          {!orgs.isLoading && !availableOwners.length && <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-5 text-sm text-zinc-500">No GitHub sources are visible yet. Manage access in GitHub and return to refresh this list.</div>}
         </div>
       </div>
 
@@ -228,30 +204,17 @@ export default function GitHubIntegrationEdit() {
             <h2 className="text-xl font-semibold text-zinc-950">Repository scope</h2>
             <p className="mt-1 text-sm text-zinc-500">Leave empty to include every repository under the selected owners.</p>
           </div>
-          <button
-            onClick={() => setSelectedRepos([])}
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
+          <button onClick={() => setSelectedRepos([])} className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
             Include all repositories
           </button>
         </div>
 
         <div className="mt-5">
-          <input
-            type="search"
-            value={repoFilter}
-            onChange={(event) => setRepoFilter(event.target.value)}
-            placeholder="Filter repositories..."
-            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-950 outline-none placeholder:text-zinc-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-          />
+          <input type="search" value={repoFilter} onChange={(event) => setRepoFilter(event.target.value)} placeholder="Filter repositories..." className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-950 outline-none placeholder:text-zinc-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
         </div>
 
         {repos.isLoading && <div className="mt-6 text-sm text-zinc-500">Loading repositories...</div>}
-        {repos.error && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {(repos.error as Error).message}
-          </div>
-        )}
+        {repos.error && <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(repos.error as Error).message}</div>}
         {repos.data && (
           <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
             {Object.entries(groupedRepos).map(([owner, ownerRepos]) => (
@@ -265,47 +228,27 @@ export default function GitHubIntegrationEdit() {
                     <label key={repo.full_name} className="group flex cursor-pointer items-center justify-between gap-4 px-4 py-2.5 transition-colors hover:bg-zinc-50">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium text-zinc-950">{repo.full_name}</div>
-                        <div className="mt-0.5 text-xs text-zinc-500">
-                          {repo.private ? "Private" : "Public"} · default branch {repo.default_branch || "unknown"}
-                        </div>
+                        <div className="mt-0.5 text-xs text-zinc-500">{repo.private ? "Private" : "Public"} · default branch {repo.default_branch || "unknown"}</div>
                       </div>
-                      <input
-                        type="checkbox"
-                        checked={!selectedRepos.length || selectedSet.has(repo.full_name)}
-                        onChange={() => toggleRepo(repo.full_name)}
-                        className="h-4 w-4 shrink-0 rounded border-zinc-300 text-sky-600 transition-colors group-hover:border-sky-400 focus:ring-sky-500"
-                      />
+                      <input type="checkbox" checked={!selectedRepos.length || selectedSet.has(repo.full_name)} onChange={() => toggleRepo(repo.full_name)} className="h-4 w-4 shrink-0 rounded border-zinc-300 text-sky-600 transition-colors group-hover:border-sky-400 focus:ring-sky-500" />
                     </label>
                   ))}
                 </div>
               </div>
             ))}
-            {!!repos.data.length && !filteredRepos.length && (
-              <div className="px-4 py-6 text-sm text-zinc-500">No repositories match this filter.</div>
-            )}
+            {!!repos.data.length && !filteredRepos.length && <div className="px-4 py-6 text-sm text-zinc-500">No repositories match this filter.</div>}
             {!repos.data.length && <div className="px-4 py-6 text-sm text-zinc-500">No repositories found for this owner.</div>}
           </div>
         )}
       </div>
 
-      {save.error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {(save.error as Error).message}
-        </div>
-      )}
+      {save.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(save.error as Error).message}</div>}
 
       <div className="flex justify-end gap-3">
-        <Link
-          to="/integrations/github"
-          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-        >
+        <Link to="/integrations/github" className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
           Cancel
         </Link>
-        <button
-          onClick={() => save.mutate()}
-          disabled={save.isPending || !orgLogins.length}
-          className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60"
-        >
+        <button onClick={() => save.mutate()} disabled={save.isPending || !orgLogins.length} className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
           {save.isPending ? "Saving..." : "Save scope"}
         </button>
       </div>
