@@ -1635,6 +1635,36 @@ aws eks update-cluster-config \\
   --resources-vpc-config endpointPublicAccess=false,endpointPrivateAccess=true`,
     risk: "Changing endpoint access can lock out admins or CI runners. Confirm private network or allowed CIDR access before applying.",
   },
+  "eks.cluster.control_plane_logging_disabled": {
+    why: "EKS control plane logs (API, audit, authenticator, controller manager, scheduler) are required for detective controls and incident response. Without them, Kubernetes API activity is invisible to CloudWatch and downstream SIEM pipelines.",
+    console: [
+      "Open EKS → Clusters → select the cluster",
+      'Open "Observability" → "Control plane logging"',
+      "Enable all log types: API, Audit, Authenticator, Controller manager, Scheduler",
+      "Confirm logs appear in the configured CloudWatch log group after the next API activity",
+    ],
+    cli: `aws eks update-cluster-config \\
+  --name <cluster-name> \\
+  --region <region> \\
+  --logging '{"clusterLogging":[{"types":["api","audit","authenticator","controllerManager","scheduler"],"enabled":true}]}'`,
+    risk: "Enabling logging increases CloudWatch log ingestion cost. Ensure log retention and alerting are configured.",
+  },
+  "eks.cluster.secrets_encryption_disabled": {
+    why: "Kubernetes secrets store credentials, tokens, and TLS material. Without envelope encryption using KMS, secrets at rest rely solely on etcd volume encryption defaults and are harder to audit or revoke centrally.",
+    console: [
+      "Open EKS → Clusters → select the cluster",
+      'Open "Security" → "Secrets encryption"',
+      "Enable encryption with a customer-managed or AWS-managed KMS key",
+      "Note: encryption must be enabled at cluster creation for existing clusters — plan a replacement cluster if already running unencrypted",
+    ],
+    cli: `# Secrets encryption can only be enabled at cluster creation
+aws eks create-cluster \\
+  --name <cluster-name> \\
+  --region <region> \\
+  --encryption-config '[{"resources":["secrets"],"provider":{"keyArn":"<kms-key-arn>"}}]' \\
+  ...`,
+    risk: "Secrets encryption cannot be retrofitted on an existing cluster. Migration requires a new cluster and workload cutover.",
+  },
   "secretsmanager.secret.no_rotation": {
     why: "Secrets without automatic rotation stay static indefinitely. Long-lived database passwords and API keys are harder to revoke and more valuable if leaked.",
     console: [

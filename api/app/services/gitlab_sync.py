@@ -107,6 +107,7 @@ def _upsert_repo(
     *,
     has_codeowners: bool | None = None,
     protected_envs: list | None = None,
+    security_features: dict | None = None,
 ) -> Repo:
     external_id = str(project["id"])
     row = db.scalar(select(Repo).where(Repo.provider_id == provider_id, Repo.external_id == external_id))
@@ -119,6 +120,8 @@ def _upsert_repo(
         row.has_codeowners = has_codeowners
     if protected_envs is not None:
         row.protected_envs = protected_envs
+    if security_features is not None:
+        row.security_features = security_features
     row.snapshot_taken_at = now
     return row
 
@@ -229,6 +232,58 @@ def _collect_protected_environments(
     return envs
 
 
+_SECURITY_JOB_PATTERNS: dict[str, tuple[str, ...]] = {
+    "sast": ("sast", "semgrep"),
+    "dependency_scanning": ("dependency_scanning", "dependency-scanning", "gemnasium", "dependency"),
+    "container_scanning": ("container_scanning", "container-scanning", "container scanning"),
+}
+
+
+def _collect_security_features(
+    client: httpx.Client,
+    api_base: str,
+    project_id: int,
+    default_branch: str | None,
+) -> dict[str, bool | None]:
+    """Metadata-only GitLab CI security scan job detection from recent pipelines."""
+    features: dict[str, bool | None] = {
+        "sast": None,
+        "dependency_scanning": None,
+        "container_scanning": None,
+    }
+    params: dict[str, Any] = {"per_page": 10, "order_by": "id", "sort": "desc"}
+    if default_branch:
+        params["ref"] = default_branch
+
+    resp = client.get(f"{api_base}/projects/{project_id}/pipelines", params=params)
+    if resp.status_code in (403, 404) or not resp.is_success:
+        return features
+
+    pipelines = resp.json()
+    if not pipelines:
+        return features
+
+    for pipeline in pipelines[:5]:
+        pid = pipeline.get("id")
+        if not pid:
+            continue
+        jobs_resp = client.get(f"{api_base}/projects/{project_id}/pipelines/{pid}/jobs")
+        if jobs_resp.status_code != 200:
+            continue
+        for job in jobs_resp.json():
+            name = (job.get("name") or "").lower()
+            for feature, patterns in _SECURITY_JOB_PATTERNS.items():
+                if features[feature] is True:
+                    continue
+                if any(pattern in name for pattern in patterns):
+                    features[feature] = True
+
+    for feature in features:
+        if features[feature] is None:
+            features[feature] = False
+    return features
+
+
 def _collect_ci_pipelines(
     client: httpx.Client,
     db: Session,
@@ -312,6 +367,7 @@ def sync_gitlab_provider(
                 default_branch = project.get("default_branch")
                 has_codeowners = _check_codeowners(client, api, project_id, default_branch)
                 protected_envs = _collect_protected_environments(client, api, project_id)
+                security_features = _collect_security_features(client, api, project_id, default_branch)
                 repo = _upsert_repo(
                     db,
                     provider.id,
@@ -319,6 +375,7 @@ def sync_gitlab_provider(
                     now,
                     has_codeowners=has_codeowners,
                     protected_envs=protected_envs or None,
+                    security_features=security_features,
                 )
                 db.flush()
                 stats.repos += 1

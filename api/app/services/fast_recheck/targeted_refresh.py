@@ -695,7 +695,7 @@ def refresh_resource_for_finding(db: Session, account: AwsAccount, finding: Find
 
         return _mini_collect(db, account, collect_sqs)
 
-    if check_id.startswith("aws.identity"):
+    if check_id.startswith("aws.identity") or check_id.startswith("identity_center.user."):
         from app.collectors.identity_center import collect_identity_center
 
         return _mini_collect(db, account, collect_identity_center)

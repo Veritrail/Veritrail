@@ -11,13 +11,14 @@ from app.services.control_status import compute_control_status
 
 def test_composite_definitions_load():
     defs = composite_control_definitions()
-    assert len(defs) >= 6
+    assert len(defs) >= 7
     ids = {d["id"] for d in defs}
     assert ids >= {
         "secure_sdlc",
         "identity_governance",
         "change_management",
         "container_vulnerability_monitoring",
+        "vulnerability_management",
         "logging_monitoring",
         "backup_resilience",
     }

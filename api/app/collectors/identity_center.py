@@ -20,6 +20,17 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _parse_identity_center_dt(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def collect_identity_center(db: Session, account: AwsAccount) -> int:
     sess = assume_role(
         account.role_arn,
@@ -54,6 +65,9 @@ def collect_identity_center(db: Session, account: AwsAccount) -> int:
                     if not user_id:
                         continue
                     emails = [e.get("Value") for e in u.get("Emails", []) if e.get("Value")]
+                    meta = u.get("Meta") or {}
+                    external_created_at = _parse_identity_center_dt(meta.get("CreatedAt"))
+                    external_updated_at = _parse_identity_center_dt(meta.get("UpdatedAt"))
                     stmt = pg_insert(IdentityCenterUser).values(
                         id=uuid.uuid5(uuid.NAMESPACE_URL, f"{account.id}:ic:{store_id}:{user_id}"),
                         account_id=account.id,
@@ -63,6 +77,8 @@ def collect_identity_center(db: Session, account: AwsAccount) -> int:
                         display_name=u.get("DisplayName"),
                         email=emails[0] if emails else None,
                         active=u.get("Active", True),
+                        external_created_at=external_created_at,
+                        external_updated_at=external_updated_at,
                         last_seen=_now(),
                     ).on_conflict_do_update(
                         index_elements=["account_id", "identity_store_id", "user_id"],
@@ -71,6 +87,8 @@ def collect_identity_center(db: Session, account: AwsAccount) -> int:
                             "display_name": u.get("DisplayName"),
                             "email": emails[0] if emails else None,
                             "active": u.get("Active", True),
+                            "external_created_at": external_created_at,
+                            "external_updated_at": external_updated_at,
                             "last_seen": _now(),
                         },
                     )

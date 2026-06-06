@@ -17,7 +17,10 @@
       "gitlab.repo.no_branch_protection",
       "gitlab.repo.no_env_protection",
       "gitlab.repo.self_merge_allowed",
-      "gitlab.repo.insufficient_reviews"
+      "gitlab.repo.insufficient_reviews",
+      "gitlab.repo.sast_disabled",
+      "gitlab.repo.dependency_scanning_disabled",
+      "gitlab.repo.container_scanning_disabled"
     ]
   },
   {
@@ -38,7 +41,8 @@
       "github.org.mfa_not_enforced",
       "github.org.dormant_members",
       "gitlab.org.mfa_not_enforced",
-      "gitlab.org.dormant_members"
+      "gitlab.org.dormant_members",
+      "identity_center.user.inactive_90d"
     ]
   },
   {
@@ -74,6 +78,22 @@
       "aws.inspector.active_critical_finding",
       "ecr.registry.enhanced_scanning_disabled",
       "ecr.repository.image_scan_disabled"
+    ]
+  },
+  {
+    "id": "vulnerability_management",
+    "control_id": "COMPOSITE.VULNERABILITY_MANAGEMENT",
+    "title": "Vulnerability Management",
+    "description": "Account-wide vulnerability monitoring and patch posture — Amazon Inspector coverage (ECR, EC2, Lambda), active critical findings, ECR scanning, and stale AMI/runtime signals.",
+    "guidance": "Superset of container vulnerability monitoring. Auditors care that vulnerabilities are detected, tracked, and remediated across compute — not a specific vendor product.",
+    "soc2_criteria": ["CC6.8", "CC7"],
+    "checks": [
+      "aws.vulnerability_monitoring.not_detected",
+      "aws.inspector.active_critical_finding",
+      "ecr.registry.enhanced_scanning_disabled",
+      "ecr.repository.image_scan_disabled",
+      "ec2.ami.aged",
+      "lambda.function.deprecated_runtime"
     ]
   },
   {

@@ -12,6 +12,7 @@
       "iam.access_inventory_gap",
       "github.org.dormant_members",
       "gitlab.org.dormant_members",
+      "identity_center.user.inactive_90d",
       "cloudtrail.event.iam_user_policy_attachment",
       "cloudtrail.event.s3_bucket_policy_change",
       "cloudtrail.event.kms_key_disabled_or_deleted",
@@ -193,7 +194,10 @@
       "gitlab.repo.no_branch_protection",
       "gitlab.repo.no_env_protection",
       "gitlab.repo.self_merge_allowed",
-      "gitlab.repo.insufficient_reviews"
+      "gitlab.repo.insufficient_reviews",
+      "gitlab.repo.sast_disabled",
+      "gitlab.repo.dependency_scanning_disabled",
+      "gitlab.repo.container_scanning_disabled"
     ]
   },
   {

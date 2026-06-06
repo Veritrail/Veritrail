@@ -1,7 +1,7 @@
 # Vigil compliance expansion checklist
 
 _Mapped from deepsearch (CC6/CC7, EKS, containers, Inspector, SDLC) + session Q&A + architecture review (2026-06-06)._  
-_Last updated: 2026-06-06 (review pass 2)_
+_Last updated: 2026-06-06 (Tier 4 — vuln composite, GitLab CI security, EKS P0 verify, IC stale users)_
 
 Use this as the single backlog for **what Vigil should verify**, **what is already shipped**, and **what is explicitly out of scope for v1**.
 
@@ -43,7 +43,7 @@ These are the **auditor-facing** units. Individual findings are evidence signals
 | **Change management** | [x] | **P0** | CC6, CC8 | PR required, direct push blocked, audit trail retained |
 | **Identity governance & access review** | [x] | **P0** | **CC6** | Composite roll-up over IAM + GitHub/GitLab signals |
 | **Logging & monitoring** | [x] | P1 | CC7 | CloudTrail, GuardDuty, Config — composite roll-up shipped |
-| **Vulnerability management** (account-wide) | [ ] | P1 | CC7 | Superset of container control; includes Inspector EC2/Lambda, patch posture |
+| **Vulnerability management** (account-wide) | [x] | P1 | CC7 | Superset of container control; includes Inspector EC2/Lambda, patch posture |
 
 ### 1.1 Identity governance & access review (CC6) — **NEW, P0**
 
@@ -58,7 +58,7 @@ One of the most common SOC 2 evidence requests. Must answer: *“Show me access 
 | GitHub org MFA not enforced | [x] | `github.org.mfa_not_enforced` | |
 | GitHub dormant members | [x] | `github.org.dormant_members` | |
 | GitLab org MFA / dormant | [x] | GitLab checks | |
-| Identity Center user inventory | [~] | Collector exists | Need review-period / stale-user findings |
+| Identity Center user inventory | [x] | Collector exists | `identity_center.user.inactive_90d` — directory update staleness proxy (no last-login API) |
 | **Privileged IAM users / admins reviewed** | [ ] | **P0** | Admin policy attachment inventory + age |
 | **GitHub org owners / admins reviewed** | [ ] | **P0** | Org membership role metadata |
 | **Break-glass / emergency accounts documented** | [ ] | P1 | Manual attestation + detect wildcard admin roles |
@@ -92,8 +92,8 @@ One of the most common SOC 2 evidence requests. Must answer: *“Show me access 
 | Item | Status | Priority | Notes |
 |------|--------|----------|-------|
 | Public endpoint `0.0.0.0/0` / `::/0` | [x] | — | `eks.cluster.public_endpoint` |
-| Control plane logging enabled | [ ] | **P0** | CIS EKS |
-| Secrets encryption (KMS) | [ ] | **P0** | |
+| Control plane logging enabled | [x] | **P0** | CIS EKS — `eks.cluster.control_plane_logging_disabled` |
+| Secrets encryption (KMS) | [x] | **P0** | `eks.cluster.secrets_encryption_disabled` |
 | Node group posture | [ ] | P1 | `DescribeNodegroup` |
 | K8s RBAC / NetworkPolicy / in-pod runtime | [ ] | **Deferred** | Different product if claimed |
 
@@ -152,7 +152,7 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 | **GitHub required reviewers on environments** | [~] | **P0** | Partial via env protection check |
 | **GitLab protected environments / manual approvals** | [x] | **P0** | `gitlab.repo.no_env_protection` via protected environments API |
 | Dependabot / CodeQL / secret scanning enabled | [x] | **P0** | GitHub metadata — `github.repo.*_disabled` checks |
-| GitLab SAST / dependency / container scan jobs in CI | [ ] | **P0** | Pipeline metadata only |
+| GitLab SAST / dependency / container scan jobs in CI | [x] | **P0** | Pipeline job metadata — `gitlab.repo.*_disabled` checks |
 | Required status checks include security jobs | [ ] | **P0** | |
 | **Composite: Secure SDLC** | [x] | **P0** | `COMPOSITE.SECURE_SDLC` via `/v1/controls/composites` |
 | **Composite: Change management** | [x] | **P0** | `COMPOSITE.CHANGE_MANAGEMENT` via `/v1/controls/composites` |
@@ -242,7 +242,7 @@ Source files: `api/data/control_mappings.json`, `web/src/data/checkComplianceCop
 ### Next 60 days
 8. [ ] **Google Workspace / Entra ID** integration
 9. [ ] **CloudTrail onboarding flow** (use existing vs deploy new)
-10. [ ] **Vulnerability management composite** (account-wide)
+10. [x] **Vulnerability management composite** (account-wide)
 11. [x] **Change management, container vuln, logging composites** (Tier 3)
 12. [ ] **Full compliance mapping audit** (SOC2 / ISO / CIS)
 

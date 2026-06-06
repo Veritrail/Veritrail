@@ -101,6 +101,7 @@ _COLLECTOR_FOR_CHECK = {
     "cloudtrail.": lambda db, acc: collect_cloudtrail(db, acc),
     "guardduty.": lambda db, acc: collect_guardduty(db, acc),
     "aws.identity": lambda db, acc: collect_identity_center(db, acc),
+    "identity_center.user.": lambda db, acc: collect_identity_center(db, acc),
     "aws.access_analyzer.": lambda db, acc: collect_access_analyzer(db, acc),
     "aws.config.": lambda db, acc: collect_config_service(db, acc),
     "aws.securityhub.": lambda db, acc: collect_securityhub(db, acc),

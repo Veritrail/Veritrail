@@ -363,6 +363,8 @@ class IdentityCenterUser(Base):
     display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    external_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    external_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

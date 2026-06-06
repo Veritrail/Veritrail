@@ -112,6 +112,10 @@ export const checkLabels: Record<string, string> = {
   "gitlab.repo.self_merge_allowed": "Self-merge allowed",
   "gitlab.repo.insufficient_reviews": "Insufficient MR reviews",
   "gitlab.repo.no_env_protection": "Protected environment unapproved",
+  "gitlab.repo.sast_disabled": "GitLab SAST not in CI",
+  "gitlab.repo.dependency_scanning_disabled": "GitLab dependency scan not in CI",
+  "gitlab.repo.container_scanning_disabled": "GitLab container scan not in CI",
+  "identity_center.user.inactive_90d": "Identity Center user stale",
 };
 
 export function labelForCheck(id: string): string {
