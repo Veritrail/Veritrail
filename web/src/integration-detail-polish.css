@@ -71,3 +71,16 @@ details.group.rounded-xl > div > div > button:hover:not(:disabled) {
   border-color: #fca5a5 !important;
   background: #fff5f5 !important;
 }
+
+.mx-auto.max-w-5xl.space-y-8 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.25rem !important;
+}
+
+.mx-auto.max-w-5xl.space-y-8 > div:first-child {
+  margin-bottom: -0.15rem;
+}
+
+.mx-auto.max-w-5xl.space-y-8 > div:first-child h1,
+.mx-auto.max-w-5xl.space-y-8 > div:first-child p.mt-2 {
+  display: none;
+}
