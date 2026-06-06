@@ -15,6 +15,23 @@ from app.models.resources import EksCluster
 
 log = structlog.get_logger()
 
+_REQUIRED_LOG_TYPES = frozenset({"api", "audit", "authenticator", "controllerManager", "scheduler"})
+
+
+def _control_plane_logging_enabled(cluster: dict) -> bool:
+    enabled_types: set[str] = set()
+    for entry in (cluster.get("logging") or {}).get("clusterLogging") or []:
+        if entry.get("enabled"):
+            enabled_types.update(entry.get("types") or [])
+    return _REQUIRED_LOG_TYPES.issubset(enabled_types)
+
+
+def _secrets_encryption_enabled(cluster: dict) -> bool:
+    for cfg in cluster.get("encryptionConfig") or []:
+        if "secrets" in (cfg.get("resources") or []):
+            return True
+    return False
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -46,6 +63,8 @@ def collect_eks(db: Session, account: AwsAccount) -> int:
                     arn = cluster["arn"]
                     vpc_cfg = cluster.get("resourcesVpcConfig") or {}
                     cidrs = vpc_cfg.get("publicAccessCidrs") or []
+                    logging_ok = _control_plane_logging_enabled(cluster)
+                    secrets_ok = _secrets_encryption_enabled(cluster)
                     stmt = pg_insert(EksCluster).values(
                         id=uuid.uuid5(uuid.NAMESPACE_URL, f"{account.id}:{arn}"),
                         account_id=account.id,
@@ -57,6 +76,8 @@ def collect_eks(db: Session, account: AwsAccount) -> int:
                         public_access_cidrs=cidrs,
                         version=cluster.get("version"),
                         status=cluster.get("status"),
+                        control_plane_logging_enabled=logging_ok,
+                        secrets_encryption_enabled=secrets_ok,
                         last_seen=_now(),
                     ).on_conflict_do_update(
                         index_elements=["account_id", "arn"],
@@ -66,6 +87,8 @@ def collect_eks(db: Session, account: AwsAccount) -> int:
                             "public_access_cidrs": cidrs,
                             "version": cluster.get("version"),
                             "status": cluster.get("status"),
+                            "control_plane_logging_enabled": logging_ok,
+                            "secrets_encryption_enabled": secrets_ok,
                             "last_seen": _now(),
                         },
                     )

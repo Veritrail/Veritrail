@@ -300,6 +300,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - ecr:DescribeRepositories
+                  - ecr:GetRegistryScanningConfiguration
                 Resource: "*"
 
               - Sid: EksConfiguration
@@ -317,6 +318,15 @@ Resources:
                   - ecs:ListServices
                   - ecs:DescribeServices
                   - ecs:DescribeTaskDefinition
+                Resource: "*"
+
+              - Sid: InspectorConfiguration
+                Effect: Allow
+                Action:
+                  - inspector2:BatchGetAccountStatus
+                  - inspector2:ListCoverage
+                  - inspector2:ListFindings
+                  - inspector2:BatchGetFindingDetails
                 Resource: "*"
 
               - Sid: OrganizationsAccountLabel

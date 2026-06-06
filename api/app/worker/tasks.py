@@ -25,6 +25,8 @@ from app.collectors.vpc import collect_vpc
 from app.collectors.rds import collect_rds
 from app.collectors.eks import collect_eks
 from app.collectors.ecs import collect_ecs
+from app.collectors.ecr_registry import collect_ecr_registry_settings
+from app.collectors.inspector import collect_inspector
 from app.collectors.ec2 import collect_ec2
 from app.collectors.extended import (
     collect_acm,
@@ -52,6 +54,7 @@ from app.models.resources import (
     ConfigRecorder,
     DynamoDbTable,
     EcrRepository,
+    EcrRegistrySettings,
     EbsEncryptionDefault,
     EbsSnapshot,
     EbsVolume,
@@ -64,6 +67,8 @@ from app.models.resources import (
     ElbLoadBalancer,
     GuardDutyDetector,
     GuardDutyFinding,
+    InspectorAccountStatus,
+    InspectorFinding,
     IdentityCenterUser,
     ConfigRuleCompliance,
     IamPasswordPolicy,
@@ -113,6 +118,8 @@ _COLLECTOR_FOR_CHECK = {
     "ecr.": lambda db, acc: collect_ecr(db, acc),
     "eks.": lambda db, acc: collect_eks(db, acc),
     "ecs.": lambda db, acc: collect_ecs(db, acc),
+    "aws.inspector.": lambda db, acc: collect_inspector(db, acc),
+    "aws.vulnerability_monitoring.": lambda db, acc: collect_inspector(db, acc),
     "sns.": lambda db, acc: collect_sns(db, acc),
     "sqs.": lambda db, acc: collect_sqs(db, acc),
     "rds.": lambda db, acc: collect_rds(db, acc),
@@ -923,11 +930,15 @@ def run_scan(account_id: str) -> dict:
         stats["elb_load_balancers"] = _step("collect_elb", lambda: collect_elb(db, acc))
         stats["dynamodb_tables"] = _step("collect_dynamodb", lambda: collect_dynamodb(db, acc))
         stats["ecr_repositories"] = _step("collect_ecr", lambda: collect_ecr(db, acc))
+        stats["ecr_registry_settings"] = _step("collect_ecr_registry_settings", lambda: collect_ecr_registry_settings(db, acc))
         stats["eks_clusters"] = _step("collect_eks", lambda: collect_eks(db, acc))
         ecs_stats = _step("collect_ecs", lambda: collect_ecs(db, acc))
         stats["ecs_clusters"] = ecs_stats.get("clusters", 0)
         stats["ecs_services"] = ecs_stats.get("services", 0)
         stats["ecs_task_definitions"] = ecs_stats.get("task_definitions", 0)
+        inspector_stats = _step("collect_inspector", lambda: collect_inspector(db, acc))
+        stats["inspector_regions"] = inspector_stats.get("regions", 0)
+        stats["inspector_findings"] = inspector_stats.get("findings", 0)
         stats["sns_topics"] = _step("collect_sns", lambda: collect_sns(db, acc))
         stats["sqs_queues"] = _step("collect_sqs", lambda: collect_sqs(db, acc))
         stats["access_analyzers"] = _step("collect_access_analyzer", lambda: collect_access_analyzer(db, acc))

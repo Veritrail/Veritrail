@@ -299,6 +299,8 @@ class EksCluster(Base):
     public_access_cidrs: Mapped[list] = mapped_column(JSON, default=list)
     version: Mapped[str | None] = mapped_column(String(32), nullable=True)
     status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    control_plane_logging_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    secrets_encryption_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -417,6 +419,47 @@ class EcrRepository(Base):
     repository_arn: Mapped[str] = mapped_column(String(512))
     scan_on_push: Mapped[bool] = mapped_column(Boolean, default=False)
     encryption_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EcrRegistrySettings(Base):
+    __tablename__ = "ecr_registry_settings"
+    __table_args__ = (UniqueConstraint("account_id", "region"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    scan_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    enhanced_scanning_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class InspectorAccountStatus(Base):
+    __tablename__ = "inspector_account_status"
+    __table_args__ = (UniqueConstraint("account_id", "region"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    ecr_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    ec2_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    lambda_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class InspectorFinding(Base):
+    __tablename__ = "inspector_findings"
+    __table_args__ = (UniqueConstraint("account_id", "finding_arn"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    finding_arn: Mapped[str] = mapped_column(String(512))
+    resource_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    severity: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    resource_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    fix_available: Mapped[bool] = mapped_column(Boolean, default=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

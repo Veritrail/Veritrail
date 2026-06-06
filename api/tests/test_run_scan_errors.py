@@ -59,7 +59,7 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
 
     # Stub every collector. collect_iam/vpc/ec2 must return dicts; the rest
     # return ints (matching production signatures).
-    dict_collectors = {"collect_iam", "collect_account_governance", "collect_vpc", "collect_ec2", "collect_ecs"}
+    dict_collectors = {"collect_iam", "collect_account_governance", "collect_vpc", "collect_ec2", "collect_ecs", "collect_inspector"}
     int_collectors = {
         "collect_s3_account_public_access_block",
         "collect_s3",
@@ -84,6 +84,7 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
         "collect_sns",
         "collect_sqs",
         "collect_ecr",
+        "collect_ecr_registry_settings",
         "collect_eks",
     }
     for name in dict_collectors:
@@ -91,6 +92,8 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
             monkeypatch.setattr(tasks, name, lambda *a, **kw: {"instances": 0, "volumes": 0, "snapshots": 0, "amis": 0, "ebs_regions": 0})
         elif name == "collect_ecs":
             monkeypatch.setattr(tasks, name, lambda *a, **kw: {"clusters": 0, "services": 0, "task_definitions": 0})
+        elif name == "collect_inspector":
+            monkeypatch.setattr(tasks, name, lambda *a, **kw: {"regions": 0, "findings": 0})
         else:
             monkeypatch.setattr(tasks, name, lambda *a, **kw: {})
     for name in int_collectors:
