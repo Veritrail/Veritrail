@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { api, BASE, formatApiError, storeTokens } from "../api";
+import { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { api, BASE, formatApiError, restoreSession, storeTokens, token } from "../api";
 
 interface LoginResponse {
   access_token?: string | null;
@@ -12,6 +12,7 @@ interface LoginResponse {
 
 const MFA_STORAGE_KEY = "vigil_mfa_token";
 const REMEMBER_STORAGE_KEY = "vigil_remember_me";
+const PENDING_CREDENTIALS_KEY = "vigil_pending_credentials";
 
 function oauthErrorMessage(code: string): string {
   switch (code) {
@@ -57,9 +58,43 @@ function readStoredMfaToken(): string | null {
   return sessionStorage.getItem(MFA_STORAGE_KEY);
 }
 
+/** Prompt Chrome / GSuite password manager after a successful credential login. */
+async function offerCredentialSave(
+  form: HTMLFormElement | null,
+  fallback?: { email: string; password: string },
+): Promise<void> {
+  if (!("PasswordCredential" in window) || !navigator.credentials?.store) return;
+  try {
+    const credential = form
+      ? new PasswordCredential(form)
+      : fallback
+        ? new PasswordCredential({ id: fallback.email, password: fallback.password, name: fallback.email })
+        : null;
+    if (!credential) return;
+    await navigator.credentials.store(credential);
+  } catch {
+    // User dismissed or browser blocked the save prompt.
+  }
+}
+
+function storePendingCredentials(email: string, password: string) {
+  sessionStorage.setItem(PENDING_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+}
+
+function takePendingCredentials(): { email: string; password: string } | null {
+  const raw = sessionStorage.getItem(PENDING_CREDENTIALS_KEY);
+  sessionStorage.removeItem(PENDING_CREDENTIALS_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as { email: string; password: string };
+  } catch {
+    return null;
+  }
+}
 
 export default function Login() {
   const nav = useNavigate();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -71,9 +106,46 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(
     () => localStorage.getItem(REMEMBER_STORAGE_KEY) === "1",
   );
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [autofillEnabled, setAutofillEnabled] = useState(false);
+  const [loginFormKey, setLoginFormKey] = useState(0);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  function enableAutofill() {
+    setAutofillEnabled(true);
+    emailRef.current?.removeAttribute("readonly");
+    passwordRef.current?.removeAttribute("readonly");
+  }
 
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
+
+  useEffect(() => {
+    const signedOut = (location.state as { signedOut?: boolean } | null)?.signedOut;
+    if (!signedOut) return;
+    setAutofillEnabled(false);
+    setLoginFormKey((key) => key + 1);
+    window.history.replaceState(null, "", "/login");
+  }, [location.state]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (token()) {
+        if (!cancelled) nav("/findings", { replace: true });
+        return;
+      }
+      const ok = await restoreSession();
+      if (!cancelled) {
+        if (ok) nav("/findings", { replace: true });
+        else setCheckingSession(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nav]);
 
   useEffect(() => {
     const token = params.get("mfa_token");
@@ -113,36 +185,30 @@ export default function Login() {
   function exitMfa() {
     setMfaToken(null);
     clearMfaToken();
+    sessionStorage.removeItem(PENDING_CREDENTIALS_KEY);
     setMfaCode("");
     setErr(null);
   }
 
-  async function completeLogin(res: LoginResponse) {
-    if (res.mfa_required && res.mfa_token) {
-      beginMfa(res.mfa_token);
-      return;
-    }
-    if (!res.access_token) {
-      throw new Error("missing access token");
-    }
-    clearMfaToken();
-    storeTokens(res.access_token);
-    nav("/findings");
-  }
-
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErr(null);
     setPasswordError(null);
-    if (!email.trim()) {
+
+    const emailValue =
+      mode === "login" ? (emailRef.current?.value.trim() ?? "") : email.trim();
+    const passwordValue =
+      mode === "login" ? (passwordRef.current?.value ?? "") : password;
+
+    if (!emailValue) {
       setErr("Enter your email address.");
       return;
     }
-    if (!password) {
+    if (!passwordValue) {
       setPasswordError("Enter your password.");
       return;
     }
-    if (mode === "signup" && password.length < 12) {
+    if (mode === "signup" && passwordValue.length < 12) {
       setPasswordError("Password must be at least 12 characters.");
       return;
     }
@@ -155,10 +221,24 @@ export default function Login() {
       const path = mode === "login" ? "/v1/auth/login" : "/v1/auth/signup";
       const body =
         mode === "login"
-          ? { email, password, remember_me: rememberMe }
-          : { email, password, org_name: orgName };
+          ? { email: emailValue, password: passwordValue, remember_me: rememberMe }
+          : { email: emailValue, password: passwordValue, org_name: orgName };
       const res = await api<LoginResponse>(path, { method: "POST", body: JSON.stringify(body) });
-      await completeLogin(res);
+      if (res.mfa_required && res.mfa_token) {
+        if (mode === "login") storePendingCredentials(emailValue, passwordValue);
+        beginMfa(res.mfa_token);
+        return;
+      }
+      if (!res.access_token) {
+        throw new Error("missing access token");
+      }
+      clearMfaToken();
+      storeTokens(res.access_token);
+      if (mode === "login") {
+        await offerCredentialSave(e.currentTarget);
+        sessionStorage.removeItem(PENDING_CREDENTIALS_KEY);
+      }
+      nav("/findings");
     } catch (e) {
       setErr(formatApiError(e));
     } finally {
@@ -178,6 +258,8 @@ export default function Login() {
       });
       clearMfaToken();
       storeTokens(res.access_token);
+      const pending = takePendingCredentials();
+      if (pending) await offerCredentialSave(null, pending);
       nav("/findings");
     } catch (e) {
       const msg = formatApiError(e);
@@ -193,6 +275,14 @@ export default function Login() {
     }
   }
 
+
+  if (checkingSession && !mfaToken) {
+    return (
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4 text-sm text-zinc-400">
+        Checking session…
+      </div>
+    );
+  }
 
   if (mfaToken) {
     return (
@@ -268,11 +358,22 @@ export default function Login() {
             {mode === "login" ? "Sign in to your workspace" : "Start monitoring your AWS IAM posture"}
           </p>
 
-          <form noValidate onSubmit={submit} className="space-y-4">
+          <form
+            key={mode === "login" ? `login-${loginFormKey}` : mode}
+            noValidate
+            method="post"
+            action={mode === "login" ? `${BASE}/v1/auth/login` : `${BASE}/v1/auth/signup`}
+            autoComplete={mode === "login" && !autofillEnabled ? "off" : mode === "login" ? "on" : "off"}
+            onSubmit={submit}
+            className="space-y-4"
+          >
             {mode === "signup" && (
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1.5">Organization name</label>
+                <label htmlFor="organization" className="block text-xs font-medium text-zinc-700 mb-1.5">Organization name</label>
                 <input
+                  id="organization"
+                  name="organization"
+                  autoComplete="organization"
                   className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
                   placeholder=""
                   value={orgName}
@@ -282,28 +383,71 @@ export default function Login() {
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1.5">Email</label>
-              <input
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-              />
+              <label htmlFor="email" className="block text-xs font-medium text-zinc-700 mb-1.5">Email</label>
+              {mode === "login" ? (
+                <input
+                  ref={emailRef}
+                  id="email"
+                  name="email"
+                  autoComplete={autofillEnabled ? "username" : "off"}
+                  readOnly={!autofillEnabled}
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
+                  type="email"
+                  placeholder="Email address"
+                  defaultValue=""
+                  required
+                  onFocus={enableAutofill}
+                />
+              ) : (
+                <input
+                  id="email"
+                  name="email"
+                  autoComplete="email"
+                  className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              )}
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1.5">Password</label>
-              <input
-                className={`w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
-                  passwordError
-                    ? "border-red-300 focus:ring-red-500"
-                    : "border-zinc-200 focus:ring-zinc-900"
-                }`}
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => { setPassword(e.target.value); setPasswordError(null); }}
-              />
+              <label htmlFor="password" className="block text-xs font-medium text-zinc-700 mb-1.5">Password</label>
+              {mode === "login" ? (
+                <input
+                  ref={passwordRef}
+                  id="password"
+                  name="password"
+                  autoComplete={autofillEnabled ? "current-password" : "off"}
+                  readOnly={!autofillEnabled}
+                  className={`w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
+                    passwordError
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-zinc-200 focus:ring-zinc-900"
+                  }`}
+                  type="password"
+                  placeholder="••••••••"
+                  defaultValue=""
+                  required
+                  onFocus={enableAutofill}
+                  onChange={() => setPasswordError(null)}
+                />
+              ) : (
+                <input
+                  id="password"
+                  name="password"
+                  autoComplete="new-password"
+                  className={`w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
+                    passwordError
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-zinc-200 focus:ring-zinc-900"
+                  }`}
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setPasswordError(null); }}
+                />
+              )}
               {passwordError ? (
                 <p className="mt-1.5 text-xs text-red-600">{passwordError}</p>
               ) : mode === "signup" ? (
@@ -312,10 +456,12 @@ export default function Login() {
             </div>
 
             {mode === "login" && (
-              <label className="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-600">
+              <label htmlFor="remember_me" className="flex items-center gap-2.5 text-sm text-zinc-600">
                 <input
+                  id="remember_me"
+                  name="remember_me"
                   type="checkbox"
-                  className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+                  className="sr-only"
                   checked={rememberMe}
                   onChange={(e) => {
                     const checked = e.target.checked;
@@ -323,7 +469,17 @@ export default function Login() {
                     localStorage.setItem(REMEMBER_STORAGE_KEY, checked ? "1" : "0");
                   }}
                 />
-                Remember me for 30 days
+                <span
+                  className={
+                    rememberMe
+                      ? "flex h-4 w-4 items-center justify-center rounded border border-zinc-300 bg-zinc-950 text-white"
+                      : "h-4 w-4 rounded border border-zinc-300 bg-white"
+                  }
+                  aria-hidden="true"
+                >
+                  {rememberMe ? "✓" : null}
+                </span>
+                Keep me signed in for 30 days
               </label>
             )}
 
@@ -334,6 +490,7 @@ export default function Login() {
             )}
 
             <button
+              type="submit"
               className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-60"
               disabled={loading}
             >

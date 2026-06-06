@@ -420,6 +420,52 @@ class EcrRepository(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class EcsCluster(Base):
+    __tablename__ = "ecs_clusters"
+    __table_args__ = (UniqueConstraint("account_id", "arn"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    name: Mapped[str] = mapped_column(String(256))
+    arn: Mapped[str] = mapped_column(String(512))
+    container_insights_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EcsService(Base):
+    __tablename__ = "ecs_services"
+    __table_args__ = (UniqueConstraint("account_id", "service_arn"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    cluster_arn: Mapped[str] = mapped_column(String(512))
+    cluster_name: Mapped[str] = mapped_column(String(256))
+    service_name: Mapped[str] = mapped_column(String(256))
+    service_arn: Mapped[str] = mapped_column(String(512))
+    assign_public_ip: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    launch_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    task_definition_arn: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EcsTaskDefinition(Base):
+    __tablename__ = "ecs_task_definitions"
+    __table_args__ = (UniqueConstraint("account_id", "task_definition_arn"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    task_definition_arn: Mapped[str] = mapped_column(String(512))
+    family: Mapped[str] = mapped_column(String(256))
+    revision: Mapped[int | None] = mapped_column(nullable=True)
+    has_privileged_container: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class SecretsManagerSecret(Base):
     __tablename__ = "secrets_manager_secrets"
     __table_args__ = (UniqueConstraint("account_id", "secret_arn"),)

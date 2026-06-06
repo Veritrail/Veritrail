@@ -63,7 +63,7 @@ from app.models.github import IdentityProvider, PullRequest, Repo
 from app.models.iam import IamAccessKey, IamUser
 from app.models.resources import (
     AccessAnalyzer, AcmCertificate, CloudTrailTrail, ConfigRecorder, DynamoDbTable, EcrRepository, Ec2Ami,
-    Ec2Instance, EbsEncryptionDefault, EbsSnapshot, EbsVolume, EksCluster, ElbLoadBalancer,
+    Ec2Instance, EbsEncryptionDefault, EbsSnapshot, EbsVolume, EcsCluster, EcsService, EcsTaskDefinition, EksCluster, ElbLoadBalancer,
     GuardDutyDetector, IamPasswordPolicy, KmsKey, LambdaFunction, RdsInstance, RdsSnapshot,
     S3AccountPublicAccessBlock, S3Bucket, SecretsManagerSecret, SecurityGroup,
     SecurityHubStatus, SnsTopic, SsmParameter, SqsQueue, Vpc,
@@ -2192,6 +2192,60 @@ def blast_radius(
             "endpoint_private_access": cluster.endpoint_private_access,
             "public_access_cidrs": cluster.public_access_cidrs or [],
             "warnings": ["Restricting the public endpoint can block admins, CI jobs, and operators outside the allowed CIDRs — confirm access paths first"],
+        }
+
+    # ── ECS ─────────────────────────────────────────────────────────────────────
+    if check_id.startswith("ecs.cluster."):
+        cluster = db.scalar(
+            select(EcsCluster).where(EcsCluster.account_id == acc.id, EcsCluster.arn == resource_arn)
+        )
+        if not cluster:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "ECS cluster not found — run a scan first")
+        return {
+            "resource_type": "ecs_cluster",
+            "confidence": "high",
+            "cluster_name": cluster.name,
+            "region": cluster.region,
+            "status": cluster.status,
+            "container_insights_enabled": cluster.container_insights_enabled,
+        }
+
+    if check_id.startswith("ecs.service."):
+        service = db.scalar(
+            select(EcsService).where(EcsService.account_id == acc.id, EcsService.service_arn == resource_arn)
+        )
+        if not service:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "ECS service not found — run a scan first")
+        return {
+            "resource_type": "ecs_service",
+            "confidence": "medium",
+            "service_name": service.service_name,
+            "cluster_name": service.cluster_name,
+            "region": service.region,
+            "assign_public_ip": service.assign_public_ip,
+            "launch_type": service.launch_type,
+            "status": service.status,
+            "task_definition_arn": service.task_definition_arn,
+            "warnings": ["Disabling public IP assignment can break outbound internet access unless NAT or VPC endpoints are in place"],
+        }
+
+    if check_id.startswith("ecs.task_definition."):
+        task_def = db.scalar(
+            select(EcsTaskDefinition).where(
+                EcsTaskDefinition.account_id == acc.id,
+                EcsTaskDefinition.task_definition_arn == resource_arn,
+            )
+        )
+        if not task_def:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "ECS task definition not found — run a scan first")
+        return {
+            "resource_type": "ecs_task_definition",
+            "confidence": "medium",
+            "family": task_def.family,
+            "revision": task_def.revision,
+            "region": task_def.region,
+            "has_privileged_container": task_def.has_privileged_container,
+            "warnings": ["Removing privileged mode may break agents or host-level tooling that depend on elevated container access"],
         }
 
     # ── DynamoDB Table ───────────────────────────────────────────────────────

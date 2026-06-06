@@ -244,6 +244,8 @@ Resources:
                 Effect: Allow
                 Action:
                   - rds:DescribeDBInstances
+                  - rds:DescribeDBSnapshots
+                  - rds:DescribeDBSnapshotAttributes
                 Resource: "*"
               - Sid: AcmCertificates
                 Effect: Allow
@@ -292,6 +294,26 @@ Resources:
                 Action:
                   - sqs:ListQueues
                   - sqs:GetQueueAttributes
+                Resource: "*"
+              - Sid: EcrConfiguration
+                Effect: Allow
+                Action:
+                  - ecr:DescribeRepositories
+                Resource: "*"
+              - Sid: EksConfiguration
+                Effect: Allow
+                Action:
+                  - eks:ListClusters
+                  - eks:DescribeCluster
+                Resource: "*"
+              - Sid: EcsConfiguration
+                Effect: Allow
+                Action:
+                  - ecs:ListClusters
+                  - ecs:DescribeClusters
+                  - ecs:ListServices
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
                 Resource: "*"
               - Sid: OrganizationsAccountLabel
                 Effect: Allow

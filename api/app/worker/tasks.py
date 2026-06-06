@@ -24,6 +24,7 @@ from app.collectors.config_compliance import collect_config_compliance
 from app.collectors.vpc import collect_vpc
 from app.collectors.rds import collect_rds
 from app.collectors.eks import collect_eks
+from app.collectors.ecs import collect_ecs
 from app.collectors.ec2 import collect_ec2
 from app.collectors.extended import (
     collect_acm,
@@ -56,6 +57,9 @@ from app.models.resources import (
     EbsVolume,
     Ec2Ami,
     Ec2Instance,
+    EcsCluster,
+    EcsService,
+    EcsTaskDefinition,
     EksCluster,
     ElbLoadBalancer,
     GuardDutyDetector,
@@ -108,6 +112,7 @@ _COLLECTOR_FOR_CHECK = {
     "dynamodb.": lambda db, acc: collect_dynamodb(db, acc),
     "ecr.": lambda db, acc: collect_ecr(db, acc),
     "eks.": lambda db, acc: collect_eks(db, acc),
+    "ecs.": lambda db, acc: collect_ecs(db, acc),
     "sns.": lambda db, acc: collect_sns(db, acc),
     "sqs.": lambda db, acc: collect_sqs(db, acc),
     "rds.": lambda db, acc: collect_rds(db, acc),
@@ -668,6 +673,41 @@ def _write_evidence_snapshots(db, acc: AwsAccount, run: ScanRun) -> int:
             },
         ))
 
+    for cluster in db.scalars(select(EcsCluster).where(EcsCluster.account_id == acc.id)).all():
+        snaps.append(EvidenceSnapshot(
+            id=uuid.uuid4(),
+            scan_run_id=run.id,
+            account_id=acc.id,
+            org_id=acc.org_id,
+            entity_type="ecs_cluster",
+            entity_id=cluster.arn,
+            payload_json={
+                "cluster_name": cluster.name,
+                "region": cluster.region,
+                "container_insights_enabled": cluster.container_insights_enabled,
+                "status": cluster.status,
+            },
+        ))
+
+    for service in db.scalars(select(EcsService).where(EcsService.account_id == acc.id)).all():
+        snaps.append(EvidenceSnapshot(
+            id=uuid.uuid4(),
+            scan_run_id=run.id,
+            account_id=acc.id,
+            org_id=acc.org_id,
+            entity_type="ecs_service",
+            entity_id=service.service_arn,
+            payload_json={
+                "service_name": service.service_name,
+                "cluster_name": service.cluster_name,
+                "region": service.region,
+                "assign_public_ip": service.assign_public_ip,
+                "launch_type": service.launch_type,
+                "status": service.status,
+                "task_definition_arn": service.task_definition_arn,
+            },
+        ))
+
     for secret in db.scalars(select(SecretsManagerSecret).where(SecretsManagerSecret.account_id == acc.id)).all():
         snaps.append(EvidenceSnapshot(
             id=uuid.uuid4(),
@@ -884,6 +924,10 @@ def run_scan(account_id: str) -> dict:
         stats["dynamodb_tables"] = _step("collect_dynamodb", lambda: collect_dynamodb(db, acc))
         stats["ecr_repositories"] = _step("collect_ecr", lambda: collect_ecr(db, acc))
         stats["eks_clusters"] = _step("collect_eks", lambda: collect_eks(db, acc))
+        ecs_stats = _step("collect_ecs", lambda: collect_ecs(db, acc))
+        stats["ecs_clusters"] = ecs_stats.get("clusters", 0)
+        stats["ecs_services"] = ecs_stats.get("services", 0)
+        stats["ecs_task_definitions"] = ecs_stats.get("task_definitions", 0)
         stats["sns_topics"] = _step("collect_sns", lambda: collect_sns(db, acc))
         stats["sqs_queues"] = _step("collect_sqs", lambda: collect_sqs(db, acc))
         stats["access_analyzers"] = _step("collect_access_analyzer", lambda: collect_access_analyzer(db, acc))

@@ -515,6 +515,21 @@ const SPECIFIC: Record<string, (s: RemediationSummary) => CheckComplianceCopy> =
       "Verify that EKS cluster API endpoints are not public to the internet.",
       "Vigil reads EKS endpoint access configuration and public CIDR ranges. Public endpoints open to 0.0.0.0/0 or ::/0 are flagged.",
     ),
+  "ecs.cluster.container_insights_disabled": () =>
+    copy(
+      "Verify that ECS clusters have Container Insights enabled for operational visibility.",
+      "Vigil reads ECS cluster settings via the AWS API. Clusters without Container Insights enabled are flagged.",
+    ),
+  "ecs.service.public_ip_enabled": () =>
+    copy(
+      "Verify that ECS services do not assign public IPs to tasks in awsvpc mode.",
+      "Vigil reads ECS service network configuration. Services with assignPublicIp ENABLED are flagged.",
+    ),
+  "ecs.task_definition.privileged_container": () =>
+    copy(
+      "Verify that active ECS task definitions do not run privileged containers.",
+      "Vigil reads in-use task definitions for running services. Task definitions with privileged containers are flagged.",
+    ),
   "lambda.function.public_url": () =>
     copy(
       "Verify that Lambda function URLs are not publicly invokable without authentication.",

@@ -486,6 +486,9 @@ const RESOURCE_TYPE_PILL_LABELS: Record<string, string> = {
   "elb.load_balancer": "Load balancer",
   "eks.cluster": "EKS cluster",
   "ecr.repository": "ECR repository",
+  "ecs.cluster": "ECS cluster",
+  "ecs.service": "ECS service",
+  "ecs.task_definition": "ECS task definition",
   "acm.certificate": "ACM certificate",
   "ssm.parameter": "SSM parameter",
   "github.repo": "GitHub repo",
@@ -529,7 +532,8 @@ export function resourceTypeIconKind(checkId: string): ResourceTypeIconKind {
     checkId.startsWith("vpc.") ||
     checkId.startsWith("elb.") ||
     checkId.startsWith("eks.") ||
-    checkId.startsWith("ecr.")
+    checkId.startsWith("ecr.") ||
+    checkId.startsWith("ecs.")
   )
     return "ec2";
   if (checkId.startsWith("rds.")) return "rds";
@@ -651,11 +655,42 @@ export function assetTypePillEntries(items: FindingLike[]): AssetTypePillEntry[]
 
 export function daysAgo(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-  if (d <= 0) return "today";
-  if (d === 1) return "1 day ago";
+  if (d <= 0) return "Today";
+  if (d === 1) return "Yesterday";
   if (d < 30) return `${d} days ago`;
   if (d < 365) return `${Math.floor(d / 30)} mo ago`;
   return `${Math.floor(d / 365)} yr ago`;
+}
+
+/** First/last seen in finding drawer — relative label plus calendar date (and time when recent). */
+export function formatFindingSeenAt(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+
+  const now = new Date();
+  const dayDiff = Math.floor(
+    (Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) -
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())) /
+      86400000,
+  );
+
+  const calendar = date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+  if (dayDiff === 0) return `Today, ${calendar} at ${time}`;
+  if (dayDiff === 1) return `Yesterday, ${calendar} at ${time}`;
+  if (dayDiff < 7) return `${dayDiff} days ago, ${calendar}`;
+
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function severityLabel(sev: string): string {

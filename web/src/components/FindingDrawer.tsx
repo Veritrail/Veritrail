@@ -36,7 +36,7 @@ import {
 import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
 import { remediationSummaryFor } from "../data/remediationSummaries";
 import {
-  daysAgo,
+  formatFindingSeenAt,
   awsRegionFromArn,
   regionsFromFindingEvidence,
   filterRedundantResourceDetailRows,
@@ -488,8 +488,8 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
         <ResourceFieldRow label="Status">
           <span className="capitalize">{statusLabel}</span>
         </ResourceFieldRow>
-        <ResourceFieldRow label="First seen">{daysAgo(finding.first_seen)}</ResourceFieldRow>
-        <ResourceFieldRow label="Last seen">{daysAgo(finding.last_seen)}</ResourceFieldRow>
+        <ResourceFieldRow label="First seen">{formatFindingSeenAt(finding.first_seen)}</ResourceFieldRow>
+        <ResourceFieldRow label="Last seen">{formatFindingSeenAt(finding.last_seen)}</ResourceFieldRow>
       </dl>
     </div>
   );

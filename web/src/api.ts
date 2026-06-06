@@ -1,4 +1,5 @@
-export const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+/** Empty VITE_API_URL uses same-origin `/v1` (Vite dev proxy → API). */
+export const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? "";
 
 const ACCESS_KEY = "vigil_access_token";
 const AUDITOR_KEY = "vigil_auditor_token";

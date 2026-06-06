@@ -402,6 +402,7 @@ function checkGroupLabel(id: string): string {
   if (id.startsWith("dynamodb.")) return "DynamoDB";
   if (id.startsWith("ecr.")) return "ECR";
   if (id.startsWith("eks.")) return "EKS";
+  if (id.startsWith("ecs.")) return "ECS";
   if (id.startsWith("acm.")) return "ACM";
   if (id.startsWith("elb.")) return "ELB";
   if (id.startsWith("secretsmanager.")) return "Secrets";
@@ -412,7 +413,7 @@ function checkGroupLabel(id: string): string {
   return prefix.charAt(0).toUpperCase() + prefix.slice(1);
 }
 
-const CHECK_GROUP_ORDER = ["IAM", "GitHub", "GitLab", "S3", "KMS", "CloudTrail", "EC2", "RDS", "Lambda", "DynamoDB", "ECR", "EKS", "ACM", "ELB", "Secrets", "SSM", "SNS", "SQS", "GuardDuty", "AWS", "VPC"];
+const CHECK_GROUP_ORDER = ["IAM", "GitHub", "GitLab", "S3", "KMS", "CloudTrail", "EC2", "RDS", "Lambda", "DynamoDB", "ECR", "EKS", "ECS", "ACM", "ELB", "Secrets", "SSM", "SNS", "SQS", "GuardDuty", "AWS", "VPC"];
 
 function groupCheckIds(checkIds: string[]) {
   const groups = new Map<string, string[]>();

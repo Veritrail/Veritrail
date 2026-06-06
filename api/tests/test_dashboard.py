@@ -49,6 +49,7 @@ from app.services.compliance_score import (
         ("dynamodb.table.no_encryption", "DynamoDB"),
         ("ecr.repository.image_scan_disabled", "ECR"),
         ("eks.cluster.public_endpoint", "EKS"),
+        ("ecs.service.public_ip_enabled", "ECS"),
         ("sns.topic.no_encryption", "SNS"),
         ("sqs.queue.no_encryption", "SQS"),
         ("github.org.mfa_not_enforced", "GitHub"),

@@ -968,3 +968,58 @@ class TestEksPublicEndpoint:
         mock_db.scalars.return_value.all.return_value = [cluster]
 
         assert eks_public_endpoint.run(mock_db, uuid.uuid4()) == []
+
+
+class TestEcsContainerInsightsDisabled:
+    def test_flags_cluster_without_insights(self, mock_db):
+        from app.checks import ecs_container_insights_disabled
+        cluster = MagicMock()
+        cluster.arn = "arn:aws:ecs:us-east-1:123456789012:cluster/prod"
+        cluster.name = "prod"
+        cluster.region = "us-east-1"
+        cluster.status = "ACTIVE"
+        cluster.container_insights_enabled = False
+        mock_db.scalars.return_value.all.return_value = [cluster]
+
+        drafts = ecs_container_insights_disabled.run(mock_db, uuid.uuid4())
+
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "ecs.cluster.container_insights_disabled"
+
+
+class TestEcsServicePublicIp:
+    def test_flags_service_with_public_ip(self, mock_db):
+        from app.checks import ecs_service_public_ip
+        service = MagicMock()
+        service.service_arn = "arn:aws:ecs:us-east-1:123456789012:service/prod/api"
+        service.service_name = "api"
+        service.cluster_name = "prod"
+        service.region = "us-east-1"
+        service.assign_public_ip = "ENABLED"
+        service.launch_type = "FARGATE"
+        service.status = "ACTIVE"
+        service.task_definition_arn = "arn:aws:ecs:us-east-1:123456789012:task-definition/api:3"
+        mock_db.scalars.return_value.all.return_value = [service]
+
+        drafts = ecs_service_public_ip.run(mock_db, uuid.uuid4())
+
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "ecs.service.public_ip_enabled"
+        assert drafts[0].severity == "high"
+
+
+class TestEcsTaskDefinitionPrivileged:
+    def test_flags_privileged_task_definition(self, mock_db):
+        from app.checks import ecs_task_definition_privileged
+        task_def = MagicMock()
+        task_def.task_definition_arn = "arn:aws:ecs:us-east-1:123456789012:task-definition/agent:7"
+        task_def.family = "agent"
+        task_def.revision = 7
+        task_def.region = "us-east-1"
+        task_def.has_privileged_container = True
+        mock_db.scalars.return_value.all.return_value = [task_def]
+
+        drafts = ecs_task_definition_privileged.run(mock_db, uuid.uuid4())
+
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "ecs.task_definition.privileged_container"

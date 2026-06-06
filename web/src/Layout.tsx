@@ -126,7 +126,9 @@ export default function Layout() {
           </NavLink>
           <button
             onClick={() => {
-              void logout().finally(() => nav("/login"));
+              void logout().finally(() =>
+                nav("/login", { replace: true, state: { signedOut: true } }),
+              );
             }}
             className="flex w-full items-center gap-4 rounded-xl px-5 py-3 text-base font-medium text-slate-500 transition-all hover:bg-white/6 hover:text-slate-100"
           >
