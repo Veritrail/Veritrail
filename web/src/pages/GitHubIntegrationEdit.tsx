@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
+import { GitHubMark } from "../components/IntegrationsUi";
 
 type GitHubProvider = {
   login: string | null;
@@ -19,14 +20,6 @@ type GitHubRepo = {
   private: boolean;
   default_branch: string | null;
 };
-
-function GitHubMark({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-      <path d="M12 2C6.477 2 2 6.593 2 12.253c0 4.526 2.862 8.368 6.839 9.724.5.095.683-.222.683-.494 0-.244-.009-.89-.014-1.747-2.782.62-3.369-1.375-3.369-1.375-.455-1.184-1.11-1.5-1.11-1.5-.908-.636.069-.623.069-.623 1.004.072 1.532 1.057 1.532 1.057.892 1.566 2.341 1.114 2.91.852.091-.662.349-1.114.635-1.37-2.221-.259-4.555-1.139-4.555-5.068 0-1.12.39-2.034 1.029-2.751-.103-.26-.446-1.302.098-2.714 0 0 .84-.276 2.75 1.051A9.358 9.358 0 0 1 12 6.949c.85.004 1.705.118 2.504.346 1.909-1.327 2.747-1.051 2.747-1.051.546 1.412.203 2.454.1 2.714.64.717 1.027 1.631 1.027 2.751 0 3.939-2.337 4.806-4.565 5.06.359.318.679.945.679 1.904 0 1.374-.013 2.483-.013 2.82 0 .274.18.594.688.493C19.14 20.617 22 16.778 22 12.253 22 6.593 17.523 2 12 2Z" />
-    </svg>
-  );
-}
 
 export default function GitHubIntegrationEdit() {
   const qc = useQueryClient();
@@ -51,7 +44,7 @@ export default function GitHubIntegrationEdit() {
   const manageAccess = useMutation({
     mutationFn: () => api<{ url: string }>("/v1/integrations/github/manage-url"),
     onSuccess: ({ url }) => {
-      window.location.href = url;
+      window.location.assign(url);
     },
   });
 
@@ -153,14 +146,10 @@ export default function GitHubIntegrationEdit() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <div>
-        <p className="text-sm font-medium text-sky-700">Integrations / GitHub evidence</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">Edit evidence scope</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-          Choose which connected GitHub sources and repositories should feed compliance identity and change-management evidence.
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-5 pb-10">
+      <p className="text-sm font-medium text-sky-700">
+        <Link to="/integrations" className="hover:underline">Integrations</Link> / GitHub evidence
+      </p>
 
       {justConnected && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -169,40 +158,34 @@ export default function GitHubIntegrationEdit() {
       )}
 
       <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-950 text-white">
-            <GitHubMark className="h-6 w-6" />
-          </span>
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-950">Source access</h2>
-            <p className="mt-1 text-sm text-zinc-500">Authenticated as {provider.data.login || "GitHub user"}</p>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-950 text-white">
+              <GitHubMark className="h-6 w-6" />
+            </span>
             <div>
-              <div className="text-sm font-medium text-zinc-950">Connected GitHub sources</div>
-              <div className="mt-1 text-sm text-zinc-600">
-                Add or remove organization access in GitHub, then return here to choose the evidence scope.
-              </div>
+              <h1 className="text-xl font-semibold text-zinc-950">Edit evidence scope</h1>
+              <p className="mt-1 text-sm text-zinc-500">Authenticated as {provider.data.login || "GitHub user"}</p>
             </div>
-            <button
-              onClick={() => manageAccess.mutate()}
-              disabled={manageAccess.isPending}
-              className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
-            >
-              {manageAccess.isPending ? "Opening GitHub..." : "Manage GitHub permissions"}
-              {!manageAccess.isPending && <span className="ml-2" aria-hidden="true">↗</span>}
-            </button>
           </div>
+          <button
+            onClick={() => manageAccess.mutate()}
+            disabled={manageAccess.isPending}
+            className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+          >
+            {manageAccess.isPending ? "Opening GitHub..." : "Manage GitHub permissions"}
+            {!manageAccess.isPending && <span className="ml-2" aria-hidden="true">↗</span>}
+          </button>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-6">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="text-sm font-medium text-zinc-700">Available sources</div>
+            <div>
+              <div className="text-sm font-medium text-zinc-950">Connected sources</div>
+              <div className="mt-1 text-sm text-zinc-500">Choose which GitHub owners can feed evidence.</div>
+            </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">
-              {orgLogins.length} {orgLogins.length === 1 ? "selected" : "selected"}
+              {orgLogins.length} selected
             </div>
           </div>
           {orgs.isLoading && <div className="text-sm text-zinc-500">Loading GitHub sources...</div>}
@@ -242,17 +225,15 @@ export default function GitHubIntegrationEdit() {
       <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-zinc-950">Repositories</h2>
+            <h2 className="text-xl font-semibold text-zinc-950">Repository scope</h2>
             <p className="mt-1 text-sm text-zinc-500">Leave empty to include every repository under the selected owners.</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedRepos([])}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Include all repositories
-            </button>
-          </div>
+          <button
+            onClick={() => setSelectedRepos([])}
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Include all repositories
+          </button>
         </div>
 
         <div className="mt-5">
