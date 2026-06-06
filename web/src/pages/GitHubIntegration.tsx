@@ -5,8 +5,6 @@ import { api } from "../api";
 import {
   formatSync,
   GitHubMark,
-  IconBranch,
-  IconShield,
   IconSync,
   IconUsers,
   ProgressBar,
@@ -50,11 +48,7 @@ const EVIDENCE_TYPES = [
 
 type HealthTone = "ok" | "warn" | "idle" | "sync";
 
-function HealthStrip({
-  items,
-}: {
-  items: { label: string; value: string; tone: HealthTone }[];
-}) {
+function HealthStrip({ items }: { items: { label: string; value: string; tone: HealthTone }[] }) {
   const railClass: Record<HealthTone, string> = {
     ok: "bg-emerald-400",
     sync: "bg-indigo-400",
@@ -100,9 +94,7 @@ function PanelCard({
         : "";
 
   return (
-    <section
-      className={`rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm shadow-zinc-950/[0.035] ${accentCls}`}
-    >
+    <section className={`rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm shadow-zinc-950/[0.035] ${accentCls}`}>
       <div className="mb-4">
         <h3 className="text-sm font-bold text-zinc-950">{title}</h3>
         {description && <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p>}
@@ -121,8 +113,7 @@ function panelAccentCls(accent?: "warn" | "ok" | "none") {
 const HEADER_ACTION_BTN =
   "inline-flex h-9 items-center justify-center rounded-[9px] px-4 text-[13px] font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60";
 
-const CARD_ACTION_LINK =
-  "inline-flex items-center gap-1.5 text-[13px] font-semibold text-zinc-800 transition hover:text-zinc-950";
+const CARD_ACTION_LINK = "inline-flex items-center gap-1.5 text-[13px] font-semibold text-zinc-800 transition hover:text-zinc-950";
 
 function ArrowIcon() {
   return (
@@ -141,11 +132,7 @@ function EvidenceStatusPill({ status }: { status: "collected" | "review" | "pend
         : "bg-zinc-100 text-zinc-500 ring-zinc-200";
   const label = status === "collected" ? "Collected" : status === "review" ? "Needs review" : "Pending";
 
-  return (
-    <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>
-      {label}
-    </span>
-  );
+  return <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>{label}</span>;
 }
 
 function ProtectionStatusPill({ status }: { status: "review" | "protected" | "pending" }) {
@@ -288,9 +275,7 @@ export default function GitHubIntegration() {
   const findingsUrl =
     "/findings?checks=github.org.mfa_not_enforced,github.org.dormant_members,github.repo.no_branch_protection,github.repo.self_merge_allowed,github.repo.insufficient_reviews";
 
-  const scopeSummary = currentScopeCount
-    ? `${currentScopeCount} ${pluralize(currentScopeCount, "repo")} in scope`
-    : "No repositories collected yet";
+  const scopeSummary = currentScopeCount ? `${currentScopeCount} ${pluralize(currentScopeCount, "repo")} in scope` : "No repositories collected yet";
 
   return (
     <div className="w-full space-y-5 pb-10">
@@ -317,9 +302,7 @@ export default function GitHubIntegration() {
         </div>
       )}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          GitHub connection failed: {error}
-        </div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">GitHub connection failed: {error}</div>
       )}
       {lastSync && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -333,11 +316,7 @@ export default function GitHubIntegration() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3.5 text-sm text-indigo-800">
             <Spinner className="h-4 w-4 shrink-0 text-indigo-500" />
             <span className="font-semibold">
-              {isSyncing && awsScanRunning
-                ? "Syncing GitHub and running AWS scan"
-                : isSyncing
-                  ? "Syncing GitHub evidence"
-                  : "AWS compliance scan running"}
+              {isSyncing && awsScanRunning ? "Syncing GitHub and running AWS scan" : isSyncing ? "Syncing GitHub evidence" : "AWS compliance scan running"}
             </span>
             <span className="text-indigo-600/75">— safe to leave this page</span>
           </div>
@@ -353,8 +332,7 @@ export default function GitHubIntegration() {
             <div className="flex-1">
               <h2 className="text-lg font-bold text-zinc-950">Connect GitHub</h2>
               <p className="mt-1 max-w-xl text-sm text-zinc-500">
-                Authorize read-only access to collect identity, branch protection, and pull request evidence for SOC 2
-                change-management controls.
+                Authorize read-only access to collect identity, branch protection, and pull request evidence for SOC 2 change-management controls.
               </p>
               <button
                 onClick={() => connect.mutate()}
@@ -429,11 +407,7 @@ export default function GitHubIntegration() {
                 <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">{protectionNote}</p>
               </div>
 
-              {hasScopeDrift && (
-                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  Coverage changed after the latest sync. Run sync to refresh metrics.
-                </div>
-              )}
+              {hasScopeDrift && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Coverage changed after the latest sync. Run sync to refresh metrics.</div>}
 
               <div className="mt-4">
                 <div className="mb-1.5 flex items-center justify-between text-xs">
@@ -449,12 +423,6 @@ export default function GitHubIntegration() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-zinc-100 pt-3">
-                {missingProtections > 0 && (
-                  <Link to="/findings?checks=github.repo.no_branch_protection" className={CARD_ACTION_LINK}>
-                    View missing repositories
-                    <ArrowIcon />
-                  </Link>
-                )}
                 <Link to={findingsUrl} className={CARD_ACTION_LINK}>
                   View GitHub findings
                   <ArrowIcon />
@@ -470,10 +438,7 @@ export default function GitHubIntegration() {
                   const status: "collected" | "review" | "pending" = !collected ? "pending" : branchGap ? "review" : "collected";
 
                   return (
-                    <li
-                      key={key}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5"
-                    >
+                    <li key={key} className="flex items-center justify-between gap-3 rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5">
                       <span className="flex min-w-0 items-center gap-2.5 text-sm font-medium text-zinc-800">
                         <ChecklistIcon status={status} />
                         {label}
@@ -490,14 +455,7 @@ export default function GitHubIntegration() {
             <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:content-none [&::-webkit-details-marker]:hidden">
               <span className="flex items-center justify-between gap-3">
                 Connection settings
-                <svg
-                  className="h-4 w-4 text-zinc-400 transition group-open:rotate-180"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
+                <svg className="h-4 w-4 text-zinc-400 transition group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
               </span>
@@ -521,11 +479,7 @@ export default function GitHubIntegration() {
             </div>
           </details>
 
-          {sync.error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {(sync.error as Error).message}
-            </div>
-          )}
+          {sync.error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(sync.error as Error).message}</div>}
         </div>
       )}
     </div>
