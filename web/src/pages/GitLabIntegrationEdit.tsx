@@ -129,9 +129,9 @@ export default function GitLabIntegrationEdit() {
     return (
       <div className="mx-auto max-w-5xl rounded-lg border border-zinc-200 bg-white p-6">
         <h1 className="text-xl font-semibold text-zinc-950">GitLab is not connected</h1>
-        <p className="mt-2 text-sm text-zinc-600">Connect GitLab before choosing evidence scope.</p>
+        <p className="mt-2 text-sm text-zinc-600">Connect GitLab before choosing scope.</p>
         <Link to="/integrations/gitlab" className="mt-5 inline-flex rounded-lg bg-[#e24329] px-4 py-2 text-sm font-medium text-white hover:bg-[#c93a22]">
-          Back to GitLab evidence
+          Back to GitLab
         </Link>
       </div>
     );
@@ -141,9 +141,13 @@ export default function GitLabIntegrationEdit() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-10">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-950">GitLab scope</h1>
+      </div>
+
       {justConnected && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          GitLab connected. Select at least one group below, then save to start syncing evidence.
+          GitLab connected. Select at least one group below, then save to start syncing.
         </div>
       )}
 
@@ -154,7 +158,7 @@ export default function GitLabIntegrationEdit() {
               <GitLabMark className="h-6 w-6" />
             </span>
             <div>
-              <h1 className="text-xl font-semibold text-zinc-950">Edit evidence scope</h1>
+              <h2 className="text-xl font-semibold text-zinc-950">Source access</h2>
               <p className="mt-1 text-sm text-zinc-500">Authenticated as {provider.data.username || "GitLab user"} on {instanceLabel}</p>
             </div>
           </div>
@@ -164,7 +168,7 @@ export default function GitLabIntegrationEdit() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-medium text-zinc-950">Connected sources</div>
-              <div className="mt-1 text-sm text-zinc-500">Choose which GitLab groups can feed evidence.</div>
+              <div className="mt-1 text-sm text-zinc-500">Choose which GitLab groups can feed this workspace.</div>
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">{groupIds.length} selected</div>
           </div>
