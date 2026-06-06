@@ -145,7 +145,8 @@ export default function GitHubIntegrationEdit() {
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-10">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-950">GitHub scope</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Source control</p>
+        <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-zinc-950">Configure GitHub access</h1>
       </div>
 
       {justConnected && (
