@@ -6,7 +6,6 @@ import {
   formatSync,
   GitHubMark,
   IconBranch,
-  IconRepo,
   IconShield,
   IconSync,
   IconUsers,
@@ -43,10 +42,10 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 }
 
 const EVIDENCE_TYPES = [
-  { key: "identity", label: "Access reviews", icon: IconUsers },
-  { key: "pr", label: "PR approvals", icon: IconSync },
-  { key: "merge", label: "Self-merge checks", icon: IconShield },
-  { key: "branch", label: "Branch protections", icon: IconBranch },
+  { key: "identity", label: "Access reviews" },
+  { key: "pr", label: "PR approvals" },
+  { key: "merge", label: "Self-merge checks" },
+  { key: "branch", label: "Branch protections" },
 ] as const;
 
 type HealthTone = "ok" | "warn" | "idle" | "sync";
@@ -125,6 +124,14 @@ const HEADER_ACTION_BTN =
 const CARD_ACTION_LINK =
   "inline-flex items-center gap-1.5 text-[13px] font-semibold text-zinc-800 transition hover:text-zinc-950";
 
+function ArrowIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+    </svg>
+  );
+}
+
 function EvidenceStatusPill({ status }: { status: "collected" | "review" | "pending" }) {
   const cls =
     status === "collected"
@@ -141,7 +148,7 @@ function EvidenceStatusPill({ status }: { status: "collected" | "review" | "pend
   );
 }
 
-function BranchProtectionStatusPill({ status }: { status: "review" | "protected" | "pending" }) {
+function ProtectionStatusPill({ status }: { status: "review" | "protected" | "pending" }) {
   const cls =
     status === "review"
       ? "border border-[#fed7aa] bg-[#fff7ed] text-[#9a3412]"
@@ -150,11 +157,7 @@ function BranchProtectionStatusPill({ status }: { status: "review" | "protected"
         : "border border-zinc-200 bg-zinc-100 text-zinc-500";
   const label = status === "review" ? "Needs review" : status === "protected" ? "Protected" : "Pending";
 
-  return (
-    <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}>
-      {label}
-    </span>
-  );
+  return <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}>{label}</span>;
 }
 
 function ChecklistIcon({ status }: { status: "collected" | "review" | "pending" }) {
@@ -177,6 +180,20 @@ function ChecklistIcon({ status }: { status: "collected" | "review" | "pending" 
         <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50" />
       )}
     </span>
+  );
+}
+
+function ActivityMetric({ icon: Icon, label, value }: { icon: typeof IconUsers; label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/70 px-3.5 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-500 ring-1 ring-zinc-200/80">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-xl font-bold tabular-nums text-zinc-950">{value}</div>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
+      </div>
+    </div>
   );
 }
 
@@ -253,14 +270,14 @@ export default function GitHubIntegration() {
     selectedRepoCount < scannedRepoCount
       ? `${scopeDriftCount} ${pluralize(scopeDriftCount, "repository")} excluded after latest collection.`
       : `${scopeDriftCount} ${pluralize(scopeDriftCount, "repository")} added after latest collection.`;
-  const branchProtectionAccent: "warn" | "ok" | "none" = !p?.repos ? "none" : missingProtections ? "warn" : "ok";
-  const branchProtectionTone: "ok" | "warn" | "neutral" = !p?.repos ? "neutral" : missingProtections ? "warn" : "ok";
-  const branchProtectionStatus: "review" | "protected" | "pending" = !p?.repos || !p?.last_synced_at
+  const protectionAccent: "warn" | "ok" | "none" = !p?.repos ? "none" : missingProtections ? "warn" : "ok";
+  const protectionTone: "ok" | "warn" | "neutral" = !p?.repos ? "neutral" : missingProtections ? "warn" : "ok";
+  const protectionStatus: "review" | "protected" | "pending" = !p?.repos || !p?.last_synced_at
     ? "pending"
     : missingProtections > 0 || hasScopeDrift
       ? "review"
       : "protected";
-  const branchProtectionNote = !p?.repos
+  const protectionNote = !p?.repos
     ? "Run a sync to collect branch protection evidence."
     : hasScopeDrift
       ? `Scope drift detected. ${scopeDriftSummary}`
@@ -346,15 +363,12 @@ export default function GitHubIntegration() {
               >
                 {connect.isPending ? "Connecting…" : "Connect GitHub"}
               </button>
-              {connect.isError && (
-                <p className="mt-3 text-sm text-red-600">{(connect.error as Error).message}</p>
-              )}
+              {connect.isError && <p className="mt-3 text-sm text-red-600">{(connect.error as Error).message}</p>}
             </div>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Compact page header */}
           <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
@@ -367,8 +381,7 @@ export default function GitHubIntegration() {
                 </span>
               </div>
               <p className="mt-2 text-sm text-zinc-600">
-                Repository evidence for{" "}
-                <span className="font-semibold text-zinc-900">{p.login || "GitHub user"}</span>
+                Repository evidence for <span className="font-semibold text-zinc-900">{p.login || "GitHub user"}</span>
                 {" · "}
                 {scopeSummary}
               </p>
@@ -390,94 +403,71 @@ export default function GitHubIntegration() {
             </div>
           </header>
 
-          {/* Health strip */}
           <HealthStrip
             items={[
-              {
-                label: "Sync health",
-                value: syncState,
-                tone: isSyncing ? "sync" : syncTone,
-              },
-              {
-                label: "Permissions",
-                value: "OAuth healthy",
-                tone: "ok",
-              },
-              {
-                label: "Scope",
-                value: currentScopeCount ? `${currentScopeCount} repos` : "Not collected",
-                tone: currentScopeCount ? "ok" : "idle",
-              },
-              {
-                label: "Last collection",
-                value: lastCollectionLabel,
-                tone: p.last_synced_at ? "ok" : "idle",
-              },
+              { label: "Sync health", value: syncState, tone: isSyncing ? "sync" : syncTone },
+              { label: "Permissions", value: "OAuth healthy", tone: "ok" },
+              { label: "Scope", value: currentScopeCount ? `${currentScopeCount} repos` : "Not collected", tone: currentScopeCount ? "ok" : "idle" },
+              { label: "Last collection", value: lastCollectionLabel, tone: p.last_synced_at ? "ok" : "idle" },
             ]}
           />
 
-          {/* Coverage + evidence */}
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
-            <section
-              className={`flex min-h-0 flex-col gap-[18px] rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm shadow-zinc-950/[0.035] ${panelAccentCls(branchProtectionAccent)}`}
-            >
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <section className={`flex flex-col rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm shadow-zinc-950/[0.035] ${panelAccentCls(protectionAccent)}`}>
               <div className="flex items-start justify-between gap-3">
-                <h3 className="text-sm font-bold text-zinc-950">Branch protection coverage</h3>
-                <BranchProtectionStatusPill status={branchProtectionStatus} />
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-950">Repository protection</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-zinc-500">Branch rules and repository activity from the last collection</p>
+                </div>
+                <ProtectionStatusPill status={protectionStatus} />
               </div>
 
-              <div>
-                <p className="text-lg font-semibold tracking-[-0.01em] text-zinc-950">
+              <div className="mt-4">
+                <p className="text-base font-semibold tracking-[-0.01em] text-zinc-950">
                   {protectedRepos} of {p.repos || 0} repositories protected
                 </p>
-                <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">{branchProtectionNote}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">{protectionNote}</p>
               </div>
 
               {hasScopeDrift && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   Coverage changed after the latest sync. Run sync to refresh metrics.
                 </div>
               )}
 
-              <div>
+              <div className="mt-4">
                 <div className="mb-1.5 flex items-center justify-between text-xs">
                   <span className="font-medium text-zinc-500">Coverage</span>
                   <span className="font-semibold tabular-nums text-zinc-800">{protectedCoveragePercent}%</span>
                 </div>
-                <ProgressBar value={protectedCoveragePercent} tone={branchProtectionTone} />
+                <ProgressBar value={protectedCoveragePercent} tone={protectionTone} />
               </div>
 
-              <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <ActivityMetric icon={IconUsers} label="Members" value={p.identity_users} />
+                <ActivityMetric icon={IconSync} label="Merged PRs" value={p.pull_requests} />
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-zinc-100 pt-3">
                 {missingProtections > 0 && (
                   <Link to="/findings?checks=github.repo.no_branch_protection" className={CARD_ACTION_LINK}>
                     View missing repositories
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                    </svg>
+                    <ArrowIcon />
                   </Link>
                 )}
                 <Link to={findingsUrl} className={CARD_ACTION_LINK}>
                   View GitHub findings
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                  </svg>
+                  <ArrowIcon />
                 </Link>
               </div>
             </section>
 
-            <PanelCard
-              title="Evidence collected"
-              description="Change-management and identity artifacts in your evidence pack"
-            >
+            <PanelCard title="Evidence collected" description="Change-management and identity artifacts in your evidence pack">
               <ul className="space-y-2">
                 {EVIDENCE_TYPES.map(({ key, label }) => {
                   const collected = !!p.last_synced_at;
                   const branchGap = key === "branch" && collected && missingProtections > 0;
-                  const status: "collected" | "review" | "pending" = !collected
-                    ? "pending"
-                    : branchGap
-                      ? "review"
-                      : "collected";
+                  const status: "collected" | "review" | "pending" = !collected ? "pending" : branchGap ? "review" : "collected";
 
                   return (
                     <li
@@ -496,32 +486,7 @@ export default function GitHubIntegration() {
             </PanelCard>
           </div>
 
-          <PanelCard title="Repository coverage" description="Members, repositories, and activity from the last collection">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                { icon: IconUsers, label: "Members", value: p.identity_users },
-                { icon: IconRepo, label: "Repositories", value: p.repos },
-                { icon: IconBranch, label: "Protected", value: protectedRepos },
-                { icon: IconSync, label: "Merged PRs", value: p.pull_requests },
-              ].map(({ icon: Icon, label, value }) => (
-                <div
-                  key={label}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/70 px-3.5 py-3"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-500 ring-1 ring-zinc-200/80">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xl font-bold tabular-nums text-zinc-950">{value}</div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </PanelCard>
-
-          {/* Connection settings — danger zone collapsed by default */}
-          <details className="group rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.02]">
+          <details className="group overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.02]">
             <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:content-none [&::-webkit-details-marker]:hidden">
               <span className="flex items-center justify-between gap-3">
                 Connection settings
@@ -537,13 +502,12 @@ export default function GitHubIntegration() {
                 </svg>
               </span>
             </summary>
-            <div className="p-3 pt-0">
-              <div className="flex flex-wrap items-center justify-between gap-6 rounded-[10px] border border-red-100 border-l-[3px] border-l-red-300 bg-[#fffafa] px-4 py-3.5">
+            <div className="border-t border-red-100 bg-[#fffafa]">
+              <div className="flex flex-wrap items-center justify-between gap-6 border-l-[3px] border-l-red-300 px-4 py-3.5">
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-red-700">Danger zone</p>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                    Disconnecting GitHub stops future evidence collection. Existing findings remain until the next sync
-                    clears them.
+                  <p className="mt-1 max-w-3xl text-xs leading-relaxed text-zinc-500">
+                    Disconnecting GitHub stops future evidence collection. Existing findings remain until the next sync clears them.
                   </p>
                 </div>
                 <button
