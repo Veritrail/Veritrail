@@ -142,12 +142,18 @@ export default function GitHubIntegrationEdit() {
     );
   }
 
+  const scopeError = orgs.error || repos.error;
+
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-10">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Source control</p>
         <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-zinc-950">Configure GitHub access</h1>
       </div>
+
+      {scopeError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(scopeError as Error).message}</div>
+      )}
 
       {justConnected && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -184,7 +190,6 @@ export default function GitHubIntegrationEdit() {
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">{orgLogins.length} selected</div>
           </div>
-          {orgs.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(orgs.error as Error).message}</div>}
           {!!availableOwners.length && (
             <div className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200">
               {availableOwners.map((owner) => (
@@ -222,7 +227,6 @@ export default function GitHubIntegrationEdit() {
             <Spinner className="h-6 w-6 text-zinc-400" />
           </div>
         )}
-        {repos.error && <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(repos.error as Error).message}</div>}
         {repos.data && (
           <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
             {Object.entries(groupedRepos).map(([owner, ownerRepos]) => (
