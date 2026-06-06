@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
+import { CloudTrailOnboardingChoice } from "../components/CloudTrailOnboardingChoice";
 import {
   ADVANCED_POLICY_RAW_ACTIONS,
 } from "../data/capabilityCopy";
@@ -1050,13 +1051,16 @@ function ManageCapabilitiesPanel({
           deployOptions={draft}
         />
         {acc.status === "connected" && optionalCapabilities && (
-          <PermissionVerificationPanel
+          <>
+            <CloudTrailOnboardingChoice accountId={acc.id} />
+            <PermissionVerificationPanel
             onVerify={onVerifyCapabilities}
             verifying={verifyingCapabilities}
             feedback={verifyFeedback}
             verificationMeta={verificationMeta}
             showButton
           />
+          </>
         )}
       </div>
     </div>

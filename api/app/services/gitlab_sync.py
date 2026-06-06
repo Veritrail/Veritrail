@@ -314,7 +314,7 @@ def sync_gitlab_provider(
     provider: IdentityProvider,
     group_id: str | None = None,
 ) -> GitLabSyncStats:
-    from app.services.gitlab_tokens import GitLabReconnectRequired, ensure_gitlab_token
+    from app.services.gitlab_tokens import GitLabReconnectRequired, ensure_gitlab_token, refresh_gitlab_token_on_unauthorized
 
     config = provider_config(provider)
     try:
@@ -322,6 +322,28 @@ def sync_gitlab_provider(
     except GitLabReconnectRequired:
         raise
 
+    def _sync_with_token(active_token: str) -> GitLabSyncStats:
+        return _sync_gitlab_with_token(db, provider, config, active_token, group_id)
+
+    try:
+        return _sync_with_token(token)
+    except httpx.HTTPStatusError as e:
+        if e.response is not None and e.response.status_code == 401:
+            try:
+                token = refresh_gitlab_token_on_unauthorized(db, provider)
+            except GitLabReconnectRequired:
+                raise
+            return _sync_with_token(token)
+        raise
+
+
+def _sync_gitlab_with_token(
+    db: Session,
+    provider: IdentityProvider,
+    config: dict[str, Any],
+    token: str,
+    group_id: str | None,
+) -> GitLabSyncStats:
     api = _api_base(config)
     now = datetime.now(timezone.utc)
     stats = GitLabSyncStats()

@@ -14,13 +14,15 @@
       "github.repo.dependabot_disabled",
       "github.repo.code_scanning_disabled",
       "github.repo.secret_scanning_disabled",
+      "github.repo.security_status_checks_missing",
       "gitlab.repo.no_branch_protection",
       "gitlab.repo.no_env_protection",
       "gitlab.repo.self_merge_allowed",
       "gitlab.repo.insufficient_reviews",
       "gitlab.repo.sast_disabled",
       "gitlab.repo.dependency_scanning_disabled",
-      "gitlab.repo.container_scanning_disabled"
+      "gitlab.repo.container_scanning_disabled",
+      "gitlab.repo.security_ci_not_required"
     ]
   },
   {
@@ -42,6 +44,14 @@
       "github.org.dormant_members",
       "gitlab.org.mfa_not_enforced",
       "gitlab.org.dormant_members",
+      "google_workspace.org.mfa_not_enforced",
+      "google_workspace.user.inactive_90d",
+      "google_workspace.admin.unreviewed",
+      "entra.org.mfa_not_enforced",
+      "entra.user.inactive_90d",
+      "entra.admin.unreviewed",
+      "iam.user.admin_policy_attached",
+      "github.org.admin_unreviewed",
       "identity_center.user.inactive_90d"
     ]
   },

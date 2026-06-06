@@ -124,8 +124,15 @@ class AccountOut(BaseModel):
     cfn_template_version: str | None = None
     last_scan_at: datetime | None = None
     last_error: str | None = None
+    cloudtrail_onboarding_mode: str | None = None
 
 
+class CloudTrailOnboardingIn(BaseModel):
+    mode: str  # existing | vigil_managed
+
+
+class CloudTrailOnboardingOut(BaseModel):
+    mode: str | None
 class VerifyIn(BaseModel):
     role_arn: str
 
@@ -347,6 +354,11 @@ def _account_out(acc: AwsAccount) -> AccountOut:
         remediation_cfn_cli_command=_remediation_cli_command() if any_remediation_enabled(modules) else None,
         cfn_template_version=get_settings().CFN_TEMPLATE_VERSION,
         last_scan_at=acc.last_scan_at,
+        cloudtrail_onboarding_mode=(
+            acc.cloudtrail_onboarding_mode
+            if isinstance(getattr(acc, "cloudtrail_onboarding_mode", None), (str, type(None)))
+            else None
+        ),
     )
 
 
@@ -412,6 +424,32 @@ def update_connection_options(
     set_remediation_modules(acc, incoming)
     db.commit()
     return _account_out(acc)
+
+
+@router.patch("/{account_id}/cloudtrail-onboarding", response_model=CloudTrailOnboardingOut)
+def update_cloudtrail_onboarding(
+    account_id: str,
+    body: CloudTrailOnboardingIn,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != p["org_id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+    mode = body.mode.strip().lower()
+    if mode not in ("existing", "vigil_managed"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "mode must be existing or vigil_managed")
+    acc.cloudtrail_onboarding_mode = mode
+    db.commit()
+    return CloudTrailOnboardingOut(mode=acc.cloudtrail_onboarding_mode)
+
+
+@router.get("/{account_id}/cloudtrail-onboarding", response_model=CloudTrailOnboardingOut)
+def get_cloudtrail_onboarding(account_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != p["org_id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+    return CloudTrailOnboardingOut(mode=acc.cloudtrail_onboarding_mode)
 
 
 def _heal_established_account_after_failed_reverify(acc: AwsAccount) -> bool:

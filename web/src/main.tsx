@@ -16,6 +16,8 @@ import GitHubIntegration from "./pages/GitHubIntegration";
 import GitHubIntegrationEdit from "./pages/GitHubIntegrationEdit";
 import GitLabIntegration from "./pages/GitLabIntegration";
 import GitLabIntegrationEdit from "./pages/GitLabIntegrationEdit";
+import GoogleWorkspaceIntegration from "./pages/GoogleWorkspaceIntegration";
+import EntraIntegration from "./pages/EntraIntegration";
 import Integrations from "./pages/Integrations";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
@@ -61,6 +63,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/github/edit" element={<GitHubIntegrationEdit />} />
             <Route path="/integrations/gitlab" element={<GitLabIntegration />} />
             <Route path="/integrations/gitlab/edit" element={<GitLabIntegrationEdit />} />
+            <Route path="/integrations/google-workspace" element={<GoogleWorkspaceIntegration />} />
+            <Route path="/integrations/entra" element={<EntraIntegration />} />
           </Route>
           <Route path="/auditor/verify/:token" element={<AuditorLogin />} />
           <Route path="/auditor/login" element={<AuditorLogin />} />

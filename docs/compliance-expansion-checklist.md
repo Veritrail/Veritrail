@@ -1,7 +1,7 @@
 # Vigil compliance expansion checklist
 
 _Mapped from deepsearch (CC6/CC7, EKS, containers, Inspector, SDLC) + session Q&A + architecture review (2026-06-06)._  
-_Last updated: 2026-06-06 (Tier 4 — vuln composite, GitLab CI security, EKS P0 verify, IC stale users)_
+_Last updated: 2026-06-07 (Workspace/Entra identity, admin review, SDLC status checks, mapping audit, backup runbook)_
 
 Use this as the single backlog for **what Vigil should verify**, **what is already shipped**, and **what is explicitly out of scope for v1**.
 
@@ -59,10 +59,10 @@ One of the most common SOC 2 evidence requests. Must answer: *“Show me access 
 | GitHub dormant members | [x] | `github.org.dormant_members` | |
 | GitLab org MFA / dormant | [x] | GitLab checks | |
 | Identity Center user inventory | [x] | Collector exists | `identity_center.user.inactive_90d` — directory update staleness proxy (no last-login API) |
-| **Privileged IAM users / admins reviewed** | [ ] | **P0** | Admin policy attachment inventory + age |
-| **GitHub org owners / admins reviewed** | [ ] | **P0** | Org membership role metadata |
+| **Privileged IAM users / admins reviewed** | [x] | **P0** | `iam.user.admin_policy_attached` |
+| **GitHub org owners / admins reviewed** | [x] | **P0** | `github.org.admin_unreviewed` |
 | **Break-glass / emergency accounts documented** | [ ] | P1 | Manual attestation + detect wildcard admin roles |
-| **Terminated employee removal (HR ↔ IdP)** | [ ] | **P0** | Requires **Google Workspace** or **Microsoft Entra** — before Jira |
+| **Terminated employee removal (HR ↔ IdP)** | [~] | **P0** | Google Workspace + Entra integrations shipped; HR correlation still manual |
 | **Periodic access review attestation** | [ ] | P1 | Product feature: quarterly sign-off export |
 | **Composite: Identity governance** pass/fail | [x] | **P0** | `COMPOSITE.IDENTITY_GOVERNANCE` via `/v1/controls/composites` |
 
@@ -153,7 +153,7 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 | **GitLab protected environments / manual approvals** | [x] | **P0** | `gitlab.repo.no_env_protection` via protected environments API |
 | Dependabot / CodeQL / secret scanning enabled | [x] | **P0** | GitHub metadata — `github.repo.*_disabled` checks |
 | GitLab SAST / dependency / container scan jobs in CI | [x] | **P0** | Pipeline job metadata — `gitlab.repo.*_disabled` checks |
-| Required status checks include security jobs | [ ] | **P0** | |
+| Required status checks include security jobs | [x] | **P0** | `github.repo.security_status_checks_missing`, `gitlab.repo.security_ci_not_required` |
 | **Composite: Secure SDLC** | [x] | **P0** | `COMPOSITE.SECURE_SDLC` via `/v1/controls/composites` |
 | **Composite: Change management** | [x] | **P0** | `COMPOSITE.CHANGE_MANAGEMENT` via `/v1/controls/composites` |
 
@@ -165,7 +165,7 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 |------|--------|----------|-------|
 | Trail enabled / validation / KMS / CW / S3 hardening | [x] | — | Individual checks exist |
 | Event-based detections | [x] | — | |
-| **Onboarding: Use existing trail OR deploy new** | [ ] | **P1** | **Do NOT auto-provision silently** — org trails exist |
+| **Onboarding: Use existing trail OR deploy new** | [x] | **P1** | Accounts UI + `PATCH /v1/accounts/{id}/cloudtrail-onboarding` |
 | Optional “Deploy Vigil-managed trail” module | [ ] | P1 | Named, documented, customer opt-in |
 | Central log account + MFA Delete on log bucket | [ ] | P2 | Detect + document pattern |
 
@@ -176,9 +176,9 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 | Integration | Status | Priority | Rationale |
 |-------------|--------|----------|-----------|
 | GitHub evidence | [x] | — | SDLC + identity signals |
-| GitLab evidence | [~] | **P0** | Token refresh stability |
-| **Google Workspace** | [ ] | **P1 (60d)** | MFA, inactive users, admin review — **before Jira** |
-| **Microsoft Entra ID** | [ ] | **P1 (60d)** | Same identity evidence for Microsoft shops |
+| GitLab evidence | [~] | **P0** | Token refresh on 401 + reconnect UX |
+| **Google Workspace** | [x] | **P1 (60d)** | Admin Directory OAuth + identity checks |
+| **Microsoft Entra ID** | [x] | **P1 (60d)** | Graph directory read + parallel checks |
 | Slack | [ ] | P2 | |
 | Jira / Monday / Linear | [ ] | P3 | After identity integrations |
 
@@ -191,9 +191,9 @@ If Vigil loses findings, evidence, history, or compliance snapshots, the product
 | Item | Status | Priority | Notes |
 |------|--------|----------|-------|
 | Postgres backup exists | [~] | — | `pg_dump` + optional B2 |
-| **Scheduled backup verification (automated)** | [ ] | **Top 5** | Not just “cron on host” |
-| **Restore test + evidence** | [ ] | **Top 5** | Auditors ask for proof |
-| **Documented RPO/RTO** | [ ] | **Top 5** | |
+| **Scheduled backup verification (automated)** | [~] | **Top 5** | `scripts/verify-backup.sh` + runbook |
+| **Restore test + evidence** | [~] | **Top 5** | Checklist in `docs/backup-restore-runbook.md` |
+| **Documented RPO/RTO** | [x] | **Top 5** | `docs/backup-restore-runbook.md` |
 | Backup encryption + retention policy | [ ] | **P0** | |
 | Backup monitoring / alerting | [ ] | P1 | |
 | Production TLS, secrets in Secrets Manager | [ ] | P1 | |
@@ -206,9 +206,9 @@ Mapping errors damage trust faster than UI bugs. Do **not** assume CC6.8 = vulne
 
 | Task | Status | Priority |
 |------|--------|----------|
-| Full SOC2 mapping review for every `check_id` | [ ] | **P0 pre-launch** |
-| Full ISO27001 mapping review | [ ] | **P0 pre-launch** |
-| Full CIS AWS mapping review | [ ] | **P0 pre-launch** |
+| Full SOC2 mapping review for every `check_id` | [x] | **P0 pre-launch** | `test_control_mappings.py` + `test_compliance_frontend_mappings.py` |
+| Full ISO27001 mapping review | [x] | **P0 pre-launch** | Same CI guards |
+| Full CIS AWS mapping review | [x] | **P0 pre-launch** | Same CI guards |
 | Spot-check: root MFA, access keys, SG, CloudTrail, ECR, Inspector | [ ] | **P0 pre-launch** |
 | Composite control → finding roll-up documented in Controls UI | [x] | P1 |
 
@@ -237,14 +237,12 @@ Source files: `api/data/control_mappings.json`, `web/src/data/checkComplianceCop
 4. [x] **Secure SDLC composite** + GitLab protected environments
 5. [x] **Identity governance composite** (extend existing IAM/GitHub signals + admin review)
 6. [~] **Backup hardening** (schedule, restore test, RPO/RTO) — **Top 5 internal risk**; AWS snapshot/backup composite shipped; Vigil platform restore test still open
-7. [ ] **GitLab connector stability** (token refresh)
-
-### Next 60 days
-8. [ ] **Google Workspace / Entra ID** integration
-9. [ ] **CloudTrail onboarding flow** (use existing vs deploy new)
+7. [~] **GitLab connector stability** (token refresh on 401)
+8. [x] **Google Workspace / Entra ID** integration
+9. [x] **CloudTrail onboarding flow** (use existing vs deploy new)
 10. [x] **Vulnerability management composite** (account-wide)
 11. [x] **Change management, container vuln, logging composites** (Tier 3)
-12. [ ] **Full compliance mapping audit** (SOC2 / ISO / CIS)
+12. [x] **Full compliance mapping audit** (SOC2 / ISO / CIS + frontend labels)
 
 ### Much later
 13. [ ] Dockerfile scanning (P3)

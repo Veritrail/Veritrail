@@ -474,6 +474,8 @@ function IntegrationsContent() {
 
   const github = useQuery({ queryKey: ["github-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/github") });
   const gitlab = useQuery({ queryKey: ["gitlab-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/gitlab") });
+  const googleWorkspace = useQuery({ queryKey: ["google-workspace-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/google-workspace") });
+  const entra = useQuery({ queryKey: ["entra-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/entra") });
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<AccountRow[]>("/v1/accounts") });
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<SettingsSlice>("/v1/settings") });
 
@@ -482,6 +484,8 @@ function IntegrationsContent() {
   const { isRunning: awsScanRunning, scanStatus } = useAccountScanRun(connectedAccountId);
   const githubSync = useIntegrationSyncState("github");
   const gitlabSync = useIntegrationSyncState("gitlab");
+  const googleWorkspaceSync = useIntegrationSyncState("google-workspace");
+  const entraSync = useIntegrationSyncState("entra");
 
   useEffect(() => {
     if (prevScanStatus.current === "running" && scanStatus === "ok") {
@@ -492,11 +496,11 @@ function IntegrationsContent() {
   }, [scanStatus, qc]);
 
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
-  const connectedCount = [awsAccount?.status === "connected", !!github.data, !!gitlab.data, slackConnected].filter(
+  const connectedCount = [awsAccount?.status === "connected", !!github.data, !!gitlab.data, !!googleWorkspace.data, !!entra.data, slackConnected].filter(
     Boolean,
   ).length;
-  const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing].filter(Boolean).length;
-  const errorCount = [accounts.isError, github.isError, gitlab.isError, settings.isError].filter(Boolean).length;
+  const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(Boolean).length;
+  const errorCount = [accounts.isError, github.isError, gitlab.isError, googleWorkspace.isError, entra.isError, settings.isError].filter(Boolean).length;
 
   const awsCard: IntegrationCard = {
     name: "AWS",
@@ -554,6 +558,42 @@ function IntegrationsContent() {
     permissionsLabel: gitlab.data ? "OAuth connected" : "Not connected",
   };
 
+  const googleWorkspaceCard: IntegrationCard = {
+    name: "Google Workspace",
+    valueProp: "Directory MFA, inactive users, and admin roster for CC6 evidence.",
+    icon: <span className="flex h-full w-full items-center justify-center text-lg font-bold text-white">G</span>,
+    iconBg: "bg-[#4285F4]",
+    href: "/integrations/google-workspace",
+    cta: integrationCta(!!googleWorkspace.data),
+    connected: !!googleWorkspace.data,
+    syncing: googleWorkspaceSync.isSyncing,
+    loading: googleWorkspace.isLoading,
+    accent: googleWorkspace.data ? "connected" : "none",
+    evidenceTypes: ["MFA enforcement", "Inactive users", "Admin review"],
+    lastSync: formatSync(googleWorkspace.data?.last_synced_at ?? null) || "—",
+    healthLabel: googleWorkspaceSync.isSyncing ? "Syncing" : googleWorkspace.data ? "Stable" : "Not configured",
+    healthTone: googleWorkspaceSync.isSyncing ? "sync" : googleWorkspace.data ? "ok" : undefined,
+    permissionsLabel: googleWorkspace.data ? "OAuth connected" : "Not connected",
+  };
+
+  const entraCard: IntegrationCard = {
+    name: "Microsoft Entra ID",
+    valueProp: "Graph directory read for MFA posture, stale users, and privileged roles.",
+    icon: <span className="flex h-full w-full items-center justify-center text-lg font-bold text-white">E</span>,
+    iconBg: "bg-[#0078D4]",
+    href: "/integrations/entra",
+    cta: integrationCta(!!entra.data),
+    connected: !!entra.data,
+    syncing: entraSync.isSyncing,
+    loading: entra.isLoading,
+    accent: entra.data ? "connected" : "none",
+    evidenceTypes: ["MFA posture", "Inactive users", "Admin review"],
+    lastSync: formatSync(entra.data?.last_synced_at ?? null) || "—",
+    healthLabel: entraSync.isSyncing ? "Syncing" : entra.data ? "Stable" : "Not configured",
+    healthTone: entraSync.isSyncing ? "sync" : entra.data ? "ok" : undefined,
+    permissionsLabel: entra.data ? "OAuth connected" : "Not connected",
+  };
+
   const slackCard: IntegrationCard = {
     name: "Slack",
     valueProp: "Scan alerts and weekly digests for your channel.",
@@ -570,7 +610,7 @@ function IntegrationsContent() {
     healthTone: slackConnected ? "ok" : undefined,
     permissionsLabel: slackConnected ? "Webhook configured" : "Not configured",
   };
-  const allCards = [awsCard, githubCard, gitlabCard, slackCard];
+  const allCards = [awsCard, githubCard, gitlabCard, googleWorkspaceCard, entraCard, slackCard];
   const connectedCards = allCards.filter((card) => card.primarySource || card.connected || card.syncing);
   const availableSlack = !slackConnected ? slackCard : null;
   const summaryMetrics: SummaryMetric[] = [

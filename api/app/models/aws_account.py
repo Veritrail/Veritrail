@@ -27,6 +27,7 @@ class AwsAccount(Base):
     enable_remediation_iam_keys: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     enable_remediation_iam_policy: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     enable_remediation_cloudtrail: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    cloudtrail_onboarding_mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
     enable_remediation_ssm_parameters: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     remediation_sg_deployed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     remediation_s3_deployed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

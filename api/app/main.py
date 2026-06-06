@@ -14,7 +14,7 @@ from app.core.ratelimit import limiter
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
-from app.routes import accounts, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, iac, settings as settings_router
+from app.routes import accounts, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, iac, settings as settings_router
 from app.routes import controls, exports, meta, public
 from app.routes import auditor, auditor_portal, trust_center
 
@@ -158,3 +158,5 @@ app.include_router(auditor_portal.router, prefix="/auditor", tags=["auditor-port
 app.include_router(trust_center.router, prefix="/trust", tags=["trust-center"])
 app.include_router(github_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(gitlab_integration.router, prefix="/v1/integrations", tags=["integrations"])
+app.include_router(google_workspace_integration.router, prefix="/v1/integrations", tags=["integrations"])
+app.include_router(entra_integration.router, prefix="/v1/integrations", tags=["integrations"])

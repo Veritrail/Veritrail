@@ -1,4 +1,4 @@
-"""GitLab OAuth access-token refresh for the integrations connection."""
+"""Microsoft Entra ID OAuth token refresh for the integrations connection."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -9,23 +9,19 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.github import IdentityProvider
-from app.services.gitlab_sync import provider_config, set_provider_config
+from app.services.entra_sync import provider_config, set_provider_config
 
-GITLAB_COM = "https://gitlab.com"
+ENTRA_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 REFRESH_BUFFER_SECONDS = 120
 
 RECONNECT_MESSAGE = (
-    "GitLab authorization expired. Disconnect GitLab and connect again to restore access."
+    "Microsoft Entra ID authorization expired. Disconnect and connect again to restore access."
 )
 
 
-class GitLabReconnectRequired(Exception):
+class EntraReconnectRequired(Exception):
     def __str__(self) -> str:
         return RECONNECT_MESSAGE
-
-
-def _oauth_base(config: dict[str, Any]) -> str:
-    return (config.get("base_url") or GITLAB_COM).rstrip("/")
 
 
 def apply_oauth_tokens(config: dict[str, Any], token_json: dict[str, Any]) -> dict[str, Any]:
@@ -42,53 +38,49 @@ def apply_oauth_tokens(config: dict[str, Any], token_json: dict[str, Any]) -> di
 def _token_expired(config: dict[str, Any], buffer_seconds: int = REFRESH_BUFFER_SECONDS) -> bool:
     raw = config.get("token_expires_at")
     if not raw:
-        return False
+        return bool(config.get("refresh_token"))
     try:
         expires = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
-        return False
+        return bool(config.get("refresh_token"))
     return datetime.now(timezone.utc) >= expires - timedelta(seconds=buffer_seconds)
 
 
-def refresh_gitlab_token_on_unauthorized(db: Session, provider: IdentityProvider) -> str:
-    """Force refresh after a 401 from GitLab API."""
-    return refresh_gitlab_token(db, provider)
-
-
-def refresh_gitlab_token(db: Session, provider: IdentityProvider) -> str:
+def refresh_entra_token(db: Session, provider: IdentityProvider) -> str:
     config = provider_config(provider)
     refresh = config.get("refresh_token")
     if not refresh:
-        raise GitLabReconnectRequired()
+        raise EntraReconnectRequired()
 
     settings = get_settings()
-    with httpx.Client(timeout=10) as client:
+    with httpx.Client(timeout=15) as client:
         resp = client.post(
-            f"{_oauth_base(config)}/oauth/token",
+            ENTRA_TOKEN_URL,
             data={
-                "client_id": settings.GITLAB_CLIENT_ID,
-                "client_secret": settings.GITLAB_CLIENT_SECRET,
+                "client_id": settings.ENTRA_CLIENT_ID,
+                "client_secret": settings.ENTRA_CLIENT_SECRET,
                 "refresh_token": refresh,
                 "grant_type": "refresh_token",
+                "scope": "offline_access User.Read.All Directory.Read.All RoleManagement.Read.Directory",
             },
             headers={"Accept": "application/json"},
         )
     if resp.status_code != 200:
-        raise GitLabReconnectRequired()
+        raise EntraReconnectRequired()
     data = resp.json()
     if not data.get("access_token"):
-        raise GitLabReconnectRequired()
+        raise EntraReconnectRequired()
 
     set_provider_config(provider, apply_oauth_tokens(config, data))
     db.commit()
     return provider_config(provider)["access_token"]
 
 
-def ensure_gitlab_token(db: Session, provider: IdentityProvider) -> str:
+def ensure_entra_token(db: Session, provider: IdentityProvider) -> str:
     config = provider_config(provider)
     token = config.get("access_token")
     if not token:
-        raise GitLabReconnectRequired()
+        raise EntraReconnectRequired()
     if _token_expired(config):
-        return refresh_gitlab_token(db, provider)
+        return refresh_entra_token(db, provider)
     return token

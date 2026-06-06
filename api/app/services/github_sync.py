@@ -95,6 +95,7 @@ def _upsert_identity_user(db: Session, provider_id: uuid.UUID, member: dict[str,
         "login": member.get("login"),
         "site_admin": bool(member.get("site_admin")),
         "type": member.get("type"),
+        "org_role": member.get("org_role"),
     }
     row.last_active_at = _parse_dt(member.get("last_activity_at") or member.get("updated_at"))
     row.snapshot_taken_at = now
@@ -371,6 +372,11 @@ def sync_github_provider(db: Session, provider: IdentityProvider, org_login: str
                 user_resp.raise_for_status()
                 members = [user_resp.json()]
             for member in members:
+                login = member.get("login", "")
+                if login:
+                    membership_resp = client.get(f"{GITHUB_API}/orgs/{owner}/memberships/{login}")
+                    if membership_resp.status_code == 200:
+                        member = {**member, "org_role": membership_resp.json().get("role")}
                 _upsert_identity_user(db, provider.id, member, now)
             stats.identity_users += len(members)
 

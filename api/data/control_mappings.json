@@ -2,7 +2,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.1",
-    "title": "Logical Access — Asset Inventory",
+    "title": "Logical Access \u2014 Asset Inventory",
     "description": "The entity implements logical access security software, infrastructure, and architectures over protected information assets to protect them from security events to meet the entity's objectives.",
     "guidance": "Evidence: IAM user inventory, role inventory, access key list with last-used dates. All principals should be accounted for and actively used.",
     "checks": [
@@ -18,13 +18,19 @@
       "cloudtrail.event.kms_key_disabled_or_deleted",
       "cloudtrail.event.iam_access_key_created",
       "cloudtrail.event.s3_public_access_block_disabled",
-      "cloudtrail.event.rds_instance_created_or_modified"
+      "cloudtrail.event.rds_instance_created_or_modified",
+      "google_workspace.user.inactive_90d",
+      "google_workspace.admin.unreviewed",
+      "entra.user.inactive_90d",
+      "entra.admin.unreviewed",
+      "github.org.admin_unreviewed",
+      "iam.user.admin_policy_attached"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC6.2",
-    "title": "Logical Access — Credential Registration",
+    "title": "Logical Access \u2014 Credential Registration",
     "description": "Prior to issuing system credentials and granting system access, the entity registers and authorizes new internal and external users whose access is administered by the entity.",
     "guidance": "Evidence: No root access keys present. Each user holds at most one active access key. Programmatic access is scoped to purpose.",
     "checks": [
@@ -35,13 +41,15 @@
       "ssm.parameter.plaintext_secret",
       "github.org.mfa_not_enforced",
       "github.org.outside_collaborators",
-      "gitlab.org.mfa_not_enforced"
+      "gitlab.org.mfa_not_enforced",
+      "google_workspace.org.mfa_not_enforced",
+      "entra.org.mfa_not_enforced"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC6.3",
-    "title": "Logical Access — Access Removal",
+    "title": "Logical Access \u2014 Access Removal",
     "description": "The entity removes access to protected information assets when appropriate (e.g., the individual is no longer associated with the entity).",
     "guidance": "Evidence: No IAM users inactive beyond threshold. No access keys unused beyond threshold. No roles unassumed beyond threshold. Root account not used for routine operations.",
     "checks": [
@@ -55,13 +63,16 @@
       "github.org.dormant_members",
       "gitlab.org.dormant_members",
       "cloudtrail.event.iam_user_policy_attachment",
-      "cloudtrail.event.iam_role_policy_mutation"
+      "cloudtrail.event.iam_role_policy_mutation",
+      "google_workspace.user.inactive_90d",
+      "entra.user.inactive_90d",
+      "iam.user.admin_policy_attached"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC6.6",
-    "title": "Logical Access — External Threat Controls",
+    "title": "Logical Access \u2014 External Threat Controls",
     "description": "The entity implements logical access security measures to protect against threats from sources outside its system boundaries, including MFA enforcement, least privilege, and network perimeter controls.",
     "guidance": "Evidence: MFA enabled for root and all IAM console users. No wildcard Action in role policies. No wildcard trust principals. S3 public access blocked. No security groups allow unrestricted SSH or RDP. RDS instances are not publicly accessible.",
     "checks": [
@@ -101,13 +112,16 @@
       "elb.load_balancer.weak_tls_policy",
       "lambda.function.public_url",
       "dynamodb.table.no_encryption",
-      "cloudtrail.event.security_group_open_to_world"
+      "cloudtrail.event.security_group_open_to_world",
+      "google_workspace.org.mfa_not_enforced",
+      "entra.org.mfa_not_enforced",
+      "iam.user.admin_policy_attached"
     ]
   },
   {
     "framework": "soc2",
     "control_id": "CC6.7",
-    "title": "Logical Access — Transmission Encryption",
+    "title": "Logical Access \u2014 Transmission Encryption",
     "description": "The entity restricts the transmission of confidential information to authorized internal and external users and protects it during transmission.",
     "guidance": "Evidence: S3 buckets enforce HTTPS-only via bucket policy (aws:SecureTransport condition).",
     "checks": [
@@ -117,7 +131,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.8",
-    "title": "Logical Access — Encryption at Rest",
+    "title": "Logical Access \u2014 Encryption at Rest",
     "description": "The entity implements controls to prevent unauthorized access to data at rest through encryption of storage resources.",
     "guidance": "Evidence: S3 buckets encrypted with KMS. KMS keys have automatic annual rotation enabled. RDS instances and EBS volumes have storage encryption enabled.",
     "checks": [
@@ -136,7 +150,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.1",
-    "title": "System Operations — Configuration Change Detection",
+    "title": "System Operations \u2014 Configuration Change Detection",
     "description": "To meet its objectives, the entity uses detection and monitoring procedures to identify changes to configurations that result in the introduction of new vulnerabilities.",
     "guidance": "Evidence: CloudTrail enabled with log file validation and KMS encryption in all regions.",
     "checks": [
@@ -162,7 +176,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.2",
-    "title": "System Operations — Anomaly Detection",
+    "title": "System Operations \u2014 Anomaly Detection",
     "description": "The entity monitors system components and the operation of those components for anomalies that are indicative of malicious acts, natural disasters, and errors affecting the entity's ability to meet its objectives.",
     "guidance": "Evidence: GuardDuty and Security Hub enabled in all regions. VPC Flow Logs enabled on all VPCs. Lambda functions have Dead Letter Queues configured so failed invocations are captured.",
     "checks": [
@@ -180,7 +194,7 @@
   {
     "framework": "soc2",
     "control_id": "CC8.1",
-    "title": "Change Management — Authorized Changes",
+    "title": "Change Management \u2014 Authorized Changes",
     "description": "The entity authorizes, approves, and communicates changes to infrastructure, data, software, and procedures to meet its change management objectives.",
     "guidance": "Evidence: Branch protection on default branches. Required PR approvals before merge. No self-merges. Protected deployment environments require designated approvers.",
     "checks": [
@@ -197,7 +211,9 @@
       "gitlab.repo.insufficient_reviews",
       "gitlab.repo.sast_disabled",
       "gitlab.repo.dependency_scanning_disabled",
-      "gitlab.repo.container_scanning_disabled"
+      "gitlab.repo.container_scanning_disabled",
+      "github.repo.security_status_checks_missing",
+      "gitlab.repo.security_ci_not_required"
     ]
   },
   {
@@ -205,7 +221,7 @@
     "control_id": "1.1",
     "title": "Maintain current contact details",
     "description": "AWS account contact information must be current for billing and security notifications.",
-    "guidance": "Complete primary contact in AWS Console → Account → Contact information.",
+    "guidance": "Complete primary contact in AWS Console \u2192 Account \u2192 Contact information.",
     "checks": [
       "aws.account.contact_incomplete"
     ]
@@ -751,7 +767,7 @@
     "control_id": "1.18",
     "title": "Ensure expired SSL/TLS certificates in IAM are removed",
     "description": "IAM server certificates past expiration should be removed.",
-    "guidance": "Delete expired server certificates in IAM → Server certificates.",
+    "guidance": "Delete expired server certificates in IAM \u2192 Server certificates.",
     "checks": [
       "iam.server_certificate.expired"
     ]

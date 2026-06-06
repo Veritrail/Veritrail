@@ -33,6 +33,10 @@ def _source_label(provider: IdentityProvider) -> str:
         cfg = {}
     if provider.type == "github":
         return cfg.get("org_login") or cfg.get("login") or "github"
+    if provider.type == "google_workspace":
+        return cfg.get("domain") or cfg.get("admin_email") or "google_workspace"
+    if provider.type == "entra_id":
+        return cfg.get("tenant_id") or cfg.get("admin_email") or "entra"
     groups = cfg.get("group_ids") or ([cfg["group_id"]] if cfg.get("group_id") else [])
     return groups[0] if groups else cfg.get("username") or "gitlab"
 
