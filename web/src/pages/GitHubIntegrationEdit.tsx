@@ -134,9 +134,9 @@ export default function GitHubIntegrationEdit() {
     return (
       <div className="mx-auto max-w-5xl rounded-lg border border-zinc-200 bg-white p-6">
         <h1 className="text-xl font-semibold text-zinc-950">GitHub is not connected</h1>
-        <p className="mt-2 text-sm text-zinc-600">Connect GitHub before choosing evidence scope.</p>
+        <p className="mt-2 text-sm text-zinc-600">Connect GitHub before choosing scope.</p>
         <Link to="/integrations/github" className="mt-5 inline-flex rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
-          Back to GitHub evidence
+          Back to GitHub
         </Link>
       </div>
     );
@@ -144,9 +144,13 @@ export default function GitHubIntegrationEdit() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-10">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-950">GitHub scope</h1>
+      </div>
+
       {justConnected && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          GitHub connected. Select at least one organization below, then save to start syncing evidence.
+          GitHub connected. Select at least one organization below, then save to start syncing.
         </div>
       )}
 
@@ -157,7 +161,7 @@ export default function GitHubIntegrationEdit() {
               <GitHubMark className="h-6 w-6" />
             </span>
             <div>
-              <h1 className="text-xl font-semibold text-zinc-950">Edit evidence scope</h1>
+              <h2 className="text-xl font-semibold text-zinc-950">Source access</h2>
               <p className="mt-1 text-sm text-zinc-500">Authenticated as {provider.data.login || "GitHub user"}</p>
             </div>
           </div>
@@ -175,7 +179,7 @@ export default function GitHubIntegrationEdit() {
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-medium text-zinc-950">Connected sources</div>
-              <div className="mt-1 text-sm text-zinc-500">Choose which GitHub owners can feed evidence.</div>
+              <div className="mt-1 text-sm text-zinc-500">Choose which GitHub owners can feed this workspace.</div>
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">{orgLogins.length} selected</div>
           </div>
