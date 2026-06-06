@@ -1,19 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import {
   formatSync,
   GitHubMark,
   IconBranch,
-  IconClock,
   IconRepo,
   IconShield,
   IconSync,
   IconUsers,
-  OpStatusRow,
   ProgressBar,
   Spinner,
+  StatusDot,
 } from "../components/IntegrationsUi";
 import { GITHUB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
@@ -49,6 +48,137 @@ const EVIDENCE_TYPES = [
   { key: "merge", label: "Self-merge checks", icon: IconShield },
   { key: "branch", label: "Branch protections", icon: IconBranch },
 ] as const;
+
+type HealthTone = "ok" | "warn" | "idle" | "sync";
+
+function HealthStrip({
+  items,
+}: {
+  items: { label: string; value: string; tone: HealthTone }[];
+}) {
+  const railClass: Record<HealthTone, string> = {
+    ok: "bg-emerald-400",
+    sync: "bg-indigo-400",
+    warn: "bg-amber-400",
+    idle: "bg-slate-300",
+  };
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="relative overflow-hidden rounded-xl border border-zinc-200/90 bg-white px-4 py-3.5 shadow-sm shadow-zinc-950/[0.025]"
+        >
+          <span className={`absolute inset-y-3 left-0 w-0.5 rounded-r-full ${railClass[item.tone]}`} />
+          <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">{item.label}</span>
+          <span className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-950">
+            <StatusDot tone={item.tone} />
+            {item.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PanelCard({
+  title,
+  description,
+  children,
+  accent,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  accent?: "warn" | "ok" | "none";
+}) {
+  const accentCls =
+    accent === "warn"
+      ? "border-l-[3px] border-l-amber-400"
+      : accent === "ok"
+        ? "border-l-[3px] border-l-emerald-400"
+        : "";
+
+  return (
+    <section
+      className={`rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm shadow-zinc-950/[0.035] ${accentCls}`}
+    >
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-zinc-950">{title}</h3>
+        {description && <p className="mt-1 text-xs leading-relaxed text-zinc-500">{description}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function panelAccentCls(accent?: "warn" | "ok" | "none") {
+  if (accent === "warn") return "border-l-[3px] border-l-amber-400";
+  if (accent === "ok") return "border-l-[3px] border-l-emerald-400";
+  return "";
+}
+
+const HEADER_ACTION_BTN =
+  "inline-flex h-9 items-center justify-center rounded-[9px] px-4 text-[13px] font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60";
+
+const CARD_ACTION_LINK =
+  "inline-flex items-center gap-1.5 text-[13px] font-semibold text-zinc-800 transition hover:text-zinc-950";
+
+function EvidenceStatusPill({ status }: { status: "collected" | "review" | "pending" }) {
+  const cls =
+    status === "collected"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      : status === "review"
+        ? "bg-amber-50 text-amber-800 ring-amber-200"
+        : "bg-zinc-100 text-zinc-500 ring-zinc-200";
+  const label = status === "collected" ? "Collected" : status === "review" ? "Needs review" : "Pending";
+
+  return (
+    <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function BranchProtectionStatusPill({ status }: { status: "review" | "protected" | "pending" }) {
+  const cls =
+    status === "review"
+      ? "border border-[#fed7aa] bg-[#fff7ed] text-[#9a3412]"
+      : status === "protected"
+        ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+        : "border border-zinc-200 bg-zinc-100 text-zinc-500";
+  const label = status === "review" ? "Needs review" : status === "protected" ? "Protected" : "Pending";
+
+  return (
+    <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function ChecklistIcon({ status }: { status: "collected" | "review" | "pending" }) {
+  const cls =
+    status === "collected"
+      ? "bg-emerald-50 text-emerald-600 ring-emerald-200"
+      : status === "review"
+        ? "bg-amber-50 text-amber-700 ring-amber-200"
+        : "bg-zinc-100 text-zinc-400 ring-zinc-200";
+
+  return (
+    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1 ${cls}`}>
+      {status === "review" ? (
+        <span className="text-xs font-bold">!</span>
+      ) : status === "collected" ? (
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+        </svg>
+      ) : (
+        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50" />
+      )}
+    </span>
+  );
+}
 
 export default function GitHubIntegration() {
   const qc = useQueryClient();
@@ -101,11 +231,9 @@ export default function GitHubIntegration() {
 
   const p = provider.data;
   const syncTargets = p?.org_logins?.length ? p.org_logins : p?.org_login ? [p.org_login] : p?.login ? [p.login] : [];
-  const syncTarget = syncTargets.length > 1 ? `${syncTargets.length} sources` : syncTargets[0] || "No source selected";
   const selectedRepoCount = p?.selected_repos?.length || 0;
   const scannedRepoCount = p?.repos || 0;
   const currentScopeCount = selectedRepoCount || scannedRepoCount;
-  const scopeLabel = selectedRepoCount ? `${selectedRepoCount} selected repositories` : "All repositories";
   const hasScopeDrift = !!p?.last_synced_at && selectedRepoCount > 0 && scannedRepoCount > 0 && selectedRepoCount !== scannedRepoCount;
   const scopeDriftCount = Math.abs(selectedRepoCount - scannedRepoCount);
   const lastSyncAgeMs = p?.last_synced_at ? Date.now() - new Date(p.last_synced_at).getTime() : null;
@@ -121,17 +249,34 @@ export default function GitHubIntegration() {
   const protectedRepos = p?.protected_branches || 0;
   const missingProtections = Math.max((p?.repos || 0) - protectedRepos, 0);
   const protectedCoveragePercent = p?.repos ? Math.round((protectedRepos / p.repos) * 100) : 0;
-  const protectionTone = !p?.repos ? "neutral" : missingProtections ? "warn" : "ok";
   const scopeDriftSummary =
     selectedRepoCount < scannedRepoCount
       ? `${scopeDriftCount} ${pluralize(scopeDriftCount, "repository")} excluded after latest collection.`
       : `${scopeDriftCount} ${pluralize(scopeDriftCount, "repository")} added after latest collection.`;
+  const branchProtectionAccent: "warn" | "ok" | "none" = !p?.repos ? "none" : missingProtections ? "warn" : "ok";
+  const branchProtectionTone: "ok" | "warn" | "neutral" = !p?.repos ? "neutral" : missingProtections ? "warn" : "ok";
+  const branchProtectionStatus: "review" | "protected" | "pending" = !p?.repos || !p?.last_synced_at
+    ? "pending"
+    : missingProtections > 0 || hasScopeDrift
+      ? "review"
+      : "protected";
+  const branchProtectionNote = !p?.repos
+    ? "Run a sync to collect branch protection evidence."
+    : hasScopeDrift
+      ? `Scope drift detected. ${scopeDriftSummary}`
+      : missingProtections
+        ? "No branch protection evidence was found in the last collection."
+        : "All scoped repositories had branch protection evidence in the last collection.";
 
   const findingsUrl =
     "/findings?checks=github.org.mfa_not_enforced,github.org.dormant_members,github.repo.no_branch_protection,github.repo.self_merge_allowed,github.repo.insufficient_reviews";
 
+  const scopeSummary = currentScopeCount
+    ? `${currentScopeCount} ${pluralize(currentScopeCount, "repo")} in scope`
+    : "No repositories collected yet";
+
   return (
-    <div className="w-full space-y-8 pb-10">
+    <div className="w-full space-y-5 pb-10">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
           <Link to="/integrations" className="text-sky-700 hover:underline">
@@ -139,10 +284,14 @@ export default function GitHubIntegration() {
           </Link>
           {" / "}Source control
         </p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-950">GitHub evidence</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-500">
-          Identity, repository controls, and pull request activity synced into compliance evidence.
-        </p>
+        {!p && (
+          <>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-zinc-950">GitHub evidence source</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-500">
+              Repository controls and pull request activity synced into compliance evidence.
+            </p>
+          </>
+        )}
       </div>
 
       {connectedBanner && (
@@ -204,187 +353,212 @@ export default function GitHubIntegration() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.04]">
-          {/* Hero header */}
-          <div className="border-b border-zinc-100 bg-zinc-50/40 px-6 py-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-zinc-950 text-white shadow-sm">
-                  <GitHubMark className="h-7 w-7" />
+        <div className="space-y-4">
+          {/* Compact page header */}
+          <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-950 text-white shadow-sm">
+                  <GitHubMark className="h-5 w-5" />
                 </span>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-bold text-zinc-950">GitHub</h2>
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
-                      Connected
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    Authenticated as <span className="font-medium text-zinc-800">{p.login || "GitHub user"}</span>
-                    {" · "}
-                    {syncTarget}
-                  </p>
-                  <p className="mt-0.5 text-xs text-zinc-400">{scopeLabel}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  to="/integrations/github/edit"
-                  className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
-                >
-                  Edit scope
-                </Link>
-                <button
-                  onClick={() => sync.mutate()}
-                  disabled={isSyncing || syncTargets.length === 0}
-                  className="rounded-lg bg-zinc-950 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSyncing ? "Syncing…" : "Sync now"}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5">
-              <OpStatusRow
-                items={[
-                  {
-                    icon: <IconSync className="h-3.5 w-3.5" />,
-                    label: "Sync health",
-                    value: syncState,
-                    tone: isSyncing ? "sync" : syncTone,
-                  },
-                  {
-                    icon: <IconShield className="h-3.5 w-3.5" />,
-                    label: "Permissions",
-                    value: "OAuth healthy",
-                    tone: "ok",
-                  },
-                  {
-                    icon: <IconClock className="h-3.5 w-3.5" />,
-                    label: "Last collection",
-                    value: lastCollectionLabel,
-                    tone: p.last_synced_at ? "ok" : "idle",
-                  },
-                  {
-                    icon: <IconRepo className="h-3.5 w-3.5" />,
-                    label: "Scope",
-                    value: currentScopeCount ? `${currentScopeCount} repos` : "Not collected",
-                    tone: currentScopeCount ? "ok" : "idle",
-                  },
-                ]}
-              />
-            </div>
-          </div>
-
-          {/* Evidence metrics */}
-          <div className="grid gap-px bg-zinc-100 sm:grid-cols-4">
-            {[
-              { icon: IconUsers, label: "Members", value: p.identity_users },
-              { icon: IconRepo, label: "Repositories", value: p.repos },
-              { icon: IconBranch, label: "Protected", value: protectedRepos },
-              { icon: IconSync, label: "Merged PRs", value: p.pull_requests },
-            ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="flex items-center gap-3 bg-white px-5 py-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-50 text-zinc-500 ring-1 ring-zinc-200/80">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div>
-                  <div className="text-xl font-bold tabular-nums text-zinc-950">{value}</div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid gap-6 p-6 lg:grid-cols-[1fr_1fr]">
-            {/* Branch protection visual */}
-            <div>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-zinc-900">Branch protection coverage</h3>
-                  <p className="mt-0.5 text-xs text-zinc-500">Repositories with protection rules during last collection</p>
-                </div>
-                <span className="text-2xl font-bold tabular-nums text-zinc-950">
-                  {protectedRepos}
-                  <span className="text-base font-medium text-zinc-400">/{p.repos || 0}</span>
+                <h1 className="text-2xl font-bold tracking-tight text-zinc-950">GitHub evidence source</h1>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">
+                  Connected
                 </span>
               </div>
-              <ProgressBar
-                value={protectedCoveragePercent}
-                tone={protectionTone}
-                label={`${protectedCoveragePercent}% of scoped repositories protected`}
-              />
-              <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                {!p.repos
-                  ? "Run a sync to collect branch protection evidence."
-                  : hasScopeDrift
-                    ? `Scope drift detected. ${scopeDriftSummary}`
-                    : missingProtections
-                      ? `${missingProtections} ${pluralize(missingProtections, "repository")} missing branch protection evidence.`
-                      : "All analyzed repositories have branch protection evidence."}
+              <p className="mt-2 text-sm text-zinc-600">
+                Repository evidence for{" "}
+                <span className="font-semibold text-zinc-900">{p.login || "GitHub user"}</span>
+                {" · "}
+                {scopeSummary}
               </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Link
+                to="/integrations/github/edit"
+                className={`${HEADER_ACTION_BTN} border border-slate-200 bg-white text-slate-700 shadow-sm shadow-slate-950/[0.03] hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-md hover:shadow-zinc-950/[0.07]`}
+              >
+                Edit scope
+              </Link>
+              <button
+                onClick={() => sync.mutate()}
+                disabled={isSyncing || syncTargets.length === 0}
+                className={`${HEADER_ACTION_BTN} bg-zinc-950 text-white shadow-sm shadow-zinc-950/10 hover:bg-zinc-800`}
+              >
+                {isSyncing ? "Syncing…" : "Sync now"}
+              </button>
+            </div>
+          </header>
+
+          {/* Health strip */}
+          <HealthStrip
+            items={[
+              {
+                label: "Sync health",
+                value: syncState,
+                tone: isSyncing ? "sync" : syncTone,
+              },
+              {
+                label: "Permissions",
+                value: "OAuth healthy",
+                tone: "ok",
+              },
+              {
+                label: "Scope",
+                value: currentScopeCount ? `${currentScopeCount} repos` : "Not collected",
+                tone: currentScopeCount ? "ok" : "idle",
+              },
+              {
+                label: "Last collection",
+                value: lastCollectionLabel,
+                tone: p.last_synced_at ? "ok" : "idle",
+              },
+            ]}
+          />
+
+          {/* Coverage + evidence */}
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+            <section
+              className={`flex min-h-0 flex-col gap-[18px] rounded-xl border border-zinc-200/90 bg-white p-5 shadow-sm shadow-zinc-950/[0.035] ${panelAccentCls(branchProtectionAccent)}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-sm font-bold text-zinc-950">Branch protection coverage</h3>
+                <BranchProtectionStatusPill status={branchProtectionStatus} />
+              </div>
+
+              <div>
+                <p className="text-lg font-semibold tracking-[-0.01em] text-zinc-950">
+                  {protectedRepos} of {p.repos || 0} repositories protected
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">{branchProtectionNote}</p>
+              </div>
+
               {hasScopeDrift && (
-                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   Coverage changed after the latest sync. Run sync to refresh metrics.
                 </div>
               )}
-            </div>
 
-            {/* Evidence types collected */}
-            <div>
-              <h3 className="text-sm font-bold text-zinc-900">Evidence types</h3>
-              <p className="mt-0.5 text-xs text-zinc-500">Change-management and identity artifacts in your evidence pack</p>
-              <div className="mt-3 space-y-2">
-                {EVIDENCE_TYPES.map(({ key, label, icon: Icon }) => {
+              <div>
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                  <span className="font-medium text-zinc-500">Coverage</span>
+                  <span className="font-semibold tabular-nums text-zinc-800">{protectedCoveragePercent}%</span>
+                </div>
+                <ProgressBar value={protectedCoveragePercent} tone={branchProtectionTone} />
+              </div>
+
+              <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-1">
+                {missingProtections > 0 && (
+                  <Link to="/findings?checks=github.repo.no_branch_protection" className={CARD_ACTION_LINK}>
+                    View missing repositories
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </Link>
+                )}
+                <Link to={findingsUrl} className={CARD_ACTION_LINK}>
+                  View GitHub findings
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+              </div>
+            </section>
+
+            <PanelCard
+              title="Evidence collected"
+              description="Change-management and identity artifacts in your evidence pack"
+            >
+              <ul className="space-y-2">
+                {EVIDENCE_TYPES.map(({ key, label }) => {
                   const collected = !!p.last_synced_at;
                   const branchGap = key === "branch" && collected && missingProtections > 0;
+                  const status: "collected" | "review" | "pending" = !collected
+                    ? "pending"
+                    : branchGap
+                      ? "review"
+                      : "collected";
+
                   return (
-                    <div
+                    <li
                       key={key}
                       className="flex items-center justify-between gap-3 rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5"
                     >
-                      <span className="flex items-center gap-2.5 text-sm text-zinc-700">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-zinc-500 ring-1 ring-zinc-200/80">
-                          <Icon className="h-3.5 w-3.5" />
-                        </span>
+                      <span className="flex min-w-0 items-center gap-2.5 text-sm font-medium text-zinc-800">
+                        <ChecklistIcon status={status} />
                         {label}
                       </span>
-                      <span
-                        className={`text-xs font-semibold ${
-                          !collected ? "text-zinc-400" : branchGap ? "text-amber-700" : "text-emerald-700"
-                        }`}
-                      >
-                        {!collected ? "Pending" : branchGap ? "Needs review" : "Collected"}
-                      </span>
-                    </div>
+                      <EvidenceStatusPill status={status} />
+                    </li>
                   );
                 })}
+              </ul>
+            </PanelCard>
+          </div>
+
+          <PanelCard title="Repository coverage" description="Members, repositories, and activity from the last collection">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { icon: IconUsers, label: "Members", value: p.identity_users },
+                { icon: IconRepo, label: "Repositories", value: p.repos },
+                { icon: IconBranch, label: "Protected", value: protectedRepos },
+                { icon: IconSync, label: "Merged PRs", value: p.pull_requests },
+              ].map(({ icon: Icon, label, value }) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/70 px-3.5 py-3"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-zinc-500 ring-1 ring-zinc-200/80">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-xl font-bold tabular-nums text-zinc-950">{value}</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PanelCard>
+
+          {/* Connection settings — danger zone collapsed by default */}
+          <details className="group rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.02]">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-zinc-700 marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center justify-between gap-3">
+                Connection settings
+                <svg
+                  className="h-4 w-4 text-zinc-400 transition group-open:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </span>
+            </summary>
+            <div className="p-3 pt-0">
+              <div className="flex flex-wrap items-center justify-between gap-6 rounded-[10px] border border-red-100 border-l-[3px] border-l-red-300 bg-[#fffafa] px-4 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-red-700">Danger zone</p>
+                  <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                    Disconnecting GitHub stops future evidence collection. Existing findings remain until the next sync
+                    clears them.
+                  </p>
+                </div>
+                <button
+                  onClick={() => disconnect.mutate()}
+                  disabled={disconnect.isPending}
+                  className="inline-flex h-[34px] shrink-0 items-center rounded-lg border border-red-200 bg-white px-3.5 text-xs font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-50/50 disabled:opacity-60"
+                >
+                  {disconnect.isPending ? "Disconnecting…" : "Disconnect GitHub"}
+                </button>
               </div>
             </div>
-          </div>
-
-          {/* Actions footer */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-zinc-100 bg-zinc-50/30 px-6 py-4">
-            <Link
-              to={findingsUrl}
-              className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-sky-800 hover:bg-sky-50"
-            >
-              View GitHub findings
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
-            <button
-              onClick={() => disconnect.mutate()}
-              disabled={disconnect.isPending}
-              className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-60"
-            >
-              {disconnect.isPending ? "Disconnecting…" : "Disconnect GitHub"}
-            </button>
-          </div>
+          </details>
 
           {sync.error && (
-            <div className="border-t border-red-100 bg-red-50 px-6 py-3 text-sm text-red-800">
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {(sync.error as Error).message}
             </div>
           )}

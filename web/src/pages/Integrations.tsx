@@ -4,13 +4,9 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { ProductShell } from "../components/ProductShell";
+import NotificationsBell from "../components/NotificationsBell";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
-import {
-  anyRemediationEnabled,
-  DEFAULT_REMEDIATION_MODULES,
-  type RemediationModules,
-} from "../data/remediationModules";
 import {
   AwsBrandTile,
   formatSync,
@@ -38,21 +34,7 @@ type AccountRow = {
   account_id: string | null;
   label: string;
   last_scan_at: string | null;
-  remediation_modules: RemediationModules;
 };
-
-const AWS_INTEGRATION_VALUE_PROP_DEFAULT =
-  "Read-only AWS posture scans mapped to SOC 2, CIS, and ISO controls, plus evidence packs.";
-
-const AWS_INTEGRATION_VALUE_PROP_WITH_REMEDIATION =
-  "Read-only AWS posture scans mapped to SOC 2, CIS, and ISO controls, plus evidence packs and SSM remediation.";
-
-function awsIntegrationValueProp(account: AccountRow | undefined): string {
-  if (!account) return AWS_INTEGRATION_VALUE_PROP_DEFAULT;
-  const modules = account.remediation_modules ?? DEFAULT_REMEDIATION_MODULES;
-  if (anyRemediationEnabled(modules)) return AWS_INTEGRATION_VALUE_PROP_WITH_REMEDIATION;
-  return AWS_INTEGRATION_VALUE_PROP_DEFAULT;
-}
 
 type SettingsSlice = {
   notifications: {
@@ -152,8 +134,8 @@ function StatsRow({
 }) {
   const spacing = compact ? "mt-4" : "mt-5";
   return (
-    <div className={spacing}>
-      <div className="grid gap-3 sm:grid-cols-3">{children}</div>
+    <div className={`${spacing} overflow-hidden rounded-xl border border-slate-200/70 bg-slate-50/60`}>
+      <div className="grid divide-y divide-slate-200/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0">{children}</div>
     </div>
   );
 }
@@ -170,8 +152,8 @@ function StatColumn({
   valueTone?: Tone;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-zinc-100 bg-zinc-50/70 px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500">
+    <div className="min-w-0 px-3.5 py-3">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
         <span className="text-zinc-400">{icon}</span>
         {label}
       </div>
@@ -186,7 +168,7 @@ function EvidenceTags({ types }: { types: string[] }) {
       {types.map((t) => (
         <span
           key={t}
-          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600"
+          className="rounded-md border border-[#edf1f6] bg-[#f8fafc] px-2.5 py-1.5 text-[12px] font-medium text-[#5f6673]"
         >
           {t}
         </span>
@@ -208,14 +190,31 @@ function IconGear({ className = "h-3.5 w-3.5" }: { className?: string }) {
   );
 }
 
-function CardAction({ href, label, connect = false }: { href: string; label: string; connect?: boolean }) {
+function CardAction({
+  href,
+  label,
+  connect = false,
+  accent = "none",
+}: {
+  href: string;
+  label: string;
+  connect?: boolean;
+  accent?: IntegrationCard["accent"];
+}) {
+  const manageAccentCls =
+    !connect && accent === "primary"
+      ? "border-l-[3px] border-l-transparent hover:border-l-sky-400"
+      : !connect && accent === "connected"
+        ? "border-l-[3px] border-l-transparent hover:border-l-emerald-400"
+        : "";
+
   return (
     <Link
       to={href}
-      className={`inline-flex min-w-[116px] items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-semibold transition ${
+      className={`inline-flex min-w-[116px] items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
         connect
-          ? "border-indigo-200 bg-indigo-600 text-white shadow-sm shadow-indigo-950/10 hover:border-indigo-600 hover:bg-indigo-700"
-          : "border-indigo-200 bg-white text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50/40"
+          ? "border-indigo-500 bg-indigo-600 text-white shadow-sm shadow-indigo-950/10 hover:border-indigo-600 hover:bg-indigo-700"
+          : `border-slate-200 bg-white text-slate-700 shadow-sm shadow-slate-950/[0.03] hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-md hover:shadow-zinc-950/[0.07] ${manageAccentCls}`
       }`}
     >
       {connect ? <IconSync className="h-4 w-4" /> : <IconGear className="h-4 w-4" />}
@@ -254,7 +253,7 @@ function IntegrationCardView({ card }: { card: IntegrationCard }) {
               <StatusPill label={status.label} tone={status.tone} />
               {card.primarySource && <PrimarySourceBadge />}
             </div>
-            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-600">{card.valueProp}</p>
+            <p className="mt-1.5 truncate text-sm text-zinc-600">{card.valueProp}</p>
           </div>
         </div>
 
@@ -270,25 +269,47 @@ function IntegrationCardView({ card }: { card: IntegrationCard }) {
         </StatsRow>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-[#d9e2ee] bg-slate-50/60 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
+      <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-slate-300/80 bg-slate-50/60 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
         <EvidenceTags types={card.evidenceTypes} />
-        <CardAction href={card.href} label={card.cta} connect={!card.connected && card.cta === "Connect"} />
+        <CardAction
+          href={card.href}
+          label={card.cta}
+          connect={!card.connected && card.cta === "Connect"}
+          accent={card.accent}
+        />
       </div>
     </article>
   );
 }
 
 function SummaryStrip({ items }: { items: SummaryMetric[] }) {
+  const railClass: Record<Tone, string> = {
+    ok: "bg-emerald-400",
+    sync: "bg-indigo-400",
+    warn: "bg-amber-400",
+    idle: "bg-slate-300",
+  };
+  const valueClass: Record<Tone, string> = {
+    ok: "text-slate-950",
+    sync: "text-slate-950",
+    warn: "text-amber-700",
+    idle: "text-slate-950",
+  };
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-3">
       {items.map((item) => (
         <div
           key={item.label}
-          className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-white px-4 py-3 shadow-sm shadow-zinc-950/[0.025]"
+          className="relative overflow-hidden rounded-xl border border-zinc-200/90 bg-white px-4 py-3.5 shadow-sm shadow-zinc-950/[0.025]"
         >
-          <span className="text-[12px] font-semibold text-zinc-500">{item.label}</span>
-          <span className="flex items-center gap-2 text-lg font-bold tabular-nums tracking-[-0.02em] text-zinc-950">
-            {item.tone && <StatusDot tone={item.tone} />}
+          {item.tone && <span className={`absolute inset-y-3 left-0 w-0.5 rounded-r-full ${railClass[item.tone]}`} />}
+          <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">{item.label}</span>
+          <span
+            className={`mt-2 block text-2xl font-extrabold leading-none tabular-nums tracking-[-0.03em] ${
+              item.tone ? valueClass[item.tone] : "text-slate-950"
+            }`}
+          >
             {item.value}
           </span>
         </div>
@@ -318,6 +339,109 @@ function IntegrationSection({
           <IntegrationCardView key={card.name} card={card} />
         ))}
       </div>
+    </section>
+  );
+}
+
+type CatalogueEntry = {
+  name: string;
+  href?: string;
+  icon: ReactNode;
+  iconBg: string;
+  comingSoon?: boolean;
+};
+
+const COMING_SOON_CATALOGUE: CatalogueEntry[] = [
+  {
+    name: "Jira",
+    comingSoon: true,
+    iconBg: "bg-[#0052CC]",
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+        <path d="M11.53 2C6.82 2 3 5.82 3 10.53c0 2.31 1.01 4.39 2.61 5.82L2 22l5.92-3.47A9.42 9.42 0 0 0 11.53 19c4.71 0 8.53-3.82 8.53-8.47C20.06 5.82 16.24 2 11.53 2Z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Azure DevOps",
+    comingSoon: true,
+    iconBg: "bg-[#0078D4]",
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+        <path d="M5.4 4.2h8.28l-1.02 5.58 5.94-2.78L8.9 19.8 7.2 12.6l-4.5 2.1L5.4 4.2z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Datadog",
+    comingSoon: true,
+    iconBg: "bg-[#632CA6]",
+    icon: (
+      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+        <path d="M12 3c-4.2 0-7.6 3.1-8.2 7.1l2.1.4c.5-3 3.1-5.2 6.1-5.2 3.4 0 6.2 2.8 6.2 6.2s-2.8 6.2-6.2 6.2c-1.6 0-3-.6-4.1-1.7L4.8 18.2A9.9 9.9 0 0 0 12 21c5.5 0 10-4.5 10-10S17.5 3 12 3Zm-1.1 5.8v4.4l3.8 2.2.9-1.5-2.9-1.7V8.8l-1.8-1Z" />
+      </svg>
+    ),
+  },
+];
+
+function CatalogueTile({ entry }: { entry: CatalogueEntry }) {
+  const body = (
+    <>
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${entry.iconBg} ${
+          entry.comingSoon ? "opacity-80" : ""
+        }`}
+      >
+        {entry.icon}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-zinc-950">{entry.name}</p>
+        <p className={`text-[11px] font-medium ${entry.comingSoon ? "text-zinc-400" : "text-indigo-600"}`}>
+          {entry.comingSoon ? "Coming soon" : "Connect"}
+        </p>
+      </div>
+    </>
+  );
+
+  const cls =
+    "flex w-[11.5rem] shrink-0 items-center gap-3 rounded-xl border border-zinc-200/90 bg-white px-3.5 py-3 shadow-sm shadow-zinc-950/[0.025]";
+
+  if (entry.comingSoon || !entry.href) {
+    return <div className={`${cls} opacity-75`}>{body}</div>;
+  }
+
+  return (
+    <Link
+      to={entry.href}
+      className={`${cls} transition hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-md hover:shadow-zinc-950/[0.04]`}
+    >
+      {body}
+    </Link>
+  );
+}
+
+function AvailableIntegrationsCatalogue({ slack }: { slack: IntegrationCard | null }) {
+  const entries: CatalogueEntry[] = [
+    ...(slack
+      ? [
+          {
+            name: slack.name,
+            href: slack.href,
+            iconBg: slack.iconBg,
+            icon: <span className="h-4 w-4">{slack.icon}</span>,
+          } satisfies CatalogueEntry,
+        ]
+      : []),
+    ...COMING_SOON_CATALOGUE,
+  ];
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-zinc-400">Available integrations</h2>
+        <p className="mt-1 text-sm text-zinc-500">Optional destinations and alerts you can connect next.</p>
+      </div>
+      <div className="flex flex-wrap gap-3">{entries.map((entry) => <CatalogueTile key={entry.name} entry={entry} />)}</div>
     </section>
   );
 }
@@ -376,8 +500,8 @@ function IntegrationsContent() {
 
   const awsCard: IntegrationCard = {
     name: "AWS",
-    valueProp: awsIntegrationValueProp(awsAccount),
-    icon: <AwsBrandTile className="h-14 w-14 p-2.5" />,
+    valueProp: "Posture scans, evidence packs, and SSM remediation.",
+    icon: <AwsBrandTile className="h-14 w-14 p-1.5" />,
     iconBg: "",
     framedIcon: true,
     href: "/accounts",
@@ -396,7 +520,7 @@ function IntegrationsContent() {
 
   const githubCard: IntegrationCard = {
     name: "GitHub",
-    valueProp: "Change-management evidence from repos and branch protection.",
+    valueProp: "Evidence from repositories, reviews, and branch protection.",
     icon: <GitHubMark className="h-full w-full" />,
     iconBg: "bg-zinc-950",
     href: "/integrations/github",
@@ -414,7 +538,7 @@ function IntegrationsContent() {
 
   const gitlabCard: IntegrationCard = {
     name: "GitLab",
-    valueProp: "Group and project policy evidence for merge requests.",
+    valueProp: "Evidence from merge requests and project policies.",
     icon: <GitLabMark className="h-full w-full" />,
     iconBg: "bg-[#e24329]",
     href: "/integrations/gitlab",
@@ -432,7 +556,7 @@ function IntegrationsContent() {
 
   const slackCard: IntegrationCard = {
     name: "Slack",
-    valueProp: "Weekly digests and scan-failure alerts to your channel.",
+    valueProp: "Scan alerts and weekly digests for your channel.",
     icon: <SlackMark className="h-full w-full" />,
     iconBg: "bg-[#4A154B]",
     href: "/settings",
@@ -448,29 +572,24 @@ function IntegrationsContent() {
   };
   const allCards = [awsCard, githubCard, gitlabCard, slackCard];
   const connectedCards = allCards.filter((card) => card.primarySource || card.connected || card.syncing);
-  const availableCards = allCards.filter((card) => !connectedCards.includes(card));
-  const evidenceSourceCount = connectedCards.filter((card) => card.name !== "Slack").length;
+  const availableSlack = !slackConnected ? slackCard : null;
   const summaryMetrics: SummaryMetric[] = [
     { label: "Connected", value: connectedCount, tone: "ok" },
     { label: "Syncing", value: syncingCount, tone: syncingCount > 0 ? "sync" : "idle" },
     { label: "Errors", value: errorCount, tone: errorCount > 0 ? "warn" : "idle" },
-    { label: "Evidence sources", value: evidenceSourceCount, tone: evidenceSourceCount > 0 ? "ok" : "idle" },
   ];
 
   return (
     <div className="min-h-full bg-[#f8fafc]">
       <div className="w-full space-y-6 pb-8">
-        <header className="flex flex-wrap items-end justify-between gap-4">
+        <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Integrations</h1>
             <p className="mt-1 max-w-2xl text-sm text-zinc-500">
-              Connected sources that feed findings, compliance mapping, and audit evidence.
+              Connected sources for findings, compliance mapping, and audit evidence.
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-            {connectedCount} connected
-          </span>
+          <NotificationsBell />
         </header>
 
         <SummaryStrip items={summaryMetrics} />
@@ -482,11 +601,7 @@ function IntegrationsContent() {
           description="Active sources that feed findings, compliance mappings, and audit evidence."
           cards={connectedCards}
         />
-        <IntegrationSection
-          title="Available integrations"
-          description="Optional destinations and evidence sources you can connect next."
-          cards={availableCards}
-        />
+        <AvailableIntegrationsCatalogue slack={availableSlack} />
       </div>
     </div>
   );
