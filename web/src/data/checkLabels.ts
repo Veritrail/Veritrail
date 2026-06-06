@@ -103,11 +103,15 @@ export const checkLabels: Record<string, string> = {
   "github.repo.no_env_protection": "Deployment environment unprotected",
   "github.repo.self_merge_allowed": "Self-merge allowed",
   "github.repo.insufficient_reviews": "Insufficient PR reviews",
+  "github.repo.dependabot_disabled": "Dependabot alerts disabled",
+  "github.repo.code_scanning_disabled": "Code scanning disabled",
+  "github.repo.secret_scanning_disabled": "Secret scanning disabled",
   "gitlab.org.mfa_not_enforced": "GitLab MFA not enforced",
   "gitlab.org.dormant_members": "GitLab dormant members",
   "gitlab.repo.no_branch_protection": "No branch protection",
   "gitlab.repo.self_merge_allowed": "Self-merge allowed",
   "gitlab.repo.insufficient_reviews": "Insufficient MR reviews",
+  "gitlab.repo.no_env_protection": "Protected environment unapproved",
 };
 
 export function labelForCheck(id: string): string {

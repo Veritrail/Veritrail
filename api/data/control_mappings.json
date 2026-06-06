@@ -187,7 +187,11 @@
       "github.repo.no_env_protection",
       "github.repo.self_merge_allowed",
       "github.repo.insufficient_reviews",
+      "github.repo.dependabot_disabled",
+      "github.repo.code_scanning_disabled",
+      "github.repo.secret_scanning_disabled",
       "gitlab.repo.no_branch_protection",
+      "gitlab.repo.no_env_protection",
       "gitlab.repo.self_merge_allowed",
       "gitlab.repo.insufficient_reviews"
     ]

@@ -193,6 +193,37 @@ def run_self_merge(db: Session, account_id, provider_type: str, check_id: str) -
     return out
 
 
+def run_no_env_protection(db: Session, account_id, provider_type: str, check_id: str) -> list[FindingDraft]:
+    out: list[FindingDraft] = []
+    for provider in _providers_of_type(db, account_id, provider_type):
+        source = _source_label(provider)
+        repos = db.scalars(select(Repo).where(Repo.provider_id == provider.id)).all()
+        for repo in repos:
+            envs = repo.protected_envs
+            if not envs:
+                continue
+            unprotected = [e["name"] for e in envs if not e.get("has_required_reviewers")]
+            if not unprotected:
+                continue
+            out.append(
+                FindingDraft(
+                    check_id=check_id,
+                    resource_arn=f"{provider_type}://{source}/{repo.name}",
+                    title=f"Repository `{repo.name}` has deployment environments with no required reviewers",
+                    severity="high",
+                    risk_score=score("high"),
+                    evidence={
+                        "provider_type": provider_type,
+                        "source": source,
+                        "repo": repo.name,
+                        "unprotected_environments": unprotected,
+                        "all_environments": [e["name"] for e in envs],
+                    },
+                )
+            )
+    return out
+
+
 def run_insufficient_reviews(db: Session, account_id, provider_type: str, check_id: str) -> list[FindingDraft]:
     cutoff = datetime.now(timezone.utc) - timedelta(days=DORMANT_DAYS)
     out: list[FindingDraft] = []

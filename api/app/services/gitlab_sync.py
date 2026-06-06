@@ -106,6 +106,7 @@ def _upsert_repo(
     now: datetime,
     *,
     has_codeowners: bool | None = None,
+    protected_envs: list | None = None,
 ) -> Repo:
     external_id = str(project["id"])
     row = db.scalar(select(Repo).where(Repo.provider_id == provider_id, Repo.external_id == external_id))
@@ -116,6 +117,8 @@ def _upsert_repo(
     row.default_branch = project.get("default_branch")
     if has_codeowners is not None:
         row.has_codeowners = has_codeowners
+    if protected_envs is not None:
+        row.protected_envs = protected_envs
     row.snapshot_taken_at = now
     return row
 
@@ -200,6 +203,32 @@ def _upsert_ci_pipeline(
     row.snapshot_taken_at = now
 
 
+def _collect_protected_environments(
+    client: httpx.Client,
+    api_base: str,
+    project_id: int,
+) -> list[dict[str, Any]]:
+    resp = client.get(f"{api_base}/projects/{project_id}/protected_environments")
+    if resp.status_code != 200:
+        return []
+    envs: list[dict[str, Any]] = []
+    for env in resp.json():
+        name = env.get("name", "")
+        if not name:
+            continue
+        required = int(env.get("required_approval_count") or 0)
+        approval_rules = env.get("approval_rules") or []
+        has_reviewers = required > 0 or bool(approval_rules)
+        envs.append(
+            {
+                "name": name,
+                "has_required_reviewers": has_reviewers,
+                "reviewer_count": required or len(approval_rules),
+            }
+        )
+    return envs
+
+
 def _collect_ci_pipelines(
     client: httpx.Client,
     db: Session,
@@ -282,8 +311,14 @@ def sync_gitlab_provider(
                 project_id = project["id"]
                 default_branch = project.get("default_branch")
                 has_codeowners = _check_codeowners(client, api, project_id, default_branch)
+                protected_envs = _collect_protected_environments(client, api, project_id)
                 repo = _upsert_repo(
-                    db, provider.id, project, now, has_codeowners=has_codeowners
+                    db,
+                    provider.id,
+                    project,
+                    now,
+                    has_codeowners=has_codeowners,
+                    protected_envs=protected_envs or None,
                 )
                 db.flush()
                 stats.repos += 1

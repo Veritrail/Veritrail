@@ -21,6 +21,20 @@ const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000"
 
 type Account = { id: string; label: string; account_id: string | null; status: string; last_scan_at: string | null };
 
+type CompositeControlRow = {
+  id: string;
+  control_id: string;
+  title: string;
+  description: string;
+  guidance: string | null;
+  soc2_criteria: string[];
+  check_ids: string[];
+  check_evidence_classes?: Record<string, string>;
+  status: "pass" | "fail" | "no_data";
+  finding_count: number;
+  open_finding_ids: string[];
+};
+
 type ControlRow = {
   id: string;
   framework: string;
@@ -375,6 +389,89 @@ function lastScanLabel(iso: string) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 48) return `${hrs}h ago`;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function CompositeControlsPanel({
+  rows,
+  findingCountByCheck,
+  expandedId,
+  onToggle,
+}: {
+  rows: CompositeControlRow[];
+  findingCountByCheck: Map<string, number>;
+  expandedId: string | null;
+  onToggle: (id: string) => void;
+}) {
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-2xl border border-indigo-200/70 bg-gradient-to-b from-indigo-50/40 to-white shadow-md shadow-indigo-950/[0.04] ring-1 ring-indigo-100/80">
+      <div className="border-b border-indigo-100/80 bg-indigo-50/50 px-5 py-3.5">
+        <h2 className="text-sm font-semibold text-indigo-950">Composite controls</h2>
+        <p className="mt-1 text-xs leading-relaxed text-indigo-800/75">
+          Auditor-facing roll-ups across multiple evidence signals. Individual SOC 2 criteria below remain the
+          authoritative mapping.
+        </p>
+      </div>
+      <div className="divide-y divide-indigo-100/60">
+        {rows.map((ctrl) => {
+          const isExpanded = expandedId === ctrl.id;
+          return (
+            <div key={ctrl.id}>
+              <button
+                type="button"
+                onClick={() => onToggle(ctrl.id)}
+                className={`grid w-full grid-cols-1 gap-3 border-l-2 py-4 pl-5 pr-5 text-left transition-colors sm:grid-cols-[auto_minmax(0,1fr)_3.5rem] sm:items-center sm:gap-4 ${statusAccent[ctrl.status]} ${
+                  isExpanded ? statusExpandedBg[ctrl.status] : "hover:bg-indigo-50/30"
+                }`}
+              >
+                <div className="sm:w-[5.5rem] shrink-0">
+                  <StatusIndicator status={ctrl.status} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="font-mono text-xs font-semibold text-indigo-600/90">{ctrl.control_id}</span>
+                    <span className="text-sm font-semibold leading-snug text-zinc-900">{ctrl.title}</span>
+                    {ctrl.soc2_criteria.length > 0 && (
+                      <span className="text-[11px] font-medium text-zinc-500">
+                        · {ctrl.soc2_criteria.join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500">
+                    {ctrl.check_ids.length} mapped check{ctrl.check_ids.length === 1 ? "" : "s"}
+                    {ctrl.status === "fail" && ctrl.finding_count > 0
+                      ? ` · ${ctrl.finding_count} open finding${ctrl.finding_count === 1 ? "" : "s"}`
+                      : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center justify-center">
+                  <FindingCountBadge count={ctrl.finding_count} status={ctrl.status} />
+                </div>
+              </button>
+              {isExpanded && (
+                <div className={`space-y-3 border-t border-indigo-100/70 px-5 pb-5 pt-4 sm:pl-[4.75rem] ${statusExpandedBg[ctrl.status]}`}>
+                  <p className="text-sm leading-relaxed text-zinc-700">{ctrl.description}</p>
+                  {ctrl.guidance && (
+                    <p className="rounded-xl border border-indigo-100/80 bg-white/80 px-3.5 py-2.5 text-xs leading-relaxed text-zinc-600">
+                      {ctrl.guidance}
+                    </p>
+                  )}
+                  <ControlEvaluationBlock checkIds={ctrl.check_ids} />
+                  <ControlFindingsBlock
+                    control={ctrl}
+                    checkIds={ctrl.check_ids}
+                    checkEvidenceClasses={ctrl.check_evidence_classes}
+                    findingCountByCheck={findingCountByCheck}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 function LoadingSkeleton() {
@@ -788,13 +885,15 @@ function ControlEvaluationBlock({ checkIds }: { checkIds: string[] }) {
   );
 }
 
+type ControlFindingsSummary = Pick<ControlRow, "status" | "finding_count">;
+
 function ControlFindingsBlock({
   control,
   checkIds,
   checkEvidenceClasses,
   findingCountByCheck,
 }: {
-  control: ControlRow;
+  control: ControlFindingsSummary;
   checkIds: string[];
   checkEvidenceClasses?: Record<string, string>;
   findingCountByCheck: Map<string, number>;
@@ -1037,6 +1136,7 @@ export default function Controls() {
   );
   const [selectedFamilyKey, setSelectedFamilyKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedComposite, setExpandedComposite] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [periodKey, setPeriodKey] = useState<string | number>(90);
   const [asOf, setAsOf] = useState("");
@@ -1079,6 +1179,15 @@ export default function Controls() {
         `/v1/controls?framework=${framework}${activeAccount ? `&account_id=${activeAccount.id}` : ""}`
       ),
     enabled: !accounts.isLoading,
+  });
+
+  const compositeControls = useQuery({
+    queryKey: ["controls", "composites", activeAccount?.id],
+    queryFn: () =>
+      api<CompositeControlRow[]>(
+        `/v1/controls/composites${activeAccount ? `?account_id=${activeAccount.id}` : ""}`,
+      ),
+    enabled: !accounts.isLoading && framework === "soc2",
   });
 
   const deepLinkDone = useRef(false);
@@ -1323,6 +1432,15 @@ export default function Controls() {
               )}
             </div>
           }
+        />
+      )}
+
+      {framework === "soc2" && !compositeControls.isLoading && (compositeControls.data?.length ?? 0) > 0 && (
+        <CompositeControlsPanel
+          rows={compositeControls.data ?? []}
+          findingCountByCheck={findingCountByCheck}
+          expandedId={expandedComposite}
+          onToggle={(id) => setExpandedComposite(expandedComposite === id ? null : id)}
         />
       )}
 

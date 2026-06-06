@@ -24,7 +24,8 @@ from app.services.check_evidence import all_evidence_classes, evidence_class_for
 from app.services.check_frameworks import check_framework_map, framework_catalog
 from app.services.cis_benchmark_coverage import cis_benchmark_coverage
 from app.services.compliance_timeline import build_control_history
-from app.services.finding_history import finding_open_for_control
+from app.services.composite_controls import list_composite_controls
+from app.services.control_status import compute_control_status
 
 router = APIRouter()
 
@@ -50,6 +51,24 @@ class ControlOut(BaseModel):
     check_tiers: dict[str, str] = {}
     check_evidence_classes: dict[str, str] = {}
     status: str          # pass | fail | no_data
+    finding_count: int
+    open_finding_ids: list[str]
+
+
+class CompositeControlOut(BaseModel):
+    id: str
+    control_id: str
+    title: str
+    description: str
+    guidance: str | None
+    soc2_criteria: list[str]
+    check_ids: list[str]
+    coverage_tier: str = "core"
+    coverage_label: str | None = None
+    extended_check_ids: list[str] = []
+    check_tiers: dict[str, str] = {}
+    check_evidence_classes: dict[str, str] = {}
+    status: str
     finding_count: int
     open_finding_ids: list[str]
 
@@ -91,6 +110,33 @@ def controls_for_check(check_id: str, p=Depends(current_principal)):
     from app.services.check_controls import check_control_bundle
 
     return check_control_bundle(check_id)
+
+
+@router.get("/composites", response_model=list[CompositeControlOut])
+def list_composite_controls_route(
+    account_id: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Auditor-facing composite roll-ups (Secure SDLC, Identity governance, etc.)."""
+    acc_id: uuid.UUID | None = None
+    if account_id:
+        acc = db.get(AwsAccount, uuid.UUID(account_id))
+        if not acc or str(acc.org_id) != p["org_id"]:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+        acc_id = acc.id
+    else:
+        acc = db.scalars(
+            select(AwsAccount).where(
+                AwsAccount.org_id == uuid.UUID(p["org_id"]),
+                AwsAccount.status == "connected",
+            )
+        ).first()
+        if acc:
+            acc_id = acc.id
+
+    rows = list_composite_controls(db, uuid.UUID(p["org_id"]), acc_id)
+    return [CompositeControlOut(**row) for row in rows]
 
 
 @router.get("", response_model=list[ControlOut])
@@ -174,24 +220,14 @@ def list_controls(
         )
         check_ids = [cid for cid in mapped_check_ids if cid not in hidden]
 
-        hits: list[Finding] = []
-        for cid in check_ids:
-            hits.extend(open_by_check.get(cid, []))
-
-        check_id_set = set(check_ids)
-        all_mapped_checks_ran = bool(check_id_set) and check_id_set.issubset(latest_checks_run)
-        any_mapped_check_failed = bool(check_id_set & latest_failed_checks)
-
-        if not check_ids:
-            ctrl_status = "no_data"
-        elif any(finding_open_for_control(f, f.status) for f in hits):
-            ctrl_status = "fail"
-        elif acc_id and acc and acc.last_scan_at and all_mapped_checks_ran and not any_mapped_check_failed:
-            ctrl_status = "pass"
-        else:
-            # No open findings is not enough to call the control passing.
-            # The latest scan must have successfully evaluated every visible mapped check.
-            ctrl_status = "no_data"
+        has_scanned = bool(acc_id and acc and acc.last_scan_at)
+        ctrl_status, hits, _ = compute_control_status(
+            check_ids,
+            open_by_check,
+            latest_checks_run,
+            latest_failed_checks,
+            has_scanned_account=has_scanned,
+        )
 
         detail = narrative_detail_for(ctrl.framework, ctrl.control_id, check_ids)
         cov_tier = control_coverage_tier(check_ids)

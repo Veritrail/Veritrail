@@ -107,6 +107,7 @@ def _upsert_repo(
     now: datetime,
     has_codeowners: bool | None = None,
     protected_envs: list | None = None,
+    security_features: dict | None = None,
 ) -> "Repo":
     external_id = str(gh_repo["id"])
     row = db.scalar(select(Repo).where(Repo.provider_id == provider_id, Repo.external_id == external_id))
@@ -119,6 +120,8 @@ def _upsert_repo(
         row.has_codeowners = has_codeowners
     if protected_envs is not None:
         row.protected_envs = protected_envs
+    if security_features is not None:
+        row.security_features = security_features
     row.snapshot_taken_at = now
     return row
 
@@ -146,6 +149,41 @@ def _collect_team_memberships(client: httpx.Client, owner: str) -> dict[str, lis
             if login:
                 login_to_teams.setdefault(login, []).append(slug)
     return login_to_teams
+
+
+def _collect_security_features(client: httpx.Client, owner: str, repo_name: str) -> dict[str, bool | None]:
+    """Metadata-only GitHub security feature flags (no source code read)."""
+    features: dict[str, bool | None] = {
+        "dependabot_alerts": None,
+        "code_scanning": None,
+        "secret_scanning": None,
+    }
+
+    dep_resp = client.get(f"{GITHUB_API}/repos/{owner}/{repo_name}/vulnerability-alerts")
+    if dep_resp.status_code == 204:
+        features["dependabot_alerts"] = True
+    elif dep_resp.status_code == 404:
+        features["dependabot_alerts"] = False
+
+    code_resp = client.get(
+        f"{GITHUB_API}/repos/{owner}/{repo_name}/code-scanning/analyses",
+        params={"per_page": 1},
+    )
+    if code_resp.status_code == 200:
+        features["code_scanning"] = bool(code_resp.json())
+    elif code_resp.status_code == 404:
+        features["code_scanning"] = False
+
+    secret_resp = client.get(
+        f"{GITHUB_API}/repos/{owner}/{repo_name}/secret-scanning/alerts",
+        params={"per_page": 1},
+    )
+    if secret_resp.status_code == 200:
+        features["secret_scanning"] = True
+    elif secret_resp.status_code == 404:
+        features["secret_scanning"] = False
+
+    return features
 
 
 def _collect_environments(client: httpx.Client, owner: str, repo_name: str) -> list[dict[str, Any]]:
@@ -365,8 +403,16 @@ def sync_github_provider(db: Session, provider: IdentityProvider, org_login: str
                 owner_name, repo_name = gh_repo["full_name"].split("/", 1)
                 has_codeowners = _check_codeowners(client, owner_name, repo_name)
                 protected_envs = _collect_environments(client, owner_name, repo_name)
-                repo = _upsert_repo(db, provider.id, gh_repo, now,
-                                    has_codeowners=has_codeowners, protected_envs=protected_envs)
+                security_features = _collect_security_features(client, owner_name, repo_name)
+                repo = _upsert_repo(
+                    db,
+                    provider.id,
+                    gh_repo,
+                    now,
+                    has_codeowners=has_codeowners,
+                    protected_envs=protected_envs,
+                    security_features=security_features,
+                )
                 db.flush()
                 stats.repos += 1
 

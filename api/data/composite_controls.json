@@ -1,0 +1,44 @@
+[
+  {
+    "id": "secure_sdlc",
+    "control_id": "COMPOSITE.SECURE_SDLC",
+    "title": "Secure SDLC",
+    "description": "Change-management controls for application delivery: branch protection, required reviews, self-merge prevention, and production deployment approvals across connected GitHub and GitLab evidence.",
+    "guidance": "Auditors sample SDLC process evidence — not source code. Vigil verifies branch protection, merge request approvals, environment protection, and security scanning metadata from connected Git providers.",
+    "soc2_criteria": ["CC6", "CC8"],
+    "checks": [
+      "github.repo.no_branch_protection",
+      "github.repo.no_env_protection",
+      "github.repo.self_merge_allowed",
+      "github.repo.insufficient_reviews",
+      "github.repo.dependabot_disabled",
+      "github.repo.code_scanning_disabled",
+      "github.repo.secret_scanning_disabled",
+      "gitlab.repo.no_branch_protection",
+      "gitlab.repo.no_env_protection",
+      "gitlab.repo.self_merge_allowed",
+      "gitlab.repo.insufficient_reviews"
+    ]
+  },
+  {
+    "id": "identity_governance",
+    "control_id": "COMPOSITE.IDENTITY_GOVERNANCE",
+    "title": "Identity Governance & Access Review",
+    "description": "Stale and over-privileged identity signals across AWS IAM and connected GitHub/GitLab organizations — inactive users, unused credentials, root posture, and org MFA enforcement.",
+    "guidance": "Covers automated evidence Vigil can collect without HR/IdP integration. Terminated-employee removal and periodic attestation remain manual gaps.",
+    "soc2_criteria": ["CC6"],
+    "checks": [
+      "iam.user.credentials_unused_45d",
+      "iam.access_key.unused_45d",
+      "iam.role.unassumed_90d",
+      "iam.root.no_mfa",
+      "iam.root.has_access_keys",
+      "iam.root.usage",
+      "iam.user.no_mfa",
+      "github.org.mfa_not_enforced",
+      "github.org.dormant_members",
+      "gitlab.org.mfa_not_enforced",
+      "gitlab.org.dormant_members"
+    ]
+  }
+]

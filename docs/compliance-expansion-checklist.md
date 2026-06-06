@@ -39,9 +39,9 @@ These are the **auditor-facing** units. Individual findings are evidence signals
 | Composite control | Status | Priority | Primary SOC2 | Notes |
 |-------------------|--------|----------|--------------|-------|
 | **Container vulnerability monitoring** | [ ] | **P0** | CC7.1–7.3, CC6.8 | Inspector ECR + EC2 + Lambda + alt sources (GitLab/GitHub CI metadata) |
-| **Secure SDLC** | [ ] | **P0** | CC6, CC8 | Branch protection, reviews, security scan jobs, **production deployment protection** |
+| **Secure SDLC** | [x] | **P0** | CC6, CC8 | Composite roll-up + GitHub security metadata checks |
 | **Change management** | [ ] | **P0** | CC6, CC8 | PR required, direct push blocked, audit trail retained |
-| **Identity governance & access review** | [~] | **P0** | **CC6** | **Was missing from v1 checklist — highest-impact gap** |
+| **Identity governance & access review** | [x] | **P0** | **CC6** | Composite roll-up over IAM + GitHub/GitLab signals |
 | **Logging & monitoring** | [~] | P1 | CC7 | CloudTrail, GuardDuty, Config — findings exist; roll-up needed |
 | **Vulnerability management** (account-wide) | [ ] | P1 | CC7 | Superset of container control; includes Inspector EC2/Lambda, patch posture |
 
@@ -64,7 +64,7 @@ One of the most common SOC 2 evidence requests. Must answer: *“Show me access 
 | **Break-glass / emergency accounts documented** | [ ] | P1 | Manual attestation + detect wildcard admin roles |
 | **Terminated employee removal (HR ↔ IdP)** | [ ] | **P0** | Requires **Google Workspace** or **Microsoft Entra** — before Jira |
 | **Periodic access review attestation** | [ ] | P1 | Product feature: quarterly sign-off export |
-| **Composite: Identity governance** pass/fail | [ ] | **P0** | Roll up above; prioritize **before DaemonSets** |
+| **Composite: Identity governance** pass/fail | [x] | **P0** | `COMPOSITE.IDENTITY_GOVERNANCE` via `/v1/controls/composites` |
 
 ---
 
@@ -150,11 +150,11 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 | Self-merge blocked | [x] | — | |
 | **GitHub environment protection (prod)** | [x] | — | `github.repo.no_env_protection` |
 | **GitHub required reviewers on environments** | [~] | **P0** | Partial via env protection check |
-| **GitLab protected environments / manual approvals** | [ ] | **P0** | Strong CC6 evidence — not yet parity with GitHub |
-| Dependabot / CodeQL / secret scanning enabled | [ ] | **P0** | GitHub metadata |
+| **GitLab protected environments / manual approvals** | [x] | **P0** | `gitlab.repo.no_env_protection` via protected environments API |
+| Dependabot / CodeQL / secret scanning enabled | [x] | **P0** | GitHub metadata — `github.repo.*_disabled` checks |
 | GitLab SAST / dependency / container scan jobs in CI | [ ] | **P0** | Pipeline metadata only |
 | Required status checks include security jobs | [ ] | **P0** | |
-| **Composite: Secure SDLC** | [ ] | **P0** | |
+| **Composite: Secure SDLC** | [x] | **P0** | `COMPOSITE.SECURE_SDLC` via `/v1/controls/composites` |
 | **Composite: Change management** | [ ] | **P0** | |
 
 ---
@@ -210,7 +210,7 @@ Mapping errors damage trust faster than UI bugs. Do **not** assume CC6.8 = vulne
 | Full ISO27001 mapping review | [ ] | **P0 pre-launch** |
 | Full CIS AWS mapping review | [ ] | **P0 pre-launch** |
 | Spot-check: root MFA, access keys, SG, CloudTrail, ECR, Inspector | [ ] | **P0 pre-launch** |
-| Composite control → finding roll-up documented in Controls UI | [ ] | P1 |
+| Composite control → finding roll-up documented in Controls UI | [x] | P1 |
 
 Source files: `api/data/control_mappings.json`, `web/src/data/checkComplianceCopy.ts`, `docs/cis-v5-40-controls.md`.
 
@@ -234,8 +234,8 @@ Source files: `api/data/control_mappings.json`, `web/src/data/checkComplianceCop
 1. [ ] Customer CFN stack update + re-scan (ECR/EKS/ECS)
 2. [ ] **Inspector integration** (ECR + EC2 + Lambda)
 3. [ ] **EKS logging + encryption checks**
-4. [ ] **Secure SDLC composite** + GitLab protected environments
-5. [ ] **Identity governance composite** (extend existing IAM/GitHub signals + admin review)
+4. [x] **Secure SDLC composite** + GitLab protected environments
+5. [x] **Identity governance composite** (extend existing IAM/GitHub signals + admin review)
 6. [ ] **Backup hardening** (schedule, restore test, RPO/RTO) — **Top 5 internal risk**
 7. [ ] **GitLab connector stability** (token refresh)
 
