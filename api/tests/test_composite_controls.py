@@ -11,12 +11,43 @@ from app.services.control_status import compute_control_status
 
 def test_composite_definitions_load():
     defs = composite_control_definitions()
-    assert len(defs) >= 2
+    assert len(defs) >= 6
     ids = {d["id"] for d in defs}
-    assert "secure_sdlc" in ids
-    assert "identity_governance" in ids
+    assert ids >= {
+        "secure_sdlc",
+        "identity_governance",
+        "change_management",
+        "container_vulnerability_monitoring",
+        "logging_monitoring",
+        "backup_resilience",
+    }
     for entry in defs:
         assert entry.get("checks"), f"{entry['id']} must map checks"
+        assert entry.get("control_id", "").startswith("COMPOSITE.")
+
+
+def test_tier3_composite_check_mappings():
+    by_id = {d["id"]: d for d in composite_control_definitions()}
+
+    change = by_id["change_management"]
+    assert "github.repo.no_branch_protection" in change["checks"]
+    assert "cloudtrail.trail.not_enabled" in change["checks"]
+    assert "github.repo.dependabot_disabled" not in change["checks"]
+
+    container = by_id["container_vulnerability_monitoring"]
+    assert "aws.vulnerability_monitoring.not_detected" in container["checks"]
+    assert "aws.inspector.active_critical_finding" in container["checks"]
+    assert "ecr.registry.enhanced_scanning_disabled" in container["checks"]
+
+    logging = by_id["logging_monitoring"]
+    assert "guardduty.detector.not_enabled" in logging["checks"]
+    assert "aws.config.not_enabled" in logging["checks"]
+    assert "cloudtrail.trail.not_enabled" in logging["checks"]
+
+    backup = by_id["backup_resilience"]
+    assert "rds.snapshot.public" in backup["checks"]
+    assert "ec2.ebs.snapshot_public" in backup["checks"]
+    assert "dynamodb.table.no_pitr" in backup["checks"]
 
 
 def test_composite_checks_exist_in_registry():

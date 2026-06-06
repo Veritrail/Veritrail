@@ -118,7 +118,7 @@ def list_composite_controls_route(
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
-    """Auditor-facing composite roll-ups (Secure SDLC, Identity governance, etc.)."""
+    """Auditor-facing composite roll-ups (Secure SDLC, change management, logging, etc.)."""
     acc_id: uuid.UUID | None = None
     if account_id:
         acc = db.get(AwsAccount, uuid.UUID(account_id))

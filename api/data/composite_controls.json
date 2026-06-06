@@ -40,5 +40,79 @@
       "gitlab.org.mfa_not_enforced",
       "gitlab.org.dormant_members"
     ]
+  },
+  {
+    "id": "change_management",
+    "control_id": "COMPOSITE.CHANGE_MANAGEMENT",
+    "title": "Change Management",
+    "description": "Authorized change controls: required pull-request reviews, blocked direct pushes and self-merges on protected branches, plus retained infrastructure audit trails via CloudTrail.",
+    "guidance": "Auditors sample change-management process evidence — branch protection and merge approvals from Git providers, plus CloudTrail retention for infrastructure changes.",
+    "soc2_criteria": ["CC6", "CC8"],
+    "checks": [
+      "github.repo.no_branch_protection",
+      "github.repo.self_merge_allowed",
+      "github.repo.insufficient_reviews",
+      "gitlab.repo.no_branch_protection",
+      "gitlab.repo.self_merge_allowed",
+      "gitlab.repo.insufficient_reviews",
+      "cloudtrail.trail.not_enabled",
+      "cloudtrail.trail.no_log_validation",
+      "cloudtrail.event.trail_tampering",
+      "cloudtrail.event.lambda_function_created_or_modified",
+      "cloudtrail.event.rds_instance_created_or_modified"
+    ]
+  },
+  {
+    "id": "container_vulnerability_monitoring",
+    "control_id": "COMPOSITE.CONTAINER_VULNERABILITY_MONITORING",
+    "title": "Container Vulnerability Monitoring",
+    "description": "Continuous vulnerability scanning evidence for container workloads — Amazon Inspector coverage (ECR, EC2, Lambda), ECR scan-on-push, enhanced registry scanning, and active critical findings.",
+    "guidance": "Auditors care that image and runtime vulnerabilities are tracked and remediated — not a specific vendor product. Wording avoids naming Inspector directly in customer-facing findings.",
+    "soc2_criteria": ["CC6.8", "CC7"],
+    "checks": [
+      "aws.vulnerability_monitoring.not_detected",
+      "aws.inspector.active_critical_finding",
+      "ecr.registry.enhanced_scanning_disabled",
+      "ecr.repository.image_scan_disabled"
+    ]
+  },
+  {
+    "id": "logging_monitoring",
+    "control_id": "COMPOSITE.LOGGING_MONITORING",
+    "title": "Logging & Monitoring",
+    "description": "Centralized audit logging, tamper-resistant CloudTrail delivery, threat detection via GuardDuty, and configuration change tracking via AWS Config.",
+    "guidance": "Roll-up of CC7 evidence signals. Individual CloudTrail, GuardDuty, and Config checks remain authoritative; this composite answers whether logging and monitoring controls are operating.",
+    "soc2_criteria": ["CC7"],
+    "checks": [
+      "cloudtrail.trail.not_enabled",
+      "cloudtrail.trail.no_log_validation",
+      "cloudtrail.trail.no_kms",
+      "cloudtrail.trail.s3_bucket_public",
+      "cloudtrail.trail.no_cloudwatch_logs",
+      "cloudtrail.trail.s3_bucket_no_logging",
+      "guardduty.detector.not_enabled",
+      "guardduty.open_findings",
+      "aws.config.not_enabled",
+      "aws.config.rules_non_compliant",
+      "cloudtrail.event.trail_tampering",
+      "cloudtrail.event.guardduty_disabled",
+      "cloudtrail.event.config_recorder_stopped"
+    ]
+  },
+  {
+    "id": "backup_resilience",
+    "control_id": "COMPOSITE.BACKUP_RESILIENCE",
+    "title": "Backup & Data Resilience",
+    "description": "Backup posture and data-loss prevention: automated RDS backups, deletion protection, DynamoDB point-in-time recovery, and no publicly accessible snapshots.",
+    "guidance": "Covers recoverability and accidental-exposure risks Vigil can verify agentlessly. Does not replace restore-test attestation or documented RPO/RTO.",
+    "soc2_criteria": ["CC7"],
+    "checks": [
+      "rds.instance.no_automated_backup",
+      "rds.instance.no_deletion_protection",
+      "dynamodb.table.no_pitr",
+      "rds.snapshot.public",
+      "ec2.ebs.snapshot_public",
+      "ec2.ebs.snapshot_unencrypted"
+    ]
   }
 ]

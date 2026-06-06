@@ -38,11 +38,11 @@ These are the **auditor-facing** units. Individual findings are evidence signals
 
 | Composite control | Status | Priority | Primary SOC2 | Notes |
 |-------------------|--------|----------|--------------|-------|
-| **Container vulnerability monitoring** | [ ] | **P0** | CC7.1–7.3, CC6.8 | Inspector ECR + EC2 + Lambda + alt sources (GitLab/GitHub CI metadata) |
+| **Container vulnerability monitoring** | [x] | **P0** | CC7.1–7.3, CC6.8 | Inspector ECR + EC2 + Lambda + alt sources (GitLab/GitHub CI metadata) |
 | **Secure SDLC** | [x] | **P0** | CC6, CC8 | Composite roll-up + GitHub security metadata checks |
-| **Change management** | [ ] | **P0** | CC6, CC8 | PR required, direct push blocked, audit trail retained |
+| **Change management** | [x] | **P0** | CC6, CC8 | PR required, direct push blocked, audit trail retained |
 | **Identity governance & access review** | [x] | **P0** | **CC6** | Composite roll-up over IAM + GitHub/GitLab signals |
-| **Logging & monitoring** | [~] | P1 | CC7 | CloudTrail, GuardDuty, Config — findings exist; roll-up needed |
+| **Logging & monitoring** | [x] | P1 | CC7 | CloudTrail, GuardDuty, Config — composite roll-up shipped |
 | **Vulnerability management** (account-wide) | [ ] | P1 | CC7 | Superset of container control; includes Inspector EC2/Lambda, patch posture |
 
 ### 1.1 Identity governance & access review (CC6) — **NEW, P0**
@@ -115,10 +115,10 @@ Inspector v2 is the cleanest AWS-native signal. Collect **all resource types Ins
 | Item | Status | Priority | API |
 |------|--------|----------|-----|
 | ECR scan-on-push disabled | [x] | — | `ecr:DescribeRepositories` |
-| ECR registry enhanced scanning | [ ] | **P0** | `ecr:GetRegistryScanningConfiguration` |
-| **Inspector — ECR status & coverage & findings** | [ ] | **P0** | `BatchGetAccountStatus`, `ListCoverage`, `ListFindings` |
-| **Inspector — EC2 status & active findings** | [ ] | **P0** | Same APIs, `resourceType` EC2 |
-| **Inspector — Lambda status & active findings** | [ ] | **P0** | Same APIs, `resourceType` Lambda |
+| ECR registry enhanced scanning | [x] | **P0** | `ecr:GetRegistryScanningConfiguration` |
+| **Inspector — ECR status & coverage & findings** | [x] | **P0** | `BatchGetAccountStatus`, `ListCoverage`, `ListFindings` |
+| **Inspector — EC2 status & active findings** | [x] | **P0** | Same APIs, `resourceType` EC2 |
+| **Inspector — Lambda status & active findings** | [x] | **P0** | Same APIs, `resourceType` Lambda |
 | Inspector finding details (drawer only) | [ ] | P1 | `BatchGetFindingDetails` |
 | Dockerfile linting | [ ] | **P3** | Engineering quality, not audit primary |
 | Image signing / tag immutability | [ ] | P2 | |
@@ -155,7 +155,7 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 | GitLab SAST / dependency / container scan jobs in CI | [ ] | **P0** | Pipeline metadata only |
 | Required status checks include security jobs | [ ] | **P0** | |
 | **Composite: Secure SDLC** | [x] | **P0** | `COMPOSITE.SECURE_SDLC` via `/v1/controls/composites` |
-| **Composite: Change management** | [ ] | **P0** | |
+| **Composite: Change management** | [x] | **P0** | `COMPOSITE.CHANGE_MANAGEMENT` via `/v1/controls/composites` |
 
 ---
 
@@ -236,20 +236,21 @@ Source files: `api/data/control_mappings.json`, `web/src/data/checkComplianceCop
 3. [ ] **EKS logging + encryption checks**
 4. [x] **Secure SDLC composite** + GitLab protected environments
 5. [x] **Identity governance composite** (extend existing IAM/GitHub signals + admin review)
-6. [ ] **Backup hardening** (schedule, restore test, RPO/RTO) — **Top 5 internal risk**
+6. [~] **Backup hardening** (schedule, restore test, RPO/RTO) — **Top 5 internal risk**; AWS snapshot/backup composite shipped; Vigil platform restore test still open
 7. [ ] **GitLab connector stability** (token refresh)
 
 ### Next 60 days
 8. [ ] **Google Workspace / Entra ID** integration
 9. [ ] **CloudTrail onboarding flow** (use existing vs deploy new)
 10. [ ] **Vulnerability management composite** (account-wide)
-11. [ ] **Full compliance mapping audit** (SOC2 / ISO / CIS)
+11. [x] **Change management, container vuln, logging composites** (Tier 3)
+12. [ ] **Full compliance mapping audit** (SOC2 / ISO / CIS)
 
 ### Much later
-12. [ ] Dockerfile scanning (P3)
-13. [ ] Customer Terraform scanning (P4)
-14. [ ] Runtime agents / DaemonSets (optional product line)
-15. [ ] Jira / Slack / ticketing
+13. [ ] Dockerfile scanning (P3)
+14. [ ] Customer Terraform scanning (P4)
+15. [ ] Runtime agents / DaemonSets (optional product line)
+16. [ ] Jira / Slack / ticketing
 
 ---
 
