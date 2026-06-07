@@ -22,8 +22,8 @@ def run(db: Session, account_id) -> list[FindingDraft]:
             check_id=CHECK_ID,
             resource_arn=volume.arn,
             title=f"EBS volume `{volume.volume_id}` is not encrypted",
-            severity="high",
-            risk_score=score("high"),
+            severity="medium",
+            risk_score=score("medium"),
             evidence={
                 "volume_id": volume.volume_id,
                 "region": volume.region,

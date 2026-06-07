@@ -22,8 +22,8 @@ def run(db: Session, account_id) -> list[FindingDraft]:
             check_id=CHECK_ID,
             resource_arn=p.arn,
             title=f"Customer-managed policy `{p.name}` is not attached to anything",
-            severity="low",
-            risk_score=score("low"),
+            severity="info",
+            risk_score=score("info"),
             evidence={
                 "policy_arn": p.arn,
                 "policy_name": p.name,

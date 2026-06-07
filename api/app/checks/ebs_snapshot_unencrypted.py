@@ -21,8 +21,8 @@ def run(db: Session, account_id) -> list[FindingDraft]:
             check_id=CHECK_ID,
             resource_arn=getattr(r, "arn"),
             title="EBS snapshot `{snapshot_id}` is not encrypted".format(**{"snapshot_id": getattr(r, "snapshot_id")}),
-            severity="high",
-            risk_score=score("high"),
+            severity="medium",
+            risk_score=score("medium"),
             evidence={"snapshot_id": getattr(r, "snapshot_id")},
         )
         for r in rows

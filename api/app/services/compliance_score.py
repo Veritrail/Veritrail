@@ -9,6 +9,7 @@ _SEVERITY_PENALTY: dict[str, int] = {
     "high": 20,
     "medium": 8,
     "low": 2,
+    "info": 0,  # signal-only; never penalizes the compliance score
 }
 
 # Longest prefixes first so aws.config beats aws.

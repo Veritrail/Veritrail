@@ -22,7 +22,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
         FindingDraft(
             check_id=CHECK_ID,
             resource_arn=t.arn,
-            title=f"CloudTrail trail `{t.name}` is not encrypted with KMS",
+            title=f"CloudTrail trail `{t.name}` is not encrypted with a customer-managed KMS key (CMK)",
             severity="medium",
             risk_score=score("medium"),
             evidence={"trail_name": t.name, "home_region": t.home_region},

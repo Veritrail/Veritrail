@@ -21,8 +21,8 @@ def run(db: Session, account_id) -> list[FindingDraft]:
             check_id=CHECK_ID,
             resource_arn=r.arn,
             title=f"EKS cluster `{r.name}` does not encrypt Kubernetes secrets at rest",
-            severity="high",
-            risk_score=score("high"),
+            severity="medium",
+            risk_score=score("medium"),
             evidence={
                 "cluster_name": r.name,
                 "region": r.region,

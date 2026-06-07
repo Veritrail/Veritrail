@@ -20,7 +20,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
         FindingDraft(
             check_id=CHECK_ID,
             resource_arn=b.arn,
-            title=f"S3 bucket `{b.name}` is not encrypted with KMS",
+            title=f"S3 bucket `{b.name}` is not encrypted with a customer-managed KMS key (CMK)",
             severity="medium",
             risk_score=score("medium"),
             evidence={"bucket_name": b.name},

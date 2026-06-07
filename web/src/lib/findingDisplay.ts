@@ -710,6 +710,9 @@ export function severityPillClassName(severity: string): string {
   if (severity === "medium") {
     return `${base} bg-amber-50 text-amber-800 ring-1 ring-amber-200/70`;
   }
+  if (severity === "info") {
+    return `${base} bg-zinc-50 text-zinc-500 ring-1 ring-zinc-200/70`;
+  }
   return `${base} bg-slate-50 text-slate-600 ring-1 ring-slate-200/80`;
 }
 

@@ -75,8 +75,8 @@ def run(db: Session, account_id) -> list[FindingDraft]:
                 check_id=CHECK_ID,
                 resource_arn=r.arn,
                 title=f"Role `{r.name}` trusts external AWS account(s)",
-                severity="high",
-                risk_score=score("high"),
+                severity="low",
+                risk_score=score("low"),
                 evidence={
                     "role_arn": r.arn,
                     "external_account_ids": external,

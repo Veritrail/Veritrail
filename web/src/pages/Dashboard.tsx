@@ -27,7 +27,7 @@ const checkLabels: Record<string, string> = {
   "iam.role.confused_deputy": "Confused deputy risk",
 };
 
-const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
 const sevBadge: Record<string, string> = {
   critical: "bg-red-50 text-red-700 border-red-200",

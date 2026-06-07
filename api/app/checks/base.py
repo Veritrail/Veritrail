@@ -9,12 +9,13 @@ class FindingDraft:
     check_id: str
     resource_arn: str
     title: str
-    severity: str  # low|medium|high|critical
+    severity: str  # info|low|medium|high|critical
     risk_score: int
     evidence: dict[str, Any] = field(default_factory=dict)
 
 
-SEVERITY_BASE = {"low": 20, "medium": 40, "high": 70, "critical": 90}
+# info = signal-only (not required by SOC2/CIS); no compliance penalty.
+SEVERITY_BASE = {"info": 5, "low": 20, "medium": 40, "high": 70, "critical": 90}
 
 
 def score(severity: str, *, age_days: int | None = None, admin: bool = False) -> int:

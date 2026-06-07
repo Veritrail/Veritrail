@@ -22,8 +22,8 @@ def run(db: Session, account_id) -> list[FindingDraft]:
             check_id=CHECK_ID,
             resource_arn=getattr(r, "arn"),
             title="S3 bucket `{name}` does not have MFA Delete enabled".format(**{"name": getattr(r, "name")}),
-            severity="medium",
-            risk_score=score("medium"),
+            severity="info",
+            risk_score=score("info"),
             evidence={"name": getattr(r, "name")},
         )
         for r in rows

@@ -51,7 +51,7 @@ type Account = {
   cfn_launch_url?: string;
 };
 type StatusTab = "open" | "excepted" | "resolved" | "all";
-type SeverityFilter = "all" | "critical" | "high" | "medium" | "low";
+type SeverityFilter = "all" | "critical" | "high" | "medium" | "low" | "info";
 
 const severityTabs: { id: SeverityFilter; label: string; urgent?: boolean }[] = [
   { id: "all", label: "All" },
@@ -59,10 +59,11 @@ const severityTabs: { id: SeverityFilter; label: string; urgent?: boolean }[] = 
   { id: "high", label: "High", urgent: true },
   { id: "medium", label: "Medium" },
   { id: "low", label: "Low" },
+  { id: "info", label: "Info" },
 ];
 type SortKey = "severity" | "score" | "first_seen";
 
-const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
 const SORT_OPTIONS: { id: SortKey; label: string }[] = [
   { id: "severity", label: "Severity" },
@@ -496,13 +497,14 @@ export default function Findings() {
   }, [rows, sortKey, sortDir]);
 
   const severityCounts = useMemo(() => {
-    const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0 };
+    const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
     for (const f of benchmarkScopedFindings) {
       counts.all += 1;
       if (f.severity === "critical") counts.critical += 1;
       else if (f.severity === "high") counts.high += 1;
       else if (f.severity === "medium") counts.medium += 1;
       else if (f.severity === "low") counts.low += 1;
+      else if (f.severity === "info") counts.info += 1;
     }
     return counts;
   }, [benchmarkScopedFindings]);
