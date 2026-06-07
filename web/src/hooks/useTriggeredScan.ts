@@ -13,6 +13,7 @@ export type ScanRunLatest = {
   error_type?: string | null;
   progress_step?: number | null;
   progress_total?: number | null;
+  progress_phase?: number | null;
 };
 
 /** How long to show "starting" before the latest scan_run appears in the API. */
@@ -77,7 +78,7 @@ function workerProgressFromRun(run: ScanRunLatest | null | undefined): WorkerPro
   const step = run?.progress_step;
   const total = run?.progress_total;
   if (step == null || total == null || total <= 0) return null;
-  return { step, total };
+  return { step, total, phase: run?.progress_phase ?? null };
 }
 
 type UseTriggeredScanOptions = {

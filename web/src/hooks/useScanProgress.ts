@@ -4,7 +4,7 @@ const LAST_SCAN_DURATION_KEY = "vigil:lastScanDurationMs";
 /** Fallback when no history and worker has not reported step progress yet. */
 const DEFAULT_SCAN_DURATION_MS = 600_000;
 
-export type WorkerProgress = { step: number; total: number };
+export type WorkerProgress = { step: number; total: number; phase?: number | null };
 
 /** Must match collector `_step()` count in `api/app/worker/tasks.py` run_scan. */
 export const WORKER_COLLECTOR_STEPS = 26;
@@ -48,6 +48,7 @@ type ScanProgress = {
   finishing: boolean;
   progressStep: number | null;
   progressTotal: number | null;
+  progressPhase: number | null;
 };
 
 export function useScanProgress(
@@ -74,6 +75,7 @@ export function useScanProgress(
     finishing: false,
     progressStep: null,
     progressTotal: null,
+    progressPhase: null,
   };
 
   if (!active) return empty;
@@ -99,6 +101,7 @@ export function useScanProgress(
       finishing,
       progressStep: step,
       progressTotal: workerProgress.total,
+      progressPhase: workerProgress.phase ?? null,
     };
   }
 
@@ -114,5 +117,6 @@ export function useScanProgress(
     finishing: false,
     progressStep: null,
     progressTotal: null,
+    progressPhase: null,
   };
 }

@@ -731,8 +731,9 @@ class ScanRunOut(BaseModel):
     error_type: str | None = None  # exception class name
     findings_opened: int
     findings_resolved: int
-    progress_step: int | None = None  # worker phase counter (from stats._progress_step)
-    progress_total: int | None = None  # total phases (from stats._progress_total)
+    progress_step: int | None = None  # worker step counter (from stats._progress_step)
+    progress_total: int | None = None  # total steps (from stats._progress_total)
+    progress_phase: int | None = None  # current UI phase index 0-5 (from stats._progress_phase)
 
 
 @router.get("/{account_id}/scan-runs/latest", response_model=ScanRunOut | None)
@@ -761,6 +762,7 @@ def latest_scan_run(account_id: str, p=Depends(current_principal), db: Session =
         findings_resolved=run.findings_resolved or 0,
         progress_step=stats.get("_progress_step"),
         progress_total=stats.get("_progress_total"),
+        progress_phase=stats.get("_progress_phase"),
     )
 
 

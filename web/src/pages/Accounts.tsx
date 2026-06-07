@@ -2367,21 +2367,27 @@ function ScanPhaseBlock({
   elapsedMs,
   progressStep,
   progressTotal,
+  progressPhase,
   indeterminate,
 }: {
   progress: number;
   elapsedMs: number | null;
   progressStep: number | null;
   progressTotal: number | null;
+  progressPhase: number | null;
   indeterminate: boolean;
 }) {
   const pct = Math.max(0, Math.min(100, Math.round(progress ?? 0)));
   const elapsed = formatElapsed(elapsedMs);
+  // Prefer the worker's real phase (section-aware); fall back to a proportional map
+  // for in-flight scans started before phase reporting shipped.
   const activeIdx = indeterminate
     ? 0
-    : progressStep != null && progressTotal
-      ? mapWorkerStepToUiPhase(progressStep, progressTotal)
-      : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
+    : progressPhase != null
+      ? Math.min(SCAN_PHASES.length - 1, progressPhase)
+      : progressStep != null && progressTotal
+        ? mapWorkerStepToUiPhase(progressStep, progressTotal)
+        : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
   return (
     <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-6 py-4">
       <div className="flex items-center justify-between gap-3">
@@ -2794,6 +2800,7 @@ function AccountCard({
           elapsedMs={scanProgress.elapsedMs}
           progressStep={scanProgress.progressStep}
           progressTotal={scanProgress.progressTotal}
+          progressPhase={scanProgress.progressPhase}
           indeterminate={scanProgress.indeterminate}
         />
       )}

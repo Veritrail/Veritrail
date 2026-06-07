@@ -13,6 +13,7 @@ export type ScanRun = {
   findings_resolved?: number;
   progress_step?: number | null;
   progress_total?: number | null;
+  progress_phase?: number | null;
 };
 
 export function useAccountScanRun(accountId: string | null | undefined) {

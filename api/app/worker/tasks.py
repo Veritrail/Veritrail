@@ -880,14 +880,33 @@ def run_scan(account_id: str) -> dict:
         enabled_checks = [mod for mod in ALL_CHECKS if is_check_enabled(org_settings, mod.CHECK_ID)]
 
         # Collectors are fast; checks + finalize dominate wall time — weight progress accordingly.
-        _COLLECTOR_STEPS = 26
+        # Keep in sync with the collector _step(...) calls below + WORKER_COLLECTOR_STEPS (web).
+        _COLLECTOR_STEPS = 31
         _FINALIZE_STEPS = 2
         _TOTAL_STEPS = _COLLECTOR_STEPS + len(enabled_checks) + _FINALIZE_STEPS
         _step_counter = 0
         _PROGRESS_COMMIT_EVERY = 4
 
+        def _phase_for(s: int) -> int:
+            """Map the step counter to a real UI phase by section, not a flat ratio.
+            0 Initializing · 1 Collecting · 2 Analyzing · 3 Policy eval · 4 Risk · 5 Reporting."""
+            if s <= 0:
+                return 0
+            if s <= _COLLECTOR_STEPS:
+                return 1 if s <= int(_COLLECTOR_STEPS * 0.6) else 2
+            cs = s - _COLLECTOR_STEPS
+            nchecks = len(enabled_checks)
+            if cs <= nchecks:
+                return 3 if cs <= int(nchecks * 0.8) else 4
+            return 5
+
         def _publish_progress() -> None:
-            run.stats = {**stats, "_progress_step": _step_counter, "_progress_total": _TOTAL_STEPS}
+            run.stats = {
+                **stats,
+                "_progress_step": _step_counter,
+                "_progress_total": _TOTAL_STEPS,
+                "_progress_phase": _phase_for(_step_counter),
+            }
             db.commit()
 
         def _step(name: str, fn):
