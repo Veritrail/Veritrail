@@ -51,10 +51,10 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     risk: "Orphan role may still carry broad policies.",
     fix: "Confirm with owner, then delete if unused.",
   },
-  "iam.role.wildcard_action": {
-    impact: 'Inline policy uses Action: "*".',
-    risk: "Admin-like scope if role is compromised.",
-    fix: "Scope actions to what the role actually needs.",
+  "iam.role.least_privilege_policy": {
+    impact: "Customer-managed policy grants Action:* beyond least privilege.",
+    risk: "Full account compromise if the role is assumed with Resource:*, or broad API access with scoped resources.",
+    fix: "Replace with least-privilege policies scoped to observed usage.",
   },
   "iam.perm.granted_vs_used": {
     impact: "Write actions granted but not used in 90 days.",
@@ -185,11 +185,6 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     impact: "IAM inventory incomplete after scan.",
     risk: "Access roster may omit principals.",
     fix: "Fix role permissions and re-scan.",
-  },
-  "iam.role.full_admin_policy": {
-    impact: "Role has customer-managed Action:* / Resource:*.",
-    risk: "Full account compromise if assumed.",
-    fix: "Replace with least-privilege policies.",
   },
   "github.repo.no_codeowners": {
     impact: "No CODEOWNERS file (optional Git check).",
@@ -681,4 +676,31 @@ export const fallbackRemediationSummary: RemediationSummary = {
 
 export function remediationSummaryFor(checkId: string): RemediationSummary {
   return remediationSummaries[checkId] ?? fallbackRemediationSummary;
+}
+
+/** Scope-aware copy for merged least-privilege finding. */
+export function remediationSummaryForFinding(finding: {
+  check_id: string;
+  evidence?: Record<string, unknown>;
+}): RemediationSummary {
+  if (finding.check_id === "iam.role.least_privilege_policy") {
+    const base = remediationSummaries["iam.role.least_privilege_policy"];
+    const scope = finding.evidence?.scope;
+    if (scope === "full_admin") {
+      return {
+        ...base,
+        impact: "Policy grants Action:* on Resource:* (full admin).",
+        risk: "Role has customer-managed Action:* and Resource:* (full admin).",
+      };
+    }
+    if (scope === "wildcard_action") {
+      return {
+        ...base,
+        impact: "Policy grants Action:* on scoped resources.",
+        risk: "Role has customer-managed Action:* on scoped resources.",
+      };
+    }
+    return base;
+  }
+  return remediationSummaryFor(finding.check_id);
 }

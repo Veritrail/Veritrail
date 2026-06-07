@@ -20,7 +20,7 @@ const checkLabels: Record<string, string> = {
   "iam.access_key.no_rotation_90d": "Long-lived access key",
   "iam.access_key.multiple_active": "Multiple active access keys",
   "iam.role.unassumed_90d": "Role unassumed",
-  "iam.role.wildcard_action": "Wildcard action",
+  "iam.role.least_privilege_policy": "Least privilege policy",
   "iam.role.unused_services_90d": "Unused granted services",
   "iam.role.trust_wildcard": "Wildcard trust policy",
   "iam.role.allows_iam_star": "Grants iam:*",

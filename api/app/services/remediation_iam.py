@@ -104,7 +104,7 @@ def inline_policy_for_check(check_id: str, *, resource_arn: str | None = None) -
                 "Resource": "*",
             })
         return statements
-    if check_id == "iam.role.full_admin_policy":
+    if check_id == "iam.role.least_privilege_policy":
         role_arn = _iam_role_arn(resource_arn)
         return [
             {

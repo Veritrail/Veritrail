@@ -78,8 +78,7 @@
     "checks": [
       "iam.root.no_mfa",
       "iam.user.no_mfa",
-      "iam.role.wildcard_action",
-      "iam.role.full_admin_policy",
+      "iam.role.least_privilege_policy",
       "iam.policy.wildcard_resource",
       "iam.perm.granted_vs_used",
       "iam.role.trust_wildcard",
@@ -343,7 +342,7 @@
     "description": "IAM policies are the means by which privileges are granted to users, groups, or roles. Policies that grant full administrative privileges provide excessive and unnecessary permissions.",
     "guidance": "Replace policies with Allow Action: '*' and Resource: '*' (full admin) with scoped action lists and specific resource ARNs.",
     "checks": [
-      "iam.role.full_admin_policy"
+      "iam.role.least_privilege_policy"
     ]
   },
   {
@@ -462,7 +461,7 @@
     "guidance": "Evidence: No unassumed roles. Role permissions scoped to actively-used services. No wildcard actions or trust principals. Access keys used within 90 days.",
     "checks": [
       "iam.role.unassumed_90d",
-      "iam.role.wildcard_action",
+      "iam.role.least_privilege_policy",
       "iam.perm.granted_vs_used",
       "iam.role.trust_wildcard",
       "iam.role.unused_services_90d",
@@ -800,7 +799,7 @@
     "description": "Customer-managed policies must not grant Action:* with Resource:*.",
     "guidance": "Replace full-admin customer policies with scoped permissions.",
     "checks": [
-      "iam.role.full_admin_policy"
+      "iam.role.least_privilege_policy"
     ]
   },
   {
@@ -832,7 +831,7 @@
     "description": "The allocation and use of privileged access rights should be restricted and controlled. Root API calls must be exceptional and reviewed.",
     "guidance": "Evidence: CloudTrail event analysis detects root actor API calls. Direct user policy attachments bypassing group/role model are also monitored.",
     "checks": [
-      "iam.role.full_admin_policy",
+      "iam.role.least_privilege_policy",
       "cloudtrail.event.root_activity",
       "cloudtrail.event.iam_user_policy_attachment"
     ]

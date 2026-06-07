@@ -211,7 +211,7 @@ def _steps_for_check(finding: Finding) -> list[dict[str, str]]:
             {"action": "apply", "detail": "Apply the scoped policy through a reviewed Terraform/PR or manual IAM policy change"},
             {"action": "verify", "detail": "Re-scan after a workload cycle and add back any observed required permissions"},
         ]
-    if cid == "iam.role.full_admin_policy":
+    if cid == "iam.role.least_privilege_policy":
         return [
             {"action": "analyze", "detail": "Review role usage, attached policies, and generated least-privilege alternatives before removing admin access"},
             {"action": "apply", "detail": "Replace full-admin access with a reviewed scoped policy through Terraform/PR or a manual IAM change"},

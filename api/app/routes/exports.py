@@ -124,7 +124,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
     sample_findings = [
         {
             "id": "f1000000-0000-0000-0000-000000000001",
-            "check_id": "iam.role.wildcard_action",
+            "check_id": "iam.role.least_privilege_policy",
             "resource_arn": "arn:aws:iam::123456789012:role/dev-unrestricted",
             "title": "Role dev-unrestricted has Action: * in inline policy",
             "severity": "high",
@@ -136,7 +136,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
         },
         {
             "id": "f1000000-0000-0000-0000-000000000002",
-            "check_id": "iam.role.wildcard_action",
+            "check_id": "iam.role.least_privilege_policy",
             "resource_arn": "arn:aws:iam::123456789012:role/ci-runner",
             "title": "Role ci-runner has Action: * in inline policy",
             "severity": "high",
@@ -181,7 +181,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
         finding_by_check.setdefault(f["check_id"], []).append(f)
 
     check_to_control: dict[str, list[str]] = {
-        "iam.role.wildcard_action": ["CC6.3", "CIS 1.16"],
+        "iam.role.least_privilege_policy": ["CC6.6", "CIS 1.15"],
         "iam.perm.granted_vs_used": ["CC6.6"],
         "cloudtrail.trail.no_log_validation": ["CC7.2", "CIS 2.2"],
         "iam.user.no_mfa": ["CC6.1", "CIS 1.10"],
@@ -312,7 +312,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
             (now - timedelta(days=14)).isoformat(),
             "finding_first_seen",
             "",
-            "iam.role.wildcard_action",
+            "iam.role.least_privilege_policy",
             "arn:aws:iam::123456789012:role/dev-unrestricted",
             "Role dev-unrestricted has Action: * in inline policy",
         ])

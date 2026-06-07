@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.checks.base import FindingDraft, score
-from app.checks.iam_role_full_admin import _has_full_admin_allow
+from app.checks.iam_role_least_privilege import _has_full_admin_allow
 from app.models import IamUser
 
 CHECK_ID = "iam.user.admin_policy_attached"

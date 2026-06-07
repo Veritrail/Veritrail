@@ -19,10 +19,10 @@ def test_control_coverage_mixed():
     assert tier == "mixed"
 
 
-def test_cis_122_uses_full_admin_not_wildcard_action():
-    assert "cis_aws_l1" in frameworks_for_check("iam.role.full_admin_policy")
-    assert "cis_aws_l1" not in frameworks_for_check("iam.role.wildcard_action")
-    assert "soc2" in frameworks_for_check("iam.role.wildcard_action")
+def test_least_privilege_maps_all_frameworks():
+    assert "cis_aws_l1" in frameworks_for_check("iam.role.least_privilege_policy")
+    assert "soc2" in frameworks_for_check("iam.role.least_privilege_policy")
+    assert "iso27001" in frameworks_for_check("iam.role.least_privilege_policy")
 
 
 def test_extended_checks_filter():

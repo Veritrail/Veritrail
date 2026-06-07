@@ -32,7 +32,7 @@ def _extract_granted_actions(role: IamRole) -> dict[str, list[str]]:
         svc, act = action.split(":", 1)
         svc = svc.lower()
         if act == "*":
-            return  # wildcard_action check handles this
+            return  # least_privilege_policy check handles Action:*
         if _SAFE_PREFIXES.match(act):
             return  # read-only, low risk
         granted.setdefault(svc, []).append(action)

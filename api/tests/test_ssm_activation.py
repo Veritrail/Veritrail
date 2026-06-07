@@ -30,7 +30,7 @@ from app.services.ssm_remediation_catalog import (
 
 def test_iam_role_full_admin_mapped_to_iam_policies():
     """IAM policy remediation is analysis-first; no one-click SSM module is mapped."""
-    assert remediation_module_for_check("iam.role.full_admin_policy") is None
+    assert remediation_module_for_check("iam.role.least_privilege_policy") is None
     assert remediation_module_for_check("iam.role.full_admin") is None
 
 
@@ -41,7 +41,7 @@ def test_iam_policy_wildcard_mapped_to_iam_policies():
 def test_check_to_remediation_module_has_correct_keys():
     """All keys in CHECK_TO_REMEDIATION_MODULE match actual check IDs."""
     iam_keys = {k for k in CHECK_TO_REMEDIATION_MODULE if k.startswith("iam.")}
-    assert "iam.role.full_admin_policy" not in iam_keys
+    assert "iam.role.least_privilege_policy" not in iam_keys
     assert "iam.role.full_admin" not in iam_keys, "Bug 1: wrong key should not be present"
     assert "iam.policy.wildcard_resource" not in iam_keys
 
@@ -67,7 +67,7 @@ def test_cloudtrail_logging_runner_supported():
 
 def test_vigil_custom_ssm_checks_includes_activated_modules():
     assert "s3.bucket.public_access_not_blocked" not in VIGIL_CUSTOM_SSM_CHECKS
-    assert "iam.role.full_admin_policy" not in VIGIL_CUSTOM_SSM_CHECKS
+    assert "iam.role.least_privilege_policy" not in VIGIL_CUSTOM_SSM_CHECKS
     assert "iam.policy.wildcard_resource" not in VIGIL_CUSTOM_SSM_CHECKS
     # Existing checks still there
     assert "ec2.security_group.unrestricted_ssh" in VIGIL_CUSTOM_SSM_CHECKS
@@ -136,7 +136,7 @@ def test_s3_uses_resource_automation_region(monkeypatch):
 # ── IAM Policies Module ──────────────────────────────────────────────
 
 def test_iam_full_admin_runbook_paused():
-    rb = runbook_for_check("iam.role.full_admin_policy")
+    rb = runbook_for_check("iam.role.least_privilege_policy")
     assert rb is None
 
 
@@ -150,14 +150,14 @@ def test_iam_policy_checks_do_not_use_home_automation_region(monkeypatch):
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    assert resolve_automation_region("iam.role.full_admin_policy", "eu-west-1") == "eu-west-1"
+    assert resolve_automation_region("iam.role.least_privilege_policy", "eu-west-1") == "eu-west-1"
     assert resolve_automation_region("iam.policy.wildcard_resource", "eu-west-1") == "eu-west-1"
 
 
 def test_iam_full_admin_supported_action():
     from app.services.remediation_plan import _supported_action
 
-    assert _supported_action("iam.role.full_admin_policy") is None
+    assert _supported_action("iam.role.least_privilege_policy") is None
     assert _supported_action("iam.policy.wildcard_resource") is None
 
 
@@ -270,7 +270,7 @@ def _actions_in_statements(statements: list) -> set[str]:
 def test_iam_remediation_inline_policy_full_admin():
     from app.services.remediation_iam import inline_policy_for_check
 
-    statements = inline_policy_for_check("iam.role.full_admin_policy")
+    statements = inline_policy_for_check("iam.role.least_privilege_policy")
     actions = _actions_in_statements(statements)
     assert "iam:DetachRolePolicy" in actions
     assert "iam:ListAttachedRolePolicies" in actions
@@ -314,7 +314,7 @@ def test_automation_checks_includes_new_modules():
     from app.services.iac_snippets import AUTOMATION_CHECKS
 
     assert "s3.bucket.public_access_not_blocked" in AUTOMATION_CHECKS
-    assert "iam.role.full_admin_policy" not in AUTOMATION_CHECKS
+    assert "iam.role.least_privilege_policy" not in AUTOMATION_CHECKS
     assert "iam.policy.wildcard_resource" not in AUTOMATION_CHECKS
     assert "cloudtrail.trail.not_enabled" in AUTOMATION_CHECKS
 
@@ -381,7 +381,7 @@ def test_iam_full_admin_plan_steps():
         id=uuid.uuid4(),
         org_id=uuid.uuid4(),
         account_id=uuid.uuid4(),
-        check_id="iam.role.full_admin_policy",
+        check_id="iam.role.least_privilege_policy",
         resource_arn="arn:aws:iam::123456789012:role/admin-role",
         title="Full admin role",
         severity="critical",

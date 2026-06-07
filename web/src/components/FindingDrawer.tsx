@@ -34,7 +34,7 @@ import {
   friendlyPolicyGenerationError,
 } from "../lib/policyGenerationErrors";
 import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
-import { remediationSummaryFor } from "../data/remediationSummaries";
+import { remediationSummaryForFinding } from "../data/remediationSummaries";
 import {
   formatFindingSeenAt,
   awsRegionFromArn,
@@ -904,19 +904,20 @@ aws iam get-role --role-name <role-name> --query 'Role.RoleLastUsed'
 aws iam delete-role --role-name <role-name>`,
     risk: "Unused roles should be removed after ownership and service dependencies are confirmed.",
   },
-  "iam.role.wildcard_action": {
-    why: 'Action: "*" in an inline policy is admin-like unless constrained by resource, condition, or permissions boundary. It should be reviewed and scoped to the actions the role actually needs.',
+  "iam.role.least_privilege_policy": {
+    why: "Customer-managed policies with Action:* violate least privilege. Full admin (Resource:*) is the highest risk; Action:* on scoped resources is still broader than necessary for most workloads.",
     console: [
       'Use "Least-privilege proposal" above (Generate) to preview a scoped policy from recorded usage',
-      "Open IAM → Roles → select the role → Permissions → edit or replace the inline policy",
+      "Open IAM → Roles → select the role → Permissions → edit or replace the policy",
       "Apply the generated policy document, then verify the workload",
     ],
     cli: `# Option A — use Least-privilege proposal (Generate) in this drawer, then:
 aws iam put-role-policy --role-name <role-name> --policy-name <policy-name> --policy-document file://scoped-policy.json
 
-# Option B — review inline policy manually
-aws iam get-role-policy --role-name <role-name> --policy-name <policy-name>`,
-    risk: "Broad wildcard permissions increase blast radius if the role is compromised or misused.",
+# Option B — review policies manually
+aws iam list-role-policies --role-name <role-name>
+aws iam list-attached-role-policies --role-name <role-name>`,
+    risk: "Broad permissions increase blast radius if the role is compromised or misused.",
   },
   "iam.perm.granted_vs_used": {
     why: "This role has write or mutating actions in its policies that have no recorded usage in the last 90 days (action-level data from IAM last-accessed). Removing unused write permissions reduces the blast radius if the role is compromised.",
@@ -2029,18 +2030,6 @@ aws configservice start-configuration-recorder --configuration-recorder-name def
     cli: `aws iam get-account-summary`,
     risk: "Access reviews and evidence packs may omit principals until inventory is complete.",
   },
-  "iam.role.full_admin_policy": {
-    why: "Use the least-privilege proposal to replace full-admin access with a scoped policy from observed usage.",
-    console: [
-      "Open IAM → Roles → select the role",
-      "Review inline and customer-managed attached policies",
-      "Replace full-admin policies with least-privilege statements",
-      "Use IAM Access Analyzer or Vigil usage data to scope actions",
-    ],
-    cli: `aws iam list-attached-role-policies --role-name <role-name>
-aws iam get-policy-version --policy-arn <arn> --version-id <v>`,
-    risk: "",
-  },
   "github.repo.no_codeowners": {
     why: "Optional security check: no CODEOWNERS file in standard Git repo paths. SOC 2 change management typically relies on branch protection and required reviews, not CODEOWNERS.",
     console: [
@@ -2749,8 +2738,7 @@ function buildVerdict(data: BlastRadiusData, checkId?: string): { text: string; 
   if (resource_type === "iam_role") {
     const active = data.active_service_count ?? 0;
     const scopePolicy =
-      checkId === "iam.role.full_admin_policy" ||
-      checkId === "iam.role.wildcard_action" ||
+      checkId === "iam.role.least_privilege_policy" ||
       checkId === "iam.perm.granted_vs_used";
     if (scopePolicy) {
       if (confidence === "high") {
@@ -4245,8 +4233,7 @@ type GeneratedS3HttpsPolicy = {
 
 const ROLE_POLICY_GEN_CHECKS = new Set([
   "iam.role.unused_services_90d",
-  "iam.role.wildcard_action",
-  "iam.role.full_admin_policy",
+  "iam.role.least_privilege_policy",
   "iam.perm.granted_vs_used",
 ]);
 
@@ -6497,7 +6484,7 @@ export function FindingDrawer({
     identityRemediations[finding.check_id] ??
     remediations[finding.check_id] ??
     fallbackRemediationFor(finding.check_id);
-  const ops = remediationSummaryFor(finding.check_id);
+  const ops = remediationSummaryForFinding(finding);
   const checkDoc = documentationForCheck(finding.check_id);
   const isIdentityCheck = finding.check_id.startsWith("github.") || finding.check_id.startsWith("gitlab.");
   const headerBadge = sevHeaderBadge[finding.severity] ?? sevHeaderBadge.low;

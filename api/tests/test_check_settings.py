@@ -17,7 +17,7 @@ def test_wildcard_resource_can_be_disabled():
 
 
 def test_benchmark_check_on_by_default():
-    assert is_check_enabled({}, "iam.role.wildcard_action") is True
+    assert is_check_enabled({}, "iam.role.least_privilege_policy") is True
 
 
 def test_hidden_check_ids():

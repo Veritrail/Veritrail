@@ -118,7 +118,7 @@ MODULE_SAMPLE_CHECK_ID: dict[str, str] = {
     "security_groups": "ec2.security_group.unrestricted_ssh",
     "s3_public_access": "s3.bucket.public_access_not_blocked",
     "iam_access_keys": "iam.access_key.unused_45d",
-    "iam_policies": "iam.role.full_admin_policy",
+    "iam_policies": "iam.role.least_privilege_policy",
     "ssm_parameters": "ssm.parameter.plaintext_secret",
     "cloudtrail_logging": "cloudtrail.trail.not_enabled",
 }

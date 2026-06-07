@@ -242,26 +242,35 @@ class TestRoleUnassumed:
         assert drafts == []
 
 
-# --- iam.role.wildcard_action ---
+# --- iam.role.least_privilege_policy ---
 
-class TestWildcardAction:
-    def test_flags_role_with_star_action(self, mock_db):
-        from app.checks import role_wildcard_action
+
+class TestLeastPrivilegePolicy:
+    def test_flags_full_admin_scope(self, mock_db):
+        from app.checks import iam_role_least_privilege
+        acc_id = uuid.uuid4()
+        policy = {"Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}
+        r = _role(account_id=acc_id, inline_policies={"Admin": policy})
+        mock_db.scalars.return_value.all.return_value = [r]
+        drafts = iam_role_least_privilege.run(mock_db, acc_id)
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "iam.role.least_privilege_policy"
+        assert drafts[0].evidence["scope"] == "full_admin"
+
+    def test_flags_wildcard_action_scope(self, mock_db):
+        from app.checks import iam_role_least_privilege
         acc_id = uuid.uuid4()
         policy = {
-            "Statement": [
-                {"Effect": "Allow", "Action": "*", "Resource": "*"}
-            ]
+            "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "arn:aws:s3:::bucket/*"}]
         }
-        r = _role(account_id=acc_id, inline_policies={"AdminPolicy": policy})
+        r = _role(account_id=acc_id, inline_policies={"Broad": policy})
         mock_db.scalars.return_value.all.return_value = [r]
-        drafts = role_wildcard_action.run(mock_db, acc_id)
+        drafts = iam_role_least_privilege.run(mock_db, acc_id)
         assert len(drafts) == 1
-        assert drafts[0].check_id == "iam.role.wildcard_action"
-        assert drafts[0].severity == "high"
+        assert drafts[0].evidence["scope"] == "wildcard_action"
 
     def test_skips_role_without_wildcard(self, mock_db):
-        from app.checks import role_wildcard_action
+        from app.checks import iam_role_least_privilege
         acc_id = uuid.uuid4()
         policy = {
             "Statement": [
@@ -270,24 +279,20 @@ class TestWildcardAction:
         }
         r = _role(account_id=acc_id, inline_policies={"S3Policy": policy})
         mock_db.scalars.return_value.all.return_value = [r]
-        drafts = role_wildcard_action.run(mock_db, acc_id)
+        drafts = iam_role_least_privilege.run(mock_db, acc_id)
         assert drafts == []
 
     def test_skips_deny_statement_with_star(self, mock_db):
-        from app.checks import role_wildcard_action
+        from app.checks import iam_role_least_privilege
         acc_id = uuid.uuid4()
-        policy = {
-            "Statement": [
-                {"Effect": "Deny", "Action": "*", "Resource": "*"}
-            ]
-        }
+        policy = {"Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
         r = _role(account_id=acc_id, inline_policies={"DenyAll": policy})
         mock_db.scalars.return_value.all.return_value = [r]
-        drafts = role_wildcard_action.run(mock_db, acc_id)
+        drafts = iam_role_least_privilege.run(mock_db, acc_id)
         assert drafts == []
 
     def test_skips_service_linked_role(self, mock_db):
-        from app.checks import role_wildcard_action
+        from app.checks import iam_role_least_privilege
         acc_id = uuid.uuid4()
         policy = {"Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}
         r = _role(
@@ -296,51 +301,33 @@ class TestWildcardAction:
             inline_policies={"AdminPolicy": policy},
         )
         mock_db.scalars.return_value.all.return_value = [r]
-        drafts = role_wildcard_action.run(mock_db, acc_id)
+        drafts = iam_role_least_privilege.run(mock_db, acc_id)
         assert drafts == []
 
     def test_no_roles_returns_empty(self, mock_db):
-        from app.checks import role_wildcard_action
+        from app.checks import iam_role_least_privilege
         mock_db.scalars.return_value.all.return_value = []
-        drafts = role_wildcard_action.run(mock_db, uuid.uuid4())
+        drafts = iam_role_least_privilege.run(mock_db, uuid.uuid4())
         assert drafts == []
 
-    def test_flags_action_star_without_resource_star(self, mock_db):
-        from app.checks import role_wildcard_action
+    def test_full_admin_wins_when_both_patterns(self, mock_db):
+        from app.checks import iam_role_least_privilege
         acc_id = uuid.uuid4()
-        policy = {
-            "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "arn:aws:s3:::bucket/*"}]
-        }
-        r = _role(account_id=acc_id, inline_policies={"Broad": policy})
+        r = _role(
+            account_id=acc_id,
+            inline_policies={
+                "Broad": {
+                    "Statement": [
+                        {"Effect": "Allow", "Action": "*", "Resource": "arn:aws:s3:::bucket/*"}
+                    ]
+                },
+                "Admin": {"Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]},
+            },
+        )
         mock_db.scalars.return_value.all.return_value = [r]
-        drafts = role_wildcard_action.run(mock_db, acc_id)
+        drafts = iam_role_least_privilege.run(mock_db, acc_id)
         assert len(drafts) == 1
-
-
-# --- iam.role.full_admin_policy ---
-
-
-class TestFullAdminPolicy:
-    def test_flags_action_and_resource_star(self, mock_db):
-        from app.checks import iam_role_full_admin
-        acc_id = uuid.uuid4()
-        policy = {"Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]}
-        r = _role(account_id=acc_id, inline_policies={"Admin": policy})
-        mock_db.scalars.return_value.all.return_value = [r]
-        drafts = iam_role_full_admin.run(mock_db, acc_id)
-        assert len(drafts) == 1
-        assert drafts[0].check_id == "iam.role.full_admin_policy"
-
-    def test_skips_action_star_scoped_resource(self, mock_db):
-        from app.checks import iam_role_full_admin
-        acc_id = uuid.uuid4()
-        policy = {
-            "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "arn:aws:s3:::bucket/*"}]
-        }
-        r = _role(account_id=acc_id, inline_policies={"S3Admin": policy})
-        mock_db.scalars.return_value.all.return_value = [r]
-        drafts = iam_role_full_admin.run(mock_db, acc_id)
-        assert drafts == []
+        assert drafts[0].evidence["scope"] == "full_admin"
 
 
 # helpers for new checks

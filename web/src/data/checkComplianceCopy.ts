@@ -97,15 +97,10 @@ function iamRole(checkId: string, _s: RemediationSummary): CheckComplianceCopy {
         "Verify that IAM roles not assumed within the lookback period are removed or justified.",
         "Vigil reads role last-used data from IAM. Roles with no AssumeRole use within the lookback period are flagged.",
       );
-    case "iam.role.wildcard_action":
+    case "iam.role.least_privilege_policy":
       return copy(
-        "Verify that inline IAM role policies do not grant Action \"*\" across services.",
-        "Vigil parses inline role policies. Policies with Action \"*\" are flagged.",
-      );
-    case "iam.role.full_admin_policy":
-      return copy(
-        "Verify that attached customer-managed policies do not grant unrestricted Action \"*\" on Resource \"*\".",
-        "Vigil parses attached customer-managed policies. Policies granting Action \"*\" on Resource \"*\" are flagged.",
+        "Verify that IAM role policies follow least privilege — no customer-managed Action \"*\" without business justification.",
+        "Vigil flags customer-managed inline or attached policies with Action \"*\". Resource \"*\" is full admin; scoped resources are wildcard-action violations.",
       );
     case "iam.role.unused_services_90d":
       return copy(

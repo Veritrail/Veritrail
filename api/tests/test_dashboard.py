@@ -25,7 +25,7 @@ from app.services.compliance_score import (
     [
         ("iam.user.no_mfa", "IAM"),
         ("iam.access_key.unused_45d", "IAM"),
-        ("iam.role.wildcard_action", "IAM"),
+        ("iam.role.least_privilege_policy", "IAM"),
         ("iam.root.no_mfa", "IAM"),
         ("iam.policy.wildcard_resource", "IAM"),
         ("s3.bucket.public_access_not_blocked", "S3"),

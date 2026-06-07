@@ -34,7 +34,7 @@ def _is_dangerous_action(action: str) -> bool:
     if action.lower() in _SAFE_ACTIONS_ON_ANY_RESOURCE:
         return False
     if action == "*":
-        return False  # already caught by wildcard_action check
+        return False  # already caught by least_privilege_policy check
     if ":" not in action:
         return True
     service, verb = action.split(":", 1)

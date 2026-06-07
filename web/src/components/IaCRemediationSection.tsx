@@ -152,7 +152,7 @@ function ssmImpactDisplay(
 ): { actionText: string } | null {
   if (severity !== "critical" && severity !== "high") return null;
   const actionText =
-    checkId === "iam.role.full_admin_policy"
+    checkId === "iam.role.least_privilege_policy"
       ? "Review least-privilege replacement"
       : actionLabel.replace(/\bfull admin\b/gi, "full-admin");
   return { actionText };
@@ -160,7 +160,7 @@ function ssmImpactDisplay(
 
 function ssmPlanDetail(checkId: string, resourceLabel: string): string {
   const target = resourceLabel || "this resource";
-  if (checkId === "iam.role.full_admin_policy") {
+  if (checkId === "iam.role.least_privilege_policy") {
     return `Reviews a least-privilege replacement for ${target}.`;
   }
   if (checkId.startsWith("ec2.security_group.")) {
@@ -171,7 +171,7 @@ function ssmPlanDetail(checkId: string, resourceLabel: string): string {
 
 function ssmApprovalImpactLine(checkId: string, actionLabel: string, resourceLabel: string): string {
   const target = resourceLabel || "this resource";
-  if (checkId === "iam.role.full_admin_policy") {
+  if (checkId === "iam.role.least_privilege_policy") {
     return `Impact: prepares a reviewed least-privilege change for ${target}.`;
   }
   if (checkId.startsWith("ec2.security_group.")) {
@@ -185,7 +185,7 @@ function ssmHumanPlanLabels(
   checkId: string,
   provider: "aws-owned" | "vigil",
 ): { documentTitle: string; roleTitle: string } {
-  if (checkId === "iam.role.full_admin_policy" || checkId.startsWith("iam.")) {
+  if (checkId === "iam.role.least_privilege_policy" || checkId.startsWith("iam.")) {
     return {
       documentTitle: provider === "aws-owned" ? "AWS IAM remediation runbook" : "Least-privilege IAM remediation",
       roleTitle: "Vigil managed automation role",
