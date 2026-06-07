@@ -102,9 +102,9 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     fix: "Complete address, city, country, and phone in Account → Contact information.",
   },
   "aws.account.security_contact_missing": {
-    impact: "No SECURITY alternate contact is registered.",
+    impact: "No security alternate contact is registered.",
     risk: "AWS security notifications may not reach your security team.",
-    fix: "Add SECURITY alternate contact with email and phone in Account settings.",
+    fix: "Add security alternate contact with email and phone in Account settings.",
   },
   "iam.server_certificate.expired": {
     impact: "An IAM server certificate is past its expiration date.",
@@ -470,6 +470,206 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     impact: "MRs merged below approval threshold.",
     risk: "Change-management evidence gap.",
     fix: "Increase required approvals and reset on push.",
+  },
+  "iam.user.admin_policy_attached": {
+    impact: "User has admin-equivalent policy attached.",
+    risk: "Compromised user credentials grant full account control.",
+    fix: "Remove admin policy; grant least-privilege via group or role.",
+  },
+  "cloudtrail.event.root_activity": {
+    impact: "Root user API call recorded in CloudTrail.",
+    risk: "Root bypasses IAM boundaries and SCP controls.",
+    fix: "Identify the process using root; move tasks to IAM admin roles.",
+  },
+  "cloudtrail.event.trail_tampering": {
+    impact: "CloudTrail trail was stopped, deleted, or modified.",
+    risk: "Audit logging gap hides subsequent API activity.",
+    fix: "Restore logging, recreate trail, and investigate the actor.",
+  },
+  "cloudtrail.event.iam_user_policy_attachment": {
+    impact: "IAM user policy attachment changed.",
+    risk: "Direct user grants bypass group-based access reviews.",
+    fix: "Review attachment in IAM; move permissions to groups or roles.",
+  },
+  "cloudtrail.event.s3_bucket_policy_change": {
+    impact: "S3 bucket policy was modified.",
+    risk: "Policy change may expose objects or weaken encryption.",
+    fix: "Review policy diff in S3; revert unauthorized changes.",
+  },
+  "cloudtrail.event.iam_role_policy_mutation": {
+    impact: "IAM role policy was attached, detached, or edited.",
+    risk: "Role permission changes affect every principal that can assume it.",
+    fix: "Review role policies in IAM; scope to least privilege.",
+  },
+  "cloudtrail.event.security_group_open_to_world": {
+    impact: "Security group rule opened to the internet.",
+    risk: "Immediate network exposure to brute force and scanning.",
+    fix: "Restrict source CIDRs or remove the rule; verify attached instances.",
+  },
+  "cloudtrail.event.kms_key_disabled_or_deleted": {
+    impact: "KMS key disabled or scheduled for deletion.",
+    risk: "Encrypted data and secrets may become unreadable.",
+    fix: "Cancel deletion or re-enable key; investigate actor.",
+  },
+  "cloudtrail.event.guardduty_disabled": {
+    impact: "GuardDuty detector was deleted or disabled.",
+    risk: "Threat detection blind spot until re-enabled.",
+    fix: "Re-enable GuardDuty in affected regions; review who disabled it.",
+  },
+  "cloudtrail.event.config_recorder_stopped": {
+    impact: "AWS Config recorder was stopped.",
+    risk: "Configuration change history stops recording.",
+    fix: "Start the recorder and verify delivery channel.",
+  },
+  "cloudtrail.event.iam_access_key_created": {
+    impact: "New IAM access key created.",
+    risk: "Long-lived credential added without rotation policy.",
+    fix: "Confirm owner and need; delete if unauthorized.",
+  },
+  "cloudtrail.event.s3_public_access_block_disabled": {
+    impact: "S3 Block Public Access settings were weakened.",
+    risk: "Buckets may become publicly readable or writable.",
+    fix: "Re-enable block public access at account or bucket level.",
+  },
+  "cloudtrail.event.lambda_function_created_or_modified": {
+    impact: "Lambda function created or updated.",
+    risk: "Code or config change may introduce exposure or privilege escalation.",
+    fix: "Review function code, IAM role, and trigger configuration.",
+  },
+  "cloudtrail.event.ec2_instance_tampering": {
+    impact: "EC2 instance security settings changed.",
+    risk: "Metadata, security groups, or user data may weaken isolation.",
+    fix: "Review instance changes; revert unauthorized modifications.",
+  },
+  "cloudtrail.event.rds_instance_created_or_modified": {
+    impact: "RDS instance created or modified.",
+    risk: "Public access, encryption, or backup settings may have changed.",
+    fix: "Review instance configuration against your database baseline.",
+  },
+  "cloudtrail.event.anomalous_api_volume": {
+    impact: "Unusual API call volume detected.",
+    risk: "May indicate automation gone wrong or unauthorized activity.",
+    fix: "Identify calling principal; throttle or revoke credentials if malicious.",
+  },
+  "github.org.admin_unreviewed": {
+    impact: "GitHub org admin has not been access-reviewed.",
+    risk: "Stale admin access persists after role changes.",
+    fix: "Confirm admin still needs org-level privileges.",
+  },
+  "github.repo.dependabot_disabled": {
+    impact: "Dependabot alerts disabled on repository.",
+    risk: "Known vulnerable dependencies may go unpatched.",
+    fix: "Enable Dependabot alerts and security updates.",
+  },
+  "github.repo.code_scanning_disabled": {
+    impact: "GitHub code scanning not enabled.",
+    risk: "Static analysis gaps in CI pipeline.",
+    fix: "Enable code scanning with CodeQL or third-party integration.",
+  },
+  "github.repo.secret_scanning_disabled": {
+    impact: "GitHub secret scanning not enabled.",
+    risk: "Leaked credentials may remain in git history.",
+    fix: "Enable secret scanning and push protection.",
+  },
+  "github.repo.security_status_checks_missing": {
+    impact: "Required security status checks not configured.",
+    risk: "PRs can merge without security CI passing.",
+    fix: "Add branch protection rules requiring security checks.",
+  },
+  "gitlab.repo.sast_disabled": {
+    impact: "GitLab SAST not configured in CI.",
+    risk: "Static analysis gaps before merge.",
+    fix: "Add SAST template to .gitlab-ci.yml.",
+  },
+  "gitlab.repo.dependency_scanning_disabled": {
+    impact: "GitLab dependency scanning not in CI.",
+    risk: "Vulnerable dependencies may reach default branch.",
+    fix: "Add dependency scanning job to CI pipeline.",
+  },
+  "gitlab.repo.container_scanning_disabled": {
+    impact: "GitLab container scanning not in CI.",
+    risk: "Container images may ship with known CVEs.",
+    fix: "Add container scanning job to CI pipeline.",
+  },
+  "gitlab.repo.security_ci_not_required": {
+    impact: "Security CI jobs not required before merge.",
+    risk: "MRs can merge without passing security scans.",
+    fix: "Require security jobs in protected branch settings.",
+  },
+  "google_workspace.org.mfa_not_enforced": {
+    impact: "Google Workspace does not require 2-step verification.",
+    risk: "Password-only Google accounts remain vulnerable to phishing.",
+    fix: "Enforce 2SV for all users in Admin console.",
+  },
+  "google_workspace.user.inactive_90d": {
+    impact: "Google Workspace user inactive 90+ days.",
+    risk: "Stale accounts retain mailbox and SSO access.",
+    fix: "Suspend or delete user after confirming no active use.",
+  },
+  "google_workspace.admin.unreviewed": {
+    impact: "Google Workspace admin role unreviewed.",
+    risk: "Privileged access may outlast job changes.",
+    fix: "Confirm admin roles in Admin console → Admin roles.",
+  },
+  "entra.org.mfa_not_enforced": {
+    impact: "Entra ID does not enforce MFA org-wide.",
+    risk: "Password-only Microsoft accounts remain vulnerable.",
+    fix: "Require MFA via Conditional Access policies.",
+  },
+  "entra.user.inactive_90d": {
+    impact: "Entra user inactive 90+ days.",
+    risk: "Stale accounts retain SSO and mailbox access.",
+    fix: "Disable account after confirming no active dependency.",
+  },
+  "entra.admin.unreviewed": {
+    impact: "Entra privileged role unreviewed.",
+    risk: "Admin access may outlast role changes.",
+    fix: "Review role assignments in Entra admin center.",
+  },
+  "identity_center.user.inactive_90d": {
+    impact: "Identity Center user stale 90+ days.",
+    risk: "Permission sets may still grant AWS console access.",
+    fix: "Remove permission sets or delete user after review.",
+  },
+  "ecr.registry.enhanced_scanning_disabled": {
+    impact: "ECR enhanced scanning not enabled.",
+    risk: "Container CVEs may reach runtime unnoticed.",
+    fix: "Enable enhanced scanning in ECR settings.",
+  },
+  "eks.cluster.control_plane_logging_disabled": {
+    impact: "EKS control plane logging disabled.",
+    risk: "Kubernetes API activity invisible to CloudWatch.",
+    fix: "Enable api, audit, authenticator, controllerManager, and scheduler logs.",
+  },
+  "eks.cluster.secrets_encryption_disabled": {
+    impact: "EKS secrets not encrypted with KMS.",
+    risk: "etcd secrets readable without customer-managed key control.",
+    fix: "Enable envelope encryption with a KMS key on the cluster.",
+  },
+  "ecs.cluster.container_insights_disabled": {
+    impact: "ECS Container Insights disabled.",
+    risk: "Limited observability for task failures and resource use.",
+    fix: "Enable Container Insights on the cluster.",
+  },
+  "ecs.service.public_ip_enabled": {
+    impact: "ECS service assigns public IP to tasks.",
+    risk: "Tasks reachable from the internet if security groups allow.",
+    fix: "Disable public IP; use NAT gateway or VPC endpoints.",
+  },
+  "ecs.task_definition.privileged_container": {
+    impact: "ECS task runs a privileged container.",
+    risk: "Container escape grants host-level access.",
+    fix: "Remove privileged flag unless required; use specific Linux capabilities.",
+  },
+  "aws.vulnerability_monitoring.not_detected": {
+    impact: "No container vulnerability scanning evidence found.",
+    risk: "Known CVEs in images may reach production.",
+    fix: "Enable Inspector, ECR scanning, or your container scanner.",
+  },
+  "aws.inspector.active_critical_finding": {
+    impact: "Inspector reports an active critical vulnerability.",
+    risk: "Exploitable CVE on a running workload.",
+    fix: "Patch, upgrade, or isolate affected resource; suppress only with justification.",
   },
 };
 

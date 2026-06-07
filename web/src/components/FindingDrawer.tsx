@@ -25,7 +25,7 @@ import {
   type CredentialFrameworkImpactItem,
 } from "../data/credentialFrameworkImpact";
 import { frameworkLabel } from "../data/frameworks";
-import { supportsBlastRadius } from "../data/blastRadiusChecks";
+import { showWhatIfTab, whatIfUnavailableReason } from "../data/blastRadiusChecks";
 import { checkLabels } from "../data/checkLabels";
 import { documentationForCheck } from "../data/checkDocumentation";
 import { policyGenerationReasonLabel } from "../data/policyGenerationCopy";
@@ -1867,6 +1867,158 @@ aws configservice start-configuration-recorder --configuration-recorder-name def
     cli: `aws ec2 describe-images --owners self --image-ids <ami-id>`,
     risk: "Known CVEs in the base image may affect every instance launched from this AMI.",
   },
+  "cloudtrail.event.root_activity": {
+    why: "Root credentials were used for an API call. Root bypasses all IAM policies — every root action should be investigated and moved to IAM admin roles.",
+    console: [
+      "Open CloudTrail → Event history → filter by Root user",
+      "Identify the source IP, user agent, and API called",
+      "Confirm whether the action was intentional break-glass",
+      "Move recurring tasks to IAM admin roles with MFA",
+    ],
+    cli: `aws cloudtrail lookup-events --lookup-attributes AttributeKey=Username,AttributeValue=Root`,
+    risk: "Repeated root use indicates processes still depend on root credentials.",
+  },
+  "cloudtrail.event.trail_tampering": {
+    why: "CloudTrail logging was stopped, deleted, or modified. Gaps in audit logs hide subsequent API activity from investigators and auditors.",
+    console: [
+      "Open CloudTrail → Trails → verify logging is enabled",
+      "Review recent UpdateTrail, StopLogging, or DeleteTrail events",
+      "Restore multi-region logging with log file validation",
+      "Investigate the IAM principal that made the change",
+    ],
+    cli: `aws cloudtrail describe-trails\naws cloudtrail get-trail-status --name <trail-name>`,
+    risk: "Audit log gaps may violate SOC 2 CC7.2 evidence requirements.",
+  },
+  "cloudtrail.event.iam_user_policy_attachment": {
+    why: "An IAM user policy was attached or detached. Direct user attachments bypass group-based access reviews.",
+    console: [
+      "Open IAM → Users → select the user → Permissions",
+      "Review the attached or detached policy",
+      "Move permissions to IAM groups or roles if appropriate",
+    ],
+    cli: `aws iam list-attached-user-policies --user-name <user>\naws iam list-user-policies --user-name <user>`,
+    risk: "Unauthorized policy attachments can grant immediate elevated access.",
+  },
+  "cloudtrail.event.s3_bucket_policy_change": {
+    why: "An S3 bucket policy was changed. Policy edits can expose objects publicly or weaken encryption requirements.",
+    console: [
+      "Open S3 → bucket → Permissions → Bucket policy",
+      "Compare current policy to your approved baseline",
+      "Revert unauthorized changes and enable Block Public Access",
+    ],
+    cli: `aws s3api get-bucket-policy --bucket <bucket-name>`,
+    risk: "Public-read or permissive Principal entries can expose data immediately.",
+  },
+  "cloudtrail.event.iam_role_policy_mutation": {
+    why: "An IAM role policy was attached, detached, or edited. Role changes affect every principal that can assume the role.",
+    console: [
+      "Open IAM → Roles → select the role → Permissions",
+      "Review attached managed and inline policy changes",
+      "Scope permissions to least privilege",
+    ],
+    cli: `aws iam list-attached-role-policies --role-name <role>\naws iam list-role-policies --role-name <role>`,
+    risk: "Broad role policy changes can affect multiple workloads at once.",
+  },
+  "cloudtrail.event.security_group_open_to_world": {
+    why: "A security group rule was added that opens a port to 0.0.0.0/0 or ::/0. This is often the fastest path to internet-wide exposure.",
+    console: [
+      "Open EC2 → Security Groups → select the group",
+      "Remove or restrict the inbound rule to known CIDRs",
+      "Check the Resources tab for affected running instances",
+    ],
+    cli: `aws ec2 describe-security-groups --group-ids <sg-id>`,
+    risk: "Running instances using this group are immediately reachable from the internet.",
+  },
+  "cloudtrail.event.kms_key_disabled_or_deleted": {
+    why: "A KMS key was disabled or scheduled for deletion. Encrypted data, secrets, and logs depending on the key may become unreadable.",
+    console: [
+      "Open KMS → Customer managed keys → select the key",
+      "Cancel pending deletion or re-enable the key",
+      "Review key policy and CloudTrail for the actor",
+    ],
+    cli: `aws kms describe-key --key-id <key-id>\naws kms cancel-key-deletion --key-id <key-id>`,
+    risk: "Deleting a key can permanently lock encrypted data.",
+  },
+  "cloudtrail.event.guardduty_disabled": {
+    why: "GuardDuty was disabled or a detector was deleted. Threat detection stops until GuardDuty is re-enabled.",
+    console: [
+      "Open GuardDuty → Settings → verify detector is enabled",
+      "Re-enable in affected regions",
+      "Review CloudTrail for who disabled GuardDuty",
+    ],
+    cli: `aws guardduty list-detectors --region <region>\naws guardduty create-detector --enable --region <region>`,
+    risk: "Active threats may go undetected while GuardDuty is off.",
+  },
+  "cloudtrail.event.config_recorder_stopped": {
+    why: "The AWS Config recorder was stopped. Configuration change history stops recording — a gap auditors will notice.",
+    console: [
+      "Open AWS Config → Settings → verify recorder status",
+      "Start the configuration recorder",
+      "Confirm delivery channel to S3 is healthy",
+    ],
+    cli: `aws configservice describe-configuration-recorder-status\naws configservice start-configuration-recorder --configuration-recorder-name default`,
+    risk: "Config gaps hide drift from your security baseline.",
+  },
+  "cloudtrail.event.iam_access_key_created": {
+    why: "A new IAM access key was created. Long-lived keys should be owned, rotated, and limited to one active key per user.",
+    console: [
+      "Open IAM → Users → select the user → Security credentials",
+      "Confirm the key was requested by an authorized owner",
+      "Delete the key if unauthorized",
+    ],
+    cli: `aws iam list-access-keys --user-name <user>`,
+    risk: "Unauthorized keys grant persistent API access.",
+  },
+  "cloudtrail.event.s3_public_access_block_disabled": {
+    why: "S3 Block Public Access was disabled at the account or bucket level. Buckets may become publicly accessible.",
+    console: [
+      "Open S3 → Block Public Access settings",
+      "Re-enable all four block public access options",
+      "Review bucket ACLs and policies for public grants",
+    ],
+    cli: `aws s3control get-public-access-block --account-id <account-id>`,
+    risk: "Public buckets can expose data within minutes of misconfiguration.",
+  },
+  "cloudtrail.event.lambda_function_created_or_modified": {
+    why: "A Lambda function was created or updated. Code, IAM role, or trigger changes can introduce new exposure paths.",
+    console: [
+      "Open Lambda → select the function → Configuration and Code tabs",
+      "Review execution role permissions and environment variables",
+      "Confirm triggers and function URLs match your baseline",
+    ],
+    cli: `aws lambda get-function --function-name <name>\naws lambda get-policy --function-name <name>`,
+    risk: "Over-permissive execution roles or public URLs increase blast radius.",
+  },
+  "cloudtrail.event.ec2_instance_tampering": {
+    why: "EC2 instance attributes were changed — user data, security groups, or metadata options may have been weakened.",
+    console: [
+      "Open EC2 → Instances → select the instance",
+      "Review Recent activity and security group attachments",
+      "Revert unauthorized changes; require IMDSv2 if metadata was loosened",
+    ],
+    cli: `aws ec2 describe-instances --instance-ids <instance-id>`,
+    risk: "Metadata or SG changes can expose instance credentials or network paths.",
+  },
+  "cloudtrail.event.rds_instance_created_or_modified": {
+    why: "An RDS instance was created or modified. Public accessibility, encryption, or backup settings may have changed.",
+    console: [
+      "Open RDS → Databases → select the instance",
+      "Review Connectivity, Security, and Backup sections",
+      "Confirm settings match your database baseline",
+    ],
+    cli: `aws rds describe-db-instances --db-instance-identifier <id>`,
+    risk: "Public RDS endpoints or disabled backups increase data-loss and exfiltration risk.",
+  },
+  "cloudtrail.event.anomalous_api_volume": {
+    why: "CloudTrail recorded an unusual spike in API calls from a principal. This may indicate runaway automation or unauthorized activity.",
+    console: [
+      "Open CloudTrail → Event history → filter by the flagged principal",
+      "Identify the API calls and source IP",
+      "Throttle or revoke credentials if activity is malicious",
+    ],
+    cli: `aws cloudtrail lookup-events --lookup-attributes AttributeKey=Username,AttributeValue=<principal>`,
+    risk: "High-volume API activity can indicate credential compromise or destructive automation.",
+  },
   "iam.access_inventory_gap": {
     why: "Vigil could not reconcile IAM users, roles, and access keys against a complete inventory (missing collectors or partial scan).",
     console: [
@@ -2734,6 +2886,18 @@ function buildVerdict(data: BlastRadiusData, checkId?: string): { text: string; 
     return { text: "Restrict carefully — changing EKS endpoint access can lock out admins and CI unless private access or allowed CIDRs are ready.", type: "caution" };
   }
 
+  if (resource_type === "ecs_cluster") {
+    return { text: "Safe to enable — Container Insights adds observability without changing task networking.", type: "safe" };
+  }
+
+  if (resource_type === "ecs_service") {
+    return { text: "Disabling public IP may break outbound internet access unless NAT or VPC endpoints are configured.", type: "caution" };
+  }
+
+  if (resource_type === "ecs_task_definition") {
+    return { text: "Removing privileged mode may break agents that require host-level access — test in staging first.", type: "caution" };
+  }
+
   if (resource_type === "dynamodb_table") {
     if (checkId === "dynamodb.table.no_pitr") {
       return { text: "Safe to enable — point-in-time recovery is turned on in place with no downtime or application changes.", type: "safe" };
@@ -2932,6 +3096,16 @@ function InfoNote({ children }: { children: React.ReactNode }) {
         <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
       </svg>
       <span>{children}</span>
+    </div>
+  );
+}
+
+function WhatIfUnavailable({ reason }: { reason: string }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-5 text-sm text-zinc-700 space-y-2">
+      <p className="font-medium text-zinc-900">Not applicable for automated analysis</p>
+      <p>{reason}</p>
+      <p className="text-xs text-zinc-500">Use Overview and Remediation to assess impact before fixing.</p>
     </div>
   );
 }
@@ -6278,7 +6452,8 @@ export function FindingDrawer({
     }
   }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
 
-  const showBlastRadius = !!finding && supportsBlastRadius(finding.check_id) && !!accountId;
+  const showWhatIf = !!finding && showWhatIfTab(finding.check_id, accountId);
+  const whatIfUnavailable = finding ? whatIfUnavailableReason(finding.check_id) : null;
 
   useEffect(() => {
     if (!finding) return;
@@ -6287,10 +6462,10 @@ export function FindingDrawer({
       "compliance",
       "remediation",
       "resources",
-      ...(showBlastRadius ? (["whatif"] as Tab[]) : []),
+      ...(showWhatIf ? (["whatif"] as Tab[]) : []),
     ]);
     if (!available.has(tab)) onTabChange("overview");
-  }, [finding?.id, showBlastRadius, tab, onTabChange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [finding?.id, showWhatIf, tab, onTabChange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!verified || !finding) return;
@@ -6361,7 +6536,7 @@ export function FindingDrawer({
     { id: "resources", label: "Resources" },
     { id: "compliance", label: "Compliance" },
     { id: "remediation", label: "Remediation" },
-    ...(showBlastRadius ? [{ id: "whatif" as Tab, label: "What if" }] : []),
+    ...(showWhatIf ? [{ id: "whatif" as Tab, label: "What if" }] : []),
   ];
   const hasException =
     finding.status === "excepted" ||
@@ -6636,8 +6811,12 @@ export function FindingDrawer({
           </div>
         </div>
       )}
-      {tab === "whatif" && showBlastRadius && (
-        <BlastRadiusSection accountId={accountId!} finding={finding} />
+      {tab === "whatif" && showWhatIf && (
+        whatIfUnavailable ? (
+          <WhatIfUnavailable reason={whatIfUnavailable} />
+        ) : (
+          <BlastRadiusSection accountId={accountId!} finding={finding} />
+        )
       )}
     </div>
     <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">

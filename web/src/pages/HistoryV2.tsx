@@ -422,7 +422,7 @@ export default function HistoryV2() {
     <>
       <PageShell
         variant="compact"
-        eyebrow="SECURITY PROGRESS"
+        eyebrow="Security progress"
         title="History"
         description="What changed over time — every remediation, exception, and control movement with its resource and evidence."
         actions={headerActions}

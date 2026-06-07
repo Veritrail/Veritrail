@@ -362,8 +362,8 @@ const SPECIFIC: Record<string, (s: RemediationSummary) => CheckComplianceCopy> =
     ),
   "aws.account.security_contact_missing": () =>
     copy(
-      "Verify that a SECURITY alternate contact with email and phone is registered on the AWS account.",
-      "Vigil reads alternate contact data for type SECURITY. Missing email or phone on that contact is flagged.",
+      "Verify that a security alternate contact with email and phone is registered on the AWS account.",
+      "Vigil reads alternate contact data for the security alternate contact type. Missing email or phone on that contact is flagged.",
     ),
   "iam.server_certificate.expired": () =>
     copy(
@@ -397,8 +397,8 @@ const SPECIFIC: Record<string, (s: RemediationSummary) => CheckComplianceCopy> =
     ),
   "aws.config.rules_non_compliant": () =>
     copy(
-      "Verify that AWS Config rules in NON_COMPLIANT state are remediated or approved as exceptions.",
-      "Vigil lists AWS Config rule evaluation results. Rules in NON_COMPLIANT state are flagged.",
+      "Verify that AWS Config rules in non-compliant state are remediated or approved as exceptions.",
+      "Vigil lists AWS Config rule evaluation results. Rules reporting non-compliant resources are flagged.",
     ),
   "aws.config.not_enabled": () =>
     copy(
