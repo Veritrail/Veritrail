@@ -92,7 +92,7 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "iam.perm.granted_vs_used": ["iso27001", "soc2"],
   "iam.policy.wildcard_resource": ["iso27001", "soc2"],
   "iam.role.external_account_trust": ["soc2"],
-  "iam.role.full_admin_policy": ["cis_aws_l1"],
+  "iam.role.full_admin_policy": ["cis_aws_l1", "iso27001", "soc2"],
   "iam.role.trust_wildcard": ["iso27001", "soc2"],
   "iam.role.unassumed_90d": ["iso27001", "soc2"],
   "iam.role.unused_services_90d": ["iso27001", "soc2"],

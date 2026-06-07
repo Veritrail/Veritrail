@@ -79,6 +79,7 @@
       "iam.root.no_mfa",
       "iam.user.no_mfa",
       "iam.role.wildcard_action",
+      "iam.role.full_admin_policy",
       "iam.policy.wildcard_resource",
       "iam.perm.granted_vs_used",
       "iam.role.trust_wildcard",
@@ -831,6 +832,7 @@
     "description": "The allocation and use of privileged access rights should be restricted and controlled. Root API calls must be exceptional and reviewed.",
     "guidance": "Evidence: CloudTrail event analysis detects root actor API calls. Direct user policy attachments bypassing group/role model are also monitored.",
     "checks": [
+      "iam.role.full_admin_policy",
       "cloudtrail.event.root_activity",
       "cloudtrail.event.iam_user_policy_attachment"
     ]
