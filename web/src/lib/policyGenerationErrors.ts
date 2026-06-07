@@ -16,10 +16,23 @@ export function friendlyPolicyGenerationError(raw: string): string {
   ) {
     return "Could not start CloudTrail analysis due to a timestamp issue. Please try again in a moment.";
   }
-  if (lower.includes("no logging cloudtrail") || lower.includes("no_trails")) {
+  if (
+    lower.includes("no logging cloudtrail") ||
+    lower.includes("no_trails") ||
+    lower.includes("no active cloudtrail logging trail")
+  ) {
     return (
       "No active CloudTrail trails found. Create a multi-region CloudTrail trail with a dedicated S3 log bucket, " +
       "run a scan, then start analysis again."
+    );
+  }
+  if (
+    lower.includes("cannot use it to read the cloudtrail logs") ||
+    lower.includes("cannot read the log bucket")
+  ) {
+    return (
+      "CloudTrail is enabled, but AWS cannot read the log bucket with the Access Analyzer monitor role. " +
+      "Update the connector with Advanced IAM policy generation, then confirm S3 and KMS permissions on the log bucket."
     );
   }
   if (lower.includes("cloudtrail reader role") && (lower.includes("missing") || lower.includes("not in this account"))) {
@@ -37,7 +50,7 @@ export function friendlyPolicyGenerationError(raw: string): string {
   if (lower.includes("accessdenied") || lower.includes("not authorized") || lower.includes("unauthorized")) {
     return (
       "CloudTrail analysis could not be started in the regions Vigil tried. " +
-      "Run a full account scan, then try again. Connector API permissions may already be correct."
+      "Run a full account scan, then try again. If CloudTrail is new, confirm the trail is logging to S3."
     );
   }
   if (lower.includes("enable advanced") || lower.includes("advanced iam policy")) {

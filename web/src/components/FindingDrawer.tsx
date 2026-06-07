@@ -3863,6 +3863,13 @@ type GeneratedPolicy = {
   advanced_effective?: boolean;
   advanced_note?: string | null;
   improve_via_cloudtrail?: boolean;
+  cloudtrail_analysis?: {
+    ready: boolean;
+    status: "ready" | "no_trail" | "advanced_disabled" | "no_connector";
+    message?: string | null;
+    logging_trail_count?: number;
+    trail_count?: number;
+  };
   policy_warnings?: string[];
   used_services_service_only?: string[];
   preserved_service_wildcards?: string[];
@@ -5187,7 +5194,6 @@ function SuggestedPolicyWorkspace({
               accountId={accountId}
               roleArn={finding.resource_arn}
               data={data}
-              cloudTrailLogging={cloudTrailLogging}
               onRefresh={() => void refetch()}
             />
             {data.has_inline_policies && data.cleaned_policies && !canReviewGeneratedPolicy && !showPolicyChangePane && (
@@ -5245,24 +5251,25 @@ function PolicyCloudTrailStartAction({
   accountId,
   roleArn,
   data,
-  cloudTrailLogging,
   onRefresh,
 }: {
   findingId: string;
   accountId: string;
   roleArn: string;
   data: GeneratedPolicy;
-  cloudTrailLogging: boolean;
   onRefresh: () => void;
 }) {
   const { startCloudTrailAnalysis, failCloudTrailAnalysis } = useRecheckNotifications();
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const inProgress = data.access_analyzer?.reason === "in_progress";
-  const needsTrailSetup = Boolean(data.improve_via_cloudtrail && data.confidence !== "high" && !cloudTrailLogging);
-  const canStart = Boolean(data.improve_via_cloudtrail && data.confidence !== "high" && cloudTrailLogging);
+  const analysis = data.cloudtrail_analysis;
+  const wantsAnalysis = Boolean(data.improve_via_cloudtrail && data.confidence !== "high");
+  const needsTrailSetup = Boolean(wantsAnalysis && analysis?.status === "no_trail");
+  const needsAdvanced = Boolean(wantsAnalysis && analysis?.status === "advanced_disabled");
+  const canStart = Boolean(wantsAnalysis && analysis?.ready);
 
-  if (!canStart && !inProgress && !needsTrailSetup) return null;
+  if (!canStart && !inProgress && !needsTrailSetup && !needsAdvanced) return null;
 
   const feedbackDisplay = feedback ? formatCloudTrailStartFeedback(feedback) : null;
 
@@ -5294,7 +5301,7 @@ function PolicyCloudTrailStartAction({
           <h4 className={drawerSectionTitle}>CloudTrail validation</h4>
           <p className="mt-0.5 text-[12px] text-zinc-500">~15 min · checks resource ARNs · IAM unchanged until you apply</p>
         </div>
-        {!inProgress && !needsTrailSetup && (
+        {!inProgress && !needsTrailSetup && !needsAdvanced && (
           <button
             type="button"
             disabled={busy}
@@ -5309,11 +5316,38 @@ function PolicyCloudTrailStartAction({
             Trail required
           </span>
         )}
+        {needsAdvanced && (
+          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-[11px] font-semibold text-amber-900">
+            Advanced IAM required
+          </span>
+        )}
       </div>
       {needsTrailSetup && (
-        <div className="border-b border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
-          No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated
-          S3 log bucket, run a scan so Vigil can detect it, then start analysis.
+        <div className="space-y-2 border-b border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
+          <p>
+            {analysis?.message ??
+              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Vigil can detect it, then start analysis."}
+          </p>
+          <Link
+            to="/accounts"
+            className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
+          >
+            Set up CloudTrail on Accounts →
+          </Link>
+        </div>
+      )}
+      {needsAdvanced && (
+        <div className="space-y-2 border-b border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
+          <p>
+            {analysis?.message ??
+              "Enable Advanced IAM policy generation on the AWS connector so Vigil can start CloudTrail-based analysis."}
+          </p>
+          <Link
+            to="/accounts"
+            className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
+          >
+            Update connector on Accounts →
+          </Link>
         </div>
       )}
       {inProgress && (
@@ -5396,7 +5430,6 @@ function GeneratePolicySection({
             accountId={accountId}
             roleArn={finding.resource_arn}
             data={data}
-            cloudTrailLogging={cloudTrailLogging}
             onRefresh={() => void refetch()}
           />
         </>
@@ -5493,7 +5526,6 @@ function GeneratePolicySection({
               accountId={accountId}
               roleArn={finding.resource_arn}
               data={data}
-              cloudTrailLogging={cloudTrailLogging}
               onRefresh={() => void refetch()}
             />
           </>
@@ -6160,11 +6192,14 @@ export function FindingDrawer({
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
     queryFn: () =>
-      api<{ meta: { cloudtrail_logging: boolean } }>(`/v1/accounts/${accountId}/timeline?days=1&limit=1`),
+      api<{ meta: { cloudtrail_logging: boolean; has_logging_trail?: boolean } }>(
+        `/v1/accounts/${accountId}/timeline?days=1&limit=1`,
+      ),
     enabled: !!accountId && !!finding,
     staleTime: 300_000,
   });
-  const cloudTrailLogging = accountMeta?.meta?.cloudtrail_logging ?? false;
+  const cloudTrailLogging =
+    accountMeta?.meta?.has_logging_trail ?? accountMeta?.meta?.cloudtrail_logging ?? false;
 
   const policyWorkspaceQueryEnabled =
     !!finding &&

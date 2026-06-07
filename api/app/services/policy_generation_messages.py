@@ -37,6 +37,17 @@ POLICY_GEN_WRONG_REGION_HINT = (
     "Run a scan so Vigil can refresh CloudTrail and Access Analyzer regions, then try again."
 )
 
+POLICY_GEN_NO_TRAIL_NOTE = (
+    "No active CloudTrail logging trail is configured in this account. "
+    "Create a multi-region trail with an S3 log bucket, run a scan, then start analysis."
+)
+
+POLICY_GEN_MONITOR_LOG_ACCESS_NOTE = (
+    "CloudTrail is enabled, but AWS cannot read the log bucket with the Access Analyzer monitor role. "
+    "Update the connector with Advanced IAM policy generation enabled, then confirm S3 and KMS "
+    "permissions on the CloudTrail log bucket."
+)
+
 
 def _client_error_parts(exc: BaseException) -> tuple[str, str]:
     if isinstance(exc, ClientError):
@@ -67,10 +78,9 @@ def user_friendly_policy_generation_error(exc: BaseException) -> str:
     if "accessanalyzermonitor" in compact and (
         "accessdenied" in lower or "not authorized" in lower or code == "AccessDeniedException"
     ):
-        return (
-            "The Access Analyzer monitor role exists, but AWS cannot use it to read the CloudTrail logs. "
-            "Update the connector and confirm the CloudTrail log bucket/KMS access settings."
-        )
+        return POLICY_GEN_MONITOR_LOG_ACCESS_NOTE
+    if "cannot use it to read the cloudtrail logs" in lower:
+        return POLICY_GEN_MONITOR_LOG_ACCESS_NOTE
     if code == "AccessDeniedException" and "startpolicygeneration" in compact:
         return POLICY_GEN_WRONG_REGION_HINT
     if "accessdenied" in lower or "not authorized" in lower or "unauthorized" in lower:

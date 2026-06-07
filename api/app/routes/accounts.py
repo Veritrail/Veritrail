@@ -18,12 +18,14 @@ from app.services.policy_generation_messages import (
     POLICY_GEN_MONITOR_ROLE_MISSING,
     POLICY_GEN_NO_CONNECTOR_NOTE,
     POLICY_GEN_NO_JOB_NOTE,
+    POLICY_GEN_NO_TRAIL_NOTE,
     POLICY_GEN_PASS_ROLE_HINT,
     user_friendly_policy_generation_error,
 )
 from app.services.access_analyzer_policy import (
     _POLICY_GEN_FALLBACK_REGIONS,
     apply_aa_resources_to_policy_doc,
+    cloudtrail_analysis_readiness,
     cloudtrail_monitor_role_exists,
     confidence_for,
     derive_advanced_role_arn,
@@ -1165,7 +1167,7 @@ def _resolve_advanced_policy_generation(
 
 def _policy_generation_meta(
     db: Session,
-    account_id: uuid.UUID,
+    acc: AwsAccount,
     *,
     threshold_days: int,
     advanced: bool,
@@ -1173,6 +1175,7 @@ def _policy_generation_meta(
     has_action_data: bool,
     aa: dict | None = None,
 ) -> dict:
+    account_id = acc.id
     if advanced_requested is None:
         advanced_requested = advanced
     active_analyzers = db.scalars(
@@ -1247,6 +1250,18 @@ def _policy_generation_meta(
         meta["improve_via_cloudtrail"] = confidence != "high" and (
             not policy_gen_job_completed or not has_concrete_resources
         )
+    if advanced:
+        meta["cloudtrail_analysis"] = cloudtrail_analysis_readiness(db, acc)
+    else:
+        from app.services.policy_generation_messages import POLICY_GEN_NO_TRAIL_NOTE
+
+        meta["cloudtrail_analysis"] = {
+            "ready": False,
+            "status": "advanced_disabled",
+            "message": "Enable Advanced IAM policy generation on the AWS connector, then verify capabilities.",
+            "logging_trail_count": 0,
+            "trail_count": 0,
+        }
     return meta
 
 
@@ -1325,7 +1340,7 @@ def generate_role_policy(
     inline = role.inline_policies or {}
     meta = _policy_generation_meta(
         db,
-        acc.id,
+        acc,
         threshold_days=threshold_days,
         advanced=use_advanced,
         advanced_requested=advanced,
@@ -1515,7 +1530,7 @@ def start_role_policy_generation(
     if not trails:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "No logging CloudTrail trails found. Enable CloudTrail and run a scan, then try again.",
+            detail=POLICY_GEN_NO_TRAIL_NOTE,
         )
     seen_arns: set[str] = set()
     trail_specs: list[dict] = []
@@ -3022,6 +3037,7 @@ def get_timeline(
     ) or 0
 
     logging_active = any(t.is_logging for t in trails) or events_in_account > 0
+    has_logging_trail = any(t.is_logging for t in trails)
 
     from app.services.timeline_finding_links import link_findings_to_timeline_events
 
@@ -3032,6 +3048,7 @@ def get_timeline(
         "total": len(result),
         "meta": {
             "cloudtrail_logging": logging_active,
+            "has_logging_trail": has_logging_trail,
             "trail_count": len(trails),
             "events_in_account": events_in_account,
             "last_scan_at": acc.last_scan_at.isoformat() if acc.last_scan_at else None,

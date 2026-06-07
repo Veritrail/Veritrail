@@ -472,6 +472,53 @@ def confidence_for(*, aa_resource_data: bool, has_action_data: bool) -> str:
     return CONFIDENCE_LOW
 
 
+def cloudtrail_analysis_readiness(db, acc) -> dict:
+    """Preflight for CloudTrail policy-generation jobs — DB + connector flags only."""
+    from sqlalchemy import select
+
+    from app.models.resources import CloudTrailTrail
+    from app.services.policy_generation_messages import (
+        POLICY_GEN_NO_TRAIL_NOTE,
+        POLICY_GEN_MONITOR_ROLE_MISSING,
+    )
+
+    advanced = bool(acc.enable_advanced_policy_generation or acc.advanced_policy_generation_deployed)
+    trails = db.scalars(select(CloudTrailTrail).where(CloudTrailTrail.account_id == acc.id)).all()
+    logging_trails = [t for t in trails if t.is_logging]
+
+    if not advanced:
+        return {
+            "ready": False,
+            "status": "advanced_disabled",
+            "message": "Enable Advanced IAM policy generation on the AWS connector, then verify capabilities.",
+            "logging_trail_count": len(logging_trails),
+            "trail_count": len(trails),
+        }
+    if not logging_trails:
+        return {
+            "ready": False,
+            "status": "no_trail",
+            "message": POLICY_GEN_NO_TRAIL_NOTE,
+            "logging_trail_count": 0,
+            "trail_count": len(trails),
+        }
+    if not acc.role_arn:
+        return {
+            "ready": False,
+            "status": "no_connector",
+            "message": POLICY_GEN_MONITOR_ROLE_MISSING,
+            "logging_trail_count": len(logging_trails),
+            "trail_count": len(trails),
+        }
+    return {
+        "ready": True,
+        "status": "ready",
+        "message": None,
+        "logging_trail_count": len(logging_trails),
+        "trail_count": len(trails),
+    }
+
+
 _SECURITY_FINDING_TYPES = {"ERROR", "SECURITY_WARNING"}
 
 

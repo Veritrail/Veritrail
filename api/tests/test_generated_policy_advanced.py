@@ -12,9 +12,15 @@ def test_policy_generation_meta_medium_note_without_cloudtrail_job():
     db = MagicMock()
     db.scalars.return_value.all.return_value = []
 
+    acc = MagicMock()
+    acc.id = uuid.uuid4()
+    acc.enable_advanced_policy_generation = True
+    acc.advanced_policy_generation_deployed = False
+    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+
     meta = _policy_generation_meta(
         db,
-        uuid.uuid4(),
+        acc,
         threshold_days=90,
         advanced=True,
         advanced_requested=False,
@@ -28,6 +34,7 @@ def test_policy_generation_meta_medium_note_without_cloudtrail_job():
     assert meta["advanced_effective"] is True
     assert meta["advanced_available"] is True
     assert meta["access_analyzer"]["reason"] == "no_generation"
+    assert meta["cloudtrail_analysis"]["status"] == "no_trail"
 
 
 @patch("app.routes.accounts._resolve_advanced_policy_generation")
