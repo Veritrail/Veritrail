@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.checks.base import FindingDraft, score
+from app.checks.iam_role_exclusions import is_vigil_integration_role
 from app.core.iam_usage import used_actions_from_usages
 from app.models import IamPermUsage, IamRole
 
@@ -66,6 +67,8 @@ def run(db: Session, account_id) -> list[FindingDraft]:
     for r in roles:
         if "/aws-service-role/" in r.arn:
             continue
+        if is_vigil_integration_role(r.name):
+            continue  # don't flag Vigil's own read-only scanner role
 
         granted = _extract_granted_actions(r)
         if not granted:

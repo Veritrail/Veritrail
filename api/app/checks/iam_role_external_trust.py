@@ -23,6 +23,10 @@ def _external_account_ids(trust_policy: dict, own_account_id: str | None) -> lis
     for stmt in trust_policy.get("Statement", []):
         if stmt.get("Effect") != "Allow":
             continue
+        # Conditioned trust (e.g. sts:ExternalId) is properly scoped — confused-deputy
+        # is mitigated, so it is not flagged.
+        if stmt.get("Condition"):
+            continue
         principal = stmt.get("Principal", {})
         aws_principals: list[str] = []
         if isinstance(principal, str):

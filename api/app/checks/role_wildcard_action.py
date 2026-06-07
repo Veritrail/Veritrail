@@ -59,6 +59,14 @@ def _has_wildcard_action(doc: dict) -> bool:
         action = stmt.get("Action", [])
         if isinstance(action, str):
             action = [action]
-        if "*" in action:
-            return True
+        if "*" not in action:
+            continue
+        # Skip full-admin (Action:* AND Resource:*) — owned by iam.role.full_admin_policy,
+        # so a full-admin role isn't double-flagged here.
+        resource = stmt.get("Resource", [])
+        if isinstance(resource, str):
+            resource = [resource]
+        if "*" in resource:
+            continue
+        return True
     return False
