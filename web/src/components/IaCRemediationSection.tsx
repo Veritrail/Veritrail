@@ -246,7 +246,7 @@ function SsmPanelHeader({
         </div>
         {impact ? (
           <p className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+            <span className="inline-flex shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
               High impact
             </span>
             <span className="text-[12px] font-medium text-zinc-800">{impact.actionText}</span>
@@ -285,7 +285,7 @@ function SsmRemediationPlan({
 
   return (
     <div className="rounded-2xl border border-indigo-100/70 bg-gradient-to-b from-white to-indigo-50/25 p-4 shadow-sm shadow-indigo-950/[0.03]">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-500/80">Remediation plan</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-500/80">Remediation plan</p>
       <p className="mt-2 text-[14px] font-semibold text-zinc-950">{documentTitle}</p>
       <p className="mt-1 text-[12px] leading-relaxed text-zinc-600">{planDetail}</p>
 
@@ -323,12 +323,12 @@ function SsmRemediationPlan({
                 href={documentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-0.5 inline-flex break-all font-mono text-[10px] text-indigo-700 hover:underline"
+                className="mt-0.5 inline-flex break-all font-mono text-[11px] text-indigo-700 hover:underline"
               >
                 {documentTechnicalName}
               </a>
             ) : (
-              <p className="mt-0.5 break-all font-mono text-[10px] text-zinc-800">{documentTechnicalName}</p>
+              <p className="mt-0.5 break-all font-mono text-[11px] text-zinc-800">{documentTechnicalName}</p>
             )}
           </div>
           <div>
@@ -338,7 +338,7 @@ function SsmRemediationPlan({
               href={roleUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-0.5 inline-flex break-all font-mono text-[10px] text-indigo-700 hover:underline"
+              className="mt-0.5 inline-flex break-all font-mono text-[11px] text-indigo-700 hover:underline"
             >
               {roleTechnicalName}
             </a>
@@ -953,15 +953,15 @@ export function IaCRemediationSection({
           <p className="rounded-lg border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-[11px] text-indigo-950">
             Repo-aware PRs use <span className="font-semibold">hclpatch</span> +{" "}
             <span className="font-semibold">terraform validate</span> — call{" "}
-            <code className="text-[10px]">POST /v1/findings/…/iac/terraform-pr</code> with a connected repo.
+            <code className="text-[11px]">POST /v1/findings/…/iac/terraform-pr</code> with a connected repo.
           </p>
         )}
 
         <div>
           <p className="text-[12px] font-semibold text-zinc-800">Terraform</p>
           <p className="mt-0.5 text-[11px] text-zinc-500">
-            Runnable module for this finding — <code className="text-[10px]">terraform init</code> then{" "}
-            <code className="text-[10px]">terraform apply</code> (AWS CLI + credentials required).
+            Runnable module for this finding — <code className="text-[11px]">terraform init</code> then{" "}
+            <code className="text-[11px]">terraform apply</code> (AWS CLI + credentials required).
           </p>
           <CopyBlock label="remediation.tf" text={data.terraform} />
         </div>
@@ -1020,7 +1020,7 @@ function PreviousExecutionNote({ findingId }: { findingId: string }) {
       <p className="font-semibold text-zinc-700">Previous attempt (not this session)</p>
       <p className="mt-1 text-zinc-600">{formatAutomationStartError(data.error)}</p>
       {data.plan_id && (
-        <p className="mt-1 font-mono text-[10px] text-zinc-500">Plan {data.plan_id.slice(0, 8)}…</p>
+        <p className="mt-1 font-mono text-[11px] text-zinc-500">Plan {data.plan_id.slice(0, 8)}…</p>
       )}
     </div>
   );

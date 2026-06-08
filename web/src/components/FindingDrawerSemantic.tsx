@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from "react";
 import {
+  drawerCardTitle,
+  drawerMetaLabel,
+  drawerPanelTitle,
   drawerSectionHead,
   drawerSectionTitle,
   drawerSummaryLabel,
@@ -61,9 +64,9 @@ export function SemanticNarrativeBlock({
     <div className={`overflow-hidden rounded-xl border bg-white ${t.shell}`}>
       <div className={`flex items-center gap-2.5 px-4 py-3 pr-5 ${t.header}`}>
         {icon ? <span className="shrink-0">{icon}</span> : null}
-        <h3 className="text-[14px] font-semibold leading-5 text-zinc-950">{heading}</h3>
+        <h3 className={drawerCardTitle}>{heading}</h3>
       </div>
-      <div className="border-t border-zinc-100/90 px-4 py-4 pr-5 text-[14px] leading-7 text-zinc-700">
+      <div className="border-t border-zinc-100/90 px-4 py-4 pr-5 text-[13.5px] leading-7 text-[#344054]">
         {children}
       </div>
     </div>
@@ -113,7 +116,7 @@ export function ResourceInspectorHero({
       <div className={`mt-0.5 h-9 w-1 shrink-0 rounded-full ${accent}`} aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-medium text-zinc-500">{badge}</p>
-        <h3 className="mt-0.5 text-[15px] font-semibold leading-snug tracking-normal text-zinc-900">
+        <h3 className={`mt-0.5 ${drawerPanelTitle}`}>
           {title}
         </h3>
       </div>
@@ -143,7 +146,7 @@ export function FindingTimelineStat({
   const numericValue = typeof value === "number";
   return (
     <div className="px-3.5 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide leading-none text-zinc-400">{label}</p>
+      <p className={`${drawerMetaLabel} leading-none`}>{label}</p>
       <div
         className={`mt-1.5 text-[15px] font-semibold leading-snug ${numericValue ? "tabular-nums" : ""} ${valueClassName}`}
       >
@@ -193,7 +196,7 @@ export function FlowBadge({
             ? "bg-zinc-100 text-zinc-600 ring-zinc-200/80"
             : "bg-zinc-100 text-zinc-700 ring-zinc-200/80";
   return (
-    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${cls}`}>
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ${cls}`}>
       {children}
     </span>
   );
@@ -210,7 +213,7 @@ function ExceptionDetailCell({
 }) {
   return (
     <div className="min-w-0 rounded-lg border border-amber-200/45 bg-white/75 px-3 py-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-800/70">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-800/70">{label}</p>
       <div className={`mt-1 text-[13px] leading-relaxed ${muted ? "text-zinc-400" : "text-zinc-800"}`}>{children}</div>
     </div>
   );

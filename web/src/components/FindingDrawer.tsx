@@ -505,7 +505,7 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
 
   const timelineBlock = (
     <div className="border-t border-zinc-100 bg-white px-4 pb-1.5 pt-3">
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Finding timeline</p>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Finding timeline</p>
       <dl>
         <ResourceFieldRow label="Risk score">
           <span className={`font-semibold ${riskTone}`}>{finding.risk_score}</span>
@@ -722,7 +722,7 @@ function FrameworkThresholdCard({ item }: { item: CredentialFrameworkImpactItem 
       </p>
       <p className="mt-1.5 text-[12px] font-medium text-zinc-700">Fails at {item.thresholdDays}+ days</p>
       <p
-        className={`mt-1 text-[10px] font-medium uppercase tracking-wide ${
+        className={`mt-1 text-[11px] font-medium uppercase tracking-wide ${
           isCis ? "text-amber-800/90" : "text-zinc-400"
         }`}
       >
@@ -2524,7 +2524,7 @@ function RegionPills({ regions }: { regions: string[] }) {
               className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50/80 px-2.5 py-2"
             >
               <span className="truncate text-xs font-medium text-zinc-800">{name ?? code}</span>
-              {name && <span className="shrink-0 font-mono text-[10px] tabular-nums text-zinc-400">{code}</span>}
+              {name && <span className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-400">{code}</span>}
             </div>
           );
         })}
@@ -3497,7 +3497,7 @@ function BlastRadiusSection({
                   (data.existing_unencrypted_count ?? 0) > 0 ? "text-amber-700" : "text-emerald-700"
                 }`}
               >
-                <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Count</div>
+                <div className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Count</div>
                 <div className="text-xl font-semibold leading-tight">{data.existing_unencrypted_count ?? 0}</div>
               </div>
             </div>
@@ -3647,7 +3647,7 @@ function BlastRadiusSection({
                       <span className="font-mono text-zinc-700 truncate">{trail.name}</span>
                       <div className="flex items-center gap-2 flex-shrink-0 pl-2">
                         <span className="text-zinc-400">{trail.region}</span>
-                        {trail.is_multi_region && <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">multi-region</span>}
+                        {trail.is_multi_region && <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">multi-region</span>}
                       </div>
                     </div>
                   ))}
@@ -3668,7 +3668,7 @@ function BlastRadiusSection({
                 <div className="font-mono text-zinc-700 truncate" title={data.group_id}>{data.group_id}</div>
                 {data.is_default && (
                   <div className="mt-1">
-                    <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                    <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700">
                       Default
                     </span>
                   </div>
@@ -3682,7 +3682,7 @@ function BlastRadiusSection({
                 <div className="font-medium text-zinc-400 mb-0.5">Region</div>
                 <div className="text-zinc-700 truncate" title={data.region}>{AWS_REGION_LABELS[data.region ?? ""] ?? data.region}</div>
                 {data.region && AWS_REGION_LABELS[data.region] && (
-                  <div className="mt-0.5 font-mono text-[10px] text-zinc-400 truncate">{data.region}</div>
+                  <div className="mt-0.5 font-mono text-[11px] text-zinc-400 truncate">{data.region}</div>
                 )}
               </div>
             </div>
@@ -3795,7 +3795,7 @@ function BlastRadiusSection({
             {data.ssl_policy && (
               <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
                 <div className="font-medium text-zinc-400 mb-0.5">TLS policy</div>
-                <div className="font-mono text-[10px] text-zinc-700 truncate">{data.ssl_policy}</div>
+                <div className="font-mono text-[11px] text-zinc-700 truncate">{data.ssl_policy}</div>
               </div>
             )}
           </div>
@@ -4203,7 +4203,7 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
           <p className="font-semibold">Apply-ready resource ARNs ({aaStatements.length})</p>
           <ul className="mt-1 space-y-1">
             {aaStatements.slice(0, 4).map((st, i) => (
-              <li key={i} className="font-mono text-[10px] leading-snug">
+              <li key={i} className="font-mono text-[11px] leading-snug">
                 {st.actions.slice(0, 2).join(", ")}
                 {st.actions.length > 2 ? ` +${st.actions.length - 2}` : ""}
                 {` → ${st.resources[0]}`}
@@ -4481,7 +4481,7 @@ function buildStatementDiffLines(
 function PolicyDiffLineRow({ line }: { line: PolicyDiffLine }) {
   if (line.kind === "header") {
     return (
-      <div className="border-t border-zinc-200/80 bg-zinc-100/90 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-zinc-500 first:border-t-0">
+      <div className="border-t border-zinc-200/80 bg-zinc-100/90 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wide text-zinc-500 first:border-t-0">
         {line.text}
       </div>
     );
@@ -4533,7 +4533,7 @@ function PolicyStatementDiffBlock({
     <div className="overflow-hidden rounded-lg border border-zinc-200/90">
       {title ? (
         <div className="border-b border-zinc-200/80 bg-zinc-100/80 px-3 py-1.5">
-          <span className="font-mono text-[10px] font-medium uppercase tracking-wide text-zinc-500">{title}</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-wide text-zinc-500">{title}</span>
         </div>
       ) : null}
       <div className="divide-y divide-zinc-100/60">
@@ -4829,7 +4829,7 @@ function PolicyJsonEditor({
               variant="dark"
             />
           ) : (
-            <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">JSON</span>
+            <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">JSON</span>
           )}
           <div className="flex items-center gap-1">
             <button
@@ -6200,7 +6200,7 @@ function CliBlock({ code, label = "Command" }: { code: string; label?: string })
   return (
     <div className="rounded-lg bg-zinc-100/60 overflow-hidden">
       <div className="flex items-center justify-between px-3.5 py-2">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">{label}</span>
+        <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">{label}</span>
         <button
           onClick={copy}
           className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-all duration-150 ${
@@ -6786,7 +6786,7 @@ export function FindingDrawer({
         <span className="text-xs font-medium text-zinc-600">{category}</span>
         <span className="text-zinc-300">·</span>
         <span
-          className={`inline-flex items-center rounded border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide ${headerBadge}`}
+          className={`inline-flex items-center rounded border px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide ${headerBadge}`}
         >
           {finding.severity}
         </span>
