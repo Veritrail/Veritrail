@@ -1926,8 +1926,16 @@ export default function Controls() {
           className={`mb-3 flex flex-wrap items-center justify-between gap-2 ${exportOpen ? "relative z-[100]" : ""}`}
         >
           <ComplianceViewSwitcher view={complianceView} onChange={setComplianceViewWithUrl} />
-          <div className="flex flex-wrap items-center gap-2">
-            {complianceView === "composite" && !compositeControls.isLoading && primaryComposites.length > 0 ? (
+          {showAuditExportAboveCard && <div className="shrink-0">{auditPackageExport}</div>}
+        </div>
+      )}
+
+      {!controls.isLoading &&
+        connectedAccount &&
+        ((complianceView === "composite" && !compositeControls.isLoading && primaryComposites.length > 0) ||
+          (complianceView === "detailed" && total > 0)) && (
+          <div className="mb-3">
+            {complianceView === "composite" ? (
               <ComplianceStatusFilterBar
                 total={compositeTotal}
                 passed={compositePassed}
@@ -1936,7 +1944,7 @@ export default function Controls() {
                 statusFilter={statusFilter}
                 onChange={handleStatusFilterChange}
               />
-            ) : complianceView === "detailed" && !controls.isLoading && total > 0 ? (
+            ) : (
               <ComplianceStatusFilterBar
                 total={total}
                 passed={passed}
@@ -1945,11 +1953,9 @@ export default function Controls() {
                 statusFilter={statusFilter}
                 onChange={handleStatusFilterChange}
               />
-            ) : null}
-            {showAuditExportAboveCard && <div className="shrink-0">{auditPackageExport}</div>}
+            )}
           </div>
-        </div>
-      )}
+        )}
 
       {complianceView === "composite" &&
         !compositeControls.isLoading &&
