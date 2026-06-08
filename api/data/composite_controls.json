@@ -55,6 +55,27 @@
     ]
   },
   {
+    "id": "asset_inventory",
+    "control_id": "COMPOSITE.ASSET_INVENTORY",
+    "title": "Asset Inventory & Ownership",
+    "description": "Confirms IAM principals, identity accounts, and access credentials are inventoried, active, and attributable.",
+    "guidance": "Review dormant users, unassumed roles, unused keys, and access-inventory gaps across AWS and connected identity providers.",
+    "soc2_criteria": [
+      "CC6.1"
+    ],
+    "checks": [
+      "entra.user.inactive_90d",
+      "github.org.dormant_members",
+      "gitlab.org.dormant_members",
+      "google_workspace.user.inactive_90d",
+      "iam.access_inventory_gap",
+      "iam.access_key.unused_45d",
+      "iam.role.unassumed_90d",
+      "iam.user.credentials_unused_45d",
+      "identity_center.user.inactive_90d"
+    ]
+  },
+  {
     "id": "secure_sdlc",
     "control_id": "COMPOSITE.SECURE_SDLC",
     "title": "Secure SDLC",

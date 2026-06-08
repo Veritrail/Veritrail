@@ -33,6 +33,9 @@ async def lifespan(app: FastAPI):
         db.close()
         if n:
             log.info("controls.seeded", count=n)
+        from app.services.composite_controls import assert_control_mapping_composite_coverage
+
+        assert_control_mapping_composite_coverage()
     except Exception:
         log.exception("controls.seed_failed")
     yield

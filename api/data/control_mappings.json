@@ -13,18 +13,8 @@
       "github.org.dormant_members",
       "gitlab.org.dormant_members",
       "identity_center.user.inactive_90d",
-      "cloudtrail.event.iam_user_policy_attachment",
-      "cloudtrail.event.s3_bucket_policy_change",
-      "cloudtrail.event.kms_key_disabled_or_deleted",
-      "cloudtrail.event.iam_access_key_created",
-      "cloudtrail.event.s3_public_access_block_disabled",
-      "cloudtrail.event.rds_instance_created_or_modified",
       "google_workspace.user.inactive_90d",
-      "google_workspace.admin.unreviewed",
-      "entra.user.inactive_90d",
-      "entra.admin.unreviewed",
-      "github.org.admin_unreviewed",
-      "iam.user.admin_policy_attached"
+      "entra.user.inactive_90d"
     ]
   },
   {
@@ -43,7 +33,8 @@
       "github.org.outside_collaborators",
       "gitlab.org.mfa_not_enforced",
       "google_workspace.org.mfa_not_enforced",
-      "entra.org.mfa_not_enforced"
+      "entra.org.mfa_not_enforced",
+      "cloudtrail.event.iam_access_key_created"
     ]
   },
   {
@@ -66,6 +57,9 @@
       "cloudtrail.event.iam_role_policy_mutation",
       "google_workspace.user.inactive_90d",
       "entra.user.inactive_90d",
+      "entra.admin.unreviewed",
+      "github.org.admin_unreviewed",
+      "google_workspace.admin.unreviewed",
       "iam.user.admin_policy_attached"
     ]
   },
@@ -110,6 +104,8 @@
       "lambda.function.public_url",
       "dynamodb.table.no_encryption",
       "cloudtrail.event.security_group_open_to_world",
+      "cloudtrail.event.s3_bucket_policy_change",
+      "cloudtrail.event.s3_public_access_block_disabled",
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
       "iam.user.admin_policy_attached"
@@ -167,7 +163,9 @@
       "cloudtrail.event.config_recorder_stopped",
       "cloudtrail.event.ec2_instance_tampering",
       "cloudtrail.event.iam_role_policy_mutation",
-      "cloudtrail.event.lambda_function_created_or_modified"
+      "cloudtrail.event.lambda_function_created_or_modified",
+      "cloudtrail.event.kms_key_disabled_or_deleted",
+      "cloudtrail.event.rds_instance_created_or_modified"
     ]
   },
   {

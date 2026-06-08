@@ -24,8 +24,57 @@ def composite_control_definitions() -> list[dict[str, Any]]:
     return json.loads(_DEFINITIONS_PATH.read_text())
 
 
+def _checks_in_control_mappings() -> set[str]:
+    from app.services.check_controls import _mapping_entries
+
+    out: set[str] = set()
+    for entry in _mapping_entries():
+        out.update(entry.get("checks", []))
+    return out
+
+
+def checks_in_composites() -> set[str]:
+    out: set[str] = set()
+    for entry in composite_control_definitions():
+        out.update(entry.get("checks", []))
+    return out
+
+
+def control_mapping_checks_missing_from_composites() -> list[str]:
+    """Checks referenced in control_mappings.json but absent from every composite."""
+    return sorted(_checks_in_control_mappings() - checks_in_composites())
+
+
+def assert_control_mapping_composite_coverage() -> None:
+    missing = control_mapping_checks_missing_from_composites()
+    if missing:
+        raise ValueError(
+            "control_mappings.json includes checks with no composite roll-up: "
+            + ", ".join(missing)
+        )
+
+
+def soc2_control_checks(control_id: str) -> list[str]:
+    from app.services.check_controls import _mapping_entries
+
+    for entry in _mapping_entries():
+        if entry.get("framework") == "soc2" and entry.get("control_id") == control_id:
+            return list(entry.get("checks", []))
+    return []
+
+
 # Primary composite when a check rolls up to multiple composites (Finding Drawer / by-check API).
 _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
+    # Asset inventory (CC6.1) vs broader identity governance
+    "iam.user.credentials_unused_45d": "asset_inventory",
+    "iam.role.unassumed_90d": "asset_inventory",
+    "iam.access_key.unused_45d": "asset_inventory",
+    "iam.access_inventory_gap": "asset_inventory",
+    "github.org.dormant_members": "asset_inventory",
+    "gitlab.org.dormant_members": "asset_inventory",
+    "identity_center.user.inactive_90d": "asset_inventory",
+    "google_workspace.user.inactive_90d": "asset_inventory",
+    "entra.user.inactive_90d": "asset_inventory",
     # Secure SDLC vs change management
     "github.repo.no_branch_protection": "secure_sdlc",
     "gitlab.repo.no_branch_protection": "secure_sdlc",

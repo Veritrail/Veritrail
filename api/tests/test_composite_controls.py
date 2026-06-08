@@ -5,7 +5,12 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from app.services.composite_controls import composite_control_definitions
+from app.services.composite_controls import (
+    assert_control_mapping_composite_coverage,
+    composite_control_definitions,
+    control_mapping_checks_missing_from_composites,
+    soc2_control_checks,
+)
 from app.services.control_status import compute_control_status
 
 
@@ -16,6 +21,7 @@ def test_composite_definitions_load():
     assert ids >= {
         "secure_sdlc",
         "identity_governance",
+        "asset_inventory",
         "change_management",
         "data_protection",
         "container_vulnerability_monitoring",
@@ -34,7 +40,7 @@ def test_tier3_composite_check_mappings():
     change = by_id["change_management"]
     assert "github.repo.no_branch_protection" in change["checks"]
     assert "github.repo.no_env_protection" in change["checks"]
-    assert "cloudtrail.trail.not_enabled" in change["checks"]
+    assert "cloudtrail.event.rds_instance_created_or_modified" in change["checks"]
     assert "github.repo.dependabot_disabled" not in change["checks"]
 
     container = by_id["container_vulnerability_monitoring"]
@@ -70,6 +76,33 @@ def test_secure_sdlc_excludes_env_protection():
     sdlc = by_id["secure_sdlc"]["checks"]
     assert "github.repo.no_env_protection" not in sdlc
     assert "gitlab.repo.no_env_protection" not in sdlc
+
+
+def test_every_control_mapping_check_in_composite():
+    missing = control_mapping_checks_missing_from_composites()
+    assert not missing, f"control_mappings checks missing composite: {missing}"
+
+
+def test_control_mapping_composite_coverage_assertion():
+    assert_control_mapping_composite_coverage()
+
+
+def test_cc61_aligned_with_asset_inventory_composite():
+    by_id = {d["id"]: d for d in composite_control_definitions()}
+    asset_checks = set(by_id["asset_inventory"]["checks"])
+    cc61_checks = set(soc2_control_checks("CC6.1"))
+    assert cc61_checks, "CC6.1 must map checks"
+    assert cc61_checks == asset_checks, (
+        f"CC6.1 and asset_inventory composite must match: "
+        f"only_cc61={sorted(cc61_checks - asset_checks)} only_asset={sorted(asset_checks - cc61_checks)}"
+    )
+
+
+def test_cc61_is_inventory_focused():
+    cc61_checks = soc2_control_checks("CC6.1")
+    forbidden_prefixes = ("cloudtrail.", "s3.", "kms.", "rds.", "ec2.", "github.repo.", "gitlab.repo.")
+    bad = [cid for cid in cc61_checks if cid.startswith(forbidden_prefixes)]
+    assert not bad, f"CC6.1 must not include non-inventory checks: {bad}"
 
 
 def test_every_registered_check_mapped_to_composite():
