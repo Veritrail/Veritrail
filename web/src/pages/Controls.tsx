@@ -185,11 +185,7 @@ function CompliancePanelShell({
   );
 }
 
-function controlRowMetadata(
-  ctrl: ControlRow,
-  findingMap: Map<string, OpenFindingMeta>,
-  lastScanAt: string | null,
-): string {
+function controlRowMetadata(ctrl: ControlRow, findingMap: Map<string, OpenFindingMeta>): string {
   const parts: string[] = [];
   if (ctrl.check_ids.length > 0) {
     parts.push(`${ctrl.check_ids.length} check${ctrl.check_ids.length === 1 ? "" : "s"} mapped`);
@@ -203,7 +199,6 @@ function controlRowMetadata(
     const resources = new Set(linked.map((f) => f.resource_arn)).size;
     if (resources > 0) parts.push(`${resources} resource${resources === 1 ? "" : "s"}`);
   }
-  if (lastScanAt) parts.push(`scanned ${lastScanLabel(lastScanAt)}`);
   if (parts.length === 0) {
     return ctrl.check_ids.length === 0 ? "Manual attestation required" : "Awaiting scan data";
   }
@@ -875,12 +870,6 @@ function CompositeControlsPanel({
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
                   <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{ctrl.description}</p>
-                  <p className="mt-1.5 text-[13px] text-zinc-500">
-                    {ctrl.check_ids.length} mapped check{ctrl.check_ids.length === 1 ? "" : "s"}
-                    {ctrl.status === "fail" && ctrl.finding_count > 0
-                      ? ` · ${ctrl.finding_count} open finding${ctrl.finding_count === 1 ? "" : "s"}`
-                      : ""}
-                  </p>
                 </div>
                 <div className="flex shrink-0 items-center sm:pt-0.5">
                   <ComplianceFindingsBadge
@@ -1881,7 +1870,10 @@ export default function Controls() {
               )}
             </div>
           </div>
-          <NotificationsBell />
+          <div className="flex items-center gap-2">
+            {showAuditExportAboveCard && auditPackageExport}
+            <NotificationsBell />
+          </div>
         </div>
       </div>
 
@@ -1922,11 +1914,8 @@ export default function Controls() {
       )}
 
       {!controls.isLoading && connectedAccount && (
-        <div
-          className={`mb-3 flex flex-wrap items-center justify-between gap-2 ${exportOpen ? "relative z-[100]" : ""}`}
-        >
+        <div className="mb-3">
           <ComplianceViewSwitcher view={complianceView} onChange={setComplianceViewWithUrl} />
-          {showAuditExportAboveCard && <div className="shrink-0">{auditPackageExport}</div>}
         </div>
       )}
 
@@ -2029,7 +2018,7 @@ export default function Controls() {
               >
                   {selectedGroup.rows.map((ctrl) => {
                     const isExpanded = expanded === ctrl.id;
-                    const meta = controlRowMetadata(ctrl, findingMap, connectedAccount?.last_scan_at ?? null);
+                    const meta = controlRowMetadata(ctrl, findingMap);
                     return (
                       <div key={ctrl.id}>
                         <button
