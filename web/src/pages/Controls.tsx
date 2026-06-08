@@ -1130,6 +1130,7 @@ export default function Controls() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlFramework = searchParams.get("framework");
   const urlControl = searchParams.get("control");
+  const urlComposite = searchParams.get("composite");
   const urlAccountId = searchParams.get("account_id");
   const [framework, setFramework] = useState(
     () => (urlFramework && FRAMEWORKS.some((f) => f.id === urlFramework) ? urlFramework : "soc2"),
@@ -1204,6 +1205,14 @@ export default function Controls() {
       setExpanded(match.id);
     }
   }, [controls.data, urlControl, framework]);
+
+  useEffect(() => {
+    if (!urlComposite || !compositeControls.data?.length) return;
+    const match = compositeControls.data.find((r) => r.id === urlComposite);
+    if (match) {
+      setExpandedComposite(match.id);
+    }
+  }, [compositeControls.data, urlComposite]);
 
   const openFindingsMeta = useQuery({
     queryKey: ["findings", "open", activeAccount?.id, "controls-meta"],

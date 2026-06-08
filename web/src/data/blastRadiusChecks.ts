@@ -67,7 +67,7 @@ const WHAT_IF_UNAVAILABLE: Record<string, string> = {
   "ecr.registry.enhanced_scanning_disabled":
     "Registry-level scanning — enabling enhanced scanning does not block image pulls.",
   "aws.vulnerability_monitoring.not_detected":
-    "Coverage detection — enable Inspector or your container scanner; no single resource dependency graph.",
+    "Account-level check — only applies when ECR, EKS, or ECS workloads exist. Passes when Inspector (ECR), enhanced scanning, or scan-on-push is detected.",
   "aws.inspector.active_critical_finding":
     "Inspector vulnerability — remediate or suppress in Inspector; impact varies by CVE and workload.",
   "google_workspace.org.mfa_not_enforced":

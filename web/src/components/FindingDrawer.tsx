@@ -28,6 +28,7 @@ import { frameworkLabel } from "../data/frameworks";
 import { showWhatIfTab, whatIfUnavailableReason } from "../data/blastRadiusChecks";
 import { checkLabels } from "../data/checkLabels";
 import { documentationForCheck } from "../data/checkDocumentation";
+import { DEFAULT_EVIDENCE_GUIDANCE } from "../data/checkComplianceCopy";
 import { policyGenerationReasonLabel } from "../data/policyGenerationCopy";
 import {
   formatCloudTrailStartFeedback,
@@ -753,6 +754,7 @@ function OverviewTabContent({
   });
 
   const mappings = controlBundle?.controls ?? [];
+  const primaryComposite = controlBundle?.primary_composite ?? null;
 
   return (
     <div className="space-y-3.5">
@@ -769,10 +771,18 @@ function OverviewTabContent({
           <OverviewSummaryRow label="Compliance mappings">
             {controlsLoading ? (
               <span className="text-[#98a2b3]">Loading…</span>
-            ) : mappings.length === 0 ? (
+            ) : !primaryComposite && mappings.length === 0 ? (
               <span className="text-[#98a2b3]">Not mapped</span>
             ) : (
               <div className="flex flex-wrap gap-1.5">
+                {primaryComposite && (
+                  <Link
+                    to={compositeComplianceHref(primaryComposite.id, accountId)}
+                    className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100"
+                  >
+                    {primaryComposite.title}
+                  </Link>
+                )}
                 {mappings.map((c) => (
                   <Link
                     key={`${c.framework}:${c.control_id}`}
@@ -3850,10 +3860,21 @@ type MappedControl = {
   reference_note?: string | null;
 };
 
+type CompositeControlSummary = {
+  id: string;
+  control_id: string;
+  title: string;
+  description: string;
+  guidance: string | null;
+  soc2_criteria: string[];
+};
+
 type CheckControlBundle = {
   check_id: string;
   primary: MappedControl | null;
   controls: MappedControl[];
+  composites?: CompositeControlSummary[];
+  primary_composite?: CompositeControlSummary | null;
 };
 
 function compliancePageHref(ctrl: MappedControl, accountId?: string | null) {
@@ -3865,42 +3886,14 @@ function compliancePageHref(ctrl: MappedControl, accountId?: string | null) {
   return `/controls?${params}`;
 }
 
-function ExternalReferenceLink({
-  href,
-  children,
-  className = "text-[12px] font-medium text-zinc-600 hover:text-zinc-900",
-  title,
-}: {
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-  title?: string;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={title}
-      className={`inline-flex items-center gap-1 ${className}`}
-    >
-      {children}
-      <svg
-        className="h-3 w-3 shrink-0 opacity-70"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        viewBox="0 0 24 24"
-        aria-hidden
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-        />
-      </svg>
-    </a>
-  );
+function compositeComplianceHref(compositeId: string, accountId?: string | null) {
+  const params = new URLSearchParams({ framework: "soc2", composite: compositeId });
+  if (accountId) params.set("account_id", accountId);
+  return `/controls?${params}`;
+}
+
+function mappedControlLabel(ctrl: MappedControl) {
+  return `${frameworkLabel(ctrl.framework)} ${ctrl.control_id}`;
 }
 
 function ComplianceTabContent({
@@ -3915,10 +3908,11 @@ function ComplianceTabContent({
     queryFn: () => api<CheckControlBundle>(`/v1/controls/by-check/${encodeURIComponent(checkId)}`),
   });
 
-  const primary = data?.primary;
-  const alternates = (data?.controls ?? []).filter(
-    (c) => !primary || c.framework !== primary.framework || c.control_id !== primary.control_id,
+  const primaryComposite = data?.primary_composite ?? null;
+  const secondaryComposites = (data?.composites ?? []).filter(
+    (c) => !primaryComposite || c.id !== primaryComposite.id,
   );
+  const mappedControls = data?.controls ?? [];
 
   if (isLoading) {
     return (
@@ -3926,16 +3920,18 @@ function ComplianceTabContent({
     );
   }
 
-  if (isError || !primary) {
+  if (isError || !primaryComposite) {
     return (
       <FlowCallout tone="neutral" title="Framework mapping">
-        This check is not yet mapped to SOC 2 / CIS / ISO control rows in Vigil.
+        {isError
+          ? "Could not load compliance mapping for this check."
+          : "This check is not yet mapped to a composite control in Vigil."}
       </FlowCallout>
     );
   }
 
   const checkDoc = documentationForCheck(checkId);
-  const evidenceGuidance = checkDoc?.compliance?.evidenceGuidance ?? null;
+  const evidenceGuidance = checkDoc?.compliance?.evidenceGuidance ?? DEFAULT_EVIDENCE_GUIDANCE;
   const auditNarrative = checkDoc?.compliance?.auditNarrative ?? null;
 
   return (
@@ -3943,61 +3939,68 @@ function ComplianceTabContent({
       <div className={`${drawerPanel} px-4 py-3`}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
-            {frameworkLabel(primary.framework)}
+            Composite control
           </span>
-          <span className="font-mono text-[12px] font-semibold text-zinc-800">{primary.control_id}</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50/80 px-2.5 py-1 text-[11px] font-medium text-red-700 ring-1 ring-red-200/45">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/75" aria-hidden />
+            Failing
+          </span>
         </div>
-        <h3 className="mt-2 text-[13px] font-semibold text-zinc-900">{primary.title}</h3>
-        <p className="mt-2 text-[12px] leading-relaxed text-zinc-600">{primary.description}</p>
-        {evidenceGuidance && (
-          <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-            <span className="font-medium text-zinc-600">Guidance: </span>
-            {evidenceGuidance}
-          </p>
+        <h3 className="mt-2 text-[13px] font-semibold text-zinc-900">{primaryComposite.title}</h3>
+        <p className="mt-2 text-[12px] leading-relaxed text-zinc-600">{primaryComposite.description}</p>
+        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+          <span className="font-medium text-zinc-600">Guidance: </span>
+          {evidenceGuidance}
+        </p>
+        {mappedControls.length > 0 && (
+          <div className="mt-3 border-t border-zinc-100 pt-3">
+            <p className="text-[11px] font-medium text-zinc-500">Mapped controls</p>
+            <ul className="mt-2 space-y-1">
+              {mappedControls.map((c) => (
+                <li
+                  key={`${c.framework}:${c.control_id}`}
+                  className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[12px]"
+                >
+                  <span className="text-zinc-700">{mappedControlLabel(c)}</span>
+                  <Link
+                    to={compliancePageHref(c, accountId)}
+                    className="shrink-0 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
+                  >
+                    View
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
-        <div className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3">
+        <div className="mt-3 border-t border-zinc-100 pt-3">
           <Link
-            to={compliancePageHref(primary, accountId)}
+            to={compositeComplianceHref(primaryComposite.id, accountId)}
             className="text-[12px] font-medium text-indigo-600 hover:text-indigo-800"
           >
             View on Compliance page →
           </Link>
-          <ExternalReferenceLink href={primary.reference_url} title={primary.reference_label}>
-            {primary.reference_label}
-          </ExternalReferenceLink>
         </div>
       </div>
+
       {auditNarrative && (
         <SemanticNarrativeBlock tag="Detection Logic" tone="neutral">
           {auditNarrative}
         </SemanticNarrativeBlock>
       )}
-      {alternates.length > 0 && (
+
+      {secondaryComposites.length > 0 && (
         <div className={`${drawerPanel} px-4 py-3`}>
-          <p className="text-[11px] font-medium text-zinc-500">Also mapped to</p>
-          <ul className="mt-2 space-y-1.5">
-            {alternates.map((c) => (
-              <li
-                key={`${c.framework}:${c.control_id}`}
-                className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]"
-              >
+          <p className="text-[11px] font-medium text-zinc-500">Also contributes to</p>
+          <ul className="mt-1.5 space-y-1">
+            {secondaryComposites.map((c) => (
+              <li key={c.id} className="text-[12px]">
                 <Link
-                  to={compliancePageHref(c, accountId)}
+                  to={compositeComplianceHref(c.id, accountId)}
                   className="font-medium text-indigo-600 hover:text-indigo-800"
                 >
-                  {frameworkLabel(c.framework)} {c.control_id}
+                  {c.title}
                 </Link>
-                <ExternalReferenceLink
-                  href={c.reference_url}
-                  className="text-zinc-500 hover:text-zinc-800"
-                  title={
-                    c.framework === "iso27001"
-                      ? `${c.control_id} maps to ISO/IEC 27002:2022 on iso.org; full text may require purchase`
-                      : c.reference_label
-                  }
-                >
-                  Official doc
-                </ExternalReferenceLink>
               </li>
             ))}
           </ul>

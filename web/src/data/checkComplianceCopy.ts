@@ -2,17 +2,11 @@
  * Auditor-facing evidence guidance + detection narrative per check (drawer Compliance tab).
  * Kept separate from terse remediationSummaries impact/risk lines.
  *
- * Evidence guidance style (first string passed to copy(); UI label "Guidance"):
- * Single sentence: "Verify that …" — what the control checks (no manual auditor steps).
- * Strings may still use an "Evidence:" prefix; copy() strips it (UI adds "Guidance:").
+ * Evidence guidance style (UI label "Guidance"):
+ * Actionable instructions — what to do, not "Verify that…" auditor templates.
  *
- * Detection Logic style (second string; UI badge "Detection Logic"):
+ * Detection Logic style (UI badge "Detection Logic"):
  * Plain, factual: what data Vigil reads and what condition triggers the finding.
- * Present tense, third person: "Vigil reads…", "Vigil flags…", "Vigil compares…".
- * No auditor instructions, screenshots, or scary hypotheticals unless the check is
- * explicitly about compromise or active threat findings.
- * Do not duplicate Guidance ("Verify that…"); Guidance is what to verify, Detection Logic is how Vigil flags it.
- * Prefer 1–2 sentences.
  */
 import { remediationSummaries, type RemediationSummary } from "./remediationSummaries";
 
@@ -21,11 +15,21 @@ export type CheckComplianceCopy = {
   auditNarrative: string;
 };
 
+export const DEFAULT_EVIDENCE_GUIDANCE =
+  "Review this control with the listed evidence. If the affected resource is expected, document the exception. Otherwise apply the remediation and re-run the scan.";
+
+/** Replace legacy "Verify that…" templates with actionable default guidance. */
+export function actionableEvidenceGuidance(text: string): string {
+  if (/^Verify that\b/i.test(text.trim())) {
+    return DEFAULT_EVIDENCE_GUIDANCE;
+  }
+  return text;
+}
+
 function copy(
   evidenceGuidance: string,
   auditNarrative: string,
 ): CheckComplianceCopy {
-  // UI labels this block "Guidance:" — drop duplicate prefix from copy strings.
   const guidance = evidenceGuidance.replace(/^Evidence:\s*/i, "");
   return { evidenceGuidance: guidance, auditNarrative };
 }
@@ -99,7 +103,7 @@ function iamRole(checkId: string, _s: RemediationSummary): CheckComplianceCopy {
       );
     case "iam.role.least_privilege_policy":
       return copy(
-        "Verify that IAM role policies follow least privilege — no customer-managed Action \"*\" without business justification.",
+        "Review the affected IAM policy and replace wildcard permissions with the minimum actions and resources required.",
         "Vigil flags customer-managed inline or attached policies with Action \"*\". Resource \"*\" is full admin; scoped resources are wildcard-action violations.",
       );
     case "iam.role.unused_services_90d":
@@ -149,7 +153,7 @@ function iamRoot(checkId: string, _s: RemediationSummary): CheckComplianceCopy {
   switch (checkId) {
     case "iam.root.no_mfa":
       return copy(
-        "Verify that the AWS root account has an active MFA device configured.",
+        "Verify the root user has MFA enabled. If root access is intentionally restricted by another process, attach evidence or document an exception.",
         "Vigil reads root MFA configuration from the account summary. Root without a registered MFA device is flagged.",
       );
     case "iam.root.has_access_keys":
@@ -277,9 +281,21 @@ function ec2SecurityGroup(checkId: string, _s: RemediationSummary): CheckComplia
 }
 
 function github(checkId: string, _s: RemediationSummary): CheckComplianceCopy {
+  if (checkId === "github.repo.no_branch_protection") {
+    return copy(
+      "Require pull requests, review approval, and status checks before changes can merge into the default branch.",
+      "Vigil reads branch protection rules on the default branch via the GitHub API. Repositories without required pull-request reviews or status checks are flagged.",
+    );
+  }
+  if (checkId === "github.repo.no_env_protection") {
+    return copy(
+      "Require reviewers for production-like deployment environments. Non-production environments should not be treated as High unless explicitly configured that way.",
+      "Vigil reads GitHub environment protection rules. Production-like environments without required reviewers are flagged; non-production environments are reported at Medium severity.",
+    );
+  }
   if (checkId === "github.repo.no_codeowners" || checkId === "gitlab.repo.no_codeowners") {
     return copy(
-      "Verify that repositories define code ownership for change-management review.",
+      "Add a CODEOWNERS file so changes to sensitive paths require review from designated owners.",
       "Vigil reads repository CODEOWNERS file presence. Repositories without CODEOWNERS are flagged when this optional check is enabled.",
     );
   }
@@ -296,6 +312,18 @@ function github(checkId: string, _s: RemediationSummary): CheckComplianceCopy {
 }
 
 function gitlab(checkId: string, _s: RemediationSummary): CheckComplianceCopy {
+  if (checkId === "gitlab.repo.no_branch_protection") {
+    return copy(
+      "Require pull requests, review approval, and status checks before changes can merge into the default branch.",
+      "Vigil reads protected-branch and merge-request approval rules on the default branch via the GitLab API. Projects without required reviews or status checks are flagged.",
+    );
+  }
+  if (checkId === "gitlab.repo.no_env_protection") {
+    return copy(
+      "Require reviewers for production-like deployment environments. Non-production environments should not be treated as High unless explicitly configured that way.",
+      "Vigil reads GitLab protected environment rules. Production-like environments without required approvers are flagged; non-production environments are reported at Medium severity.",
+    );
+  }
   if (checkId.startsWith("gitlab.org.")) {
     return copy(
       "Verify that GitLab group security settings meet your identity baseline.",
@@ -535,6 +563,11 @@ const SPECIFIC: Record<string, (s: RemediationSummary) => CheckComplianceCopy> =
       "Verify that ECR repositories scan container images when images are pushed.",
       "Vigil reads ECR image scanning configuration. Repositories without scan-on-push enabled are flagged.",
     ),
+  "aws.vulnerability_monitoring.not_detected": () =>
+    copy(
+      "Only apply this control when ECR, ECS, or EKS/container evidence exists. If no containers are detected, mark the control Not applicable and do not raise a finding.",
+      "Vigil checks for ECR repositories, ECS services, or EKS clusters first. When container workloads exist, it looks for Inspector ECR coverage, ECR enhanced scanning, or scan-on-push. Accounts with container evidence but no scanning source are flagged.",
+    ),
   "secretsmanager.secret.no_rotation": () =>
     copy(
       "Verify that Secrets Manager secrets have automatic rotation enabled.",
@@ -581,7 +614,11 @@ export function complianceCopyForCheck(checkId: string): CheckComplianceCopy | n
   const s = remediationSummaries[checkId];
   if (!s) return null;
   const build = builderFor(checkId);
-  return build ? build(s) : defaultCopy(checkId, s);
+  const result = build ? build(s) : defaultCopy(checkId, s);
+  return {
+    evidenceGuidance: actionableEvidenceGuidance(result.evidenceGuidance),
+    auditNarrative: result.auditNarrative,
+  };
 }
 
 /** Short scanner description for Overview / documentation (not auditor templates). */

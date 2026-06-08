@@ -657,9 +657,9 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     fix: "Remove privileged flag unless required; use specific Linux capabilities.",
   },
   "aws.vulnerability_monitoring.not_detected": {
-    impact: "No container vulnerability scanning evidence found.",
-    risk: "Known CVEs in images may reach production.",
-    fix: "Enable Inspector, ECR scanning, or your container scanner.",
+    impact: "Container workloads are present but no image scanning evidence was found.",
+    risk: "Container images may ship with known CVEs undetected before deployment.",
+    fix: "Enable Inspector for ECR, ECR enhanced scanning, or scan-on-push on repositories.",
   },
   "aws.inspector.active_critical_finding": {
     impact: "Inspector reports an active critical vulnerability.",

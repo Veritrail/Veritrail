@@ -69,12 +69,17 @@ def primary_control_for_check(check_id: str) -> dict[str, Any] | None:
 
 
 def check_control_bundle(check_id: str) -> dict[str, Any]:
+    from app.services.composite_controls import composite_defs_for_check
+
     rows = controls_for_check(check_id)
     primary = rows[0] if rows else None
+    composites = composite_defs_for_check(check_id)
     return {
         "check_id": check_id,
         "framework_priority": list(FRAMEWORK_PRIORITY),
         "primary": primary,
         "controls": rows,
         "frameworks": [r["framework"] for r in rows],
+        "composites": composites,
+        "primary_composite": composites[0] if composites else None,
     }

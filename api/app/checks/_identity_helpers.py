@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -11,6 +12,12 @@ from app.checks.base import FindingDraft, score
 from app.models.github import IdentityProvider, IdentityUser, PullRequest, Repo, RepoProtection
 
 DORMANT_DAYS = 90
+
+_PROD_LIKE_ENV = re.compile(r"(^|[/_-])(prod(uction)?|live|prd)([_/-]|$)", re.I)
+
+
+def _is_prod_like_env(name: str) -> bool:
+    return bool(_PROD_LIKE_ENV.search(name))
 
 
 def _providers_of_type(db: Session, account_id, provider_type: str) -> list[IdentityProvider]:
@@ -209,18 +216,21 @@ def run_no_env_protection(db: Session, account_id, provider_type: str, check_id:
             unprotected = [e["name"] for e in envs if not e.get("has_required_reviewers")]
             if not unprotected:
                 continue
+            prod_like = [name for name in unprotected if _is_prod_like_env(name)]
+            severity = "high" if prod_like else "medium"
             out.append(
                 FindingDraft(
                     check_id=check_id,
                     resource_arn=f"{provider_type}://{source}/{repo.name}",
                     title=f"Repository `{repo.name}` has deployment environments with no required reviewers",
-                    severity="high",
-                    risk_score=score("high"),
+                    severity=severity,
+                    risk_score=score(severity),
                     evidence={
                         "provider_type": provider_type,
                         "source": source,
                         "repo": repo.name,
                         "unprotected_environments": unprotected,
+                        "prod_like_unprotected_environments": prod_like,
                         "all_environments": [e["name"] for e in envs],
                     },
                 )

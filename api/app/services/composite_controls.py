@@ -24,6 +24,85 @@ def composite_control_definitions() -> list[dict[str, Any]]:
     return json.loads(_DEFINITIONS_PATH.read_text())
 
 
+# Primary composite when a check rolls up to multiple composites (Finding Drawer / by-check API).
+_PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
+    # Secure SDLC vs change management
+    "github.repo.no_branch_protection": "secure_sdlc",
+    "gitlab.repo.no_branch_protection": "secure_sdlc",
+    "github.repo.no_codeowners": "secure_sdlc",
+    "gitlab.repo.no_codeowners": "secure_sdlc",
+    "github.repo.self_merge_allowed": "secure_sdlc",
+    "gitlab.repo.self_merge_allowed": "secure_sdlc",
+    "github.repo.insufficient_reviews": "secure_sdlc",
+    "gitlab.repo.insufficient_reviews": "secure_sdlc",
+    "github.repo.no_env_protection": "change_management",
+    "gitlab.repo.no_env_protection": "change_management",
+    # CloudTrail: logging vs change management
+    "cloudtrail.trail.not_enabled": "logging_monitoring",
+    "cloudtrail.trail.no_log_validation": "logging_monitoring",
+    "cloudtrail.event.trail_tampering": "logging_monitoring",
+    "cloudtrail.event.lambda_function_created_or_modified": "change_management",
+    "cloudtrail.event.rds_instance_created_or_modified": "change_management",
+    # Vulnerability: container-scoped vs account-wide
+    "aws.vulnerability_monitoring.not_detected": "container_vulnerability_monitoring",
+    "ecr.registry.enhanced_scanning_disabled": "container_vulnerability_monitoring",
+    "ecr.repository.image_scan_disabled": "container_vulnerability_monitoring",
+    "aws.inspector.active_critical_finding": "vulnerability_management",
+    # Data protection vs logging for CloudTrail events
+    "cloudtrail.event.kms_key_disabled_or_deleted": "data_protection",
+    "cloudtrail.event.s3_bucket_policy_change": "data_protection",
+    "cloudtrail.event.s3_public_access_block_disabled": "data_protection",
+    "cloudtrail.event.security_group_open_to_world": "data_protection",
+}
+
+
+def _infer_primary_composite_id(mapped_id: str) -> str | None:
+    matches = [
+        entry["id"]
+        for entry in composite_control_definitions()
+        if mapped_id in entry.get("checks", [])
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def primary_composite_id_for_check(check_id: str) -> str | None:
+    from app.services.check_controls import resolve_check_id_for_controls
+
+    mapped_id = resolve_check_id_for_controls(check_id)
+    return _PRIMARY_COMPOSITE_BY_CHECK.get(mapped_id) or _infer_primary_composite_id(mapped_id)
+
+
+def _composite_summary(entry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": entry["id"],
+        "control_id": entry["control_id"],
+        "title": entry["title"],
+        "description": entry.get("description", ""),
+        "guidance": entry.get("guidance"),
+        "soc2_criteria": list(entry.get("soc2_criteria") or []),
+    }
+
+
+def composite_defs_for_check(check_id: str) -> list[dict[str, Any]]:
+    """Composite control definitions that include this check_id, primary first."""
+    from app.services.check_controls import resolve_check_id_for_controls
+
+    mapped_id = resolve_check_id_for_controls(check_id)
+    rows: list[dict[str, Any]] = []
+    for entry in composite_control_definitions():
+        if mapped_id in entry.get("checks", []):
+            rows.append(_composite_summary(entry))
+
+    preferred_id = primary_composite_id_for_check(check_id)
+    if preferred_id:
+        rows.sort(key=lambda r: (0 if r["id"] == preferred_id else 1, r["id"]))
+    else:
+        rows.sort(key=lambda r: r["id"])
+    return rows
+
+
 def _scan_context(
     db: Session,
     org_id: uuid.UUID,
