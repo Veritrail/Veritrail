@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, token } from "../api";
-import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS } from "../data/frameworks";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
@@ -448,28 +447,6 @@ function frameworkControlLabel(framework: string, controlId: string): string {
   return controlId;
 }
 
-function frameworkTagsForComposite(
-  ctrl: CompositeControlRow,
-  framework: string,
-  frameworkRows: ControlRow[],
-): string[] {
-  const underlying = underlyingCriteriaForComposite(ctrl, frameworkRows);
-  if (underlying.length > 0) {
-    return underlying.slice(0, 4).map((r) => frameworkControlLabel(framework, r.control_id));
-  }
-  if (framework === "soc2") {
-    return ctrl.soc2_criteria.map((c) => `SOC 2 ${c}`);
-  }
-  const tags: string[] = [];
-  const seen = new Set<string>();
-  for (const checkId of ctrl.check_ids) {
-    const fws = CHECK_FRAMEWORK_MAP[checkId] ?? [];
-    if (framework === "cis_aws_l1" && fws.includes("cis_aws_l1")) seen.add("CIS AWS");
-    if (framework === "iso27001" && fws.includes("iso27001")) seen.add("ISO 27001");
-  }
-  return Array.from(seen);
-}
-
 function underlyingCriteriaForComposite(
   composite: CompositeControlRow,
   frameworkRows: ControlRow[],
@@ -881,7 +858,6 @@ function CompositeControlsPanel({
     >
         {treeRows.map(({ row: ctrl, child }) => {
           const isExpanded = expandedId === ctrl.id;
-          const frameworkTags = frameworkTagsForComposite(ctrl, framework, frameworkRows);
 
           return (
             <div key={ctrl.id}>
@@ -899,9 +875,6 @@ function CompositeControlsPanel({
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
                   <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{ctrl.description}</p>
-                  {frameworkTags.length > 0 && (
-                    <p className="mt-2 text-xs font-medium text-zinc-500">{frameworkTags.join(" · ")}</p>
-                  )}
                   <p className="mt-1.5 text-[13px] text-zinc-500">
                     {ctrl.check_ids.length} mapped check{ctrl.check_ids.length === 1 ? "" : "s"}
                     {ctrl.status === "fail" && ctrl.finding_count > 0
@@ -1450,39 +1423,57 @@ function FrameworkScoreCard({
   const passed = stats?.passed ?? 0;
   const hasData = pct != null && total > 0;
   const pctNum = pct ?? 0;
+  const RADIUS = 18;
+  const CIRC = 2 * Math.PI * RADIUS;
+  const ringColor = !hasData
+    ? "text-zinc-300"
+    : pctNum >= 80
+      ? "text-emerald-500"
+      : pctNum >= 50
+        ? "text-amber-500"
+        : "text-rose-500";
   return (
     <button
       type="button"
       role="tab"
       aria-selected={isActive}
       onClick={onSelect}
-      className={`flex flex-col rounded-2xl border px-4 py-3.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${
+      className={`flex w-60 items-center gap-3.5 rounded-2xl border px-4 py-3.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${
         isActive
           ? "border-indigo-300/80 bg-indigo-50/40 shadow-sm shadow-indigo-950/[0.04] ring-1 ring-indigo-300/40"
           : "border-zinc-200/90 bg-white hover:border-zinc-300 hover:bg-zinc-50/60"
       }`}
     >
-      <span className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-semibold text-zinc-700">{fw.label}</span>
+      <span className="relative h-12 w-12 shrink-0">
+        <svg viewBox="0 0 44 44" className="h-12 w-12 -rotate-90">
+          <circle cx="22" cy="22" r={RADIUS} fill="none" stroke="currentColor" strokeWidth="4" className="text-zinc-200" />
+          <circle
+            cx="22"
+            cy="22"
+            r={RADIUS}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={CIRC}
+            strokeDashoffset={hasData ? CIRC * (1 - pctNum / 100) : CIRC}
+            className={`transition-all ${ringColor}`}
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-[12px] font-bold tabular-nums text-zinc-800">
+          {hasData ? `${pctNum}%` : "—"}
+        </span>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-zinc-900">{fw.label}</span>
+        <span className="mt-0.5 block text-xs font-medium tabular-nums text-zinc-500">
+          {hasData ? `${passed} of ${total} passing` : "No scan data"}
+        </span>
         {isActive && (
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">Viewing</span>
+          <span className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+            Viewing
+          </span>
         )}
-      </span>
-      <span
-        className={`mt-1 text-[26px] font-bold leading-none tabular-nums tracking-tight ${
-          hasData ? passRateColor(pctNum) : "text-zinc-300"
-        }`}
-      >
-        {hasData ? `${pctNum}%` : "—"}
-      </span>
-      <span className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100" aria-hidden>
-        <span
-          className={`block h-full rounded-full transition-all ${hasData ? passRateBarColor(pctNum) : "bg-zinc-200"}`}
-          style={{ width: `${hasData ? pctNum : 0}%` }}
-        />
-      </span>
-      <span className="mt-2 text-xs font-medium tabular-nums text-zinc-500">
-        {hasData ? `${passed} of ${total} controls passing` : "No scan data yet"}
       </span>
     </button>
   );
@@ -1512,7 +1503,7 @@ function FrameworkNav({
 }) {
   return (
     <div
-      className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3"
+      className="mb-3 flex flex-wrap gap-3"
       role="tablist"
       aria-label="Compliance framework"
     >

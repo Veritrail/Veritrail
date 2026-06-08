@@ -133,7 +133,7 @@ export function AccountSelect({
         aria-expanded={open}
         className={`${CONTEXT_PILL} max-w-[18rem] cursor-pointer gap-2.5 text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
       >
-        <ProviderMark provider={current.provider} className="h-5 w-9" />
+        <ProviderMark provider={current.provider} className="h-6 w-10" />
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-none tracking-[-0.02em] text-zinc-900">
           {current.label || groupAccountId(current.account_id ?? "")}
         </span>
