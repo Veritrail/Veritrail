@@ -679,22 +679,39 @@ function TopFailingChecksList({
 
   if (top.length === 0) return null;
 
+  const maxCount = findingCountByCheck.get(top[0]) ?? 1;
+
   return (
-    <ul className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200 bg-white">
-      {top.map((checkId) => (
-        <li key={checkId}>
-          <button
-            type="button"
-            onClick={() => navigate(`/findings?checks=${encodeURIComponent(checkId)}`)}
-            className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-zinc-50"
-          >
-            <span className="font-medium text-zinc-900">{labelForCheck(checkId)}</span>
-            <span className="shrink-0 tabular-nums text-xs font-semibold text-rose-600/90">
-              {findingCountByCheck.get(checkId)}
-            </span>
-          </button>
-        </li>
-      ))}
+    <ul className="flex flex-col gap-0.5 rounded-xl border border-zinc-200 bg-white p-1.5">
+      {top.map((checkId, i) => {
+        const count = findingCountByCheck.get(checkId) ?? 0;
+        // Proportional bar — floor at 4% so the smallest offenders stay visible.
+        const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 0;
+        return (
+          <li key={checkId}>
+            <button
+              type="button"
+              onClick={() => navigate(`/findings?checks=${encodeURIComponent(checkId)}`)}
+              className="group relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-left transition hover:bg-zinc-50"
+            >
+              <span
+                className="absolute inset-y-0 left-0 bg-rose-50 transition-colors group-hover:bg-rose-100/70"
+                style={{ width: `${pct}%` }}
+                aria-hidden
+              />
+              <span className="relative z-10 flex min-w-0 items-center gap-2.5">
+                <span className="w-3.5 shrink-0 text-center text-xs font-semibold tabular-nums text-zinc-400">
+                  {i + 1}
+                </span>
+                <span className="truncate text-sm font-medium text-zinc-900">{labelForCheck(checkId)}</span>
+              </span>
+              <span className="relative z-10 shrink-0 tabular-nums text-sm font-semibold text-rose-700">
+                {count}
+              </span>
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }
