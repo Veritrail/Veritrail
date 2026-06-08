@@ -1870,10 +1870,7 @@ export default function Controls() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {showAuditExportAboveCard && auditPackageExport}
-            <NotificationsBell />
-          </div>
+          <NotificationsBell />
         </div>
       </div>
 
@@ -1911,6 +1908,12 @@ export default function Controls() {
             openControl(topBlockerDetailed);
           }}
         />
+      )}
+
+      {showAuditExportAboveCard && (
+        <div className={`mb-3 flex justify-end ${exportOpen ? "relative z-[100]" : ""}`}>
+          {auditPackageExport}
+        </div>
       )}
 
       {!controls.isLoading && connectedAccount && (
