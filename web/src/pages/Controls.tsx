@@ -1910,12 +1910,6 @@ export default function Controls() {
         />
       )}
 
-      {showAuditExportAboveCard && (
-        <div className={`mb-3 flex justify-end ${exportOpen ? "relative z-[100]" : ""}`}>
-          {auditPackageExport}
-        </div>
-      )}
-
       {!controls.isLoading && connectedAccount && (
         <div className="mb-3">
           <ComplianceViewSwitcher view={complianceView} onChange={setComplianceViewWithUrl} />
@@ -1926,7 +1920,7 @@ export default function Controls() {
         connectedAccount &&
         ((complianceView === "composite" && !compositeControls.isLoading && primaryComposites.length > 0) ||
           (complianceView === "detailed" && total > 0)) && (
-          <div className="mb-3">
+          <div className={`mb-3 flex flex-wrap items-center justify-between gap-2 ${exportOpen ? "relative z-[100]" : ""}`}>
             {complianceView === "composite" ? (
               <ComplianceStatusFilterBar
                 total={compositeTotal}
@@ -1946,6 +1940,7 @@ export default function Controls() {
                 onChange={handleStatusFilterChange}
               />
             )}
+            {showAuditExportAboveCard && <div className="shrink-0">{auditPackageExport}</div>}
           </div>
         )}
 
