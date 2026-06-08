@@ -13,7 +13,7 @@ export type AccountOption = {
 };
 
 const CONTEXT_PILL =
-  "inline-flex h-9 items-center rounded-full border border-zinc-200/90 bg-white px-3.5 shadow-sm shadow-zinc-950/[0.03] transition-colors";
+  "inline-flex h-10 items-center rounded-full border border-zinc-200/90 bg-white px-4 shadow-sm shadow-zinc-950/[0.03] transition-colors";
 
 function AwsMark({ className }: { className?: string }) {
   return (
@@ -131,10 +131,10 @@ export function AccountSelect({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`${CONTEXT_PILL} max-w-[16rem] cursor-pointer gap-1 text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
+        className={`${CONTEXT_PILL} max-w-[18rem] cursor-pointer gap-2.5 text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
       >
-        <ProviderMark provider={current.provider} className="h-[1.125rem] w-[1.625rem]" />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-none tracking-[-0.02em] text-zinc-900">
+        <ProviderMark provider={current.provider} className="h-5 w-9" />
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-none tracking-[-0.02em] text-zinc-900">
           {current.label || groupAccountId(current.account_id ?? "")}
         </span>
         <svg

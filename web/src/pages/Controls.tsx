@@ -1434,7 +1434,61 @@ function frameworkChipShellClass(
   return "border-zinc-300/80 bg-white text-zinc-900 shadow-sm shadow-zinc-950/[0.03]";
 }
 
-/** Framework chips + view switcher. */
+function FrameworkScoreCard({
+  fw,
+  stats,
+  isActive,
+  onSelect,
+}: {
+  fw: { id: string; label: string };
+  stats: FrameworkStats | undefined;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const pct = stats?.passRate;
+  const total = stats?.total ?? 0;
+  const passed = stats?.passed ?? 0;
+  const hasData = pct != null && total > 0;
+  const pctNum = pct ?? 0;
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={isActive}
+      onClick={onSelect}
+      className={`flex flex-col rounded-2xl border px-4 py-3.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${
+        isActive
+          ? "border-indigo-300/80 bg-indigo-50/40 shadow-sm shadow-indigo-950/[0.04] ring-1 ring-indigo-300/40"
+          : "border-zinc-200/90 bg-white hover:border-zinc-300 hover:bg-zinc-50/60"
+      }`}
+    >
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-[13px] font-semibold text-zinc-700">{fw.label}</span>
+        {isActive && (
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600">Viewing</span>
+        )}
+      </span>
+      <span
+        className={`mt-1 text-[26px] font-bold leading-none tabular-nums tracking-tight ${
+          hasData ? passRateColor(pctNum) : "text-zinc-300"
+        }`}
+      >
+        {hasData ? `${pctNum}%` : "—"}
+      </span>
+      <span className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100" aria-hidden>
+        <span
+          className={`block h-full rounded-full transition-all ${hasData ? passRateBarColor(pctNum) : "bg-zinc-200"}`}
+          style={{ width: `${hasData ? pctNum : 0}%` }}
+        />
+      </span>
+      <span className="mt-2 text-xs font-medium tabular-nums text-zinc-500">
+        {hasData ? `${passed} of ${total} controls passing` : "No scan data yet"}
+      </span>
+    </button>
+  );
+}
+
+/** Framework score cards — each card is also the framework selector tab. */
 function FrameworkNav({
   selectedId,
   statsById,
@@ -1456,75 +1510,26 @@ function FrameworkNav({
   onSelect: (id: string) => void;
   onOpenTopBlocker: () => void;
 }) {
-  const activeTopBlocker =
-    complianceView === "composite" ? topBlockerComposite : topBlockerDetailed;
-
   return (
-    <header className="mb-1">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Compliance framework">
-          {FRAMEWORKS.map((fw) => {
-            const isActive = selectedId === fw.id;
-            const tabStats = isActive ? currentStats : statsById[fw.id];
-            const tabPct = tabStats?.passRate;
-            return (
-              <button
-                key={fw.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => onSelect(fw.id)}
-                className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${frameworkChipShellClass(isActive, tabStats)}`}
-              >
-                <span className="font-semibold">{fw.label}</span>
-                {tabPct != null && (
-                  <span className={`tabular-nums text-sm font-semibold ${frameworkChipPctClass(fw.id, tabPct, isActive)}`}>
-                    {tabPct}%
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-2">
-        <ComplianceViewSwitcher view={complianceView} onChange={onComplianceViewChange} />
-      </div>
-
-      {activeTopBlocker && (
-        <p className="mt-2 text-[13px] leading-snug text-zinc-600">
-          <span className="text-zinc-500">Top blocker: </span>
-          <button
-            type="button"
-            onClick={onOpenTopBlocker}
-            className="font-medium text-indigo-700 hover:text-indigo-900 hover:underline"
-          >
-            {complianceView === "composite" && topBlockerComposite ? (
-              <>
-                {topBlockerComposite.title}
-                <span className="tabular-nums text-rose-600/80">
-                  {" "}
-                  ({topBlockerComposite.finding_count} finding
-                  {topBlockerComposite.finding_count === 1 ? "" : "s"})
-                </span>
-              </>
-            ) : topBlockerDetailed ? (
-              <>
-                <span className="font-mono text-xs text-zinc-500">{topBlockerDetailed.control_id}</span>
-                {" "}
-                {shortControlTitle(topBlockerDetailed.title)}
-                <span className="tabular-nums text-rose-600/80">
-                  {" "}
-                  ({topBlockerDetailed.finding_count} finding
-                  {topBlockerDetailed.finding_count === 1 ? "" : "s"})
-                </span>
-              </>
-            ) : null}
-          </button>
-        </p>
-      )}
-    </header>
+    <div
+      className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3"
+      role="tablist"
+      aria-label="Compliance framework"
+    >
+      {FRAMEWORKS.map((fw) => {
+        const isActive = selectedId === fw.id;
+        const tabStats = isActive ? currentStats : statsById[fw.id];
+        return (
+          <FrameworkScoreCard
+            key={fw.id}
+            fw={fw}
+            stats={tabStats}
+            isActive={isActive}
+            onSelect={() => onSelect(fw.id)}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -1925,34 +1930,33 @@ export default function Controls() {
         />
       )}
 
-      {(showAuditExportAboveCard ||
-        (complianceView === "composite" && !compositeControls.isLoading && primaryComposites.length > 0) ||
-        (complianceView === "detailed" && !controls.isLoading && total > 0)) && (
+      {!controls.isLoading && connectedAccount && (
         <div
-          className={`mb-1 flex flex-wrap items-center justify-between gap-2 ${exportOpen ? "relative z-[100]" : ""}`}
+          className={`mb-3 flex flex-wrap items-center justify-between gap-2 ${exportOpen ? "relative z-[100]" : ""}`}
         >
-          {complianceView === "composite" && !compositeControls.isLoading && primaryComposites.length > 0 ? (
-            <ComplianceStatusFilterBar
-              total={compositeTotal}
-              passed={compositePassed}
-              failed={compositeFailed}
-              noData={compositeNoData}
-              statusFilter={statusFilter}
-              onChange={handleStatusFilterChange}
-            />
-          ) : complianceView === "detailed" && !controls.isLoading && total > 0 ? (
-            <ComplianceStatusFilterBar
-              total={total}
-              passed={passed}
-              failed={failed}
-              noData={noData}
-              statusFilter={statusFilter}
-              onChange={handleStatusFilterChange}
-            />
-          ) : (
-            <span />
-          )}
-          {showAuditExportAboveCard && <div className="ml-auto shrink-0">{auditPackageExport}</div>}
+          <ComplianceViewSwitcher view={complianceView} onChange={setComplianceViewWithUrl} />
+          <div className="flex flex-wrap items-center gap-2">
+            {complianceView === "composite" && !compositeControls.isLoading && primaryComposites.length > 0 ? (
+              <ComplianceStatusFilterBar
+                total={compositeTotal}
+                passed={compositePassed}
+                failed={compositeFailed}
+                noData={compositeNoData}
+                statusFilter={statusFilter}
+                onChange={handleStatusFilterChange}
+              />
+            ) : complianceView === "detailed" && !controls.isLoading && total > 0 ? (
+              <ComplianceStatusFilterBar
+                total={total}
+                passed={passed}
+                failed={failed}
+                noData={noData}
+                statusFilter={statusFilter}
+                onChange={handleStatusFilterChange}
+              />
+            ) : null}
+            {showAuditExportAboveCard && <div className="shrink-0">{auditPackageExport}</div>}
+          </div>
         </div>
       )}
 
