@@ -90,7 +90,7 @@ const COMPLIANCE_CARD_SHELL =
   "overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-md shadow-zinc-950/[0.04] ring-1 ring-zinc-950/[0.03]";
 
 const COMPLIANCE_ROW_GRID =
-  "grid w-full grid-cols-1 gap-3 py-3.5 pl-5 pr-5 text-left transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start sm:gap-4";
+  "grid w-full grid-cols-1 gap-3 py-4 pl-5 pr-5 text-left transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start sm:gap-4";
 
 const COMPLIANCE_CHIP_ACTIVE = "bg-white text-zinc-900 shadow-sm shadow-zinc-950/[0.04] ring-1 ring-zinc-200/80";
 const COMPLIANCE_CHIP_IDLE = "text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-800";
@@ -175,9 +175,9 @@ function CompliancePanelShell({
 }) {
   return (
     <section className={`mb-4 ${COMPLIANCE_CARD_SHELL}`}>
-      <div className="border-b border-zinc-100 bg-zinc-50/60 px-5 py-3.5">
-        <h2 className="text-sm font-semibold text-zinc-900">{title}</h2>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{subtitle}</p>
+      <div className="border-b border-zinc-100 bg-zinc-50/60 px-5 py-4">
+        <h2 className="text-[15px] font-semibold text-zinc-900">{title}</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">{subtitle}</p>
         {toolbar}
       </div>
       {section && <div className="border-b border-zinc-100 px-5 py-2.5">{section}</div>}
@@ -529,7 +529,7 @@ function ComplianceStatusFilterBar({
             key={f.id}
             type="button"
             onClick={() => onChange(f.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+            className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
               statusFilter === f.id ? COMPLIANCE_CHIP_ACTIVE : COMPLIANCE_CHIP_IDLE
             }`}
           >
@@ -568,7 +568,7 @@ function ComplianceFamilyNav({
             aria-selected={isSelected}
             title={group.label}
             onClick={() => onSelect(group.key)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+            className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
               isSelected ? COMPLIANCE_CHIP_ACTIVE : COMPLIANCE_CHIP_IDLE
             }`}
           >
@@ -633,7 +633,7 @@ function findingsHrefForChecks(checkIds: string[], findingCountByCheck: Map<stri
 
 function CalmStatusLabel({ status }: { status: string }) {
   const badgeClass =
-    "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium";
+    "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium";
   if (status === "pass") {
     return (
       <span className={`${badgeClass} bg-emerald-50/90 text-emerald-700 ring-1 ring-emerald-200/40`}>
@@ -720,7 +720,7 @@ function CompositeExpandedDetails({
     <div className={`space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-[9.5rem] ${statusExpandedBg[ctrl.status]}`}>
       {underlying.length > 0 && (
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Underlying criteria</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Underlying criteria</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {underlying.slice(0, 10).map((c) => {
               const params = new URLSearchParams({ framework, control: c.control_id });
@@ -729,7 +729,7 @@ function CompositeExpandedDetails({
                 <Link
                   key={c.id}
                   to={`/controls?${params}`}
-                  className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition hover:border-indigo-200 hover:text-indigo-800"
+                  className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 transition hover:border-indigo-200 hover:text-indigo-800"
                 >
                   {frameworkControlLabel(framework, c.control_id)}
                   {c.finding_count > 0 && (
@@ -743,7 +743,7 @@ function CompositeExpandedDetails({
       )}
       <div>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Top failing checks</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Top failing checks</p>
           {findingsHref && (
             <button
               type="button"
@@ -795,8 +795,8 @@ function QuietNestedCompositeRow({
           └
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-zinc-700">{display?.title ?? child.title}</p>
-          <p className="text-[11px] text-zinc-500">{display?.hint ?? child.description}</p>
+          <p className="text-[13px] font-medium text-zinc-700">{display?.title ?? child.title}</p>
+          <p className="text-xs text-zinc-500">{display?.hint ?? child.description}</p>
         </div>
         {child.finding_count > 0 && href ? (
           <span
@@ -880,12 +880,12 @@ function CompositeControlsPanel({
                   <CalmStatusLabel status={ctrl.status} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-600">{ctrl.description}</p>
+                  <p className="text-[15px] font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{ctrl.description}</p>
                   {frameworkTags.length > 0 && (
-                    <p className="mt-2 text-[11px] font-medium text-zinc-500">{frameworkTags.join(" · ")}</p>
+                    <p className="mt-2 text-xs font-medium text-zinc-500">{frameworkTags.join(" · ")}</p>
                   )}
-                  <p className="mt-1.5 text-[11px] text-zinc-400">
+                  <p className="mt-1.5 text-xs text-zinc-400">
                     {ctrl.check_ids.length} mapped check{ctrl.check_ids.length === 1 ? "" : "s"}
                     {ctrl.status === "fail" && ctrl.finding_count > 0
                       ? ` · ${ctrl.finding_count} open finding${ctrl.finding_count === 1 ? "" : "s"}`
@@ -996,7 +996,7 @@ function EvidenceClassBadge({ evidenceClass }: { evidenceClass?: string }) {
       ? "bg-sky-50 text-sky-800 ring-sky-200/70"
       : "bg-zinc-100 text-zinc-600 ring-zinc-200/80";
   return (
-    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset ${styles}`}>
+    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset ${styles}`}>
       {label}
     </span>
   );
@@ -1089,8 +1089,8 @@ function MappedChecksList({
 
   return (
     <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-3.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Findings</p>
-      <p className="mt-0.5 text-[11px] text-zinc-500">Open findings by mapped check · click to filter in Findings</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Findings</p>
+      <p className="mt-0.5 text-xs text-zinc-500">Open findings by mapped check · click to filter in Findings</p>
       {inner}
     </div>
   );
@@ -1198,7 +1198,7 @@ function ControlStatusBlock({
 
   return (
     <div className={`w-full rounded-xl border p-4 ${statusTone}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Control status</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Control status</p>
 
       <div className="mt-3 flex items-start gap-2.5">
         <span
@@ -1229,7 +1229,7 @@ function ControlStatusBlock({
 
           {showControlEvidenceSection(framework) && (
           <div className="max-w-xl space-y-1.5 overflow-visible border-t border-zinc-200/60 pt-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
               {controlEvidenceSectionTitle(framework)}
             </p>
 
@@ -1276,7 +1276,7 @@ function ControlEvaluationBlock({ checkIds }: { checkIds: string[] }) {
 
   return (
     <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
         Mapped checks ({checkIds.length})
       </p>
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -1317,7 +1317,7 @@ function ControlFindingsBlock({
   if (control.status === "pass" && control.finding_count === 0) {
     return (
       <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/30 px-4 py-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-800/80">Findings</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800/80">Findings</p>
         <p className="mt-1 text-sm font-medium text-emerald-900">No open findings</p>
       </div>
     );
@@ -1328,7 +1328,7 @@ function ControlFindingsBlock({
   return (
     <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Findings</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Findings</p>
         {openTotal > 0 && (
           <button
             type="button"
@@ -1476,7 +1476,7 @@ function FrameworkNav({
       </div>
 
       {activeTopBlocker && (
-        <p className="mt-2 text-xs leading-snug text-zinc-600">
+        <p className="mt-2 text-[13px] leading-snug text-zinc-600">
           <span className="text-zinc-500">Top blocker: </span>
           <button
             type="button"
@@ -1494,7 +1494,7 @@ function FrameworkNav({
               </>
             ) : topBlockerDetailed ? (
               <>
-                <span className="font-mono text-[11px] text-zinc-500">{topBlockerDetailed.control_id}</span>
+                <span className="font-mono text-xs text-zinc-500">{topBlockerDetailed.control_id}</span>
                 {" "}
                 {shortControlTitle(topBlockerDetailed.title)}
                 <span className="tabular-nums text-rose-600/80">
@@ -2032,12 +2032,12 @@ export default function Controls() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold leading-snug text-zinc-900">
-                              <span className="font-mono text-xs font-semibold text-zinc-500">{ctrl.control_id}</span>
+                            <p className="text-[15px] font-semibold leading-snug text-zinc-900">
+                              <span className="font-mono text-[13px] font-semibold text-zinc-500">{ctrl.control_id}</span>
                               {" "}
                               {shortControlTitle(ctrl.title)}
                             </p>
-                            <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">{meta}</p>
+                            <p className="mt-1 text-xs leading-relaxed text-zinc-500">{meta}</p>
                           </div>
 
                           <div className="flex shrink-0 items-center sm:pt-0.5">
