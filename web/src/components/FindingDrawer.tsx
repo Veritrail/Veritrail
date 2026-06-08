@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, type ReactNode, type RefObject } 
 import { createPortal } from "react-dom";
 import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import AwsServiceIcon from "./AwsServiceIcon";
 import { IaCRemediationSection } from "./IaCRemediationSection";
@@ -35,6 +35,8 @@ import {
   friendlyPolicyGenerationError,
 } from "../lib/policyGenerationErrors";
 import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
+import { useCloudTrailPolicyGen } from "../hooks/useCloudTrailPolicyGen";
+import { formatCloudTrailElapsed } from "../lib/cloudTrailElapsed";
 import { remediationSummaryForFinding } from "../data/remediationSummaries";
 import {
   formatFindingSeenAt,
@@ -95,11 +97,13 @@ import {
 } from "./FindingDrawerSemantic";
 
 const DRAWER_MAX_W = "max-w-[640px]";
-const DRAWER_WIDE_MAX_W = "max-w-[min(96vw,1180px)]";
+const DRAWER_WIDE_MAX_W = "max-w-[min(96vw,1280px)]";
 const DRAWER_POLICY_TRIPLE_MAX_W = "max-w-[min(98vw,1620px)]";
-/** Left rail · analysis · review — keep the remediation picker readable. */
-const DRAWER_POLICY_TRIPLE_GRID =
-  "grid min-h-0 flex-1 grid-cols-[minmax(300px,30%)_minmax(320px,0.68fr)_minmax(400px,0.75fr)] overflow-hidden border-t border-zinc-200/80";
+/** Left rail matches single-panel drawer width (DRAWER_MAX_W); workspace panes take extra width. */
+const DRAWER_REMEDIATION_GRID_TWO =
+  "grid min-h-0 flex-1 grid-cols-[640px_minmax(0,1fr)] overflow-hidden border-t border-zinc-200/80";
+const DRAWER_REMEDIATION_GRID_THREE =
+  "grid min-h-0 flex-1 grid-cols-[640px_minmax(0,1fr)_minmax(0,1fr)] overflow-hidden border-t border-zinc-200/80";
 
 /** Resource label in drawer header (matches drawerFieldLabel). */
 const drawerFieldLabelBlock = drawerFieldLabel;
@@ -295,7 +299,7 @@ function RemediationModePicker({
               }`}
             >
               <RemediationModeIcon mode={mode} />
-              <span className="text-[13px] font-semibold leading-snug tracking-[-0.01em]">
+              <span className="text-[13px] font-semibold leading-snug">
                 {REMEDIATION_MODE_LABELS[mode]}
               </span>
             </button>
@@ -4052,6 +4056,20 @@ const POLICY_CONFIDENCE_STYLE: Record<string, string> = {
   low: "border-zinc-300 bg-zinc-100 text-zinc-700",
 };
 
+function PolicyGenSpinner({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      className={`shrink-0 animate-spin text-indigo-600 ${className}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
+
 function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
   const cov = data.coverage ?? { actions: (data.used_actions?.length ?? 0) > 0, resources: false };
   const preserved = data.preserved_service_wildcards ?? [];
@@ -4077,7 +4095,7 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
 
   const confidenceBadge = data.confidence ? (
     <span
-      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold capitalize tracking-wide ${
+      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${
         POLICY_CONFIDENCE_STYLE[data.confidence] ?? POLICY_CONFIDENCE_STYLE.low
       }`}
     >
@@ -4089,7 +4107,7 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
     <RemediationDetailCard title="Generation summary" action={confidenceBadge}>
       <div className="flex flex-wrap gap-2">
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
             cov.actions
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-amber-200 bg-amber-50 text-amber-900"
@@ -4098,45 +4116,40 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
           {cov.actions ? "✓ Actions scoped" : "✗ Actions not scoped"}
         </span>
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
+          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
             cov.resources
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-zinc-200 bg-zinc-50 text-zinc-600"
+              : "border-zinc-200 bg-zinc-50 text-zinc-700"
           }`}
         >
           {cov.resources ? "✓ Resource scope applied" : "✕ Resources unchanged"}
         </span>
       </div>
-        <div className="mt-4 space-y-3.5 text-[13px] leading-relaxed text-zinc-700">
+        <div className="mt-4 space-y-3.5 text-[13px] leading-[1.55] text-zinc-800">
           <div>
-            <div className="mt-1 space-y-1.5 text-zinc-600">
-              {data.confidence_note && <p>{data.confidence_note}</p>}
-              <p className="text-zinc-500">
-                <span className="font-semibold text-zinc-600">Why — </span>
+            <div className="mt-1 space-y-2 text-zinc-700">
+              {data.confidence_note && <p className="font-medium text-zinc-800">{data.confidence_note}</p>}
+              <p>
+                <span className="font-semibold text-zinc-800">Why — </span>
                 {whyCopy}
               </p>
               {preserved.length > 0 && (
-                <p className="font-mono text-[10px] text-zinc-700">
+                <p className="font-mono text-xs text-zinc-800">
                   Preserved: {preserved.join(" · ")}
                 </p>
               )}
             </div>
           </div>
           <div>
-            <p className="text-[11px] font-semibold text-zinc-500">Source</p>
-            <p className="mt-1 text-[13px] font-medium leading-relaxed text-zinc-800">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Source</p>
+            <p className="mt-1 text-[13px] font-semibold leading-[1.55] text-zinc-900">
               {data.source_label ?? "IAM last accessed"}
             </p>
           </div>
-          {data.access_analyzer?.reason === "in_progress" && (
-            <p className="mt-2 rounded-md border border-indigo-200/80 bg-indigo-50/80 px-2 py-1.5 text-indigo-950">
-              {policyGenerationReasonLabel("in_progress")}
-            </p>
-          )}
           {observed > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-zinc-500">Result</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Result</p>
+              <p className="mt-1 text-[13px] leading-[1.55] text-zinc-700">
                 {preserved.length > 0
                   ? `Action:* was replaced with ${observed} observed actions. Resource remains *.`
                   : cov.resources
@@ -4694,9 +4707,9 @@ function PolicyWorkspacePaneShell({
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e6ebf2] bg-white px-6 py-4 shadow-sm shadow-zinc-950/[0.02]">
         <div className="min-w-0">
           {subtitle ? (
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">{subtitle}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{subtitle}</p>
           ) : null}
-          <h3 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-zinc-900">{title}</h3>
+          <h3 className="truncate text-base font-semibold text-zinc-900">{title}</h3>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {action}
@@ -5310,6 +5323,15 @@ function SuggestedPolicyWorkspace({
     data?.original_policies && data?.cleaned_policies
       ? computePolicyActionDiff(data.original_policies, data.cleaned_policies)
       : null;
+  const cloudTrailProgress = useCloudTrailPolicyGen({
+    findingId: finding.id,
+    accountId,
+    roleArn: finding.resource_arn,
+    accessAnalyzerReason: data?.access_analyzer?.reason,
+    jobCompleted: Boolean(data?.access_analyzer?.available),
+    watch: true,
+    onComplete: () => void refetch(),
+  });
   const preparingPolicy = isLoading && !data;
   const showPolicyData = !!data && !error;
   const canReviewGeneratedPolicy = Boolean(
@@ -5325,7 +5347,9 @@ function SuggestedPolicyWorkspace({
       <PolicyWorkspacePaneShell
         title="Least-privilege proposal"
         subtitle="Remediation"
-        className="min-w-0 flex-[1.1]"
+        className="finding-drawer-surface min-w-0"
+        paneAnimated={false}
+        bodyAnimated={false}
         onClose={onCloseWorkspace}
         closeLabel="Close least-privilege proposal"
         action={
@@ -5342,14 +5366,22 @@ function SuggestedPolicyWorkspace({
           </div>
         )}
         {showPolicyData && (
-          <div className="policy-reveal-stack space-y-5">
+          <div className="finding-drawer-surface space-y-5">
             <PolicyCoverageMeta data={data} />
             <PolicyCloudTrailStartAction
               findingId={finding.id}
               accountId={accountId}
               roleArn={finding.resource_arn}
               data={data}
-              onRefresh={() => void refetch()}
+              isRunning={cloudTrailProgress.isRunning}
+              analysisComplete={cloudTrailProgress.statusSucceeded}
+              isRefreshing={isFetching}
+              startedAt={cloudTrailProgress.startedAt}
+              onRefresh={async () => {
+                const result = await refetch();
+                if (result.error) throw result.error;
+                return result.data;
+              }}
             />
             {data.has_inline_policies && data.cleaned_policies && !canReviewGeneratedPolicy && !showPolicyChangePane && (
               <RemediationDetailCard title="Policy preview">
@@ -5379,7 +5411,7 @@ function SuggestedPolicyWorkspace({
         <PolicyWorkspacePaneShell
           title="Generated policy"
           subtitle="Review policy"
-          className="min-w-0 flex-[1]"
+          className="min-w-0"
           bodySpacing="roomy"
           onClose={onClosePolicyChangePane}
           closeLabel="Close generated policy"
@@ -5406,31 +5438,69 @@ function PolicyCloudTrailStartAction({
   accountId,
   roleArn,
   data,
+  isRunning,
+  analysisComplete = false,
+  isRefreshing = false,
+  startedAt,
   onRefresh,
 }: {
   findingId: string;
   accountId: string;
   roleArn: string;
   data: GeneratedPolicy;
-  onRefresh: () => void;
+  isRunning: boolean;
+  analysisComplete?: boolean;
+  isRefreshing?: boolean;
+  startedAt?: number;
+  onRefresh: () => Promise<GeneratedPolicy | undefined>;
 }) {
+  const qc = useQueryClient();
   const { startCloudTrailAnalysis, failCloudTrailAnalysis } = useRecheckNotifications();
   const [busy, setBusy] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const inProgress = data.access_analyzer?.reason === "in_progress";
+  const [refreshFeedback, setRefreshFeedback] = useState<{
+    tone: "success" | "error" | "neutral";
+    message: string;
+  } | null>(null);
   const analysis = data.cloudtrail_analysis;
-  const wantsAnalysis = Boolean(data.improve_via_cloudtrail && data.confidence !== "high");
-  const needsTrailSetup = Boolean(wantsAnalysis && analysis?.status === "no_trail");
-  const needsAdvanced = Boolean(wantsAnalysis && analysis?.status === "advanced_disabled");
-  const canStart = Boolean(wantsAnalysis && analysis?.ready);
+  const jobCompleted = Boolean(data.access_analyzer?.available) || analysisComplete;
+  const wantsCloudTrailPanel =
+    Boolean(data.improve_via_cloudtrail && data.confidence !== "high") ||
+    isRunning ||
+    jobCompleted ||
+    data.access_analyzer?.reason === "in_progress";
+  const needsTrailSetup = Boolean(
+    wantsCloudTrailPanel && !jobCompleted && !isRunning && analysis?.status === "no_trail",
+  );
+  const needsAdvanced = Boolean(
+    wantsCloudTrailPanel && !jobCompleted && !isRunning && analysis?.status === "advanced_disabled",
+  );
+  const canStart = Boolean(
+    wantsCloudTrailPanel && !jobCompleted && !isRunning && analysis?.ready,
+  );
+  const [, elapsedTick] = useState(0);
+  useEffect(() => {
+    if (!isRunning || !startedAt) return;
+    const id = window.setInterval(() => elapsedTick((n) => n + 1), 15_000);
+    return () => window.clearInterval(id);
+  }, [isRunning, startedAt]);
+  const elapsedLabel = useMemo(() => {
+    if (!startedAt || !isRunning) return null;
+    return formatCloudTrailElapsed(startedAt);
+  }, [startedAt, isRunning, elapsedTick]);
 
-  if (!canStart && !inProgress && !needsTrailSetup && !needsAdvanced) return null;
+  if (!wantsCloudTrailPanel && !needsTrailSetup && !needsAdvanced) return null;
 
-  const feedbackDisplay = feedback ? formatCloudTrailStartFeedback(feedback) : null;
+  const feedbackDisplay =
+    feedback && !analysisComplete && !isRunning
+      ? formatCloudTrailStartFeedback(feedback)
+      : null;
 
   const start = async () => {
     setBusy(true);
     setFeedback(null);
+    setRefreshFeedback(null);
     try {
       const res = await api<{ message: string }>(
         `/v1/accounts/${accountId}/roles/policy-generation/start?role_arn=${encodeURIComponent(roleArn)}`,
@@ -5438,7 +5508,7 @@ function PolicyCloudTrailStartAction({
       );
       setFeedback(res.message);
       startCloudTrailAnalysis({ findingId, accountId, roleArn, message: res.message });
-      onRefresh();
+      await onRefresh();
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e);
       const msg = friendlyPolicyGenerationError(raw);
@@ -5449,36 +5519,103 @@ function PolicyCloudTrailStartAction({
     }
   };
 
+  const rebuild = async () => {
+    setRebuilding(true);
+    setRefreshFeedback(null);
+    const snapshot = {
+      confidence: data.confidence,
+      source: data.source_label,
+      actionCount: data.observed_action_count,
+    };
+    try {
+      await qc.invalidateQueries({
+        queryKey: ["generated-policy", accountId, roleArn],
+      });
+      const updated = await onRefresh();
+      if (!updated) {
+        setRefreshFeedback({
+          tone: "error",
+          message: "Could not refresh suggestion — no policy data returned.",
+        });
+        return;
+      }
+      const actionCount = updated.observed_action_count ?? 0;
+      const confidence = updated.confidence ?? "medium";
+      const unchanged =
+        updated.confidence === snapshot.confidence &&
+        updated.source_label === snapshot.source &&
+        updated.observed_action_count === snapshot.actionCount;
+      if (unchanged) {
+        setRefreshFeedback({
+          tone: "neutral",
+          message: `Already up to date with the latest CloudTrail job — ${actionCount} observed actions, ${confidence} confidence.`,
+        });
+      } else {
+        setRefreshFeedback({
+          tone: "success",
+          message: `Suggestion refreshed — ${actionCount} observed actions, ${confidence} confidence.`,
+        });
+      }
+    } catch (e) {
+      setRefreshFeedback({
+        tone: "error",
+        message: friendlyPolicyGenerationError(e instanceof Error ? e.message : String(e)),
+      });
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
+  const refreshBusy = rebuilding || isRefreshing;
+
   return (
     <div className={`${drawerPanel} overflow-hidden shadow-sm shadow-zinc-900/[0.03]`}>
       <div className={`${drawerSectionHead} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="min-w-0">
           <h4 className={drawerSectionTitle}>CloudTrail validation</h4>
-          <p className="mt-0.5 text-[12px] text-zinc-500">~15 min · checks resource ARNs · IAM unchanged until you apply</p>
+          <p className="mt-0.5 text-[13px] leading-snug text-zinc-600">~15 min · checks resource ARNs · IAM unchanged until you apply</p>
         </div>
-        {!inProgress && !needsTrailSetup && !needsAdvanced && (
+        {isRunning ? (
+          <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-950">
+            <PolicyGenSpinner className="h-3.5 w-3.5" />
+            {elapsedLabel ? `Analyzing · ${elapsedLabel}` : "Analyzing…"}
+          </span>
+        ) : analysisComplete ? (
           <button
             type="button"
-            disabled={busy}
-            onClick={start}
-            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#d8e0ec] bg-white px-3.5 py-2 text-[11px] font-semibold text-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={refreshBusy}
+            onClick={() => void rebuild()}
+            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {busy ? "Starting…" : "Run analysis"}
+            {refreshBusy ? "Refreshing…" : "Rebuild suggestion"}
           </button>
+        ) : (
+          !needsTrailSetup &&
+          !needsAdvanced &&
+          canStart && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={start}
+              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#d8e0ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy ? "Starting…" : "Run analysis"}
+            </button>
+          )
         )}
         {needsTrailSetup && (
-          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-[11px] font-semibold text-amber-900">
+          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
             Trail required
           </span>
         )}
         {needsAdvanced && (
-          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-[11px] font-semibold text-amber-900">
+          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
             Advanced IAM required
           </span>
         )}
       </div>
       {needsTrailSetup && (
-        <div className="space-y-2 border-b border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
+        <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
               "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Vigil can detect it, then start analysis."}
@@ -5492,7 +5629,7 @@ function PolicyCloudTrailStartAction({
         </div>
       )}
       {needsAdvanced && (
-        <div className="space-y-2 border-b border-amber-100 bg-amber-50/60 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
+        <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
               "Enable Advanced IAM policy generation on the AWS connector so Vigil can start CloudTrail-based analysis."}
@@ -5505,25 +5642,43 @@ function PolicyCloudTrailStartAction({
           </Link>
         </div>
       )}
-      {inProgress && (
+      {isRunning && (
         <div className="flex items-start gap-2.5 border-b border-indigo-100 bg-indigo-50/60 px-4 py-3">
-          <svg
-            className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-indigo-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            aria-hidden
-          >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="text-[11px] leading-relaxed text-indigo-950">
-            {policyGenerationReasonLabel("in_progress")}
+          <PolicyGenSpinner className="mt-0.5 h-4 w-4" />
+          <div className="min-w-0 text-[13px] leading-[1.55] text-indigo-950">
+            <p>{policyGenerationReasonLabel("in_progress")}</p>
+            <p className="mt-1 text-indigo-800/80">
+              Checking AWS every 15s — you can close this tab; progress is saved for this role.
+            </p>
+          </div>
+        </div>
+      )}
+      {analysisComplete && !isRunning && !refreshFeedback && (
+        <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] leading-[1.55] text-emerald-950">
+          <p className="font-semibold">CloudTrail analysis complete</p>
+          <p className="mt-1 text-emerald-900/90">
+            {data.confidence === "high"
+              ? "High-confidence proposal is ready. Rebuild to refresh the suggestion with the latest job output."
+              : "Analysis finished with medium confidence — resource ARNs may still be broad. Rebuild to apply the latest CloudTrail job, or review before automating a fix."}
           </p>
+        </div>
+      )}
+      {refreshFeedback && (
+        <div
+          className={`border-b px-4 py-3 text-[13px] leading-[1.55] ${
+            refreshFeedback.tone === "error"
+              ? "border-red-100 bg-red-50 text-red-900"
+              : refreshFeedback.tone === "success"
+                ? "border-emerald-100 bg-emerald-50 text-emerald-950"
+                : "border-zinc-100 bg-zinc-50 text-zinc-800"
+          }`}
+        >
+          {refreshFeedback.message}
         </div>
       )}
       {feedbackDisplay && (
         <div
-          className={`px-4 py-3 text-[11px] leading-relaxed ${
+          className={`px-4 py-3 text-[13px] leading-[1.55] ${
             feedbackDisplay.tone === "error"
               ? "border-t border-red-100 bg-red-50 text-red-900"
               : feedbackDisplay.tone === "success"
@@ -5570,6 +5725,16 @@ function GeneratePolicySection({
     if (autoLoad) setEnabled(true);
   }, [autoLoad, finding.id, finding.resource_arn]);
 
+  const cloudTrailProgress = useCloudTrailPolicyGen({
+    findingId: finding.id,
+    accountId,
+    roleArn: finding.resource_arn,
+    accessAnalyzerReason: data?.access_analyzer?.reason,
+    jobCompleted: Boolean(data?.access_analyzer?.available),
+    watch: enabled,
+    onComplete: () => void refetch(),
+  });
+
   const body = (
     <>
       {!enabled && (
@@ -5585,7 +5750,15 @@ function GeneratePolicySection({
             accountId={accountId}
             roleArn={finding.resource_arn}
             data={data}
-            onRefresh={() => void refetch()}
+            isRunning={cloudTrailProgress.isRunning}
+            analysisComplete={cloudTrailProgress.statusSucceeded}
+            isRefreshing={isFetching}
+            startedAt={cloudTrailProgress.startedAt}
+            onRefresh={async () => {
+              const result = await refetch();
+              if (result.error) throw result.error;
+              return result.data;
+            }}
           />
         </>
       )}
@@ -5681,7 +5854,15 @@ function GeneratePolicySection({
               accountId={accountId}
               roleArn={finding.resource_arn}
               data={data}
-              onRefresh={() => void refetch()}
+              isRunning={cloudTrailProgress.isRunning}
+              analysisComplete={cloudTrailProgress.statusSucceeded}
+              isRefreshing={isFetching}
+              startedAt={cloudTrailProgress.startedAt}
+              onRefresh={async () => {
+                const result = await refetch();
+                if (result.error) throw result.error;
+                return result.data;
+              }}
             />
           </>
         )}
@@ -6527,8 +6708,8 @@ export function FindingDrawer({
   const remediationSplit = tab === "remediation" && remDetailMode !== null;
   const policyWorkspaceSplit =
     remediationSplit && remDetailMode === "suggested_policy" && showPolicyGen && !!accountId;
-  const policyTriplePane = policyWorkspaceSplit && policyChangePaneVisible;
-  const drawerWideClass = policyTriplePane
+  const policyReviewOpen = policyWorkspaceSplit && policyChangePaneVisible;
+  const drawerWideClass = policyReviewOpen
     ? DRAWER_POLICY_TRIPLE_MAX_W
     : policyWorkspaceSplit || remediationSplit
       ? DRAWER_WIDE_MAX_W
@@ -6545,7 +6726,7 @@ export function FindingDrawer({
       />
       <div
         ref={drawerSheetRef}
-        className={`fixed top-0 right-0 bottom-0 z-[110] flex w-full flex-col overflow-hidden bg-white shadow-2xl ${drawerWidthTransitionClass} ${drawerWideClass}`}
+        className={`finding-drawer-surface fixed top-0 right-0 bottom-0 z-[110] flex w-full flex-col overflow-hidden bg-white shadow-2xl ${drawerWidthTransitionClass} ${drawerWideClass}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="finding-drawer-title"
@@ -6575,10 +6756,10 @@ export function FindingDrawer({
     <div className={`relative shrink-0 overflow-hidden bg-gradient-to-b ${wash} px-6 pt-5 pb-3`}>
       <button onClick={onClose} className="absolute right-4 top-4 rounded-md p-1 text-zinc-400 transition hover:bg-white/70 hover:text-zinc-600"><svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
       <div className="flex items-center gap-2 pr-10">
-        <span className="text-[11px] font-medium text-zinc-600">{category}</span>
+        <span className="text-xs font-medium text-zinc-600">{category}</span>
         <span className="text-zinc-300">·</span>
         <span
-          className={`inline-flex items-center rounded border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${headerBadge}`}
+          className={`inline-flex items-center rounded border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide ${headerBadge}`}
         >
           {finding.severity}
         </span>
@@ -6669,21 +6850,19 @@ export function FindingDrawer({
         >
           <div
             className={
-              policyTriplePane
-                ? DRAWER_POLICY_TRIPLE_GRID
-                : policyWorkspaceSplit
-                  ? "grid min-h-0 flex-1 grid-cols-[minmax(280px,34%)_minmax(0,1fr)] overflow-hidden border-t border-zinc-200/80"
-                  : remediationSplit
-                    ? "grid min-h-0 flex-1 grid-cols-[minmax(400px,48%)_minmax(380px,1fr)] overflow-hidden border-t border-zinc-200/80"
-                    : "space-y-2.5"
+              policyWorkspaceSplit
+                ? policyReviewOpen
+                  ? DRAWER_REMEDIATION_GRID_THREE
+                  : DRAWER_REMEDIATION_GRID_TWO
+                : remediationSplit
+                  ? DRAWER_REMEDIATION_GRID_TWO
+                  : "space-y-2.5"
             }
           >
             <div
               className={
                 remediationSplit
-                  ? `min-h-0 space-y-3 overflow-y-auto border-r border-zinc-200/90 bg-[#f7f9fc] py-4 ${
-                      policyTriplePane ? "px-5" : "px-4"
-                    }`
+                  ? "min-h-0 space-y-3 overflow-y-auto border-r border-zinc-200/90 bg-[#f7f9fc] px-5 py-4"
                   : "space-y-2.5"
               }
             >
@@ -6775,6 +6954,7 @@ export function FindingDrawer({
                     findingId={finding.id}
                     checkId={finding.check_id}
                     accountId={accountId}
+                    resourceArn={finding.resource_arn}
                     resourceRegion={resourceRegionForFinding(finding)}
                     resourceLabel={resourceDisplayName(finding)}
                     severity={finding.severity}

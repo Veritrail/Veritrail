@@ -2,12 +2,10 @@
 
 .policy-workspace-pane {
   animation: policy-workspace-pane-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: opacity, transform;
 }
 
 .policy-workspace-pane__body {
   animation: policy-workspace-pane-body-enter 280ms cubic-bezier(0.16, 1, 0.3, 1) 70ms both;
-  will-change: opacity, transform;
 }
 
 .policy-workspace-pane--static,
@@ -27,19 +25,7 @@
 }
 
 .policy-reveal-stack {
-  animation: policy-content-reveal 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.policy-reveal-stack > * {
-  animation: policy-content-item-reveal 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.policy-reveal-stack > *:nth-child(2) {
-  animation-delay: 45ms;
-}
-
-.policy-reveal-stack > *:nth-child(3) {
-  animation-delay: 80ms;
+  animation: policy-content-reveal 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .policy-workspace-pane--exit {
@@ -54,55 +40,36 @@
 @keyframes policy-workspace-pane-enter {
   from {
     opacity: 0;
-    transform: translateX(14px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
   }
 }
 
 @keyframes policy-workspace-pane-exit {
   from {
     opacity: 1;
-    transform: translateX(0);
   }
   to {
     opacity: 0;
-    transform: translateX(10px);
   }
 }
 
 @keyframes policy-workspace-pane-body-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @keyframes policy-content-reveal {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes policy-content-item-reveal {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -121,11 +88,9 @@
 @keyframes policy-workspace-pane-body-exit {
   from {
     opacity: 1;
-    transform: translateY(0);
   }
   to {
     opacity: 0;
-    transform: translateY(4px);
   }
 }
 
@@ -135,11 +100,18 @@
   .policy-preparing-card,
   .policy-preparing-bar,
   .policy-reveal-stack,
-  .policy-reveal-stack > *,
   .policy-json-row {
     animation: none;
-    will-change: auto;
   }
+}
+
+/* Crisp type inside animated drawer panels — avoid compositor blur on transformed ancestors */
+.policy-workspace-pane,
+.policy-workspace-pane__body,
+.policy-reveal-stack,
+.finding-drawer-surface {
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
 }
 
 .policy-review-tabs {
