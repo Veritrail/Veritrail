@@ -3036,7 +3036,7 @@ function PostureSummary({
     {
       label: "Connected",
       value: connected.length,
-      accent: "bg-sky-400",
+      accent: "bg-sky-300",
       trendCount: metrics.connectedThisWeek,
       trendLabel: metrics.connectedThisWeek === 0 ? "No change" : `${metrics.connectedThisWeek} this week`,
       trendTone: metrics.connectedThisWeek > 0 ? "good" : "muted",
@@ -3044,7 +3044,7 @@ function PostureSummary({
     {
       label: "Open findings",
       value: metrics.totalOpen,
-      accent: "bg-orange-400",
+      accent: "bg-orange-300",
       trendCount: metrics.openNew7d,
       trendLabel: metrics.openNew7d === 0 ? "No change" : `${metrics.openNew7d} vs last 7 days`,
       trendTone: metrics.openNew7d > 0 ? "warn" : "muted",
@@ -3052,7 +3052,7 @@ function PostureSummary({
     {
       label: "Critical + high",
       value: metrics.totalCrit,
-      accent: "bg-rose-400",
+      accent: "bg-rose-300",
       trendCount: metrics.critHighNew7d,
       trendLabel: metrics.critHighNew7d === 0 ? "No change" : `${metrics.critHighNew7d} vs last 7 days`,
       trendTone: metrics.critHighNew7d > 0 ? "bad" : metrics.totalCrit > 0 ? "muted" : "good",
@@ -3060,7 +3060,7 @@ function PostureSummary({
     {
       label: "Accounts at risk",
       value: metrics.needsAttention,
-      accent: "bg-amber-300",
+      accent: "bg-amber-200",
       trendCount: metrics.atRiskNew7d,
       trendLabel: metrics.atRiskNew7d === 0 ? "No change" : `${metrics.atRiskNew7d} vs last 7 days`,
       trendTone: metrics.atRiskNew7d > 0 ? "warn" : "muted",

@@ -600,16 +600,16 @@ export default function Findings() {
     <div className="findings-v2-page findings-v2-shell min-h-full">
       <div className="w-full px-8 py-8">
         <header className="mb-4">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
-            <NotificationsBell />
-          </div>
-          <div className="findings-v2-page-meta-row">
-            <div className="findings-v2-page-meta">
-              {connectedAccounts.length > 0 && (
-                <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
-              )}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {connectedAccounts.length > 0 && (
+                  <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
+                )}
+              </div>
             </div>
+            <NotificationsBell />
           </div>
         </header>
 
