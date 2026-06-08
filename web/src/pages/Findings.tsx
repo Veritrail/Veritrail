@@ -659,7 +659,7 @@ export default function Findings() {
               <div className="findings-v2-table-toolbar">
                 <div className="findings-v2-filter-cluster">
                   <div
-                    className="findings-v2-severity-tabs"
+                    className="inline-flex flex-wrap items-center gap-0.5 rounded-full border border-zinc-200/90 bg-zinc-100/70 p-1"
                     role="tablist"
                     aria-label="Severity"
                   >
@@ -674,10 +674,10 @@ export default function Findings() {
                           role="tab"
                           aria-selected={isSelected}
                           onClick={() => setSeverityFilter(tab.id)}
-                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
+                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
                             isSelected
-                              ? "bg-[#f8fafc] text-[#1f4e79] ring-1 ring-[#dce3ec]"
-                              : "text-[#6b7280] hover:bg-[#f8fafc] hover:text-[#111827]"
+                              ? "bg-white text-zinc-900 shadow-sm shadow-zinc-950/[0.04] ring-1 ring-zinc-200/80"
+                              : "text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-800"
                           }`}
                         >
                           {tab.label}
@@ -686,8 +686,8 @@ export default function Findings() {
                               showUrgent && !isSelected
                                 ? "text-red-500/90"
                                 : isSelected
-                                  ? "text-[#1f4e79]/70"
-                                  : "text-[#98a2b3]"
+                                  ? "text-zinc-500"
+                                  : "text-zinc-400"
                             }
                           >
                             · {count}
