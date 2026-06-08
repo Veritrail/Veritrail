@@ -37,6 +37,7 @@ AUTOMATION_CHECKS = frozenset(
         "iam.access_key.unused_90d",
         "s3.bucket.public_access_not_blocked",
         "cloudtrail.trail.not_enabled",
+        "iam.role.least_privilege_policy",
     }
 )
 
@@ -88,6 +89,8 @@ _ACTION_LABELS: dict[str, str] = {
     "revoke_public_ingress": "Revoke public ingress",
     "put_public_access_block": "Block public access",
     "migrate_ssm_string_to_secure_string": "Migrate parameter to SecureString",
+    "detach_full_admin": "Detach full-admin managed policy",
+    "replace_wildcard_inline": "Apply least-privilege inline policy",
 }
 
 
@@ -104,7 +107,7 @@ def _ssm_remediation_panel(db: Session, finding: Finding) -> dict[str, Any] | No
     if acc:
         enabled = bool(getattr(acc, spec.enable_column))
         deployed = bool(getattr(acc, spec.deployed_column))
-    action = _supported_action(cid)
+    action = _supported_action(cid, finding.evidence or {})
     runbook = runbook_for_check(cid)
     from app.data.aws_owned_runbooks import remediation_automation_metadata
     from app.services.remediation_plan import automation_region_for_finding, resource_region_for_finding

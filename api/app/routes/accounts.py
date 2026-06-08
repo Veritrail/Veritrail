@@ -1267,24 +1267,21 @@ def _policy_generation_meta(
     return meta
 
 
-@router.get("/{account_id}/roles/generated-policy")
-def generate_role_policy(
-    account_id: str,
+def build_role_generated_policy(
+    db: Session,
+    acc: AwsAccount,
     role_arn: str,
+    *,
     threshold_days: int = 90,
-    advanced: bool = Query(default=False),
-    p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    acc = db.get(AwsAccount, uuid.UUID(account_id))
-    if not acc or str(acc.org_id) != p["org_id"]:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
-
+    advanced: bool = True,
+    advanced_requested: bool | None = None,
+) -> dict:
+    """Build least-privilege proposal payload (shared by API + SSM remediation gate)."""
     role = db.scalar(
         select(IamRole).where(IamRole.account_id == acc.id, IamRole.arn == role_arn)
     )
     if not role:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "role not found — run a scan first")
+        raise ValueError("role not found — run a scan first")
 
     usages = db.scalars(
         select(IamPermUsage).where(
@@ -1302,8 +1299,6 @@ def generate_role_policy(
     service_only = sorted(services_with_service_only_evidence(usages, cutoff))
     action_evidence = sorted(services_with_action_evidence(usages, cutoff))
 
-    # Advanced: integrate IAM Access Analyzer CloudTrail-derived resource-scoped policy when
-    # requested or when the account has policy-generation capability deployed/enabled.
     use_advanced = (
         advanced
         or acc.enable_advanced_policy_generation
@@ -1345,7 +1340,7 @@ def generate_role_policy(
         acc,
         threshold_days=threshold_days,
         advanced=use_advanced,
-        advanced_requested=advanced,
+        advanced_requested=advanced_requested if advanced_requested is not None else advanced,
         has_action_data=bool(tracked_actions),
         aa=aa,
     )
@@ -1445,6 +1440,36 @@ def generate_role_policy(
         **base_out,
         **meta,
     }
+
+
+@router.get("/{account_id}/roles/generated-policy")
+def generate_role_policy(
+    account_id: str,
+    role_arn: str,
+    threshold_days: int = 90,
+    advanced: bool = Query(default=False),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != p["org_id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+    use_advanced = (
+        advanced
+        or acc.enable_advanced_policy_generation
+        or acc.advanced_policy_generation_deployed
+    )
+    try:
+        return build_role_generated_policy(
+            db,
+            acc,
+            role_arn,
+            threshold_days=threshold_days,
+            advanced=use_advanced,
+            advanced_requested=advanced,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
 
 
 def _assume_policy_generation_session(acc: AwsAccount):

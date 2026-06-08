@@ -26,6 +26,13 @@ export function friendlyPolicyGenerationError(raw: string): string {
       "run a scan, then start analysis again."
     );
   }
+  if (lower.includes("cloudtrail:gettrail")) {
+    return (
+      "The Access Analyzer monitor role cannot call CloudTrail APIs needed for policy generation " +
+      "(for example cloudtrail:GetTrail). Update the Vigil connector with Advanced IAM policy generation " +
+      "enabled so the monitor role is refreshed, then try again."
+    );
+  }
   if (
     lower.includes("cannot use it to read the cloudtrail logs") ||
     lower.includes("cannot read the log bucket")

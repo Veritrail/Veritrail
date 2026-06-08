@@ -48,6 +48,12 @@ POLICY_GEN_MONITOR_LOG_ACCESS_NOTE = (
     "permissions on the CloudTrail log bucket."
 )
 
+POLICY_GEN_MONITOR_CLOUDTRAIL_API_NOTE = (
+    "The Access Analyzer monitor role cannot call CloudTrail APIs needed for policy generation "
+    "(for example cloudtrail:GetTrail). Update the Vigil connector stack with Advanced IAM policy "
+    "generation enabled so the monitor role is refreshed, then try again."
+)
+
 
 def _client_error_parts(exc: BaseException) -> tuple[str, str]:
     if isinstance(exc, ClientError):
@@ -81,6 +87,8 @@ def user_friendly_policy_generation_error(exc: BaseException) -> str:
         return POLICY_GEN_MONITOR_LOG_ACCESS_NOTE
     if "cannot use it to read the cloudtrail logs" in lower:
         return POLICY_GEN_MONITOR_LOG_ACCESS_NOTE
+    if "cloudtrail:gettrail" in compact:
+        return POLICY_GEN_MONITOR_CLOUDTRAIL_API_NOTE
     if code == "AccessDeniedException" and "startpolicygeneration" in compact:
         return POLICY_GEN_WRONG_REGION_HINT
     if "accessdenied" in lower or "not authorized" in lower or "unauthorized" in lower:

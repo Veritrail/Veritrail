@@ -112,7 +112,7 @@ def build_remediation_dispatch(
     parameter_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Return approved plan; start SSM Automation only when execute=True."""
-    plan = build_approved_remediation_plan(finding, approved_by=approved_by)
+    plan = build_approved_remediation_plan(finding, approved_by=approved_by, db=db)
 
     # Reject expired plans before any side effects
     _validate_plan_not_expired(plan)

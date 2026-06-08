@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { refreshRemediationExecution, useRemediationExecution } from "../hooks/useRemediationExecution";
+import { IamPolicyAutomationGate } from "./IamPolicyAutomationGate";
+import { drawerBtnText } from "./drawerStyles";
 
 type IaCResponse = {
   iac_status: string;
@@ -361,28 +363,20 @@ function SsmRunRemediationButton({
       type="button"
       disabled={disabled}
       onClick={onStart}
-      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-5 py-3 text-[13px] font-semibold text-white shadow-sm shadow-indigo-600/25 transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+      className={`mt-3 inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-[10px] border border-indigo-200 bg-white px-5 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]`}
     >
       {running ? (
         <span
-          className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+          className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-700"
           aria-hidden
         />
       ) : (
-        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+        <svg className="h-4 w-4 shrink-0 text-indigo-700" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
         </svg>
       )}
       {running ? "Running…" : "Run remediation"}
     </button>
-  );
-}
-
-function SsmVerifyAfterHint({ className = "" }: { className?: string }) {
-  return (
-    <p className={`text-[11px] leading-relaxed text-zinc-500 ${className}`}>
-      After it completes, verify remediation below.
-    </p>
   );
 }
 
@@ -444,10 +438,13 @@ function SsmStatusBadge({
   );
 }
 
+const IAM_LEAST_PRIVILEGE_CHECK = "iam.role.least_privilege_policy";
+
 function SsmRemediationPanel({
   findingId,
   checkId,
   accountId,
+  resourceArn,
   resourceRegion,
   resourceLabel,
   severity,
@@ -456,6 +453,7 @@ function SsmRemediationPanel({
   findingId: string;
   checkId: string;
   accountId: string | null;
+  resourceArn?: string | null;
   resourceRegion: string;
   resourceLabel: string;
   severity: string;
@@ -468,6 +466,36 @@ function SsmRemediationPanel({
   const [attemptedStart, setAttemptedStart] = useState(false);
   const qc = useQueryClient();
   const isCloudTrailCreate = checkId === "cloudtrail.trail.not_enabled";
+  const isIamLeastPriv = checkId === IAM_LEAST_PRIVILEGE_CHECK;
+
+  const {
+    data: generatedPolicy,
+    isLoading: policyLoading,
+    refetch: refetchGeneratedPolicy,
+  } = useQuery({
+    queryKey: ["generated-policy", accountId, resourceArn],
+    queryFn: () =>
+      api<{
+        confidence?: "high" | "medium" | "low";
+        confidence_note?: string | null;
+        improve_via_cloudtrail?: boolean;
+        cloudtrail_analysis?: {
+          ready: boolean;
+          status: "ready" | "no_trail" | "advanced_disabled" | "no_connector";
+          message?: string | null;
+        };
+        access_analyzer?: { reason?: string | null };
+        observed_action_count?: number;
+        source_label?: string | null;
+        cleaned_policies?: Record<string, unknown> | null;
+      }>(
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(resourceArn!)}&advanced=true`,
+      ),
+    enabled: isIamLeastPriv && !!accountId && !!resourceArn,
+    staleTime: 0,
+  });
+
+  const policyReady = !isIamLeastPriv || generatedPolicy?.confidence === "high";
 
   const { data: runnerStatus, isLoading: runnerLoading } = useQuery({
     queryKey: ["remediation-runner-status", accountId, checkId, resourceRegion],
@@ -616,6 +644,8 @@ function SsmRemediationPanel({
     <SsmStatusBadge tone="failed">Failed</SsmStatusBadge>
   ) : execInProgress || started ? (
     <SsmStatusBadge tone="running">Running</SsmStatusBadge>
+  ) : ready && isIamLeastPriv && !policyReady && !policyLoading ? (
+    <SsmStatusBadge tone="blocked">High confidence required</SsmStatusBadge>
   ) : ready ? (
     <SsmStatusBadge tone="ready">Ready to run</SsmStatusBadge>
   ) : (
@@ -663,6 +693,12 @@ function SsmRemediationPanel({
 
           {!runnerLoading && ready && !started && !showFailedState && !execSuccess && (
             <div className="space-y-3">
+              {isIamLeastPriv && accountId && resourceArn && (
+                <IamPolicyAutomationGate
+                  generatedPolicy={generatedPolicy}
+                  isLoading={policyLoading}
+                />
+              )}
               <SsmRemediationPlan
                 planDetail={planDetail}
                 documentTitle={planLabels.documentTitle}
@@ -717,13 +753,23 @@ function SsmRemediationPanel({
               )}
               <SsmRunRemediationButton
                 running={running}
-                disabled={running || !accountId || !cloudTrailInputsReady}
+                disabled={running || !accountId || !cloudTrailInputsReady || !policyReady}
                 onStart={() => {
                   setAttemptedStart(true);
                   startMutation.mutate();
                 }}
               />
-              <SsmVerifyAfterHint />
+              {isIamLeastPriv && !policyLoading && !policyReady && (
+                <p className="text-[11px] leading-relaxed text-zinc-500">
+                  SSM applies the least-privilege proposal only at{" "}
+                  <span className="font-medium text-zinc-700">high confidence</span> (concrete resource ARNs).
+                  Yours is <span className="font-medium text-zinc-700">{generatedPolicy?.confidence ?? "low"}</span>
+                  {generatedPolicy?.confidence === "medium"
+                    ? " — actions are scoped but resources are still wildcarded."
+                    : "."}{" "}
+                  Use <span className="font-medium text-zinc-700">Suggested policy</span> to review or rebuild.
+                </p>
+              )}
             </div>
           )}
 
@@ -848,6 +894,7 @@ export function IaCRemediationSection({
   embedMode,
   accountId,
   resourceRegion,
+  resourceArn,
   resourceLabel,
   severity,
 }: {
@@ -857,6 +904,7 @@ export function IaCRemediationSection({
   embedMode: "terraform" | "automation";
   accountId?: string | null;
   resourceRegion?: string | null;
+  resourceArn?: string | null;
   resourceLabel?: string;
   severity?: string;
 }) {
@@ -954,6 +1002,7 @@ export function IaCRemediationSection({
       findingId={findingId}
       checkId={checkId}
       accountId={accountId ?? null}
+      resourceArn={resourceArn ?? null}
       resourceRegion={region}
       resourceLabel={resourceLabel ?? "this resource"}
       severity={severity ?? "medium"}

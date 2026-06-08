@@ -432,16 +432,21 @@ def remediation_dispatch(
     """Approve remediation plan; start SSM Automation only when body.execute is true."""
     from app.services.remediation_dispatch import build_remediation_dispatch
 
+    from app.services.remediation_iam_policy_plan import IamPolicyRemediationNotReady
+
     f = _get_owned(db, p, finding_id)
     approved_by = p.get("sub") or p.get("email") or "unknown"
-    return build_remediation_dispatch(
-        f,
-        approved_by=str(approved_by),
-        db=db,
-        org_id=uuid.UUID(p["org_id"]),
-        execute=body.execute,
-        parameter_overrides=body.parameter_overrides,
-    )
+    try:
+        return build_remediation_dispatch(
+            f,
+            approved_by=str(approved_by),
+            db=db,
+            org_id=uuid.UUID(p["org_id"]),
+            execute=body.execute,
+            parameter_overrides=body.parameter_overrides,
+        )
+    except IamPolicyRemediationNotReady as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=exc.detail) from exc
 
 
 class TriageTriggerResponse(BaseModel):

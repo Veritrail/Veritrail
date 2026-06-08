@@ -424,12 +424,14 @@ Resources:
                     Effect: Allow
                     Action:
                       - cloudtrail:DescribeTrails
+                      - cloudtrail:GetTrail
                       - cloudtrail:GetTrailStatus
                     Resource: "*"
                   - Sid: CloudTrailLogRead
                     Effect: Allow
                     Action:
                       - s3:GetObject
+                      - s3:GetBucketLocation
                       - s3:ListBucket
                     Resource:
                       - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
@@ -444,18 +446,20 @@ Resources:
                     Effect: Allow
                     Action:
                       - cloudtrail:DescribeTrails
+                      - cloudtrail:GetTrail
                       - cloudtrail:GetTrailStatus
                     Resource: "*"
                   - Sid: CloudTrailLogRead
                     Effect: Allow
                     Action:
                       - s3:GetObject
+                      - s3:GetBucketLocation
                       - s3:ListBucket
                     Resource:
                       - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
                       - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}/${CloudTrailLogsBucketPrefix}*"
 
-Outputs:
+  Outputs:
   RoleArn:
     Description: Paste this ARN into Vigil to finish onboarding.
     Value: !GetAtt VigilRole.Arn

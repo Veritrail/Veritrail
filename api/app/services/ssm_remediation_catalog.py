@@ -23,6 +23,7 @@ class SsmRemediationRunbook:
 VIGIL_SG_DOCUMENT = "Vigil-RevokeSecurityGroupIngressExact"
 VIGIL_IAM_KEY_DOCUMENT = "Vigil-DeactivateIamAccessKey"
 VIGIL_SSM_PARAMETER_DOCUMENT = "Vigil-MigrateSsmParameterToSecureString"
+VIGIL_IAM_POLICY_DOCUMENT = "Vigil-RemediateIamExcessPermissions"
 
 AWS_S3_BUCKET_PAB_DOCUMENT = "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
 
@@ -68,6 +69,16 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
         owner="vigil",
         parameter_mode="plan_json",
         note="Focused Vigil runbook deactivates only the reviewed access key.",
+    ),
+    "iam.role.least_privilege_policy": SsmRemediationRunbook(
+        check_id="iam.role.least_privilege_policy",
+        document_name=VIGIL_IAM_POLICY_DOCUMENT,
+        owner="vigil",
+        parameter_mode="plan_json",
+        note=(
+            "Applies the approved least-privilege proposal from CloudTrail + IAM last-accessed data. "
+            "Requires high-confidence policy analysis before dispatch."
+        ),
     ),
     "cloudtrail.trail.not_enabled": SsmRemediationRunbook(
         check_id="cloudtrail.trail.not_enabled",

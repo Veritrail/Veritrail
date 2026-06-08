@@ -11,14 +11,24 @@ import { DrawerDateField } from "./DrawerDateField";
 import { todayIso } from "../lib/isoDate";
 import {
   drawerBody,
+  drawerBodyStrong,
+  drawerBodyText,
+  drawerBtnText,
+  drawerCardTitle,
+  drawerChip,
+  drawerEyebrow,
   drawerFieldLabel,
+  drawerHelperText,
+  drawerMetaLabel,
   drawerPanel,
+  drawerPanelTitle,
   drawerSectionBody,
   drawerSectionHead,
   drawerSectionTitle,
   drawerSummaryLabel,
   drawerSummaryValue,
   drawerSummaryValueStrong,
+  drawerTitle,
 } from "./drawerStyles";
 import {
   credentialUnusedFrameworkImpact,
@@ -108,10 +118,10 @@ const DRAWER_REMEDIATION_GRID_THREE =
 /** Resource label in drawer header (matches drawerFieldLabel). */
 const drawerFieldLabelBlock = drawerFieldLabel;
 const drawerFooterCardBase =
-  "relative flex min-h-[4.25rem] min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border bg-white px-4 py-3 transition hover:shadow-sm active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50";
-const drawerFooterReopen = `${drawerFooterCardBase} w-full justify-center border-zinc-200 bg-zinc-50/80 text-[13px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50`;
+  "relative flex min-h-[2.5rem] min-w-0 flex-1 items-center justify-between gap-3 rounded-[10px] border bg-white px-4 py-2.5 transition hover:shadow-sm active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50";
+const drawerFooterReopen = `${drawerFooterCardBase} w-full justify-center border-zinc-200 bg-zinc-50/80 ${drawerBtnText} text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50`;
 const drawerFooterActionBase =
-  "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-[13px] font-semibold transition-all duration-150 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60";
+  `inline-flex h-[42px] items-center justify-center gap-2 rounded-[10px] px-4 ${drawerBtnText} transition-all duration-150 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60`;
 const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#059669] text-white shadow-[0_6px_16px_rgba(5,150,105,0.16)] hover:bg-[#047857] hover:shadow-[0_8px_18px_rgba(4,120,87,0.18)]`;
 const drawerFooterVerifySoft = `${drawerFooterActionBase} flex-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70`;
 const drawerFooterExceptionGhost = `${drawerFooterActionBase} flex-[0.8] border border-zinc-200 bg-white text-zinc-600 shadow-sm shadow-zinc-900/[0.02] hover:border-amber-200 hover:bg-amber-50/60 hover:text-amber-700`;
@@ -219,8 +229,8 @@ const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
   suggested_policy: "Suggested policy",
 };
 
-function RemediationModeIcon({ mode }: { mode: RemediationMode }) {
-  const cls = "h-5 w-5 shrink-0";
+function RemediationModeIcon({ mode, large = false }: { mode: RemediationMode; large?: boolean }) {
+  const cls = large ? "h-[18px] w-[18px] shrink-0" : "h-5 w-5 shrink-0 opacity-80";
   if (mode === "console") {
     return (
       <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
@@ -282,9 +292,9 @@ function RemediationModePicker({
   return (
     <div className={`${drawerPanel} overflow-hidden`}>
       <div className={drawerSectionHead}>
-        <h3 className={drawerSectionTitle}>Generate remediation steps for</h3>
+        <h3 className={drawerSectionTitle}>Remediation format</h3>
       </div>
-      <div className={`${drawerSectionBody} grid grid-cols-3 gap-2`}>
+      <div className={`${drawerSectionBody} grid grid-cols-3 gap-2.5`}>
         {modes.map((mode) => {
           const selected = active === mode;
           return (
@@ -292,14 +302,20 @@ function RemediationModePicker({
               key={mode}
               type="button"
               onClick={() => onSelect(mode)}
-              className={`flex min-h-[4.75rem] flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-center transition-all duration-150 ${
+              className={`flex min-h-[5rem] flex-col items-center justify-center gap-2.5 rounded-xl border px-2.5 py-3.5 text-center transition-all duration-150 ${
                 selected
-                  ? "border-indigo-300 bg-indigo-50/80 text-indigo-950 shadow-sm ring-2 ring-indigo-200/80"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/80"
+                  ? "border-indigo-400 bg-indigo-50 text-indigo-950 shadow-sm ring-2 ring-indigo-300/50"
+                  : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
               }`}
             >
-              <RemediationModeIcon mode={mode} />
-              <span className="text-[13px] font-semibold leading-snug">
+              <RemediationModeIcon mode={mode} large={selected} />
+              <span
+                className={
+                  selected
+                    ? "text-[13.5px] font-semibold leading-snug text-indigo-950"
+                    : "text-[13px] font-medium leading-snug text-zinc-600"
+                }
+              >
                 {REMEDIATION_MODE_LABELS[mode]}
               </span>
             </button>
@@ -318,7 +334,7 @@ function SuggestedRemediationSummary({
   policyMode?: boolean;
 }) {
   const summary = policyMode
-    ? "Replace full-admin access with a scoped least-privilege policy generated from observed usage."
+    ? "Replace broad admin access with a scoped least-privilege policy based on observed usage."
     : rem.why;
 
   return (
@@ -327,8 +343,8 @@ function SuggestedRemediationSummary({
         <h3 className={drawerSectionTitle}>Suggested remediation</h3>
       </div>
       <div className={`${drawerSectionBody} space-y-2`}>
-        <p className="text-[13px] leading-relaxed text-zinc-600">{summary}</p>
-        {!policyMode && rem.risk ? <p className="text-[12px] leading-relaxed text-zinc-500">{rem.risk}</p> : null}
+        <p className={drawerBodyText}>{summary}</p>
+        {!policyMode && rem.risk ? <p className={drawerHelperText}>{rem.risk}</p> : null}
       </div>
     </div>
   );
@@ -339,16 +355,20 @@ function RemediationDetailCard({
   action,
   children,
   className = "",
+  emphasis = false,
 }: {
   title: string;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  emphasis?: boolean;
 }) {
   return (
-    <div className={`${drawerPanel} overflow-hidden ${className}`}>
+    <div
+      className={`${drawerPanel} overflow-hidden ${emphasis ? "shadow-md shadow-zinc-950/[0.06] ring-1 ring-zinc-200/80" : ""} ${className}`}
+    >
       <div className={`${drawerSectionHead} flex items-center justify-between gap-3`}>
-        <h4 className={drawerSectionTitle}>{title}</h4>
+        <h4 className={emphasis ? drawerCardTitle : drawerSectionTitle}>{title}</h4>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       <div className={drawerSectionBody}>{children}</div>
@@ -373,8 +393,8 @@ function RemediationDetailPanel({
             <RemediationModeIcon mode={mode} />
           </span>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">Remediation</p>
-            <h3 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-zinc-900">
+            <p className={drawerEyebrow}>Remediation</p>
+            <h3 className={`truncate ${drawerPanelTitle}`}>
               {REMEDIATION_MODE_LABELS[mode]}
             </h3>
           </div>
@@ -4070,6 +4090,15 @@ function PolicyGenSpinner({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+function PolicyMetaRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] items-baseline gap-x-4 py-2.5">
+      <p className={drawerMetaLabel}>{label}</p>
+      <div className={drawerBodyStrong}>{children}</div>
+    </div>
+  );
+}
+
 function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
   const cov = data.coverage ?? { actions: (data.used_actions?.length ?? 0) > 0, resources: false };
   const preserved = data.preserved_service_wildcards ?? [];
@@ -4091,11 +4120,18 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
         ? "AWS reported recent usage for these services but did not return action or resource-level detail for this role."
         : observed > 0
           ? "AWS returned observed action usage and apply-ready resource detail for this role."
-          : "Review the least-privilege proposal against your workload before applying.";
+          : "Review the suggested policy against your workload before applying.";
 
-  const confidenceBadge = data.confidence ? (
+  const resultCopy =
+    preserved.length > 0
+      ? `Action:* was replaced with ${observed} observed actions. Resource remains *.`
+      : cov.resources
+        ? `${observed} observed actions with resource ARNs where available.`
+        : `${observed} observed actions scoped. Resource remains *.`;
+
+  const summaryHeaderAction = data.confidence ? (
     <span
-      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${
+      className={`rounded-full border px-2.5 py-1 ${drawerChip} capitalize ${
         POLICY_CONFIDENCE_STYLE[data.confidence] ?? POLICY_CONFIDENCE_STYLE.low
       }`}
     >
@@ -4104,60 +4140,54 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
   ) : null;
 
   return (
-    <RemediationDetailCard title="Generation summary" action={confidenceBadge}>
+    <RemediationDetailCard title="Generation summary" action={summaryHeaderAction} emphasis>
       <div className="flex flex-wrap gap-2">
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 ${drawerChip} ${
             cov.actions
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-amber-200 bg-amber-50 text-amber-900"
           }`}
         >
-          {cov.actions ? "✓ Actions scoped" : "✗ Actions not scoped"}
+          {cov.actions && observed > 0
+            ? `✓ ${observed} actions scoped`
+            : cov.actions
+              ? "✓ Actions scoped"
+              : "✗ Actions not scoped"}
         </span>
         <span
-          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 ${drawerChip} ${
             cov.resources
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-zinc-200 bg-zinc-50 text-zinc-700"
+              : "border-zinc-200 bg-zinc-100 text-zinc-700"
           }`}
         >
           {cov.resources ? "✓ Resource scope applied" : "✕ Resources unchanged"}
         </span>
       </div>
-        <div className="mt-4 space-y-3.5 text-[13px] leading-[1.55] text-zinc-800">
+      {data.confidence_note && (
+        <p className={`mt-3 ${drawerBodyText}`}>{data.confidence_note}</p>
+      )}
+      <div className="mt-3 space-y-3">
+        <p className={drawerBodyText}>
+          <span className="font-semibold text-[#1D2939]">Why — </span>
+          {whyCopy}
+        </p>
+        {preserved.length > 0 && (
+          <p className={`font-mono text-xs text-[#1D2939]`}>Preserved: {preserved.join(" · ")}</p>
+        )}
+        <div>
+          <p className={drawerMetaLabel}>Source</p>
+          <p className={`mt-1 ${drawerBodyStrong}`}>{data.source_label ?? "IAM last accessed"}</p>
+        </div>
+        {observed > 0 && (
           <div>
-            <div className="mt-1 space-y-2 text-zinc-700">
-              {data.confidence_note && <p className="font-medium text-zinc-800">{data.confidence_note}</p>}
-              <p>
-                <span className="font-semibold text-zinc-800">Why — </span>
-                {whyCopy}
-              </p>
-              {preserved.length > 0 && (
-                <p className="font-mono text-xs text-zinc-800">
-                  Preserved: {preserved.join(" · ")}
-                </p>
-              )}
-            </div>
+            <p className={drawerMetaLabel}>Result</p>
+            <p className={`mt-1 ${drawerBodyText}`}>{resultCopy}</p>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Source</p>
-            <p className="mt-1 text-[13px] font-semibold leading-[1.55] text-zinc-900">
-              {data.source_label ?? "IAM last accessed"}
-            </p>
-          </div>
-          {observed > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Result</p>
-              <p className="mt-1 text-[13px] leading-[1.55] text-zinc-700">
-                {preserved.length > 0
-                  ? `Action:* was replaced with ${observed} observed actions. Resource remains *.`
-                  : cov.resources
-                    ? `${observed} observed actions with resource ARNs where available.`
-                    : `${observed} observed actions scoped. Resource remains *.`}
-              </p>
-            </div>
-          )}
+        )}
+      </div>
+      <div className="mt-3 space-y-2">
       {showNoJobHint && (
         <p className="mt-2 text-amber-900">
           {policyGenerationReasonLabel(data.access_analyzer!.reason) ?? data.access_analyzer!.reason}
@@ -4193,7 +4223,7 @@ function PolicyCoverageMeta({ data }: { data: GeneratedPolicy }) {
           <button
             type="button"
             onClick={() => setTechOpen((o) => !o)}
-            className="text-[12px] font-medium text-zinc-500 hover:text-zinc-800"
+            className={`${drawerHelperText} font-medium hover:text-zinc-800`}
           >
             {techOpen ? "Hide" : "Show"} technical details
           </button>
@@ -4703,13 +4733,13 @@ function PolicyWorkspacePaneShell({
   const bodyAnimationClass = bodyAnimated ? "policy-workspace-pane__body" : "policy-workspace-pane__body--static";
 
   return (
-    <div className={`policy-workspace-pane ${paneAnimationClass} ${isClosing ? "policy-workspace-pane--exit" : ""} flex min-h-0 min-w-0 flex-col border-l border-zinc-200/90 bg-[#f7f9fc] ${className}`}>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e6ebf2] bg-white px-6 py-4 shadow-sm shadow-zinc-950/[0.02]">
+    <div className={`policy-workspace-pane ${paneAnimationClass} ${isClosing ? "policy-workspace-pane--exit" : ""} flex min-h-0 min-w-0 flex-col border-l border-zinc-200/90 bg-white ${className}`}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#e6ebf2] bg-white px-6 py-4 shadow-sm shadow-zinc-950/[0.04]">
         <div className="min-w-0">
           {subtitle ? (
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{subtitle}</p>
+            <p className={drawerEyebrow}>{subtitle}</p>
           ) : null}
-          <h3 className="truncate text-base font-semibold text-zinc-900">{title}</h3>
+          <h3 className={`truncate ${drawerPanelTitle}`}>{title}</h3>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {action}
@@ -5350,8 +5380,9 @@ function SuggestedPolicyWorkspace({
         className="finding-drawer-surface min-w-0"
         paneAnimated={false}
         bodyAnimated={false}
+        bodySpacing="relaxed"
         onClose={onCloseWorkspace}
-        closeLabel="Close least-privilege proposal"
+        closeLabel="Close suggested least-privilege policy"
         action={
           canReviewGeneratedPolicy && !showPolicyChangePane ? (
             <ReviewPolicyButton onOpen={onOpenPolicyChangePane} />
@@ -5375,7 +5406,6 @@ function SuggestedPolicyWorkspace({
               data={data}
               isRunning={cloudTrailProgress.isRunning}
               analysisComplete={cloudTrailProgress.statusSucceeded}
-              isRefreshing={isFetching}
               startedAt={cloudTrailProgress.startedAt}
               onRefresh={async () => {
                 const result = await refetch();
@@ -5440,7 +5470,6 @@ function PolicyCloudTrailStartAction({
   data,
   isRunning,
   analysisComplete = false,
-  isRefreshing = false,
   startedAt,
   onRefresh,
 }: {
@@ -5450,7 +5479,6 @@ function PolicyCloudTrailStartAction({
   data: GeneratedPolicy;
   isRunning: boolean;
   analysisComplete?: boolean;
-  isRefreshing?: boolean;
   startedAt?: number;
   onRefresh: () => Promise<GeneratedPolicy | undefined>;
 }) {
@@ -5465,6 +5493,9 @@ function PolicyCloudTrailStartAction({
   } | null>(null);
   const analysis = data.cloudtrail_analysis;
   const jobCompleted = Boolean(data.access_analyzer?.available) || analysisComplete;
+  const cloudTrailMergedIntoProposal = Boolean(
+    data.access_analyzer?.available && /cloudtrail/i.test(data.source_label ?? ""),
+  );
   const wantsCloudTrailPanel =
     Boolean(data.improve_via_cloudtrail && data.confidence !== "high") ||
     isRunning ||
@@ -5566,14 +5597,14 @@ function PolicyCloudTrailStartAction({
     }
   };
 
-  const refreshBusy = rebuilding || isRefreshing;
+  const refreshBusy = rebuilding;
 
   return (
-    <div className={`${drawerPanel} overflow-hidden shadow-sm shadow-zinc-900/[0.03]`}>
+    <div className={`${drawerPanel} overflow-hidden shadow-md shadow-zinc-950/[0.05] ring-1 ring-zinc-200/80`}>
       <div className={`${drawerSectionHead} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
         <div className="min-w-0">
-          <h4 className={drawerSectionTitle}>CloudTrail validation</h4>
-          <p className="mt-0.5 text-[13px] leading-snug text-zinc-600">~15 min · checks resource ARNs · IAM unchanged until you apply</p>
+          <h4 className={drawerCardTitle}>CloudTrail validation</h4>
+          <p className={`mt-0.5 ${drawerHelperText}`}>~15 min · checks resource ARNs · IAM unchanged until you apply</p>
         </div>
         {isRunning ? (
           <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-950">
@@ -5585,7 +5616,7 @@ function PolicyCloudTrailStartAction({
             type="button"
             disabled={refreshBusy}
             onClick={() => void rebuild()}
-            className="inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-indigo-200 bg-white px-3.5 py-2 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {refreshBusy ? "Refreshing…" : "Rebuild suggestion"}
           </button>
@@ -5597,7 +5628,7 @@ function PolicyCloudTrailStartAction({
               type="button"
               disabled={busy}
               onClick={start}
-              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[#d8e0ec] bg-white px-3.5 py-2 text-xs font-semibold text-[#111827] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+              className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-indigo-200 bg-white px-3.5 py-2 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {busy ? "Starting…" : "Run analysis"}
             </button>
@@ -5653,13 +5684,11 @@ function PolicyCloudTrailStartAction({
           </div>
         </div>
       )}
-      {analysisComplete && !isRunning && !refreshFeedback && (
+      {analysisComplete && !isRunning && !refreshFeedback && !cloudTrailMergedIntoProposal && (
         <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] leading-[1.55] text-emerald-950">
           <p className="font-semibold">CloudTrail analysis complete</p>
           <p className="mt-1 text-emerald-900/90">
-            {data.confidence === "high"
-              ? "High-confidence proposal is ready. Rebuild to refresh the suggestion with the latest job output."
-              : "Analysis finished with medium confidence — resource ARNs may still be broad. Rebuild to apply the latest CloudTrail job, or review before automating a fix."}
+            Rebuild the suggestion to merge the latest CloudTrail job into this proposal.
           </p>
         </div>
       )}
@@ -5752,7 +5781,6 @@ function GeneratePolicySection({
             data={data}
             isRunning={cloudTrailProgress.isRunning}
             analysisComplete={cloudTrailProgress.statusSucceeded}
-            isRefreshing={isFetching}
             startedAt={cloudTrailProgress.startedAt}
             onRefresh={async () => {
               const result = await refetch();
@@ -5856,7 +5884,6 @@ function GeneratePolicySection({
               data={data}
               isRunning={cloudTrailProgress.isRunning}
               analysisComplete={cloudTrailProgress.statusSucceeded}
-              isRefreshing={isFetching}
               startedAt={cloudTrailProgress.startedAt}
               onRefresh={async () => {
                 const result = await refetch();
@@ -6764,7 +6791,7 @@ export function FindingDrawer({
           {finding.severity}
         </span>
       </div>
-      <h2 id="finding-drawer-title" className="mt-1.5 pr-8 text-base font-semibold leading-snug text-zinc-900">
+      <h2 id="finding-drawer-title" className={`mt-1.5 pr-8 ${drawerTitle}`}>
         {checkLabels[finding.check_id] ?? finding.title}
       </h2>
       {/* Segmented tab control — w-fit keeps track background from stretching full width */}

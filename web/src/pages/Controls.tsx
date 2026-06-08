@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, token } from "../api";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS } from "../data/frameworks";
+import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
@@ -479,6 +480,7 @@ function ComplianceStatusFilterBar({
   noData,
   statusFilter,
   onChange,
+  variant = "pill",
 }: {
   total: number;
   passed: number;
@@ -486,29 +488,67 @@ function ComplianceStatusFilterBar({
   noData: number;
   statusFilter: StatusFilter;
   onChange: (filter: StatusFilter) => void;
+  variant?: "pill" | "toolbar";
 }) {
+  const filters = [
+    { id: "all" as const, label: "All", count: total, urgent: false },
+    { id: "fail" as const, label: "Failing", count: failed, urgent: failed > 0 },
+    { id: "pass" as const, label: "Passing", count: passed, urgent: false },
+    { id: "no_data" as const, label: "No data", count: noData, urgent: false },
+  ] as const;
+
+  if (variant === "toolbar") {
+    return (
+      <div className="findings-v2-severity-tabs" role="tablist" aria-label="Control status">
+        {filters.map((f) => {
+          const isSelected = statusFilter === f.id;
+          return (
+            <button
+              key={f.id}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              onClick={() => onChange(f.id)}
+              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
+                isSelected
+                  ? "bg-[#f8fafc] text-[#1f4e79] ring-1 ring-[#dce3ec]"
+                  : "text-[#6b7280] hover:bg-[#f8fafc] hover:text-[#111827]"
+              }`}
+            >
+              {f.label}
+              <span
+                className={
+                  f.urgent && !isSelected
+                    ? "text-amber-600/90"
+                    : isSelected
+                      ? "text-[#1f4e79]/70"
+                      : "text-[#98a2b3]"
+                }
+              >
+                · {f.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="inline-flex flex-wrap items-center gap-0.5 rounded-full border border-zinc-200/90 bg-zinc-100/70 p-1">
-        {(
-          [
-            { id: "all" as const, label: "All", count: total },
-            { id: "fail" as const, label: "Failing", count: failed },
-            { id: "pass" as const, label: "Passing", count: passed },
-            { id: "no_data" as const, label: "No data", count: noData },
-          ] as const
-        ).map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => onChange(f.id)}
-            className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-              statusFilter === f.id ? COMPLIANCE_CHIP_ACTIVE : COMPLIANCE_CHIP_IDLE
-            }`}
-          >
-            {f.label}
-            <span className={statusFilter === f.id ? "text-zinc-500" : "text-zinc-400"}> · {f.count}</span>
-          </button>
-        ))}
+      {filters.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          onClick={() => onChange(f.id)}
+          className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
+            statusFilter === f.id ? COMPLIANCE_CHIP_ACTIVE : COMPLIANCE_CHIP_IDLE
+          }`}
+        >
+          {f.label}
+          <span className={statusFilter === f.id ? "text-zinc-500" : "text-zinc-400"}> · {f.count}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -561,13 +601,23 @@ function ComplianceViewSwitcher({
   onChange: (view: ComplianceView) => void;
 }) {
   const options = [
-    { id: "composite" as const, label: "Control groups", Icon: ControlGroupsIcon },
-    { id: "detailed" as const, label: "Detailed criteria", Icon: DetailedCriteriaIcon },
+    {
+      id: "composite" as const,
+      label: "Groups",
+      title: "Control groups — higher-level rollups",
+      Icon: ControlGroupsIcon,
+    },
+    {
+      id: "detailed" as const,
+      label: "Criteria",
+      title: "Detailed criteria — per framework control",
+      Icon: DetailedCriteriaIcon,
+    },
   ];
 
   return (
     <div
-      className="inline-flex shrink-0 rounded-full border border-zinc-200/90 bg-zinc-100/80 p-1.5"
+      className="inline-flex h-9 shrink-0 items-center gap-0.5 rounded-lg border border-[#dce3ec] bg-[#f8fafc]/90 p-0.5"
       role="tablist"
       aria-label="Compliance view"
     >
@@ -579,21 +629,106 @@ function ComplianceViewSwitcher({
             type="button"
             role="tab"
             aria-selected={isActive}
+            title={opt.title}
             onClick={() => onChange(opt.id)}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${
+            className={`inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#1f4e79]/25 ${
               isActive
-                ? "bg-white text-zinc-900 shadow-sm shadow-zinc-950/[0.06] ring-1 ring-zinc-200/60"
-                : "text-zinc-600 hover:text-zinc-900"
+                ? "bg-white text-[#1f4e79] shadow-sm shadow-zinc-950/[0.04] ring-1 ring-[#dce3ec]"
+                : "text-[#6b7280] hover:bg-white/80 hover:text-[#111827]"
             }`}
           >
             <opt.Icon
-              className={`h-5 w-5 shrink-0 ${isActive ? "text-zinc-600" : "text-zinc-400"}`}
+              className={`h-4 w-4 shrink-0 ${isActive ? "text-[#1f4e79]/80" : "text-[#98a2b3]"}`}
             />
             {opt.label}
           </button>
         );
       })}
     </div>
+  );
+}
+
+function ComplianceUnifiedToolbar({
+  complianceView,
+  onComplianceViewChange,
+  framework,
+  frameworkStatsById,
+  onFrameworkChange,
+  statusFilter,
+  onStatusFilterChange,
+  statusCounts,
+  showStatusFilter,
+  auditExport,
+  showAuditExport,
+}: {
+  complianceView: ComplianceView;
+  onComplianceViewChange: (view: ComplianceView) => void;
+  framework: string;
+  frameworkStatsById: Record<string, FrameworkStats | undefined>;
+  onFrameworkChange: (id: string) => void;
+  statusFilter: StatusFilter;
+  onStatusFilterChange: (filter: StatusFilter) => void;
+  statusCounts: { total: number; passed: number; failed: number; noData: number };
+  showStatusFilter: boolean;
+  auditExport: ReactNode;
+  showAuditExport: boolean;
+}) {
+  return (
+    <div className="findings-v2-table-toolbar">
+      <div className="findings-v2-filter-cluster !flex-wrap">
+        {showStatusFilter && (
+          <ComplianceStatusFilterBar
+            total={statusCounts.total}
+            passed={statusCounts.passed}
+            failed={statusCounts.failed}
+            noData={statusCounts.noData}
+            statusFilter={statusFilter}
+            onChange={onStatusFilterChange}
+            variant="toolbar"
+          />
+        )}
+        <ComplianceFrameworkSelect
+          selectedId={framework}
+          statsById={frameworkStatsById}
+          onSelect={onFrameworkChange}
+        />
+      </div>
+      <div className="findings-v2-control-cluster">
+        <div
+          className="findings-v2-toolbar-group findings-v2-toolbar-group--divider"
+          role="group"
+          aria-label="Compliance view"
+        >
+          <ComplianceViewSwitcher view={complianceView} onChange={onComplianceViewChange} />
+        </div>
+        {showAuditExport && (
+          <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export">
+            {auditExport}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ComplianceContentShell({
+  toolbar,
+  topBlocker,
+  section,
+  children,
+}: {
+  toolbar: ReactNode;
+  topBlocker?: ReactNode;
+  section?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mb-4 min-w-0 overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
+      {toolbar}
+      {topBlocker}
+      {section && <div className="border-b border-zinc-100 px-5 py-2.5">{section}</div>}
+      <div className="divide-y divide-zinc-100">{children}</div>
+    </section>
   );
 }
 
@@ -847,10 +982,7 @@ function CompositeControlsPanel({
   if (treeRows.length === 0) return null;
 
   return (
-    <CompliancePanelShell
-      title="Control groups"
-      subtitle="Higher-level compliance rollups — expand for underlying criteria and top failing checks."
-    >
+    <>
         {treeRows.map(({ row: ctrl, child }) => {
           const isExpanded = expandedId === ctrl.id;
 
@@ -903,7 +1035,7 @@ function CompositeControlsPanel({
             </div>
           );
         })}
-    </CompliancePanelShell>
+    </>
   );
 }
 
@@ -1374,145 +1506,6 @@ function useFrameworkStats(framework: string, accountId: string | undefined, ena
   });
 }
 
-function frameworkChipPctClass(frameworkId: string, passRate: number | null, isActive: boolean): string {
-  if (passRate == null) return "text-zinc-400";
-  if (isActive) return passRateColor(passRate);
-  if (frameworkId === "iso27001") return "text-sky-600";
-  if (frameworkId === "cis_aws_l1") return "text-amber-600";
-  return "text-zinc-500";
-}
-
-function frameworkChipShellClass(
-  isActive: boolean,
-  stats: FrameworkStats | undefined,
-): string {
-  if (!isActive) {
-    return "border-zinc-200/90 bg-white text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50/80";
-  }
-  const needsAttention = (stats?.openFindings ?? 0) > 0 || (stats?.passRate ?? 100) < 80;
-  if (needsAttention) {
-    return "border-amber-200/80 bg-amber-50/40 text-zinc-900 shadow-sm shadow-zinc-950/[0.03]";
-  }
-  return "border-zinc-300/80 bg-white text-zinc-900 shadow-sm shadow-zinc-950/[0.03]";
-}
-
-function FrameworkScoreCard({
-  fw,
-  stats,
-  isActive,
-  onSelect,
-}: {
-  fw: { id: string; label: string };
-  stats: FrameworkStats | undefined;
-  isActive: boolean;
-  onSelect: () => void;
-}) {
-  const pct = stats?.passRate;
-  const total = stats?.total ?? 0;
-  const passed = stats?.passed ?? 0;
-  const hasData = pct != null && total > 0;
-  const pctNum = pct ?? 0;
-  const RADIUS = 18;
-  const CIRC = 2 * Math.PI * RADIUS;
-  const ringColor = !hasData
-    ? "text-zinc-300"
-    : pctNum >= 80
-      ? "text-emerald-500"
-      : pctNum >= 50
-        ? "text-amber-500"
-        : "text-rose-500";
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={isActive}
-      onClick={onSelect}
-      className={`flex w-60 items-center gap-3.5 rounded-2xl border px-4 py-3.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${
-        isActive
-          ? "border-indigo-300/80 bg-indigo-50/40 shadow-sm shadow-indigo-950/[0.04] ring-1 ring-indigo-300/40"
-          : "border-zinc-200/90 bg-white hover:border-zinc-300 hover:bg-zinc-50/60"
-      }`}
-    >
-      <span className="relative h-12 w-12 shrink-0">
-        <svg viewBox="0 0 44 44" className="h-12 w-12 -rotate-90">
-          <circle cx="22" cy="22" r={RADIUS} fill="none" stroke="currentColor" strokeWidth="4" className="text-zinc-200" />
-          <circle
-            cx="22"
-            cy="22"
-            r={RADIUS}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray={CIRC}
-            strokeDashoffset={hasData ? CIRC * (1 - pctNum / 100) : CIRC}
-            className={`transition-all ${ringColor}`}
-          />
-        </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-[12px] font-bold tabular-nums text-zinc-800">
-          {hasData ? `${pctNum}%` : "—"}
-        </span>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-zinc-900">{fw.label}</span>
-        <span className="mt-0.5 block text-xs font-medium tabular-nums text-zinc-500">
-          {hasData ? `${passed} of ${total} passing` : "No scan data"}
-        </span>
-        {isActive && (
-          <span className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
-            Viewing
-          </span>
-        )}
-      </span>
-    </button>
-  );
-}
-
-/** Framework score cards — each card is also the framework selector tab. */
-function FrameworkNav({
-  selectedId,
-  statsById,
-  currentStats,
-  topBlockerDetailed,
-  topBlockerComposite,
-  complianceView,
-  onComplianceViewChange,
-  onSelect,
-  onOpenTopBlocker,
-}: {
-  selectedId: string;
-  statsById: Record<string, FrameworkStats | undefined>;
-  currentStats?: FrameworkStats;
-  topBlockerDetailed: ControlRow | null;
-  topBlockerComposite: CompositeControlRow | null;
-  complianceView: ComplianceView;
-  onComplianceViewChange: (view: ComplianceView) => void;
-  onSelect: (id: string) => void;
-  onOpenTopBlocker: () => void;
-}) {
-  return (
-    <div
-      className="mb-3 flex flex-wrap gap-3"
-      role="tablist"
-      aria-label="Compliance framework"
-    >
-      {FRAMEWORKS.map((fw) => {
-        const isActive = selectedId === fw.id;
-        const tabStats = isActive ? currentStats : statsById[fw.id];
-        return (
-          <FrameworkScoreCard
-            key={fw.id}
-            fw={fw}
-            stats={tabStats}
-            isActive={isActive}
-            onSelect={() => onSelect(fw.id)}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
 export default function Controls() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1701,10 +1694,6 @@ export default function Controls() {
   const failed = rows.filter((r) => r.status === "fail").length;
   const noData = rows.filter((r) => r.status === "no_data").length;
   const total = rows.length;
-  const passRate = total > 0 ? Math.round((passed / total) * 100) : null;
-  const openFindingsTotal = rows.reduce((sum, r) => sum + r.finding_count, 0);
-  const currentFrameworkStats: FrameworkStats = { passRate, failed, passed, total, openFindings: openFindingsTotal };
-
   const filteredRows = useMemo(
     () => (statusFilter === "all" ? rows : rows.filter((r) => r.status === statusFilter)),
     [rows, statusFilter]
@@ -1813,9 +1802,9 @@ export default function Controls() {
         onClick={() => setExportOpen((open) => !open)}
         aria-expanded={exportOpen}
         aria-haspopup="dialog"
-        className="findings-v2-toolbar-btn findings-v2-toolbar-btn--scan findings-v2-toolbar-btn--lg"
+        className="findings-v2-toolbar-btn findings-v2-toolbar-btn--scan"
       >
-        <svg className="shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
         </svg>
         Generate Audit Package
@@ -1883,215 +1872,215 @@ export default function Controls() {
       {controls.isLoading && <LoadingSkeleton />}
 
       {!controls.isLoading && connectedAccount && (
-        <FrameworkNav
-          selectedId={framework}
-          statsById={frameworkStatsById}
-          currentStats={currentFrameworkStats}
-          topBlockerDetailed={topBlockerDetailed}
-          topBlockerComposite={topBlockerComposite}
-          complianceView={complianceView}
-          onComplianceViewChange={setComplianceViewWithUrl}
-          onSelect={(id) => {
-            setFramework(id);
-            setSelectedFamilyKey(null);
-            setExpanded(null);
-          }}
-          onOpenTopBlocker={() => {
-            if (complianceView === "composite") {
-              if (!topBlockerComposite) return;
-              setExpandedComposite(topBlockerComposite.id);
-              return;
-            }
-            if (!topBlockerDetailed) return;
-            setComplianceViewWithUrl("detailed");
-            setStatusFilter("fail");
-            openControl(topBlockerDetailed);
-          }}
-        />
-      )}
-
-      {!controls.isLoading && connectedAccount && (
-        <div className="mb-3">
-          <ComplianceViewSwitcher view={complianceView} onChange={setComplianceViewWithUrl} />
-        </div>
-      )}
-
-      {!controls.isLoading &&
-        connectedAccount &&
-        ((complianceView === "composite" && !compositeControls.isLoading && primaryComposites.length > 0) ||
-          (complianceView === "detailed" && total > 0)) && (
-          <div className={`mb-3 flex flex-wrap items-center justify-between gap-2 ${exportOpen ? "relative z-[100]" : ""}`}>
-            {complianceView === "composite" ? (
-              <ComplianceStatusFilterBar
-                total={compositeTotal}
-                passed={compositePassed}
-                failed={compositeFailed}
-                noData={compositeNoData}
+        <ComplianceContentShell
+          toolbar={
+            <div className={exportOpen ? "relative z-[100]" : undefined}>
+              <ComplianceUnifiedToolbar
+                complianceView={complianceView}
+                onComplianceViewChange={setComplianceViewWithUrl}
+                framework={framework}
+                frameworkStatsById={frameworkStatsById}
+                onFrameworkChange={(id) => {
+                  setFramework(id);
+                  setSelectedFamilyKey(null);
+                  setExpanded(null);
+                }}
                 statusFilter={statusFilter}
-                onChange={handleStatusFilterChange}
-              />
-            ) : (
-              <ComplianceStatusFilterBar
-                total={total}
-                passed={passed}
-                failed={failed}
-                noData={noData}
-                statusFilter={statusFilter}
-                onChange={handleStatusFilterChange}
-              />
-            )}
-            {showAuditExportAboveCard && <div className="shrink-0">{auditPackageExport}</div>}
-          </div>
-        )}
-
-      {complianceView === "composite" &&
-        !compositeControls.isLoading &&
-        primaryComposites.length > 0 &&
-        filteredCompositePanelRows.length === 0 &&
-        statusFilter !== "all" && (
-          <div className="mb-4 rounded-2xl border border-zinc-200 bg-white px-6 py-12 text-center text-sm text-zinc-400 shadow-sm">
-            No control groups match this filter.
-          </div>
-        )}
-
-      {complianceView === "composite" &&
-        !compositeControls.isLoading &&
-        filteredCompositePanelRows.length > 0 && (
-        <CompositeControlsPanel
-          rows={filteredCompositePanelRows}
-          findingCountByCheck={findingCountByCheck}
-          expandedId={expandedComposite}
-          onToggle={(id) => setExpandedComposite(expandedComposite === id ? null : id)}
-          framework={framework}
-          frameworkRows={rows}
-          accountId={activeAccount?.id}
-        />
-      )}
-
-      {complianceView === "composite" &&
-        !compositeControls.isLoading &&
-        primaryComposites.length === 0 &&
-        !controls.isLoading &&
-        total > 0 && (
-          <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-            No control groups map to this framework yet. Switch to{" "}
-            <button
-              type="button"
-              onClick={() => setComplianceViewWithUrl("detailed")}
-              className="font-semibold text-indigo-700 hover:text-indigo-900"
-            >
-              Detailed criteria
-            </button>{" "}
-            for the full control list.
-          </div>
-        )}
-
-      {complianceView === "detailed" && (
-      <section className="min-w-0">
-          {!controls.isLoading && rows.length === 0 && (
-            <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-16 text-center text-sm text-zinc-400 shadow-sm">
-              No controls found for this framework.
-            </div>
-          )}
-          {!controls.isLoading && rows.length > 0 && filteredRows.length === 0 && statusFilter !== "all" && (
-            <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-12 text-center text-sm text-zinc-400 shadow-sm">
-              No controls match this filter.
-            </div>
-          )}
-
-          {!controls.isLoading && groupedRows.length > 0 && selectedGroup && (
-              <CompliancePanelShell
-                title="Detailed criteria"
-                subtitle="Raw framework controls — expand for evidence, mapped checks, and auditor response."
-                section={
-                  <ComplianceFamilyNav
-                    groups={groupedRows}
-                    selectedKey={selectedGroup.key}
-                    onSelect={(key) => {
-                      setSelectedFamilyKey(key);
-                      setExpanded(null);
-                    }}
-                  />
+                onStatusFilterChange={handleStatusFilterChange}
+                statusCounts={
+                  complianceView === "composite"
+                    ? {
+                        total: compositeTotal,
+                        passed: compositePassed,
+                        failed: compositeFailed,
+                        noData: compositeNoData,
+                      }
+                    : { total, passed, failed, noData }
                 }
-              >
-                  {selectedGroup.rows.map((ctrl) => {
-                    const isExpanded = expanded === ctrl.id;
-                    const meta = controlRowMetadata(ctrl, findingMap);
-                    return (
-                      <div key={ctrl.id}>
-                        <button
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => {
-                            const scrollY = window.scrollY;
-                            setExpanded(isExpanded ? null : ctrl.id);
-                            requestAnimationFrame(() => window.scrollTo(0, scrollY));
-                          }}
-                          className={`${COMPLIANCE_ROW_GRID} ${
-                            isExpanded ? statusExpandedBg[ctrl.status] : "hover:bg-zinc-50/70"
-                          }`}
-                        >
-                          <div className="flex items-start gap-2 pt-0.5 sm:w-[8.5rem]">
-                            <ComplianceExpandChevron expanded={isExpanded} className="mt-0.5 h-3.5 w-3.5" />
-                            <CalmStatusLabel status={ctrl.status} />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[15px] font-semibold leading-snug text-zinc-900">
-                              <span className="font-mono text-[13px] font-semibold text-zinc-500">{ctrl.control_id}</span>
-                              {" "}
-                              {shortControlTitle(ctrl.title)}
-                            </p>
-                            <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{meta}</p>
-                          </div>
-
-                          <div className="flex shrink-0 items-center sm:pt-0.5">
-                            <ComplianceFindingsBadge
-                              count={ctrl.finding_count}
-                              status={ctrl.status}
-                              checkIds={ctrl.check_ids}
-                              findingCountByCheck={findingCountByCheck}
-                            />
-                          </div>
-                        </button>
-
-                        {isExpanded && (
-                          <div
-                            className={`space-y-3 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-[9.5rem] ${statusExpandedBg[ctrl.status]}`}
-                          >
-                            <ControlStatusBlock
-                              control={ctrl}
-                              periodDays={exportWindow.period}
-                              coverage={evidenceCoverage.data}
-                              controlId={ctrl.control_id}
-                              framework={framework}
-                              accountId={activeAccount?.id ?? ""}
-                            />
-
-                            {ctrl.check_ids.length === 0 ? (
-                              <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-zinc-600">
-                                No automated Vigil checks map to this control yet — attest manually (e.g. IAM users
-                                only inherit access via groups or roles).
-                              </p>
-                            ) : (
-                              <>
-                                <ControlEvaluationBlock checkIds={ctrl.check_ids} />
-                                <ControlFindingsBlock
-                                  control={ctrl}
-                                  checkIds={ctrl.check_ids}
-                                  checkEvidenceClasses={ctrl.check_evidence_classes}
-                                  findingCountByCheck={findingCountByCheck}
-                                />
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </CompliancePanelShell>
+                showStatusFilter={
+                  (complianceView === "composite" &&
+                    !compositeControls.isLoading &&
+                    primaryComposites.length > 0) ||
+                  (complianceView === "detailed" && total > 0)
+                }
+                auditExport={auditPackageExport}
+                showAuditExport={showAuditExportAboveCard}
+              />
+            </div>
+          }
+          topBlocker={
+            (complianceView === "composite" ? topBlockerComposite : topBlockerDetailed) ? (
+              <p className="border-b border-zinc-100 px-5 py-2 text-xs leading-snug text-zinc-600">
+                Top blocker:{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (complianceView === "composite") {
+                      if (!topBlockerComposite) return;
+                      setExpandedComposite(topBlockerComposite.id);
+                      return;
+                    }
+                    if (!topBlockerDetailed) return;
+                    setComplianceViewWithUrl("detailed");
+                    setStatusFilter("fail");
+                    openControl(topBlockerDetailed);
+                  }}
+                  className="font-medium text-indigo-700 hover:text-indigo-900"
+                >
+                  {complianceView === "composite"
+                    ? topBlockerComposite!.title
+                    : `${topBlockerDetailed!.control_id} ${shortControlTitle(topBlockerDetailed!.title)}`}
+                </button>{" "}
+                <span className="font-medium text-rose-600/90">
+                  (
+                  {complianceView === "composite"
+                    ? topBlockerComposite!.finding_count
+                    : topBlockerDetailed!.finding_count}{" "}
+                  findings)
+                </span>
+              </p>
+            ) : undefined
+          }
+          section={
+            complianceView === "detailed" && groupedRows.length > 1 && selectedGroup ? (
+              <ComplianceFamilyNav
+                groups={groupedRows}
+                selectedKey={selectedGroup.key}
+                onSelect={(key) => {
+                  setSelectedFamilyKey(key);
+                  setExpanded(null);
+                }}
+              />
+            ) : undefined
+          }
+        >
+          {complianceView === "composite" &&
+            !compositeControls.isLoading &&
+            primaryComposites.length > 0 &&
+            filteredCompositePanelRows.length === 0 &&
+            statusFilter !== "all" && (
+              <div className="px-6 py-12 text-center text-sm text-zinc-400">
+                No control groups match this filter.
+              </div>
             )}
-        </section>
+
+          {complianceView === "composite" &&
+            !compositeControls.isLoading &&
+            filteredCompositePanelRows.length > 0 && (
+              <CompositeControlsPanel
+                rows={filteredCompositePanelRows}
+                findingCountByCheck={findingCountByCheck}
+                expandedId={expandedComposite}
+                onToggle={(id) => setExpandedComposite(expandedComposite === id ? null : id)}
+                framework={framework}
+                frameworkRows={rows}
+                accountId={activeAccount?.id}
+              />
+            )}
+
+          {complianceView === "composite" &&
+            !compositeControls.isLoading &&
+            primaryComposites.length === 0 &&
+            total > 0 && (
+              <div className="px-5 py-4 text-sm text-zinc-600">
+                No control groups map to this framework yet. Switch to{" "}
+                <button
+                  type="button"
+                  onClick={() => setComplianceViewWithUrl("detailed")}
+                  className="font-semibold text-indigo-700 hover:text-indigo-900"
+                >
+                  Detailed criteria
+                </button>{" "}
+                for the full control list.
+              </div>
+            )}
+
+          {complianceView === "detailed" && rows.length === 0 && (
+            <div className="px-6 py-16 text-center text-sm text-zinc-400">No controls found for this framework.</div>
+          )}
+
+          {complianceView === "detailed" && rows.length > 0 && filteredRows.length === 0 && statusFilter !== "all" && (
+            <div className="px-6 py-12 text-center text-sm text-zinc-400">No controls match this filter.</div>
+          )}
+
+          {complianceView === "detailed" &&
+            groupedRows.length > 0 &&
+            selectedGroup &&
+            selectedGroup.rows.map((ctrl) => {
+              const isExpanded = expanded === ctrl.id;
+              const meta = controlRowMetadata(ctrl, findingMap);
+              return (
+                <div key={ctrl.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      const scrollY = window.scrollY;
+                      setExpanded(isExpanded ? null : ctrl.id);
+                      requestAnimationFrame(() => window.scrollTo(0, scrollY));
+                    }}
+                    className={`${COMPLIANCE_ROW_GRID} ${
+                      isExpanded ? statusExpandedBg[ctrl.status] : "hover:bg-zinc-50/70"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2 pt-0.5 sm:w-[8.5rem]">
+                      <ComplianceExpandChevron expanded={isExpanded} className="mt-0.5 h-3.5 w-3.5" />
+                      <CalmStatusLabel status={ctrl.status} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] font-semibold leading-snug text-zinc-900">
+                        <span className="font-mono text-[13px] font-semibold text-zinc-500">{ctrl.control_id}</span>{" "}
+                        {shortControlTitle(ctrl.title)}
+                      </p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{meta}</p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center sm:pt-0.5">
+                      <ComplianceFindingsBadge
+                        count={ctrl.finding_count}
+                        status={ctrl.status}
+                        checkIds={ctrl.check_ids}
+                        findingCountByCheck={findingCountByCheck}
+                      />
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div
+                      className={`space-y-3 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-[9.5rem] ${statusExpandedBg[ctrl.status]}`}
+                    >
+                      <ControlStatusBlock
+                        control={ctrl}
+                        periodDays={exportWindow.period}
+                        coverage={evidenceCoverage.data}
+                        controlId={ctrl.control_id}
+                        framework={framework}
+                        accountId={activeAccount?.id ?? ""}
+                      />
+
+                      {ctrl.check_ids.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-zinc-600">
+                          No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
+                          inherit access via groups or roles).
+                        </p>
+                      ) : (
+                        <>
+                          <ControlEvaluationBlock checkIds={ctrl.check_ids} />
+                          <ControlFindingsBlock
+                            control={ctrl}
+                            checkIds={ctrl.check_ids}
+                            checkEvidenceClasses={ctrl.check_evidence_classes}
+                            findingCountByCheck={findingCountByCheck}
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </ComplianceContentShell>
       )}
     </div>
     </div>

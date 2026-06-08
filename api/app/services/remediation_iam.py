@@ -110,9 +110,13 @@ def inline_policy_for_check(check_id: str, *, resource_arn: str | None = None) -
             {
                 "Sid": "IamDetachFullAdmin",
                 "Effect": "Allow",
-                "Action": [
-                    "iam:DetachRolePolicy",
-                ],
+                "Action": ["iam:DetachRolePolicy"],
+                "Resource": role_arn if role_arn else "*",
+            },
+            {
+                "Sid": "IamReplaceWildcardInline",
+                "Effect": "Allow",
+                "Action": ["iam:PutRolePolicy"],
                 "Resource": role_arn if role_arn else "*",
             },
             {
@@ -122,8 +126,9 @@ def inline_policy_for_check(check_id: str, *, resource_arn: str | None = None) -
                     "iam:ListAttachedRolePolicies",
                     "iam:GetRole",
                     "iam:GetPolicy",
+                    "iam:GetRolePolicy",
                 ],
-                "Resource": "*",  # GetPolicy needs policy ARN (unknown at plan time); ListAttached needs role ARN
+                "Resource": role_arn if role_arn else "*",
             },
         ]
     if check_id == "iam.policy.wildcard_resource":

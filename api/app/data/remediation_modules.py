@@ -78,7 +78,7 @@ REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
             "iam:CreatePolicyVersion",
             "iam:DeletePolicyVersion",
         ),
-        runner_supported=False,
+        runner_supported=True,
     ),
     RemediationModuleSpec(
         id="ssm_parameters",
@@ -132,6 +132,7 @@ CHECK_TO_REMEDIATION_MODULE: dict[str, str] = {
     "iam.access_key.unused_90d": "iam_access_keys",
     "ssm.parameter.plaintext_secret": "ssm_parameters",
     "cloudtrail.trail.not_enabled": "cloudtrail_logging",
+    "iam.role.least_privilege_policy": "iam_policies",
     # kms.key.no_rotation — no dedicated KMS remediation module; covered by IaC PR auto-patching
 }
 

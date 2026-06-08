@@ -8,6 +8,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from app.core.config import get_settings
 from app.models import Finding
 from app.services.pack_signing import sign_payload
@@ -26,9 +28,10 @@ IAM_ACCESS_KEY_CHECKS = frozenset(
         "iam.access_key.unused_90d",
     }
 )
+IAM_POLICY_SSM_CHECKS = frozenset({"iam.role.least_privilege_policy"})
 
 # Custom Vigil document runs from one automation home region; PlanJson carries resource_region.
-VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS
+VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS | IAM_POLICY_SSM_CHECKS
 # Back-compat alias (was IAM-only before SG/SSM used home region too).
 IAM_GLOBAL_SSM_CHECKS = IAM_ACCESS_KEY_CHECKS
 
@@ -72,7 +75,7 @@ def resolve_automation_region(check_id: str | None, resource_region: str | None)
     return home_region
 
 
-def _supported_action(check_id: str) -> str | None:
+def _supported_action(check_id: str, evidence: dict | None = None) -> str | None:
     if check_id in SG_CHECKS:
         return "revoke_public_ingress"
     if check_id == "s3.bucket.public_access_not_blocked":
@@ -81,6 +84,10 @@ def _supported_action(check_id: str) -> str | None:
         return "migrate_ssm_string_to_secure_string"
     if check_id in IAM_ACCESS_KEY_CHECKS:
         return "deactivate_access_key"
+    if check_id in IAM_POLICY_SSM_CHECKS:
+        from app.services.remediation_iam_policy_plan import iam_supported_action_for_evidence
+
+        return iam_supported_action_for_evidence(evidence or {})
     return None
 
 
@@ -124,7 +131,7 @@ def build_remediation_plan_body(
         "evidence": ev,
         "title": finding.title,
         "severity": finding.severity,
-        "supported_action": _supported_action(finding.check_id),
+        "supported_action": _supported_action(finding.check_id, ev),
         "exact_match_rules": list(ev.get("exposing_rules") or []),
         "execution": {
             "runner_type": "ssm",
@@ -168,11 +175,16 @@ def build_approved_remediation_plan(
     finding: Finding,
     *,
     approved_by: str,
+    db: Session | None = None,
     mode: str = "customer_ssm",
     delivery: str = "ssm_automation",
 ) -> dict[str, Any]:
     """Signed plan including approval block — use only when dispatching approved automation."""
     body = build_remediation_plan_body(finding, mode=mode, delivery=delivery)
+    if db is not None:
+        from app.services.remediation_iam_policy_plan import enrich_iam_least_privilege_plan
+
+        body = enrich_iam_least_privilege_plan(db, finding, body)
     now = datetime.now(timezone.utc)
     body["approval"] = {
         "approval_token": secrets.token_urlsafe(32),

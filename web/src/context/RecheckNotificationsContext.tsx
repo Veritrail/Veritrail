@@ -35,6 +35,8 @@ export type CloudTrailNotification = {
   roleArn: string;
   roleLabel: string;
   status: "running" | "succeeded" | "failed";
+  /** When local tracking began (ms). */
+  startedAt: number;
   completedAt: number;
   readAt?: number;
   message?: string;
@@ -130,6 +132,11 @@ function scanFailureNotificationId({
   return `scan_failure:${accountId ?? "unknown"}:${failedAt ?? "unknown"}:${errorType ?? ""}:${step ?? ""}:${message.slice(0, 120)}`;
 }
 
+export function isPolicyGenInFlightStatus(status: string | undefined): boolean {
+  const s = (status ?? "").toUpperCase();
+  return s === "IN_PROGRESS" || s === "RUNNING" || s === "ACTIVE";
+}
+
 function isTerminalPolicyGenStatus(status: string | undefined): boolean {
   const s = (status ?? "").toUpperCase();
   return s === "SUCCEEDED" || s === "FAILED" || s === "CANCELLED" || s === "TIMED_OUT";
@@ -175,7 +182,13 @@ function loadPersisted(): PersistedV3 & { latestVerifyOutcome: VerifyNotificatio
       state = {
         pendingRecheck: parsed.pendingRecheck ?? null,
         pendingCloudTrail: parsed.pendingCloudTrail ?? null,
-        history: Array.isArray(parsed.history) ? parsed.history : [],
+        history: Array.isArray(parsed.history)
+          ? parsed.history.map((h) =>
+              h.kind === "cloudtrail" && typeof (h as CloudTrailNotification).startedAt !== "number"
+                ? { ...h, startedAt: h.completedAt }
+                : h,
+            )
+          : [],
       };
     } else {
       const v2 = localStorage.getItem("vigil.recheckNotifications.v2");
@@ -242,6 +255,11 @@ type RecheckNotificationsContextValue = {
     accountId: string;
     roleArn: string;
     message?: string;
+  }) => void;
+  resumeCloudTrailPolling: (args: {
+    findingId: string;
+    accountId: string;
+    roleArn: string;
   }) => void;
   failCloudTrailAnalysis: (args: {
     findingId: string;
@@ -316,6 +334,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
       message?: string;
     }) => {
       const id = newNotificationId();
+      const now = Date.now();
       const entry: CloudTrailNotification = {
         id,
         kind: "cloudtrail",
@@ -324,7 +343,8 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
         roleArn,
         roleLabel: roleLabelFromArn(roleArn),
         status: "running",
-        completedAt: Date.now(),
+        startedAt: now,
+        completedAt: now,
         message,
       };
       setNotificationHistory((prev) => pushHistory(prev, entry));
@@ -339,6 +359,45 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
     [],
   );
 
+  const resumeCloudTrailPolling = useCallback(
+    ({ findingId, accountId, roleArn }: {
+      findingId: string;
+      accountId: string;
+      roleArn: string;
+    }) => {
+      if (
+        pendingCloudTrail?.findingId === findingId &&
+        pendingCloudTrail?.roleArn === roleArn
+      ) {
+        return;
+      }
+      const existing = notificationHistory.find(
+        (h) =>
+          h.kind === "cloudtrail" &&
+          h.findingId === findingId &&
+          h.roleArn === roleArn &&
+          h.status === "running",
+      );
+      if (existing) {
+        setPendingCloudTrail({
+          notificationId: existing.id,
+          findingId,
+          accountId,
+          roleArn,
+          startedAt: existing.startedAt ?? existing.completedAt,
+        });
+        return;
+      }
+      startCloudTrailAnalysis({
+        findingId,
+        accountId,
+        roleArn,
+        message: "CloudTrail policy generation is running — checking AWS job status.",
+      });
+    },
+    [notificationHistory, pendingCloudTrail, startCloudTrailAnalysis],
+  );
+
   const failCloudTrailAnalysis = useCallback(
     ({ findingId, accountId, roleArn, message }: {
       findingId: string;
@@ -346,18 +405,32 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
       roleArn: string;
       message: string;
     }) => {
-      const entry: CloudTrailNotification = {
-        id: newNotificationId(),
-        kind: "cloudtrail",
-        findingId,
-        accountId,
-        roleArn,
-        roleLabel: roleLabelFromArn(roleArn),
-        status: "failed",
-        completedAt: Date.now(),
-        message,
-      };
-      setNotificationHistory((prev) => pushHistory(prev, entry));
+      const now = Date.now();
+      setNotificationHistory((prev) => {
+        const prior = prev.find(
+          (h) =>
+            h.kind === "cloudtrail" &&
+            h.findingId === findingId &&
+            h.roleArn === roleArn &&
+            h.status === "running",
+        );
+        const entry: CloudTrailNotification = {
+          id: newNotificationId(),
+          kind: "cloudtrail",
+          findingId,
+          accountId,
+          roleArn,
+          roleLabel: roleLabelFromArn(roleArn),
+          status: "failed",
+          startedAt:
+            prior && prior.kind === "cloudtrail"
+              ? prior.startedAt ?? prior.completedAt
+              : now,
+          completedAt: now,
+          message,
+        };
+        return pushHistory(prev, entry);
+      });
       setPendingCloudTrail(null);
     },
     [],
@@ -536,6 +609,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
       completeRecheck,
       failRecheck,
       startCloudTrailAnalysis,
+      resumeCloudTrailPolling,
       failCloudTrailAnalysis,
       reportScanFailure,
       clearDrawerVerifyFlash,
@@ -553,6 +627,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
       completeRecheck,
       failRecheck,
       startCloudTrailAnalysis,
+      resumeCloudTrailPolling,
       failCloudTrailAnalysis,
       reportScanFailure,
       clearDrawerVerifyFlash,

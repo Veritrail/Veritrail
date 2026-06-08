@@ -100,12 +100,14 @@ Resources:
                     Effect: Allow
                     Action:
                       - cloudtrail:DescribeTrails
+                      - cloudtrail:GetTrail
                       - cloudtrail:GetTrailStatus
                     Resource: "*"
                   - Sid: CloudTrailLogRead
                     Effect: Allow
                     Action:
                       - s3:GetObject
+                      - s3:GetBucketLocation
                       - s3:ListBucket
                     Resource:
                       - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
@@ -120,12 +122,14 @@ Resources:
                     Effect: Allow
                     Action:
                       - cloudtrail:DescribeTrails
+                      - cloudtrail:GetTrail
                       - cloudtrail:GetTrailStatus
                     Resource: "*"
                   - Sid: CloudTrailLogRead
                     Effect: Allow
                     Action:
                       - s3:GetObject
+                      - s3:GetBucketLocation
                       - s3:ListBucket
                     Resource:
                       - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
