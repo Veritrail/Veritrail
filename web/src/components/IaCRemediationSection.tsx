@@ -3,8 +3,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { refreshRemediationExecution, useRemediationExecution } from "../hooks/useRemediationExecution";
-import { IamPolicyAutomationGate } from "./IamPolicyAutomationGate";
-import { drawerBtnText } from "./drawerStyles";
+import { ExceptionDocIcon } from "./ExceptionDocIcon";
+import {
+  drawerBodyText,
+  drawerBtnText,
+  drawerChip,
+  drawerEyebrow,
+} from "./drawerStyles";
+
+/** Matches Suggested policy “medium confidence” pill in FindingDrawer. */
+const SSM_REVIEW_PILL = `inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 ${drawerChip} text-amber-900`;
 
 type IaCResponse = {
   iac_status: string;
@@ -160,29 +168,6 @@ function ssmImpactDisplay(
   return { actionText };
 }
 
-function ssmPlanDetail(checkId: string, resourceLabel: string): string {
-  const target = resourceLabel || "this resource";
-  if (checkId === "iam.role.least_privilege_policy") {
-    return `Reviews a least-privilege replacement for ${target}.`;
-  }
-  if (checkId.startsWith("ec2.security_group.")) {
-    return `Revokes the public ingress rule on ${target}.`;
-  }
-  return `Applies the approved fix for ${target}.`;
-}
-
-function ssmApprovalImpactLine(checkId: string, actionLabel: string, resourceLabel: string): string {
-  const target = resourceLabel || "this resource";
-  if (checkId === "iam.role.least_privilege_policy") {
-    return `Impact: prepares a reviewed least-privilege change for ${target}.`;
-  }
-  if (checkId.startsWith("ec2.security_group.")) {
-    return `Impact: revokes public ingress on ${target}.`;
-  }
-  const lower = actionLabel.charAt(0).toLowerCase() + actionLabel.slice(1);
-  return `Impact: ${lower} for ${target}.`;
-}
-
 function ssmHumanPlanLabels(
   checkId: string,
   provider: "aws-owned" | "vigil",
@@ -211,140 +196,357 @@ function iamRoleConsoleUrl(roleName: string, region: string): string {
   return `https://${reg}.console.aws.amazon.com/iam/home#/roles/details/${role}`;
 }
 
-function SsmAutomationIcon({ className }: { className?: string }) {
+const IAM_LEAST_PRIVILEGE_CHECK = "iam.role.least_privilege_policy";
+
+function SsmImpactBadge() {
+  return <span className={SSM_REVIEW_PILL}>High impact</span>;
+}
+
+function SsmInlineStatusPill({
+  tone,
+  children,
+}: {
+  tone: "checking" | "blocked" | "ready" | "not_ready";
+  children: React.ReactNode;
+}) {
+  if (tone === "blocked") {
+    return <span className={SSM_REVIEW_PILL}>{children}</span>;
+  }
+
+  const toneClass = {
+    checking: "bg-zinc-100 text-zinc-600",
+    ready: "bg-emerald-50 text-emerald-800",
+    not_ready: "bg-zinc-100 text-zinc-600",
+  }[tone];
+
   return (
-    <svg
-      className={className ?? "h-4 w-4 shrink-0 text-indigo-600"}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"
-      />
-    </svg>
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${toneClass}`}>
+      {children}
+    </span>
   );
 }
 
-function SsmPanelHeader({
-  impact,
+type ChecklistStepStatus = "pending" | "checking" | "complete" | "running" | "failed";
+
+type SsmExecPhase = "idle" | "running" | "success" | "failed";
+
+function SsmChecklistStep({
+  step,
+  title,
+  description,
   status,
+  footer,
 }: {
-  impact: { actionText: string } | null;
-  status: React.ReactNode;
+  step: number;
+  title: string;
+  description: string;
+  status: ChecklistStepStatus;
+  footer?: React.ReactNode;
 }) {
+  const statusLabel = {
+    pending: "Pending",
+    checking: "Checking",
+    complete: "Complete",
+    running: "Running",
+    failed: "Failed",
+  }[status];
+  const statusClass = {
+    pending: "bg-zinc-100 text-zinc-600",
+    checking: "bg-zinc-100 text-zinc-600",
+    complete: "bg-emerald-50 text-emerald-700",
+    running: "bg-indigo-50 text-indigo-700",
+    failed: "bg-amber-50 text-amber-800",
+  }[status];
+
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <SsmAutomationIcon />
-          <p className="text-[14px] font-semibold text-zinc-900">Automated fix</p>
+    <div className="px-4 py-3.5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-3">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-[13px] font-semibold text-indigo-600">
+            {step}
+          </span>
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold leading-5 text-zinc-900">{title}</p>
+            <p className="mt-0.5 text-[12px] leading-[18px] text-zinc-500">{description}</p>
+          </div>
         </div>
-        {impact ? (
-          <p className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
-              High impact
-            </span>
-            <span className="text-[12px] font-medium text-zinc-800">{impact.actionText}</span>
-          </p>
-        ) : null}
-        <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-600">
-          Starts AWS Systems Manager automation in your AWS account.
-        </p>
+        <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusClass}`}>
+          {statusLabel}
+        </span>
       </div>
-      {status}
+      {footer ? <div className="ml-10 mt-2">{footer}</div> : null}
     </div>
   );
 }
 
-function SsmRemediationPlan({
-  planDetail,
+function SsmAutomationWorkflowCard({
+  isIamLeastPriv,
+  impact,
+  policyLoading,
+  policyReady,
+  inlineStatusTone,
+  inlineStatusLabel,
   documentTitle,
-  approvalImpactLine,
-  roleTitle,
   documentUrl,
   documentTechnicalName,
+  roleTitle,
   roleTechnicalName,
   automationRegion,
+  execPhase,
+  runnerReady,
+  approvalConfirmed,
+  onApprovalChange,
+  onShowPolicy,
+  policyReviewAcknowledged = false,
+  automationExecutionId,
+  automationError,
+  statusSyncError,
+  onRefreshExecution,
+  executionFetching,
+  runDisabled,
+  runRunning,
+  onRun,
+  connectorFixNeeded,
 }: {
-  planDetail: string;
+  isIamLeastPriv: boolean;
+  impact: { actionText: string } | null;
+  policyLoading: boolean;
+  policyReady: boolean;
+  inlineStatusTone: "checking" | "blocked" | "ready" | "not_ready";
+  inlineStatusLabel: string;
   documentTitle: string;
-  approvalImpactLine: string;
-  roleTitle: string;
   documentUrl?: string | null;
   documentTechnicalName: string;
+  roleTitle: string;
   roleTechnicalName: string;
   automationRegion: string;
+  execPhase: SsmExecPhase;
+  runnerReady: boolean;
+  approvalConfirmed: boolean;
+  onApprovalChange: (confirmed: boolean) => void;
+  onShowPolicy?: () => void;
+  policyReviewAcknowledged?: boolean;
+  automationExecutionId?: string | null;
+  automationError?: string | null;
+  statusSyncError?: string | null;
+  onRefreshExecution?: () => void;
+  executionFetching?: boolean;
+  runDisabled: boolean;
+  runRunning: boolean;
+  onRun: () => void;
+  connectorFixNeeded?: boolean;
 }) {
   const [techOpen, setTechOpen] = useState(false);
   const roleUrl = iamRoleConsoleUrl(roleTechnicalName, automationRegion);
 
-  return (
-    <div className="rounded-2xl border border-indigo-100/70 bg-gradient-to-b from-white to-indigo-50/25 p-4 shadow-sm shadow-indigo-950/[0.03]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-500/80">Remediation plan</p>
-      <p className="mt-2 text-[14px] font-semibold text-zinc-950">{documentTitle}</p>
-      <p className="mt-1 text-[12px] leading-relaxed text-zinc-600">{planDetail}</p>
+  const reviewBody = (() => {
+    if (policyLoading && isIamLeastPriv) {
+      return "Checking least-privilege proposal…";
+    }
+    if (isIamLeastPriv) {
+      return "SSM will apply the least-privilege policy replacement at high confidence. Review the plan and approve to proceed.";
+    }
+    return "SSM will apply the approved remediation in your AWS account. Review the plan and approve to proceed.";
+  })();
 
-      <div className="mt-4 rounded-xl border border-zinc-200/70 bg-white/75 px-3 py-2.5">
-        <p className="text-[12px] font-semibold text-zinc-900">Approval required</p>
-        <p className="mt-0.5 text-[12px] leading-relaxed text-zinc-500">
-          Runs only after you approve it. {approvalImpactLine}
-        </p>
-      </div>
+  const step1Status: ChecklistStepStatus = (() => {
+    if (isIamLeastPriv) {
+      if (policyLoading) return "checking";
+      if (policyReady || policyReviewAcknowledged) return "complete";
+      return "pending";
+    }
+    return runnerReady ? "complete" : "pending";
+  })();
 
+  const step2Status: ChecklistStepStatus =
+    execPhase === "running" || execPhase === "success" || approvalConfirmed ? "complete" : "pending";
+
+  const step3Status: ChecklistStepStatus =
+    execPhase === "success"
+      ? "complete"
+      : execPhase === "running"
+        ? "running"
+        : execPhase === "failed"
+          ? "failed"
+          : "pending";
+
+  const step1Title = isIamLeastPriv ? "Validate policy" : "Review remediation plan";
+  const step1Description = isIamLeastPriv
+    ? "Review the recommended least-privilege policy"
+    : documentTitle;
+
+  const showRunButton = execPhase === "idle" || execPhase === "failed";
+
+  const step1Footer =
+    isIamLeastPriv && !policyLoading && !policyReady && !policyReviewAcknowledged && onShowPolicy ? (
       <button
         type="button"
-        onClick={() => setTechOpen((v) => !v)}
-        className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 transition hover:text-indigo-700"
-        aria-expanded={techOpen}
+        onClick={onShowPolicy}
+        className="text-[12px] font-medium text-indigo-600 transition hover:text-indigo-800"
       >
-        <svg
-          className={`h-3 w-3 shrink-0 transition-transform ${techOpen ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-          aria-hidden
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-        </svg>
-        {techOpen ? "Hide AWS details" : "Show AWS details"}
+        Show policy
       </button>
-      {techOpen ? (
-        <div className="mt-2 space-y-2 rounded-lg border border-zinc-200/60 bg-white/90 px-2.5 py-2 text-[11px] leading-relaxed text-zinc-600">
-          <div>
-            <p className="font-medium text-zinc-500">Automation document</p>
-            {documentUrl ? (
-              <a
-                href={documentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-0.5 inline-flex break-all font-mono text-[11px] text-indigo-700 hover:underline"
-              >
-                {documentTechnicalName}
-              </a>
-            ) : (
-              <p className="mt-0.5 break-all font-mono text-[11px] text-zinc-800">{documentTechnicalName}</p>
-            )}
-          </div>
-          <div>
-            <p className="font-medium text-zinc-500">Execution role</p>
-            <p className="mt-0.5 text-[12px] text-zinc-800">{roleTitle}</p>
-            <a
-              href={roleUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-0.5 inline-flex break-all font-mono text-[11px] text-indigo-700 hover:underline"
-            >
-              {roleTechnicalName}
-            </a>
+    ) : isIamLeastPriv && policyReady ? (
+      <p className="text-[12px] text-emerald-700">High-confidence proposal ready.</p>
+    ) : isIamLeastPriv && policyReviewAcknowledged && !policyReady ? (
+      <p className="text-[12px] text-emerald-700">Policy reviewed.</p>
+    ) : null;
+
+  const step2Footer =
+    execPhase === "idle" || execPhase === "failed" ? (
+      <label className="flex cursor-pointer items-start gap-2.5">
+        <input
+          type="checkbox"
+          checked={approvalConfirmed}
+          onChange={(e) => onApprovalChange(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <span className="text-[12px] leading-[18px] text-zinc-600">
+          I confirm I have approval to apply this change
+        </span>
+      </label>
+    ) : null;
+
+  const step3Footer =
+    execPhase === "running" && automationExecutionId ? (
+      <div className="space-y-1.5 text-[12px] text-zinc-600">
+        <p className="break-all font-mono text-[11px] text-zinc-500">{automationExecutionId}</p>
+        {onRefreshExecution ? (
+          <button
+            type="button"
+            disabled={executionFetching}
+            onClick={onRefreshExecution}
+            className="font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+          >
+            {executionFetching ? "Refreshing…" : "Refresh status from AWS"}
+          </button>
+        ) : null}
+        {statusSyncError ? (
+          <p className="text-amber-800">Could not read status from AWS ({statusSyncError}).</p>
+        ) : null}
+      </div>
+    ) : execPhase === "success" ? (
+      <p className="text-[12px] text-emerald-700">Automation completed — verify the finding when ready.</p>
+    ) : execPhase === "failed" && automationError ? (
+      <p className="text-[12px] leading-relaxed text-amber-900">{formatAutomationStartError(automationError)}</p>
+    ) : null;
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.03]">
+      <div className="p-4 sm:p-5">
+        <div className="rounded-xl border border-[#e6ebf2] bg-[#f8f9fc] p-4">
+          <div className="flex gap-3">
+            <ExceptionDocIcon size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold leading-5 text-zinc-900">
+                Manual review required before automation
+              </p>
+              <p className="mt-1 text-[12px] leading-[17px] text-zinc-600">{reviewBody}</p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                {impact ? <SsmImpactBadge /> : null}
+                <SsmInlineStatusPill tone={inlineStatusTone}>{inlineStatusLabel}</SsmInlineStatusPill>
+              </div>
+            </div>
           </div>
         </div>
-      ) : null}
+
+        <div className="mt-5">
+          <p className="text-[15px] font-semibold leading-5 text-zinc-900">Review checklist</p>
+          <p className="mt-0.5 text-[13px] leading-5 text-zinc-500">
+            Follow these steps before running the remediation.
+          </p>
+
+          <div className="mt-3 overflow-hidden rounded-xl border border-zinc-200 divide-y divide-zinc-100">
+            <SsmChecklistStep
+              step={1}
+              title={step1Title}
+              description={step1Description}
+              status={step1Status}
+              footer={step1Footer}
+            />
+            <SsmChecklistStep
+              step={2}
+              title="Confirm approvals"
+              description="Obtain approval to apply the change"
+              status={step2Status}
+              footer={step2Footer}
+            />
+            <SsmChecklistStep
+              step={3}
+              title="Launch SSM automation"
+              description="Run the remediation in your AWS account"
+              status={step3Status}
+              footer={step3Footer}
+            />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setTechOpen((v) => !v)}
+          className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-500 outline-none transition hover:text-zinc-800 focus-visible:rounded focus-visible:ring-2 focus-visible:ring-indigo-200"
+          aria-expanded={techOpen}
+        >
+          <svg
+            className={`h-3.5 w-3.5 shrink-0 transition-transform ${techOpen ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+          </svg>
+          {techOpen ? "Hide AWS details" : "Show AWS details"}
+        </button>
+        {techOpen ? (
+          <div className={`mt-3 space-y-3 border-t border-zinc-100 pt-3 ${drawerBodyText}`}>
+            <div>
+              <p className={drawerEyebrow}>Automation document</p>
+              <p className="mt-0.5 text-[13px] font-medium text-zinc-800">{documentTitle}</p>
+              {documentUrl ? (
+                <a
+                  href={documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex break-all font-mono text-xs text-indigo-700 hover:underline"
+                >
+                  {documentTechnicalName}
+                </a>
+              ) : (
+                <p className="mt-1 break-all font-mono text-xs text-zinc-700">{documentTechnicalName}</p>
+              )}
+            </div>
+            <div>
+              <p className={drawerEyebrow}>Execution role</p>
+              <p className="mt-1 text-[13px] font-medium text-zinc-800">{roleTitle}</p>
+              <a
+                href={roleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-0.5 inline-flex break-all font-mono text-xs text-indigo-700 hover:underline"
+              >
+                {roleTechnicalName}
+              </a>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-4 space-y-3">
+          {showRunButton ? (
+            <SsmRunRemediationButton running={runRunning} disabled={runDisabled} onStart={onRun} />
+          ) : null}
+          {execPhase === "failed" && connectorFixNeeded ? (
+            <Link
+              to="/accounts"
+              className="inline-flex rounded-lg border border-indigo-200 bg-white px-3.5 py-2 text-[12px] font-semibold text-indigo-800 shadow-sm hover:bg-indigo-50"
+            >
+              Update AWS connector
+            </Link>
+          ) : null}
+          {execPhase === "success" ? <SsmRemediationFlowHint phase="done" /> : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -363,15 +565,26 @@ function SsmRunRemediationButton({
       type="button"
       disabled={disabled}
       onClick={onStart}
-      className={`mt-3 inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-[10px] border border-indigo-200 bg-white px-5 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]`}
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-5 ${drawerBtnText} transition active:scale-[0.99] disabled:cursor-not-allowed ${
+        disabled
+          ? "border-zinc-200 bg-zinc-50 text-zinc-400 shadow-none"
+          : "border-indigo-200 bg-indigo-50/50 text-indigo-700 shadow-sm shadow-indigo-950/[0.04] hover:border-indigo-300 hover:bg-indigo-50"
+      }`}
     >
       {running ? (
         <span
-          className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-700"
+          className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"
           aria-hidden
         />
       ) : (
-        <svg className="h-4 w-4 shrink-0 text-indigo-700" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+        <svg
+          className={`h-4 w-4 shrink-0 ${disabled ? "text-indigo-400" : "text-indigo-600"}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.9}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
         </svg>
       )}
@@ -438,8 +651,6 @@ function SsmStatusBadge({
   );
 }
 
-const IAM_LEAST_PRIVILEGE_CHECK = "iam.role.least_privilege_policy";
-
 function SsmRemediationPanel({
   findingId,
   checkId,
@@ -449,6 +660,8 @@ function SsmRemediationPanel({
   resourceLabel,
   severity,
   ssm,
+  onShowPolicy,
+  policyReviewAcknowledged,
 }: {
   findingId: string;
   checkId: string;
@@ -458,10 +671,13 @@ function SsmRemediationPanel({
   resourceLabel: string;
   severity: string;
   ssm: SsmRemediationMeta;
+  onShowPolicy?: () => void;
+  policyReviewAcknowledged?: boolean;
 }) {
   const [dispatch, setDispatch] = useState<DispatchResponse | null>(null);
   const [cloudTrailBucketName, setCloudTrailBucketName] = useState("");
   const [cloudTrailName, setCloudTrailName] = useState("VigilCloudTrail");
+  const [approvalConfirmed, setApprovalConfirmed] = useState(false);
   /** True after user clicks Run remediation this drawer session (avoids stale DB failures on Ready). */
   const [attemptedStart, setAttemptedStart] = useState(false);
   const qc = useQueryClient();
@@ -535,6 +751,7 @@ function SsmRemediationPanel({
   useEffect(() => {
     setDispatch(null);
     setAttemptedStart(false);
+    setApprovalConfirmed(false);
     setCloudTrailBucketName("");
     setCloudTrailName("VigilCloudTrail");
   }, [findingId]);
@@ -632,34 +849,55 @@ function SsmRemediationPanel({
       : ssm.runbook?.source_url;
   const impact = ssmImpactDisplay(severity, ssm.action_label, checkId);
   const planLabels = ssmHumanPlanLabels(checkId, provider);
-  const planDetail = ssmPlanDetail(checkId, resourceLabel);
-  const approvalImpactLine = ssmApprovalImpactLine(checkId, ssm.action_label, resourceLabel);
   const cloudTrailInputsReady = !isCloudTrailCreate || cloudTrailBucketName.trim().length > 2;
 
-  const statusBadge = runnerLoading ? (
-    <SsmStatusBadge tone="loading">Checking</SsmStatusBadge>
-  ) : execSuccess ? (
-    <SsmStatusBadge tone="completed">Completed</SsmStatusBadge>
-  ) : showFailedState ? (
-    <SsmStatusBadge tone="failed">Failed</SsmStatusBadge>
-  ) : execInProgress || started ? (
-    <SsmStatusBadge tone="running">Running</SsmStatusBadge>
-  ) : ready && isIamLeastPriv && !policyReady && !policyLoading ? (
-    <SsmStatusBadge tone="blocked">High confidence required</SsmStatusBadge>
-  ) : ready ? (
-    <SsmStatusBadge tone="ready">Ready to run</SsmStatusBadge>
-  ) : (
-    <SsmStatusBadge tone="blocked">Not ready</SsmStatusBadge>
+  const statusChecking = runnerLoading || (isIamLeastPriv && policyLoading);
+
+  const inlineStatusTone: "checking" | "blocked" | "ready" | "not_ready" = statusChecking
+    ? "checking"
+    : ready && isIamLeastPriv && !policyReady
+      ? "blocked"
+      : ready
+        ? "ready"
+        : "not_ready";
+  const inlineStatusLabel = statusChecking
+    ? "Checking"
+    : ready && isIamLeastPriv && !policyReady
+      ? "High confidence required"
+      : ready
+        ? "Ready to run"
+        : "Not ready";
+
+  const execPhase: SsmExecPhase = execSuccess
+    ? "success"
+    : execInProgress || running
+      ? "running"
+      : showFailedState
+        ? "failed"
+        : "idle";
+
+  const workflowRunDisabled =
+    running ||
+    !accountId ||
+    !cloudTrailInputsReady ||
+    !policyReady ||
+    !approvalConfirmed;
+
+  const connectorFixNeeded = Boolean(
+    showFailedState &&
+      automationError &&
+      (automationError.includes("StartAutomationExecution") ||
+        automationError.includes("PutPublicAccessBlock")),
   );
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-indigo-100/80 bg-gradient-to-b from-white via-indigo-50/30 to-white p-4 shadow-sm ring-1 ring-indigo-100/40 sm:p-5">
-        <SsmPanelHeader impact={impact} status={statusBadge} />
-
-        <div className="mt-4 space-y-3">
-          {runnerLoading && (
-            <p className="text-[12px] text-zinc-500">Checking automation in your account…</p>
+          {statusChecking && !ready && (
+            <p className="text-[12px] text-zinc-500">
+              {policyLoading && isIamLeastPriv
+                ? "Checking automation and least-privilege proposal…"
+                : "Checking automation in your account…"}
+            </p>
           )}
 
           {!runnerLoading && !ready && runnerStatus && (
@@ -681,33 +919,39 @@ function SsmRemediationPanel({
             </div>
           )}
 
-          {execSuccess && (
-            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-3 py-2.5 text-[12px] text-emerald-950">
-              <p className="font-semibold">Remediation finished</p>
-              <p className="mt-1 leading-relaxed text-emerald-900/85">
-                The automation completed successfully. Verify the finding when you are ready.
-              </p>
-              <SsmRemediationFlowHint phase="done" />
-            </div>
-          )}
-
-          {!runnerLoading && ready && !started && !showFailedState && !execSuccess && (
-            <div className="space-y-3">
-              {isIamLeastPriv && accountId && resourceArn && (
-                <IamPolicyAutomationGate
-                  generatedPolicy={generatedPolicy}
-                  isLoading={policyLoading}
-                />
-              )}
-              <SsmRemediationPlan
-                planDetail={planDetail}
+          {!runnerLoading && ready && (
+            <div className="space-y-4">
+              <SsmAutomationWorkflowCard
+                isIamLeastPriv={isIamLeastPriv}
+                impact={impact}
+                policyLoading={policyLoading}
+                policyReady={policyReady}
+                inlineStatusTone={inlineStatusTone}
+                inlineStatusLabel={inlineStatusLabel}
                 documentTitle={planLabels.documentTitle}
-                approvalImpactLine={approvalImpactLine}
-                roleTitle={planLabels.roleTitle}
                 documentUrl={runbookSourceUrl}
                 documentTechnicalName={runbookLabel}
+                roleTitle={planLabels.roleTitle}
                 roleTechnicalName={ssm.automation_role_name}
                 automationRegion={ssm.automation_region}
+                execPhase={execPhase}
+                runnerReady={ready}
+                approvalConfirmed={approvalConfirmed}
+                onApprovalChange={setApprovalConfirmed}
+                onShowPolicy={onShowPolicy}
+                policyReviewAcknowledged={policyReviewAcknowledged}
+                automationExecutionId={automationExecutionId}
+                automationError={automationError}
+                statusSyncError={statusSyncError}
+                onRefreshExecution={() => void refreshRemediationExecution(qc, findingId)}
+                executionFetching={executionFetching}
+                runDisabled={workflowRunDisabled}
+                runRunning={running}
+                onRun={() => {
+                  setAttemptedStart(true);
+                  startMutation.mutate();
+                }}
+                connectorFixNeeded={connectorFixNeeded}
               />
               {isCloudTrailCreate && (
                 <div className="rounded-2xl border border-sky-100 bg-sky-50/45 p-4">
@@ -751,126 +995,8 @@ function SsmRemediationPanel({
                   )}
                 </div>
               )}
-              <SsmRunRemediationButton
-                running={running}
-                disabled={running || !accountId || !cloudTrailInputsReady || !policyReady}
-                onStart={() => {
-                  setAttemptedStart(true);
-                  startMutation.mutate();
-                }}
-              />
-              {isIamLeastPriv && !policyLoading && !policyReady && (
-                <p className="text-[11px] leading-relaxed text-zinc-500">
-                  SSM applies the least-privilege proposal only at{" "}
-                  <span className="font-medium text-zinc-700">high confidence</span> (concrete resource ARNs).
-                  Yours is <span className="font-medium text-zinc-700">{generatedPolicy?.confidence ?? "low"}</span>
-                  {generatedPolicy?.confidence === "medium"
-                    ? " — actions are scoped but resources are still wildcarded."
-                    : "."}{" "}
-                  Use <span className="font-medium text-zinc-700">Suggested policy</span> to review or rebuild.
-                </p>
-              )}
             </div>
           )}
-
-          {started && !execSuccess && !executionRunFailed && (
-            <div className="space-y-3 border-t border-zinc-200/80 pt-3 text-[12px]">
-              <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/70 px-3 py-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-emerald-950">Run dispatched</p>
-                  {execInProgress && (
-                    <button
-                      type="button"
-                      disabled={executionFetching}
-                      onClick={() => void refreshRemediationExecution(qc, findingId)}
-                      className="shrink-0 text-[11px] font-medium text-indigo-700 underline disabled:opacity-50"
-                    >
-                      {executionFetching ? "Refreshing…" : "Refresh status"}
-                    </button>
-                  )}
-                </div>
-                <p className="mt-1 break-all font-mono text-[11px] text-zinc-700">{automationExecutionId}</p>
-                <p className="mt-1 text-zinc-600">
-                  {execInProgress
-                    ? "In progress. Refresh to pull status from AWS, or re-scan to verify the finding."
-                    : "Started."}
-                </p>
-                {execInProgress && statusSyncError && (
-                  <p className="mt-2 rounded-lg border border-amber-200/80 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-relaxed text-amber-950">
-                    Could not read execution status from AWS ({statusSyncError}). Update the connector so
-                    VigilScannerRole allows ssm:GetAutomationExecution on automation-execution/*, then refresh
-                    again.
-                  </p>
-                )}
-              </div>
-              <SsmRemediationFlowHint phase="running" />
-              {!execInProgress && (
-                <button
-                  type="button"
-                  disabled={running}
-                  onClick={() => {
-                    setAttemptedStart(true);
-                    startMutation.mutate();
-                  }}
-                  className="text-[11px] font-medium text-indigo-700 underline disabled:opacity-50"
-                >
-                  Run again
-                </button>
-              )}
-            </div>
-          )}
-
-          {showFailedState && (
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-[12px] text-amber-950">
-              <p className="font-semibold">
-                {executionRunFailed ? "Automation run failed" : "Could not start automation"}
-              </p>
-              {executionRunFailed && automationExecutionId && (
-                <p className="mt-1 break-all font-mono text-[11px] text-amber-900/80">
-                  {automationExecutionId}
-                </p>
-              )}
-              <p className="mt-1.5 leading-relaxed">
-                {formatAutomationStartError(automationError ?? "")}
-              </p>
-              {failedPlanId && (
-                <p className="mt-2 font-mono text-[11px] text-amber-900/75">
-                  Plan {failedPlanId.slice(0, 8)}…
-                  {executionRunFailed ? " (execution failed in AWS)" : " (saved; not executed)"}
-                </p>
-              )}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {(automationError?.includes("StartAutomationExecution") ||
-                  automationError?.includes("PutPublicAccessBlock")) && (
-                  <Link
-                    to="/accounts"
-                    className="inline-flex rounded-lg border border-indigo-200 bg-white px-3.5 py-2 text-[12px] font-semibold text-indigo-800 shadow-sm hover:bg-indigo-50"
-                  >
-                    Update AWS connector
-                  </Link>
-                )}
-                <button
-                  type="button"
-                  disabled={running}
-                  onClick={() => {
-                    setAttemptedStart(true);
-                    startMutation.mutate();
-                  }}
-                  className="inline-flex items-center gap-2 rounded-lg border border-amber-300/70 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-amber-950 transition hover:bg-amber-50 disabled:opacity-50"
-                >
-                  {running && (
-                    <span
-                      className="h-3 w-3 animate-spin rounded-full border-2 border-amber-300 border-t-amber-800"
-                      aria-hidden
-                    />
-                  )}
-                  {running ? "Retrying…" : "Retry"}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
       {!attemptedStart && !showFailedState && !execSuccess && (
         <PreviousExecutionNote findingId={findingId} />
@@ -897,6 +1023,8 @@ export function IaCRemediationSection({
   resourceArn,
   resourceLabel,
   severity,
+  onShowPolicy,
+  policyReviewAcknowledged,
 }: {
   findingId: string;
   checkId: string;
@@ -907,6 +1035,8 @@ export function IaCRemediationSection({
   resourceArn?: string | null;
   resourceLabel?: string;
   severity?: string;
+  onShowPolicy?: () => void;
+  policyReviewAcknowledged?: boolean;
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["iac-snippets", findingId],
@@ -1007,6 +1137,8 @@ export function IaCRemediationSection({
       resourceLabel={resourceLabel ?? "this resource"}
       severity={severity ?? "medium"}
       ssm={data.ssm_remediation}
+      onShowPolicy={onShowPolicy}
+      policyReviewAcknowledged={policyReviewAcknowledged}
     />
   );
 }

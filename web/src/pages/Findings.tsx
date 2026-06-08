@@ -381,11 +381,8 @@ function FindingRow({
                   event.stopPropagation();
                   onReview([r.finding]);
                 }}
-                className="group/res inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[12px] font-medium text-zinc-700 shadow-sm shadow-zinc-950/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                className="inline-flex max-w-full items-center rounded-full border border-[#e6ebf2] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#475467] shadow-sm shadow-zinc-950/[0.02] transition-colors hover:border-[#cbd5e1] hover:bg-zinc-50 hover:text-[#1f4e79]"
               >
-                <svg className="h-3.5 w-3.5 shrink-0 text-zinc-400 transition group-hover/res:text-indigo-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75 12 3l8.25 3.75L12 10.5 3.75 6.75Zm0 5.25L12 15.75l8.25-3.75M3.75 17.25 12 21l8.25-3.75" />
-                </svg>
                 <span className="truncate">{shortResourceName(r.label)}</span>
               </button>
             ))}

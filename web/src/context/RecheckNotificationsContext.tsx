@@ -372,7 +372,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
         return;
       }
       const existing = notificationHistory.find(
-        (h) =>
+        (h): h is CloudTrailNotification =>
           h.kind === "cloudtrail" &&
           h.findingId === findingId &&
           h.roleArn === roleArn &&
