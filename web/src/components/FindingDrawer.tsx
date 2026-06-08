@@ -742,52 +742,6 @@ const COMPOSITE_COVERAGE_HINTS: Record<string, string> = {
     "This finding maps to encryption, public exposure, and data-at-rest safeguard requirements.",
 };
 
-function ComplianceCoverageCard({
-  primaryComposite,
-  mappedControls,
-  isLoading,
-  accountId,
-}: {
-  primaryComposite: CompositeControlSummary | null | undefined;
-  mappedControls: MappedControl[];
-  isLoading: boolean;
-  accountId?: string | null;
-}) {
-  if (isLoading) {
-    return (
-      <div className={drawerPanel}>
-        <div className={drawerSectionHead}>
-          <h3 className={drawerSectionTitle}>Compliance coverage</h3>
-        </div>
-        <div className={`${drawerSectionBody} text-[13px] text-[#98a2b3]`}>Loading…</div>
-      </div>
-    );
-  }
-
-  if (!primaryComposite && mappedControls.length === 0) {
-    return null;
-  }
-
-  // Overview is finding-first: a one-line compliance teaser only. The Compliance
-  // tab is the single source of truth for the full mapping + evidence.
-  const frameworks = Array.from(new Set(mappedControls.map((c) => frameworkCompact(c.framework))));
-
-  return (
-    <div className={drawerPanel}>
-      <div className={drawerSectionBody}>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">Compliance impact</p>
-        {primaryComposite && (
-          <p className="mt-1 text-[13px] font-semibold text-zinc-900">{primaryComposite.title}</p>
-        )}
-        {frameworks.length > 0 && (
-          <p className="mt-0.5 text-[12px] text-zinc-500">{frameworks.join(" · ")}</p>
-        )}
-        <p className="mt-2 text-[11px] text-zinc-400">Full control mapping and evidence in the Compliance tab.</p>
-      </div>
-    </div>
-  );
-}
-
 function OverviewTabContent({
   impact,
   risk,
@@ -812,15 +766,6 @@ function OverviewTabContent({
   const severityDisplay = severityLabel(finding.severity);
   const severityPillClass = severityPillClassName(finding.severity);
 
-  const { data: controlBundle, isLoading: controlsLoading } = useQuery({
-    queryKey: ["controls-by-check", finding.check_id],
-    queryFn: () =>
-      api<CheckControlBundle>(`/v1/controls/by-check/${encodeURIComponent(finding.check_id)}`),
-  });
-
-  const mappings = controlBundle?.controls ?? [];
-  const primaryComposite = controlBundle?.primary_composite ?? null;
-
   return (
     <div className="space-y-3.5">
       <div className={drawerPanel}>
@@ -838,13 +783,6 @@ function OverviewTabContent({
           </OverviewSummaryRow>
         </dl>
       </div>
-
-      <ComplianceCoverageCard
-        primaryComposite={primaryComposite}
-        mappedControls={mappings}
-        isLoading={controlsLoading}
-        accountId={accountId}
-      />
 
       {frameworkImpact && <FrameworkImpactCard items={frameworkImpact} />}
 
