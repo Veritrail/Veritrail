@@ -487,12 +487,24 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
             : "Affected regions";
 
   const statusLabel = finding.status.replace(/_/g, " ");
-  const riskTone =
+  const riskBadgeClass =
     finding.severity === "critical" || finding.severity === "high"
-      ? "text-red-700"
+      ? "bg-rose-50 text-rose-700 ring-rose-200/70"
       : finding.severity === "medium"
-        ? "text-amber-700"
-        : "text-zinc-800";
+        ? "bg-amber-50 text-amber-800 ring-amber-200/70"
+        : "bg-zinc-100 text-zinc-700 ring-zinc-200/70";
+  const statusResolved = finding.status === "resolved";
+  const statusOpen = finding.status === "open";
+  const statusPillClass = statusResolved
+    ? "bg-emerald-50 text-emerald-700 ring-emerald-200/60"
+    : statusOpen
+      ? "bg-amber-50 text-amber-800 ring-amber-200/60"
+      : "bg-zinc-100 text-zinc-600 ring-zinc-200/70";
+  const statusDotClass = statusResolved ? "bg-emerald-500" : statusOpen ? "bg-amber-500" : "bg-zinc-400";
+  const openDays = (() => {
+    const t = new Date(finding.first_seen).getTime();
+    return Number.isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  })();
 
   const showFieldList =
     fieldDetailRows.length > 0 ||
@@ -504,18 +516,44 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
   const rootInspector = isAwsRootFinding(finding);
 
   const timelineBlock = (
-    <div className="border-t border-zinc-100 bg-white px-4 pb-1.5 pt-3">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Finding timeline</p>
-      <dl>
-        <ResourceFieldRow label="Risk score">
-          <span className={`font-semibold ${riskTone}`}>{finding.risk_score}</span>
-        </ResourceFieldRow>
-        <ResourceFieldRow label="Status">
-          <span className="capitalize">{statusLabel}</span>
-        </ResourceFieldRow>
-        <ResourceFieldRow label="First seen">{formatFindingSeenAt(finding.first_seen)}</ResourceFieldRow>
-        <ResourceFieldRow label="Last seen">{formatFindingSeenAt(finding.last_seen)}</ResourceFieldRow>
-      </dl>
+    <div className="border-t border-zinc-100 bg-white px-4 pb-4 pt-3">
+      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Finding timeline</p>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-baseline gap-1.5 rounded-lg px-2.5 py-1 ring-1 ring-inset ${riskBadgeClass}`}>
+          <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">Risk</span>
+          <span className="text-[15px] font-bold leading-none tabular-nums">{finding.risk_score}</span>
+        </span>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium capitalize ring-1 ring-inset ${statusPillClass}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${statusDotClass}`} aria-hidden />
+          {statusLabel}
+        </span>
+      </div>
+
+      <ol>
+        <li className="flex gap-3">
+          <div className="flex flex-col items-center">
+            <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full bg-zinc-300 ring-4 ring-white" aria-hidden />
+            <span className="w-px flex-1 bg-zinc-200" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1 pb-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">First seen</p>
+            <p className="text-[13px] text-zinc-700">{formatFindingSeenAt(finding.first_seen)}</p>
+            {openDays != null && (
+              <p className="mt-1 text-[11px] text-zinc-400">Open {openDays} day{openDays === 1 ? "" : "s"}</p>
+            )}
+          </div>
+        </li>
+        <li className="flex gap-3">
+          <div className="flex flex-col items-center">
+            <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full bg-rose-400 ring-4 ring-white" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Last seen</p>
+            <p className="text-[13px] text-zinc-700">{formatFindingSeenAt(finding.last_seen)}</p>
+          </div>
+        </li>
+      </ol>
     </div>
   );
 
