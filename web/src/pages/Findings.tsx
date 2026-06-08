@@ -332,26 +332,28 @@ function FindingRow({
     sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
       ? `findings-v2-row--${sev}`
       : "findings-v2-row--low";
-  const openGroup = () => onReview(items);
+  const [expanded, setExpanded] = useState(false);
+  const toggle = () => setExpanded((value) => !value);
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={openGroup}
+      aria-expanded={expanded}
+      onClick={toggle}
       onKeyDown={(event) => {
         if (event.defaultPrevented) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          openGroup();
+          toggle();
         }
       }}
-      aria-label={`Review ${title}, ${severityLabel(sev)}`}
-      className={`findings-v2-row ${railClass} group grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 last:rounded-b-2xl sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4`}
+      aria-label={`${title}, ${severityLabel(sev)} — ${resources.length} resource${resources.length === 1 ? "" : "s"}`}
+      className={`findings-v2-row ${railClass} group grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 last:rounded-b-2xl sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 ${expanded ? "sm:items-start" : "sm:items-center"}`}
     >
-      <div className="hidden w-5 shrink-0 items-center justify-center sm:flex">
+      <div className="hidden w-5 shrink-0 items-center justify-center pt-0.5 sm:flex">
         <svg
-          className="h-3.5 w-3.5 text-[var(--chevron)] transition group-hover:translate-x-0.5 group-hover:text-[var(--chevron-hover)]"
+          className={`h-3.5 w-3.5 text-[var(--chevron)] transition ${expanded ? "rotate-90 text-[var(--chevron-hover)]" : "group-hover:translate-x-0.5 group-hover:text-[var(--chevron-hover)]"}`}
           fill="none"
           stroke="currentColor"
           strokeWidth={2.5}
@@ -362,16 +364,36 @@ function FindingRow({
         </svg>
       </div>
 
-      <div className="sm:w-[5.5rem] shrink-0">
+      <div className="sm:w-[5.5rem] shrink-0 pt-0.5">
         <SeverityIndicator severity={sev} />
       </div>
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
-        <ResourcePicker options={resources} onSelect={(finding) => onReview([finding])} />
+        {expanded && (
+          <div className="mt-2.5 flex max-h-52 flex-wrap gap-2 overflow-auto pr-1">
+            {resources.map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                title={r.label}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onReview([r.finding]);
+                }}
+                className="group/res inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[12px] font-medium text-zinc-700 shadow-sm shadow-zinc-950/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+              >
+                <svg className="h-3.5 w-3.5 shrink-0 text-zinc-400 transition group-hover/res:text-indigo-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75 12 3l8.25 3.75L12 10.5 3.75 6.75Zm0 5.25L12 15.75l8.25-3.75M3.75 17.25 12 21l8.25-3.75" />
+                </svg>
+                <span className="truncate">{shortResourceName(r.label)}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="flex shrink-0 items-center justify-start sm:w-16 sm:justify-center">
+      <div className="flex shrink-0 items-center justify-start pt-0.5 sm:w-16 sm:justify-center">
         <RiskScoreDisplay score={topRisk} severity={sev} />
       </div>
     </div>
