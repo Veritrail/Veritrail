@@ -885,7 +885,7 @@ function CompositeControlsPanel({
                   {frameworkTags.length > 0 && (
                     <p className="mt-2 text-xs font-medium text-zinc-500">{frameworkTags.join(" · ")}</p>
                   )}
-                  <p className="mt-1.5 text-xs text-zinc-400">
+                  <p className="mt-1.5 text-[13px] text-zinc-500">
                     {ctrl.check_ids.length} mapped check{ctrl.check_ids.length === 1 ? "" : "s"}
                     {ctrl.status === "fail" && ctrl.finding_count > 0
                       ? ` · ${ctrl.finding_count} open finding${ctrl.finding_count === 1 ? "" : "s"}`
@@ -2037,7 +2037,7 @@ export default function Controls() {
                               {" "}
                               {shortControlTitle(ctrl.title)}
                             </p>
-                            <p className="mt-1 text-xs leading-relaxed text-zinc-500">{meta}</p>
+                            <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{meta}</p>
                           </div>
 
                           <div className="flex shrink-0 items-center sm:pt-0.5">
