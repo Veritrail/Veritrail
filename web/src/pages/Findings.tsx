@@ -175,6 +175,13 @@ function RiskScoreDisplay({ score, severity }: { score: number; severity: string
   );
 }
 
+/** arn:...:role/Foo -> Foo, arn:aws:s3:::my-bucket -> my-bucket (last path/colon segment). */
+function shortResourceName(label: string): string {
+  const afterSlash = label.split("/").pop() ?? label;
+  const afterColon = afterSlash.split(":").pop() ?? afterSlash;
+  return afterColon || label;
+}
+
 type ResourceOption = {
   key: string;
   label: string;
@@ -216,20 +223,27 @@ function ResourcePicker({
   return (
     <div
       ref={pickerRef}
-      className="findings-v2-resource-picker"
+      className="relative mt-1.5 inline-flex max-w-full align-top"
       onClick={(event) => event.stopPropagation()}
     >
       <button
         type="button"
-        className={`findings-v2-resource-trigger ${open ? "is-open" : ""}`}
+        className={`inline-flex max-w-[17rem] items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] font-semibold leading-none transition-colors ${
+          open
+            ? "border-indigo-200 bg-indigo-50/70 text-indigo-700"
+            : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
+        }`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         title={options.length === 1 ? options[0].label : "Select resource"}
       >
+        <svg className="h-3.5 w-3.5 shrink-0 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75 12 3l8.25 3.75L12 10.5 3.75 6.75Zm0 5.25L12 15.75l8.25-3.75M3.75 17.25 12 21l8.25-3.75" />
+        </svg>
         <span className="truncate">{summary}</span>
         <svg
-          className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
@@ -241,25 +255,52 @@ function ResourcePicker({
       </button>
 
       {open && (
-        <div className="findings-v2-resource-menu" role="menu" aria-label="Resources">
-          <div className="findings-v2-resource-menu-title">
-            {options.length === 1 ? "Resource" : `${options.length} resources`}
+        <div
+          className="absolute left-0 top-full z-50 mt-2 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-xl shadow-zinc-900/[0.12] ring-1 ring-zinc-950/[0.02]"
+          role="menu"
+          aria-label="Resources"
+        >
+          <div className="border-b border-zinc-100 bg-zinc-50/70 px-3.5 py-2.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              {options.length === 1 ? "Resource" : `${options.length} resources`}
+            </span>
           </div>
-          {options.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              role="menuitem"
-              className="findings-v2-resource-option"
-              title={option.label}
-              onClick={() => {
-                setOpen(false);
-                onSelect(option.finding);
-              }}
-            >
-              <span className="truncate font-mono">{option.label}</span>
-            </button>
-          ))}
+          <div className="max-h-72 overflow-auto p-1.5">
+            {options.map((option) => {
+              const shortName = shortResourceName(option.label);
+              const showArn = shortName !== option.label;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="menuitem"
+                  className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-zinc-50"
+                  title={option.label}
+                  onClick={() => {
+                    setOpen(false);
+                    onSelect(option.finding);
+                  }}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-500">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75 12 3l8.25 3.75L12 10.5 3.75 6.75Zm0 5.25L12 15.75l8.25-3.75M3.75 17.25 12 21l8.25-3.75" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate text-[13px] font-semibold text-zinc-900 ${showArn ? "" : "font-mono"}`}>
+                      {shortName}
+                    </span>
+                    {showArn && (
+                      <span className="mt-0.5 block truncate font-mono text-[11px] text-zinc-400">{option.label}</span>
+                    )}
+                  </span>
+                  <svg className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
