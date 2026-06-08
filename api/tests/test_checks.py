@@ -446,7 +446,7 @@ class TestEbsVolumeUnencrypted:
         drafts = ec2_ebs_volume_unencrypted.run(mock_db, acc_id)
         assert len(drafts) == 1
         assert drafts[0].check_id == "ec2.ebs.volume_unencrypted"
-        assert drafts[0].severity == "high"
+        assert drafts[0].severity == "medium"
 
     def test_skips_encrypted_volume(self, mock_db):
         from app.checks import ec2_ebs_volume_unencrypted

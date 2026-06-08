@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { formatSync, Spinner, StatusDot } from "../components/IntegrationsUi";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
-import { useAccountScanRun } from "../hooks/useAccountScanRun";
 
 type Provider = {
   id: string;
@@ -25,7 +24,6 @@ export default function EntraIntegration() {
     queryFn: () => api<Provider | null>("/v1/integrations/entra"),
   });
   const { isSyncing } = useIntegrationSyncState(SYNC_KEY);
-  const { triggerScanAfterSync } = useAccountScanRun();
 
   const connect = useMutation({
     mutationFn: () => api<{ url: string }>("/v1/integrations/entra/connect-url"),
@@ -35,10 +33,11 @@ export default function EntraIntegration() {
   });
 
   const sync = useMutation({
-    mutationFn: () => api("/v1/integrations/entra/sync", { method: "POST", body: {} }),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] });
-      await triggerScanAfterSync();
+    mutationFn: () =>
+      api("/v1/integrations/entra/sync", { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] });
+      setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
     },
   });
 

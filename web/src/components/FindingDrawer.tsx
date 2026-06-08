@@ -723,6 +723,128 @@ function FrameworkImpactCard({ items }: { items: readonly CredentialFrameworkImp
   );
 }
 
+const COMPOSITE_COVERAGE_HINTS: Record<string, string> = {
+  identity_governance:
+    "This finding maps to privileged access, MFA, and credential review requirements.",
+  secure_sdlc:
+    "This finding maps to code review, branch protection, and CI/CD safeguard requirements.",
+  change_management:
+    "This finding maps to production change approval and traceability requirements.",
+  vulnerability_management:
+    "This finding maps to vulnerability monitoring and patch evidence requirements.",
+  container_vulnerability_monitoring:
+    "This finding maps to container image scanning and runtime vulnerability evidence.",
+  logging_monitoring:
+    "This finding maps to audit logging, monitoring, and threat detection requirements.",
+  backup_resilience:
+    "This finding maps to backup, retention, and data recovery requirements.",
+  data_protection:
+    "This finding maps to encryption, public exposure, and data-at-rest safeguard requirements.",
+};
+
+function complianceCoverageHint(
+  composite: { id: string; title: string } | null | undefined,
+): string | null {
+  if (!composite) return null;
+  return (
+    COMPOSITE_COVERAGE_HINTS[composite.id] ??
+    `This finding supports your ${composite.title} control family.`
+  );
+}
+
+function ExternalFrameworkControlCard({
+  control,
+  accountId,
+}: {
+  control: MappedControl;
+  accountId?: string | null;
+}) {
+  return (
+    <Link
+      to={compliancePageHref(control, accountId)}
+      className="flex flex-col rounded-lg border border-[#e6ebf2] bg-[#f8fafc] px-3 py-2.5 transition hover:border-[#dce3ec] hover:bg-white"
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">
+        {frameworkCompact(control.framework)}
+      </p>
+      <p className="mt-1 font-mono text-[13px] font-semibold text-[#1f4e79]">{control.control_id}</p>
+      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[#475467]">{control.title}</p>
+    </Link>
+  );
+}
+
+function ComplianceCoverageCard({
+  primaryComposite,
+  mappedControls,
+  isLoading,
+  accountId,
+}: {
+  primaryComposite: CompositeControlSummary | null | undefined;
+  mappedControls: MappedControl[];
+  isLoading: boolean;
+  accountId?: string | null;
+}) {
+  if (isLoading) {
+    return (
+      <div className={drawerPanel}>
+        <div className={drawerSectionHead}>
+          <h3 className={drawerSectionTitle}>Compliance coverage</h3>
+        </div>
+        <div className={`${drawerSectionBody} text-[13px] text-[#98a2b3]`}>Loading…</div>
+      </div>
+    );
+  }
+
+  if (!primaryComposite && mappedControls.length === 0) {
+    return null;
+  }
+
+  const hint = complianceCoverageHint(primaryComposite);
+
+  return (
+    <div className={drawerPanel}>
+      <div className={drawerSectionHead}>
+        <h3 className={drawerSectionTitle}>Compliance coverage</h3>
+      </div>
+      <div className={`${drawerSectionBody} space-y-4`}>
+        {hint && <p className="text-[12px] leading-relaxed text-[#475467]">{hint}</p>}
+
+        {primaryComposite && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">Primary mapping</p>
+            <Link
+              to={compositeComplianceHref(primaryComposite.id, accountId)}
+              className="mt-2 block rounded-lg border border-indigo-200 bg-indigo-50/60 px-3.5 py-3 transition hover:border-indigo-300 hover:bg-indigo-50"
+            >
+              <p className="text-[13px] font-semibold text-indigo-950">{primaryComposite.title}</p>
+              <p className="mt-1.5 text-[12px] leading-relaxed text-indigo-900/80">
+                {primaryComposite.description}
+              </p>
+            </Link>
+          </div>
+        )}
+
+        {mappedControls.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">
+              External frameworks
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {mappedControls.map((c) => (
+                <ExternalFrameworkControlCard
+                  key={`${c.framework}:${c.control_id}`}
+                  control={c}
+                  accountId={accountId}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OverviewTabContent({
   impact,
   risk,
@@ -768,38 +890,18 @@ function OverviewTabContent({
           </OverviewSummaryRow>
           <OverviewSummaryRow label="Risk">{riskLine}</OverviewSummaryRow>
           <OverviewSummaryRow label="Business impact">{businessImpact}</OverviewSummaryRow>
-          <OverviewSummaryRow label="Compliance mappings">
-            {controlsLoading ? (
-              <span className="text-[#98a2b3]">Loading…</span>
-            ) : !primaryComposite && mappings.length === 0 ? (
-              <span className="text-[#98a2b3]">Not mapped</span>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {primaryComposite && (
-                  <Link
-                    to={compositeComplianceHref(primaryComposite.id, accountId)}
-                    className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100"
-                  >
-                    {primaryComposite.title}
-                  </Link>
-                )}
-                {mappings.map((c) => (
-                  <Link
-                    key={`${c.framework}:${c.control_id}`}
-                    to={compliancePageHref(c, accountId)}
-                    className="inline-flex items-center rounded-md border border-[#e6ebf2] bg-[#f8fafc] px-2 py-0.5 text-[11px] font-semibold text-[#344054] transition hover:border-[#dce3ec] hover:bg-white hover:text-[#1f4e79]"
-                  >
-                    {frameworkCompact(c.framework)} {c.control_id}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </OverviewSummaryRow>
           <OverviewSummaryRow label="Recommended action" emphasis>
             {recommendedAction}
           </OverviewSummaryRow>
         </dl>
       </div>
+
+      <ComplianceCoverageCard
+        primaryComposite={primaryComposite}
+        mappedControls={mappings}
+        isLoading={controlsLoading}
+        accountId={accountId}
+      />
 
       {frameworkImpact && <FrameworkImpactCard items={frameworkImpact} />}
 

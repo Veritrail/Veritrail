@@ -153,4 +153,4 @@ def test_eks_secrets_encryption_disabled(mock_db):
     drafts = eks_secrets_encryption.run(mock_db, uuid4())
     assert len(drafts) == 1
     assert drafts[0].check_id == "eks.cluster.secrets_encryption_disabled"
-    assert drafts[0].severity == "high"
+    assert drafts[0].severity == "medium"

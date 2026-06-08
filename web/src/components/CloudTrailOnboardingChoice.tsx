@@ -15,7 +15,7 @@ export function CloudTrailOnboardingChoice({ accountId }: { accountId: string })
     mutationFn: (mode: "existing" | "vigil_managed") =>
       api<Onboarding>(`/v1/accounts/${accountId}/cloudtrail-onboarding`, {
         method: "PATCH",
-        body: { mode },
+        body: JSON.stringify({ mode }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cloudtrail-onboarding", accountId] }),
   });
