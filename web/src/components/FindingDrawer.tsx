@@ -742,58 +742,6 @@ const COMPOSITE_COVERAGE_HINTS: Record<string, string> = {
     "This finding maps to encryption, public exposure, and data-at-rest safeguard requirements.",
 };
 
-function complianceCoverageHint(
-  composite: { id: string; title: string } | null | undefined,
-): string | null {
-  if (!composite) return null;
-  return (
-    COMPOSITE_COVERAGE_HINTS[composite.id] ??
-    `This finding supports your ${composite.title} control family.`
-  );
-}
-
-function ExternalFrameworkControlCard({
-  control,
-  accountId,
-}: {
-  control: MappedControl;
-  accountId?: string | null;
-}) {
-  const docUrl = control.reference_url?.trim();
-  const cardClass =
-    "flex flex-col rounded-lg border border-[#e6ebf2] bg-[#f8fafc] px-3 py-2.5 transition hover:border-[#dce3ec] hover:bg-white";
-  const body = (
-    <>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">
-        {frameworkCompact(control.framework)}
-      </p>
-      <p className="mt-1 flex items-center gap-1 font-mono text-[13px] font-semibold text-[#1f4e79]">
-        {control.control_id}
-        {docUrl && (
-          <svg className="h-3 w-3 text-[#98a2b3]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-          </svg>
-        )}
-      </p>
-      <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[#475467]">{control.title}</p>
-    </>
-  );
-  // External frameworks link to the authoritative standard (AICPA/CIS/ISO); the
-  // Compliance tab owns the internal status + compliance-page navigation.
-  if (docUrl) {
-    return (
-      <a href={docUrl} target="_blank" rel="noreferrer" className={cardClass}>
-        {body}
-      </a>
-    );
-  }
-  return (
-    <Link to={compliancePageHref(control, accountId)} className={cardClass}>
-      {body}
-    </Link>
-  );
-}
-
 function ComplianceCoverageCard({
   primaryComposite,
   mappedControls,
@@ -820,47 +768,21 @@ function ComplianceCoverageCard({
     return null;
   }
 
-  const hint = complianceCoverageHint(primaryComposite);
+  // Overview is finding-first: a one-line compliance teaser only. The Compliance
+  // tab is the single source of truth for the full mapping + evidence.
+  const frameworks = Array.from(new Set(mappedControls.map((c) => frameworkCompact(c.framework))));
 
   return (
     <div className={drawerPanel}>
-      <div className={drawerSectionHead}>
-        <h3 className={drawerSectionTitle}>Compliance coverage</h3>
-      </div>
-      <div className={`${drawerSectionBody} space-y-4`}>
-        {hint && <p className="text-[12px] leading-relaxed text-[#475467]">{hint}</p>}
-
+      <div className={drawerSectionBody}>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">Compliance impact</p>
         {primaryComposite && (
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">Primary mapping</p>
-            <Link
-              to={compositeComplianceHref(primaryComposite.id, accountId)}
-              className="mt-2 block rounded-lg border border-indigo-200 bg-indigo-50/60 px-3.5 py-3 transition hover:border-indigo-300 hover:bg-indigo-50"
-            >
-              <p className="text-[13px] font-semibold text-indigo-950">{primaryComposite.title}</p>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-indigo-900/80">
-                {primaryComposite.description}
-              </p>
-            </Link>
-          </div>
+          <p className="mt-1 text-[13px] font-semibold text-zinc-900">{primaryComposite.title}</p>
         )}
-
-        {mappedControls.length > 0 && (
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">
-              External frameworks
-            </p>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {mappedControls.map((c) => (
-                <ExternalFrameworkControlCard
-                  key={`${c.framework}:${c.control_id}`}
-                  control={c}
-                  accountId={accountId}
-                />
-              ))}
-            </div>
-          </div>
+        {frameworks.length > 0 && (
+          <p className="mt-0.5 text-[12px] text-zinc-500">{frameworks.join(" · ")}</p>
         )}
+        <p className="mt-2 text-[11px] text-zinc-400">Full control mapping and evidence in the Compliance tab.</p>
       </div>
     </div>
   );
@@ -4060,19 +3982,13 @@ function ComplianceTabContent({
   return (
     <div className="space-y-2.5">
       <div className={`${drawerPanel} px-4 py-3`}>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
-            Composite control
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50/80 px-2.5 py-1 text-[11px] font-medium text-red-700 ring-1 ring-red-200/45">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/75" aria-hidden />
-            Failing
-          </span>
-        </div>
+        <span className="inline-block rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
+          Composite control
+        </span>
         <h3 className="mt-2 text-[13px] font-semibold text-zinc-900">{primaryComposite.title}</h3>
         <p className="mt-2 text-[12px] leading-relaxed text-zinc-600">{primaryComposite.description}</p>
         <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-          <span className="font-medium text-zinc-600">Guidance: </span>
+          <span className="font-medium text-zinc-600">Why this matters: </span>
           {evidenceGuidance}
         </p>
         {mappedControls.length > 0 && (
@@ -4085,12 +4001,26 @@ function ComplianceTabContent({
                   className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[12px]"
                 >
                   <span className="text-zinc-700">{mappedControlLabel(c)}</span>
-                  <Link
-                    to={compliancePageHref(c, accountId)}
-                    className="shrink-0 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
-                  >
-                    View
-                  </Link>
+                  {c.reference_url ? (
+                    <a
+                      href={c.reference_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
+                    >
+                      Docs
+                      <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                      </svg>
+                    </a>
+                  ) : (
+                    <Link
+                      to={compliancePageHref(c, accountId)}
+                      className="shrink-0 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
+                    >
+                      View
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
