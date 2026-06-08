@@ -759,16 +759,37 @@ function ExternalFrameworkControlCard({
   control: MappedControl;
   accountId?: string | null;
 }) {
-  return (
-    <Link
-      to={compliancePageHref(control, accountId)}
-      className="flex flex-col rounded-lg border border-[#e6ebf2] bg-[#f8fafc] px-3 py-2.5 transition hover:border-[#dce3ec] hover:bg-white"
-    >
+  const docUrl = control.reference_url?.trim();
+  const cardClass =
+    "flex flex-col rounded-lg border border-[#e6ebf2] bg-[#f8fafc] px-3 py-2.5 transition hover:border-[#dce3ec] hover:bg-white";
+  const body = (
+    <>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#667085]">
         {frameworkCompact(control.framework)}
       </p>
-      <p className="mt-1 font-mono text-[13px] font-semibold text-[#1f4e79]">{control.control_id}</p>
+      <p className="mt-1 flex items-center gap-1 font-mono text-[13px] font-semibold text-[#1f4e79]">
+        {control.control_id}
+        {docUrl && (
+          <svg className="h-3 w-3 text-[#98a2b3]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+        )}
+      </p>
       <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-[#475467]">{control.title}</p>
+    </>
+  );
+  // External frameworks link to the authoritative standard (AICPA/CIS/ISO); the
+  // Compliance tab owns the internal status + compliance-page navigation.
+  if (docUrl) {
+    return (
+      <a href={docUrl} target="_blank" rel="noreferrer" className={cardClass}>
+        {body}
+      </a>
+    );
+  }
+  return (
+    <Link to={compliancePageHref(control, accountId)} className={cardClass}>
+      {body}
     </Link>
   );
 }
