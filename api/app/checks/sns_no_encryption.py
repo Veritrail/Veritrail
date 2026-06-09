@@ -20,7 +20,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
         FindingDraft(
             check_id=CHECK_ID,
             resource_arn=getattr(r, "topic_arn"),
-            title="SNS topic in `{region}` is not encrypted with a customer-managed KMS key (CMK)".format(**{"region": getattr(r, "region")}),
+            title="SNS topic in `{region}` is not encrypted at rest (SSE-KMS)".format(**{"region": getattr(r, "region")}),
             severity="medium",
             risk_score=score("medium"),
             evidence={"region": getattr(r, "region")},

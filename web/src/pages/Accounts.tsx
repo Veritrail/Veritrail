@@ -8,7 +8,7 @@ import {
   ADVANCED_POLICY_RAW_ACTIONS,
 } from "../data/capabilityCopy";
 import { resolveDeployArtifacts, type CfnConnectionOptions } from "../lib/cfnDeployCommands";
-import { isValidIamRoleArn } from "../lib/awsArn";
+import { isValidIamRoleArn, sanitizeIamRoleArnInput } from "../lib/awsArn";
 import {
   DEFAULT_REMEDIATION_MODULES,
   REMEDIATION_MODULE_SPECS,
@@ -136,9 +136,6 @@ const PERMISSION_VERIFY_DESCRIPTION = "Verified from deployed IAM role policy.";
 
 const workflowInlineBtn =
   "inline-flex shrink-0 items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
-
-const workflowInlineActionBtn =
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#3b82f6] via-[#6366f1] to-[#8b5cf6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_-3px_rgba(99,102,241,0.45)] transition-[box-shadow,transform,filter] duration-150 hover:-translate-y-px hover:brightness-105 hover:shadow-[0_7px_20px_-3px_rgba(99,102,241,0.55)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:brightness-100";
 
 const cardOutlineBtn =
   "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
@@ -304,7 +301,7 @@ function PermissionVerificationPanel({
           type="button"
           onClick={onVerify}
           disabled={verifying}
-          className={workflowInlineActionBtn}
+          className={workflowInlineBtn}
         >
           {verifying ? VERIFY_PROGRESS_STEPS[progressStep] : "Verify permissions in AWS"}
         </button>
@@ -653,7 +650,19 @@ function CopyInputField({
           readOnly={readOnly}
           value={value}
           placeholder={placeholder}
-          onChange={readOnly ? undefined : (e) => onChange?.(e.target.value)}
+          onChange={
+            readOnly
+              ? undefined
+              : (e) => onChange?.(sanitizeIamRoleArnInput(e.target.value))
+          }
+          onPaste={
+            readOnly || !onChange
+              ? undefined
+              : (e) => {
+                  e.preventDefault();
+                  onChange(sanitizeIamRoleArnInput(e.clipboardData.getData("text/plain")));
+                }
+          }
           className={`min-w-0 flex-1 bg-transparent font-mono text-sm text-zinc-900 outline-none placeholder:text-zinc-400 ${
             readOnly ? "cursor-default" : ""
           }`}
@@ -1514,7 +1523,7 @@ function AccountDetailsPanel({
           <button
             onClick={() => verify.mutate()}
             disabled={verify.isPending || !roleArnValid}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className={workflowInlineBtn}
           >
             {verify.isPending ? "Verifying…" : "Save & verify"}
           </button>
@@ -2095,7 +2104,7 @@ function InCardAccountSetupWizard({
               type="button"
               onClick={onVerifyConnection}
               disabled={verify.isPending || !roleArnValid}
-              className={workflowInlineActionBtn}
+              className={workflowInlineBtn}
             >
               {verify.isPending ? "Verifying…" : "Verify connection"}
             </button>
@@ -2671,7 +2680,7 @@ function AccountCard({
     mutationFn: () =>
       api<Account>(`/v1/accounts/${acc.id}/verify`, {
         method: "POST",
-        body: JSON.stringify({ role_arn: roleArn }),
+        body: JSON.stringify({ role_arn: sanitizeIamRoleArnInput(roleArn) }),
       }),
     onSuccess: (updated) => {
       qc.setQueryData<Account[]>(["accounts"], (rows) =>

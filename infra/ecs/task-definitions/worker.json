@@ -1,0 +1,29 @@
+{
+  "family": "vigil-worker",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "__EXECUTION_ROLE_ARN__",
+  "taskRoleArn": "__TASK_ROLE_ARN__",
+  "containerDefinitions": [
+    {
+      "name": "worker",
+      "image": "__API_IMAGE__",
+      "essential": true,
+      "command": ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info", "--concurrency=4"],
+      "secrets": [{ "name": "APP_CONFIG", "valueFrom": "__APP_SECRET_ARN__" }],
+      "environment": [
+        { "name": "AWS_DEFAULT_REGION", "value": "__AWS_REGION__" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/vigil-worker",
+          "awslogs-region": "__AWS_REGION__",
+          "awslogs-stream-prefix": "worker"
+        }
+      }
+    }
+  ]
+}

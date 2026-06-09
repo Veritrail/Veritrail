@@ -1,0 +1,57 @@
+# Production overrides — use with base compose.yml:
+#   ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod --profile prod up -d
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile.prod
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --workers
+      - "2"
+    volumes: !reset []
+    ports: !reset []
+
+  worker:
+    build:
+      context: .
+      dockerfile: api/Dockerfile.prod
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency=4
+    volumes: !reset []
+
+  beat:
+    build:
+      context: .
+      dockerfile: api/Dockerfile.prod
+    command:
+      - celery
+      - -A
+      - app.worker.celery_app
+      - beat
+      - --loglevel=info
+    volumes: !reset []
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    command:
+      - nginx
+      - -g
+      - daemon off;
+    ports: !reset []
+    volumes: !reset []

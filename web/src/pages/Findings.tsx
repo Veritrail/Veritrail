@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountSelect } from "../components/AccountSelect";
+import { FilterChipBar } from "../components/FilterChipBar";
 import {
   BenchmarkFrameworkSelect,
   benchmarkSelectionLabel,
@@ -15,10 +16,11 @@ import NotificationsBell from "../components/NotificationsBell";
 import ScanProgressBar from "../components/ScanProgressBar";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
+import { findingDisplayGroupKey, findingGroupMeta, findingGroupSearchText } from "../data/findingGroups";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
-import { resourceTypePillLabel } from "../lib/findingDisplay";
+import { resourceTypePillLabel, vcsResourceWebUrl } from "../lib/findingDisplay";
 import { isAccountConnected } from "../lib/accountConnection";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useRecheckNotifications, type RecheckResponse } from "../context/RecheckNotificationsContext";
@@ -223,7 +225,7 @@ type ResourceOption = {
 };
 
 const FINDINGS_ROW_GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-2.5 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 sm:items-center";
+  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 sm:items-center";
 
 const RESOURCE_CHILD_PREVIEW = 3;
 
@@ -294,6 +296,15 @@ function AffectedResourceRow({
   const name = shortResourceName(resourceLabel);
   const account = finding.account_label || finding.account_name || finding.account_id || "—";
   const consoleUrl = awsConsoleUrl(finding.resource_arn);
+  const repoUrl = consoleUrl ? null : vcsResourceWebUrl(finding);
+  const externalUrl = consoleUrl ?? repoUrl;
+  const externalLabel = consoleUrl ? "View in AWS" : "View repo";
+  const sevDot =
+    finding.severity === "critical" || finding.severity === "high"
+      ? "bg-red-500"
+      : finding.severity === "medium"
+        ? "bg-amber-500"
+        : "bg-zinc-400";
   return (
     <div
       role="button"
@@ -311,6 +322,7 @@ function AffectedResourceRow({
       }}
       className="flex cursor-pointer items-center gap-5 rounded-xl border border-zinc-200/80 bg-white px-5 py-4 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
     >
+      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${sevDot}`} title={`${finding.severity} severity`} aria-hidden />
       <ResourceProviderTile finding={finding} />
       <div className="flex min-w-0 flex-[1.6] items-center gap-3">
         <span className="truncate text-[14px] font-semibold text-zinc-900">{name}</span>
@@ -348,15 +360,15 @@ function AffectedResourceRow({
         <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">First seen</p>
         <p className="mt-1 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
       </div>
-      {consoleUrl ? (
+      {externalUrl ? (
         <a
-          href={consoleUrl}
+          href={externalUrl}
           target="_blank"
           rel="noreferrer"
           onClick={(event) => event.stopPropagation()}
           className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
         >
-          View in AWS
+          {externalLabel}
           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
           </svg>
@@ -369,7 +381,6 @@ function AffectedResourceRow({
 function AffectedResourcesCard({
   resources,
   totalCount,
-  assetType,
   hiddenCount,
   showMore,
   onShowMore,
@@ -378,7 +389,6 @@ function AffectedResourcesCard({
 }: {
   resources: ResourceOption[];
   totalCount: number;
-  assetType: string;
   hiddenCount: number;
   showMore: boolean;
   onShowMore: () => void;
@@ -405,9 +415,9 @@ function AffectedResourcesCard({
           }}
           className="inline-flex shrink-0 items-center gap-2 text-[13px] font-semibold text-indigo-600 transition hover:text-indigo-800"
         >
-          See all in graph
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+          View finding
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
           </svg>
         </button>
       </div>
@@ -417,7 +427,7 @@ function AffectedResourcesCard({
             key={resource.key}
             finding={resource.finding}
             resourceLabel={resource.label}
-            assetType={assetType}
+            assetType={assetTypeLabel(resource.finding.check_id)}
             onSelect={() => onSelect(resource.finding)}
           />
         ))}
@@ -439,21 +449,30 @@ function AffectedResourcesCard({
 }
 
 function FindingRow({
-  checkId,
+  groupKey,
   items,
   expanded,
   onToggleExpanded,
   onReview,
 }: {
-  checkId: string;
+  groupKey: string;
   items: Finding[];
   expanded: boolean;
   onToggleExpanded: () => void;
   onReview: (items: Finding[]) => void;
 }) {
-  const sev = items[0]?.severity ?? "low";
-  const title = checkLabels[checkId] ?? items[0]?.title ?? checkId;
-  const assetType = assetTypeLabel(checkId);
+  const sev =
+    items.reduce<string | null>((worst, f) => {
+      if (!worst) return f.severity;
+      return (sevWeight[f.severity] ?? 9) < (sevWeight[worst] ?? 9) ? f.severity : worst;
+    }, null) ?? "low";
+  const groupMeta = findingGroupMeta(groupKey);
+  const title =
+    groupMeta?.title ??
+    checkLabels[groupKey] ??
+    checkLabels[items[0]?.check_id ?? ""] ??
+    items[0]?.title ??
+    groupKey;
   const topRisk = Math.max(...items.map((f) => f.risk_score));
   const resources = useMemo<ResourceOption[]>(() => {
     const seen = new Set<string>();
@@ -533,7 +552,6 @@ function FindingRow({
           <AffectedResourcesCard
             resources={visibleResources}
             totalCount={resources.length}
-            assetType={assetType}
             hiddenCount={hiddenResourceCount}
             showMore={showMoreRow}
             onShowMore={() => setShowAllResources(true)}
@@ -668,13 +686,30 @@ export default function Findings() {
       if (searchTags.length > 0) {
         const matchesCheck = searchTags.some((tag) => {
           if (f.check_id === tag) return true;
-          const haystack = [f.title, f.check_id, f.resource_arn, checkLabels[f.check_id] ?? ""].join(" ").toLowerCase();
+          const haystack = [
+            f.title,
+            f.check_id,
+            f.resource_arn,
+            checkLabels[f.check_id] ?? "",
+            findingGroupSearchText(findingDisplayGroupKey(f.check_id)),
+          ]
+            .join(" ")
+            .toLowerCase();
           return haystack.includes(tag.toLowerCase());
         });
         if (!matchesCheck) return false;
       }
       if (!qtext) return true;
-      return [f.title, f.check_id, f.resource_arn, checkLabels[f.check_id] ?? ""].join(" ").toLowerCase().includes(qtext);
+      return [
+        f.title,
+        f.check_id,
+        f.resource_arn,
+        checkLabels[f.check_id] ?? "",
+        findingGroupSearchText(findingDisplayGroupKey(f.check_id)),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(qtext);
     });
     arr.sort((a, b) => {
       let cmp = 0;
@@ -688,7 +723,10 @@ export default function Findings() {
 
   const displayGroups = useMemo(() => {
     const map = new Map<string, Finding[]>();
-    for (const f of rows) map.set(f.check_id, [...(map.get(f.check_id) ?? []), f]);
+    for (const f of rows) {
+      const key = findingDisplayGroupKey(f.check_id);
+      map.set(key, [...(map.get(key) ?? []), f]);
+    }
     const entries = [...map.entries()];
     entries.sort(([, a], [, b]) => {
       let cmp = 0;
@@ -877,44 +915,17 @@ export default function Findings() {
             <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
               <div className="findings-v2-table-toolbar">
                 <div className="findings-v2-filter-cluster">
-                  <div
-                    className="inline-flex flex-wrap items-center gap-0.5 rounded-full border border-zinc-200/90 bg-zinc-100/70 p-1"
-                    role="tablist"
-                    aria-label="Severity"
-                  >
-                    {severityTabs.map((tab) => {
-                      const isSelected = severityFilter === tab.id;
-                      const count = severityCounts[tab.id];
-                      const showUrgent = tab.urgent && count > 0;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={isSelected}
-                          onClick={() => setSeverityFilter(tab.id)}
-                          className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-                            isSelected
-                              ? "bg-white text-zinc-900 shadow-sm shadow-zinc-950/[0.04] ring-1 ring-zinc-200/80"
-                              : "text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-800"
-                          }`}
-                        >
-                          {tab.label}
-                          <span
-                            className={
-                              showUrgent && !isSelected
-                                ? "text-red-500/90"
-                                : isSelected
-                                  ? "text-zinc-500"
-                                  : "text-zinc-400"
-                            }
-                          >
-                            · {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <FilterChipBar
+                    chips={severityTabs.map((tab) => ({
+                      id: tab.id,
+                      label: tab.label,
+                      count: severityCounts[tab.id],
+                      urgent: tab.urgent,
+                    }))}
+                    selected={severityFilter}
+                    onChange={setSeverityFilter}
+                    ariaLabel="Severity"
+                  />
 
                   <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
                   <FindingsStatusSelect
@@ -1004,13 +1015,13 @@ export default function Findings() {
                   </div>
 
                   <div>
-                    {displayGroups.map(([checkId, items]) => (
+                    {displayGroups.map(([groupKey, items]) => (
                       <FindingRow
-                        key={checkId}
-                        checkId={checkId}
+                        key={groupKey}
+                        groupKey={groupKey}
                         items={items}
-                        expanded={expandedCheckIds.has(checkId)}
-                        onToggleExpanded={() => toggleExpandedCheck(checkId)}
+                        expanded={expandedCheckIds.has(groupKey)}
+                        onToggleExpanded={() => toggleExpandedCheck(groupKey)}
                         onReview={openReview}
                       />
                     ))}

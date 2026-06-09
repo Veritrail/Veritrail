@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -137,6 +137,11 @@ class CloudTrailOnboardingOut(BaseModel):
     mode: str | None
 class VerifyIn(BaseModel):
     role_arn: str
+
+    @model_validator(mode="after")
+    def _strip_role_arn(self):
+        self.role_arn = "".join(self.role_arn.split())
+        return self
 
 
 class ConnectorVersionOut(BaseModel):

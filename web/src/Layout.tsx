@@ -1,7 +1,10 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { logout, restoreSession, token } from "./api";
+import { useQuery } from "@tanstack/react-query";
+import { api, logout, restoreSession, token } from "./api";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
+import { isAccountConnected } from "./lib/accountConnection";
+import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[17px] leading-snug font-medium transition-all ${
@@ -10,9 +13,23 @@ const navItem = ({ isActive }: { isActive: boolean }) =>
       : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-100"
   }`;
 
+type AccountRow = { status: string; account_id: string | null };
+
 export default function Layout() {
   const nav = useNavigate();
+  const location = useLocation();
   const [authReady, setAuthReady] = useState(false);
+  const requiresAccount = pathRequiresConnectedAccount(location.pathname);
+
+  const accountsQ = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => api<AccountRow[]>("/v1/accounts"),
+    enabled: authReady,
+    staleTime: 30_000,
+  });
+
+  const hasConnectedAccount =
+    accountsQ.isSuccess && accountsQ.data.some((a) => isAccountConnected(a));
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +54,19 @@ export default function Layout() {
         Loading…
       </div>
     );
+  }
+
+  if (requiresAccount) {
+    if (accountsQ.isLoading) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-zinc-50 text-sm text-zinc-500">
+          Loading…
+        </div>
+      );
+    }
+    if (accountsQ.isSuccess && !hasConnectedAccount) {
+      return <Navigate to="/accounts" replace />;
+    }
   }
 
   return (

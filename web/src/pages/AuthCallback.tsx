@@ -1,11 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { storeTokens } from "../api";
-
-function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/accounts";
-  return raw;
-}
+import { postAuthPath } from "../lib/postAuthRedirect";
 
 export default function AuthCallback() {
   const nav = useNavigate();
@@ -17,13 +13,11 @@ export default function AuthCallback() {
     handled.current = true;
 
     const token = params.get("token");
-    const refreshToken = params.get("refresh_token");
     const error = params.get("error");
-    const next = safeNext(params.get("next"));
 
     if (token) {
       storeTokens(token);
-      nav(next, { replace: true });
+      void postAuthPath().then((path) => nav(path, { replace: true }));
     } else {
       nav(`/login?error=${error ?? "unknown"}`, { replace: true });
     }

@@ -1,0 +1,397 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Vigil control plane on ECS Fargate (cluster, IAM, ECR, logs, optional RDS + Redis).
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: vigil-prod
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnets for Fargate tasks (NAT required for ECR pull).
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnets for the ALB.
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM cert ARN for HTTPS (optional on first deploy).
+  ApiHostname:
+    Type: String
+    Description: e.g. api.vigil.example.com
+  WebHostname:
+    Type: String
+    Description: e.g. vigil.example.com
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+  CreateDataStores:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Create RDS + ElastiCache. Set false to pass existing endpoints via secret.
+
+Conditions:
+  CreateDataStores: !Equals [!Ref CreateDataStores, "true"]
+  UseHttps: !Not [!Equals [!Ref CertificateArn, ""]]
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref EnvironmentName
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  ApiRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${EnvironmentName}/api"
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  WebRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${EnvironmentName}/web"
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/vigil-api
+      RetentionInDays: 30
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/vigil-worker
+      RetentionInDays: 30
+
+  BeatLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/vigil-beat
+      RetentionInDays: 30
+
+  WebLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/vigil-web
+      RetentionInDays: 30
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Vigil ECS tasks
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Vigil ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: CreateDataStores
+    Properties:
+      GroupDescription: Vigil RDS
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref TaskSecurityGroup
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: CreateDataStores
+    Properties:
+      GroupDescription: Vigil Redis
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref TaskSecurityGroup
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateDataStores
+    DeletionPolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub "${EnvironmentName}-postgres"
+      Engine: postgres
+      EngineVersion: "16.4"
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: 20
+      StorageType: gp3
+      MasterUsername: hygiene
+      MasterUserPassword: !Ref DbPassword
+      DBName: hygiene
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      BackupRetentionPeriod: 7
+      PubliclyAccessible: false
+      DeletionProtection: false
+
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Condition: CreateDataStores
+    Properties:
+      DBSubnetGroupDescription: Vigil RDS subnets
+      SubnetIds: !Ref PrivateSubnetIds
+
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Condition: CreateDataStores
+    Properties:
+      Description: Vigil Redis subnets
+      SubnetIds: !Ref PrivateSubnetIds
+
+  Redis:
+    Type: AWS::ElastiCache::CacheCluster
+    Condition: CreateDataStores
+    Properties:
+      CacheClusterId: !Sub "${EnvironmentName}-redis"
+      Engine: redis
+      EngineVersion: "7.1"
+      CacheNodeType: cache.t4g.micro
+      NumCacheNodes: 1
+      VpcSecurityGroupIds: [!Ref RedisSecurityGroup]
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${EnvironmentName}-ecs-execution"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ReadAppSecret
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref AppSecret
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${EnvironmentName}-ecs-task"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AssumeCustomerScannerRoles
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: "arn:aws:iam::*:role/*Vigil*"
+        - PolicyName: EvidenceVaultAndCfn
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource: "*"
+
+  AppSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${EnvironmentName}/app"
+      Description: Vigil app config JSON (see infra/ecs/README.md)
+      SecretString: !Sub |
+        {
+          "APP_ENV": "production",
+          "APP_SECRET": "REPLACE_ME",
+          "JWT_SECRET": "REPLACE_ME",
+          "ENCRYPTION_KEY": "REPLACE_ME",
+          "TRUST_PRINCIPAL_ARN": "${TaskRole.Arn}",
+          "API_PUBLIC_URL": "https://${ApiHostname}",
+          "FRONTEND_URL": "https://${WebHostname}",
+          "DATABASE_URL": "postgresql+psycopg://hygiene:${DbPassword}@${Database.Endpoint.Address}:5432/hygiene",
+          "REDIS_URL": "redis://${Redis.RedisEndpoint.Address}:6379/0",
+          "CFN_TEMPLATE_URL": "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-stack.yaml"
+        }
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${EnvironmentName}-alb"
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups: [!Ref AlbSecurityGroup]
+
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${EnvironmentName}-api"
+      Port: 8000
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /healthz
+      Matcher:
+        HttpCode: "200"
+
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${EnvironmentName}-web"
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckPath: /
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: "404"
+            ContentType: text/plain
+            MessageBody: Not found
+
+  ApiListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 10
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values: [!Ref ApiHostname]
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  WebListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HttpListener
+      Priority: 20
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values: [!Ref WebHostname]
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: UseHttps
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: "404"
+            ContentType: text/plain
+            MessageBody: Not found
+
+  ApiHttpsRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: UseHttps
+    Properties:
+      ListenerArn: !Ref HttpsListener
+      Priority: 10
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values: [!Ref ApiHostname]
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApiTargetGroup
+
+  WebHttpsRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: UseHttps
+    Properties:
+      ListenerArn: !Ref HttpsListener
+      Priority: 20
+      Conditions:
+        - Field: host-header
+          HostHeaderConfig:
+            Values: [!Ref WebHostname]
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WebTargetGroup
+
+Outputs:
+  ClusterName:
+    Value: !Ref Cluster
+  ApiEcrUri:
+    Value: !GetAtt ApiRepository.RepositoryUri
+  WebEcrUri:
+    Value: !GetAtt WebRepository.RepositoryUri
+  ExecutionRoleArn:
+    Value: !GetAtt ExecutionRole.Arn
+  TaskRoleArn:
+    Value: !GetAtt TaskRole.Arn
+  AppSecretArn:
+    Value: !Ref AppSecret
+  AlbDnsName:
+    Value: !GetAtt LoadBalancer.DNSName
+  ApiTargetGroupArn:
+    Value: !Ref ApiTargetGroup
+  WebTargetGroupArn:
+    Value: !Ref WebTargetGroup
+  TaskSecurityGroupId:
+    Value: !Ref TaskSecurityGroup
+  PrivateSubnetIds:
+    Value: !Join [",", !Ref PrivateSubnetIds]
+  TrustPrincipalArn:
+    Description: Set TRUST_PRINCIPAL_ARN in app secret to this value
+    Value: !GetAtt TaskRole.Arn

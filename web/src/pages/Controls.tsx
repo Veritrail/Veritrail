@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, token } from "../api";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
+import { FilterChipBar } from "../components/FilterChipBar";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
 import {
   controlEvidenceSectionTitle,
   controlEvidenceUsesType2Bar,
+  frameworkEvidenceUi,
   showControlEvidenceSection,
 } from "../lib/frameworkEvidenceCoverage";
 import { isAccountConnected } from "../lib/accountConnection";
@@ -31,10 +34,14 @@ type CompositeControlRow = {
   soc2_criteria: string[];
   check_ids: string[];
   check_evidence_classes?: Record<string, string>;
+  coverage_tier?: "core" | "extended" | "mixed" | "no_data";
+  check_tiers?: Record<string, string>;
   status: "pass" | "fail" | "no_data";
   finding_count: number;
   open_finding_ids: string[];
 };
+
+type ComplianceDisplayStatus = "passing" | "failing" | "at_risk" | "unevaluated";
 
 type ControlRow = {
   id: string;
@@ -89,18 +96,12 @@ const statusExpandedBg: Record<string, string> = {
 const COMPLIANCE_CARD_SHELL =
   "overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-md shadow-zinc-950/[0.04] ring-1 ring-zinc-950/[0.03]";
 
-const COMPLIANCE_ROW_GRID =
-  "grid w-full grid-cols-1 gap-3 py-4 pl-5 pr-5 text-left transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-start sm:gap-4";
-
-const COMPLIANCE_CHIP_ACTIVE = "bg-white text-zinc-900 shadow-sm shadow-zinc-950/[0.04] ring-1 ring-zinc-200/80";
-const COMPLIANCE_CHIP_IDLE = "text-zinc-500 hover:bg-zinc-50/80 hover:text-zinc-800";
-
 type OpenFindingMeta = { id: string; check_id: string; severity: string; resource_arn: string };
 
-function ComplianceExpandChevron({ expanded, className = "h-3.5 w-3.5" }: { expanded: boolean; className?: string }) {
+function ComplianceExpandChevron({ expanded, className = "" }: { expanded: boolean; className?: string }) {
   return (
     <svg
-      className={`${className} shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-0" : "-rotate-90"}`}
+      className={`h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-0" : "-rotate-90"} ${className}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -111,52 +112,114 @@ function ComplianceExpandChevron({ expanded, className = "h-3.5 w-3.5" }: { expa
   );
 }
 
-function ComplianceFindingsBadge({
-  count,
-  status,
-  checkIds,
-  findingCountByCheck,
-}: {
-  count: number;
-  status: string;
-  checkIds?: string[];
-  findingCountByCheck?: Map<string, number>;
-}) {
-  const navigate = useNavigate();
-  const href =
-    checkIds && findingCountByCheck ? findingsHrefForChecks(checkIds, findingCountByCheck) : null;
-  const baseClass =
-    "inline-flex h-8 min-w-[3.25rem] items-center justify-center rounded-lg px-3 text-sm font-semibold tabular-nums";
+function compositeDisplayStatus(
+  ctrl: CompositeControlRow,
+  findingCountByCheck: Map<string, number>,
+): ComplianceDisplayStatus {
+  if (ctrl.status === "pass") return "passing";
+  if (ctrl.status === "no_data") return "unevaluated";
+  const failingChecks = ctrl.check_ids.filter((id) => (findingCountByCheck.get(id) ?? 0) > 0);
+  if (failingChecks.length === 0) return "failing";
+  const hasCoreFailure = failingChecks.some((id) => (ctrl.check_tiers?.[id] ?? "core") === "core");
+  return hasCoreFailure ? "failing" : "at_risk";
+}
 
-  if (status === "fail" && count > 0 && href) {
+function controlDisplayStatus(
+  ctrl: ControlRow,
+  findingCountByCheck: Map<string, number>,
+): ComplianceDisplayStatus {
+  if (ctrl.status === "pass") return "passing";
+  if (ctrl.status === "no_data") return "unevaluated";
+  const failingChecks = ctrl.check_ids.filter((id) => (findingCountByCheck.get(id) ?? 0) > 0);
+  if (failingChecks.length === 0) return "failing";
+  const hasCoreFailure = failingChecks.some((id) => (ctrl.check_tiers?.[id] ?? "core") === "core");
+  return hasCoreFailure ? "failing" : "at_risk";
+}
+
+function ComplianceRowSummary({
+  expanded,
+  displayStatus,
+  count,
+  href,
+  onNavigate,
+}: {
+  expanded: boolean;
+  displayStatus: ComplianceDisplayStatus;
+  count: number;
+  href: string | null;
+  onNavigate: (href: string) => void;
+}) {
+  if (expanded) {
+    if (count === 0) {
+      return <span className="shrink-0 text-sm font-medium text-zinc-400">No findings</span>;
+    }
+    if (href) {
+      return (
+        <button
+          type="button"
+          title="View open findings"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigate(href);
+          }}
+          className="shrink-0 text-sm font-medium tabular-nums text-zinc-600 transition hover:text-indigo-700"
+        >
+          {count} findings
+        </button>
+      );
+    }
+    return (
+      <span className="shrink-0 text-sm font-medium tabular-nums text-zinc-600">{count} findings</span>
+    );
+  }
+
+  const label: Record<ComplianceDisplayStatus, string> = {
+    passing: "Passing",
+    failing: "Failing",
+    at_risk: "At risk",
+    unevaluated: "Not evaluated",
+  };
+
+  const chip = (
+    <>
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" aria-hidden />
+      {displayStatus === "passing" && count === 0 ? label.passing : `${label[displayStatus]} · ${count}`}
+    </>
+  );
+
+  const chipClass =
+    "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200/80";
+
+  if (count > 0 && href) {
     return (
       <button
         type="button"
         title="View open findings"
         onClick={(e) => {
           e.stopPropagation();
-          navigate(href);
+          onNavigate(href);
         }}
-        className={`${baseClass} border border-rose-200/70 bg-rose-50/90 text-rose-700 shadow-sm transition hover:border-rose-300/80 hover:bg-rose-100/80`}
+        className={`${chipClass} transition hover:bg-zinc-200/50`}
       >
-        {count}
+        {chip}
       </button>
     );
   }
-  if (status === "fail" && count > 0) {
-    return (
-      <span
-        className={`${baseClass} border border-rose-200/70 bg-rose-50/90 text-rose-700 shadow-sm`}
-        aria-label={`${count} open findings`}
-      >
-        {count}
-      </span>
-    );
-  }
+
+  return <span className={chipClass}>{chip}</span>;
+}
+
+function ComplianceRowChevron({ expanded, className = "" }: { expanded: boolean; className?: string }) {
   return (
-    <span className={`${baseClass} text-xs font-medium text-zinc-300`} aria-hidden>
-      —
-    </span>
+    <svg
+      className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-90" : ""} ${className}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
   );
 }
 
@@ -184,26 +247,6 @@ function CompliancePanelShell({
       <div className="divide-y divide-zinc-100">{children}</div>
     </section>
   );
-}
-
-function controlRowMetadata(ctrl: ControlRow, findingMap: Map<string, OpenFindingMeta>): string {
-  const parts: string[] = [];
-  if (ctrl.check_ids.length > 0) {
-    parts.push(`${ctrl.check_ids.length} check${ctrl.check_ids.length === 1 ? "" : "s"} mapped`);
-  }
-  if (ctrl.status === "fail" && ctrl.open_finding_ids.length > 0) {
-    const linked = ctrl.open_finding_ids
-      .map((id) => findingMap.get(id))
-      .filter((f): f is OpenFindingMeta => !!f);
-    const urgent = linked.filter((f) => f.severity === "critical" || f.severity === "high").length;
-    if (urgent > 0) parts.push(`${urgent} critical/high`);
-    const resources = new Set(linked.map((f) => f.resource_arn)).size;
-    if (resources > 0) parts.push(`${resources} resource${resources === 1 ? "" : "s"}`);
-  }
-  if (parts.length === 0) {
-    return ctrl.check_ids.length === 0 ? "Manual attestation required" : "Awaiting scan data";
-  }
-  return parts.join(" · ");
 }
 
 function shortFamilyLabel(label: string) {
@@ -404,6 +447,122 @@ const NESTED_COMPOSITE_DISPLAY: Record<string, { title: string; hint: string }> 
   },
 };
 
+type CompositeGroupVisual = {
+  bg: string;
+  text: string;
+  Icon: ({ className }: { className?: string }) => JSX.Element;
+};
+
+function IdentityGovernanceIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  );
+}
+
+function AssetInventoryIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-14.25v14.25" />
+    </svg>
+  );
+}
+
+function SecureSdlcIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+    </svg>
+  );
+}
+
+function ChangeManagementIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+    </svg>
+  );
+}
+
+function DataProtectionIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    </svg>
+  );
+}
+
+function VulnerabilityManagementIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  );
+}
+
+function LoggingMonitoringIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <rect x="5" y="11" width="3.5" height="9" rx="0.75" />
+      <rect x="10.25" y="6" width="3.5" height="14" rx="0.75" />
+      <rect x="15.5" y="13" width="3.5" height="7" rx="0.75" />
+    </svg>
+  );
+}
+
+function BackupResilienceIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"
+      />
+      <circle cx="7.5" cy="8" r="1" fill="currentColor" stroke="none" />
+      <circle cx="7.5" cy="16" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function CompositeGroupFallbackIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+const COMPOSITE_GROUP_VISUALS: Record<string, CompositeGroupVisual> = {
+  identity_governance: { bg: "bg-sky-50", text: "text-sky-600", Icon: IdentityGovernanceIcon },
+  asset_inventory: { bg: "bg-sky-50", text: "text-sky-600", Icon: AssetInventoryIcon },
+  secure_sdlc: { bg: "bg-sky-50", text: "text-sky-600", Icon: SecureSdlcIcon },
+  change_management: { bg: "bg-sky-50", text: "text-sky-600", Icon: ChangeManagementIcon },
+  data_protection: { bg: "bg-sky-50", text: "text-sky-600", Icon: DataProtectionIcon },
+  vulnerability_management: { bg: "bg-sky-50", text: "text-sky-600", Icon: VulnerabilityManagementIcon },
+  logging_monitoring: { bg: "bg-sky-50", text: "text-sky-600", Icon: LoggingMonitoringIcon },
+  backup_resilience: { bg: "bg-sky-50", text: "text-sky-600", Icon: BackupResilienceIcon },
+  container_vulnerability_monitoring: { bg: "bg-sky-50", text: "text-sky-600", Icon: VulnerabilityManagementIcon },
+};
+
+function CompositeGroupIcon({ id }: { id: string }) {
+  const visual = COMPOSITE_GROUP_VISUALS[id] ?? {
+    bg: "bg-sky-50",
+    text: "text-sky-600",
+    Icon: CompositeGroupFallbackIcon,
+  };
+  const { bg, text, Icon } = visual;
+
+  return (
+    <span
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bg} ${text}`}
+      aria-hidden
+    >
+      <Icon className="h-[18px] w-[18px]" />
+    </span>
+  );
+}
+
 type CompositeTreeRow = {
   row: CompositeControlRow;
   child?: CompositeControlRow;
@@ -480,7 +639,6 @@ function ComplianceStatusFilterBar({
   noData,
   statusFilter,
   onChange,
-  variant = "pill",
 }: {
   total: number;
   passed: number;
@@ -488,68 +646,19 @@ function ComplianceStatusFilterBar({
   noData: number;
   statusFilter: StatusFilter;
   onChange: (filter: StatusFilter) => void;
-  variant?: "pill" | "toolbar";
 }) {
-  const filters = [
-    { id: "all" as const, label: "All", count: total, urgent: false },
-    { id: "fail" as const, label: "Failing", count: failed, urgent: failed > 0 },
-    { id: "pass" as const, label: "Passing", count: passed, urgent: false },
-    { id: "no_data" as const, label: "No data", count: noData, urgent: false },
-  ] as const;
-
-  if (variant === "toolbar") {
-    return (
-      <div className="findings-v2-severity-tabs" role="tablist" aria-label="Control status">
-        {filters.map((f) => {
-          const isSelected = statusFilter === f.id;
-          return (
-            <button
-              key={f.id}
-              type="button"
-              role="tab"
-              aria-selected={isSelected}
-              onClick={() => onChange(f.id)}
-              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition-all ${
-                isSelected
-                  ? "bg-[#f8fafc] text-[#1f4e79] ring-1 ring-[#dce3ec]"
-                  : "text-[#6b7280] hover:bg-[#f8fafc] hover:text-[#111827]"
-              }`}
-            >
-              {f.label}
-              <span
-                className={
-                  f.urgent && !isSelected
-                    ? "text-amber-600/90"
-                    : isSelected
-                      ? "text-[#1f4e79]/70"
-                      : "text-[#98a2b3]"
-                }
-              >
-                · {f.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
   return (
-    <div className="inline-flex flex-wrap items-center gap-0.5 rounded-full border border-zinc-200/90 bg-zinc-100/70 p-1">
-      {filters.map((f) => (
-        <button
-          key={f.id}
-          type="button"
-          onClick={() => onChange(f.id)}
-          className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-            statusFilter === f.id ? COMPLIANCE_CHIP_ACTIVE : COMPLIANCE_CHIP_IDLE
-          }`}
-        >
-          {f.label}
-          <span className={statusFilter === f.id ? "text-zinc-500" : "text-zinc-400"}> · {f.count}</span>
-        </button>
-      ))}
-    </div>
+    <FilterChipBar
+      ariaLabel="Control status"
+      selected={statusFilter}
+      onChange={onChange}
+      chips={[
+        { id: "all", label: "All", count: total },
+        { id: "fail", label: "Failing", count: failed, urgent: true },
+        { id: "pass", label: "Passing", count: passed },
+        { id: "no_data", label: "No data", count: noData },
+      ]}
+    />
   );
 }
 
@@ -565,11 +674,7 @@ function ComplianceFamilyNav({
   if (groups.length <= 1) return null;
 
   return (
-    <nav
-      className="inline-flex min-w-0 flex-wrap items-center gap-0.5 rounded-full border border-zinc-200/90 bg-zinc-100/70 p-1"
-      role="tablist"
-      aria-label="Control domains"
-    >
+    <nav className="findings-v2-filter-chip-bar" role="tablist" aria-label="Control domains">
       {groups.map((group) => {
         const isSelected = selectedKey === group.key;
         return (
@@ -580,9 +685,7 @@ function ComplianceFamilyNav({
             aria-selected={isSelected}
             title={group.label}
             onClick={() => onSelect(group.key)}
-            className={`rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all ${
-              isSelected ? COMPLIANCE_CHIP_ACTIVE : COMPLIANCE_CHIP_IDLE
-            }`}
+            className={`findings-v2-filter-chip ${isSelected ? "is-selected" : ""}`}
           >
             {shortFamilyLabel(group.label)}
             <span className={isSelected ? "text-zinc-500" : "text-zinc-400"}> · {group.rows.length}</span>
@@ -684,7 +787,6 @@ function ComplianceUnifiedToolbar({
             noData={statusCounts.noData}
             statusFilter={statusFilter}
             onChange={onStatusFilterChange}
-            variant="toolbar"
           />
         )}
         <ComplianceFrameworkSelect
@@ -723,11 +825,11 @@ function ComplianceContentShell({
   children: ReactNode;
 }) {
   return (
-    <section className="mb-4 min-w-0 overflow-hidden rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
+    <section className="mb-4 min-w-0 rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
       {toolbar}
       {topBlocker}
       {section && <div className="border-b border-zinc-100 px-5 py-2.5">{section}</div>}
-      <div className="divide-y divide-zinc-100">{children}</div>
+      <div className="divide-y divide-zinc-100 overflow-hidden rounded-b-2xl">{children}</div>
     </section>
   );
 }
@@ -738,34 +840,7 @@ function findingsHrefForChecks(checkIds: string[], findingCountByCheck: Map<stri
   return `/findings?checks=${encodeURIComponent(active.join(","))}`;
 }
 
-function CalmStatusLabel({ status }: { status: string }) {
-  const badgeClass =
-    "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium";
-  if (status === "pass") {
-    return (
-      <span className={`${badgeClass} bg-emerald-50/90 text-emerald-700 ring-1 ring-emerald-200/40`}>
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
-        Passing
-      </span>
-    );
-  }
-  if (status === "fail") {
-    return (
-      <span className={`${badgeClass} bg-amber-50/90 text-amber-800 ring-1 ring-amber-200/50`}>
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden />
-        Needs attention
-      </span>
-    );
-  }
-  return (
-    <span className={`${badgeClass} bg-zinc-100/90 text-zinc-500 ring-1 ring-zinc-200/70`}>
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" aria-hidden />
-      No data
-    </span>
-  );
-}
-
-function TopFailingChecksList({
+function TopFailingChecksTable({
   checkIds,
   findingCountByCheck,
   max = 5,
@@ -785,6 +860,95 @@ function TopFailingChecksList({
   );
 
   if (top.length === 0) return null;
+
+  const maxCount = findingCountByCheck.get(top[0]) ?? 1;
+  const segments = 5;
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200/80">
+      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 border-b border-zinc-100 bg-zinc-50/60 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+        <span>Check</span>
+        <span className="text-right">Findings</span>
+        <span className="text-right">Density</span>
+      </div>
+      <ul>
+        {top.map((checkId) => {
+          const count = findingCountByCheck.get(checkId) ?? 0;
+          const filled =
+            maxCount > 0 ? Math.max(count > 0 ? 1 : 0, Math.round((count / maxCount) * segments)) : 0;
+          return (
+            <li key={checkId} className="border-b border-zinc-100 last:border-b-0">
+              <button
+                type="button"
+                onClick={() => navigate(`/findings?checks=${encodeURIComponent(checkId)}`)}
+                className="grid w-full grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 px-4 py-3 text-left transition hover:bg-zinc-50/80"
+              >
+                <span className="truncate text-sm text-zinc-900">{labelForCheck(checkId)}</span>
+                <span className="text-right text-sm font-medium tabular-nums text-zinc-700">{count}</span>
+                <span className="flex justify-end gap-0.5" aria-hidden>
+                  {Array.from({ length: segments }, (_, i) => (
+                    <span
+                      key={i}
+                      className={`h-2 w-3 rounded-[2px] ${i < filled ? "bg-indigo-400" : "bg-zinc-200"}`}
+                    />
+                  ))}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function TopFailingChecksList({
+  checkIds,
+  findingCountByCheck,
+  max = 5,
+  variant = "default",
+}: {
+  checkIds: string[];
+  findingCountByCheck: Map<string, number>;
+  max?: number;
+  variant?: "default" | "compact";
+}) {
+  const navigate = useNavigate();
+  const top = useMemo(
+    () =>
+      [...checkIds]
+        .filter((id) => (findingCountByCheck.get(id) ?? 0) > 0)
+        .sort((a, b) => (findingCountByCheck.get(b) ?? 0) - (findingCountByCheck.get(a) ?? 0))
+        .slice(0, max),
+    [checkIds, findingCountByCheck, max],
+  );
+
+  if (top.length === 0) return null;
+
+  if (variant === "compact") {
+    return (
+      <ul className="mt-2 space-y-2">
+        {top.map((checkId) => {
+          const count = findingCountByCheck.get(checkId) ?? 0;
+          return (
+            <li key={checkId}>
+              <button
+                type="button"
+                onClick={() => navigate(`/findings?checks=${encodeURIComponent(checkId)}`)}
+                className="flex w-full items-center justify-between gap-3 text-left transition hover:opacity-80"
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
+                  <span className="truncate text-sm text-zinc-800">{labelForCheck(checkId)}</span>
+                </span>
+                <span className="shrink-0 tabular-nums text-sm font-medium text-zinc-700">{count}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
 
   const maxCount = findingCountByCheck.get(top[0]) ?? 1;
 
@@ -825,23 +989,46 @@ function TopFailingChecksList({
 
 function CompositeExpandedDetails({
   ctrl,
-  framework,
-  frameworkRows,
-  accountId,
   findingCountByCheck,
+  variant = "default",
+  framework = "soc2",
+  frameworkRows = [],
+  accountId,
 }: {
   ctrl: CompositeControlRow;
-  framework: string;
-  frameworkRows: ControlRow[];
-  accountId?: string | null;
   findingCountByCheck: Map<string, number>;
+  variant?: "default" | "card";
+  framework?: string;
+  frameworkRows?: ControlRow[];
+  accountId?: string | null;
 }) {
   const navigate = useNavigate();
-  const underlying = underlyingCriteriaForComposite(ctrl, frameworkRows);
   const findingsHref = findingsHrefForChecks(ctrl.check_ids, findingCountByCheck);
 
+  if (variant === "card") {
+    return (
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-semibold text-zinc-900">Top failing checks</p>
+          <TopFailingChecksTable checkIds={ctrl.check_ids} findingCountByCheck={findingCountByCheck} />
+          {findingsHref ? (
+            <button
+              type="button"
+              onClick={() => navigate(findingsHref)}
+              className="mt-4 text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
+            >
+              View all {ctrl.finding_count} findings →
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  const underlying = underlyingCriteriaForComposite(ctrl, frameworkRows);
+
   return (
-    <div className={`space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-[9.5rem] ${statusExpandedBg[ctrl.status]}`}>
+    <div className={`space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
       {underlying.length > 0 && (
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Underlying criteria</p>
@@ -918,33 +1105,24 @@ function QuietNestedCompositeRow({
         <span className="shrink-0 text-sm text-zinc-300" aria-hidden>
           └
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium text-zinc-700">{display?.title ?? child.title}</p>
-          <p className="text-xs text-zinc-500">{display?.hint ?? child.description}</p>
+        <div className="min-w-0 flex-1 truncate text-[13px] leading-snug">
+          <span className="font-medium text-zinc-700">{display?.title ?? child.title}</span>
+          {(display?.hint ?? child.description) ? (
+            <>
+              <span className="px-1.5 font-normal text-zinc-300" aria-hidden>
+                ·
+              </span>
+              <span className="font-normal text-zinc-500">{display?.hint ?? child.description}</span>
+            </>
+          ) : null}
         </div>
-        {child.finding_count > 0 && href ? (
-          <span
-            role="link"
-            tabIndex={0}
-            title="View open findings"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(href);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.stopPropagation();
-                e.preventDefault();
-                navigate(href);
-              }
-            }}
-            className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums text-rose-600/90 hover:bg-rose-50/80"
-          >
-            {child.finding_count}
-          </span>
-        ) : (
-          <span className="shrink-0 text-xs text-zinc-300">—</span>
-        )}
+        <ComplianceRowSummary
+          expanded={isExpanded}
+          displayStatus={compositeDisplayStatus(child, findingCountByCheck)}
+          count={child.finding_count}
+          href={href}
+          onNavigate={(h) => navigate(h)}
+        />
         <ComplianceExpandChevron expanded={isExpanded} className="h-3 w-3" />
       </button>
       {isExpanded && (
@@ -977,65 +1155,72 @@ function CompositeControlsPanel({
   frameworkRows: ControlRow[];
   accountId?: string | null;
 }) {
+  const navigate = useNavigate();
   const treeRows = useMemo(() => prepareCompositeTreeRows(rows), [rows]);
 
   if (treeRows.length === 0) return null;
 
   return (
-    <>
-        {treeRows.map(({ row: ctrl, child }) => {
-          const isExpanded = expandedId === ctrl.id;
+    <div className="divide-y divide-zinc-100">
+      {treeRows.map(({ row: ctrl, child }) => {
+        const isExpanded = expandedId === ctrl.id;
+        const displayStatus = compositeDisplayStatus(ctrl, findingCountByCheck);
+        const findingsHref = findingsHrefForChecks(ctrl.check_ids, findingCountByCheck);
 
-          return (
-            <div key={ctrl.id}>
-              <button
-                type="button"
-                onClick={() => onToggle(ctrl.id)}
-                className={`${COMPLIANCE_ROW_GRID} ${
-                  isExpanded ? statusExpandedBg[ctrl.status] : "hover:bg-zinc-50/70"
-                }`}
-              >
-                <div className="flex items-start gap-2 pt-0.5 sm:w-[8.5rem]">
-                  <ComplianceExpandChevron expanded={isExpanded} className="mt-0.5 h-3.5 w-3.5" />
-                  <CalmStatusLabel status={ctrl.status} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{ctrl.description}</p>
-                </div>
-                <div className="flex shrink-0 items-center sm:pt-0.5">
-                  <ComplianceFindingsBadge
-                    count={ctrl.finding_count}
-                    status={ctrl.status}
-                    checkIds={ctrl.check_ids}
-                    findingCountByCheck={findingCountByCheck}
-                  />
-                </div>
-              </button>
-              {child && compositeAppliesToFramework(child, frameworkRows) && (
-                <QuietNestedCompositeRow
-                  child={child}
-                  expandedId={expandedId}
-                  onToggle={onToggle}
-                  framework={framework}
-                  frameworkRows={frameworkRows}
-                  accountId={accountId}
-                  findingCountByCheck={findingCountByCheck}
+        return (
+          <div key={ctrl.id}>
+            <button
+              type="button"
+              onClick={() => onToggle(ctrl.id)}
+              aria-expanded={isExpanded}
+              className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-zinc-50/60"
+            >
+              <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
+              <CompositeGroupIcon id={ctrl.id} />
+              <div className="min-w-0 flex-1 py-0.5">
+                <p className="text-[15px] font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-zinc-500">{ctrl.description}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 self-center">
+                <ComplianceRowSummary
+                  expanded={isExpanded}
+                  displayStatus={displayStatus}
+                  count={ctrl.finding_count}
+                  href={findingsHref}
+                  onNavigate={(href) => navigate(href)}
                 />
-              )}
-              {isExpanded && (
+                <ComplianceExpandChevron expanded={isExpanded} className="h-4 w-4 shrink-0 text-zinc-400" />
+              </div>
+            </button>
+
+            {isExpanded ? (
+              <div className="border-t border-zinc-100 px-5 pb-5 pt-4">
                 <CompositeExpandedDetails
                   ctrl={ctrl}
+                  findingCountByCheck={findingCountByCheck}
+                  variant="card"
                   framework={framework}
                   frameworkRows={frameworkRows}
                   accountId={accountId}
-                  findingCountByCheck={findingCountByCheck}
                 />
-              )}
-            </div>
-          );
-        })}
-    </>
+              </div>
+            ) : null}
+
+            {child && compositeAppliesToFramework(child, frameworkRows) ? (
+              <QuietNestedCompositeRow
+                child={child}
+                expandedId={expandedId}
+                onToggle={onToggle}
+                framework={framework}
+                frameworkRows={frameworkRows}
+                accountId={accountId}
+                findingCountByCheck={findingCountByCheck}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1051,6 +1236,9 @@ function LoadingSkeleton() {
 function checkGroupLabel(id: string): string {
   if (id.startsWith("github.")) return "GitHub";
   if (id.startsWith("gitlab.")) return "GitLab";
+  if (id.startsWith("entra.")) return "Entra";
+  if (id.startsWith("google_workspace.")) return "Google_workspace";
+  if (id.startsWith("identity_center.")) return "Identity_center";
   if (id.startsWith("iam.")) return "IAM";
   if (id.startsWith("s3.")) return "S3";
   if (id.startsWith("kms.")) return "KMS";
@@ -1075,7 +1263,7 @@ function checkGroupLabel(id: string): string {
   return prefix.charAt(0).toUpperCase() + prefix.slice(1);
 }
 
-const CHECK_GROUP_ORDER = ["IAM", "GitHub", "GitLab", "S3", "KMS", "CloudTrail", "EC2", "RDS", "Lambda", "DynamoDB", "ECR", "EKS", "ECS", "ACM", "ELB", "Secrets", "SSM", "SNS", "SQS", "GuardDuty", "AWS", "VPC"];
+const CHECK_GROUP_ORDER = ["IAM", "GitHub", "GitLab", "Entra", "Google_workspace", "Identity_center", "S3", "KMS", "CloudTrail", "EC2", "RDS", "Lambda", "DynamoDB", "ECR", "EKS", "ECS", "ACM", "ELB", "Secrets", "SSM", "SNS", "SQS", "GuardDuty", "AWS", "VPC"];
 
 function groupCheckIds(checkIds: string[]) {
   const groups = new Map<string, string[]>();
@@ -1212,15 +1400,17 @@ function CoverageProgressBar({
   coverageTotal,
   coveragePct,
   barFillClass,
+  className = "h-2.5",
 }: {
   coverageDays: number;
   coverageTotal: number;
   coveragePct: number;
   barFillClass: string;
+  className?: string;
 }) {
   return (
     <div
-      className="h-2.5 overflow-hidden rounded bg-zinc-200/60 ring-1 ring-inset ring-zinc-300/25"
+      className={`${className} overflow-hidden rounded-full bg-zinc-200/70`}
       role="progressbar"
       aria-valuenow={coveragePct}
       aria-valuemin={0}
@@ -1228,10 +1418,71 @@ function CoverageProgressBar({
       aria-label={`${coverageDays} of ${coverageTotal} audit days with evidence (${coveragePct}%)`}
     >
       <div
-        className={`h-full bg-gradient-to-r ${barFillClass} transition-all`}
-        style={{ width: `${Math.max(coveragePct, 2)}%` }}
+        className={`h-full rounded-full bg-gradient-to-r ${barFillClass} transition-all`}
+        style={{ width: `${Math.max(coveragePct, coveragePct > 0 ? 2 : 0)}%` }}
       />
     </div>
+  );
+}
+
+function CalendarIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={`${className} shrink-0 text-zinc-400`} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+    </svg>
+  );
+}
+
+function ControlStatusPill({ status, compact = false }: { status: ControlRow["status"]; compact?: boolean }) {
+  const styles = {
+    pass: {
+      pill: compact ? "bg-emerald-50/80 text-emerald-800 ring-emerald-200/60" : "bg-emerald-50 text-emerald-800 ring-emerald-200/70",
+      dot: "bg-emerald-500",
+      icon: "text-emerald-600",
+    },
+    fail: {
+      pill: compact ? "bg-amber-50/80 text-amber-900 ring-amber-200/60" : "bg-amber-50 text-amber-900 ring-amber-200/70",
+      dot: "bg-amber-500",
+      icon: "text-amber-600",
+    },
+    no_data: {
+      pill: compact ? "bg-zinc-100 text-zinc-600 ring-zinc-200/70" : "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
+      dot: "bg-zinc-400",
+      icon: "text-zinc-500",
+    },
+  }[status];
+
+  const label = status === "pass" ? "Passing" : status === "fail" ? "Failing" : "Not evaluated";
+
+  if (compact) {
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${styles.pill}`}
+      >
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`} aria-hidden />
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${styles.pill}`}
+    >
+      {status === "fail" ? (
+        <svg className={`h-3.5 w-3.5 shrink-0 ${styles.icon}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+          <circle cx="12" cy="12" r="9" />
+          <path strokeLinecap="round" d="M8 12h8M12 8v8" />
+        </svg>
+      ) : status === "pass" ? (
+        <svg className={`h-3.5 w-3.5 shrink-0 ${styles.icon}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`} aria-hidden />
+      )}
+      {label}
+    </span>
   );
 }
 
@@ -1259,25 +1510,14 @@ function ControlStatusBlock({
     enabled: !!accountId && control.check_ids.length > 0,
   });
 
-  const statusLabel =
-    control.status === "pass" ? "Passing" : control.status === "fail" ? "Failing" : "Not evaluated";
-
-  const statusTone =
-    control.status === "pass"
-      ? "border-emerald-200/80 bg-emerald-50/30"
-      : control.status === "fail"
-        ? "border-rose-200/80 bg-rose-50/25"
-        : "border-zinc-200/80 bg-zinc-50/50";
-
-  const statusValueClass =
-    control.status === "pass" ? "text-emerald-700" : control.status === "fail" ? "text-rose-700" : "text-zinc-600";
-
   const h = history.data;
 
   const scans = coverage?.successful_scans_in_period;
   const coverageDays = coverage?.days_with_data ?? 0;
   const coverageTotal = coverage?.days_requested ?? periodDays;
   const coveragePct = coverage ? Math.min(100, Math.round(coverage.coverage_ratio * 100)) : 0;
+  const evidenceUi = frameworkEvidenceUi(framework, coverage, periodDays);
+  const showEvidence = showControlEvidenceSection(framework);
 
   let statusSubline: string | null = null;
   if (h?.current_status === "fail") {
@@ -1286,95 +1526,119 @@ function ControlStatusBlock({
       statusSubline = `Failing for ${h.days_failing} day${h.days_failing === 1 ? "" : "s"}`;
     }
   } else if (h?.current_status === "pass") {
-    statusSubline = "Currently passing";
+    statusSubline = null;
   }
 
-  const statusMark =
-    control.status === "pass" ? "✓" : control.status === "fail" ? "✕" : "○";
-
-  const supportMetrics: { value: string; label: string }[] = [];
-  if (control.status === "fail") {
-    supportMetrics.push({ value: String(control.finding_count), label: "Findings" });
-  } else if (control.status === "pass") {
-    supportMetrics.push({ value: "0", label: "Findings" });
-  } else if (control.check_ids.length === 0) {
-    supportMetrics.push({ value: "—", label: "Manual" });
-  } else {
-    supportMetrics.push({ value: "—", label: "Pending" });
-  }
-  if (scans != null) supportMetrics.push({ value: String(scans), label: "Scans" });
+  const findingsCount =
+    control.status === "fail"
+      ? control.finding_count
+      : control.status === "pass"
+        ? 0
+        : null;
 
   const barFillClass =
-    coveragePct >= 80 ? "from-emerald-500/90 to-emerald-600/80" : coveragePct >= 40 ? "from-amber-400/90 to-amber-500/80" : "from-rose-400/90 to-rose-500/80";
+    coveragePct >= 80
+      ? "from-emerald-500 to-emerald-600"
+      : coveragePct >= 40
+        ? "from-amber-400 to-amber-500"
+        : "from-orange-400 to-orange-500";
+
+  const coverageGuidance =
+    evidenceUi.guidanceLine ??
+    (controlEvidenceUsesType2Bar(framework) && coveragePct < 85
+      ? "Collect more audit days to improve coverage and demonstrate compliance."
+      : null);
+
+  const evidenceTitle =
+    framework === "soc2" ? "Evidence coverage" : controlEvidenceSectionTitle(framework);
+  const compactStatus = framework !== "soc2";
 
   return (
-    <div className={`w-full rounded-xl border p-4 ${statusTone}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Control status</p>
-
-      <div className="mt-3 flex items-start gap-2.5">
-        <span
-          className={`w-5 shrink-0 text-center text-xl leading-none ${statusValueClass}`}
-          aria-hidden
-        >
-          {statusMark}
-        </span>
-
-        <div className="min-w-0 flex-1 space-y-4">
-          <div className="space-y-1">
-            <p className={`text-2xl font-bold leading-tight tracking-tight ${statusValueClass}`}>
-              {statusLabel}
-            </p>
-            {statusSubline && <p className="text-sm text-zinc-500">{statusSubline}</p>}
-            {supportMetrics.length > 0 && (
-              <p className="text-sm leading-relaxed">
-                {supportMetrics.map((m, i) => (
-                  <span key={m.label}>
-                    {i > 0 && <span className="px-2 text-zinc-300">•</span>}
-                    <span className="font-semibold tabular-nums text-zinc-900">{m.value}</span>{" "}
-                    <span className="text-zinc-600">{m.label}</span>
-                  </span>
-                ))}
-              </p>
+    <div className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white">
+      <div className={`grid grid-cols-1 ${showEvidence ? "lg:grid-cols-2 lg:divide-x lg:divide-zinc-100" : ""}`}>
+        <div className={compactStatus ? "px-4 py-3" : "p-4"}>
+          <p className="text-sm font-semibold text-zinc-950">Control status</p>
+          <div className={`${compactStatus ? "mt-2" : "mt-3"} w-fit`}>
+            <ControlStatusPill status={control.status} compact={compactStatus} />
+          </div>
+          <div className={`space-y-1.5 ${compactStatus ? "mt-2" : "mt-3"}`}>
+            {statusSubline ? (
+              <div className="flex items-center gap-2 text-sm text-zinc-600">
+                <CalendarIcon />
+                <span>{statusSubline}</span>
+              </div>
+            ) : null}
+            {(findingsCount != null || scans != null) && (
+              <div className="flex items-center gap-2 text-sm text-zinc-600">
+                <svg className="h-4 w-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m-9 4h10m-9 4h6m-7 6h8a2 2 0 002-2v-6H6v6a2 2 0 002 2z" />
+                </svg>
+                <span>
+                  {findingsCount != null ? (
+                    <>
+                      {findingsCount} Finding{findingsCount === 1 ? "" : "s"}
+                    </>
+                  ) : (
+                    "— Findings"
+                  )}
+                  {scans != null ? (
+                    <>
+                      <span className="px-1.5 text-zinc-300">·</span>
+                      <span className="font-semibold tabular-nums text-zinc-900">{scans}</span> Scans
+                    </>
+                  ) : null}
+                </span>
+              </div>
             )}
           </div>
+        </div>
 
-          {showControlEvidenceSection(framework) && (
-          <div className="max-w-xl space-y-1.5 overflow-visible border-t border-zinc-200/60 pt-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-              {controlEvidenceSectionTitle(framework)}
-            </p>
-
+        {showEvidence ? (
+          <div className="border-t border-zinc-100 p-4 lg:border-t-0">
+            <p className="text-sm font-semibold text-zinc-950">{evidenceTitle}</p>
             {coverage ? (
               controlEvidenceUsesType2Bar(framework) ? (
-                <div className="space-y-1.5">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <p className="text-base leading-snug text-zinc-800">
+                <div className="mt-3 space-y-2.5">
+                  <div className="flex items-baseline justify-between gap-3 text-sm text-zinc-700">
+                    <span>
                       <span className="font-semibold tabular-nums text-zinc-900">{coverageDays}</span>
-                      <span className="tabular-nums text-zinc-600"> / </span>
+                      <span className="tabular-nums text-zinc-500"> / </span>
                       <span className="font-semibold tabular-nums text-zinc-900">{coverageTotal}</span>
                       {" audit days collected"}
-                    </p>
-                    <span className="shrink-0 text-sm font-semibold tabular-nums text-zinc-700">{coveragePct}%</span>
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums text-zinc-900">{coveragePct}%</span>
                   </div>
                   <CoverageProgressBar
                     coverageDays={coverageDays}
                     coverageTotal={coverageTotal}
                     coveragePct={coveragePct}
                     barFillClass={barFillClass}
+                    className="h-2"
                   />
+                  {coverageGuidance ? (
+                    <p className="text-sm leading-relaxed text-zinc-500">{coverageGuidance}</p>
+                  ) : null}
                 </div>
               ) : (
-                <p className="text-base leading-snug text-zinc-800">
-                  <span className="font-semibold tabular-nums text-zinc-900">{coverageDays}</span>
-                  {coverageDays === 1 ? " day" : " days"} collected in the selected export period
-                </p>
+                <div className="mt-3 space-y-1.5">
+                  <p className="text-sm text-zinc-700">
+                    {evidenceUi.headline ?? (
+                      <>
+                        <span className="font-semibold tabular-nums text-zinc-900">{coverageDays}</span>
+                        {coverageDays === 1 ? " day" : " days"} collected in the selected export period
+                      </>
+                    )}
+                  </p>
+                  {evidenceUi.detailLine ? (
+                    <p className="text-sm leading-relaxed text-zinc-500">{evidenceUi.detailLine}</p>
+                  ) : null}
+                </div>
               )
             ) : (
-              <p className="text-base font-semibold text-zinc-800">{periodDays}-day export window</p>
+              <p className="mt-3 text-sm text-zinc-600">{periodDays}-day export window</p>
             )}
           </div>
-          )}
-        </div>
+        ) : null}
       </div>
     </div>
   );
@@ -1386,17 +1650,15 @@ function ControlEvaluationBlock({ checkIds }: { checkIds: string[] }) {
   const grouped = groupCheckIds(checkIds);
 
   return (
-    <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-        Mapped checks ({checkIds.length})
-      </p>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+    <div>
+      <p className="text-base font-semibold text-zinc-950">Mapped checks ({checkIds.length})</p>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {grouped.map(([group, ids]) => (
-          <div key={group}>
-            <p className="text-xs font-bold text-zinc-800">
+          <div key={group} className="rounded-lg border border-zinc-200/80 bg-white px-4 py-3.5">
+            <p className="text-sm font-bold text-zinc-900">
               {group} <span className="font-normal text-zinc-500">({ids.length})</span>
             </p>
-            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-sm leading-snug text-zinc-800">
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm leading-snug text-zinc-800">
               {ids.map((cid) => (
                 <li key={cid} title={cid}>
                   {labelForCheck(cid)}
@@ -1415,57 +1677,43 @@ type ControlFindingsSummary = Pick<ControlRow, "status" | "finding_count">;
 function ControlFindingsBlock({
   control,
   checkIds,
-  checkEvidenceClasses,
   findingCountByCheck,
 }: {
   control: ControlFindingsSummary;
   checkIds: string[];
-  checkEvidenceClasses?: Record<string, string>;
   findingCountByCheck: Map<string, number>;
 }) {
   const navigate = useNavigate();
 
-  if (control.status === "pass" && control.finding_count === 0) {
+  const openTotal = control.finding_count;
+  const findingsHref =
+    openTotal > 0
+      ? `/findings?checks=${encodeURIComponent(checkIds.filter((id) => (findingCountByCheck.get(id) ?? 0) > 0).join(","))}`
+      : null;
+
+  if (control.status === "pass" && openTotal === 0) {
     return (
-      <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/30 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800/80">Findings</p>
-        <p className="mt-1 text-sm font-medium text-emerald-900">No open findings</p>
+      <div>
+        <p className="text-sm font-semibold text-zinc-900">Findings</p>
+        <p className="mt-1 text-sm text-zinc-500">No open findings on mapped checks.</p>
       </div>
     );
   }
 
-  const openTotal = control.finding_count;
-
   return (
-    <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Findings</p>
-        {openTotal > 0 && (
-          <button
-            type="button"
-            onClick={() =>
-              navigate(
-                `/findings?checks=${encodeURIComponent(checkIds.filter((id) => (findingCountByCheck.get(id) ?? 0) > 0).join(","))}`,
-              )
-            }
-            className="text-xs font-semibold text-indigo-700 hover:text-indigo-900"
-          >
-            {openTotal} open finding{openTotal === 1 ? "" : "s"} →
-          </button>
-        )}
-      </div>
-      {openTotal > 0 ? (
-        <div className="mt-2.5">
-          <MappedChecksList
-            checkIds={checkIds}
-            checkEvidenceClasses={checkEvidenceClasses}
-            findingCountByCheck={findingCountByCheck}
-            findingsOnly
-            hideHeader
-          />
-        </div>
+    <div>
+      <p className="text-sm font-semibold text-zinc-900">Top failing checks</p>
+      <TopFailingChecksTable checkIds={checkIds} findingCountByCheck={findingCountByCheck} max={8} />
+      {findingsHref ? (
+        <button
+          type="button"
+          onClick={() => navigate(findingsHref)}
+          className="mt-4 text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
+        >
+          View all {openTotal} findings →
+        </button>
       ) : (
-        <p className="mt-2 text-sm text-zinc-600">No open findings in mapped checks.</p>
+        <p className="mt-2 text-sm text-zinc-500">No open findings in mapped checks.</p>
       )}
     </div>
   );
@@ -1528,7 +1776,9 @@ export default function Controls() {
   const [asOf, setAsOf] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportAnchor, setExportAnchor] = useState<{ top: number; right: number } | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const exportPanelRef = useRef<HTMLDivElement>(null);
 
   const accounts = useQuery({
     queryKey: ["accounts"],
@@ -1635,7 +1885,6 @@ export default function Controls() {
     },
   });
 
-  const findingMap = openFindingsMeta.data?.byId ?? new Map<string, OpenFindingMeta>();
   const findingCountByCheck = openFindingsMeta.data?.countByCheck ?? new Map<string, number>();
 
   const exportWindow = useMemo(() => {
@@ -1669,11 +1918,34 @@ export default function Controls() {
   });
 
   useEffect(() => {
+    if (!exportOpen) {
+      setExportAnchor(null);
+      return;
+    }
+    function updateAnchor() {
+      if (!exportRef.current) return;
+      const rect = exportRef.current.getBoundingClientRect();
+      setExportAnchor({
+        top: rect.bottom + 8,
+        right: Math.max(16, window.innerWidth - rect.right),
+      });
+    }
+    updateAnchor();
+    window.addEventListener("resize", updateAnchor);
+    window.addEventListener("scroll", updateAnchor, true);
+    return () => {
+      window.removeEventListener("resize", updateAnchor);
+      window.removeEventListener("scroll", updateAnchor, true);
+    };
+  }, [exportOpen]);
+
+  useEffect(() => {
     if (!exportOpen) return;
     function handleClick(e: MouseEvent) {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-        setExportOpen(false);
-      }
+      const target = e.target as Node;
+      if (exportRef.current?.contains(target)) return;
+      if (exportPanelRef.current?.contains(target)) return;
+      setExportOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -1796,60 +2068,67 @@ export default function Controls() {
       (complianceView === "detailed" && groupedRows.length > 0 && !!selectedGroup));
 
   const auditPackageExport = (
-    <div ref={exportRef} className={`relative shrink-0 ${exportOpen ? "z-[101]" : ""}`}>
-      <button
-        type="button"
-        onClick={() => setExportOpen((open) => !open)}
-        aria-expanded={exportOpen}
-        aria-haspopup="dialog"
-        className="findings-v2-toolbar-btn findings-v2-toolbar-btn--scan"
-      >
-        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        Generate Audit Package
-      </button>
-      {exportOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close evidence pack menu"
-            className="fixed inset-0 z-[100] cursor-default bg-zinc-950/15"
-            onClick={() => setExportOpen(false)}
-          />
-          <div
-            role="dialog"
-            aria-label="Generate Audit Package"
-            className="absolute right-0 top-full z-[102] mt-2 rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-lg shadow-zinc-950/10"
-          >
-            <EvidencePackExportPanel
-              frameworkId={framework}
-              frameworkLabel={activeFramework.label}
-              periodKey={periodKey}
-              onPeriodChange={setPeriodKey}
-              asOf={asOf}
-              onAsOfChange={setAsOf}
-              coverage={evidenceCoverage.data}
-              coverageLoading={evidenceCoverage.isFetching}
-              controlsEvaluated={total}
-              openFindings={rows.reduce((sum, r) => sum + r.finding_count, 0)}
-              passingCount={passed}
-              lastScanLabel={
-                activeAccount?.last_scan_at ? lastScanLabel(activeAccount.last_scan_at) : null
-              }
-              downloading={downloading}
-              onDownload={() => void downloadPack()}
+    <>
+      <div ref={exportRef} className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => setExportOpen((open) => !open)}
+          aria-expanded={exportOpen}
+          aria-haspopup="dialog"
+          className="findings-v2-toolbar-btn findings-v2-toolbar-btn--scan"
+        >
+          <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Generate Audit Package
+        </button>
+      </div>
+      {exportOpen &&
+        exportAnchor &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              aria-label="Close evidence pack menu"
+              className="fixed inset-0 z-[200] cursor-default bg-zinc-950/15"
+              onClick={() => setExportOpen(false)}
             />
-          </div>
-        </>
-      )}
-    </div>
+            <div
+              ref={exportPanelRef}
+              role="dialog"
+              aria-label="Generate Audit Package"
+              className="fixed z-[201] rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-lg shadow-zinc-950/10"
+              style={{ top: exportAnchor.top, right: exportAnchor.right }}
+            >
+              <EvidencePackExportPanel
+                frameworkId={framework}
+                frameworkLabel={activeFramework.label}
+                periodKey={periodKey}
+                onPeriodChange={setPeriodKey}
+                asOf={asOf}
+                onAsOfChange={setAsOf}
+                coverage={evidenceCoverage.data}
+                coverageLoading={evidenceCoverage.isFetching}
+                controlsEvaluated={total}
+                openFindings={rows.reduce((sum, r) => sum + r.finding_count, 0)}
+                passingCount={passed}
+                lastScanLabel={
+                  activeAccount?.last_scan_at ? lastScanLabel(activeAccount.last_scan_at) : null
+                }
+                downloading={downloading}
+                onDownload={() => void downloadPack()}
+              />
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
   );
 
   return (
     <div className="min-h-full bg-zinc-100/35">
     <div className="w-full px-8 py-8">
-      <div className={`mb-4 ${exportOpen ? "relative z-[100]" : ""}`}>
+      <div className="mb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
@@ -1874,7 +2153,7 @@ export default function Controls() {
       {!controls.isLoading && connectedAccount && (
         <ComplianceContentShell
           toolbar={
-            <div className={exportOpen ? "relative z-[100]" : undefined}>
+            <div>
               <ComplianceUnifiedToolbar
                 complianceView={complianceView}
                 onComplianceViewChange={setComplianceViewWithUrl}
@@ -2008,7 +2287,9 @@ export default function Controls() {
             selectedGroup &&
             selectedGroup.rows.map((ctrl) => {
               const isExpanded = expanded === ctrl.id;
-              const meta = controlRowMetadata(ctrl, findingMap);
+              const displayStatus = controlDisplayStatus(ctrl, findingCountByCheck);
+              const findingsHref = findingsHrefForChecks(ctrl.check_ids, findingCountByCheck);
+
               return (
                 <div key={ctrl.id}>
                   <button
@@ -2019,37 +2300,33 @@ export default function Controls() {
                       setExpanded(isExpanded ? null : ctrl.id);
                       requestAnimationFrame(() => window.scrollTo(0, scrollY));
                     }}
-                    className={`${COMPLIANCE_ROW_GRID} ${
-                      isExpanded ? statusExpandedBg[ctrl.status] : "hover:bg-zinc-50/70"
-                    }`}
+                    aria-expanded={isExpanded}
+                    className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-zinc-50/60"
                   >
-                    <div className="flex items-start gap-2 pt-0.5 sm:w-[8.5rem]">
-                      <ComplianceExpandChevron expanded={isExpanded} className="mt-0.5 h-3.5 w-3.5" />
-                      <CalmStatusLabel status={ctrl.status} />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
+                    <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
+                    <div className="min-w-0 flex-1 py-0.5">
                       <p className="text-[15px] font-semibold leading-snug text-zinc-900">
                         <span className="font-mono text-[13px] font-semibold text-zinc-500">{ctrl.control_id}</span>{" "}
                         {shortControlTitle(ctrl.title)}
                       </p>
-                      <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">{meta}</p>
+                      {ctrl.description ? (
+                        <p className="mt-0.5 text-sm leading-relaxed text-zinc-500">{ctrl.description}</p>
+                      ) : null}
                     </div>
-
-                    <div className="flex shrink-0 items-center sm:pt-0.5">
-                      <ComplianceFindingsBadge
+                    <div className="flex shrink-0 items-center gap-3 self-center">
+                      <ComplianceRowSummary
+                        expanded={isExpanded}
+                        displayStatus={displayStatus}
                         count={ctrl.finding_count}
-                        status={ctrl.status}
-                        checkIds={ctrl.check_ids}
-                        findingCountByCheck={findingCountByCheck}
+                        href={findingsHref}
+                        onNavigate={(href) => navigate(href)}
                       />
+                      <ComplianceExpandChevron expanded={isExpanded} className="text-zinc-400" />
                     </div>
                   </button>
 
                   {isExpanded && (
-                    <div
-                      className={`space-y-3 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-[9.5rem] ${statusExpandedBg[ctrl.status]}`}
-                    >
+                    <div className="space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
                       <ControlStatusBlock
                         control={ctrl}
                         periodDays={exportWindow.period}
@@ -2060,7 +2337,7 @@ export default function Controls() {
                       />
 
                       {ctrl.check_ids.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-zinc-600">
+                        <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
                           No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
                           inherit access via groups or roles).
                         </p>
@@ -2070,7 +2347,6 @@ export default function Controls() {
                           <ControlFindingsBlock
                             control={ctrl}
                             checkIds={ctrl.check_ids}
-                            checkEvidenceClasses={ctrl.check_evidence_classes}
                             findingCountByCheck={findingCountByCheck}
                           />
                         </>

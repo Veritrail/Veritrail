@@ -72,6 +72,26 @@ AWS in dev: mount `~/.aws` (already in `compose.yml`) and set `AWS_PROFILE` in `
 
 ---
 
+## Production deploy (EC2)
+
+One-shot bootstrap on Ubuntu EC2 (Docker, Let's Encrypt, nginx, `.env.prod`, compose prod profile):
+
+```bash
+sudo EMAIL=you@example.com ./scripts/bootstrap-ec2.sh
+```
+
+Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue certs with `--force-cert`.
+
+**Prerequisites**
+
+- DNS A records for UI + API hostnames pointing at the instance
+- Security group allows inbound TCP 80 and 443
+- EC2 instance profile IAM role (used to auto-detect `TRUST_PRINCIPAL_ARN` when unset)
+
+Compose files: `compose.yml` + `compose.prod.yml` with `ENV_FILE=.env.prod` and `--profile prod`.
+
+---
+
 ## Onboarding a customer account (AWS)
 
 1. Sign up — email/password, GitHub, GitLab, or Google login.

@@ -132,8 +132,8 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     fix: "Add Deny when aws:SecureTransport is false.",
   },
   "s3.bucket.no_kms": {
-    impact: "Bucket not using SSE-KMS.",
-    risk: "No customer control over encryption keys.",
+    impact: "S3 bucket not encrypted at rest.",
+    risk: "Objects stored without SSE-KMS protection.",
     fix: "Enable default SSE-KMS on the bucket.",
   },
   "s3.bucket.no_logging": {
@@ -162,9 +162,9 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     fix: "Enable log file validation on the trail.",
   },
   "cloudtrail.trail.no_kms": {
-    impact: "CloudTrail logs not SSE-KMS encrypted.",
-    risk: "Weaker control over audit log access.",
-    fix: "Enable KMS encryption on the trail.",
+    impact: "CloudTrail not encrypted at rest.",
+    risk: "Audit logs lack SSE-KMS protection.",
+    fix: "Enable SSE-KMS encryption on the trail.",
   },
   "guardduty.open_findings": {
     impact: "GuardDuty has active findings.",
@@ -347,12 +347,12 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     fix: "Upgrade listener to TLS 1.2+ policy.",
   },
   "sns.topic.no_encryption": {
-    impact: "SNS topic not KMS-encrypted.",
+    impact: "SNS topic not encrypted at rest.",
     risk: "Messages readable at rest.",
     fix: "Enable SSE-KMS on the topic.",
   },
   "sqs.queue.no_encryption": {
-    impact: "SQS queue not KMS-encrypted.",
+    impact: "SQS queue not encrypted at rest.",
     risk: "Queue payloads readable at rest.",
     fix: "Enable SSE-KMS on the queue.",
   },

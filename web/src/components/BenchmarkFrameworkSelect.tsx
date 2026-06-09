@@ -191,10 +191,10 @@ export function BenchmarkFrameworkSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Benchmark: ${label}`}
-        className="findings-v2-filter-trigger"
+        className="findings-v2-filter-trigger findings-v2-benchmark-trigger"
       >
         <BenchmarkShieldMark />
-        <span className="max-w-[11rem] truncate">{label}</span>
+        <span className="truncate">{label}</span>
         <svg
           className={`h-3.5 w-3.5 shrink-0 text-[#98a2b3] transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"

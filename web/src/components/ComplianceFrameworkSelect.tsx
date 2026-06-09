@@ -36,31 +36,6 @@ function passRateClass(stats: ComplianceFrameworkStats | undefined): string {
   return "text-rose-600";
 }
 
-function frameworkTriggerTone(stats: ComplianceFrameworkStats | undefined): {
-  dotClass: string;
-  shellClass: string;
-} {
-  if (!stats || stats.total === 0 || stats.passRate == null) {
-    return { dotClass: "bg-zinc-300", shellClass: "" };
-  }
-  if (stats.passRate >= 80) {
-    return {
-      dotClass: "bg-emerald-500",
-      shellClass: "border-emerald-200/90 bg-emerald-50/40",
-    };
-  }
-  if (stats.passRate >= 50) {
-    return {
-      dotClass: "bg-amber-500",
-      shellClass: "border-amber-200/90 bg-amber-50/45",
-    };
-  }
-  return {
-    dotClass: "bg-rose-500",
-    shellClass: "border-rose-200/90 bg-rose-50/40",
-  };
-}
-
 export function ComplianceFrameworkSelect({
   selectedId,
   statsById,
@@ -76,8 +51,6 @@ export function ComplianceFrameworkSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeFw = FRAMEWORKS.find((f) => f.id === selectedId) ?? FRAMEWORKS[0];
-  const activeStats = statsById[selectedId];
-  const triggerTone = frameworkTriggerTone(activeStats);
 
   const updateMenuPosition = useCallback(() => {
     const btn = triggerRef.current;
@@ -186,21 +159,10 @@ export function ComplianceFrameworkSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Framework: ${activeFw.label}`}
-        className={`findings-v2-filter-trigger ${triggerTone.shellClass}`.trim()}
+        className="findings-v2-filter-trigger findings-v2-benchmark-trigger"
       >
         <BenchmarkShieldMark />
-        <span
-          className={`h-2 w-2 shrink-0 rounded-full ${triggerTone.dotClass}`}
-          aria-hidden
-          title="Framework pass rate"
-        />
-        <span className="max-w-[12rem] truncate">
-          {activeFw.label}
-          <span className={`font-semibold tabular-nums ${passRateClass(activeStats)}`}>
-            {" "}
-            · {passRateLabel(activeStats)}
-          </span>
-        </span>
+        <span className="truncate">{activeFw.label}</span>
         <svg
           className={`h-3.5 w-3.5 shrink-0 text-[#98a2b3] transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"

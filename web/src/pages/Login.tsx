@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, BASE, formatApiError, restoreSession, storeTokens, token } from "../api";
+import { postAuthPath } from "../lib/postAuthRedirect";
 
 interface LoginResponse {
   access_token?: string | null;
@@ -133,12 +134,12 @@ export default function Login() {
     let cancelled = false;
     void (async () => {
       if (token()) {
-        if (!cancelled) nav("/findings", { replace: true });
+        if (!cancelled) nav(await postAuthPath(), { replace: true });
         return;
       }
       const ok = await restoreSession();
       if (!cancelled) {
-        if (ok) nav("/findings", { replace: true });
+        if (ok) nav(await postAuthPath(), { replace: true });
         else setCheckingSession(false);
       }
     })();
@@ -238,7 +239,7 @@ export default function Login() {
         await offerCredentialSave(e.currentTarget);
         sessionStorage.removeItem(PENDING_CREDENTIALS_KEY);
       }
-      nav("/findings");
+      nav(await postAuthPath());
     } catch (e) {
       setErr(formatApiError(e));
     } finally {
@@ -260,7 +261,7 @@ export default function Login() {
       storeTokens(res.access_token);
       const pending = takePendingCredentials();
       if (pending) await offerCredentialSave(null, pending);
-      nav("/findings");
+      nav(await postAuthPath());
     } catch (e) {
       const msg = formatApiError(e);
       if (/expired|sign in again/i.test(msg)) {
