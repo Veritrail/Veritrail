@@ -162,21 +162,16 @@ function SeverityIndicator({ severity }: { severity: string }) {
 }
 
 function RiskScoreDisplay({ score, severity }: { score: number; severity: string }) {
-  const styles =
-    severity === "critical"
-      ? "bg-red-50 text-red-800 border-red-500 ring-red-200/70"
-      : severity === "high"
-        ? "bg-red-50/90 text-red-700 border-red-400 ring-red-200/60"
-        : severity === "medium"
-          ? "bg-amber-50 text-amber-800 border-amber-400 ring-amber-200/70"
-          : "bg-slate-50 text-slate-600 border-slate-300 ring-slate-200/70";
+  const tone =
+    severity === "critical" || severity === "high"
+      ? "findings-v2-risk-pill--high"
+      : severity === "medium"
+        ? "findings-v2-risk-pill--medium"
+        : "findings-v2-risk-pill--low";
 
   return (
-    <span
-      aria-label={`Risk score ${score}`}
-      className={`inline-flex h-7 w-14 items-center justify-center rounded-md border-l-[3px] text-sm font-bold tabular-nums leading-none shadow-sm shadow-zinc-950/[0.04] ring-1 ${styles}`}
-    >
-      {score}
+    <span aria-label={`Risk score ${score}`} className={`findings-v2-risk-pill ${tone}`}>
+      <span className="findings-v2-risk-pill__inner">{score}</span>
     </span>
   );
 }
@@ -299,12 +294,6 @@ function AffectedResourceRow({
   const repoUrl = consoleUrl ? null : vcsResourceWebUrl(finding);
   const externalUrl = consoleUrl ?? repoUrl;
   const externalLabel = consoleUrl ? "View in AWS" : "View repo";
-  const sevDot =
-    finding.severity === "critical" || finding.severity === "high"
-      ? "bg-red-500"
-      : finding.severity === "medium"
-        ? "bg-amber-500"
-        : "bg-zinc-400";
   return (
     <div
       role="button"
@@ -322,7 +311,6 @@ function AffectedResourceRow({
       }}
       className="flex cursor-pointer items-center gap-5 rounded-xl border border-zinc-200/80 bg-white px-5 py-4 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
     >
-      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${sevDot}`} title={`${finding.severity} severity`} aria-hidden />
       <ResourceProviderTile finding={finding} />
       <div className="flex min-w-0 flex-[1.6] items-center gap-3">
         <span className="truncate text-[14px] font-semibold text-zinc-900">{name}</span>
