@@ -33,9 +33,6 @@ import {
   drawerSectionBody,
   drawerSectionHead,
   drawerSectionTitle,
-  drawerSummaryLabel,
-  drawerSummaryValue,
-  drawerSummaryValueStrong,
   drawerTitle,
 } from "./drawerStyles";
 import {
@@ -105,7 +102,6 @@ import {
   PostureMetricsRow,
   ResourceFieldRow,
   ResourceGroup,
-  SemanticNarrativeBlock,
 } from "./FindingDrawerSemantic";
 
 const DRAWER_MAX_W = "max-w-[640px]";
@@ -457,6 +453,122 @@ function awsAccountIdFromArn(arn: string): string | null {
   return m ? m[1] : null;
 }
 
+const timelineDotClass = {
+  risk: "bg-rose-400",
+  status: "bg-amber-400",
+  muted: "bg-zinc-300",
+} as const;
+
+function FindingTimelineCard({ finding }: { finding: Finding }) {
+  const statusLabel = finding.status.replace(/_/g, " ");
+  const riskBadgeClass =
+    finding.severity === "critical" || finding.severity === "high"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : finding.severity === "medium"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-zinc-200 bg-zinc-100 text-zinc-700";
+  const statusResolved = finding.status === "resolved";
+  const statusOpen = finding.status === "open";
+  const statusPillClass = statusResolved
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : statusOpen
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : "border-zinc-200 bg-zinc-100 text-zinc-600";
+  const statusDotClass = statusResolved ? "bg-emerald-500" : statusOpen ? "bg-amber-500" : "bg-zinc-400";
+  const openDays = (() => {
+    const t = new Date(finding.first_seen).getTime();
+    return Number.isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  })();
+
+  const rows = [
+    {
+      key: "risk",
+      dot: timelineDotClass.risk,
+      label: "Risk",
+      value: (
+        <span
+          className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2.5 py-0.5 text-[13px] font-semibold tabular-nums ${riskBadgeClass}`}
+        >
+          {finding.risk_score}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      dot: timelineDotClass.status,
+      label: "Status",
+      value: (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[13px] font-medium capitalize ${statusPillClass}`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${statusDotClass}`} aria-hidden />
+          {statusLabel}
+        </span>
+      ),
+    },
+    {
+      key: "first-seen",
+      dot: timelineDotClass.muted,
+      label: "First seen",
+      value: (
+        <span className="text-[13px] text-zinc-800">{formatFindingSeenAt(finding.first_seen)}</span>
+      ),
+    },
+    {
+      key: "duration",
+      dot: timelineDotClass.muted,
+      label: "Duration",
+      value: (
+        <span className="text-[13px] text-zinc-500">
+          {openDays != null ? `Open ${openDays} day${openDays === 1 ? "" : "s"}` : "—"}
+        </span>
+      ),
+    },
+    {
+      key: "last-seen",
+      dot: timelineDotClass.risk,
+      label: "Last seen",
+      value: (
+        <span className="text-[13px] text-zinc-800">{formatFindingSeenAt(finding.last_seen)}</span>
+      ),
+    },
+  ] as const;
+
+  return (
+    <div className={drawerPanel}>
+      <div className="border-b border-[#eef2f6] px-4 py-3">
+        <h3 className={drawerSectionTitle}>Finding timeline</h3>
+      </div>
+      <ol className="px-4 py-1">
+        {rows.map((row, index) => (
+          <li key={row.key} className="flex min-h-[2.75rem] items-center gap-3 py-1.5">
+            <div className="relative flex w-3 shrink-0 flex-col items-center self-stretch">
+              {index > 0 ? (
+                <span
+                  className="absolute left-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-zinc-200"
+                  aria-hidden
+                />
+              ) : null}
+              {index < rows.length - 1 ? (
+                <span
+                  className="absolute bottom-0 left-1/2 h-1/2 w-px -translate-x-1/2 bg-zinc-200"
+                  aria-hidden
+                />
+              ) : null}
+              <span
+                className={`relative z-10 my-auto h-2 w-2 shrink-0 rounded-full ${row.dot}`}
+                aria-hidden
+              />
+            </div>
+            <span className="w-[5.75rem] shrink-0 text-[13px] text-zinc-500">{row.label}</span>
+            <div className="min-w-0 flex-1">{row.value}</div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function SelectedResourceInspector({ finding }: { finding: Finding }) {
   const accountId = awsAccountIdFromArn(finding.resource_arn);
   const ev = finding.evidence;
@@ -483,26 +595,6 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
             ? "Regions without full Config recording"
             : "Affected regions";
 
-  const statusLabel = finding.status.replace(/_/g, " ");
-  const riskBadgeClass =
-    finding.severity === "critical" || finding.severity === "high"
-      ? "bg-rose-50 text-rose-700 ring-rose-200/70"
-      : finding.severity === "medium"
-        ? "bg-amber-50 text-amber-800 ring-amber-200/70"
-        : "bg-zinc-100 text-zinc-700 ring-zinc-200/70";
-  const statusResolved = finding.status === "resolved";
-  const statusOpen = finding.status === "open";
-  const statusPillClass = statusResolved
-    ? "bg-emerald-50 text-emerald-700 ring-emerald-200/60"
-    : statusOpen
-      ? "bg-amber-50 text-amber-800 ring-amber-200/60"
-      : "bg-zinc-100 text-zinc-600 ring-zinc-200/70";
-  const statusDotClass = statusResolved ? "bg-emerald-500" : statusOpen ? "bg-amber-500" : "bg-zinc-400";
-  const openDays = (() => {
-    const t = new Date(finding.first_seen).getTime();
-    return Number.isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000));
-  })();
-
   const showFieldList =
     fieldDetailRows.length > 0 ||
     accountId != null ||
@@ -512,74 +604,35 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
   const identifierHref = isVcsResourceIdentifier(finding.resource_arn) ? identifierValue : null;
   const rootInspector = isAwsRootFinding(finding);
 
-  const timelineBlock = (
-    <div className="border-t border-zinc-100 bg-white px-4 pb-4 pt-3">
-      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Finding timeline</p>
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className={`inline-flex items-baseline gap-1.5 rounded-lg px-2.5 py-1 ring-1 ring-inset ${riskBadgeClass}`}>
-          <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">Risk</span>
-          <span className="text-[15px] font-bold leading-none tabular-nums">{finding.risk_score}</span>
-        </span>
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium capitalize ring-1 ring-inset ${statusPillClass}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${statusDotClass}`} aria-hidden />
-          {statusLabel}
-        </span>
-      </div>
-
-      <ol>
-        <li className="flex gap-3">
-          <div className="flex flex-col items-center">
-            <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full bg-zinc-300 ring-4 ring-white" aria-hidden />
-            <span className="w-px flex-1 bg-zinc-200" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1 pb-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">First seen</p>
-            <p className="text-[13px] text-zinc-700">{formatFindingSeenAt(finding.first_seen)}</p>
-            {openDays != null && (
-              <p className="mt-1 text-[11px] text-zinc-400">Open {openDays} day{openDays === 1 ? "" : "s"}</p>
-            )}
-          </div>
-        </li>
-        <li className="flex gap-3">
-          <div className="flex flex-col items-center">
-            <span className="mt-[5px] h-2 w-2 shrink-0 rounded-full bg-rose-400 ring-4 ring-white" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Last seen</p>
-            <p className="text-[13px] text-zinc-700">{formatFindingSeenAt(finding.last_seen)}</p>
-          </div>
-        </li>
-      </ol>
-    </div>
-  );
-
   if (rootInspector) {
     return (
-      <div className={`${drawerPanel} overflow-hidden`}>
-        <div className={drawerSectionHead}>
-          <h3 className={drawerSectionTitle}>Resource details</h3>
+      <div className="space-y-3.5">
+        <div className={`${drawerPanel} overflow-hidden`}>
+          <div className={drawerSectionHead}>
+            <h3 className={drawerSectionTitle}>Resource details</h3>
+          </div>
+          <dl className="bg-white px-4 py-0.5">
+            {accountId ? (
+              <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>
+            ) : null}
+            <ResourceFieldRow label="ARN" mono>
+              {identifierValue}
+            </ResourceFieldRow>
+          </dl>
         </div>
-        <dl className="border-b border-zinc-100 bg-white px-4 py-0.5">
-          {accountId ? (
-            <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>
-          ) : null}
-          <ResourceFieldRow label="ARN" mono>
-            {identifierValue}
-          </ResourceFieldRow>
-        </dl>
-        {timelineBlock}
+        <FindingTimelineCard finding={finding} />
       </div>
     );
   }
 
   return (
-    <div className={`${drawerPanel} overflow-hidden`}>
-      <div className={drawerSectionHead}>
-        <h3 className={drawerSectionTitle}>Resource details</h3>
-      </div>
+    <div className="space-y-3.5">
+      <div className={`${drawerPanel} overflow-hidden`}>
+        <div className={drawerSectionHead}>
+          <h3 className={drawerSectionTitle}>Resource details</h3>
+        </div>
 
-      {showFieldList && (
+        {showFieldList && (
         <dl className="border-b border-zinc-100 bg-white px-4 py-1 pt-3">
           {fieldDetailRows.map((row) => (
             <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
@@ -601,11 +654,11 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
               identifierValue
             )}
           </ResourceFieldRow>
-        </dl>
-      )}
+          </dl>
+        )}
 
-      {exposingRules.length > 0 && (
-        <ResourceGroup title={`Public ingress (${exposingRules.length})`}>
+        {exposingRules.length > 0 && (
+          <ResourceGroup title={`Public ingress (${exposingRules.length})`}>
           <ul className="space-y-1.5">
             {exposingRules.map((rule, i) => {
               const proto = String(rule.protocol ?? "tcp");
@@ -664,8 +717,8 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
           </PostureMetricsRow>
         </ResourceGroup>
       )}
-
-      {timelineBlock}
+    </div>
+    <FindingTimelineCard finding={finding} />
     </div>
   );
 }
@@ -721,25 +774,75 @@ function frameworkCompact(framework: string): string {
   return frameworkLabel(framework);
 }
 
-function OverviewSummaryRow({
-  label,
+type OverviewSummaryTone = "risk" | "info";
+
+function OverviewSummaryIcon({
+  tone,
   children,
-  emphasis = false,
-  valueClassName,
 }: {
-  label: string;
+  tone: OverviewSummaryTone;
   children: ReactNode;
-  emphasis?: boolean;
-  valueClassName?: string;
 }) {
-  const valueBase = emphasis ? drawerSummaryValueStrong : drawerSummaryValue;
+  const toneClass =
+    tone === "risk" ? "bg-rose-50 text-rose-600" : "bg-sky-50 text-blue-600";
   return (
-    <div className="grid grid-cols-[6.75rem_1fr] gap-x-4 border-b border-[#eef2f6] px-4 py-3 last:border-b-0 sm:grid-cols-[7.25rem_1fr]">
-      <dt className={drawerSummaryLabel}>{label}</dt>
-      <dd className={valueClassName ? `${valueBase} ${valueClassName}` : valueBase}>{children}</dd>
+    <div
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${toneClass}`}
+    >
+      {children}
     </div>
   );
 }
+
+function OverviewSummaryRow({
+  title,
+  description,
+  icon,
+  tone,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  tone: OverviewSummaryTone;
+}) {
+  return (
+    <div className="flex items-stretch border-b border-[#eef2f6] last:border-b-0">
+      <div className="flex w-[11.75rem] shrink-0 items-center gap-3 border-r border-[#e5e7eb] px-4 py-3.5">
+        <OverviewSummaryIcon tone={tone}>{icon}</OverviewSummaryIcon>
+        <span className="text-[13px] font-semibold leading-snug text-zinc-900">{title}</span>
+      </div>
+      <div className="flex min-w-0 flex-1 items-center px-4 py-3.5">
+        <p className="text-[12px] leading-relaxed text-zinc-600">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+const overviewSummaryIcons = {
+  risk: (
+    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+    </svg>
+  ),
+  businessImpact: (
+    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 16l4-4 4 4 5-6" />
+    </svg>
+  ),
+  recommendedAction: (
+    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m9 12 2 2 4-4" />
+    </svg>
+  ),
+  whyItMatters: (
+    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" d="M12 11v5" />
+      <path strokeLinecap="round" d="M12 8h.01" />
+    </svg>
+  ),
+} as const;
 
 function FrameworkThresholdCard({ item }: { item: CredentialFrameworkImpactItem }) {
   const isCis = item.isActive;
@@ -805,6 +908,7 @@ function OverviewTabContent({
   impact,
   risk,
   fix,
+  whyItMatters,
   finding,
   hasException,
   documentation,
@@ -813,6 +917,7 @@ function OverviewTabContent({
   impact: string;
   risk: string;
   fix: string;
+  whyItMatters: string;
   finding: Finding;
   hasException: boolean;
   documentation?: ReturnType<typeof documentationForCheck>;
@@ -821,26 +926,41 @@ function OverviewTabContent({
   const riskLine = documentation?.overview?.context ?? impact;
   const businessImpact = documentation?.overview?.exposure ?? risk;
   const recommendedAction = documentation?.overview?.fix ?? fix;
+  const whyThisMatters = documentation?.whyShown ?? whyItMatters;
   const frameworkImpact = credentialUnusedFrameworkImpact(finding.check_id);
-  const severityDisplay = severityLabel(finding.severity);
-  const severityPillClass = severityPillClassName(finding.severity);
 
   return (
     <div className="space-y-3.5">
       <div className={drawerPanel}>
-        <div className={drawerSectionHead}>
-          <h3 className={drawerSectionTitle}>Security summary</h3>
+        <div className="border-b border-[#eef2f6] px-4 py-3">
+          <h3 className={drawerSectionTitle}>Overview summary</h3>
         </div>
-        <dl className="bg-white">
-          <OverviewSummaryRow label="Severity">
-            <span className={severityPillClass}>{severityDisplay}</span>
-          </OverviewSummaryRow>
-          <OverviewSummaryRow label="Risk">{riskLine}</OverviewSummaryRow>
-          <OverviewSummaryRow label="Business impact">{businessImpact}</OverviewSummaryRow>
-          <OverviewSummaryRow label="Recommended action" emphasis>
-            {recommendedAction}
-          </OverviewSummaryRow>
-        </dl>
+        <div>
+          <OverviewSummaryRow
+            title="Risk"
+            description={riskLine}
+            icon={overviewSummaryIcons.risk}
+            tone="risk"
+          />
+          <OverviewSummaryRow
+            title="Business impact"
+            description={businessImpact}
+            icon={overviewSummaryIcons.businessImpact}
+            tone="info"
+          />
+          <OverviewSummaryRow
+            title="Recommended action"
+            description={recommendedAction}
+            icon={overviewSummaryIcons.recommendedAction}
+            tone="info"
+          />
+          <OverviewSummaryRow
+            title="Why this matters"
+            description={whyThisMatters}
+            icon={overviewSummaryIcons.whyItMatters}
+            tone="info"
+          />
+        </div>
       </div>
 
       {frameworkImpact && <FrameworkImpactCard items={frameworkImpact} />}
@@ -3909,6 +4029,88 @@ function mappedControlLabel(ctrl: MappedControl) {
   return `${frameworkLabel(ctrl.framework)} ${ctrl.control_id}`;
 }
 
+const complianceCard = "overflow-hidden rounded-[14px] border border-[#e6ebf2] bg-white";
+
+function CompositeControlBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-[#b2ddff] bg-[#eff8ff] px-2 py-0.5 text-[11px] font-semibold leading-5 text-[#175cd3]">
+      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 2 2 7l10 5 10-5-10-5Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="m2 12 10 5 10-5" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="m2 17 10 5 10-5" />
+      </svg>
+      Composite control
+    </span>
+  );
+}
+
+function ComplianceWhyCallout({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-4 flex gap-3 rounded-[10px] border border-[#b2ddff] bg-[#f0f9ff] px-3.5 py-3">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#dbeafe] text-[#1570ef]">
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+          <circle cx="12" cy="12" r="9" />
+          <path strokeLinecap="round" d="M12 11v5" />
+          <path strokeLinecap="round" d="M12 8h.01" />
+        </svg>
+      </span>
+      <p className="text-[13px] leading-5 text-[#344054]">
+        <span className="font-semibold text-[#101828]">Why this matters: </span>
+        {children}
+      </p>
+    </div>
+  );
+}
+
+function MappedControlDocsLink({
+  ctrl,
+  accountId,
+}: {
+  ctrl: MappedControl;
+  accountId?: string | null;
+}) {
+  const linkClass =
+    "inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-[#1570ef] hover:text-[#175cd3]";
+  if (ctrl.reference_url) {
+    return (
+      <a href={ctrl.reference_url} target="_blank" rel="noreferrer" className={linkClass}>
+        Docs
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+          />
+        </svg>
+      </a>
+    );
+  }
+  return (
+    <Link to={compliancePageHref(ctrl, accountId)} className={linkClass}>
+      View
+    </Link>
+  );
+}
+
+function DetectionLogicCard({ children }: { children: ReactNode }) {
+  return (
+    <div className={complianceCard}>
+      <div className="px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eff8ff] text-[#1570ef]">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="m20 20-3.5-3.5" />
+            </svg>
+          </span>
+          <h3 className="text-[15px] font-semibold leading-5 text-[#101828]">Detection logic</h3>
+        </div>
+        <p className="mt-3 text-[13px] leading-5 text-[#475467]">{children}</p>
+      </div>
+    </div>
+  );
+}
+
 function ComplianceTabContent({
   checkId,
   accountId,
@@ -3929,7 +4131,7 @@ function ComplianceTabContent({
 
   if (isLoading) {
     return (
-      <div className={`${drawerPanel} px-4 py-3 text-[13px] text-zinc-500`}>Loading compliance mapping…</div>
+      <div className={`${complianceCard} px-4 py-4 text-[13px] text-[#667085]`}>Loading compliance mapping…</div>
     );
   }
 
@@ -3948,77 +4150,55 @@ function ComplianceTabContent({
   const auditNarrative = checkDoc?.compliance?.auditNarrative ?? null;
 
   return (
-    <div className="space-y-2.5">
-      <div className={`${drawerPanel} px-4 py-3`}>
-        <span className="inline-block rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
-          Composite control
-        </span>
-        <h3 className="mt-2 text-[13px] font-semibold text-zinc-900">{primaryComposite.title}</h3>
-        <p className="mt-2 text-[12px] leading-relaxed text-zinc-600">{primaryComposite.description}</p>
-        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-          <span className="font-medium text-zinc-600">Why this matters: </span>
-          {evidenceGuidance}
-        </p>
+    <div className="space-y-3">
+      <div className={complianceCard}>
+        <div className="px-4 pb-4 pt-4">
+          <CompositeControlBadge />
+          <h3 className="mt-2.5 text-[17px] font-semibold leading-6 tracking-[-0.01em] text-[#101828]">
+            {primaryComposite.title}
+          </h3>
+          <p className="mt-2 text-[13px] leading-5 text-[#475467]">{primaryComposite.description}</p>
+          <ComplianceWhyCallout>{evidenceGuidance}</ComplianceWhyCallout>
+        </div>
+
         {mappedControls.length > 0 && (
-          <div className="mt-3 border-t border-zinc-100 pt-3">
-            <p className="text-[11px] font-medium text-zinc-500">Mapped controls</p>
-            <ul className="mt-2 space-y-1">
+          <div className="border-t border-[#eaecf0]">
+            <p className="px-4 pb-1.5 pt-3.5 text-[13px] font-medium text-[#667085]">Mapped controls</p>
+            <ul className="divide-y divide-[#eaecf0]">
               {mappedControls.map((c) => (
                 <li
                   key={`${c.framework}:${c.control_id}`}
-                  className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[12px]"
+                  className="flex items-center justify-between gap-4 px-4 py-3"
                 >
-                  <span className="text-zinc-700">{mappedControlLabel(c)}</span>
-                  {c.reference_url ? (
-                    <a
-                      href={c.reference_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
-                    >
-                      Docs
-                      <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                      </svg>
-                    </a>
-                  ) : (
-                    <Link
-                      to={compliancePageHref(c, accountId)}
-                      className="shrink-0 text-[11px] font-medium text-indigo-600 hover:text-indigo-800"
-                    >
-                      View
-                    </Link>
-                  )}
+                  <span className="text-[13px] leading-5 text-[#344054]">{mappedControlLabel(c)}</span>
+                  <MappedControlDocsLink ctrl={c} accountId={accountId} />
                 </li>
               ))}
             </ul>
           </div>
         )}
-        <div className="mt-3 border-t border-zinc-100 pt-3">
+
+        <div className="border-t border-[#eaecf0] px-4 py-3.5">
           <Link
             to={compositeComplianceHref(primaryComposite.id, accountId)}
-            className="text-[12px] font-medium text-indigo-600 hover:text-indigo-800"
+            className="text-[13px] font-medium text-[#1570ef] hover:text-[#175cd3]"
           >
             View on Compliance page →
           </Link>
         </div>
       </div>
 
-      {auditNarrative && (
-        <SemanticNarrativeBlock tag="Detection Logic" tone="neutral">
-          {auditNarrative}
-        </SemanticNarrativeBlock>
-      )}
+      {auditNarrative && <DetectionLogicCard>{auditNarrative}</DetectionLogicCard>}
 
       {secondaryComposites.length > 0 && (
-        <div className={`${drawerPanel} px-4 py-3`}>
-          <p className="text-[11px] font-medium text-zinc-500">Also contributes to</p>
-          <ul className="mt-1.5 space-y-1">
+        <div className={`${complianceCard} px-4 py-3.5`}>
+          <p className="text-[13px] font-medium text-[#667085]">Also contributes to</p>
+          <ul className="mt-2 divide-y divide-[#eaecf0]">
             {secondaryComposites.map((c) => (
-              <li key={c.id} className="text-[12px]">
+              <li key={c.id} className="py-2.5 text-[13px] first:pt-0 last:pb-0">
                 <Link
                   to={compositeComplianceHref(c.id, accountId)}
-                  className="font-medium text-indigo-600 hover:text-indigo-800"
+                  className="font-medium text-[#1570ef] hover:text-[#175cd3]"
                 >
                   {c.title}
                 </Link>
@@ -6907,6 +7087,7 @@ export function FindingDrawer({
             impact={ops.impact}
             risk={ops.risk}
             fix={ops.fix}
+            whyItMatters={rem.why}
             finding={finding}
             hasException={hasException}
             documentation={checkDoc}

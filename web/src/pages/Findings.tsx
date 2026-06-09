@@ -18,15 +18,19 @@ import { checkLabels } from "../data/checkLabels";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
-import { severityLabel } from "../lib/findingDisplay";
+import { resourceTypePillLabel } from "../lib/findingDisplay";
 import { isAccountConnected } from "../lib/accountConnection";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useRecheckNotifications, type RecheckResponse } from "../context/RecheckNotificationsContext";
+import { CloudProviderMark } from "../components/FindingResourceIcon";
 import "../styles/findings-v2.css";
 
 type Finding = {
   id: string;
   account_id?: string;
+  account_label?: string | null;
+  account_name?: string | null;
+  account_provider?: string | null;
   check_id: string;
   resource_arn: string;
   title: string;
@@ -182,127 +186,254 @@ function shortResourceName(label: string): string {
   return afterColon || label;
 }
 
+function assetTypeLabel(checkId: string): string {
+  if (checkId.startsWith("iam.root")) return "AWS Root User";
+  if (checkId.startsWith("iam.role")) return "IAM Role";
+  if (checkId.startsWith("iam.user")) return "IAM User";
+  if (checkId.startsWith("iam.access_key")) return "IAM ARN";
+  if (checkId.startsWith("ec2.ebs")) return "EBS Volume";
+  if (checkId.startsWith("s3.bucket")) return "S3 Bucket";
+  return resourceTypePillLabel(checkId)
+    .split(" ")
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (lower === "iam") return "IAM";
+      if (lower === "aws") return "AWS";
+      if (lower === "s3") return "S3";
+      if (lower === "kms") return "KMS";
+      if (lower === "ec2") return "EC2";
+      if (lower === "rds") return "RDS";
+      if (lower === "eks") return "EKS";
+      if (lower === "ecr") return "ECR";
+      if (lower === "ecs") return "ECS";
+      if (lower === "acm") return "ACM";
+      if (lower === "ssm") return "SSM";
+      if (lower === "sns") return "SNS";
+      if (lower === "sqs") return "SQS";
+      if (lower === "elb") return "ELB";
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
+
 type ResourceOption = {
   key: string;
   label: string;
   finding: Finding;
 };
 
-function ResourcePicker({
-  options,
+const FINDINGS_ROW_GRID =
+  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-2.5 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 sm:items-center";
+
+const RESOURCE_CHILD_PREVIEW = 3;
+
+function RowChevron({ expanded, muted }: { expanded: boolean; muted?: boolean }) {
+  return (
+    <svg
+      className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? "rotate-90" : ""} ${muted ? "text-[var(--chevron)] opacity-35" : "text-[var(--chevron)] group-hover:text-[var(--chevron-hover)]"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+    </svg>
+  );
+}
+
+function formatResourceDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return `${date} ${time}`;
+}
+
+function ResourceProviderTile({ finding }: { finding: Finding }) {
+  return <CloudProviderMark finding={finding} />;
+}
+
+function awsConsoleUrl(arn: string): string | null {
+  if (!arn.startsWith("arn:aws:")) return null;
+  const segs = arn.split(":");
+  const service = segs[2];
+  const region = segs[3] || "us-east-1";
+  const resource = segs.slice(5).join(":");
+  switch (service) {
+    case "iam":
+      if (resource === "root") return "https://console.aws.amazon.com/iam/home#/security_credentials";
+      if (resource.startsWith("user/"))
+        return `https://console.aws.amazon.com/iam/home#/users/details/${encodeURIComponent(resource.slice(5))}`;
+      if (resource.startsWith("role/"))
+        return `https://console.aws.amazon.com/iam/home#/roles/details/${encodeURIComponent(resource.slice(5))}`;
+      return "https://console.aws.amazon.com/iam/home";
+    case "s3":
+      return `https://s3.console.aws.amazon.com/s3/buckets/${encodeURIComponent(resource)}`;
+    case "ec2":
+    case "eks":
+    case "kms":
+    case "rds":
+      return `https://${region}.console.aws.amazon.com/${service}/home?region=${region}`;
+    default:
+      return "https://console.aws.amazon.com/";
+  }
+}
+
+function AffectedResourceRow({
+  finding,
+  resourceLabel,
+  assetType,
   onSelect,
 }: {
-  options: ResourceOption[];
-  onSelect: (finding: Finding) => void;
+  finding: Finding;
+  resourceLabel: string;
+  assetType: string;
+  onSelect: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      const target = e.target as Node;
-      if (pickerRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  if (options.length === 0) return null;
-
-  const summary = `${options.length} resource${options.length === 1 ? "" : "s"}`;
-
+  const name = shortResourceName(resourceLabel);
+  const account = finding.account_label || finding.account_name || finding.account_id || "—";
+  const consoleUrl = awsConsoleUrl(finding.resource_arn);
   return (
     <div
-      ref={pickerRef}
-      className="relative mt-1.5 inline-flex max-w-full align-top"
-      onClick={(event) => event.stopPropagation()}
+      role="button"
+      tabIndex={0}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          onSelect();
+        }
+      }}
+      className="flex cursor-pointer items-center gap-5 rounded-xl border border-zinc-200/80 bg-white px-5 py-4 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
     >
-      <button
-        type="button"
-        className={`inline-flex max-w-[17rem] items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] font-semibold leading-none transition-colors ${
-          open
-            ? "border-indigo-200 bg-indigo-50/70 text-indigo-700"
-            : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
-        }`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        title={options.length === 1 ? options[0].label : "Select resource"}
-      >
-        <svg className="h-3.5 w-3.5 shrink-0 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75 12 3l8.25 3.75L12 10.5 3.75 6.75Zm0 5.25L12 15.75l8.25-3.75M3.75 17.25 12 21l8.25-3.75" />
-        </svg>
-        <span className="truncate">{summary}</span>
-        <svg
-          className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          viewBox="0 0 24 24"
-          aria-hidden
+      <ResourceProviderTile finding={finding} />
+      <div className="flex min-w-0 flex-[1.6] items-center gap-3">
+        <span className="truncate text-[14px] font-semibold text-zinc-900">{name}</span>
+        <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold text-sky-700">{assetType}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Account</p>
+        <p className="mt-1 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
+          <span className="truncate">{account}</span>
+          <button
+            type="button"
+            aria-label="Copy account"
+            onClick={(event) => {
+              event.stopPropagation();
+              void navigator.clipboard.writeText(account);
+            }}
+            className="shrink-0 text-zinc-300 transition hover:text-zinc-500"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3M6 9h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+            </svg>
+          </button>
+        </p>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Last seen</p>
+        <p className="mt-1 flex items-center gap-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">
+          {formatResourceDate(finding.last_seen)}
+          <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+        </p>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">First seen</p>
+        <p className="mt-1 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
+      </div>
+      {consoleUrl ? (
+        <a
+          href={consoleUrl}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(event) => event.stopPropagation()}
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          View in AWS
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+        </a>
+      ) : null}
+    </div>
+  );
+}
 
-      {open && (
-        <div
-          className="absolute left-0 top-full z-50 mt-2 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-xl shadow-zinc-900/[0.12] ring-1 ring-zinc-950/[0.02]"
-          role="menu"
-          aria-label="Resources"
-        >
-          <div className="border-b border-zinc-100 bg-zinc-50/70 px-3.5 py-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-              {options.length === 1 ? "Resource" : `${options.length} resources`}
+function AffectedResourcesCard({
+  resources,
+  totalCount,
+  assetType,
+  hiddenCount,
+  showMore,
+  onShowMore,
+  onSelect,
+  onViewAll,
+}: {
+  resources: ResourceOption[];
+  totalCount: number;
+  assetType: string;
+  hiddenCount: number;
+  showMore: boolean;
+  onShowMore: () => void;
+  onSelect: (finding: Finding) => void;
+  onViewAll: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.03]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <h4 className="text-base font-semibold text-zinc-900">Affected resources</h4>
+            <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-600">
+              {totalCount}
             </span>
           </div>
-          <div className="max-h-72 overflow-auto p-1.5">
-            {options.map((option) => {
-              const shortName = shortResourceName(option.label);
-              const showArn = shortName !== option.label;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  role="menuitem"
-                  className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-zinc-50"
-                  title={option.label}
-                  onClick={() => {
-                    setOpen(false);
-                    onSelect(option.finding);
-                  }}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-400 transition-colors group-hover:bg-indigo-50 group-hover:text-indigo-500">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75 12 3l8.25 3.75L12 10.5 3.75 6.75Zm0 5.25L12 15.75l8.25-3.75M3.75 17.25 12 21l8.25-3.75" />
-                    </svg>
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate text-[13px] font-semibold text-zinc-900 ${showArn ? "" : "font-mono"}`}>
-                      {shortName}
-                    </span>
-                    {showArn && (
-                      <span className="mt-0.5 block truncate font-mono text-[11px] text-zinc-400">{option.label}</span>
-                    )}
-                  </span>
-                  <svg className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                  </svg>
-                </button>
-              );
-            })}
-          </div>
+          <p className="mt-1.5 text-[13px] text-zinc-500">Resources and identities impacted by this finding.</p>
         </div>
-      )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onViewAll();
+          }}
+          className="inline-flex shrink-0 items-center gap-2 text-[13px] font-semibold text-indigo-600 transition hover:text-indigo-800"
+        >
+          See all in graph
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+          </svg>
+        </button>
+      </div>
+      <div className="mt-4 flex flex-col gap-3">
+        {resources.map((resource) => (
+          <AffectedResourceRow
+            key={resource.key}
+            finding={resource.finding}
+            resourceLabel={resource.label}
+            assetType={assetType}
+            onSelect={() => onSelect(resource.finding)}
+          />
+        ))}
+        {showMore ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onShowMore();
+            }}
+            className="self-start rounded-lg px-2.5 py-2 text-[13px] font-semibold text-indigo-600 transition hover:text-indigo-800"
+          >
+            Show {hiddenCount} more
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -310,14 +441,19 @@ function ResourcePicker({
 function FindingRow({
   checkId,
   items,
+  expanded,
+  onToggleExpanded,
   onReview,
 }: {
   checkId: string;
   items: Finding[];
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onReview: (items: Finding[]) => void;
 }) {
   const sev = items[0]?.severity ?? "low";
   const title = checkLabels[checkId] ?? items[0]?.title ?? checkId;
+  const assetType = assetTypeLabel(checkId);
   const topRisk = Math.max(...items.map((f) => f.risk_score));
   const resources = useMemo<ResourceOption[]>(() => {
     const seen = new Set<string>();
@@ -332,67 +468,80 @@ function FindingRow({
     sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
       ? `findings-v2-row--${sev}`
       : "findings-v2-row--low";
-  const [expanded, setExpanded] = useState(false);
-  const toggle = () => setExpanded((value) => !value);
+  const [showAllResources, setShowAllResources] = useState(false);
+  const canExpand = resources.length > 0;
+  const hiddenResourceCount = Math.max(0, resources.length - RESOURCE_CHILD_PREVIEW);
+  const visibleResources = showAllResources ? resources : resources.slice(0, RESOURCE_CHILD_PREVIEW);
+  const showMoreRow = expanded && !showAllResources && hiddenResourceCount > 0;
+
+  useEffect(() => {
+    if (!expanded) setShowAllResources(false);
+  }, [expanded]);
+
+  const handleParentRowClick = () => {
+    if (canExpand) onToggleExpanded();
+    else onReview(items);
+  };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-expanded={expanded}
-      onClick={toggle}
-      onKeyDown={(event) => {
-        if (event.defaultPrevented) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          toggle();
-        }
-      }}
-      aria-label={`${title}, ${severityLabel(sev)} — ${resources.length} resource${resources.length === 1 ? "" : "s"}`}
-      className={`findings-v2-row ${railClass} group grid w-full grid-cols-1 gap-3 py-2.5 pl-4 pr-4 last:rounded-b-2xl sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 ${expanded ? "sm:items-start" : "sm:items-center"}`}
-    >
-      <div className="hidden w-5 shrink-0 items-center justify-center pt-0.5 sm:flex">
-        <svg
-          className={`h-3.5 w-3.5 text-[var(--chevron)] transition ${expanded ? "rotate-90 text-[var(--chevron-hover)]" : "group-hover:translate-x-0.5 group-hover:text-[var(--chevron-hover)]"}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.5}
-          viewBox="0 0 24 24"
-          aria-hidden
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-        </svg>
-      </div>
+    <div className={`findings-v2-row-group ${railClass} ${expanded ? "is-expanded" : ""}`}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={canExpand ? expanded : undefined}
+        aria-label={`${title}${canExpand ? `, ${resources.length} resources` : ""}`}
+        className={`findings-v2-row finding-row ${railClass} group ${FINDINGS_ROW_GRID} cursor-pointer ${expanded ? "is-expanded sm:items-start" : "sm:items-center"}`}
+        onClick={handleParentRowClick}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleParentRowClick();
+          }
+        }}
+      >
+        <div className="flex w-5 shrink-0 items-center justify-center self-center sm:col-auto sm:self-start sm:pt-2">
+          <RowChevron expanded={expanded && canExpand} muted={!canExpand} />
+        </div>
 
-      <div className="sm:w-[5.5rem] shrink-0 pt-0.5">
-        <SeverityIndicator severity={sev} />
-      </div>
+        <div className="hidden shrink-0 self-start pt-2 sm:col-auto sm:block sm:w-[5.5rem]">
+          <SeverityIndicator severity={sev} />
+        </div>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold leading-snug tracking-[-0.01em] text-[#111827]">{title}</p>
-        {expanded && (
-          <div className="mt-2.5 flex max-h-52 flex-wrap gap-2 overflow-auto pr-1">
-            {resources.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                title={r.label}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onReview([r.finding]);
-                }}
-                className="inline-flex max-w-full items-center rounded-full border border-[#e6ebf2] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#475467] shadow-sm shadow-zinc-950/[0.02] transition-colors hover:border-[#cbd5e1] hover:bg-zinc-50 hover:text-[#1f4e79]"
-              >
-                <span className="truncate">{shortResourceName(r.label)}</span>
-              </button>
-            ))}
+        <div className="finding-title-cell finding-cell min-w-0 sm:col-auto">
+          <span className="finding-title block truncate">{title}</span>
+          <div className="mt-1 sm:hidden">
+            <SeverityIndicator severity={sev} />
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="flex shrink-0 items-center justify-start pt-0.5 sm:w-16 sm:justify-center">
-        <RiskScoreDisplay score={topRisk} severity={sev} />
+        <div
+          className="flex shrink-0 items-center justify-end self-center sm:col-auto sm:w-16 sm:justify-center sm:self-start sm:pt-2"
+          onClick={(event) => {
+            event.stopPropagation();
+            onReview(items);
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <RiskScoreDisplay score={topRisk} severity={sev} />
+        </div>
       </div>
+      {expanded && canExpand ? (
+        <div
+          className="border-t border-zinc-100 py-5 pl-[7rem] pr-5"
+          style={{ borderLeft: "3px solid var(--rail)" }}
+        >
+          <AffectedResourcesCard
+            resources={visibleResources}
+            totalCount={resources.length}
+            assetType={assetType}
+            hiddenCount={hiddenResourceCount}
+            showMore={showMoreRow}
+            onShowMore={() => setShowAllResources(true)}
+            onSelect={(finding) => onReview([finding])}
+            onViewAll={() => onReview(items)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -416,6 +565,7 @@ export default function Findings() {
     parseFrameworkParam(searchParams.get("framework")),
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get("account") ?? "");
   const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, reportScanFailure, clearDrawerVerifyFlash } =
     useRecheckNotifications();
@@ -576,6 +726,15 @@ export default function Findings() {
     setRemTab(defaultFindingRemediationMode(top.check_id));
     clearDrawerVerifyFlash();
   }
+
+  const toggleExpandedCheck = useCallback((checkId: string) => {
+    setExpandedCheckIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(checkId)) next.delete(checkId);
+      else next.add(checkId);
+      return next;
+    });
+  }, []);
 
   function handleBenchmarkChange(next: FrameworkId[]) {
     setSelectedFrameworks(next);
@@ -844,9 +1003,16 @@ export default function Findings() {
                     <span className="w-16 text-center">Risk</span>
                   </div>
 
-                  <div className="divide-y divide-[#eef2f6]">
+                  <div>
                     {displayGroups.map(([checkId, items]) => (
-                      <FindingRow key={checkId} checkId={checkId} items={items} onReview={openReview} />
+                      <FindingRow
+                        key={checkId}
+                        checkId={checkId}
+                        items={items}
+                        expanded={expandedCheckIds.has(checkId)}
+                        onToggleExpanded={() => toggleExpandedCheck(checkId)}
+                        onReview={openReview}
+                      />
                     ))}
                   </div>
                 </>

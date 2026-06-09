@@ -124,21 +124,21 @@ export function AccountSelect({
 
   if (!current) return null;
 
-	  return (
-	    <div ref={ref} className="relative">
+  return (
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`${CONTEXT_PILL} max-w-[18rem] cursor-pointer gap-2.5 text-left hover:border-zinc-300 hover:bg-zinc-50/80`}
+        className={`${CONTEXT_PILL} max-w-[18rem] cursor-pointer gap-2.5 text-left border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03] transition hover:border-zinc-300 hover:bg-zinc-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
       >
         <ProviderMark provider={current.provider} className="h-6 w-10" />
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-none tracking-[-0.02em] text-zinc-900">
           {current.label || groupAccountId(current.account_id ?? "")}
         </span>
         <svg
-          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
@@ -152,26 +152,28 @@ export function AccountSelect({
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg shadow-zinc-900/10"
+          className="absolute left-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl shadow-zinc-950/10 ring-1 ring-zinc-100"
         >
-	          {accounts.map((a) => {
-	            const active = a.id === value;
-	            const hasLabel = !!a.label && a.label !== a.account_id;
+          {accounts.map((a) => {
+            const active = a.id === value;
+            const hasLabel = !!a.label && a.label !== a.account_id;
             return (
               <button
                 key={a.id}
                 type="button"
                 role="option"
                 aria-selected={active}
-	                onClick={() => {
-	                  onChange(a.id);
-	                  setOpen(false);
-	                }}
-                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${active ? "bg-zinc-50" : "hover:bg-zinc-50/70"}`}
+                onClick={() => {
+                  onChange(a.id);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 ${
+                  active ? "bg-indigo-50 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                }`}
               >
                 <ProviderMark provider={a.provider} className="h-5 w-10 shrink-0" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold leading-tight tracking-[-0.02em] text-zinc-900">
+                  <span className="block truncate text-sm font-semibold leading-tight tracking-[-0.02em]">
                     {hasLabel ? a.label : groupAccountId(a.account_id ?? "")}
                   </span>
                   {hasLabel ? (
@@ -191,7 +193,7 @@ export function AccountSelect({
           <Link
             to="/accounts"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 border-t border-zinc-100 px-4 py-3 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50/50"
+            className="flex items-center gap-2.5 border-t border-zinc-100 px-4 py-3 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50/40"
           >
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
