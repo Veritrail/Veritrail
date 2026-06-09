@@ -463,8 +463,12 @@ function IdentityGovernanceIcon({ className = "h-4 w-4" }: { className?: string 
 
 function AssetInventoryIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-14.25v14.25" />
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden>
+      <path d="M12 4.5 18.5 7.75 12 11 5.5 7.75 12 4.5Z" />
+      <path d="M5.5 7.75v9.75l6.5 3.25" />
+      <path d="M18.5 7.75v9.75l-6.5 3.25" />
+      <path d="M12 11v9.75" />
+      <path strokeLinecap="round" d="M12 6.75 15 8.25" />
     </svg>
   );
 }
@@ -487,8 +491,9 @@ function ChangeManagementIcon({ className = "h-4 w-4" }: { className?: string })
 
 function DataProtectionIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden>
+      <rect x="5" y="10" width="14" height="9.5" rx="2" />
+      <path d="M7.5 10V7a4.5 4.5 0 0 1 9 0v3" />
     </svg>
   );
 }
@@ -533,29 +538,32 @@ function CompositeGroupFallbackIcon({ className = "h-4 w-4" }: { className?: str
   );
 }
 
+const COMPOSITE_GROUP_ICON_BG = "bg-zinc-100";
+const COMPOSITE_GROUP_ICON_TEXT = "text-zinc-600";
+
 const COMPOSITE_GROUP_VISUALS: Record<string, CompositeGroupVisual> = {
-  identity_governance: { bg: "bg-sky-50", text: "text-sky-600", Icon: IdentityGovernanceIcon },
-  asset_inventory: { bg: "bg-sky-50", text: "text-sky-600", Icon: AssetInventoryIcon },
-  secure_sdlc: { bg: "bg-sky-50", text: "text-sky-600", Icon: SecureSdlcIcon },
-  change_management: { bg: "bg-sky-50", text: "text-sky-600", Icon: ChangeManagementIcon },
-  data_protection: { bg: "bg-sky-50", text: "text-sky-600", Icon: DataProtectionIcon },
-  vulnerability_management: { bg: "bg-sky-50", text: "text-sky-600", Icon: VulnerabilityManagementIcon },
-  logging_monitoring: { bg: "bg-sky-50", text: "text-sky-600", Icon: LoggingMonitoringIcon },
-  backup_resilience: { bg: "bg-sky-50", text: "text-sky-600", Icon: BackupResilienceIcon },
-  container_vulnerability_monitoring: { bg: "bg-sky-50", text: "text-sky-600", Icon: VulnerabilityManagementIcon },
+  identity_governance: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: IdentityGovernanceIcon },
+  asset_inventory: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: AssetInventoryIcon },
+  secure_sdlc: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: SecureSdlcIcon },
+  change_management: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: ChangeManagementIcon },
+  data_protection: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: DataProtectionIcon },
+  vulnerability_management: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: VulnerabilityManagementIcon },
+  logging_monitoring: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: LoggingMonitoringIcon },
+  backup_resilience: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: BackupResilienceIcon },
+  container_vulnerability_monitoring: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: VulnerabilityManagementIcon },
 };
 
 function CompositeGroupIcon({ id }: { id: string }) {
   const visual = COMPOSITE_GROUP_VISUALS[id] ?? {
-    bg: "bg-sky-50",
-    text: "text-sky-600",
+    bg: COMPOSITE_GROUP_ICON_BG,
+    text: COMPOSITE_GROUP_ICON_TEXT,
     Icon: CompositeGroupFallbackIcon,
   };
   const { bg, text, Icon } = visual;
 
   return (
     <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${bg} ${text}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-zinc-200/70 ${bg} ${text}`}
       aria-hidden
     >
       <Icon className="h-[18px] w-[18px]" />
