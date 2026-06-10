@@ -74,7 +74,7 @@
   }
 
   .vigil-kicker {
-    @apply text-[10px] font-semibold uppercase tracking-wider text-zinc-400;
+    @apply text-caption font-semibold uppercase text-zinc-500;
   }
 }
 

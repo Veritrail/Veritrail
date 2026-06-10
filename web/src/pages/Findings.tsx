@@ -13,7 +13,6 @@ import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import NotificationsBell from "../components/NotificationsBell";
-import ScanProgressBar from "../components/ScanProgressBar";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
 import { findingDisplayGroupKey, findingGroupMeta, findingGroupSearchText } from "../data/findingGroups";
@@ -220,7 +219,7 @@ type ResourceOption = {
 };
 
 const FINDINGS_ROW_GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 sm:items-center";
+  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 sm:items-center";
 
 const RESOURCE_CHILD_PREVIEW = 3;
 
@@ -309,7 +308,7 @@ function AffectedResourceRow({
           onSelect();
         }
       }}
-      className="flex cursor-pointer items-center gap-5 rounded-xl border border-zinc-200/80 bg-white px-5 py-4 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
+      className="flex cursor-pointer items-center gap-4 rounded-xl border border-zinc-200/80 bg-white px-4 py-3.5 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
     >
       <ResourceProviderTile finding={finding} />
       <div className="flex min-w-0 flex-[1.6] items-center gap-3">
@@ -317,7 +316,7 @@ function AffectedResourceRow({
         <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold text-sky-700">{assetType}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Account</p>
+        <p className="vigil-kicker">Account</p>
         <p className="mt-1 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
           <span className="truncate">{account}</span>
           <button
@@ -336,7 +335,7 @@ function AffectedResourceRow({
         </p>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Last seen</p>
+        <p className="vigil-kicker">Last seen</p>
         <p className="mt-1 flex items-center gap-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">
           {formatResourceDate(finding.last_seen)}
           <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
@@ -345,7 +344,7 @@ function AffectedResourceRow({
         </p>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">First seen</p>
+        <p className="vigil-kicker">First seen</p>
         <p className="mt-1 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
       </div>
       {externalUrl ? (
@@ -533,19 +532,21 @@ function FindingRow({
         </div>
       </div>
       {expanded && canExpand ? (
-        <div
-          className="border-t border-zinc-100 py-5 pl-[7rem] pr-5"
-          style={{ borderLeft: "3px solid var(--rail)" }}
-        >
-          <AffectedResourcesCard
-            resources={visibleResources}
-            totalCount={resources.length}
-            hiddenCount={hiddenResourceCount}
-            showMore={showMoreRow}
-            onShowMore={() => setShowAllResources(true)}
-            onSelect={(finding) => onReview([finding])}
-            onViewAll={() => onReview(items)}
-          />
+        <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
+          <span className="hidden sm:block" aria-hidden />
+          <span className="hidden w-[5.5rem] sm:block" aria-hidden />
+          <div className="py-4 pl-4 pr-5 sm:pl-0" style={{ borderLeft: "3px solid var(--rail)" }}>
+            <AffectedResourcesCard
+              resources={visibleResources}
+              totalCount={resources.length}
+              hiddenCount={hiddenResourceCount}
+              showMore={showMoreRow}
+              onShowMore={() => setShowAllResources(true)}
+              onSelect={(finding) => onReview([finding])}
+              onViewAll={() => onReview(items)}
+            />
+          </div>
+          <span className="hidden sm:block" aria-hidden />
         </div>
       ) : null}
     </div>
@@ -601,7 +602,7 @@ export default function Findings() {
       ),
     refetchInterval: pendingRecheck ? 3000 : false,
   });
-  const { scanRun, scanStatus, isRunning, scanTriggered, isScanActive, scanProgress, triggerScan } = useTriggeredScan(
+  const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
     connectedId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
   );
@@ -842,8 +843,7 @@ export default function Findings() {
   if (!accounts.isLoading && accounts.data && !connectedId) return <ConnectAwsEmptyState />;
 
   return (
-    <div className="findings-v2-page findings-v2-shell min-h-full">
-      <div className="w-full px-8 py-8">
+    <div className="findings-v2-page findings-v2-shell min-h-full w-full">
         <header className="mb-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -857,19 +857,6 @@ export default function Findings() {
             <NotificationsBell />
           </div>
         </header>
-
-        {isScanActive && (
-          <ScanProgressBar
-            phase={isRunning ? "running" : "starting"}
-            progress={scanProgress.progress}
-            elapsedMs={scanProgress.elapsedMs}
-            remainingMs={scanProgress.remainingMs}
-            finishing={scanProgress.finishing}
-            indeterminate={scanProgress.indeterminate}
-            progressStep={scanProgress.progressStep}
-            progressTotal={scanProgress.progressTotal}
-          />
-        )}
 
         {searchTags.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1019,7 +1006,6 @@ export default function Findings() {
             </div>
           </section>
         )}
-      </div>
 
       <FindingDrawer
         finding={selected}

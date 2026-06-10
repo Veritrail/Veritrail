@@ -3,6 +3,12 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontSize: {
+        caption: ["11px", { lineHeight: "1.35", letterSpacing: "0.04em" }],
+        meta: ["13px", { lineHeight: "1.4" }],
+        body: ["14px", { lineHeight: "1.35", letterSpacing: "-0.01em" }],
+        subtitle: ["15px", { lineHeight: "1.35" }],
+      },
       keyframes: {
         "scan-indeterminate": {
           "0%": { transform: "translateX(-100%)" },

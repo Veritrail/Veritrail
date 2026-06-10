@@ -259,8 +259,8 @@ function CompliancePanelShell({
   return (
     <section className={`mb-4 ${COMPLIANCE_CARD_SHELL}`}>
       <div className="border-b border-zinc-100 bg-zinc-50/60 px-5 py-4">
-        <h2 className="text-[15px] font-semibold text-zinc-900">{title}</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">{subtitle}</p>
+        <h2 className="text-body font-semibold text-zinc-900">{title}</h2>
+        <p className="mt-1 text-meta leading-relaxed text-zinc-500">{subtitle}</p>
         {toolbar}
       </div>
       {section && <div className="border-b border-zinc-100 px-5 py-2.5">{section}</div>}
@@ -894,7 +894,7 @@ function TopFailingChecksTable({
 
   return (
     <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200/80">
-      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 border-b border-zinc-100 bg-zinc-50/60 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 border-b border-zinc-100 bg-zinc-50/60 px-4 py-2.5 vigil-kicker">
         <span>Check</span>
         <span className="text-right">Findings</span>
         <span className="text-right">Density</span>
@@ -1059,7 +1059,7 @@ function CompositeExpandedDetails({
     <div className={`space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
       {underlying.length > 0 && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Underlying criteria</p>
+          <p className="vigil-kicker">Underlying criteria</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {underlying.slice(0, 10).map((c) => {
               const params = new URLSearchParams({ framework, control: c.control_id });
@@ -1082,7 +1082,7 @@ function CompositeExpandedDetails({
       )}
       <div>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Top failing checks</p>
+          <p className="vigil-kicker">Top failing checks</p>
           {findingsHref && (
             <button
               type="button"
@@ -1201,13 +1201,17 @@ function CompositeControlsPanel({
               type="button"
               onClick={() => onToggle(ctrl.id)}
               aria-expanded={isExpanded}
-              className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-zinc-50/60"
+              className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors hover:bg-zinc-50/60"
             >
               <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
               <CompositeGroupIcon id={ctrl.id} />
               <div className="min-w-0 flex-1 py-0.5">
-                <p className="text-[15px] font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
-                <p className="mt-0.5 text-sm leading-relaxed text-zinc-500">{ctrl.description}</p>
+                <p className="text-body font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
+                <p
+                  className={`mt-0.5 text-meta leading-relaxed text-zinc-500 ${isExpanded ? "" : "line-clamp-1"}`}
+                >
+                  {ctrl.description}
+                </p>
               </div>
               <div className="flex shrink-0 items-center gap-3 self-center">
                 <ComplianceRowSummary
@@ -1415,7 +1419,7 @@ function MappedChecksList({
 
   return (
     <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-3.5">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Findings</p>
+      <p className="vigil-kicker">Findings</p>
       <p className="mt-0.5 text-xs text-zinc-500">Open findings by mapped check · click to filter in Findings</p>
       {inner}
     </div>
@@ -2153,8 +2157,7 @@ export default function Controls() {
   );
 
   return (
-    <div className="min-h-full bg-zinc-100/35">
-    <div className="w-full px-8 py-8">
+    <div className="findings-v2-page findings-v2-shell min-h-full w-full">
       <div className="mb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -2328,16 +2331,20 @@ export default function Controls() {
                       requestAnimationFrame(() => window.scrollTo(0, scrollY));
                     }}
                     aria-expanded={isExpanded}
-                    className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-zinc-50/60"
+                    className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors hover:bg-zinc-50/60"
                   >
                     <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
                     <div className="min-w-0 flex-1 py-0.5">
-                      <p className="text-[15px] font-semibold leading-snug text-zinc-900">
-                        <span className="font-mono text-[13px] font-semibold text-zinc-500">{ctrl.control_id}</span>{" "}
+                      <p className="text-body font-semibold leading-snug text-zinc-900">
+                        <span className="font-mono text-meta font-semibold text-zinc-500">{ctrl.control_id}</span>{" "}
                         {shortControlTitle(ctrl.title)}
                       </p>
                       {ctrl.description ? (
-                        <p className="mt-0.5 text-sm leading-relaxed text-zinc-500">{ctrl.description}</p>
+                        <p
+                          className={`mt-0.5 text-meta leading-relaxed text-zinc-500 ${isExpanded ? "" : "line-clamp-1"}`}
+                        >
+                          {ctrl.description}
+                        </p>
                       ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-3 self-center">
@@ -2384,7 +2391,6 @@ export default function Controls() {
             })}
         </ComplianceContentShell>
       )}
-    </div>
     </div>
   );
 }
