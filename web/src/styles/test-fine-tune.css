@@ -1,4 +1,14 @@
-table tbody td:nth-child(2) > div > span {
+.space-y-3 > div:first-child > div:first-child > div:first-child > p:first-child::after {
+  display: inline-block;
+  transform: translateY(-3px);
+}
+
+.space-y-3 table tbody td:nth-child(2) > div > span {
+  box-sizing: border-box;
+  display: inline-flex;
   height: 1.375rem;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
   line-height: 1.375rem;
 }
