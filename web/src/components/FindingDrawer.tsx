@@ -54,7 +54,6 @@ import { useCloudTrailPolicyGen } from "../hooks/useCloudTrailPolicyGen";
 import { formatCloudTrailElapsed } from "../lib/cloudTrailElapsed";
 import { remediationSummaryForFinding, type RemediationSummary } from "../data/remediationSummaries";
 import {
-  formatFindingSeenAt,
   awsRegionFromArn,
   regionsFromFindingEvidence,
   filterRedundantResourceDetailRows,
@@ -454,122 +453,6 @@ function awsAccountIdFromArn(arn: string): string | null {
   return m ? m[1] : null;
 }
 
-const timelineDotClass = {
-  risk: "bg-rose-400",
-  status: "bg-amber-400",
-  muted: "bg-zinc-300",
-} as const;
-
-function FindingTimelineCard({ finding }: { finding: Finding }) {
-  const statusLabel = finding.status.replace(/_/g, " ");
-  const riskBadgeClass =
-    finding.severity === "critical" || finding.severity === "high"
-      ? "border-rose-200 bg-rose-50 text-rose-700"
-      : finding.severity === "medium"
-        ? "border-amber-200 bg-amber-50 text-amber-800"
-        : "border-zinc-200 bg-zinc-100 text-zinc-700";
-  const statusResolved = finding.status === "resolved";
-  const statusOpen = finding.status === "open";
-  const statusPillClass = statusResolved
-    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-    : statusOpen
-      ? "border-amber-200 bg-amber-50 text-amber-900"
-      : "border-zinc-200 bg-zinc-100 text-zinc-600";
-  const statusDotClass = statusResolved ? "bg-emerald-500" : statusOpen ? "bg-amber-500" : "bg-zinc-400";
-  const openDays = (() => {
-    const t = new Date(finding.first_seen).getTime();
-    return Number.isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 86400000));
-  })();
-
-  const rows = [
-    {
-      key: "risk",
-      dot: timelineDotClass.risk,
-      label: "Risk",
-      value: (
-        <span
-          className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-full border px-2.5 py-0.5 text-[13px] font-semibold tabular-nums ${riskBadgeClass}`}
-        >
-          {finding.risk_score}
-        </span>
-      ),
-    },
-    {
-      key: "status",
-      dot: timelineDotClass.status,
-      label: "Status",
-      value: (
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[13px] font-medium capitalize ${statusPillClass}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${statusDotClass}`} aria-hidden />
-          {statusLabel}
-        </span>
-      ),
-    },
-    {
-      key: "first-seen",
-      dot: timelineDotClass.muted,
-      label: "First seen",
-      value: (
-        <span className="text-[13px] text-zinc-800">{formatFindingSeenAt(finding.first_seen)}</span>
-      ),
-    },
-    {
-      key: "duration",
-      dot: timelineDotClass.muted,
-      label: "Duration",
-      value: (
-        <span className="text-[13px] text-zinc-500">
-          {openDays != null ? `Open ${openDays} day${openDays === 1 ? "" : "s"}` : "—"}
-        </span>
-      ),
-    },
-    {
-      key: "last-seen",
-      dot: timelineDotClass.risk,
-      label: "Last seen",
-      value: (
-        <span className="text-[13px] text-zinc-800">{formatFindingSeenAt(finding.last_seen)}</span>
-      ),
-    },
-  ] as const;
-
-  return (
-    <div className={drawerPanel}>
-      <div className="border-b border-[#eef2f6] px-4 py-3">
-        <h3 className={drawerSectionTitle}>Finding timeline</h3>
-      </div>
-      <ol className="px-4 py-1">
-        {rows.map((row, index) => (
-          <li key={row.key} className="flex min-h-[2.75rem] items-center gap-3 py-1.5">
-            <div className="relative flex w-3 shrink-0 flex-col items-center self-stretch">
-              {index > 0 ? (
-                <span
-                  className="absolute left-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-zinc-200"
-                  aria-hidden
-                />
-              ) : null}
-              {index < rows.length - 1 ? (
-                <span
-                  className="absolute bottom-0 left-1/2 h-1/2 w-px -translate-x-1/2 bg-zinc-200"
-                  aria-hidden
-                />
-              ) : null}
-              <span
-                className={`relative z-10 my-auto h-2 w-2 shrink-0 rounded-full ${row.dot}`}
-                aria-hidden
-              />
-            </div>
-            <span className="w-[5.75rem] shrink-0 text-[13px] text-zinc-500">{row.label}</span>
-            <div className="min-w-0 flex-1">{row.value}</div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
 function SelectedResourceInspector({ finding }: { finding: Finding }) {
   const accountId = awsAccountIdFromArn(finding.resource_arn);
   const ev = finding.evidence;
@@ -621,7 +504,6 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
             </ResourceFieldRow>
           </dl>
         </div>
-        <FindingTimelineCard finding={finding} />
       </div>
     );
   }
@@ -719,7 +601,6 @@ function SelectedResourceInspector({ finding }: { finding: Finding }) {
         </ResourceGroup>
       )}
     </div>
-    <FindingTimelineCard finding={finding} />
     </div>
   );
 }
