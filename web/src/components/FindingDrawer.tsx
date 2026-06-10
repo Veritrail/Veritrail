@@ -7027,7 +7027,6 @@ export function FindingDrawer({
                     resourceArn={finding.resource_arn}
                     resourceRegion={resourceRegionForFinding(finding)}
                     resourceLabel={resourceDisplayName(finding)}
-                    severity={finding.severity}
                     onShowPolicy={showSuggestedPolicy ? openPolicyReview : undefined}
                     policyReviewAcknowledged={policyReviewAcknowledged}
                   />

@@ -155,19 +155,6 @@ function versionControlPrLabel(providers: string[]): string {
   return "Git PR";
 }
 
-function ssmImpactDisplay(
-  severity: string,
-  actionLabel: string,
-  checkId: string,
-): { actionText: string } | null {
-  if (severity !== "critical" && severity !== "high") return null;
-  const actionText =
-    checkId === "iam.role.least_privilege_policy"
-      ? "Review least-privilege replacement"
-      : actionLabel.replace(/\bfull admin\b/gi, "full-admin");
-  return { actionText };
-}
-
 function ssmHumanPlanLabels(
   checkId: string,
   provider: "aws-owned" | "vigil",
@@ -197,10 +184,6 @@ function iamRoleConsoleUrl(roleName: string, region: string): string {
 }
 
 const IAM_LEAST_PRIVILEGE_CHECK = "iam.role.least_privilege_policy";
-
-function SsmImpactBadge() {
-  return <span className={SSM_REVIEW_PILL}>High impact</span>;
-}
 
 function SsmInlineStatusPill({
   tone,
@@ -281,7 +264,6 @@ function SsmChecklistStep({
 
 function SsmAutomationWorkflowCard({
   isIamLeastPriv,
-  impact,
   policyLoading,
   policyReady,
   inlineStatusTone,
@@ -309,7 +291,6 @@ function SsmAutomationWorkflowCard({
   connectorFixNeeded,
 }: {
   isIamLeastPriv: boolean;
-  impact: { actionText: string } | null;
   policyLoading: boolean;
   policyReady: boolean;
   inlineStatusTone: "checking" | "blocked" | "ready" | "not_ready";
@@ -443,7 +424,6 @@ function SsmAutomationWorkflowCard({
               </p>
               <p className="mt-1 text-[12px] leading-[17px] text-zinc-600">{reviewBody}</p>
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                {impact ? <SsmImpactBadge /> : null}
                 <SsmInlineStatusPill tone={inlineStatusTone}>{inlineStatusLabel}</SsmInlineStatusPill>
               </div>
             </div>
@@ -658,7 +638,6 @@ function SsmRemediationPanel({
   resourceArn,
   resourceRegion,
   resourceLabel,
-  severity,
   ssm,
   onShowPolicy,
   policyReviewAcknowledged,
@@ -669,7 +648,6 @@ function SsmRemediationPanel({
   resourceArn?: string | null;
   resourceRegion: string;
   resourceLabel: string;
-  severity: string;
   ssm: SsmRemediationMeta;
   onShowPolicy?: () => void;
   policyReviewAcknowledged?: boolean;
@@ -847,7 +825,6 @@ function SsmRemediationPanel({
     provider === "aws-owned"
       ? ssm.aws_runbook_docs_url ?? ssm.runbook?.source_url
       : ssm.runbook?.source_url;
-  const impact = ssmImpactDisplay(severity, ssm.action_label, checkId);
   const planLabels = ssmHumanPlanLabels(checkId, provider);
   const cloudTrailInputsReady = !isCloudTrailCreate || cloudTrailBucketName.trim().length > 2;
 
@@ -923,7 +900,6 @@ function SsmRemediationPanel({
             <div className="space-y-4">
               <SsmAutomationWorkflowCard
                 isIamLeastPriv={isIamLeastPriv}
-                impact={impact}
                 policyLoading={policyLoading}
                 policyReady={policyReady}
                 inlineStatusTone={inlineStatusTone}
@@ -1022,7 +998,6 @@ export function IaCRemediationSection({
   resourceRegion,
   resourceArn,
   resourceLabel,
-  severity,
   onShowPolicy,
   policyReviewAcknowledged,
 }: {
@@ -1034,7 +1009,6 @@ export function IaCRemediationSection({
   resourceRegion?: string | null;
   resourceArn?: string | null;
   resourceLabel?: string;
-  severity?: string;
   onShowPolicy?: () => void;
   policyReviewAcknowledged?: boolean;
 }) {
@@ -1135,7 +1109,6 @@ export function IaCRemediationSection({
       resourceArn={resourceArn ?? null}
       resourceRegion={region}
       resourceLabel={resourceLabel ?? "this resource"}
-      severity={severity ?? "medium"}
       ssm={data.ssm_remediation}
       onShowPolicy={onShowPolicy}
       policyReviewAcknowledged={policyReviewAcknowledged}
