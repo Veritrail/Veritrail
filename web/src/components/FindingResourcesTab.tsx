@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import {
   assetTypeLabel,
   awsAccountIdFromFinding,
   daysAgo,
   findingScopeDisplayName,
-  findingStatusLabel,
   resourceDisplayName,
-  severityPillClassName,
+  severityLabel,
 } from "../lib/findingDisplay";
 import {
   fetchCheckFindings,
@@ -119,14 +118,14 @@ function ResourceTypePill({ label }: { label: string }) {
   );
 }
 
-function CopyArnButton({ arn }: { arn: string }) {
+function CopyTextButton({ text, label }: { text: string; label: string }) {
   return (
     <button
       type="button"
-      aria-label="Copy resource ARN"
+      aria-label={label}
       onClick={(event) => {
         event.stopPropagation();
-        void navigator.clipboard.writeText(arn);
+        void navigator.clipboard.writeText(text);
       }}
       className="shrink-0 text-zinc-400 transition hover:text-zinc-600 focus:outline-none"
     >
@@ -136,6 +135,10 @@ function CopyArnButton({ arn }: { arn: string }) {
       </svg>
     </button>
   );
+}
+
+function CopyArnButton({ arn }: { arn: string }) {
+  return <CopyTextButton text={arn} label="Copy resource ARN" />;
 }
 
 function riskScoreTone(severity: string): string {
@@ -214,298 +217,155 @@ function ResourceWhyAffectedCompact({ finding }: { finding: ResourcesTabFinding 
   );
 }
 
-const POSTURE_STRIP_MIN_H = "min-h-[5.25rem]";
-
-function ResourcesPostureStrip({
-  selectedFinding,
-  groupFindings,
-  summaryRisk,
-  summaryAction,
-}: {
-  selectedFinding: ResourcesTabFinding;
-  groupFindings: ResourcesTabFinding[];
-  summaryRisk?: string | null;
-  summaryAction?: string | null;
-}) {
-  const unique = dedupeByArn(groupFindings);
-  const scoreTone = riskScoreTone(selectedFinding.severity);
-
+function RecommendedActionMark({ className }: { className?: string }) {
   return (
-    <div className={`flex flex-col gap-2.5 lg:flex-row lg:items-stretch ${POSTURE_STRIP_MIN_H}`}>
-      <div
-        className={`flex shrink-0 items-center gap-5 rounded-xl border border-zinc-200/90 bg-white px-5 py-3.5 shadow-sm shadow-zinc-950/[0.03] ${POSTURE_STRIP_MIN_H}`}
-      >
-        <div className="shrink-0">
-          <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-            Affected resources
-          </p>
-          <p className="mt-1 text-xl font-bold leading-none tabular-nums text-zinc-900">{unique.length}</p>
-        </div>
-        <div className="h-9 w-px shrink-0 bg-zinc-100" aria-hidden />
-        <div className="shrink-0">
-          <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-            Risk score
-          </p>
-          <div className="mt-1 flex flex-col items-start gap-1 leading-none">
-            <span className={`text-xl font-bold tabular-nums ${scoreTone}`}>
-              {selectedFinding.risk_score}
-            </span>
-            <span
-              className={`${severityPillClassName(selectedFinding.severity)} w-20 justify-center`}
-            >
-              {selectedFinding.severity.toUpperCase()}
-            </span>
-          </div>
-        </div>
-      </div>
-      {summaryAction ? (
-        <div
-          className={`flex w-full shrink-0 items-start gap-3 rounded-xl border border-emerald-200/70 bg-gradient-to-b from-emerald-50/60 to-white px-4 py-3.5 shadow-sm shadow-zinc-950/[0.03] lg:w-[21rem] ${POSTURE_STRIP_MIN_H}`}
-        >
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-700">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
-            </svg>
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700/80">
-              Recommended action
-            </p>
-            <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-[13px] font-medium leading-snug text-zinc-900">
-              {summaryAction}
-            </p>
-            <p className="mt-1 line-clamp-2 min-h-[2.25rem] text-[12px] leading-snug text-zinc-500">
-              {summaryRisk || "\u00a0"}
-            </p>
-          </div>
-        </div>
-      ) : null}
+    <img
+      src="/icons/recommended-action.png"
+      alt=""
+      aria-hidden
+      className={className}
+    />
+  );
+}
+
+function MetricTile({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-[5.25rem] flex-1 rounded-lg border border-zinc-200/90 bg-zinc-50/40 px-3 py-2.5">
+      <p className="text-[11px] font-medium text-zinc-400">{label}</p>
+      <div className="mt-1">{children}</div>
     </div>
   );
 }
 
-function formatTimelineDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-type ActivityMarker = {
-  ts: string;
-  kind: string;
-  detail?: string | null;
-  scan_run_id?: string | null;
-};
-
-type FindingActivity = {
-  finding_id: string;
-  status: string;
-  first_seen: string;
-  last_seen: string;
-  open_days: number;
-  markers: ActivityMarker[];
-};
-
-const OPEN_MARKER_KINDS = new Set(["opened", "reopened", "recheck_opened"]);
-const STATUS_MARKER_KINDS = new Set(["resolved", "excepted", "ignored", "snoozed"]);
-
-function activityStatusLine(
-  finding: ResourcesTabFinding,
-  openDays: number,
-): { text: string; className: string } {
-  if (finding.status === "open") {
-    return { text: `Open for ${openDays} days`, className: "text-amber-600" };
-  }
-  if (finding.status === "resolved") {
-    return { text: `Resolved after ${openDays} days`, className: "text-emerald-700" };
-  }
-  return { text: findingStatusLabel(finding.status), className: "text-zinc-700" };
-}
-
-function markerTooltip(kind: string): string {
-  switch (kind) {
-    case "opened":
-      return "Finding opened";
-    case "reopened":
-    case "recheck_opened":
-      return "Finding reopened";
-    case "scan_open":
-      return "Confirmed open on scan";
-    case "resolved":
-      return "Resolved";
-    case "excepted":
-      return "Risk accepted (exception)";
-    case "ignored":
-      return "Ignored";
-    case "snoozed":
-      return "Snoozed";
-    default:
-      return kind;
-  }
-}
-
-function sampleEvenly<T>(items: T[], max: number): T[] {
-  if (items.length <= max) return items;
-  if (max <= 1) return [items[items.length - 1]!];
-  const out: T[] = [];
-  for (let i = 0; i < max; i += 1) {
-    const idx = Math.round((i / (max - 1)) * (items.length - 1));
-    out.push(items[idx]!);
-  }
-  return out;
-}
-
-type TimelineDot =
-  | { kind: "origin"; ts: string; tooltip: string }
-  | { kind: "scan"; ts: string; tooltip: string }
-  | { kind: "status"; ts: string; tooltip: string; tone: "resolved" | "muted" }
-  | { kind: "tail" };
-
-function buildTimelineDots(activity: FindingActivity | undefined, fallbackFirstSeen: string): TimelineDot[] {
-  if (!activity || activity.markers.length === 0) {
-    const synthetic = Math.min(Math.max(openDaysSince(fallbackFirstSeen), 1), 11);
-    const dots: TimelineDot[] = [{ kind: "origin", ts: fallbackFirstSeen, tooltip: "First seen" }];
-    for (let i = 0; i < synthetic; i += 1) dots.push({ kind: "scan", ts: fallbackFirstSeen, tooltip: "Scan history unavailable" });
-    dots.push({ kind: "tail" }, { kind: "tail" });
-    return dots;
-  }
-
-  const markers = [...activity.markers].sort(
-    (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime(),
-  );
-  const origin =
-    markers.find((m) => OPEN_MARKER_KINDS.has(m.kind)) ?? markers[0]!;
-  const statusMarkers = markers.filter((m) => STATUS_MARKER_KINDS.has(m.kind));
-  const scanMarkers = markers.filter((m) => m.kind === "scan_open");
-  const sampledScans = sampleEvenly(scanMarkers, 11);
-
-  const dots: TimelineDot[] = [
-    { kind: "origin", ts: origin.ts, tooltip: markerTooltip(origin.kind) },
-  ];
-
-  for (const scan of sampledScans) {
-    dots.push({
-      kind: "scan",
-      ts: scan.ts,
-      tooltip: `${markerTooltip(scan.kind)} · ${formatTimelineDate(scan.ts)}`,
-    });
-  }
-
-  const lastStatus = statusMarkers[statusMarkers.length - 1];
-  if (lastStatus) {
-    dots.push({
-      kind: "status",
-      ts: lastStatus.ts,
-      tooltip: markerTooltip(lastStatus.kind),
-      tone: lastStatus.kind === "resolved" ? "resolved" : "muted",
-    });
-  } else if (activity.status === "open") {
-    dots.push({ kind: "tail" }, { kind: "tail" });
-  }
-
-  return dots;
-}
-
-function TimelineDotNode({ dot }: { dot: TimelineDot }) {
-  if (dot.kind === "origin") {
-    return (
-      <span
-        className="relative flex h-3 w-3 shrink-0 items-center justify-center"
-        title={dot.tooltip}
-        aria-label={dot.tooltip}
-      >
-        <span className="absolute h-5 w-5 rounded-full bg-red-400/30" />
-        <span className="relative h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
-      </span>
-    );
-  }
-  if (dot.kind === "scan") {
-    return (
-      <span
-        className="h-2 w-2 shrink-0 rounded-full bg-amber-400 ring-2 ring-white"
-        title={dot.tooltip}
-        aria-label={dot.tooltip}
-      />
-    );
-  }
-  if (dot.kind === "status") {
-    const color =
-      dot.tone === "resolved"
-        ? "bg-emerald-500"
-        : "bg-zinc-400";
-    return (
-      <span
-        className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white ${color}`}
-        title={dot.tooltip}
-        aria-label={dot.tooltip}
-      />
-    );
-  }
-  return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-300 ring-2 ring-white" aria-hidden />;
-}
-
-function segmentClass(before: TimelineDot, after: TimelineDot): string {
-  if (before.kind === "tail" || after.kind === "tail") return "bg-zinc-200";
-  if (after.kind === "status" && after.tone === "resolved") return "bg-emerald-300";
-  if (before.kind === "status") return "bg-zinc-200";
-  return "bg-amber-400";
-}
-
-function ResourcesActivityTimeline({
+function ResourcesPostureStrip({
   selectedFinding,
+  groupFindings,
+  findingTitle,
+  findingSummary,
+  summaryRisk,
+  summaryAction,
+  onViewRemediation,
 }: {
   selectedFinding: ResourcesTabFinding;
+  groupFindings: ResourcesTabFinding[];
+  findingTitle: string;
+  findingSummary?: string | null;
+  summaryRisk?: string | null;
+  summaryAction?: string | null;
+  onViewRemediation?: () => void;
 }) {
-  const { data: activity, isLoading } = useQuery({
-    queryKey: ["finding-activity", selectedFinding.id],
-    queryFn: () => api<FindingActivity>(`/v1/findings/${selectedFinding.id}/activity?days=90`),
-    staleTime: 30_000,
-  });
-
-  const openDays = activity?.open_days ?? openDaysSince(selectedFinding.first_seen);
-  const statusLine = activityStatusLine(selectedFinding, openDays);
-  const dots = buildTimelineDots(activity, selectedFinding.first_seen);
-
-  const datedDots = dots.filter((d): d is TimelineDot & { ts: string } => d.kind !== "tail");
-  const firstLabel = formatTimelineDate(datedDots[0]?.ts ?? selectedFinding.first_seen);
-  const lastDated = datedDots[datedDots.length - 1];
-  const lastLabel = formatTimelineDate(lastDated?.ts ?? selectedFinding.last_seen);
-
-  const tailCount = dots.filter((d) => d.kind === "tail").length;
-  const activeEndPercent =
-    dots.length <= 1
-      ? 100
-      : ((dots.length - tailCount) / dots.length) * 100;
+  const unique = dedupeByArn(groupFindings);
+  const scoreTone = riskScoreTone(selectedFinding.severity);
+  const openDays = openDaysSince(selectedFinding.first_seen);
+  const accountName = findingScopeDisplayName(selectedFinding) || "—";
+  const accountAwsId = awsAccountIdFromFinding(selectedFinding) ?? "—";
 
   return (
-    <div className="flex">
-      <div className="flex w-[9.5rem] shrink-0 flex-col justify-center border-r border-zinc-100 px-4 py-3.5 sm:w-[10.5rem]">
-        <p className="text-[12px] font-medium text-zinc-500">Latest activity</p>
-        <p className={`mt-0.5 text-[15px] font-semibold leading-snug ${statusLine.className}`}>
-          {isLoading ? "Loading…" : statusLine.text}
-        </p>
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3.5">
-        <div className="relative mb-2 h-4">
-          <span className="absolute left-0 top-0 text-[11px] tabular-nums text-zinc-400">{firstLabel}</span>
-          <span
-            className="absolute top-0 -translate-x-1/2 text-[11px] tabular-nums text-zinc-400"
-            style={{ left: `${activeEndPercent}%` }}
-          >
-            {lastLabel}
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+      <div className="min-w-0 flex-1 rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm shadow-zinc-950/[0.03]">
+        <div className="flex gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 ring-1 ring-rose-100">
+            <svg
+              className="h-5 w-5 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.75}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+              />
+            </svg>
           </span>
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold leading-snug text-zinc-900">{findingTitle}</h3>
+            {findingSummary ? (
+              <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-zinc-500">{findingSummary}</p>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex w-full items-center" aria-busy={isLoading}>
-          {dots.map((dot, i) => (
-            <span key={`${dot.kind}-${i}`} className="contents">
-              {i > 0 ? (
-                <span className={`h-[2px] min-w-[6px] flex-1 ${segmentClass(dots[i - 1]!, dot)}`} />
-              ) : null}
-              <TimelineDotNode dot={dot} />
+        <div className="mt-4 flex flex-wrap gap-2">
+          <MetricTile label="Severity">
+            <div className="flex items-center gap-1.5">
+              <svg
+                className="h-4 w-4 shrink-0 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.75}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+                />
+              </svg>
+              <span className="text-[15px] font-semibold leading-none text-zinc-900">
+                {severityLabel(selectedFinding.severity)}
+              </span>
+            </div>
+          </MetricTile>
+
+          <MetricTile label="Risk score">
+            <span className={`text-xl font-bold leading-none tabular-nums ${scoreTone}`}>
+              {selectedFinding.risk_score}
             </span>
-          ))}
+          </MetricTile>
+
+          <MetricTile label="Affected resources">
+            <span className="text-xl font-bold leading-none tabular-nums text-zinc-900">{unique.length}</span>
+          </MetricTile>
+
+          <MetricTile label="Open for">
+            <span className="text-xl font-bold leading-none tabular-nums text-amber-600">
+              {openDays} days
+            </span>
+          </MetricTile>
+
+          <MetricTile label="Account">
+            <div className="flex min-w-0 items-start justify-between gap-1">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold leading-tight text-zinc-900">{accountName}</p>
+                <p className="mt-0.5 font-mono text-[11px] leading-none tabular-nums text-zinc-500">
+                  {accountAwsId}
+                </p>
+              </div>
+              {accountAwsId !== "—" ? (
+                <CopyTextButton text={accountAwsId} label="Copy AWS account ID" />
+              ) : null}
+            </div>
+          </MetricTile>
         </div>
       </div>
+
+      {summaryAction ? (
+        <div className="flex w-full min-w-0 flex-1 items-start gap-4 rounded-xl border border-emerald-200/70 bg-gradient-to-b from-emerald-50/70 to-white p-5 shadow-sm shadow-zinc-950/[0.03] lg:min-w-[18rem]">
+          <RecommendedActionMark className="h-24 w-24 shrink-0 sm:h-28 sm:w-28" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-emerald-700/85">
+              Recommended action
+            </p>
+            <p className="mt-1.5 text-[15px] font-semibold leading-relaxed text-zinc-900">{summaryAction}</p>
+            {summaryRisk ? (
+              <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">{summaryRisk}</p>
+            ) : null}
+            {onViewRemediation ? (
+              <button
+                type="button"
+                onClick={onViewRemediation}
+                className="-ml-0.5 mt-6 text-[13px] font-semibold text-emerald-700 transition hover:text-emerald-800"
+              >
+                View remediation guidance →
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -672,14 +532,20 @@ export function FindingResourcesTab({
   selectedFinding,
   groupFindings,
   onSelectFinding,
+  findingTitle,
+  findingSummary,
   summaryRisk,
   summaryAction,
+  onViewRemediation,
 }: {
   selectedFinding: ResourcesTabFinding;
   groupFindings: ResourcesTabFinding[];
   onSelectFinding?: (finding: ResourcesTabFinding) => void;
+  findingTitle: string;
+  findingSummary?: string | null;
   summaryRisk?: string | null;
   summaryAction?: string | null;
+  onViewRemediation?: () => void;
 }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -785,7 +651,6 @@ export function FindingResourcesTab({
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["findings"] }),
       qc.invalidateQueries({ queryKey: ["controls"] }),
-      qc.invalidateQueries({ queryKey: ["finding-activity"] }),
     ]);
     await qc.refetchQueries({ queryKey: ["findings"] });
   }
@@ -873,8 +738,11 @@ export function FindingResourcesTab({
       <ResourcesPostureStrip
         selectedFinding={selectedFinding}
         groupFindings={groupFindings}
+        findingTitle={findingTitle}
+        findingSummary={findingSummary}
         summaryRisk={summaryRisk}
         summaryAction={summaryAction}
+        onViewRemediation={onViewRemediation}
       />
 
       {/* Toolbar — separate controls on one line, no shared card */}
@@ -992,7 +860,7 @@ export function FindingResourcesTab({
           <table className="min-w-[56rem] w-full border-collapse text-left">
             <colgroup>
               <col className="min-w-[14rem]" />
-              <col className="w-[6.75rem]" />
+              <col className="min-w-[9rem]" />
               <col className="min-w-[7.5rem]" />
               <col />
               <col />
@@ -1001,7 +869,7 @@ export function FindingResourcesTab({
             <thead>
               <tr className="border-b border-zinc-100 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Resource</th>
-                <th className="w-[1%] whitespace-nowrap px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">
+                <th className="w-[1%] whitespace-nowrap pl-7 pr-4 pb-2.5 pt-3 text-left align-bottom font-semibold">
                   Type
                 </th>
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Account</th>
@@ -1059,8 +927,8 @@ export function FindingResourcesTab({
                         </div>
                       </div>
                     </td>
-                    <td className="w-[1%] whitespace-nowrap px-4 py-4 align-middle">
-                      <div>
+                    <td className="w-[1%] whitespace-nowrap pl-7 pr-4 py-4 align-middle">
+                      <div className="flex flex-col items-start">
                         <ResourceTypePill label={rowAssetType} />
                         {/* phantom sub-line — keeps the pill level with the first line of the
                             two-line cells (name/ARN, alias/ID), which all share this geometry */}
@@ -1099,10 +967,6 @@ export function FindingResourcesTab({
             No resources match your filters.
           </p>
         ) : null}
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]">
-        <ResourcesActivityTimeline selectedFinding={selectedFinding} />
       </div>
     </div>
   );
