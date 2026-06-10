@@ -47,10 +47,10 @@ export function CompliancePostureLine({
           "Control status against selected frameworks."
         ) : (
           <>
-            <span className="font-medium text-zinc-700">
+            <span className="font-semibold text-zinc-900">
               {passed} of {total} {unitLabel} passing
             </span>
-            {failed > 0 ? (
+            {failed > 0 && passed > 0 ? (
               <>
                 {" · "}
                 <span className="text-rose-600">{failed} failing</span>

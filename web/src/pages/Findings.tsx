@@ -538,7 +538,14 @@ function FindingRow({
         </div>
 
         <div className="finding-title-cell finding-cell min-w-0 sm:col-auto">
-          <span className="finding-title block truncate">{title}</span>
+          <div className="flex min-w-0 items-baseline gap-1">
+            <span className="finding-title min-w-0 truncate">{title}</span>
+            {canExpand && !expanded ? (
+              <span className="finding-resource-count">
+                · {resources.length} {resources.length === 1 ? "resource" : "resources"}
+              </span>
+            ) : null}
+          </div>
           <div className="mt-1 sm:hidden">
             <SeverityIndicator severity={sev} />
           </div>
@@ -555,9 +562,9 @@ function FindingRow({
           <RiskScoreDisplay score={topRisk} severity={sev} />
         </div>
       </div>
-      <div className={`vigil-accordion-panel ${expanded && canExpand ? "is-open" : ""}`}>
-        <div className="vigil-accordion-panel__inner">
-          {expanded && canExpand ? (
+      {canExpand ? (
+        <div className={`vigil-accordion-panel ${expanded ? "is-open" : ""}`}>
+          <div className="vigil-accordion-panel__inner">
             <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
               <span className="hidden sm:block" aria-hidden />
               <span className="hidden w-[5.5rem] sm:block" aria-hidden />
@@ -575,9 +582,9 @@ function FindingRow({
               </div>
               <span className="hidden sm:block" aria-hidden />
             </div>
-          ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

@@ -1242,18 +1242,16 @@ function CompositeControlsPanel({
 
             <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
               <div className="vigil-accordion-panel__inner">
-                {isExpanded ? (
-                  <div className="border-t border-zinc-100 px-5 pb-5 pt-4">
-                    <CompositeExpandedDetails
-                      ctrl={ctrl}
-                      findingCountByCheck={findingCountByCheck}
-                      variant="card"
-                      framework={framework}
-                      frameworkRows={frameworkRows}
-                      accountId={accountId}
-                    />
-                  </div>
-                ) : null}
+                <div className="border-t border-zinc-100 px-5 pb-5 pt-4">
+                  <CompositeExpandedDetails
+                    ctrl={ctrl}
+                    findingCountByCheck={findingCountByCheck}
+                    variant="card"
+                    framework={framework}
+                    frameworkRows={frameworkRows}
+                    accountId={accountId}
+                  />
+                </div>
               </div>
             </div>
 
@@ -2477,34 +2475,32 @@ export default function Controls() {
 
                   <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
                     <div className="vigil-accordion-panel__inner">
-                      {isExpanded ? (
-                        <div className="space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
-                          <ControlStatusBlock
-                            control={ctrl}
-                            periodDays={exportWindow.period}
-                            coverage={evidenceCoverage.data}
-                            controlId={ctrl.control_id}
-                            framework={framework}
-                            accountId={activeAccount?.id ?? ""}
-                          />
+                      <div className="space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
+                        <ControlStatusBlock
+                          control={ctrl}
+                          periodDays={exportWindow.period}
+                          coverage={evidenceCoverage.data}
+                          controlId={ctrl.control_id}
+                          framework={framework}
+                          accountId={activeAccount?.id ?? ""}
+                        />
 
-                          {ctrl.check_ids.length === 0 ? (
-                            <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
-                              No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
-                              inherit access via groups or roles).
-                            </p>
-                          ) : (
-                            <>
-                              <ControlEvaluationBlock checkIds={ctrl.check_ids} />
-                              <ControlFindingsBlock
-                                control={ctrl}
-                                checkIds={ctrl.check_ids}
-                                findingCountByCheck={findingCountByCheck}
-                              />
-                            </>
-                          )}
-                        </div>
-                      ) : null}
+                        {ctrl.check_ids.length === 0 ? (
+                          <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
+                            No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
+                            inherit access via groups or roles).
+                          </p>
+                        ) : (
+                          <>
+                            <ControlEvaluationBlock checkIds={ctrl.check_ids} />
+                            <ControlFindingsBlock
+                              control={ctrl}
+                              checkIds={ctrl.check_ids}
+                              findingCountByCheck={findingCountByCheck}
+                            />
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -384,7 +384,7 @@
   grid-template-rows: 0fr;
   opacity: 0;
   transition:
-    grid-template-rows 150ms ease,
+    grid-template-rows 180ms ease,
     opacity 150ms ease;
 }
 
@@ -395,6 +395,22 @@
 
 .vigil-accordion-panel__inner {
   overflow: hidden;
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vigil-accordion-panel {
+    transition: none;
+  }
+}
+
+.finding-resource-count {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: #a1a1aa;
+  white-space: nowrap;
 }
 
 .finding-title-cell {
