@@ -63,8 +63,24 @@ docker_cmd() {
   fi
 }
 
+is_iap_enabled() {
+  local val="${1:-}"
+  [[ "$val" == "1" || "$val" == "true" || "$val" == "yes" || "$val" == "TRUE" ]]
+}
+
+compose_iap_args() {
+  local iap_enabled
+  iap_enabled="$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"
+  if is_iap_enabled "$iap_enabled"; then
+    printf '%s\0%s\0' "-f" "$REPO_DIR/compose.iap.yml"
+    printf '%s\0%s\0' "--profile" "iap"
+  fi
+}
+
 compose() {
-  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" --profile prod "$@")
+  local -a iap_args=()
+  while IFS= read -r -d '' arg; do iap_args+=("$arg"); done < <(compose_iap_args)
+  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
 }
 
 compose_no_profile() {
@@ -157,6 +173,25 @@ render_nginx_conf() {
     "$NGINX_TEMPLATE" > "$NGINX_CONF"
 }
 
+render_iap_nginx() {
+  local iap_dir="$REPO_DIR/nginx/iap"
+  local src_dir="$REPO_DIR/infra/nginx/iap"
+  local iap_enabled
+  iap_enabled="$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"
+  mkdir -p "$iap_dir"
+  if is_iap_enabled "$iap_enabled"; then
+    cp "$src_dir/enabled.oauth2.conf" "$iap_dir/iap.oauth2.conf"
+    cp "$src_dir/enabled.auth.conf" "$iap_dir/iap.auth.conf"
+    local iap_dom
+    iap_dom="$(get_env_value IAP_ALLOWED_EMAIL_DOMAIN "$REPO_DIR/$ENV_FILE")"
+    log "IAP enabled — edge Google gate for @${iap_dom:-cloud-castles.com}"
+  else
+    cp "$src_dir/disabled.oauth2.conf" "$iap_dir/iap.oauth2.conf"
+    cp "$src_dir/disabled.auth.conf" "$iap_dir/iap.auth.conf"
+    log "IAP disabled — nginx serves without oauth2-proxy gate"
+  fi
+}
+
 install_fail2ban() {
   local log_dir="$REPO_DIR/var/log/nginx"
   local access_log="$log_dir/access.log"
@@ -193,8 +228,12 @@ install_fail2ban() {
 }
 
 install_renewal_cron() {
-  local compose_renew="cd $REPO_DIR && ENV_FILE=$ENV_FILE docker compose -f compose.yml -f compose.prod.yml --env-file $ENV_FILE --profile prod"
-  local cron_job="0 3 * * * certbot renew --quiet --pre-hook \"$compose_renew stop nginx\" --post-hook \"$compose_renew up -d nginx\""
+  local iap_suffix=""
+  if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
+    iap_suffix=" -f compose.iap.yml --profile iap"
+  fi
+  local compose_renew="cd $REPO_DIR && ENV_FILE=$ENV_FILE docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
+  local cron_job="0 3 * * * certbot renew --quiet --pre-hook \"$compose_renew stop nginx\" --post-hook \"$compose_renew up -d nginx oauth2-proxy\""
 
   log "Installing certbot renewal cron job..."
   (crontab -l 2>/dev/null | grep -v "certbot renew" || true; echo "$cron_job") | crontab -
@@ -223,6 +262,10 @@ random_secret() {
 
 random_fernet_key() {
   python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+}
+
+random_iap_cookie_secret() {
+  openssl rand -base64 32 | tr -d '\n'
 }
 
 detect_instance_role_arn() {
@@ -265,6 +308,8 @@ ensure_env_prod() {
   set_env_value "API_PUBLIC_URL" "$api_url" "$env_path"
   set_env_value "VITE_API_URL" "$api_url" "$env_path"
   set_env_value "APP_ENV" "production" "$env_path"
+  set_env_value "DOMAIN" "$DOMAIN" "$env_path"
+  set_env_value "API_DOMAIN" "$API_DOMAIN" "$env_path"
 
   local jwt_secret app_secret trust_arn detected_arn
   jwt_secret="$(get_env_value JWT_SECRET "$env_path")"
@@ -303,6 +348,68 @@ ensure_env_prod() {
   if is_placeholder_trust "$trust_arn"; then
     warn "TRUST_PRINCIPAL_ARN is still a placeholder ($trust_arn)"
     warn "Customer CFN stacks will not trust this host until you set the real control-plane role ARN"
+  fi
+
+  local iap_enabled iap_domain google_domain
+  iap_enabled="$(get_env_value IAP_ENABLED "$env_path")"
+  if [[ -z "$iap_enabled" ]]; then
+    set_env_value "IAP_ENABLED" "true" "$env_path"
+    iap_enabled="true"
+    log "Set IAP_ENABLED=true (Google edge gate for @cloud-castles.com)"
+  fi
+
+  iap_domain="$(get_env_value IAP_ALLOWED_EMAIL_DOMAIN "$env_path")"
+  if [[ -z "$iap_domain" ]]; then
+    set_env_value "IAP_ALLOWED_EMAIL_DOMAIN" "cloud-castles.com" "$env_path"
+    iap_domain="cloud-castles.com"
+  fi
+
+  google_domain="$(get_env_value GOOGLE_ALLOWED_DOMAIN "$env_path")"
+  if [[ -z "$google_domain" ]]; then
+    set_env_value "GOOGLE_ALLOWED_DOMAIN" "$iap_domain" "$env_path"
+  fi
+
+  local cookie_domain
+  cookie_domain="$(get_env_value IAP_COOKIE_DOMAIN "$env_path")"
+  if [[ -z "$cookie_domain" && "$DOMAIN" == *.* ]]; then
+    cookie_domain=".${DOMAIN#*.}"
+    set_env_value "IAP_COOKIE_DOMAIN" "$cookie_domain" "$env_path"
+    log "Set IAP_COOKIE_DOMAIN=$cookie_domain (shared across $DOMAIN and $API_DOMAIN)"
+  fi
+
+  local whitelist
+  whitelist="$(get_env_value IAP_WHITELIST_DOMAINS "$env_path")"
+  if [[ -z "$whitelist" ]]; then
+    set_env_value "IAP_WHITELIST_DOMAINS" "${DOMAIN},${API_DOMAIN}" "$env_path"
+  fi
+
+  if is_iap_enabled "$iap_enabled"; then
+    local iap_secret iap_client iap_secret_val google_id google_secret
+    iap_secret="$(get_env_value IAP_COOKIE_SECRET "$env_path")"
+    if [[ -z "$iap_secret" ]]; then
+      set_env_value "IAP_COOKIE_SECRET" "$(random_iap_cookie_secret)" "$env_path"
+      log "Generated IAP_COOKIE_SECRET"
+    fi
+
+    iap_client="$(get_env_value IAP_GOOGLE_CLIENT_ID "$env_path")"
+    google_id="$(get_env_value GOOGLE_CLIENT_ID "$env_path")"
+    if [[ -z "$iap_client" && -n "$google_id" ]]; then
+      set_env_value "IAP_GOOGLE_CLIENT_ID" "$google_id" "$env_path"
+      log "Set IAP_GOOGLE_CLIENT_ID from GOOGLE_CLIENT_ID (use a dedicated OAuth app in prod)"
+    fi
+
+    iap_secret_val="$(get_env_value IAP_GOOGLE_CLIENT_SECRET "$env_path")"
+    google_secret="$(get_env_value GOOGLE_CLIENT_SECRET "$env_path")"
+    if [[ -z "$iap_secret_val" && -n "$google_secret" ]]; then
+      set_env_value "IAP_GOOGLE_CLIENT_SECRET" "$google_secret" "$env_path"
+    fi
+
+    iap_client="$(get_env_value IAP_GOOGLE_CLIENT_ID "$env_path")"
+    iap_secret_val="$(get_env_value IAP_GOOGLE_CLIENT_SECRET "$env_path")"
+    if [[ -z "$iap_client" || -z "$iap_secret_val" ]]; then
+      warn "IAP enabled but IAP_GOOGLE_CLIENT_ID/SECRET missing — set them in $ENV_FILE"
+      warn "Google OAuth redirect URI: https://${DOMAIN}/oauth2/callback"
+    fi
   fi
 }
 
@@ -378,6 +485,8 @@ Post-deploy checklist:
        ${API_DOMAIN}/v1/auth/github/callback
        ${API_DOMAIN}/v1/auth/google/callback
        ${API_DOMAIN}/v1/auth/gitlab/callback
+     IAP (oauth2-proxy) Google redirect when IAP_ENABLED=true:
+       https://${DOMAIN}/oauth2/callback
   3. EC2 instance IAM role must match TRUST_PRINCIPAL_ARN in $ENV_FILE
      (customer CFN connector stack trusts this principal for sts:AssumeRole).
   4. If you change TRUST_PRINCIPAL_ARN, update existing customer scanner role
@@ -405,6 +514,7 @@ main() {
   ensure_env_prod
   obtain_certs
   render_nginx_conf
+  render_iap_nginx
   install_fail2ban
   install_renewal_cron
   deploy_compose

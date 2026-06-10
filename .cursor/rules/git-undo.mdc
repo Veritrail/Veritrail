@@ -1,0 +1,15 @@
+---
+description: When user says undo, revert code only — never run git reset/revert
+alwaysApply: true
+---
+
+# Undo means edit files, not git history
+
+When the user says **undo**, **revert that**, or **roll back** a change:
+
+- **Do:** restore the previous file contents with editor/file edits
+- **Do not:** run `git reset`, `git reset --hard`, `git revert`, or `git checkout`/`git restore` on their behalf unless they **explicitly** ask for a git operation by name
+
+`git reset --hard` destroys uncommitted work. The user may only want the last code edit reversed.
+
+Only use git to undo when they clearly request it, e.g. "git revert the last commit" or "reset hard to origin/dev".

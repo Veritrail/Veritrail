@@ -111,11 +111,34 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/iap:/etc/nginx/iap:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./var/log/nginx:/var/log/nginx
     depends_on:
       - api
       - web
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    profiles: ["iap"]
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    environment:
+      OAUTH2_PROXY_PROVIDER: google
+      OAUTH2_PROXY_UPSTREAMS: static://202
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_REDIRECT_URL: https://${DOMAIN:-localhost}/oauth2/callback
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_SAMESITE: lax
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "false"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      OAUTH2_PROXY_EMAIL_DOMAINS: ${IAP_ALLOWED_EMAIL_DOMAIN:-cloud-castles.com}
+      OAUTH2_PROXY_CLIENT_ID: ${IAP_GOOGLE_CLIENT_ID}
+      OAUTH2_PROXY_CLIENT_SECRET: ${IAP_GOOGLE_CLIENT_SECRET}
+      OAUTH2_PROXY_COOKIE_SECRET: ${IAP_COOKIE_SECRET}
+      OAUTH2_PROXY_COOKIE_DOMAIN: ${IAP_COOKIE_DOMAIN:-}
+      OAUTH2_PROXY_WHITELIST_DOMAINS: ${IAP_WHITELIST_DOMAINS:-}
 
   backup:
     image: postgres:16-alpine
