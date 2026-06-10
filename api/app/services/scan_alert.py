@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.html_email import html_email as h
 from app.models import AwsAccount, Finding, FindingEvent, ScanRun
 from app.models.org import Org, User
 
@@ -58,13 +59,13 @@ def send_scan_failure_email(
     <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
       <h2 style="margin:0 0 12px;font-size:18px">Scan failed</h2>
       <p style="margin:0 0 16px;color:#52525b">
-        A Vigil scan failed for <strong>{account_label}</strong>{acct}.
+        A Vigil scan failed for <strong>{h(account_label)}</strong>{h(acct)}.
       </p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <tr><td style="padding:6px 0;color:#71717a;width:100px">Step</td><td>{failed_step or "unknown"}</td></tr>
-        <tr><td style="padding:6px 0;color:#71717a">Error</td><td>{error_type or "Error"}</td></tr>
+        <tr><td style="padding:6px 0;color:#71717a;width:100px">Step</td><td>{h(failed_step or "unknown")}</td></tr>
+        <tr><td style="padding:6px 0;color:#71717a">Error</td><td>{h(error_type or "Error")}</td></tr>
       </table>
-      <pre style="margin:16px 0;padding:12px;background:#fafafa;border:1px solid #e4e4e7;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">{error_summary[:800]}</pre>
+      <pre style="margin:16px 0;padding:12px;background:#fafafa;border:1px solid #e4e4e7;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">{h(error_summary[:800])}</pre>
       <p style="margin:0;color:#71717a;font-size:13px">Open Vigil → Accounts to verify your IAM role and trigger a re-scan.</p>
     </div>
     """
@@ -165,8 +166,8 @@ def send_new_findings_email(
     shown = items[:12]
     rows = "".join(
         f'<tr><td style="padding:4px 8px 4px 0;color:#b91c1c;font-weight:600;'
-        f'white-space:nowrap;vertical-align:top">{sev.upper()}</td>'
-        f'<td style="padding:4px 0">{title}</td></tr>'
+        f'white-space:nowrap;vertical-align:top">{h(sev.upper())}</td>'
+        f'<td style="padding:4px 0">{h(title)}</td></tr>'
         for sev, title in shown
     )
     more = (
@@ -184,10 +185,10 @@ def send_new_findings_email(
     html = f"""
     <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
       <h2 style="margin:0 0 12px;font-size:18px">{n} new critical/high finding{plural}</h2>
-      <p style="margin:0 0 16px;color:#52525b">Account <strong>{account_label}</strong>{acct}.</p>
+      <p style="margin:0 0 16px;color:#52525b">Account <strong>{h(account_label)}</strong>{h(acct)}.</p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">{rows}</table>
       {more}
-      <p style="margin:16px 0 0"><a href="{app_url}" style="color:#4f46e5;font-weight:600">Review in Vigil →</a></p>
+      <p style="margin:16px 0 0"><a href="{h(app_url)}" style="color:#4f46e5;font-weight:600">Review in Vigil →</a></p>
     </div>
     """
     try:

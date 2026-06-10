@@ -17,6 +17,7 @@ build/
 .vscode/
 celerybeat-schedule
 celerybeat-schedule.*
+var/log/nginx/*.log
 
 
 

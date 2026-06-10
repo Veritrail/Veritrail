@@ -157,6 +157,41 @@ render_nginx_conf() {
     "$NGINX_TEMPLATE" > "$NGINX_CONF"
 }
 
+install_fail2ban() {
+  local log_dir="$REPO_DIR/var/log/nginx"
+  local access_log="$log_dir/access.log"
+  local jail_dest="/etc/fail2ban/jail.d/vigil-nginx.local.conf"
+  local filter_src="$REPO_DIR/infra/fail2ban/filter.d/vigil-nginx-scan.conf"
+  local jail_tpl="$REPO_DIR/infra/fail2ban/jail.d/vigil-nginx.local.conf.template"
+
+  [[ -f "$filter_src" && -f "$jail_tpl" ]] || die "Missing fail2ban config under infra/fail2ban/"
+
+  mkdir -p "$log_dir"
+  touch "$access_log"
+  chmod 644 "$access_log"
+
+  if command -v fail2ban-client >/dev/null 2>&1; then
+    log "fail2ban already installed — configuring vigil-nginx-scan jail"
+  else
+    log "Installing fail2ban..."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update -qq
+      apt-get install -y -qq fail2ban
+    else
+      warn "fail2ban install via apt is only supported on Debian/Ubuntu EC2 — skipping"
+      return 0
+    fi
+  fi
+
+  install -m 644 "$filter_src" /etc/fail2ban/filter.d/vigil-nginx-scan.conf
+  sed "s|__VIGIL_NGINX_ACCESS_LOG__|$access_log|g" "$jail_tpl" > "$jail_dest"
+  chmod 644 "$jail_dest"
+
+  systemctl enable fail2ban >/dev/null 2>&1 || true
+  systemctl restart fail2ban
+  log "fail2ban jail vigil-nginx-scan enabled (30x 404/301 in 60s → 1h ban; log: $access_log)"
+}
+
 install_renewal_cron() {
   local compose_renew="cd $REPO_DIR && ENV_FILE=$ENV_FILE docker compose -f compose.yml -f compose.prod.yml --env-file $ENV_FILE --profile prod"
   local cron_job="0 3 * * * certbot renew --quiet --pre-hook \"$compose_renew stop nginx\" --post-hook \"$compose_renew up -d nginx\""
@@ -370,6 +405,7 @@ main() {
   ensure_env_prod
   obtain_certs
   render_nginx_conf
+  install_fail2ban
   install_renewal_cron
   deploy_compose
   health_check || true

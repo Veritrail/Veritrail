@@ -1,0 +1,8 @@
+[vigil-nginx-scan]
+enabled = true
+port = http,https
+filter = vigil-nginx-scan
+logpath = __VIGIL_NGINX_ACCESS_LOG__
+maxretry = 30
+findtime = 60
+bantime = 3600

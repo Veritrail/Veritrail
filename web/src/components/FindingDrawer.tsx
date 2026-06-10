@@ -6878,8 +6878,6 @@ export function FindingDrawer({
             selectedFinding={finding}
             groupFindings={groupFindings?.length ? groupFindings : [finding]}
             onSelectFinding={onFocusFinding}
-            findingTitle={checkLabels[finding.check_id] ?? finding.title}
-            findingSummary={checkDoc?.whyShown ?? checkDoc?.overview?.context ?? ops.impact}
             summaryRisk={checkDoc?.overview?.exposure ?? checkDoc?.overview?.context ?? ops.impact}
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}

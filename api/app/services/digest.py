@@ -9,6 +9,7 @@ import httpx
 import structlog
 
 from app.core.config import get_settings
+from app.core.html_email import html_email as h
 
 log = structlog.get_logger()
 settings = get_settings()
@@ -89,6 +90,7 @@ def _html(
 ) -> str:
     unsubscribe_href = _unsubscribe_url(unsubscribe_token)
     app_url = _findings_app_url().rstrip("/")
+    findings_url = f"{app_url}/findings"
     top = sorted(open_findings, key=lambda f: (-f["risk_score"],))[:10]
 
     rows_html = ""
@@ -98,10 +100,10 @@ def _html(
         rows_html += f"""
         <tr>
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#18181b">
-            {emoji} {f['title']}
+            {emoji} {h(f['title'])}
           </td>
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#71717a;font-family:monospace">
-            {f['resource_arn'][-60:] if len(f['resource_arn']) > 60 else f['resource_arn']}
+            {h(f['resource_arn'][-60:] if len(f['resource_arn']) > 60 else f['resource_arn'])}
           </td>
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:600;color:#dc2626;text-align:right">
             {f['risk_score']}
@@ -138,7 +140,7 @@ def _html(
           <div style="width:1px;height:52px;background:#e4e4e7"></div>
         </td>
         <td style="padding:28px 32px 28px 24px;vertical-align:middle">
-          <div style="font-size:15px;color:#18181b;font-weight:600">{account_label}</div>
+          <div style="font-size:15px;color:#18181b;font-weight:600">{h(account_label)}</div>
           <div style="font-size:12px;color:#71717a;margin-top:5px">{len(open_findings)} open findings total</div>
           <div style="margin-top:10px">{new_badge}&nbsp;&nbsp;{resolved_badge}</div>
         </td>
@@ -166,7 +168,7 @@ def _html(
 
     <!-- CTA -->
     <div style="padding:0 32px 28px">
-      <a href="{app_url}/findings"
+      <a href="{h(findings_url)}"
          style="display:inline-block;background:#18181b;color:white;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none">
         View all findings →
       </a>
@@ -175,8 +177,8 @@ def _html(
     <!-- Footer -->
     <div style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e4e4e7">
       <div style="font-size:11px;color:#a1a1aa">
-        Vigil weekly digest for {org_name} · {datetime.now(timezone.utc).strftime('%B %d, %Y')} ·
-        <a href="{unsubscribe_href}" style="color:#71717a">Unsubscribe</a>
+        Vigil weekly digest for {h(org_name)} · {datetime.now(timezone.utc).strftime('%B %d, %Y')} ·
+        <a href="{h(unsubscribe_href)}" style="color:#71717a">Unsubscribe</a>
       </div>
     </div>
   </div>

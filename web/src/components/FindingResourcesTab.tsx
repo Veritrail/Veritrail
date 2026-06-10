@@ -8,6 +8,7 @@ import {
   findingScopeDisplayName,
   resourceDisplayName,
   severityLabel,
+  severityPillClassName,
 } from "../lib/findingDisplay";
 import {
   fetchCheckFindings,
@@ -239,119 +240,55 @@ function RecommendedActionMark({ className }: { className?: string }) {
   );
 }
 
-function MetricTile({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="min-w-[5.25rem] flex-1 rounded-lg border border-zinc-200/90 bg-zinc-50/40 px-3 py-2.5">
-      <p className="text-[11px] font-medium text-zinc-400">{label}</p>
-      <div className="mt-1">{children}</div>
-    </div>
-  );
-}
-
 function ResourcesPostureStrip({
   selectedFinding,
   groupFindings,
-  findingTitle,
-  findingSummary,
   summaryRisk,
   summaryAction,
   onViewRemediation,
 }: {
   selectedFinding: ResourcesTabFinding;
   groupFindings: ResourcesTabFinding[];
-  findingTitle: string;
-  findingSummary?: string | null;
   summaryRisk?: string | null;
   summaryAction?: string | null;
   onViewRemediation?: () => void;
 }) {
   const unique = dedupeByArn(groupFindings);
   const scoreTone = riskScoreTone(selectedFinding.severity);
-  const openDays = openDaysSince(selectedFinding.first_seen);
-  const accountName = findingScopeDisplayName(selectedFinding) || "—";
-  const accountAwsId = awsAccountIdFromFinding(selectedFinding) ?? "—";
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-      <div className="min-w-0 flex-1 rounded-xl border border-zinc-200/90 bg-white p-4 shadow-sm shadow-zinc-950/[0.03]">
-        <div className="flex gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-50 ring-1 ring-rose-100">
-            <svg
-              className="h-5 w-5 text-red-500"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.75}
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-              />
-            </svg>
+      {/* Two centered stats — title, severity detail, account, and dates all live in
+          the drawer header and the resource table. */}
+      <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto_auto] items-center gap-x-7 rounded-xl border border-zinc-200/90 bg-white px-8 py-4 shadow-sm shadow-zinc-950/[0.03]">
+        <p className="col-start-1 row-start-1 text-center whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+          Affected resources
+        </p>
+        <div
+          className="col-start-2 row-start-1 row-span-3 w-px self-stretch bg-zinc-100"
+          aria-hidden
+        />
+        <p className="col-start-3 row-start-1 text-center whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+          Risk score
+        </p>
+        <p className="col-start-1 row-start-2 mt-2 text-center text-xl font-bold leading-none tabular-nums text-zinc-900">
+          {unique.length}
+        </p>
+        <p
+          className={`col-start-3 row-start-2 mt-2 text-center text-xl font-bold leading-none tabular-nums ${scoreTone}`}
+        >
+          {selectedFinding.risk_score}
+        </p>
+        <p className="col-start-1 row-start-3 mt-1.5 text-center invisible" aria-hidden>
+          <span className={severityPillClassName(selectedFinding.severity)}>
+            {severityLabel(selectedFinding.severity)}
           </span>
-          <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold leading-snug text-zinc-900">{findingTitle}</h3>
-            {findingSummary ? (
-              <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-zinc-500">{findingSummary}</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <MetricTile label="Severity">
-            <div className="flex items-center gap-1.5">
-              <svg
-                className="h-4 w-4 shrink-0 text-red-500"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.75}
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-                />
-              </svg>
-              <span className="text-[15px] font-semibold leading-none text-zinc-900">
-                {severityLabel(selectedFinding.severity)}
-              </span>
-            </div>
-          </MetricTile>
-
-          <MetricTile label="Risk score">
-            <span className={`text-xl font-bold leading-none tabular-nums ${scoreTone}`}>
-              {selectedFinding.risk_score}
-            </span>
-          </MetricTile>
-
-          <MetricTile label="Affected resources">
-            <span className="text-xl font-bold leading-none tabular-nums text-zinc-900">{unique.length}</span>
-          </MetricTile>
-
-          <MetricTile label="Open for">
-            <span className="text-xl font-bold leading-none tabular-nums text-amber-600">
-              {openDays} days
-            </span>
-          </MetricTile>
-
-          <MetricTile label="Account">
-            <div className="flex min-w-0 items-start justify-between gap-1">
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold leading-tight text-zinc-900">{accountName}</p>
-                <p className="mt-0.5 font-mono text-[11px] leading-none tabular-nums text-zinc-500">
-                  {accountAwsId}
-                </p>
-              </div>
-              {accountAwsId !== "—" ? (
-                <CopyTextButton text={accountAwsId} label="Copy AWS account ID" />
-              ) : null}
-            </div>
-          </MetricTile>
-        </div>
+        </p>
+        <p className="col-start-3 row-start-3 mt-1.5 text-center">
+          <span className={severityPillClassName(selectedFinding.severity)}>
+            {severityLabel(selectedFinding.severity)}
+          </span>
+        </p>
       </div>
 
       {summaryAction ? (
@@ -543,8 +480,6 @@ export function FindingResourcesTab({
   selectedFinding,
   groupFindings,
   onSelectFinding,
-  findingTitle,
-  findingSummary,
   summaryRisk,
   summaryAction,
   onViewRemediation,
@@ -552,8 +487,6 @@ export function FindingResourcesTab({
   selectedFinding: ResourcesTabFinding;
   groupFindings: ResourcesTabFinding[];
   onSelectFinding?: (finding: ResourcesTabFinding) => void;
-  findingTitle: string;
-  findingSummary?: string | null;
   summaryRisk?: string | null;
   summaryAction?: string | null;
   onViewRemediation?: () => void;
@@ -764,8 +697,6 @@ export function FindingResourcesTab({
       <ResourcesPostureStrip
         selectedFinding={selectedFinding}
         groupFindings={groupFindings}
-        findingTitle={findingTitle}
-        findingSummary={findingSummary}
         summaryRisk={summaryRisk}
         summaryAction={summaryAction}
         onViewRemediation={onViewRemediation}

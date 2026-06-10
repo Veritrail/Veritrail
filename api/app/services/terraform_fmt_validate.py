@@ -17,8 +17,14 @@ def terraform_fmt_validate(files: list[dict[str, str]]) -> dict:
         return {"ok": False, "error": "terraform CLI not installed on API host"}
 
     with tempfile.TemporaryDirectory(prefix="vigil-tf-") as td:
+        root = Path(td).resolve()
         for f in files:
-            p = Path(td) / (f.get("path") or "main.tf").lstrip("/")
+            rel = (f.get("path") or "main.tf").lstrip("/")
+            if ".." in Path(rel).parts:
+                return {"ok": False, "error": f"invalid terraform path: {rel}"}
+            p = (root / rel).resolve()
+            if not p.is_relative_to(root):
+                return {"ok": False, "error": f"invalid terraform path: {rel}"}
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(f.get("content") or "", encoding="utf-8")
 

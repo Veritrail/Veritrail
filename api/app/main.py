@@ -67,13 +67,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         if settings.APP_ENV != "dev":
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+            frontend_origin = (settings.FRONTEND_URL or settings.API_PUBLIC_URL).rstrip("/")
             response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline'; "
-                "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data: https:; "
-                "connect-src 'self'; "
-                "frame-ancestors 'none';"
+                "default-src 'none'; "
+                "frame-ancestors 'none'; "
+                "base-uri 'none'; "
+                f"form-action 'self' {frontend_origin};"
             )
         return response
 

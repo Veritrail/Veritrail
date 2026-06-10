@@ -7,6 +7,7 @@ import httpx
 import structlog
 
 from app.core.config import get_settings
+from app.core.html_email import html_email as h
 
 log = structlog.get_logger()
 settings = get_settings()
@@ -40,14 +41,14 @@ def send_auditor_invite_email(
     <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
       <h2 style="margin:0 0 12px;font-size:18px">You're invited to Vigil</h2>
       <p style="margin:0 0 16px;color:#52525b">
-        <strong>{org_name}</strong> invited you to review compliance evidence with read-only auditor access.
+        <strong>{h(org_name)}</strong> invited you to review compliance evidence with read-only auditor access.
       </p>
       <p style="margin:0 0 20px">
-        <a href="{verify_url}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;
+        <a href="{h(verify_url)}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;
         padding:10px 18px;border-radius:8px;font-weight:600">Open auditor portal</a>
       </p>
       <p style="margin:0 0 8px;color:#71717a;font-size:13px">Or copy this link:</p>
-      <p style="margin:0 0 16px;font-size:12px;word-break:break-all;color:#3f3f46">{verify_url}</p>
+      <p style="margin:0 0 16px;font-size:12px;word-break:break-all;color:#3f3f46">{h(verify_url)}</p>
       <p style="margin:0;color:#71717a;font-size:13px">Access expires on {expiry_label}.</p>
     </div>
     """
