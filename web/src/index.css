@@ -269,23 +269,27 @@
 }
 
 .space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left colgroup col:first-child {
-  width: 23.5rem;
+  width: 22.75rem;
 }
 
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left thead th:nth-child(2),
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left thead th:nth-child(2) {
+  padding-left: 0.7rem !important;
+  padding-right: 0.75rem !important;
+}
+
 .space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) {
-  padding-left: 0.75rem !important;
+  padding-left: 0.35rem !important;
   padding-right: 0.75rem !important;
 }
 
 .space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr:hover {
-  background-color: #fafaf9 !important;
+  background-color: #fbfaf7 !important;
 }
 
 .space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr[aria-selected="true"] {
-  background-color: #f8f7f4 !important;
+  background-color: #f7f3ec !important;
 }
 
 .space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr[aria-selected="true"]:hover {
-  background-color: #f5f4ef !important;
+  background-color: #f3eee4 !important;
 }
