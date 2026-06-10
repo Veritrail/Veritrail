@@ -54,3 +54,30 @@ export function formatServiceLastUsed(daysAgo: number | null): string {
   if (daysAgo < 365) return `${Math.floor(daysAgo / 30)} mo ago`;
   return `${Math.floor(daysAgo / 365)} yr ago`;
 }
+
+export type ServiceActivityDecision = "keep" | "verify" | "remove";
+
+export function serviceActivityDecision(service: BlastRadiusService): ServiceActivityDecision {
+  if (service.days_ago === null || service.days_ago > HISTORICAL_MAX_DAYS) return "remove";
+  if (service.days_ago <= RECENT_DAYS) return "keep";
+  return "verify";
+}
+
+/** Services worth reviewing before remediation — excludes 90+ day / no-activity cleanup candidates. */
+export function servicesForDependencyReview(services: BlastRadiusService[]): BlastRadiusService[] {
+  return services.filter((s) => serviceActivityDecision(s) !== "remove");
+}
+
+export function serviceUsageActivityLabel(decision: ServiceActivityDecision): {
+  title: string;
+  sub: string;
+  tone: "active" | "inactive" | "none";
+} {
+  if (decision === "keep") {
+    return { title: "Active", sub: "Used in the last 30 days", tone: "active" };
+  }
+  if (decision === "verify") {
+    return { title: "Inactive", sub: "Used 31–90 days ago", tone: "inactive" };
+  }
+  return { title: "No activity", sub: "90+ days", tone: "none" };
+}

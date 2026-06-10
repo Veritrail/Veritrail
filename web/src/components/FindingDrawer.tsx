@@ -78,11 +78,12 @@ import {
   ImpactAnalysisShell,
   ImpactReportEmpty,
   ImpactReportTabs,
+  ImpactAccessComparison,
   ImpactUsageStats,
   ImpactVerdictCard,
   type ImpactReportTab,
 } from "./ImpactAnalysisPanel";
-import { bucketServicesByUsage } from "../lib/blastRadiusDisplay";
+import { bucketServicesByUsage, servicesForDependencyReview } from "../lib/blastRadiusDisplay";
 import {
   impactConfidencePill,
   impactVerdictCopy,
@@ -3106,20 +3107,45 @@ function BlastRadiusSection({
   const hasTrust = Boolean(data.trust_principals && data.trust_principals.length > 0);
   const rolePolicies = data.attached_policies?.filter((pol): pol is AttachedPolicyAnalysis => "action" in pol) ?? [];
   const hasPolicies = rolePolicies.length > 0;
+  const dependencyReviewServices =
+    data.services && data.services.length > 0 ? servicesForDependencyReview(data.services) : [];
+  const dependencyPolicies = rolePolicies.filter((pol) => pol.active_services.length > 0);
+  const hasDependencyReview =
+    hasTrust || dependencyPolicies.length > 0 || dependencyReviewServices.length > 0;
+
+  const accessComparison =
+    iamRoleReport && serviceStats
+      ? {
+          grantedActions: (() => {
+            const fromPolicies = new Set(rolePolicies.flatMap((pol) => pol.granted_services));
+            return fromPolicies.size > 0 ? fromPolicies.size : serviceStats.granted;
+          })(),
+          recentServices: serviceStats.recent,
+          hasWildcard: rolePolicies.some((pol) => pol.has_wildcard_action),
+          preservedServices: serviceStats.recent,
+          cleanupEligible: (() => {
+            const fromPolicies = new Set(rolePolicies.flatMap((pol) => pol.unused_services));
+            return fromPolicies.size > 0 ? fromPolicies.size : serviceStats.safe;
+          })(),
+        }
+      : null;
 
   return (
     <ImpactAnalysisShell>
-      <ImpactVerdictCard
-        tone={visualTone}
-        title={verdictCopy.title}
-        subtitle={verdictCopy.subtitle}
-        detail={verdictCopy.detail}
-        pill={visualTone === "safe" ? undefined : impactPill}
-      />
+      {accessComparison ? (
+        <ImpactAccessComparison {...accessComparison} />
+      ) : (
+        <ImpactVerdictCard
+          tone={visualTone}
+          title={verdictCopy.title}
+          subtitle={verdictCopy.subtitle}
+          detail={verdictCopy.detail}
+          pill={visualTone === "safe" ? undefined : impactPill}
+        />
+      )}
 
       {iamRoleReport ? (
         <>
-          {serviceStats ? <ImpactUsageStats {...serviceStats} /> : null}
           <ImpactReportTabs active={reportTab} onChange={setReportTab} />
           <div className="impact-report-panel">
             {reportTab === "usage" ? (
@@ -3136,26 +3162,21 @@ function BlastRadiusSection({
             ) : null}
 
             {reportTab === "dependencies" ? (
-              hasTrust || hasPolicies || (data.services?.length ?? 0) > 0 ? (
+              hasDependencyReview ? (
                 <div className="space-y-4">
-                  <FindingDependencyGraph
-                    resourceLabel={resourceDisplayName(finding)}
-                    trustPrincipals={data.trust_principals}
-                    services={
-                      data.services?.map((service) => service.name) ??
-                      [
-                        ...new Set(
-                          (data.keys ?? [])
-                            .map((key) => key.last_used_service)
-                            .filter((service): service is string => Boolean(service)),
-                        ),
-                      ]
-                    }
-                  />
+                  {dependencyReviewServices.length > 0 ? (
+                    <FindingDependencyGraph
+                      resourceLabel={resourceDisplayName(finding)}
+                      trustPrincipals={data.trust_principals}
+                      services={dependencyReviewServices.map((service) => service.name)}
+                    />
+                  ) : null}
                   {hasTrust ? <RoleTrustPrincipals principals={data.trust_principals!} /> : null}
-                  {hasPolicies ? (
+                  {dependencyPolicies.length > 0 ? (
                     <RolePoliciesAnalysis
-                      policies={rolePolicies}
+                      policies={dependencyPolicies}
+                      showRemovable={false}
+                      inUseLabel="Keep + verify"
                       renderConsoleLink={(pol) => (
                         <ConsoleLink
                           href={
@@ -3176,7 +3197,7 @@ function BlastRadiusSection({
                   ) : null}
                 </div>
               ) : (
-                <ImpactReportEmpty message="No trust principals or attached policies to review." />
+                <ImpactReportEmpty message="No keep or verify dependencies to review — only unused services on record." />
               )
             ) : null}
 

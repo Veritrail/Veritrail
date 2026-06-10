@@ -1,14 +1,273 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   bucketServicesByUsage,
   formatServiceLastUsed,
+  serviceActivityDecision,
+  serviceUsageActivityLabel,
   type BlastRadiusService,
+  type ServiceActivityDecision,
 } from "../lib/blastRadiusDisplay";
+import { serviceCategory } from "../lib/awsServiceCatalog";
+import { formatIamServiceDisplayName } from "../lib/findingDisplay";
+import AwsServiceIcon from "./AwsServiceIcon";
 import { ServiceAccessExplorer, type ExplorerBucket } from "./ServiceAccessExplorer";
 import { ImpactUsageStats } from "./ImpactAnalysisPanel";
 import "../styles/impact-analysis.css";
 
-const PREVIEW_LIMIT = 5;
+const TABLE_PREVIEW = 6;
+
+type ActivityFilter = "all" | ServiceActivityDecision;
+
+const ACTIVITY_GROUPS: { id: ServiceActivityDecision; label: string }[] = [
+  { id: "keep", label: "Keep" },
+  { id: "verify", label: "Verify" },
+  { id: "remove", label: "Remove" },
+];
+
+function decisionToExplorerBucket(decision: ServiceActivityDecision): ExplorerBucket {
+  if (decision === "keep") return "recent";
+  if (decision === "verify") return "historical";
+  return "safe";
+}
+
+function UsageSignal({ tone }: { tone: "active" | "inactive" | "none" }) {
+  const bars = tone === "active" ? [1, 1, 1] : tone === "inactive" ? [1, 1, 0] : [1, 0, 0];
+  return (
+    <span className={`service-activity-signal service-activity-signal--${tone}`} aria-hidden>
+      {bars.map((on, i) => (
+        <span key={i} className={on ? "is-on" : "is-off"} />
+      ))}
+    </span>
+  );
+}
+
+function iamServiceIconLabel(serviceName: string): string {
+  return (serviceName.split(":")[0] ?? serviceName).trim();
+}
+
+function ServiceActivityRow({ service }: { service: BlastRadiusService }) {
+  const decision = serviceActivityDecision(service);
+  const usage = serviceUsageActivityLabel(decision);
+  const displayName = formatIamServiceDisplayName(service.name);
+  const category = serviceCategory(service.name).label;
+  const lastUsed =
+    decision === "remove" ? usage.sub : `Last used ${formatServiceLastUsed(service.days_ago).toLowerCase()}`;
+
+  return (
+    <tr className="service-activity-row">
+      <td>
+        <div className="service-activity-service">
+          <AwsServiceIcon
+            service={iamServiceIconLabel(service.name)}
+            size={28}
+            className="service-activity-icon h-7 w-7 shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-zinc-200/80"
+          />
+          <div className="min-w-0">
+            <span className="service-activity-name">{displayName}</span>
+            {service.service_only_signal && (
+              <span className="service-activity-badge" title="IAM reported service use without per-action detail">
+                Service only
+              </span>
+            )}
+          </div>
+        </div>
+      </td>
+      <td>
+        <div className="service-activity-usage">
+          <UsageSignal tone={usage.tone} />
+          <div className="service-activity-usage-copy">
+            <span className="service-activity-usage-title">{usage.title}</span>
+            <span className="service-activity-usage-sub">{lastUsed}</span>
+          </div>
+        </div>
+      </td>
+      <td>
+        <span className="service-activity-category">{category}</span>
+      </td>
+    </tr>
+  );
+}
+
+function ServiceActivityTable({
+  services,
+  onViewAll,
+}: {
+  services: BlastRadiusService[];
+  onViewAll: (bucket: ExplorerBucket) => void;
+}) {
+  const [filter, setFilter] = useState<ActivityFilter>("all");
+  const [query, setQuery] = useState("");
+
+  const counts = useMemo(() => {
+    const tally = { keep: 0, verify: 0, remove: 0 };
+    for (const s of services) {
+      tally[serviceActivityDecision(s)] += 1;
+    }
+    return { ...tally, all: services.length };
+  }, [services]);
+
+  const searched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return services;
+    return services.filter((s) => {
+      const display = formatIamServiceDisplayName(s.name).toLowerCase();
+      return s.name.toLowerCase().includes(q) || display.includes(q);
+    });
+  }, [services, query]);
+
+  const previewRows = useMemo(() => {
+    type Row = { kind: "group"; decision: ServiceActivityDecision; count: number } | { kind: "service"; service: BlastRadiusService };
+
+    if (filter !== "all") {
+      const items = searched.filter((s) => serviceActivityDecision(s) === filter);
+      return { rows: items.slice(0, TABLE_PREVIEW).map((service) => ({ kind: "service" as const, service })), total: items.length, shown: Math.min(TABLE_PREVIEW, items.length) };
+    }
+
+    const rows: Row[] = [];
+    let remaining = TABLE_PREVIEW;
+    let shown = 0;
+
+    for (const group of ACTIVITY_GROUPS) {
+      const items = searched.filter((s) => serviceActivityDecision(s) === group.id);
+      if (items.length === 0) continue;
+      rows.push({ kind: "group", decision: group.id, count: items.length });
+      for (const service of items) {
+        if (remaining === 0) break;
+        rows.push({ kind: "service", service });
+        remaining -= 1;
+        shown += 1;
+      }
+      if (remaining === 0) break;
+    }
+
+    return { rows, total: searched.length, shown };
+  }, [searched, filter]);
+
+  const tabs: { id: ActivityFilter; label: string; count: number; tone: string }[] = [
+    { id: "all", label: "All", count: counts.all, tone: "all" },
+    { id: "keep", label: "Keep", count: counts.keep, tone: "keep" },
+    { id: "verify", label: "Verify", count: counts.verify, tone: "verify" },
+    { id: "remove", label: "Remove", count: counts.remove, tone: "remove" },
+  ];
+
+  return (
+    <div className="service-activity">
+      <div className="service-activity-header">
+        <h3 className="service-activity-title">Service activity</h3>
+        <div className="service-activity-toolbar">
+          <label className="service-activity-search">
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search services"
+              aria-label="Search services"
+            />
+          </label>
+          <button
+            type="button"
+            className="service-activity-filter-btn"
+            aria-label="Open full service explorer"
+            onClick={() => onViewAll("all")}
+          >
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="service-activity-tabs" role="tablist" aria-label="Filter services">
+        {tabs.map((tab) => {
+          const active = filter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`service-activity-tab service-activity-tab--${tab.tone}${active ? " is-active" : ""}`}
+              onClick={() => setFilter(tab.id)}
+            >
+              <span className="service-activity-tab-label">{tab.label}</span>
+              <span className={`service-activity-tab-count service-activity-tab-count--${tab.tone}`}>{tab.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="service-activity-table-wrap">
+        <table className="service-activity-table">
+          <colgroup>
+            <col className="service-activity-col-service" />
+            <col className="service-activity-col-usage" />
+            <col className="service-activity-col-category" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="service-activity-th-service">Service</th>
+              <th className="service-activity-th-usage">
+                <div className="service-activity-usage">
+                  <span className="service-activity-signal service-activity-signal--header" aria-hidden="true">
+                    <span className="is-off" />
+                    <span className="is-off" />
+                    <span className="is-off" />
+                  </span>
+                  <div className="service-activity-usage-copy">
+                    <span className="service-activity-usage-heading">Usage</span>
+                  </div>
+                </div>
+              </th>
+              <th className="service-activity-th-category">Category</th>
+            </tr>
+          </thead>
+          <tbody>
+            {previewRows.rows.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="service-activity-empty">
+                  {query.trim() ? "No services match your search." : "No service usage data yet."}
+                </td>
+              </tr>
+            ) : (
+              previewRows.rows.map((row, i) => {
+                if (row.kind === "group") {
+                  const group = ACTIVITY_GROUPS.find((g) => g.id === row.decision)!;
+                  return (
+                    <tr key={`group-${row.decision}`} className="service-activity-group-row">
+                      <td colSpan={3}>
+                        <span className={`service-activity-group-dot service-activity-group-dot--${row.decision}`} />
+                        {group.label} ({row.count})
+                      </td>
+                    </tr>
+                  );
+                }
+                return <ServiceActivityRow key={`${row.service.name}-${i}`} service={row.service} />;
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {previewRows.total > 0 && (
+        <div className="service-activity-footer">
+          <span className="service-activity-showing">
+            Showing 1–{previewRows.shown} of {previewRows.total}
+          </span>
+          <button type="button" className="service-activity-view-all" onClick={() => onViewAll(filter === "all" ? "all" : decisionToExplorerBucket(filter))}>
+            View all services
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type AttachedPolicy = {
   policy_arn: string;
@@ -144,146 +403,6 @@ export function BlastRadiusConsiderations({
   );
 }
 
-function ServiceUsageRow({ service, emphasis }: { service: BlastRadiusService; emphasis: "high" | "low" | "muted" }) {
-  const dot =
-    emphasis === "high" ? "bg-amber-500" : emphasis === "low" ? "bg-zinc-400" : "bg-zinc-300";
-  const nameClass =
-    emphasis === "high" ? "font-medium text-zinc-800" : emphasis === "low" ? "text-zinc-700" : "text-zinc-500";
-
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-zinc-100/80 px-3 py-1.5 pr-4 last:border-0">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
-        <span className={`truncate font-mono text-[12px] ${nameClass}`}>{service.name}</span>
-        {service.service_only_signal && (
-          <span
-            className="shrink-0 rounded bg-sky-100/90 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-sky-900"
-            title="IAM reported service use without per-action detail"
-          >
-            Service only
-          </span>
-        )}
-      </div>
-      <span className="shrink-0 pl-2 text-[11px] tabular-nums text-zinc-500">
-        {formatServiceLastUsed(service.days_ago)}
-      </span>
-    </div>
-  );
-}
-
-
-type DecisionTone = "danger" | "caution" | "safe";
-
-const DECISION_TONE: Record<
-  DecisionTone,
-  {
-    shell: string;
-    header: string;
-    headerHover: string;
-    badge: string;
-    tag: string;
-    tagText: string;
-    divider: string;
-    list: string;
-    moreText: string;
-  }
-> = {
-  danger: {
-    shell: "border-amber-200/80 shadow-sm shadow-amber-900/[0.04]",
-    header: "bg-gradient-to-r from-amber-50/95 to-amber-50/40",
-    headerHover: "hover:from-amber-50 hover:to-amber-50/60",
-    badge: "bg-amber-200/60 text-amber-950",
-    tag: "bg-amber-100 text-amber-900 ring-amber-200/80",
-    tagText: "High impact",
-    divider: "border-amber-100/80",
-    list: "bg-white",
-    moreText: "text-amber-900/60",
-  },
-  caution: {
-    shell: "border-zinc-200/90 shadow-sm shadow-zinc-900/[0.03]",
-    header: "bg-gradient-to-r from-zinc-50 to-white",
-    headerHover: "hover:from-zinc-100/80 hover:to-zinc-50",
-    badge: "bg-zinc-200/70 text-zinc-800",
-    tag: "bg-zinc-100 text-zinc-700 ring-zinc-200/80",
-    tagText: "Verify",
-    divider: "border-zinc-100",
-    list: "bg-white",
-    moreText: "text-zinc-500",
-  },
-  safe: {
-    shell: "border-emerald-200/70 shadow-sm shadow-emerald-900/[0.04]",
-    header: "bg-gradient-to-r from-emerald-50/90 to-emerald-50/30",
-    headerHover: "hover:from-emerald-50 hover:to-emerald-50/50",
-    badge: "bg-emerald-200/50 text-emerald-950",
-    tag: "bg-emerald-100 text-emerald-900 ring-emerald-200/70",
-    tagText: "Cleanup",
-    divider: "border-emerald-100/70",
-    list: "bg-white",
-    moreText: "text-emerald-800/55",
-  },
-};
-
-function DecisionSection({
-  label,
-  description,
-  services,
-  emphasis,
-  defaultOpen,
-  tone,
-}: {
-  label: string;
-  description: string;
-  services: BlastRadiusService[];
-  emphasis: "high" | "low" | "muted";
-  defaultOpen: boolean;
-  tone: DecisionTone;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  if (services.length === 0) return null;
-
-  const t = DECISION_TONE[tone];
-  const preview = services.slice(0, PREVIEW_LIMIT);
-  const hidden = services.length - preview.length;
-
-  return (
-    <div className={`overflow-hidden rounded-xl border bg-white ${t.shell}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-start gap-3 px-4 py-3 pr-5 text-left transition-colors ${t.header} ${t.headerHover}`}
-      >
-        <span
-          className={`mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${t.tag}`}
-        >
-          {t.tagText}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[13px] font-semibold text-zinc-900">{label}</span>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${t.badge}`}>
-              {services.length}
-            </span>
-          </div>
-          <p className="mt-1 pr-1 text-[11px] leading-snug text-zinc-600">{description}</p>
-        </div>
-        <span className="mt-1 shrink-0">
-          <Chevron open={open} />
-        </span>
-      </button>
-      {open && (
-        <div className={`border-t ${t.divider} ${t.list}`}>
-          {preview.map((s) => (
-            <ServiceUsageRow key={s.name} service={s} emphasis={emphasis} />
-          ))}
-          {hidden > 0 && (
-            <p className={`px-4 py-2 pr-5 text-[11px] font-medium ${t.moreText}`}>+{hidden} more in this group</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function RoleServiceUsageAnalysis({
   services,
   showStats = true,
@@ -297,6 +416,11 @@ export function RoleServiceUsageAnalysis({
   const [explorerOpen, setExplorerOpen] = useState(false);
   const [explorerBucket, setExplorerBucket] = useState<ExplorerBucket>("all");
 
+  const openExplorer = (bucket: ExplorerBucket) => {
+    setExplorerBucket(bucket);
+    setExplorerOpen(true);
+  };
+
   return (
     <>
       <div className="space-y-2.5">
@@ -309,46 +433,7 @@ export function RoleServiceUsageAnalysis({
           />
         ) : null}
 
-        <div className="space-y-2">
-          <p className="impact-section-label px-0.5">Service usage</p>
-          <DecisionSection
-            label="Active usage"
-            description="Used in the last 30 days"
-            services={recentlyActive}
-            emphasis="high"
-            defaultOpen={false}
-            tone="danger"
-          />
-          <DecisionSection
-            label="Historical usage"
-            description="Used 31–90 days ago"
-            services={historicallyUsed}
-            emphasis="low"
-            defaultOpen={false}
-            tone="caution"
-          />
-          <DecisionSection
-            label="Safe cleanup candidates"
-            description="No recorded use in 90+ days"
-            services={likelySafe}
-            emphasis="muted"
-            defaultOpen={false}
-            tone="safe"
-          />
-        </div>
-
-        <div className="flex justify-end pt-0.5">
-          <button
-            type="button"
-            onClick={() => {
-              setExplorerBucket("all");
-              setExplorerOpen(true);
-            }}
-            className="rounded-lg border border-zinc-200/90 bg-white px-3 py-1.5 text-[11px] font-medium text-zinc-600 shadow-sm transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-800"
-          >
-            Browse all services
-          </button>
-        </div>
+        <ServiceActivityTable services={services} onViewAll={openExplorer} />
       </div>
 
       <ServiceAccessExplorer
@@ -356,7 +441,7 @@ export function RoleServiceUsageAnalysis({
         onClose={() => setExplorerOpen(false)}
         services={services}
         initialBucket={explorerBucket}
-        title="Service access explorer"
+        title="Service activity"
       />
     </>
   );
@@ -413,9 +498,13 @@ function CompactServiceList({ names, tone }: { names: string[]; tone: "remove" |
 export function RolePoliciesAnalysis({
   policies,
   renderConsoleLink,
+  showRemovable = true,
+  inUseLabel = "Keep — recently used",
 }: {
   policies: AttachedPolicy[];
   renderConsoleLink: (pol: AttachedPolicy) => ReactNode;
+  showRemovable?: boolean;
+  inUseLabel?: string;
 }) {
   const [expandedPolicies, setExpandedPolicies] = useState<Record<string, boolean>>({});
 
@@ -454,7 +543,7 @@ export function RolePoliciesAnalysis({
                 >
                   {pol.policy_type === "aws_managed" ? "AWS" : "Custom"}
                 </span>
-                {removable > 0 && (
+                {showRemovable && removable > 0 && (
                   <span className="shrink-0 text-[10px] tabular-nums text-zinc-500">{removable} removable</span>
                 )}
                 {pol.has_wildcard_action && (
@@ -467,12 +556,12 @@ export function RolePoliciesAnalysis({
                   {active > 0 && (
                     <div>
                       <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                        Keep — recently used ({active})
+                        {inUseLabel} ({active})
                       </p>
                       <CompactServiceList names={pol.active_services} tone="keep" />
                     </div>
                   )}
-                  {removable > 0 && (
+                  {showRemovable && removable > 0 && (
                     <div>
                       <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
                         Removable ({removable})
@@ -480,7 +569,7 @@ export function RolePoliciesAnalysis({
                       <CompactServiceList names={pol.unused_services} tone="remove" />
                     </div>
                   )}
-                  {active === 0 && removable === 0 && pol.granted_services.length > 0 && (
+                  {active === 0 && (showRemovable ? removable === 0 : true) && pol.granted_services.length > 0 && (
                     <p className="text-[11px] text-zinc-400">No usage data yet — run another scan.</p>
                   )}
                 </div>
