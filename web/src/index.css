@@ -307,7 +307,7 @@
 /* Stronger visible nudges: the previous pass only normalized the boxes. */
 .space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child::after {
   display: inline-block;
-  transform: translateY(-1px);
+  transform: translateY(-3px);
 }
 
 .space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) > div > span {
@@ -315,7 +315,7 @@
   display: inline-flex;
   height: 1.25rem;
   align-items: center;
-  padding-top: 2px !important;
+  padding-top: 0 !important;
   padding-bottom: 0 !important;
-  line-height: 1rem !important;
+  line-height: 1.25rem !important;
 }
