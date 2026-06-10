@@ -10,8 +10,8 @@ export type ImpactReportTab = "usage" | "dependencies" | "blast";
 
 function CapabilityIcon({ paths }: { paths: string[] }) {
   return (
-    <span className="impact-capability-tile-icon" aria-hidden>
-      <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <span className="impact-capability-icon" aria-hidden>
+      <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
         {paths.map((d) => (
           <path key={d} strokeLinecap="round" strokeLinejoin="round" d={d} />
         ))}
@@ -20,22 +20,29 @@ function CapabilityIcon({ paths }: { paths: string[] }) {
   );
 }
 
+const BLAST_TARGET_ICON = [
+  "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+  "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+];
+
 const IMPACT_CAPABILITIES: {
   id: ImpactReportTab;
   title: string;
+  description: string;
   iconPaths: string[];
 }[] = [
   {
     id: "usage",
     title: "Usage",
+    description: "See how this role is used across your environment.",
     iconPaths: [
-      "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z",
-      "M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
+      "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z",
     ],
   },
   {
     id: "dependencies",
     title: "Dependencies",
+    description: "View connected services and resources.",
     iconPaths: [
       "M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244",
     ],
@@ -43,28 +50,44 @@ const IMPACT_CAPABILITIES: {
   {
     id: "blast",
     title: "Blast radius",
-    iconPaths: [
-      "M12 2.75 14.2 9.25 21 12l-6.8 2.75L12 21.25 9.8 14.75 3 12l6.8-2.75L12 2.75Z",
-    ],
+    description: "Estimate the potential impact of changes.",
+    iconPaths: BLAST_TARGET_ICON,
   },
 ];
 
-function ImpactCapabilityTile({ title, iconPaths }: { title: string; iconPaths: string[] }) {
+function ImpactHeroGraphic() {
   return (
-    <div className="impact-capability-tile" aria-hidden>
-      <CapabilityIcon paths={iconPaths} />
-      <span className="impact-capability-tile-title">{title}</span>
+    <div className="impact-empty-graphic" aria-hidden>
+      <svg viewBox="0 0 64 64">
+        <circle className="impact-pulse-ring impact-pulse-ring--1" cx="32" cy="32" r="10" />
+        <circle className="impact-pulse-ring impact-pulse-ring--2" cx="32" cy="32" r="10" />
+        <circle className="impact-pulse-ring impact-pulse-ring--3" cx="32" cy="32" r="10" />
+        <circle className="impact-pulse-core-ring" cx="32" cy="32" r="9" />
+        <circle className="impact-pulse-core" cx="32" cy="32" r="5" />
+      </svg>
     </div>
   );
 }
 
-function ImpactSectionIcon() {
+function ImpactCapabilityCard({
+  title,
+  description,
+  iconPaths,
+}: {
+  title: string;
+  description: string;
+  iconPaths: string[];
+}) {
   return (
-    <span className="impact-section-icon" aria-hidden>
-      <svg fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l3.75 3.75L21.75 6" />
-      </svg>
-    </span>
+    <li className="impact-capability-card">
+      <div className="impact-capability-icon-box">
+        <CapabilityIcon paths={iconPaths} />
+      </div>
+      <div className="impact-capability-copy">
+        <p className="impact-capability-title">{title}</p>
+        <p className="impact-capability-desc">{description}</p>
+      </div>
+    </li>
   );
 }
 
@@ -72,27 +95,33 @@ export function ImpactAnalysisEmpty({ onRun }: { onRun: () => void }) {
   return (
     <div className="impact-tab-content">
       <div className="impact-empty-hero">
-        <div className="impact-kicker-row">
-          <ImpactSectionIcon />
-          <p className="impact-preview-kicker">Impact review</p>
-        </div>
-
-        <h3 className="impact-empty-title">What changes if we fix this?</h3>
-
+        <ImpactHeroGraphic />
+        <h3 className="impact-empty-title">Understand the impact before you remediate</h3>
         <p className="impact-empty-lead">
-          Review usage, dependencies, and blast radius before remediation.
+          Analyze how this role is used, what it depends on, and how many permissions could be affected.
         </p>
 
-        <div className="impact-empty-footer">
-          <div className="impact-capability-grid" aria-label="Analysis preview">
-            {IMPACT_CAPABILITIES.map((cap) => (
-              <ImpactCapabilityTile key={cap.id} title={cap.title} iconPaths={cap.iconPaths} />
-            ))}
-          </div>
-          <button type="button" onClick={onRun} className="impact-analyze-button shrink-0">
-            Analyze impact
-          </button>
-        </div>
+        <ul className="impact-capability-list" aria-label="What the analysis covers">
+          {IMPACT_CAPABILITIES.map((cap) => (
+            <ImpactCapabilityCard
+              key={cap.id}
+              title={cap.title}
+              description={cap.description}
+              iconPaths={cap.iconPaths}
+            />
+          ))}
+        </ul>
+
+        <button type="button" onClick={onRun} className="impact-analyze-button impact-analyze-button--primary">
+          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+            />
+          </svg>
+          Analyze impact
+        </button>
       </div>
     </div>
   );

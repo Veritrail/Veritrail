@@ -7,8 +7,6 @@ import {
   daysAgo,
   findingScopeDisplayName,
   resourceDisplayName,
-  severityLabel,
-  severityPillClassName,
 } from "../lib/findingDisplay";
 import {
   fetchCheckFindings,
@@ -258,26 +256,20 @@ function ResourcesPostureStrip({
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-      <div className="flex shrink-0 items-stretch rounded-xl border border-zinc-200/90 bg-white px-5 py-2.5 shadow-sm shadow-zinc-950/[0.03]">
-        <div className="flex min-w-[6.5rem] flex-1 flex-col justify-center gap-px pr-5">
+      <div className="grid w-full shrink-0 grid-cols-2 divide-x divide-zinc-100 rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03] lg:w-[16.5rem]">
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-5 text-center">
           <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-            Affected resources
+            Resources
           </p>
-          <p className="text-lg font-bold leading-tight tabular-nums text-zinc-900">{unique.length}</p>
+          <p className="text-[26px] font-bold leading-none tabular-nums text-zinc-900">{unique.length}</p>
         </div>
-        <div className="w-px self-center bg-zinc-100 h-8" aria-hidden />
-        <div className="flex min-w-[6.5rem] flex-1 flex-col justify-center gap-px pl-5">
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-5 text-center">
           <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
             Risk score
           </p>
-          <div className="flex items-center gap-1.5">
-            <span className={`text-lg font-bold leading-tight tabular-nums ${scoreTone}`}>
-              {selectedFinding.risk_score}
-            </span>
-            <span className={severityPillClassName(selectedFinding.severity)}>
-              {severityLabel(selectedFinding.severity)}
-            </span>
-          </div>
+          <p className={`text-[26px] font-bold leading-none tabular-nums ${scoreTone}`}>
+            {selectedFinding.risk_score}
+          </p>
         </div>
       </div>
 
@@ -296,7 +288,7 @@ function ResourcesPostureStrip({
               <button
                 type="button"
                 onClick={onViewRemediation}
-                className="-ml-0.5 mt-6 text-[13px] font-semibold text-emerald-700 transition hover:text-emerald-800"
+                className="-ml-0.5 mt-4 text-[13px] font-semibold text-emerald-700 transition hover:text-emerald-800"
               >
                 View remediation guidance →
               </button>
@@ -837,8 +829,8 @@ export function FindingResourcesTab({
                 const rowAssetType = assetTypeLabel(f.check_id);
                 const isSelected = f.id === selectedFinding.id;
                 const rowBg = isSelected
-                  ? "bg-indigo-50/55"
-                  : "bg-white group-hover:bg-zinc-50/60";
+                  ? "bg-indigo-50/60 shadow-[inset_2px_0_0_0_theme(colors.indigo.400)]"
+                  : "bg-white hover:bg-indigo-50/30";
 
                 return (
                   <tr
@@ -869,7 +861,9 @@ export function FindingResourcesTab({
                             <span className="truncate" title={f.resource_arn}>
                               {truncateArnDisplay(f.resource_arn)}
                             </span>
-                            <CopyArnButton arn={f.resource_arn} />
+                            <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                              <CopyArnButton arn={f.resource_arn} />
+                            </span>
                           </p>
                         </div>
                       </div>
