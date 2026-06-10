@@ -118,6 +118,61 @@ def test_s3_public_access_fast_unchanged_when_still_open(mock_session):
     assert out["reason"] == "resource_still_failing"
 
 
+@patch("app.services.fast_recheck.batch.refresh_resource_for_finding", return_value=True)
+@patch("app.services.fast_recheck.batch.persist_findings", return_value=(0, 1))
+def test_batch_recheck_resolves_requested_open_finding(mock_persist, _mock_refresh):
+    from app.services.fast_recheck.batch import try_fast_findings_recheck_batch
+
+    db = MagicMock()
+    account = _account()
+    account.org_id = uuid.uuid4()
+
+    finding = _finding(check_id="s3.bucket.public_access_not_blocked")
+    finding.account_id = account.id
+    finding.status = "open"
+
+    mock_mod = MagicMock()
+    mock_mod.run.return_value = []
+
+    def _refresh(finding_obj):
+        finding_obj.status = "resolved"
+        return finding_obj
+
+    db.commit.return_value = None
+    db.refresh.side_effect = _refresh
+
+    with patch.dict(
+        "app.services.fast_recheck.batch._CHECK_BY_ID",
+        {"s3.bucket.public_access_not_blocked": mock_mod},
+        clear=False,
+    ):
+        out = try_fast_findings_recheck_batch(
+            db,
+            account=account,
+            findings=[finding],
+            actor="user@test",
+        )
+
+    assert out is not None
+    assert out["queued"] is False
+    assert out["results"][0]["resolved"] is True
+    mock_persist.assert_called_once()
+
+
+def test_iam_role_arn_parses_colon_role_prefix():
+    from app.services.fast_recheck.targeted_refresh import refresh_resource_for_finding
+
+    db = MagicMock()
+    finding = MagicMock()
+    finding.check_id = "iam.role.least_privilege_policy"
+    finding.resource_arn = "arn:aws:iam::946796614687:role/CCLabAdminRole"
+    finding.evidence = {"role_arn": finding.resource_arn}
+
+    with patch("app.services.fast_recheck.targeted_refresh._refresh_iam_role", return_value=True) as mock_refresh:
+        assert refresh_resource_for_finding(db, _account(), finding) is True
+    mock_refresh.assert_called_once()
+
+
 def test_github_check_not_fast():
     db = MagicMock()
     finding = MagicMock()

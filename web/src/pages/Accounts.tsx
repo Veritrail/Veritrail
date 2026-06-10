@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
-import { CloudTrailOnboardingChoice } from "../components/CloudTrailOnboardingChoice";
 import {
   ADVANCED_POLICY_RAW_ACTIONS,
 } from "../data/capabilityCopy";
@@ -142,6 +141,9 @@ const cardOutlineBtn =
 
 const cardRescanBtn =
   "inline-flex h-9 shrink-0 items-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-[13px] font-semibold text-white shadow-sm transition hover:border-blue-700 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50";
+
+const verifyPermissionsBtn =
+  "inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(99,102,241,0.32)] transition hover:from-blue-600 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-50";
 
 function WorkflowCheckIcon() {
   return (
@@ -301,7 +303,7 @@ function PermissionVerificationPanel({
           type="button"
           onClick={onVerify}
           disabled={verifying}
-          className={workflowInlineBtn}
+          className={verifyPermissionsBtn}
         >
           {verifying ? VERIFY_PROGRESS_STEPS[progressStep] : "Verify permissions in AWS"}
         </button>
@@ -540,9 +542,9 @@ function capabilityVerifyFeedback(
 
   if (anyRemediationRequested || ssm?.requested) {
     if (ssm?.status === "not_assumable" && ssm.error) {
-      errors.push(`SSM remediation: ${ssm.error}`);
+      errors.push(ssm.error);
     } else if (ssm?.error && ssm.status !== "ready") {
-      errors.push(`SSM remediation: ${ssm.error}`);
+      errors.push(ssm.error);
     } else if (!ssm) {
       for (const spec of REMEDIATION_MODULE_SPECS) {
         const row = mods[spec.id];
@@ -1060,16 +1062,13 @@ function ManageCapabilitiesPanel({
           deployOptions={draft}
         />
         {acc.status === "connected" && optionalCapabilities && (
-          <>
-            <CloudTrailOnboardingChoice accountId={acc.id} />
-            <PermissionVerificationPanel
+          <PermissionVerificationPanel
             onVerify={onVerifyCapabilities}
             verifying={verifyingCapabilities}
             feedback={verifyFeedback}
             verificationMeta={verificationMeta}
             showButton
           />
-          </>
         )}
       </div>
     </div>

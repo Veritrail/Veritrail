@@ -40,6 +40,7 @@ import {
   type CredentialFrameworkImpactItem,
 } from "../data/credentialFrameworkImpact";
 import { frameworkLabel } from "../data/frameworks";
+import { FrameworkMark } from "./FrameworkMark";
 import { showWhatIfTab, whatIfUnavailableReason } from "../data/blastRadiusChecks";
 import { checkLabels } from "../data/checkLabels";
 import { documentationForCheck } from "../data/checkDocumentation";
@@ -55,19 +56,14 @@ import { formatCloudTrailElapsed } from "../lib/cloudTrailElapsed";
 import { remediationSummaryForFinding, type RemediationSummary } from "../data/remediationSummaries";
 import {
   awsRegionFromArn,
-  regionsFromFindingEvidence,
-  filterRedundantResourceDetailRows,
-  resourceDetailRowsFromFinding,
   resourceDisplayName,
-  resourceIdentifierLabel,
-  resourceIdentifierValue,
   resourceRegionForFinding,
   isAwsRootFinding,
-  isVcsResourceIdentifier,
   severityLabel,
   severityPillClassName,
   formatIamServiceDisplayName,
 } from "../lib/findingDisplay";
+import { FindingResourcesTab } from "./FindingResourcesTab";
 import { fetchClientIpForRemediation } from "../lib/cliRemediation";
 import {
   BlastRadiusConsiderations,
@@ -98,13 +94,10 @@ import {
   ExceptionFlowPanel,
   FlowBadge,
   FlowCallout,
-  PostureMetricCell,
-  PostureMetricsRow,
-  ResourceFieldRow,
-  ResourceGroup,
 } from "./FindingDrawerSemantic";
 
 const DRAWER_MAX_W = "max-w-[640px]";
+const DRAWER_RESOURCES_MAX_W = "max-w-[min(96vw,1320px)]";
 const DRAWER_WIDE_MAX_W = "max-w-[min(96vw,1280px)]";
 const DRAWER_POLICY_TRIPLE_MAX_W = "max-w-[min(98vw,1760px)]";
 /** Left rail matches single-panel drawer width (DRAWER_MAX_W); workspace panes take extra width. */
@@ -453,158 +446,6 @@ function awsAccountIdFromArn(arn: string): string | null {
   return m ? m[1] : null;
 }
 
-function SelectedResourceInspector({ finding }: { finding: Finding }) {
-  const accountId = awsAccountIdFromArn(finding.resource_arn);
-  const ev = finding.evidence;
-  const isUnusedRoleFinding = finding.check_id === "iam.role.unused_services_90d";
-  const unusedCount = (ev.unused_services as string[] | undefined)?.length;
-  const totalGranted = ev.total_granted_services as number | undefined;
-  const thresholdDays = ev.threshold_days as number | undefined;
-  const withRecordedUse =
-    totalGranted != null && unusedCount != null ? Math.max(0, totalGranted - unusedCount) : null;
-  const fieldDetailRows = filterRedundantResourceDetailRows(
-    resourceDetailRowsFromFinding(finding),
-    finding,
-  );
-  const exposingRules = Array.isArray(ev.exposing_rules) ? (ev.exposing_rules as Record<string, unknown>[]) : [];
-  const affectedRegions = regionsFromFindingEvidence(ev);
-  const affectedRegionsLabel =
-    finding.check_id === "aws.access_analyzer.not_enabled"
-      ? "Regions without Access Analyzer"
-      : finding.check_id === "guardduty.detector.not_enabled"
-        ? "Regions without GuardDuty"
-        : finding.check_id === "aws.securityhub.not_enabled"
-          ? "Regions without Security Hub"
-          : finding.check_id === "aws.config.not_enabled"
-            ? "Regions without full Config recording"
-            : "Affected regions";
-
-  const showFieldList =
-    fieldDetailRows.length > 0 ||
-    accountId != null ||
-    !isVcsResourceIdentifier(finding.resource_arn);
-
-  const identifierValue = resourceIdentifierValue(finding);
-  const identifierHref = isVcsResourceIdentifier(finding.resource_arn) ? identifierValue : null;
-  const rootInspector = isAwsRootFinding(finding);
-
-  if (rootInspector) {
-    return (
-      <div className="space-y-3.5">
-        <div className={`${drawerPanel} overflow-hidden`}>
-          <div className={drawerSectionHead}>
-            <h3 className={drawerSectionTitle}>Resource details</h3>
-          </div>
-          <dl className="bg-white px-4 py-0.5">
-            {accountId ? (
-              <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>
-            ) : null}
-            <ResourceFieldRow label="ARN" mono>
-              {identifierValue}
-            </ResourceFieldRow>
-          </dl>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3.5">
-      <div className={`${drawerPanel} overflow-hidden`}>
-        <div className={drawerSectionHead}>
-          <h3 className={drawerSectionTitle}>Resource details</h3>
-        </div>
-
-        {showFieldList && (
-        <dl className="border-b border-zinc-100 bg-white px-4 py-1 pt-3">
-          {fieldDetailRows.map((row) => (
-            <ResourceFieldRow key={row.label} label={row.label} mono={row.mono}>
-              {row.value}
-            </ResourceFieldRow>
-          ))}
-          {accountId && <ResourceFieldRow label="Account">{accountId}</ResourceFieldRow>}
-          <ResourceFieldRow label={resourceIdentifierLabel(finding.resource_arn)} mono>
-            {identifierHref?.startsWith("http") ? (
-              <a
-                href={identifierHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-[#1f4e79] hover:underline"
-              >
-                {identifierHref}
-              </a>
-            ) : (
-              identifierValue
-            )}
-          </ResourceFieldRow>
-          </dl>
-        )}
-
-        {exposingRules.length > 0 && (
-          <ResourceGroup title={`Public ingress (${exposingRules.length})`}>
-          <ul className="space-y-1.5">
-            {exposingRules.map((rule, i) => {
-              const proto = String(rule.protocol ?? "tcp");
-              const from = rule.from_port as number | null | undefined;
-              const to = rule.to_port as number | null | undefined;
-              const cidr = String(rule.cidr ?? "0.0.0.0/0");
-              const portLabel =
-                proto === "all" || from == null || to == null
-                  ? "all ports"
-                  : from === to
-                    ? `${from}`
-                    : `${from}–${to}`;
-              return (
-                <li
-                  key={`${cidr}-${portLabel}-${i}`}
-                  className="flex items-center justify-between gap-2 rounded-md border border-red-100/80 bg-red-50/50 px-2.5 py-1.5 text-[11px]"
-                >
-                  <span className="font-mono text-zinc-800">
-                    {proto.toUpperCase()} {portLabel}
-                  </span>
-                  <span className="shrink-0 font-mono text-red-800/90">{cidr}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </ResourceGroup>
-      )}
-
-      {affectedRegions.length > 0 && (
-        <ResourceGroup title={`${affectedRegionsLabel} (${affectedRegions.length})`}>
-          <RegionPills regions={affectedRegions} />
-        </ResourceGroup>
-      )}
-
-      {isUnusedRoleFinding && totalGranted != null && (
-        <ResourceGroup title="Permission usage">
-          <PostureMetricsRow>
-            <PostureMetricCell label="Granted" value={totalGranted} variant="compact" />
-            <PostureMetricCell
-              label="In use"
-              value={withRecordedUse ?? "—"}
-              valueClassName="text-emerald-700"
-              variant="compact"
-            />
-            <PostureMetricCell
-              label="Unused 90d+"
-              value={unusedCount ?? "—"}
-              valueClassName="text-zinc-700"
-              variant="compact"
-            />
-            <PostureMetricCell
-              label="Window"
-              value={thresholdDays != null ? `${thresholdDays}d` : "—"}
-              variant="compact"
-            />
-          </PostureMetricsRow>
-        </ResourceGroup>
-      )}
-    </div>
-    </div>
-  );
-}
-
 type Finding = {
   id: string;
   check_id: string;
@@ -619,6 +460,10 @@ type Finding = {
   exception_reason?: string | null;
   exception_approved_by?: string | null;
   exception_expires_at?: string | null;
+  account_id?: string;
+  account_label?: string | null;
+  account_name?: string | null;
+  account_provider?: string | null;
 };
 
 const sevHeaderBadge: Record<string, string> = {
@@ -4059,14 +3904,17 @@ function ComplianceTabContent({
 
         {mappedControls.length > 0 && (
           <div className="border-t border-[#eaecf0]">
-            <p className="px-4 pb-1.5 pt-3.5 text-[13px] font-medium text-[#667085]">Mapped controls</p>
-            <ul className="divide-y divide-[#eaecf0]">
+            <p className="px-4 pb-2 pt-3.5 text-[13px] font-medium text-[#667085]">Mapped controls</p>
+            <ul className="space-y-2 px-4 pb-4">
               {mappedControls.map((c) => (
                 <li
                   key={`${c.framework}:${c.control_id}`}
-                  className="flex items-center justify-between gap-4 px-4 py-3"
+                  className="flex items-center gap-3 rounded-lg border border-[#e4e7ec] bg-white px-3 py-2.5"
                 >
-                  <span className="text-[13px] leading-5 text-[#344054]">{mappedControlLabel(c)}</span>
+                  <FrameworkMark framework={c.framework} />
+                  <span className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-[#344054]">
+                    {mappedControlLabel(c)}
+                  </span>
                   <MappedControlDocsLink ctrl={c} accountId={accountId} />
                 </li>
               ))}
@@ -6641,6 +6489,7 @@ function ExceptionButton({
 
 export function FindingDrawer({
   finding,
+  groupFindings,
   accountId,
   onClose,
   onAction,
@@ -6652,11 +6501,14 @@ export function FindingDrawer({
   verifyUnchanged,
   verifying,
   onDismissVerifyOutcome,
+  onFocusFinding,
 }: {
   finding: Finding | null;
+  groupFindings?: Finding[];
   accountId: string | null;
   onClose: () => void;
   onAction: (id: string, action: "recheck" | "reopen") => void;
+  onFocusFinding?: (finding: Finding) => void;
   tab: FindingDrawerTab;
   onTabChange: (tab: FindingDrawerTab) => void;
   remTab: FindingRemediationMode;
@@ -6737,7 +6589,7 @@ export function FindingDrawer({
     const differentCheck =
       prevCheckId.current !== null && prevCheckId.current !== finding.check_id;
     if (differentCheck) {
-      onTabChange("overview");
+      onTabChange("resources");
       onRemTabChange(defaultFindingRemediationMode(finding.check_id));
     }
     prevCheckId.current = finding.check_id;
@@ -6774,13 +6626,12 @@ export function FindingDrawer({
   useEffect(() => {
     if (!finding) return;
     const available = new Set<Tab>([
-      "overview",
       "compliance",
       "remediation",
       "resources",
       ...(showWhatIf ? (["whatif"] as Tab[]) : []),
     ]);
-    if (!available.has(tab)) onTabChange("overview");
+    if (!available.has(tab)) onTabChange("resources");
   }, [finding?.id, showWhatIf, tab, onTabChange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -6848,11 +6699,10 @@ export function FindingDrawer({
     showPolicyGen || (finding.check_id === "s3.bucket.no_https_policy" && !!accountId);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "overview", label: "Overview" },
     { id: "resources", label: "Resources" },
     { id: "compliance", label: "Compliance" },
     { id: "remediation", label: "Remediation" },
-    ...(showWhatIf ? [{ id: "whatif" as Tab, label: "What if" }] : []),
+    ...(showWhatIf ? [{ id: "whatif" as Tab, label: "Blast radius" }] : []),
   ];
   const hasException =
     finding.status === "excepted" ||
@@ -6863,11 +6713,14 @@ export function FindingDrawer({
   const policyWorkspaceSplit = false;
   const policyReviewOpen =
     remediationSplit && policyChangePaneVisible && policyDataQueryEnabled;
+  const resourcesTab = tab === "resources";
   const drawerWideClass = policyReviewOpen
     ? DRAWER_POLICY_TRIPLE_MAX_W
     : policyWorkspaceSplit || remediationSplit
       ? DRAWER_WIDE_MAX_W
-      : DRAWER_MAX_W;
+      : resourcesTab
+        ? DRAWER_RESOURCES_MAX_W
+        : DRAWER_MAX_W;
   const drawerWidthTransitionClass =
     remediationSplit || policyWorkspaceSplit ? "transition-none" : "transition-[max-width] duration-200 ease-out";
 
@@ -6977,21 +6830,27 @@ export function FindingDrawer({
           )}
         </div>
       )}
-      {tab === "overview" && (
-        <>
-          <OverviewTabContent
-            impact={ops.impact}
-            risk={ops.risk}
-            fix={ops.fix}
-            whyItMatters={rem.why}
-            finding={finding}
-            hasException={hasException}
-            documentation={checkDoc}
-            accountId={accountId}
+      {tab === "resources" && (
+        <div className="space-y-3.5">
+          <FindingResourcesTab
+            selectedFinding={finding}
+            groupFindings={groupFindings?.length ? groupFindings : [finding]}
+            onSelectFinding={onFocusFinding}
+            summaryRisk={checkDoc?.overview?.context ?? ops.impact}
+            summaryAction={checkDoc?.overview?.fix ?? ops.fix}
           />
-        </>
+          {credentialUnusedFrameworkImpact(finding.check_id) && (
+            <FrameworkImpactCard items={credentialUnusedFrameworkImpact(finding.check_id)!} />
+          )}
+          {hasException && (
+            <ExceptionFlowPanel
+              reason={finding.exception_reason}
+              approvedBy={finding.exception_approved_by}
+              expiresAt={finding.exception_expires_at}
+            />
+          )}
+        </div>
       )}
-      {tab === "resources" && <SelectedResourceInspector finding={finding} />}
       {tab === "compliance" && (
         <ComplianceTabContent checkId={finding.check_id} accountId={accountId} />
       )}

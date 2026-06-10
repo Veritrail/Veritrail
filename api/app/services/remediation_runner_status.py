@@ -141,9 +141,11 @@ def _check_single_runbook(
             if _is_vigil_document(document_name, runbook_owner):
                 home = automation_home_region()
                 out["blockers"].append(
-                    f"Vigil runbook {document_name} is not deployed in {automation_region} "
-                    f"(automation home region is {home}). Deploy vigil-remediation-ssm.yaml in that "
-                    "region with the matching Enable*Remediation parameters set to Yes."
+                    f"SSM runbook {document_name} is not in {automation_region} "
+                    f"(automation home region is {home}). This is not the VigilScannerRole — "
+                    "redeploy VigilAccountConnector with the matching Enable*Remediation=Yes "
+                    "(e.g. EnableIamPolicyRemediation for IAM policy fixes) and wait for the nested "
+                    "vigil-remediation-ssm stack to reach UPDATE_COMPLETE."
                 )
             else:
                 out["blockers"].append(

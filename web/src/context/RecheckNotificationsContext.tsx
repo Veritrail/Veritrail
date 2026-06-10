@@ -87,6 +87,18 @@ export type RecheckResponse = {
   error?: string;
 };
 
+/** POST /v1/findings/recheck-batch — one AWS refresh pass + one check run for visible rows. */
+export type RecheckBatchResponse = {
+  check_id?: string | null;
+  queued?: boolean;
+  checked?: boolean;
+  results?: Array<{
+    finding_id: string;
+    checked?: boolean;
+    resolved?: boolean;
+  }>;
+};
+
 type PersistedV3 = {
   pendingRecheck: PendingRecheck | null;
   pendingCloudTrail: PendingCloudTrail | null;

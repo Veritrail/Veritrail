@@ -97,6 +97,17 @@ export function CloudProviderMark({ finding }: { finding: FindingLike }) {
   );
 }
 
+/** Circular service mark — matches FrameworkMark / mapped-controls row icons. */
+export function AwsServiceMark({ finding, className = "h-9 w-9" }: { finding: FindingLike; className?: string }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03] ${className}`}
+    >
+      <FindingResourceIcon finding={finding} size={22} />
+    </span>
+  );
+}
+
 /** AWS service Architecture Icon per check, or provider favicon for VCS. */
 export function FindingResourceIcon({ finding, size = 22 }: { finding: FindingLike; size?: number }) {
   const scope = findingScopeProvider(finding);

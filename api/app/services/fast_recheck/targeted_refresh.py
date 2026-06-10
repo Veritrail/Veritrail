@@ -19,6 +19,7 @@ from app.collectors.iam_server_certificates import collect_iam_server_certificat
 from app.collectors.securityhub import collect_securityhub
 from app.collectors.sg_ingress import build_public_exposure, has_public_port
 from app.core.aws import assume_role
+from app.core.aws_trust import parse_role_name
 from app.models import AwsAccount, Finding
 from app.models.resources import (
     EbsEncryptionDefault,
@@ -476,9 +477,9 @@ def _refresh_iam_user(db: Session, account: AwsAccount, finding: Finding) -> boo
 
 def _refresh_iam_role(db: Session, account: AwsAccount, finding: Finding) -> bool:
     role_name = evidence_str(finding, "role_name")
-    arn = finding.resource_arn or ""
-    if not role_name and "/role/" in arn:
-        role_name = arn.split("/role/", 1)[-1]
+    if not role_name:
+        role_arn = evidence_str(finding, "role_arn") or finding.resource_arn or ""
+        role_name = parse_role_name(role_arn)
     if not role_name:
         return False
     from app.collectors.iam import _upsert_role

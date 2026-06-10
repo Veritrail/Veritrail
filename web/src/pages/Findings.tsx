@@ -19,7 +19,8 @@ import { findingDisplayGroupKey, findingGroupMeta, findingGroupSearchText } from
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
-import { resourceTypePillLabel, vcsResourceWebUrl } from "../lib/findingDisplay";
+import { assetTypeLabel } from "../lib/findingDisplay";
+import { vcsResourceWebUrl } from "../lib/findingDisplay";
 import { isAccountConnected } from "../lib/accountConnection";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useRecheckNotifications, type RecheckResponse } from "../context/RecheckNotificationsContext";
@@ -197,36 +198,6 @@ function shortResourceName(label: string): string {
   const afterSlash = label.split("/").pop() ?? label;
   const afterColon = afterSlash.split(":").pop() ?? afterSlash;
   return afterColon || label;
-}
-
-function assetTypeLabel(checkId: string): string {
-  if (checkId.startsWith("iam.root")) return "AWS Root User";
-  if (checkId.startsWith("iam.role")) return "IAM Role";
-  if (checkId.startsWith("iam.user")) return "IAM User";
-  if (checkId.startsWith("iam.access_key")) return "IAM ARN";
-  if (checkId.startsWith("ec2.ebs")) return "EBS Volume";
-  if (checkId.startsWith("s3.bucket")) return "S3 Bucket";
-  return resourceTypePillLabel(checkId)
-    .split(" ")
-    .map((word) => {
-      const lower = word.toLowerCase();
-      if (lower === "iam") return "IAM";
-      if (lower === "aws") return "AWS";
-      if (lower === "s3") return "S3";
-      if (lower === "kms") return "KMS";
-      if (lower === "ec2") return "EC2";
-      if (lower === "rds") return "RDS";
-      if (lower === "eks") return "EKS";
-      if (lower === "ecr") return "ECR";
-      if (lower === "ecs") return "ECS";
-      if (lower === "acm") return "ACM";
-      if (lower === "ssm") return "SSM";
-      if (lower === "sns") return "SNS";
-      if (lower === "sqs") return "SQS";
-      if (lower === "elb") return "ELB";
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(" ");
 }
 
 type ResourceOption = {
@@ -568,7 +539,7 @@ function FindingRow({
             <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
               <span className="hidden sm:block" aria-hidden />
               <span className="hidden w-[5.5rem] sm:block" aria-hidden />
-              <div className="py-4 pl-4 pr-5 sm:pl-0" style={{ borderLeft: "3px solid var(--rail)" }}>
+              <div className="py-4 pl-4 pr-5 sm:pl-0">
                 <AffectedResourcesCard
                   resources={visibleResources}
                   totalCount={resources.length}
@@ -576,8 +547,8 @@ function FindingRow({
                   showMore={showMoreRow}
                   showSeverityDots={hasMixedSeverity}
                   onShowMore={() => setShowAllResources(true)}
-                  onSelect={(finding) => onReview([finding])}
-                  onViewAll={() => onReview(items)}
+                  onSelect={(finding) => onReview(items, finding, "resources")}
+                  onViewAll={() => onReview(items, undefined, "resources")}
                 />
               </div>
               <span className="hidden sm:block" aria-hidden />
@@ -594,7 +565,8 @@ export default function Findings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState<StatusTab>("open");
   const [selected, setSelected] = useState<Finding | null>(null);
-  const [drawerTab, setDrawerTab] = useState<FindingDrawerTab>("overview");
+  const [selectedGroup, setSelectedGroup] = useState<Finding[]>([]);
+  const [drawerTab, setDrawerTab] = useState<FindingDrawerTab>("resources");
   const [remTab, setRemTab] = useState<FindingRemediationMode>("console");
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -695,6 +667,48 @@ export default function Findings() {
 
   const findings = q.data?.items ?? [];
   const checkFrameworksApi = frameworkMapQ.data?.checks;
+
+  // Keep drawer + resource list in sync when findings refetch (e.g. after Resources refresh).
+  useEffect(() => {
+    if (!selected) return;
+    const byId = new Map(findings.map((f) => [f.id, f]));
+
+    const nextGroup =
+      selectedGroup.length > 0
+        ? selectedGroup
+            .map((g) => byId.get(g.id))
+            .filter((f): f is Finding => f !== undefined)
+        : selectedGroup;
+
+    const groupChanged =
+      selectedGroup.length > 0 &&
+      (nextGroup.length !== selectedGroup.length ||
+        nextGroup.some(
+          (f, i) =>
+            f.id !== selectedGroup[i]?.id ||
+            f.status !== selectedGroup[i]?.status ||
+            f.last_seen !== selectedGroup[i]?.last_seen ||
+            f.risk_score !== selectedGroup[i]?.risk_score,
+        ));
+
+    let nextSelected = selected;
+    const freshSelected = byId.get(selected.id);
+    if (freshSelected) {
+      if (
+        freshSelected.status !== selected.status ||
+        freshSelected.last_seen !== selected.last_seen ||
+        freshSelected.risk_score !== selected.risk_score
+      ) {
+        nextSelected = freshSelected;
+      }
+    } else if (selected.status === "open") {
+      const sibling = nextGroup.find((f) => f.id !== selected.id);
+      nextSelected = sibling ?? { ...selected, status: "resolved" };
+    }
+
+    if (groupChanged) setSelectedGroup(nextGroup);
+    if (nextSelected !== selected) setSelected(nextSelected);
+  }, [findings, selected, selectedGroup]);
   const verifying = !!(selected && pendingRecheck?.findingId === selected.id);
   const verified = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "verified");
   const verifyUnchanged = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "unchanged");
@@ -782,12 +796,21 @@ export default function Findings() {
     return counts;
   }, [benchmarkScopedFindings]);
 
-  function openReview(items: Finding[]) {
-    const top = items.reduce((best, f) => (f.risk_score > best.risk_score ? f : best), items[0]);
+  function openReview(items: Finding[], focus?: Finding, tab: FindingDrawerTab = "resources") {
+    if (items.length === 0) return;
+    const top =
+      focus ??
+      items.reduce((best, f) => (f.risk_score > best.risk_score ? f : best), items[0]);
     setSelected(top);
-    setDrawerTab("overview");
+    setSelectedGroup(items);
+    setDrawerTab(tab);
     setRemTab(defaultFindingRemediationMode(top.check_id));
     clearDrawerVerifyFlash();
+  }
+
+  function focusFinding(finding: Finding) {
+    setSelected(finding);
+    setRemTab(defaultFindingRemediationMode(finding.check_id));
   }
 
   const toggleExpandedCheck = useCallback((checkId: string) => {
@@ -1045,6 +1068,7 @@ export default function Findings() {
 
       <FindingDrawer
         finding={selected}
+        groupFindings={selectedGroup.length > 0 ? selectedGroup : selected ? [selected] : []}
         accountId={selected?.account_id ?? connectedId ?? null}
         tab={drawerTab}
         onTabChange={setDrawerTab}
@@ -1054,8 +1078,10 @@ export default function Findings() {
         verifyUnchanged={verifyUnchanged}
         verifying={verifying}
         onDismissVerifyOutcome={clearDrawerVerifyFlash}
+        onFocusFinding={focusFinding}
         onClose={() => {
           setSelected(null);
+          setSelectedGroup([]);
           clearDrawerVerifyFlash();
         }}
         onAction={(id, action) => {

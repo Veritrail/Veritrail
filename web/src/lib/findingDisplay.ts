@@ -121,6 +121,20 @@ export function findingScopeProvider(f: {
   return "aws";
 }
 
+/** 12-digit AWS account id from API or resource ARN (not Vigil's internal account uuid). */
+export function awsAccountIdFromFinding(f: {
+  aws_account_id?: string | null;
+  resource_arn?: string;
+}): string | null {
+  const fromApi = (f.aws_account_id ?? "").trim();
+  if (/^\d{12}$/.test(fromApi)) return fromApi;
+  const parts = (f.resource_arn ?? "").split(":");
+  if (parts.length > 4 && parts[2] === "aws" && /^\d{12}$/.test(parts[4] ?? "")) {
+    return parts[4]!;
+  }
+  return null;
+}
+
 /** Display name for the Account column — AWS account alias or Git org/group. */
 export function findingScopeDisplayName(
   f: FindingLike & {
@@ -637,6 +651,45 @@ export function formatIamServiceDisplayName(serviceLabel: string): string {
     if (w.length <= 4 && w === w.toUpperCase()) return (sep as string) + w.toUpperCase();
     return (sep as string) + w.charAt(0).toUpperCase() + w.slice(1);
   });
+}
+
+/** Human asset type for resource rows (S3 Bucket, IAM Role, …). */
+export function assetTypeLabel(checkId: string): string {
+  if (checkId.startsWith("iam.root")) return "AWS Root User";
+  if (checkId.startsWith("iam.role")) return "IAM Role";
+  if (checkId.startsWith("iam.user")) return "IAM User";
+  if (checkId.startsWith("iam.access_key")) return "IAM ARN";
+  if (checkId.startsWith("ec2.ebs")) return "EBS Volume";
+  if (checkId.startsWith("s3.bucket")) return "S3 Bucket";
+  return resourceTypePillLabel(checkId)
+    .split(" ")
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (lower === "iam") return "IAM";
+      if (lower === "aws") return "AWS";
+      if (lower === "s3") return "S3";
+      if (lower === "kms") return "KMS";
+      if (lower === "ec2") return "EC2";
+      if (lower === "rds") return "RDS";
+      if (lower === "eks") return "EKS";
+      if (lower === "ecr") return "ECR";
+      if (lower === "ecs") return "ECS";
+      if (lower === "acm") return "ACM";
+      if (lower === "ssm") return "SSM";
+      if (lower === "sns") return "SNS";
+      if (lower === "sqs") return "SQS";
+      if (lower === "elb") return "ELB";
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
+
+export function findingStatusLabel(status: string): string {
+  if (status === "excepted") return "Exception";
+  if (status === "ignored") return "Ignored";
+  if (status === "resolved") return "Resolved";
+  if (status === "snoozed") return "Snoozed";
+  return "Open";
 }
 
 export type AssetTypePillEntry = { checkId: string; label: string };

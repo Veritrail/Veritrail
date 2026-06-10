@@ -13,41 +13,54 @@ SCOPE_FULL_ADMIN = "full_admin"
 SCOPE_WILDCARD_ACTION = "wildcard_action"
 
 
+def draft_for_role(r: IamRole) -> FindingDraft | None:
+    if "/aws-service-role/" in r.arn:
+        return None
+    inline_full, inline_wild = _classify_inline(r.inline_policies or {})
+    attached_full, attached_wild = _classify_attached(r.attached_policies or [])
+
+    if not (inline_full or inline_wild or attached_full or attached_wild):
+        return None
+
+    scope = SCOPE_FULL_ADMIN if (inline_full or attached_full) else SCOPE_WILDCARD_ACTION
+    risk_line, title_suffix = _copy_for_scope(scope)
+    sources = _format_sources(inline_full, inline_wild, attached_full, attached_wild)
+
+    return FindingDraft(
+        check_id=CHECK_ID,
+        resource_arn=r.arn,
+        title=f"Role `{r.name}` — {title_suffix}",
+        severity="high",
+        risk_score=score("high", admin=True),
+        evidence={
+            "role_arn": r.arn,
+            "scope": scope,
+            "risk": risk_line,
+            "inline_policies_full_admin": inline_full,
+            "inline_policies_wildcard_action": inline_wild,
+            "attached_policies_full_admin": attached_full,
+            "attached_policies_wildcard_action": attached_wild,
+            "sources": sources,
+        },
+    )
+
+
+def still_failing_arn(db: Session, account_id, resource_arn: str) -> bool:
+    r = db.scalar(
+        select(IamRole).where(IamRole.account_id == account_id, IamRole.arn == resource_arn),
+    )
+    if not r:
+        return False
+    return draft_for_role(r) is not None
+
+
 def run(db: Session, account_id) -> list[FindingDraft]:
     roles = db.scalars(select(IamRole).where(IamRole.account_id == account_id)).all()
     out: list[FindingDraft] = []
     for r in roles:
-        if "/aws-service-role/" in r.arn:
-            continue
-        inline_full, inline_wild = _classify_inline(r.inline_policies or {})
-        attached_full, attached_wild = _classify_attached(r.attached_policies or [])
-
-        if not (inline_full or inline_wild or attached_full or attached_wild):
-            continue
-
-        scope = SCOPE_FULL_ADMIN if (inline_full or attached_full) else SCOPE_WILDCARD_ACTION
-        risk_line, title_suffix = _copy_for_scope(scope)
-        sources = _format_sources(inline_full, inline_wild, attached_full, attached_wild)
-
-        out.append(
-            FindingDraft(
-                check_id=CHECK_ID,
-                resource_arn=r.arn,
-                title=f"Role `{r.name}` — {title_suffix}",
-                severity="high",
-                risk_score=score("high", admin=True),
-                evidence={
-                    "role_arn": r.arn,
-                    "scope": scope,
-                    "risk": risk_line,
-                    "inline_policies_full_admin": inline_full,
-                    "inline_policies_wildcard_action": inline_wild,
-                    "attached_policies_full_admin": attached_full,
-                    "attached_policies_wildcard_action": attached_wild,
-                    "sources": sources,
-                },
-            )
-        )
+        draft = draft_for_role(r)
+        if draft:
+            out.append(draft)
     return out
 
 

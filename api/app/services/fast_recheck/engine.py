@@ -1,6 +1,7 @@
 """Fast finding verification: refresh one resource, re-run one check, resolve if passing."""
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 import structlog
@@ -31,10 +32,14 @@ def try_fast_finding_recheck(
         if not mod:
             return unsupported()
 
-        drafts = mod.run(db, account.id)
-        still_failing = any(
-            d.check_id == finding.check_id and d.resource_arn == finding.resource_arn for d in drafts
-        )
+        still_failing_fn = getattr(mod, "still_failing_arn", None)
+        if inspect.isfunction(still_failing_fn):
+            still_failing = still_failing_fn(db, account.id, finding.resource_arn)
+        else:
+            drafts = mod.run(db, account.id)
+            still_failing = any(
+                d.check_id == finding.check_id and d.resource_arn == finding.resource_arn for d in drafts
+            )
         if not still_failing:
             return resolve_finding(
                 db,

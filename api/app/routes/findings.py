@@ -23,6 +23,7 @@ router = APIRouter()
 class FindingOut(BaseModel):
     id: str
     account_id: str
+    aws_account_id: str | None = None
     account_label: str | None = None
     account_name: str | None = None
     account_provider: str = "aws"
@@ -101,6 +102,22 @@ class FindingPage(BaseModel):
     next_cursor: str | None
 
 
+class ActivityMarkerOut(BaseModel):
+    ts: datetime
+    kind: str
+    detail: str | None = None
+    scan_run_id: str | None = None
+
+
+class FindingActivityOut(BaseModel):
+    finding_id: str
+    status: str
+    first_seen: datetime
+    last_seen: datetime
+    open_days: int
+    markers: list[ActivityMarkerOut]
+
+
 def _encode_cursor(risk_score: int, id: uuid.UUID) -> str:
     return base64.urlsafe_b64encode(f"{risk_score}:{id}".encode()).decode()
 
@@ -134,6 +151,7 @@ def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> 
         return FindingOut(
             id=str(f.id),
             account_id=str(f.account_id),
+            aws_account_id=None,
             account_label=scope,
             account_name=scope,
             account_provider=vcs,
@@ -154,6 +172,7 @@ def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> 
     return FindingOut(
         id=str(f.id),
         account_id=str(f.account_id),
+        aws_account_id=acc.account_id if acc else None,
         account_label=acc.label if acc else None,
         account_name=_account_display_name(acc) if acc else None,
         account_provider="aws",
@@ -230,6 +249,35 @@ def _get_owned(db: Session, p, finding_id: str) -> Finding:
     if not f or str(f.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "finding not found")
     return f
+
+
+@router.get("/{finding_id}/activity", response_model=FindingActivityOut)
+def finding_activity(
+    finding_id: str,
+    days: int = Query(90, ge=7, le=365),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.services.finding_activity import build_finding_activity
+
+    f = _get_owned(db, p, finding_id)
+    raw = build_finding_activity(db, f, days=days)
+    return FindingActivityOut(
+        finding_id=raw["finding_id"],
+        status=raw["status"],
+        first_seen=raw["first_seen"],
+        last_seen=raw["last_seen"],
+        open_days=raw["open_days"],
+        markers=[
+            ActivityMarkerOut(
+                ts=m["ts"],
+                kind=m["kind"],
+                detail=m["detail"],
+                scan_run_id=str(m["scan_run_id"]) if m["scan_run_id"] else None,
+            )
+            for m in raw["markers"]
+        ],
+    )
 
 
 @router.post("/{finding_id}/snooze", response_model=FindingOut)
@@ -601,6 +649,44 @@ def bulk_triage(
         ai_triage_enabled=True,
         result={"task_ids": task_ids, "accounts_queued": len(accounts)},
     )
+
+
+class RecheckBatchIn(BaseModel):
+    finding_ids: list[str]
+
+
+@router.post("/recheck-batch")
+def recheck_batch(body: RecheckBatchIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+    from app.services.fast_recheck import try_fast_findings_recheck_batch
+    from app.worker.tasks import recheck_finding
+
+    if not body.finding_ids:
+        return {"queued": False, "checked": True, "check_id": None, "results": []}
+
+    findings: list[Finding] = []
+    acc: AwsAccount | None = None
+    check_id: str | None = None
+    for fid in body.finding_ids[:50]:
+        f = _get_owned(db, p, fid)
+        if check_id is None:
+            check_id = f.check_id
+        elif f.check_id != check_id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "all findings must share the same check_id")
+        if acc is None:
+            acc = db.get(AwsAccount, f.account_id)
+            if not acc:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+        elif f.account_id != acc.id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "all findings must belong to the same account")
+        findings.append(f)
+
+    actor = p.get("sub") or p.get("email") or "system"
+    fast = try_fast_findings_recheck_batch(db, account=acc, findings=findings, actor=str(actor))
+    if fast is not None:
+        return fast
+
+    recheck_finding.delay(str(acc.id), check_id)
+    return {"queued": True, "check_id": check_id, "results": []}
 
 
 @router.post("/{finding_id}/recheck")

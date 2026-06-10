@@ -63,7 +63,7 @@ Mappings:
     MigrateSecureString:
       sha256: bc4030538433deffe0d80d64c8de6dfecc7bc4f72ad125290d8a366aaf80d65a
     RemediateExcessPermissions:
-      sha256: 6d14a428d6677ca3f88d8a19e46645bec478bae6c9a7581f66e94f1d1e998416
+      sha256: d35963a74276affcf07c3d2ed595456287fc6c7df4a1672325ee5096b75abdc8
 
 Resources:
   RemediationAutomationRole:

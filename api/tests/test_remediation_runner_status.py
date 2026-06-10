@@ -70,7 +70,7 @@ def test_ssm_document_missing_blocker(mock_assume):
     )
     assert out["ready"] is False
     assert out["automation_region"] == "us-east-1"
-    assert any("Vigil runbook" in b for b in out["blockers"])
+    assert any("SSM runbook" in b for b in out["blockers"])
 
 
 @patch("app.services.remediation_runner_status.assume_role")
