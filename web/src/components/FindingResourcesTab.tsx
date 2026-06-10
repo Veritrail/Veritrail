@@ -258,37 +258,27 @@ function ResourcesPostureStrip({
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-      {/* Two centered stats — title, severity detail, account, and dates all live in
-          the drawer header and the resource table. */}
-      <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto_auto] items-center gap-x-7 rounded-xl border border-zinc-200/90 bg-white px-8 py-4 shadow-sm shadow-zinc-950/[0.03]">
-        <p className="col-start-1 row-start-1 text-center whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-          Affected resources
-        </p>
-        <div
-          className="col-start-2 row-start-1 row-span-3 w-px self-stretch bg-zinc-100"
-          aria-hidden
-        />
-        <p className="col-start-3 row-start-1 text-center whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
-          Risk score
-        </p>
-        <p className="col-start-1 row-start-2 mt-2 text-center text-xl font-bold leading-none tabular-nums text-zinc-900">
-          {unique.length}
-        </p>
-        <p
-          className={`col-start-3 row-start-2 mt-2 text-center text-xl font-bold leading-none tabular-nums ${scoreTone}`}
-        >
-          {selectedFinding.risk_score}
-        </p>
-        <p className="col-start-1 row-start-3 mt-1.5 text-center invisible" aria-hidden>
-          <span className={severityPillClassName(selectedFinding.severity)}>
-            {severityLabel(selectedFinding.severity)}
-          </span>
-        </p>
-        <p className="col-start-3 row-start-3 mt-1.5 text-center">
-          <span className={severityPillClassName(selectedFinding.severity)}>
-            {severityLabel(selectedFinding.severity)}
-          </span>
-        </p>
+      <div className="flex shrink-0 items-stretch rounded-xl border border-zinc-200/90 bg-white px-5 py-2.5 shadow-sm shadow-zinc-950/[0.03]">
+        <div className="flex min-w-[6.5rem] flex-1 flex-col justify-center gap-px pr-5">
+          <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+            Affected resources
+          </p>
+          <p className="text-lg font-bold leading-tight tabular-nums text-zinc-900">{unique.length}</p>
+        </div>
+        <div className="w-px self-center bg-zinc-100 h-8" aria-hidden />
+        <div className="flex min-w-[6.5rem] flex-1 flex-col justify-center gap-px pl-5">
+          <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+            Risk score
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-lg font-bold leading-tight tabular-nums ${scoreTone}`}>
+              {selectedFinding.risk_score}
+            </span>
+            <span className={severityPillClassName(selectedFinding.severity)}>
+              {severityLabel(selectedFinding.severity)}
+            </span>
+          </div>
+        </div>
       </div>
 
       {summaryAction ? (
