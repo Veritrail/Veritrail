@@ -198,3 +198,53 @@
   outline: 2px solid rgba(37, 99, 235, 0.22);
   outline-offset: 2px;
 }
+
+/* Finding drawer resources tab: align the summary card metrics and the resource type column. */
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, 1fr) auto minmax(5rem, 1fr);
+  align-items: center;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child,
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child {
+  display: flex;
+  min-width: 0;
+  align-self: stretch;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child,
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:last-child,
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > p:first-child,
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div {
+  width: 5rem;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:last-child {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > p:first-child {
+  text-align: center;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div {
+  min-height: 2.5rem;
+  align-items: center;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div > span:first-child {
+  display: block;
+  width: 5rem;
+  text-align: center;
+}
+
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left thead th:nth-child(2) {
+  padding-left: 1.625rem;
+}
