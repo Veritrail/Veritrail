@@ -180,10 +180,30 @@ function ComplianceRowSummary({
     unevaluated: "Not evaluated",
   };
 
+  const dotClass: Record<ComplianceDisplayStatus, string> = {
+    passing: "bg-emerald-500",
+    failing: "bg-rose-500",
+    at_risk: "bg-amber-500",
+    unevaluated: "bg-zinc-400",
+  };
+  const countClass: Record<ComplianceDisplayStatus, string> = {
+    passing: "text-emerald-700",
+    failing: "text-rose-600",
+    at_risk: "text-amber-700",
+    unevaluated: "text-zinc-500",
+  };
+
   const chip = (
     <>
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" aria-hidden />
-      {displayStatus === "passing" && count === 0 ? label.passing : `${label[displayStatus]} · ${count}`}
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass[displayStatus]}`} aria-hidden />
+      {displayStatus === "passing" && count === 0 ? (
+        label.passing
+      ) : (
+        <>
+          {label[displayStatus]}
+          <span className={`font-semibold tabular-nums ${countClass[displayStatus]}`}>{count}</span>
+        </>
+      )}
     </>
   );
 
@@ -1197,7 +1217,6 @@ function CompositeControlsPanel({
                   href={findingsHref}
                   onNavigate={(href) => navigate(href)}
                 />
-                <ComplianceExpandChevron expanded={isExpanded} className="h-4 w-4 shrink-0 text-zinc-400" />
               </div>
             </button>
 
@@ -2329,7 +2348,6 @@ export default function Controls() {
                         href={findingsHref}
                         onNavigate={(href) => navigate(href)}
                       />
-                      <ComplianceExpandChevron expanded={isExpanded} className="text-zinc-400" />
                     </div>
                   </button>
 
