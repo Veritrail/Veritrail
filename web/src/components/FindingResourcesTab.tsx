@@ -860,7 +860,7 @@ export function FindingResourcesTab({
           <table className="min-w-[56rem] w-full border-collapse text-left">
             <colgroup>
               <col className="min-w-[14rem]" />
-              <col className="min-w-[9rem]" />
+              <col className="min-w-[10rem]" />
               <col className="min-w-[7.5rem]" />
               <col />
               <col />
@@ -869,8 +869,8 @@ export function FindingResourcesTab({
             <thead>
               <tr className="border-b border-zinc-100 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Resource</th>
-                <th className="w-[1%] whitespace-nowrap pl-7 pr-4 pb-2.5 pt-3 text-left align-bottom font-semibold">
-                  Type
+                <th className="w-[1%] whitespace-nowrap pl-2 pr-6 pb-2.5 pt-3 text-left align-bottom font-semibold">
+                  <span className="inline-block -translate-x-8">Type</span>
                 </th>
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Account</th>
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">First seen</th>
@@ -927,8 +927,8 @@ export function FindingResourcesTab({
                         </div>
                       </div>
                     </td>
-                    <td className="w-[1%] whitespace-nowrap pl-7 pr-4 py-4 align-middle">
-                      <div className="flex flex-col items-start">
+                    <td className="w-[1%] whitespace-nowrap pl-2 pr-6 py-4 align-middle">
+                      <div className="flex -translate-x-8 flex-col items-start">
                         <ResourceTypePill label={rowAssetType} />
                         {/* phantom sub-line — keeps the pill level with the first line of the
                             two-line cells (name/ARN, alias/ID), which all share this geometry */}
