@@ -8,7 +8,9 @@ import { FRAMEWORKS } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import { FilterChipBar } from "../components/FilterChipBar";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
+import { ComplianceHeroStrip } from "../components/ComplianceHeroStrip";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
+import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
 import {
   controlEvidenceSectionTitle,
@@ -207,8 +209,13 @@ function ComplianceRowSummary({
     </>
   );
 
-  const chipClass =
-    "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200/80";
+  const chipToneClass: Record<ComplianceDisplayStatus, string> = {
+    passing: "bg-emerald-50 text-emerald-800 ring-emerald-200/80",
+    failing: "bg-rose-50 text-rose-800 ring-rose-200/70",
+    at_risk: "bg-amber-50 text-amber-800 ring-amber-200/70",
+    unevaluated: "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
+  };
+  const chipClass = `inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ${chipToneClass[displayStatus]}`;
 
   if (count > 0 && href) {
     return (
@@ -843,22 +850,30 @@ function ComplianceUnifiedToolbar({
 
 function ComplianceContentShell({
   toolbar,
-  topBlocker,
+  hero,
   section,
   children,
 }: {
   toolbar: ReactNode;
-  topBlocker?: ReactNode;
+  hero?: ReactNode;
   section?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="mb-4 min-w-0 rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
       {toolbar}
-      {topBlocker}
+      {hero}
       {section && <div className="border-b border-zinc-100 px-5 py-2.5">{section}</div>}
       <div className="divide-y divide-zinc-100 overflow-hidden rounded-b-2xl">{children}</div>
     </section>
+  );
+}
+
+function ComplianceProgressBadge({ label }: { label: string }) {
+  return (
+    <span className="ml-2 inline-flex shrink-0 items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200/80">
+      {label}
+    </span>
   );
 }
 
@@ -1224,18 +1239,22 @@ function CompositeControlsPanel({
               </div>
             </button>
 
-            {isExpanded ? (
-              <div className="border-t border-zinc-100 px-5 pb-5 pt-4">
-                <CompositeExpandedDetails
-                  ctrl={ctrl}
-                  findingCountByCheck={findingCountByCheck}
-                  variant="card"
-                  framework={framework}
-                  frameworkRows={frameworkRows}
-                  accountId={accountId}
-                />
+            <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
+              <div className="vigil-accordion-panel__inner">
+                {isExpanded ? (
+                  <div className="border-t border-zinc-100 px-5 pb-5 pt-4">
+                    <CompositeExpandedDetails
+                      ctrl={ctrl}
+                      findingCountByCheck={findingCountByCheck}
+                      variant="card"
+                      framework={framework}
+                      frameworkRows={frameworkRows}
+                      accountId={accountId}
+                    />
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            </div>
 
             {child && compositeAppliesToFramework(child, frameworkRows) ? (
               <QuietNestedCompositeRow
@@ -1992,6 +2011,26 @@ export default function Controls() {
     iso27001: isoStats.data,
   };
 
+  const complianceTimeline = useQuery({
+    queryKey: ["compliance-hero", activeAccount?.id, framework],
+    queryFn: () =>
+      api<ComplianceHistoryResponse>(
+        `/v1/accounts/${activeAccount!.id}/compliance-timeline?framework=${framework}&days=7&limit=20`,
+      ),
+    enabled: !!activeAccount && hasScanned,
+    staleTime: 60_000,
+  });
+
+  const recentlyImprovedControlIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const event of complianceTimeline.data?.events ?? []) {
+      for (const passed of event.diff?.newly_passed ?? []) {
+        if (passed.control_id) ids.add(passed.control_id);
+      }
+    }
+    return ids;
+  }, [complianceTimeline.data?.events]);
+
   const rows = controls.data ?? [];
   const passed = rows.filter((r) => r.status === "pass").length;
   const failed = rows.filter((r) => r.status === "fail").length;
@@ -2055,6 +2094,41 @@ export default function Controls() {
     if (failing.length === 0) return null;
     return failing.reduce((worst, row) => (row.finding_count > worst.finding_count ? row : worst));
   }, [primaryComposites]);
+
+  const heroStats = useMemo(() => {
+    if (complianceView === "composite") {
+      return {
+        passRate: compositeTotal > 0 ? Math.round((compositePassed / compositeTotal) * 100) : null,
+        passed: compositePassed,
+        total: compositeTotal,
+        failed: compositeFailed,
+        openFindings: primaryComposites.reduce((sum, row) => sum + row.finding_count, 0),
+      };
+    }
+    const activeStats = frameworkStatsById[framework];
+    return {
+      passRate: activeStats?.passRate ?? (total > 0 ? Math.round((passed / total) * 100) : null),
+      passed: activeStats?.passed ?? passed,
+      total: activeStats?.total ?? total,
+      failed: activeStats?.failed ?? failed,
+      openFindings: activeStats?.openFindings ?? rows.reduce((sum, r) => sum + r.finding_count, 0),
+    };
+  }, [
+    complianceView,
+    compositeTotal,
+    compositePassed,
+    compositeFailed,
+    primaryComposites,
+    frameworkStatsById,
+    framework,
+    passed,
+    total,
+    failed,
+    rows,
+  ]);
+
+  const activeTopBlocker =
+    complianceView === "composite" ? topBlockerComposite : topBlockerDetailed;
 
   async function downloadPack(opts?: { framework?: string; period?: number; asOf?: string }) {
     if (!activeAccount) return;
@@ -2217,37 +2291,47 @@ export default function Controls() {
               />
             </div>
           }
-          topBlocker={
-            (complianceView === "composite" ? topBlockerComposite : topBlockerDetailed) ? (
-              <p className="border-b border-zinc-100 px-5 py-2 text-xs leading-snug text-zinc-600">
-                Top blocker:{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (complianceView === "composite") {
-                      if (!topBlockerComposite) return;
-                      setExpandedComposite(topBlockerComposite.id);
-                      return;
-                    }
-                    if (!topBlockerDetailed) return;
-                    setComplianceViewWithUrl("detailed");
-                    setStatusFilter("fail");
-                    openControl(topBlockerDetailed);
-                  }}
-                  className="font-medium text-indigo-700 hover:text-indigo-900"
-                >
-                  {complianceView === "composite"
-                    ? topBlockerComposite!.title
-                    : `${topBlockerDetailed!.control_id} ${shortControlTitle(topBlockerDetailed!.title)}`}
-                </button>{" "}
-                <span className="font-medium text-rose-600/90">
-                  (
-                  {complianceView === "composite"
-                    ? topBlockerComposite!.finding_count
-                    : topBlockerDetailed!.finding_count}{" "}
-                  findings)
-                </span>
-              </p>
+          hero={
+            hasScanned ? (
+              <ComplianceHeroStrip
+                frameworkLabel={activeFramework.label}
+                passRate={heroStats.passRate}
+                passed={heroStats.passed}
+                total={heroStats.total}
+                failed={heroStats.failed}
+                openFindings={heroStats.openFindings}
+                controlsImproved={complianceTimeline.data?.period_summary?.controls_improved ?? 0}
+                controlsRegressed={complianceTimeline.data?.period_summary?.controls_regressed ?? 0}
+                findingsResolved={complianceTimeline.data?.period_summary?.findings_resolved ?? 0}
+                periodDays={7}
+                loading={controls.isLoading || complianceTimeline.isLoading}
+                topBlocker={
+                  activeTopBlocker ? (
+                    <>
+                      {complianceView === "composite"
+                        ? activeTopBlocker.title
+                        : `${activeTopBlocker.control_id} ${shortControlTitle(activeTopBlocker.title)}`}
+                      <span className="font-medium text-rose-600">
+                        {" "}
+                        · {activeTopBlocker.finding_count} findings
+                      </span>
+                    </>
+                  ) : null
+                }
+                onTopBlockerClick={
+                  activeTopBlocker
+                    ? () => {
+                        if (complianceView === "composite") {
+                          setExpandedComposite(activeTopBlocker.id);
+                          return;
+                        }
+                        setComplianceViewWithUrl("detailed");
+                        setStatusFilter("fail");
+                        openControl(activeTopBlocker as ControlRow);
+                      }
+                    : undefined
+                }
+              />
             ) : undefined
           }
           section={
@@ -2338,6 +2422,9 @@ export default function Controls() {
                       <p className="text-body font-semibold leading-snug text-zinc-900">
                         <span className="font-mono text-meta font-semibold text-zinc-500">{ctrl.control_id}</span>{" "}
                         {shortControlTitle(ctrl.title)}
+                        {recentlyImprovedControlIds.has(ctrl.control_id) ? (
+                          <ComplianceProgressBadge label="Improved" />
+                        ) : null}
                       </p>
                       {ctrl.description ? (
                         <p
@@ -2358,34 +2445,38 @@ export default function Controls() {
                     </div>
                   </button>
 
-                  {isExpanded && (
-                    <div className="space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
-                      <ControlStatusBlock
-                        control={ctrl}
-                        periodDays={exportWindow.period}
-                        coverage={evidenceCoverage.data}
-                        controlId={ctrl.control_id}
-                        framework={framework}
-                        accountId={activeAccount?.id ?? ""}
-                      />
-
-                      {ctrl.check_ids.length === 0 ? (
-                        <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
-                          No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
-                          inherit access via groups or roles).
-                        </p>
-                      ) : (
-                        <>
-                          <ControlEvaluationBlock checkIds={ctrl.check_ids} />
-                          <ControlFindingsBlock
+                  <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
+                    <div className="vigil-accordion-panel__inner">
+                      {isExpanded ? (
+                        <div className="space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
+                          <ControlStatusBlock
                             control={ctrl}
-                            checkIds={ctrl.check_ids}
-                            findingCountByCheck={findingCountByCheck}
+                            periodDays={exportWindow.period}
+                            coverage={evidenceCoverage.data}
+                            controlId={ctrl.control_id}
+                            framework={framework}
+                            accountId={activeAccount?.id ?? ""}
                           />
-                        </>
-                      )}
+
+                          {ctrl.check_ids.length === 0 ? (
+                            <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
+                              No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
+                              inherit access via groups or roles).
+                            </p>
+                          ) : (
+                            <>
+                              <ControlEvaluationBlock checkIds={ctrl.check_ids} />
+                              <ControlFindingsBlock
+                                control={ctrl}
+                                checkIds={ctrl.check_ids}
+                                findingCountByCheck={findingCountByCheck}
+                              />
+                            </>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}

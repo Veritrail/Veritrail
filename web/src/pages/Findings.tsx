@@ -125,6 +125,23 @@ function matchesBenchmarkFilter(
   return selected.some((id) => fws.includes(id));
 }
 
+function SeverityDot({ severity }: { severity: string }) {
+  const tone: Record<string, string> = {
+    critical: "bg-red-600",
+    high: "bg-red-500",
+    medium: "bg-amber-500",
+    low: "bg-zinc-400",
+    info: "bg-sky-500",
+  };
+  return (
+    <span
+      className={`h-2 w-2 shrink-0 rounded-full ${tone[severity] ?? tone.low}`}
+      title={`${severity} severity`}
+      aria-hidden
+    />
+  );
+}
+
 function SeverityIndicator({ severity }: { severity: string }) {
   const badgeClass =
     "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium";
@@ -280,11 +297,13 @@ function AffectedResourceRow({
   finding,
   resourceLabel,
   assetType,
+  showSeverityDot,
   onSelect,
 }: {
   finding: Finding;
   resourceLabel: string;
   assetType: string;
+  showSeverityDot?: boolean;
   onSelect: () => void;
 }) {
   const name = shortResourceName(resourceLabel);
@@ -312,6 +331,7 @@ function AffectedResourceRow({
     >
       <ResourceProviderTile finding={finding} />
       <div className="flex min-w-0 flex-[1.6] items-center gap-3">
+        {showSeverityDot ? <SeverityDot severity={finding.severity} /> : null}
         <span className="truncate text-[14px] font-semibold text-zinc-900">{name}</span>
         <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold text-sky-700">{assetType}</span>
       </div>
@@ -370,6 +390,7 @@ function AffectedResourcesCard({
   totalCount,
   hiddenCount,
   showMore,
+  showSeverityDots,
   onShowMore,
   onSelect,
   onViewAll,
@@ -378,6 +399,7 @@ function AffectedResourcesCard({
   totalCount: number;
   hiddenCount: number;
   showMore: boolean;
+  showSeverityDots?: boolean;
   onShowMore: () => void;
   onSelect: (finding: Finding) => void;
   onViewAll: () => void;
@@ -415,6 +437,7 @@ function AffectedResourcesCard({
             finding={resource.finding}
             resourceLabel={resource.label}
             assetType={assetTypeLabel(resource.finding.check_id)}
+            showSeverityDot={showSeverityDots}
             onSelect={() => onSelect(resource.finding)}
           />
         ))}
@@ -479,6 +502,7 @@ function FindingRow({
   const hiddenResourceCount = Math.max(0, resources.length - RESOURCE_CHILD_PREVIEW);
   const visibleResources = showAllResources ? resources : resources.slice(0, RESOURCE_CHILD_PREVIEW);
   const showMoreRow = expanded && !showAllResources && hiddenResourceCount > 0;
+  const hasMixedSeverity = new Set(items.map((f) => f.severity)).size > 1;
 
   useEffect(() => {
     if (!expanded) setShowAllResources(false);
@@ -531,24 +555,29 @@ function FindingRow({
           <RiskScoreDisplay score={topRisk} severity={sev} />
         </div>
       </div>
-      {expanded && canExpand ? (
-        <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
-          <span className="hidden sm:block" aria-hidden />
-          <span className="hidden w-[5.5rem] sm:block" aria-hidden />
-          <div className="py-4 pl-4 pr-5 sm:pl-0" style={{ borderLeft: "3px solid var(--rail)" }}>
-            <AffectedResourcesCard
-              resources={visibleResources}
-              totalCount={resources.length}
-              hiddenCount={hiddenResourceCount}
-              showMore={showMoreRow}
-              onShowMore={() => setShowAllResources(true)}
-              onSelect={(finding) => onReview([finding])}
-              onViewAll={() => onReview(items)}
-            />
-          </div>
-          <span className="hidden sm:block" aria-hidden />
+      <div className={`vigil-accordion-panel ${expanded && canExpand ? "is-open" : ""}`}>
+        <div className="vigil-accordion-panel__inner">
+          {expanded && canExpand ? (
+            <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
+              <span className="hidden sm:block" aria-hidden />
+              <span className="hidden w-[5.5rem] sm:block" aria-hidden />
+              <div className="py-4 pl-4 pr-5 sm:pl-0" style={{ borderLeft: "3px solid var(--rail)" }}>
+                <AffectedResourcesCard
+                  resources={visibleResources}
+                  totalCount={resources.length}
+                  hiddenCount={hiddenResourceCount}
+                  showMore={showMoreRow}
+                  showSeverityDots={hasMixedSeverity}
+                  onShowMore={() => setShowAllResources(true)}
+                  onSelect={(finding) => onReview([finding])}
+                  onViewAll={() => onReview(items)}
+                />
+              </div>
+              <span className="hidden sm:block" aria-hidden />
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

@@ -76,6 +76,7 @@ import {
   RoleServiceUsageAnalysis,
   RoleTrustPrincipals,
 } from "./BlastRadiusPanel";
+import { FindingDependencyGraph } from "./FindingDependencyGraph";
 import {
   ImpactAnalysisEmpty,
   ImpactAnalysisShell,
@@ -3408,8 +3409,22 @@ function BlastRadiusSection({
             ) : null}
 
             {reportTab === "dependencies" ? (
-              hasTrust || hasPolicies ? (
-                <>
+              hasTrust || hasPolicies || (data.services?.length ?? 0) > 0 ? (
+                <div className="space-y-4">
+                  <FindingDependencyGraph
+                    resourceLabel={resourceDisplayName(finding)}
+                    trustPrincipals={data.trust_principals}
+                    services={
+                      data.services?.map((service) => service.name) ??
+                      [
+                        ...new Set(
+                          (data.keys ?? [])
+                            .map((key) => key.last_used_service)
+                            .filter((service): service is string => Boolean(service)),
+                        ),
+                      ]
+                    }
+                  />
                   {hasTrust ? <RoleTrustPrincipals principals={data.trust_principals!} /> : null}
                   {hasPolicies ? (
                     <RolePoliciesAnalysis
@@ -3432,7 +3447,7 @@ function BlastRadiusSection({
                       )}
                     />
                   ) : null}
-                </>
+                </div>
               ) : (
                 <ImpactReportEmpty message="No trust principals or attached policies to review." />
               )

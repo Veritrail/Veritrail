@@ -379,6 +379,24 @@
   min-height: 44px;
 }
 
+.vigil-accordion-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 150ms ease,
+    opacity 150ms ease;
+}
+
+.vigil-accordion-panel.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.vigil-accordion-panel__inner {
+  overflow: hidden;
+}
+
 .finding-title-cell {
   display: flex;
   flex-direction: column;
