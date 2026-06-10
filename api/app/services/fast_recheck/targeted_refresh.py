@@ -533,6 +533,35 @@ def _mini_collect(db: Session, account: AwsAccount, fn) -> bool:
     return True
 
 
+def _refresh_iam_root(_db: Session, _account: AwsAccount, _finding: Finding) -> bool:
+    # iam.root.* checks call iam:GetAccountSummary (or CloudTrail) directly in run().
+    return True
+
+
+def _refresh_iam_password_policy(db: Session, account: AwsAccount, _finding: Finding) -> bool:
+    from app.collectors.iam import _collect_password_policy
+
+    iam = _session(account, "fast_recheck_iam_password_policy").client("iam")
+    _collect_password_policy(db, iam, account)
+    return True
+
+
+def _refresh_iam_roles(db: Session, account: AwsAccount, _finding: Finding) -> bool:
+    from app.collectors.iam import _collect_roles
+
+    sess = _session(account, "fast_recheck_iam_roles")
+    _collect_roles(db, sess, account)
+    return True
+
+
+def _refresh_iam_managed_policies(db: Session, account: AwsAccount, _finding: Finding) -> bool:
+    from app.collectors.iam import _collect_managed_policies
+
+    iam = _session(account, "fast_recheck_iam_policies").client("iam")
+    _collect_managed_policies(db, iam, account)
+    return True
+
+
 def refresh_resource_for_finding(db: Session, account: AwsAccount, finding: Finding) -> bool:
     """Update DB state for the finding's resource. Returns False if unsupported."""
     check_id = finding.check_id
@@ -573,12 +602,16 @@ def refresh_resource_for_finding(db: Session, account: AwsAccount, finding: Find
         return _refresh_iam_access_key(db, account, finding)
     if check_id.startswith("iam.user."):
         return _refresh_iam_user(db, account, finding)
-    if check_id.startswith("iam.role.") or check_id.startswith("iam.policy."):
-        if check_id.startswith("iam.role."):
-            return _refresh_iam_role(db, account, finding)
-        return _mini_collect(db, account, collect_iam)
-    if check_id.startswith("iam.root.") or check_id.startswith("iam.account."):
-        return _mini_collect(db, account, collect_iam)
+    if check_id.startswith("iam.root."):
+        return _refresh_iam_root(db, account, finding)
+    if check_id == "iam.account.password_policy_weak":
+        return _refresh_iam_password_policy(db, account, finding)
+    if check_id == "iam.account.no_support_role":
+        return _refresh_iam_roles(db, account, finding)
+    if check_id.startswith("iam.role."):
+        return _refresh_iam_role(db, account, finding)
+    if check_id.startswith("iam.policy."):
+        return _refresh_iam_managed_policies(db, account, finding)
     if check_id.startswith("iam.server_certificate."):
         return _mini_collect(db, account, collect_iam_server_certificates)
 

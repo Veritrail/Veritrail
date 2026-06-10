@@ -186,6 +186,10 @@ random_secret() {
   openssl rand -hex 32
 }
 
+random_fernet_key() {
+  python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+}
+
 detect_instance_role_arn() {
   local token role account
   token="$(curl -fsS -m 2 -X PUT "http://169.254.169.254/latest/api/token" \
@@ -240,6 +244,13 @@ ensure_env_prod() {
   if is_placeholder_secret "$app_secret"; then
     set_env_value "APP_SECRET" "$(random_secret)" "$env_path"
     log "Generated APP_SECRET"
+  fi
+
+  local encryption_key
+  encryption_key="$(get_env_value ENCRYPTION_KEY "$env_path")"
+  if [[ -z "$encryption_key" ]]; then
+    set_env_value "ENCRYPTION_KEY" "$(random_fernet_key)" "$env_path"
+    log "Generated ENCRYPTION_KEY"
   fi
 
   if is_placeholder_trust "$trust_arn"; then

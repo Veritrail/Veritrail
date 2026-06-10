@@ -82,6 +82,17 @@ function dedupeByArn(findings: ResourcesTabFinding[]): ResourcesTabFinding[] {
   });
 }
 
+/** Grouped findings (e.g. encryption at rest) span multiple check_ids — recheck-batch requires one per call. */
+function groupRowsByCheckId(rows: ResourcesTabFinding[]): Map<string, ResourcesTabFinding[]> {
+  const map = new Map<string, ResourcesTabFinding[]>();
+  for (const row of rows) {
+    const list = map.get(row.check_id) ?? [];
+    list.push(row);
+    map.set(row.check_id, list);
+  }
+  return map;
+}
+
 function aggregateSeen(findings: ResourcesTabFinding[], pick: "first_seen" | "last_seen"): string {
   const times = findings
     .map((f) => new Date(f[pick]).getTime())
@@ -672,7 +683,7 @@ export function FindingResourcesTab({
     setRefreshNote({ phase: "running", text: "Checking resources…", tone: "neutral" });
 
     const rowIds = rows.map((f) => f.id);
-    const checkId = selectedFinding.check_id;
+    const checkGroups = groupRowsByCheckId(rows);
     const tallies = { resolved: 0, unchanged: 0 };
 
     try {
@@ -681,27 +692,42 @@ export function FindingResourcesTab({
         rowIds,
       );
       const queuedAtMs = Date.now();
+      const queuedGroups: { checkId: string; ids: string[] }[] = [];
 
-      // One request: refresh each visible resource in AWS, run the check once, persist once.
-      const batch = await api<RecheckBatchResponse>("/v1/findings/recheck-batch", {
-        method: "POST",
-        body: JSON.stringify({ finding_ids: rowIds }),
-      });
-      const queued = Boolean(batch.queued);
-
-      if (queued) {
-        setRefreshNote({ phase: "running", text: "Running full check…", tone: "neutral" });
-      } else {
-        tallyBatchRecheck(batch.results, tallies);
+      for (const [checkId, groupRows] of checkGroups) {
+        const groupIds = groupRows.map((f) => f.id);
+        const batch = await api<RecheckBatchResponse>("/v1/findings/recheck-batch", {
+          method: "POST",
+          body: JSON.stringify({ finding_ids: groupIds }),
+        });
+        if (batch.queued) {
+          queuedGroups.push({ checkId, ids: groupIds });
+        } else {
+          tallyBatchRecheck(batch.results, tallies);
+        }
       }
 
-      if (queued) {
-        const outcome = await waitForRecheckUpdate(checkId, rowIds, baseline, queuedAtMs);
+      if (queuedGroups.length > 0) {
+        setRefreshNote({ phase: "running", text: "Running full check…", tone: "neutral" });
+        const outcomes = await Promise.all(
+          queuedGroups.map(({ checkId, ids }) =>
+            waitForRecheckUpdate(checkId, ids, baseline, queuedAtMs),
+          ),
+        );
         await invalidateFindingData();
-        const finalItems = await fetchCheckFindings(checkId);
-        const { resolved, stillOpen } = summarizeRefreshOutcome(rowIds, baseline, finalItems);
 
-        if (outcome === "timeout" && resolved === 0 && stillOpen === rowIds.length) {
+        let resolved = 0;
+        let stillOpen = 0;
+        for (const [checkId, groupRows] of checkGroups) {
+          const groupIds = groupRows.map((f) => f.id);
+          const finalItems = await fetchCheckFindings(checkId);
+          const part = summarizeRefreshOutcome(groupIds, baseline, finalItems);
+          resolved += part.resolved;
+          stillOpen += part.stillOpen;
+        }
+
+        const allTimedOut = outcomes.every((o) => o === "timeout");
+        if (allTimedOut && resolved === 0 && stillOpen === rowIds.length) {
           setRefreshNote({
             phase: "done",
             tone: "warning",

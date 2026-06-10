@@ -159,6 +159,20 @@ def test_batch_recheck_resolves_requested_open_finding(mock_persist, _mock_refre
     mock_persist.assert_called_once()
 
 
+def test_iam_root_refresh_skips_full_collect():
+    from app.services.fast_recheck.targeted_refresh import refresh_resource_for_finding
+
+    db = MagicMock()
+    finding = MagicMock()
+    finding.check_id = "iam.root.no_mfa"
+    finding.resource_arn = "arn:aws:iam::946796614607:root"
+    finding.evidence = {}
+
+    with patch("app.services.fast_recheck.targeted_refresh.collect_iam") as mock_collect:
+        assert refresh_resource_for_finding(db, _account(), finding) is True
+    mock_collect.assert_not_called()
+
+
 def test_iam_role_arn_parses_colon_role_prefix():
     from app.services.fast_recheck.targeted_refresh import refresh_resource_for_finding
 

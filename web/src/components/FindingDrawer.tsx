@@ -6822,7 +6822,10 @@ export function FindingDrawer({
         {checkLabels[finding.check_id] ?? finding.title}
       </h2>
       <div className="mt-3 border-b border-zinc-200/90" role="tablist" aria-label="Finding details">
-        <div className="-mb-px flex gap-6 overflow-x-auto">
+        <div
+          className="-mb-px grid w-full"
+          style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+        >
           {tabs.map((t) => {
             const active = tab === t.id;
             return (
@@ -6832,7 +6835,7 @@ export function FindingDrawer({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onTabChange(t.id)}
-                className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 pb-2.5 pt-1 text-[13px] transition-colors ${
+                className={`relative flex w-full items-center justify-center gap-2 whitespace-nowrap border-b-2 px-1 pb-2.5 pt-1 text-[13px] transition-colors ${
                   active
                     ? "border-emerald-500 font-semibold text-zinc-900"
                     : "border-transparent font-medium text-zinc-500 hover:border-zinc-200 hover:text-zinc-700"
