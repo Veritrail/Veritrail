@@ -304,26 +304,18 @@
   background-color: #eceff3 !important;
 }
 
-/* Tiny optical nudges after the type column was centered. */
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child,
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > p:first-child {
-  display: flex;
-  height: 1rem;
-  align-items: center;
-  justify-content: center;
-  line-height: 1rem;
-}
-
+/* Stronger visible nudges: the previous pass only normalized the boxes. */
 .space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child::after {
-  display: block;
-  line-height: 1rem;
+  display: inline-block;
+  transform: translateY(-1px);
 }
 
 .space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) > div > span {
+  box-sizing: border-box;
   display: inline-flex;
   height: 1.25rem;
   align-items: center;
-  padding-top: 0 !important;
+  padding-top: 2px !important;
   padding-bottom: 0 !important;
-  line-height: 1;
+  line-height: 1rem !important;
 }
