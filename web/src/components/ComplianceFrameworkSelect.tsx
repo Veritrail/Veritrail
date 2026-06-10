@@ -163,6 +163,15 @@ export function ComplianceFrameworkSelect({
       >
         <BenchmarkShieldMark />
         <span className="truncate">{activeFw.label}</span>
+        {(() => {
+          const activeStats = statsById[selectedId];
+          if (!activeStats || activeStats.total === 0 || activeStats.passRate == null) return null;
+          return (
+            <span className={`shrink-0 text-xs font-bold tabular-nums ${passRateClass(activeStats)}`}>
+              {activeStats.passRate}%
+            </span>
+          );
+        })()}
         <svg
           className={`h-3.5 w-3.5 shrink-0 text-[#98a2b3] transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"

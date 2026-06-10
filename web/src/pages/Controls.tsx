@@ -8,7 +8,7 @@ import { FRAMEWORKS } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import { FilterChipBar } from "../components/FilterChipBar";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
-import { ComplianceHeroStrip } from "../components/ComplianceHeroStrip";
+import { CompliancePostureLine } from "../components/CompliancePostureLine";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
@@ -850,19 +850,16 @@ function ComplianceUnifiedToolbar({
 
 function ComplianceContentShell({
   toolbar,
-  hero,
   section,
   children,
 }: {
   toolbar: ReactNode;
-  hero?: ReactNode;
   section?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="mb-4 min-w-0 rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
       {toolbar}
-      {hero}
       {section && <div className="border-b border-zinc-100 px-5 py-2.5">{section}</div>}
       <div className="divide-y divide-zinc-100 overflow-hidden rounded-b-2xl">{children}</div>
     </section>
@@ -1216,7 +1213,11 @@ function CompositeControlsPanel({
               type="button"
               onClick={() => onToggle(ctrl.id)}
               aria-expanded={isExpanded}
-              className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors hover:bg-zinc-50/60"
+              className={`flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors ${
+                displayStatus === "passing" && !isExpanded
+                  ? "bg-emerald-50/30 hover:bg-emerald-50/50"
+                  : "hover:bg-zinc-50/60"
+              }`}
             >
               <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
               <CompositeGroupIcon id={ctrl.id} />
@@ -2130,6 +2131,50 @@ export default function Controls() {
   const activeTopBlocker =
     complianceView === "composite" ? topBlockerComposite : topBlockerDetailed;
 
+  const controlToCompositeId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const composite of primaryComposites) {
+      for (const row of underlyingCriteriaForComposite(composite, rows)) {
+        map.set(row.control_id, composite.id);
+      }
+    }
+    return map;
+  }, [primaryComposites, rows]);
+
+  const viewTrend = useMemo(() => {
+    if (complianceView === "composite") {
+      const improved = new Set<string>();
+      const regressed = new Set<string>();
+      for (const event of complianceTimeline.data?.events ?? []) {
+        for (const passedCtrl of event.diff?.newly_passed ?? []) {
+          const compositeId = controlToCompositeId.get(passedCtrl.control_id);
+          if (compositeId) improved.add(compositeId);
+        }
+        for (const failedCtrl of event.diff?.newly_failed ?? []) {
+          const compositeId = controlToCompositeId.get(failedCtrl.control_id);
+          if (compositeId) regressed.add(compositeId);
+        }
+      }
+      return { improved: improved.size, regressed: regressed.size };
+    }
+    const summary = complianceTimeline.data?.period_summary;
+    return {
+      improved: summary?.controls_improved ?? 0,
+      regressed: summary?.controls_regressed ?? 0,
+    };
+  }, [complianceView, complianceTimeline.data, controlToCompositeId]);
+
+  function jumpToTopBlocker() {
+    if (!activeTopBlocker) return;
+    if (complianceView === "composite") {
+      setExpandedComposite(activeTopBlocker.id);
+      return;
+    }
+    setComplianceViewWithUrl("detailed");
+    setStatusFilter("fail");
+    openControl(activeTopBlocker as ControlRow);
+  }
+
   async function downloadPack(opts?: { framework?: string; period?: number; asOf?: string }) {
     if (!activeAccount) return;
     setDownloading(true);
@@ -2236,6 +2281,30 @@ export default function Controls() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
+            {hasScanned && connectedAccount && !controls.isLoading ? (
+              <CompliancePostureLine
+                unitLabel={complianceView === "composite" ? "groups" : "criteria"}
+                passed={heroStats.passed}
+                total={heroStats.total}
+                failed={heroStats.failed}
+                openFindings={heroStats.openFindings}
+                passRate={heroStats.passRate}
+                trendImproved={viewTrend.improved}
+                trendRegressed={viewTrend.regressed}
+                findingsResolved={complianceTimeline.data?.period_summary?.findings_resolved ?? 0}
+                loading={complianceTimeline.isLoading}
+                topBlocker={
+                  activeTopBlocker
+                    ? complianceView === "composite"
+                      ? activeTopBlocker.title
+                      : `${activeTopBlocker.control_id} ${shortControlTitle(activeTopBlocker.title)}`
+                    : null
+                }
+                onTopBlockerClick={activeTopBlocker ? jumpToTopBlocker : undefined}
+              />
+            ) : (
+              <p className="mt-1 text-sm text-zinc-500">Control status against selected frameworks.</p>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {connectedAccounts.length > 0 && activeAccount && (
                 <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
@@ -2290,49 +2359,6 @@ export default function Controls() {
                 showAuditExport={showAuditExportAboveCard}
               />
             </div>
-          }
-          hero={
-            hasScanned ? (
-              <ComplianceHeroStrip
-                frameworkLabel={activeFramework.label}
-                passRate={heroStats.passRate}
-                passed={heroStats.passed}
-                total={heroStats.total}
-                failed={heroStats.failed}
-                openFindings={heroStats.openFindings}
-                controlsImproved={complianceTimeline.data?.period_summary?.controls_improved ?? 0}
-                controlsRegressed={complianceTimeline.data?.period_summary?.controls_regressed ?? 0}
-                findingsResolved={complianceTimeline.data?.period_summary?.findings_resolved ?? 0}
-                periodDays={7}
-                loading={controls.isLoading || complianceTimeline.isLoading}
-                topBlocker={
-                  activeTopBlocker ? (
-                    <>
-                      {complianceView === "composite"
-                        ? activeTopBlocker.title
-                        : `${activeTopBlocker.control_id} ${shortControlTitle(activeTopBlocker.title)}`}
-                      <span className="font-medium text-rose-600">
-                        {" "}
-                        · {activeTopBlocker.finding_count} findings
-                      </span>
-                    </>
-                  ) : null
-                }
-                onTopBlockerClick={
-                  activeTopBlocker
-                    ? () => {
-                        if (complianceView === "composite") {
-                          setExpandedComposite(activeTopBlocker.id);
-                          return;
-                        }
-                        setComplianceViewWithUrl("detailed");
-                        setStatusFilter("fail");
-                        openControl(activeTopBlocker as ControlRow);
-                      }
-                    : undefined
-                }
-              />
-            ) : undefined
           }
           section={
             complianceView === "detailed" && groupedRows.length > 1 && selectedGroup ? (
@@ -2415,7 +2441,11 @@ export default function Controls() {
                       requestAnimationFrame(() => window.scrollTo(0, scrollY));
                     }}
                     aria-expanded={isExpanded}
-                    className="flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors hover:bg-zinc-50/60"
+                    className={`flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors ${
+                      displayStatus === "passing" && !isExpanded
+                        ? "bg-emerald-50/30 hover:bg-emerald-50/50"
+                        : "hover:bg-zinc-50/60"
+                    }`}
                   >
                     <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
                     <div className="min-w-0 flex-1 py-0.5">
