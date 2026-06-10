@@ -202,8 +202,11 @@
 /* Finding drawer resources tab: align the summary card metrics and the resource type column. */
 .space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child {
   display: grid;
-  grid-template-columns: minmax(8.5rem, 1fr) auto minmax(5rem, 1fr);
+  width: fit-content;
+  grid-template-columns: 5.25rem auto 4.5rem;
   align-items: center;
+  column-gap: 1rem;
+  padding-inline: 1rem;
 }
 
 .space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child,
@@ -216,10 +219,24 @@
 }
 
 .space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child,
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:last-child,
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > p:first-child,
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div {
-  width: 5rem;
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:last-child {
+  width: 5.25rem;
+  text-align: center;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child {
+  font-size: 0;
+  line-height: 1;
+}
+
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child::after {
+  content: "Resources";
+  color: #a1a1aa;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.045em;
+  line-height: 1rem;
+  text-transform: uppercase;
 }
 
 .space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:last-child {
@@ -227,10 +244,11 @@
   min-height: 2.5rem;
   align-items: center;
   justify-content: center;
-  text-align: center;
 }
 
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > p:first-child {
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > p:first-child,
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div {
+  width: 4.5rem;
   text-align: center;
 }
 
@@ -241,10 +259,33 @@
 
 .space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div > span:first-child {
   display: block;
-  width: 5rem;
+  width: 4.5rem;
   text-align: center;
 }
 
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left thead th:nth-child(2) {
-  padding-left: 1.625rem;
+.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div > span:last-child {
+  width: 3.75rem !important;
+  justify-content: center;
+}
+
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left colgroup col:first-child {
+  width: 23.5rem;
+}
+
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left thead th:nth-child(2),
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) {
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+}
+
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr:hover {
+  background-color: #fafaf9 !important;
+}
+
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr[aria-selected="true"] {
+  background-color: #f8f7f4 !important;
+}
+
+.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr[aria-selected="true"]:hover {
+  background-color: #f5f4ef !important;
 }
