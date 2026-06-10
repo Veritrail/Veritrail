@@ -3722,6 +3722,54 @@ export type FindingDrawerTab = "overview" | "resources" | "compliance" | "remedi
 
 type Tab = FindingDrawerTab;
 
+function DrawerTabIcon({ tab, active }: { tab: Tab; active: boolean }) {
+  const className = `h-4 w-4 shrink-0 ${active ? "text-zinc-700" : "text-zinc-400"}`;
+  const stroke = 1.75;
+
+  if (tab === "resources") {
+    return (
+      <svg className={className} fill="none" stroke="currentColor" strokeWidth={stroke} viewBox="0 0 24 24" aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M20 7.5h-3.879a2.25 2.25 0 0 0-1.591-.659H9.47a2.25 2.25 0 0 0-1.591.659L4 7.5m16 0v9.75A2.25 2.25 0 0 1 17.75 19.5H6.25A2.25 2.25 0 0 1 4 17.25V7.5m16 0H4"
+        />
+      </svg>
+    );
+  }
+  if (tab === "compliance") {
+    return (
+      <svg className={className} fill="none" stroke="currentColor" strokeWidth={stroke} viewBox="0 0 24 24" aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+        />
+      </svg>
+    );
+  }
+  if (tab === "remediation") {
+    return (
+      <svg className={className} fill="none" stroke="currentColor" strokeWidth={stroke} viewBox="0 0 24 24" aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={stroke} viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+      />
+    </svg>
+  );
+}
+
 type MappedControl = {
   framework: string;
   control_id: string;
@@ -6774,36 +6822,28 @@ export function FindingDrawer({
       <h2 id="finding-drawer-title" className={`mt-1.5 pr-8 ${drawerTitle}`}>
         {checkLabels[finding.check_id] ?? finding.title}
       </h2>
-      {/* Segmented tab control — w-fit keeps track background from stretching full width */}
-      <div className="mt-3">
-        <div className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-zinc-900/[0.06] p-0.5">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => onTabChange(t.id)}
-            className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] font-medium transition-all ${
-              tab === t.id ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-900/5" : "text-zinc-600 hover:text-zinc-800"
-            }`}
-          >
-            {t.id === "whatif" && (
-              <svg
-                className="h-3.5 w-3.5 shrink-0 text-amber-400"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-                aria-hidden
+      <div className="mt-3 border-b border-zinc-200/90" role="tablist" aria-label="Finding details">
+        <div className="-mb-px flex gap-6 overflow-x-auto">
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onTabChange(t.id)}
+                className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 pb-2.5 pt-1 text-[13px] transition-colors ${
+                  active
+                    ? "border-emerald-500 font-semibold text-zinc-900"
+                    : "border-transparent font-medium text-zinc-500 hover:border-zinc-200 hover:text-zinc-700"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"
-                />
-              </svg>
-            )}
-            {t.label}
-          </button>
-        ))}
+                <DrawerTabIcon tab={t.id} active={active} />
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
