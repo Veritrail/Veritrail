@@ -15,7 +15,13 @@ import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import NotificationsBell from "../components/NotificationsBell";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
-import { findingDisplayGroupKey, findingGroupMeta, findingGroupSearchText } from "../data/findingGroups";
+import {
+  findingDisplayGroupKey,
+  findingGroupMeta,
+  findingGroupSearchText,
+  isActivityCheck,
+} from "../data/findingGroups";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
@@ -47,7 +53,6 @@ type Finding = {
   exception_expires_at?: string | null;
 };
 
-type FindingPage = { items: Finding[]; total: number; next_cursor: string | null };
 type Account = {
   id: string;
   label?: string | null;
@@ -440,7 +445,7 @@ function FindingRow({
   items: Finding[];
   expanded: boolean;
   onToggleExpanded: () => void;
-  onReview: (items: Finding[]) => void;
+  onReview: (items: Finding[], focus?: Finding, tab?: FindingDrawerTab) => void;
 }) {
   const sev =
     items.reduce<string | null>((worst, f) => {
@@ -605,9 +610,10 @@ export default function Findings() {
   const q = useQuery({
     queryKey: ["findings", status, effectiveAccountId],
     queryFn: () =>
-      api<FindingPage>(
-        `/v1/findings?status=${status}&limit=500${effectiveAccountId ? `&account_id=${effectiveAccountId}` : ""}`,
-      ),
+      fetchAllFindings<Finding>({
+        status,
+        account_id: effectiveAccountId || undefined,
+      }),
     refetchInterval: pendingRecheck ? 3000 : false,
   });
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
@@ -666,6 +672,11 @@ export default function Findings() {
   });
 
   const findings = q.data?.items ?? [];
+  const hasActiveFilters =
+    searchTags.length > 0 ||
+    !!searchText.trim() ||
+    severityFilter !== "all" ||
+    selectedFrameworks.length > 0;
   const checkFrameworksApi = frameworkMapQ.data?.checks;
 
   // Keep drawer + resource list in sync when findings refetch (e.g. after Resources refresh).
@@ -760,28 +771,37 @@ export default function Findings() {
     return arr;
   }, [benchmarkScopedFindings, searchText, searchTags, severityFilter, sortKey, sortDir, status]);
 
-  const displayGroups = useMemo(() => {
-    const map = new Map<string, Finding[]>();
-    for (const f of rows) {
-      const key = findingDisplayGroupKey(f.check_id);
-      map.set(key, [...(map.get(key) ?? []), f]);
-    }
-    const entries = [...map.entries()];
-    entries.sort(([, a], [, b]) => {
-      let cmp = 0;
-      if (sortKey === "severity")
-        cmp =
-          (sevWeight[a[0].severity] ?? 9) - (sevWeight[b[0].severity] ?? 9) ||
-          Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
-      else if (sortKey === "score") cmp = Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
-      else
-        cmp =
-          Math.min(...b.map((f) => new Date(f.first_seen).getTime())) -
-          Math.min(...a.map((f) => new Date(f.first_seen).getTime()));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return entries;
-  }, [rows, sortKey, sortDir]);
+  const buildDisplayGroups = useCallback(
+    (source: Finding[]) => {
+      const map = new Map<string, Finding[]>();
+      for (const f of source) {
+        const key = findingDisplayGroupKey(f.check_id);
+        map.set(key, [...(map.get(key) ?? []), f]);
+      }
+      const entries = [...map.entries()];
+      entries.sort(([, a], [, b]) => {
+        let cmp = 0;
+        if (sortKey === "severity")
+          cmp =
+            (sevWeight[a[0].severity] ?? 9) - (sevWeight[b[0].severity] ?? 9) ||
+            Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
+        else if (sortKey === "score") cmp = Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
+        else
+          cmp =
+            Math.min(...b.map((f) => new Date(f.first_seen).getTime())) -
+            Math.min(...a.map((f) => new Date(f.first_seen).getTime()));
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+      return entries;
+    },
+    [sortDir, sortKey],
+  );
+
+  const postureRows = useMemo(() => rows.filter((f) => !isActivityCheck(f.check_id)), [rows]);
+  const activityRows = useMemo(() => rows.filter((f) => isActivityCheck(f.check_id)), [rows]);
+  const postureDisplayGroups = useMemo(() => buildDisplayGroups(postureRows), [buildDisplayGroups, postureRows]);
+  const activityDisplayGroups = useMemo(() => buildDisplayGroups(activityRows), [activityRows, buildDisplayGroups]);
+  const isPositiveEmpty = status === "open" && !hasActiveFilters && rows.length === 0;
 
   const severityCounts = useMemo(() => {
     const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
@@ -957,7 +977,7 @@ export default function Findings() {
                       urgent: tab.urgent,
                     }))}
                     selected={severityFilter}
-                    onChange={setSeverityFilter}
+                    onChange={(id) => setSeverityFilter(id as SeverityFilter)}
                     ariaLabel="Severity"
                   />
 
@@ -1024,17 +1044,31 @@ export default function Findings() {
               </div>
 
               {rows.length === 0 ? (
-                <div className="px-6 py-16 text-center">
-                  <p className="text-sm font-semibold text-zinc-700">
-                    {searchTags.length > 0
-                      ? "No findings match the selected checks"
-                      : selectedFrameworks.length > 0
-                        ? `No findings for ${benchmarkSelectionLabel(selectedFrameworks)}`
-                        : emptyFindingsLabel(status)}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}
-                  </p>
+                <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>
+                  {isPositiveEmpty ? (
+                    <>
+                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-emerald-200/80">
+                        <svg className="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-semibold text-emerald-800">All clear</p>
+                      <p className="mt-1 text-xs text-emerald-700/80">No open findings. Run a scan to refresh posture.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-zinc-700">
+                        {searchTags.length > 0
+                          ? "No findings match the selected checks"
+                          : selectedFrameworks.length > 0
+                            ? `No findings for ${benchmarkSelectionLabel(selectedFrameworks)}`
+                            : emptyFindingsLabel(status)}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        {status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
@@ -1048,18 +1082,39 @@ export default function Findings() {
                     <span className="w-16 text-center">Risk</span>
                   </div>
 
-                  <div>
-                    {displayGroups.map(([groupKey, items]) => (
-                      <FindingRow
-                        key={groupKey}
-                        groupKey={groupKey}
-                        items={items}
-                        expanded={expandedCheckIds.has(groupKey)}
-                        onToggleExpanded={() => toggleExpandedCheck(groupKey)}
-                        onReview={openReview}
-                      />
-                    ))}
-                  </div>
+                  {postureDisplayGroups.length > 0 ? (
+                    <div>
+                      {postureDisplayGroups.map(([groupKey, items]) => (
+                        <FindingRow
+                          key={groupKey}
+                          groupKey={groupKey}
+                          items={items}
+                          expanded={expandedCheckIds.has(groupKey)}
+                          onToggleExpanded={() => toggleExpandedCheck(groupKey)}
+                          onReview={openReview}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {activityDisplayGroups.length > 0 ? (
+                    <div className={postureDisplayGroups.length > 0 ? "mt-8 border-t border-zinc-100 pt-6" : ""}>
+                      <div className="mb-3 px-1">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Activity detections</p>
+                        <p className="mt-0.5 text-xs text-zinc-500">CloudTrail events — informational; they do not fail compliance controls.</p>
+                      </div>
+                      {activityDisplayGroups.map(([groupKey, items]) => (
+                        <FindingRow
+                          key={`activity-${groupKey}`}
+                          groupKey={groupKey}
+                          items={items}
+                          expanded={expandedCheckIds.has(`activity:${groupKey}`)}
+                          onToggleExpanded={() => toggleExpandedCheck(`activity:${groupKey}`)}
+                          onReview={openReview}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>

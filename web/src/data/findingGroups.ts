@@ -1,6 +1,9 @@
 /** Synthetic finding list groups — resources keep per-check type pills when expanded. */
 
+export const ACTIVITY_DETECTIONS_GROUP = "activity_detections";
+
 export const ENCRYPTION_AT_REST_GROUP = "encryption";
+export const ENCRYPTION_IN_TRANSIT_GROUP = "encryption_in_transit";
 export const REMOTE_ACCESS_GROUP = "remote_access";
 export const LEAST_PRIVILEGE_GROUP = "least_privilege";
 
@@ -8,6 +11,11 @@ export type FindingGroupMeta = {
   title: string;
   searchTerms?: string[];
 };
+
+export const ENCRYPTION_IN_TRANSIT_CHECK_IDS = new Set([
+  "s3.bucket.no_https_policy",
+  "elb.load_balancer.weak_tls_policy",
+]);
 
 export const ENCRYPTION_AT_REST_CHECK_IDS = new Set([
   "s3.bucket.no_kms",
@@ -36,14 +44,23 @@ export const LEAST_PRIVILEGE_CHECK_IDS = new Set([
 ]);
 
 const CHECK_ID_TO_GROUP = new Map<string, string>();
+for (const id of ENCRYPTION_IN_TRANSIT_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, ENCRYPTION_IN_TRANSIT_GROUP);
 for (const id of ENCRYPTION_AT_REST_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, ENCRYPTION_AT_REST_GROUP);
 for (const id of REMOTE_ACCESS_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, REMOTE_ACCESS_GROUP);
 for (const id of LEAST_PRIVILEGE_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, LEAST_PRIVILEGE_GROUP);
 
 export const FINDING_GROUP_META: Record<string, FindingGroupMeta> = {
+  [ACTIVITY_DETECTIONS_GROUP]: {
+    title: "Activity detections",
+    searchTerms: ["cloudtrail", "activity", "detection", "api event", "tampering"],
+  },
   [ENCRYPTION_AT_REST_GROUP]: {
     title: "Data encryption at rest not enforced",
     searchTerms: ["encryption", "sse-kms", "kms", "at rest"],
+  },
+  [ENCRYPTION_IN_TRANSIT_GROUP]: {
+    title: "Data encryption in transit not enforced",
+    searchTerms: ["https", "tls", "ssl", "secure transport", "in transit", "encryption"],
   },
   [REMOTE_ACCESS_GROUP]: {
     title: "Unrestricted remote access",
@@ -206,6 +223,10 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
 for (const g of ADDITIONAL_GROUPS) {
   for (const id of g.checkIds) CHECK_ID_TO_GROUP.set(id, g.key);
   FINDING_GROUP_META[g.key] = { title: g.title, searchTerms: g.searchTerms };
+}
+
+export function isActivityCheck(checkId: string): boolean {
+  return checkId.startsWith("cloudtrail.event.");
 }
 
 export function findingDisplayGroupKey(checkId: string): string {

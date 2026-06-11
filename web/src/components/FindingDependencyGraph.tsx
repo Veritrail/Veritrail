@@ -145,7 +145,7 @@ function GraphPill({ node }: { node: GraphNode }) {
       <g clipPath={`url(#${clipId})`}>
         <foreignObject x={node.x - w / 2} y={node.y - h / 2} width={w} height={h}>
           <div
-            xmlns="http://www.w3.org/1999/xhtml"
+            {...({ xmlns: "http://www.w3.org/1999/xhtml" } as Record<string, string>)}
             className="flex h-full w-full min-w-0 items-center justify-center px-2"
             style={{ boxSizing: "border-box" }}
           >

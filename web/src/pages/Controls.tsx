@@ -19,6 +19,8 @@ import {
   showControlEvidenceSection,
 } from "../lib/frameworkEvidenceCoverage";
 import { isAccountConnected } from "../lib/accountConnection";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { openFindingFailsControl } from "../lib/evidenceClass";
 import { AccountSelect } from "../components/AccountSelect";
 import NotificationsBell from "../components/NotificationsBell";
 import "../styles/findings-v2.css";
@@ -686,7 +688,7 @@ function ComplianceStatusFilterBar({
     <FilterChipBar
       ariaLabel="Control status"
       selected={statusFilter}
-      onChange={onChange}
+      onChange={(id) => onChange(id as StatusFilter)}
       chips={[
         { id: "all", label: "All", count: total },
         { id: "fail", label: "Failing", count: failed, urgent: true },
@@ -1811,6 +1813,7 @@ export default function Controls() {
   const urlComposite = searchParams.get("composite");
   const urlAccountId = searchParams.get("account_id");
   const urlView = searchParams.get("view");
+  const urlStatus = searchParams.get("status");
   const [framework, setFramework] = useState(
     () => (urlFramework && FRAMEWORKS.some((f) => f.id === urlFramework) ? urlFramework : "soc2"),
   );
@@ -1893,6 +1896,12 @@ export default function Controls() {
   }, [framework, urlControl]);
 
   useEffect(() => {
+    if (urlStatus === "pass" || urlStatus === "fail" || urlStatus === "no_data") {
+      setStatusFilter(urlStatus);
+    }
+  }, [urlStatus]);
+
+  useEffect(() => {
     if (!urlControl || !controls.data?.length || deepLinkDone.current) return;
     const match = controls.data.find((r) => r.control_id === urlControl);
     if (match) {
@@ -1900,14 +1909,18 @@ export default function Controls() {
       setSelectedFamilyKey(controlFamily(framework, match.control_id).key);
       setExpanded(match.id);
       setComplianceView("detailed");
+      if (urlStatus === "pass" || urlStatus === "fail" || urlStatus === "no_data") {
+        setStatusFilter(urlStatus);
+      }
     }
-  }, [controls.data, urlControl, framework]);
+  }, [controls.data, urlControl, framework, urlStatus]);
 
   useEffect(() => {
+    if (urlControl) return;
     setComplianceView("composite");
     setExpandedComposite(null);
     setStatusFilter("all");
-  }, [framework]);
+  }, [framework, urlControl]);
 
   useEffect(() => {
     if (!urlComposite || !compositeControls.data?.length) return;
@@ -1918,23 +1931,32 @@ export default function Controls() {
     }
   }, [compositeControls.data, urlComposite]);
 
-  const openFindingsMeta = useQuery({
-    queryKey: ["findings", "open", activeAccount?.id, "controls-meta"],
+  const checkFrameworksQ = useQuery({
+    queryKey: ["check-frameworks"],
     queryFn: () =>
-      api<{ items: OpenFindingMeta[] }>(`/v1/findings?status=open&limit=500`),
-    enabled: !!activeAccount && hasScanned,
-    select: (data) => {
-      const byId = new Map<string, OpenFindingMeta>();
-      const countByCheck = new Map<string, number>();
-      for (const f of data.items) {
-        byId.set(f.id, f);
-        countByCheck.set(f.check_id, (countByCheck.get(f.check_id) ?? 0) + 1);
-      }
-      return { byId, countByCheck };
-    },
+      api<{ evidence_classes: Record<string, string> }>("/v1/controls/check-frameworks"),
+    staleTime: 300_000,
   });
 
-  const findingCountByCheck = openFindingsMeta.data?.countByCheck ?? new Map<string, number>();
+  const openFindingsRaw = useQuery({
+    queryKey: ["findings", "open", activeAccount?.id, "controls-meta"],
+    queryFn: () => fetchAllFindings<OpenFindingMeta>({ status: "open" }),
+    enabled: !!activeAccount && hasScanned,
+  });
+
+  const openFindingsMeta = useMemo(() => {
+    const evidenceClasses = checkFrameworksQ.data?.evidence_classes;
+    const byId = new Map<string, OpenFindingMeta>();
+    const countByCheck = new Map<string, number>();
+    for (const f of openFindingsRaw.data?.items ?? []) {
+      if (!openFindingFailsControl(f.check_id, evidenceClasses)) continue;
+      byId.set(f.id, f);
+      countByCheck.set(f.check_id, (countByCheck.get(f.check_id) ?? 0) + 1);
+    }
+    return { byId, countByCheck };
+  }, [checkFrameworksQ.data?.evidence_classes, openFindingsRaw.data?.items]);
+
+  const findingCountByCheck = openFindingsMeta.countByCheck;
 
   const exportWindow = useMemo(() => {
     if (periodKey === "last_scan" && activeAccount?.last_scan_at) {
@@ -2334,6 +2356,7 @@ export default function Controls() {
                   setFramework(id);
                   setSelectedFamilyKey(null);
                   setExpanded(null);
+                  setStatusFilter("all");
                 }}
                 statusFilter={statusFilter}
                 onStatusFilterChange={handleStatusFilterChange}

@@ -6720,7 +6720,15 @@ export function FindingDrawer({
           <FindingResourcesTab
             selectedFinding={finding}
             groupFindings={groupFindings?.length ? groupFindings : [finding]}
-            onSelectFinding={onFocusFinding}
+            onSelectFinding={
+              onFocusFinding
+                ? (f) => {
+                    const source = groupFindings?.length ? groupFindings : [finding];
+                    const match = source.find((g) => g.id === f.id);
+                    if (match) onFocusFinding(match);
+                  }
+                : undefined
+            }
             summaryRisk={checkDoc?.overview?.exposure ?? checkDoc?.overview?.context ?? ops.impact}
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}
