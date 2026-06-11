@@ -367,6 +367,7 @@ export default function ComplianceHistory() {
           periodDays={days}
           initialTab={drawer.tab}
           expandInfrastructure={drawer.expandInfrastructure}
+          allEvents={events}
           onClose={() => setDrawer(null)}
         />
       )}

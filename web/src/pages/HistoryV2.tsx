@@ -1,27 +1,33 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 import { api } from "../api";
-import { HistoryDashboard } from "../components/HistoryDashboard";
+import { FrameworkMark } from "../components/FrameworkMark";
+import { HistoryFilterDropdown } from "../components/HistoryFilterDropdown";
+import { HistoryPageSizeDropdown } from "../components/HistoryPageSizeDropdown";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
-import { PageShell } from "../components/PageShell";
+import { HistoryControlChurnCell } from "../components/HistoryControlChurnCell";
+import { HistorySparkline } from "../components/HistorySparkline";
 import {
   type ComplianceHistoryResponse,
   type HistoryEvent,
-  scanShortDate,
+  type PostureTrendPoint,
+  downloadEvidenceForScan,
 } from "../lib/complianceHistory";
-import { groupEventsByDay, sumFindingsResolvedInPeriod } from "../lib/historyTimeline";
 import { eventPresentation } from "../lib/historyPresentation";
 import {
   type EventFilter,
-  cleanDetail,
   controlOf,
-  eventBadge,
-  matchesControl,
+  historyDetailLine,
+  historyResourceLabel,
+  historyTypeDisplay,
   matchesEventFilter,
-  shortResource,
+  postureSeries,
+  scanCoverageDays,
 } from "../lib/historyEvidence";
+import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
+import "../styles/history-page.css";
 
 interface Account {
   id: string;
@@ -33,249 +39,101 @@ interface Account {
 const FRAMEWORKS = [
   { value: "soc2", label: "SOC 2" },
   { value: "cis_aws_l1", label: "CIS" },
-  { value: "iso27001", label: "ISO" },
+  { value: "iso27001", label: "ISO 27001" },
 ] as const;
 
-const PERIODS = [30, 90, 180] as const;
+const PERIODS = [
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
+  { value: 180, label: "180 days" },
+] as const;
 
 const EVENT_FILTERS: { id: EventFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "resolved", label: "Resolved" },
+  { id: "improved", label: "Resolved" },
   { id: "regressed", label: "Regressed" },
   { id: "exceptions", label: "Exceptions" },
-  { id: "scans", label: "Scans" },
 ];
+
+const DEFAULT_VISIBLE_EVENTS = 15;
+
+/** Frameworks assessed at a point in time — no Type II day-coverage bar. */
+const POINT_IN_TIME_FRAMEWORKS = new Set(["cis_aws_l1", "iso27001"]);
 
 type DrawerPayload = {
   event: HistoryEvent;
   previous: HistoryEvent | null;
   tab: "snapshot" | "compare";
-  infra: boolean;
 };
 
-function ControlChip({ id, onClick }: { id: string; onClick?: () => void }) {
-  const base =
-    "inline-flex items-center rounded-md bg-zinc-50 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-inset ring-zinc-200/70";
-  // Rendered inside the ResourceGroup toggle button when non-interactive — a nested
-  // <button> is invalid DOM, so fall back to a <span> unless a handler is given.
-  if (!onClick) {
-    return <span className={base}>{id}</span>;
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${base} transition hover:bg-zinc-100 hover:text-zinc-900`}
-    >
-      {id}
-    </button>
-  );
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
-function EvidenceRow({
-  event,
-  previous,
-  onEvidence,
-  onCompare,
-  onControl,
+function EventsFooter({
+  page,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPage,
 }: {
-  event: HistoryEvent;
-  previous: HistoryEvent | null;
-  onEvidence: () => void;
-  onCompare: () => void;
-  onControl: (controlId: string) => void;
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPage: (p: number) => void;
 }) {
-  const badge = eventBadge(event.type);
-  const control = controlOf(event);
-  const res = shortResource(event.resource_arn);
-  const isFinding = event.type.startsWith("finding_");
-  const detail = cleanDetail(event.detail) || (isFinding ? eventPresentation(event).subline : "");
-  const before = event.posture_before;
-  const after = event.posture_after;
-  const canCompare = !isFinding && event.type !== "baseline_established" && !!previous;
+  const start = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalItems);
+
+  const pages: (number | "ellipsis")[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1, 2, 3, "ellipsis", totalPages);
+  }
 
   return (
-    <article className={`border-l-2 ${badge.rail} py-2 pl-3.5`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${badge.chip}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} aria-hidden />
-          {badge.label}
-        </span>
-        {control && <ControlChip id={control.id} onClick={() => onControl(control.id)} />}
-        <time className="ml-auto text-xs tabular-nums text-zinc-400">{scanShortDate(event.timestamp)}</time>
-      </div>
-
-      {res ? (
-        <p className="mt-1.5 text-sm leading-snug text-zinc-900">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{res.kind}</span>{" "}
-          <span className="font-mono font-medium break-all">{res.name}</span>
-          {detail && <span className="font-normal text-zinc-500"> — {detail}</span>}
-        </p>
-      ) : (
-        <p className="mt-1.5 text-sm leading-snug text-zinc-700">{control?.title ?? detail ?? eventPresentation(event).headline}</p>
-      )}
-
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        {before != null && after != null && before !== after && (
-          <span className="tabular-nums text-zinc-500">
-            {before}% <span className="text-zinc-300">→</span> <span className="font-semibold text-zinc-900">{after}%</span>
-          </span>
-        )}
-        <button type="button" onClick={onEvidence} className="font-medium text-indigo-600 hover:text-indigo-800">
-          View evidence
+    <div className="history-footer">
+      <span>
+        Showing {start}-{end} of {totalItems} events
+      </span>
+      <div className="history-pagination">
+        <button type="button" className="history-page-btn" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
+          ‹
         </button>
-        {canCompare && (
-          <button type="button" onClick={onCompare} className="text-zinc-500 hover:text-zinc-700">
-            Compare
-          </button>
+        {pages.map((p, i) =>
+          p === "ellipsis" ? (
+            <span key={`e-${i}`} className="px-1 text-zinc-400">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              className={`history-page-btn${p === page ? " history-page-btn--active" : ""}`}
+              onClick={() => onPage(p)}
+            >
+              {p}
+            </button>
+          ),
         )}
+        <button
+          type="button"
+          className="history-page-btn"
+          disabled={page >= totalPages}
+          onClick={() => onPage(page + 1)}
+          aria-label="Next page"
+        >
+          ›
+        </button>
       </div>
-    </article>
-  );
-}
-
-function ResourceGroup({
-  label,
-  events,
-  onEvidence,
-  onControl,
-}: {
-  label: string;
-  events: HistoryEvent[];
-  onEvidence: (event: HistoryEvent) => void;
-  onControl: (controlId: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const badge = eventBadge(events[0].type);
-  const control = controlOf(events[0]);
-
-  return (
-    <div className={`border-l-2 ${badge.rail} py-2 pl-3.5`}>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full flex-wrap items-center gap-2 text-left">
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${badge.chip}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} aria-hidden />
-          {badge.label}
-        </span>
-        {control && <ControlChip id={control.id} />}
-        <span className="text-sm font-semibold text-zinc-900">{events.length} resources</span>
-        <span className="min-w-0 truncate text-sm text-zinc-500">· {label}</span>
-        <span className="ml-auto text-zinc-400">{open ? "▾" : "▸"}</span>
-      </button>
-
-      {open && (
-        <ul className="mt-2 space-y-1 border-l border-zinc-100 pl-3">
-          {events.map((e, i) => {
-            const r = shortResource(e.resource_arn);
-            return (
-              <li key={`${e.scan_run_id}:${e.resource_arn ?? i}`} className="flex items-center gap-2 text-xs">
-                {r && <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{r.kind}</span>}
-                <span className="min-w-0 flex-1 truncate font-mono text-zinc-700">{r?.name ?? "—"}</span>
-                <button type="button" onClick={() => onEvidence(e)} className="shrink-0 font-medium text-indigo-600 hover:text-indigo-800">
-                  evidence
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function DayFeed({
-  events,
-  previousById,
-  onDrawer,
-  onControl,
-}: {
-  events: HistoryEvent[];
-  previousById: Map<string, HistoryEvent | null>;
-  onDrawer: (payload: DrawerPayload) => void;
-  onControl: (controlId: string) => void;
-}) {
-  const groups = new Map<string, HistoryEvent[]>();
-  const singles: HistoryEvent[] = [];
-
-  for (const e of events) {
-    const groupable =
-      (e.type === "finding_resolved" || e.type === "finding_excepted" || e.type === "finding_reopened") && !!e.resource_arn;
-    if (groupable) {
-      const key = `${e.type}::${cleanDetail(e.detail)}`;
-      groups.set(key, [...(groups.get(key) ?? []), e]);
-    } else {
-      singles.push(e);
-    }
-  }
-
-  const nodes: { key: string; ts: string; node: ReactNode }[] = [];
-  for (const [key, evs] of groups) {
-    if (evs.length >= 3) {
-      nodes.push({
-        key,
-        ts: evs[0].timestamp,
-        node: (
-          <ResourceGroup
-            label={cleanDetail(evs[0].detail) || "change verified"}
-            events={evs}
-            onEvidence={(e) => onDrawer({ event: e, previous: previousById.get(e.scan_run_id) ?? null, tab: "snapshot", infra: false })}
-            onControl={onControl}
-          />
-        ),
-      });
-    } else {
-      singles.push(...evs);
-    }
-  }
-
-  for (const e of singles) {
-    const previous = previousById.get(e.scan_run_id) ?? null;
-    nodes.push({
-      key: `${e.scan_run_id}:${e.resource_arn ?? ""}:${e.type}`,
-      ts: e.timestamp,
-      node: (
-        <EvidenceRow
-          event={e}
-          previous={previous}
-          onEvidence={() => onDrawer({ event: e, previous, tab: "snapshot", infra: false })}
-          onCompare={() => onDrawer({ event: e, previous, tab: "compare", infra: false })}
-          onControl={onControl}
-        />
-      ),
-    });
-  }
-
-  nodes.sort((a, b) => b.ts.localeCompare(a.ts));
-
-  return (
-    <div className="space-y-2.5">
-      {nodes.map((n) => (
-        <div key={n.key}>{n.node}</div>
-      ))}
-    </div>
-  );
-}
-
-function EvidenceTimeline({
-  dayGroups,
-  previousById,
-  onDrawer,
-  onControl,
-}: {
-  dayGroups: ReturnType<typeof groupEventsByDay>;
-  previousById: Map<string, HistoryEvent | null>;
-  onDrawer: (payload: DrawerPayload) => void;
-  onControl: (controlId: string) => void;
-}) {
-  return (
-    <div className="space-y-5">
-      {dayGroups.map((group) => (
-        <div key={group.day}>
-          <h3 className="text-xs font-bold uppercase tracking-wide text-zinc-400">{group.label}</h3>
-          <div className="mt-2">
-            <DayFeed events={group.events} previousById={previousById} onDrawer={onDrawer} onControl={onControl} />
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -285,8 +143,11 @@ export default function HistoryV2() {
   const [framework, setFramework] = useState("soc2");
   const [accountId, setAccountId] = useState("");
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
-  const [controlFilter, setControlFilter] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [pageSize, setPageSize] = useState(DEFAULT_VISIBLE_EVENTS);
+  const [page, setPage] = useState(1);
   const [drawer, setDrawer] = useState<DrawerPayload | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
   const connected = accountsQ.data?.filter((a) => a.status === "connected") ?? [];
@@ -295,166 +156,365 @@ export default function HistoryV2() {
   const historyQ = useQuery<ComplianceHistoryResponse>({
     queryKey: ["history", effectiveAccountId, framework, days],
     queryFn: () =>
-      api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=40`),
+      api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=100`),
     enabled: !!effectiveAccountId,
   });
 
   const events = useMemo(() => historyQ.data?.events ?? [], [historyQ.data]);
+
   const previousById = useMemo(() => {
     const map = new Map<string, HistoryEvent | null>();
     events.forEach((evt, index) => map.set(evt.scan_run_id, index + 1 < events.length ? events[index + 1] : null));
     return map;
   }, [events]);
 
-  // Counts respect the active control filter, not the event filter.
-  const controlScoped = useMemo(() => events.filter((e) => matchesControl(e, controlFilter)), [events, controlFilter]);
-  const filterCounts = useMemo(() => {
-    const counts: Record<EventFilter, number> = { all: 0, resolved: 0, regressed: 0, exceptions: 0, scans: 0 };
-    for (const f of EVENT_FILTERS) counts[f.id] = controlScoped.filter((e) => matchesEventFilter(e, f.id)).length;
-    return counts;
-  }, [controlScoped]);
+  const filteredEvents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return events.filter((e) => {
+      if (!matchesEventFilter(e, eventFilter)) return false;
+      if (!q) return true;
+      const typeLabel = historyTypeDisplay(e).label.toLowerCase();
+      const control = controlOf(e)?.id?.toLowerCase() ?? "";
+      const resource = historyResourceLabel(e).toLowerCase();
+      const detail = historyDetailLine(e).toLowerCase();
+      return typeLabel.includes(q) || control.includes(q) || resource.includes(q) || detail.includes(q);
+    });
+  }, [events, eventFilter, search]);
 
-  const filteredEvents = useMemo(
-    () => controlScoped.filter((e) => matchesEventFilter(e, eventFilter)),
-    [controlScoped, eventFilter],
-  );
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageEvents = filteredEvents.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-  const dayGroups = useMemo(() => groupEventsByDay(filteredEvents), [filteredEvents]);
-  const resolvedInPeriod = sumFindingsResolvedInPeriod(events);
+  const fallbackSeries = useMemo(() => postureSeries(events), [events]);
+  const trendPoints = useMemo(() => {
+    const api = historyQ.data?.posture_trend ?? [];
+    if (api.length > 0) return api;
+    return fallbackSeries.map((p) => ({
+      timestamp: p.t,
+      posture_score: p.posture,
+    }));
+  }, [historyQ.data?.posture_trend, fallbackSeries]);
+
+  const startScore = trendPoints[0]?.posture_score ?? null;
+  const currentScore =
+    historyQ.data?.current_posture_score ?? trendPoints[trendPoints.length - 1]?.posture_score ?? null;
+  const scoreDelta = startScore != null && currentScore != null ? currentScore - startScore : null;
+  const positive = (scoreDelta ?? 0) >= 0;
+
+  const periodSummary = historyQ.data?.period_summary;
+  const controlsPassed = periodSummary?.controls_improved ?? 0;
+  const findingsResolved = periodSummary?.findings_resolved ?? 0;
+  const regressed = periodSummary?.controls_regressed ?? 0;
+  const scans = historyQ.data?.scan_count ?? 0;
+  const coverage = scanCoverageDays(historyQ.data?.scan_cadence, days);
+
   const onlyBaseline = events.length === 1 && events[0]?.type === "baseline_established";
 
   if (accountsQ.data && connected.length === 0) return <Navigate to="/accounts" replace />;
 
-  const headerActions = (
-    <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl border border-zinc-200 bg-white p-1 shadow-sm shadow-zinc-950/[0.02]">
-      <select
-        value={effectiveAccountId}
-        onChange={(e) => setAccountId(e.target.value)}
-        className="h-8 max-w-[12rem] truncate rounded-lg border-0 bg-zinc-50 px-2 text-xs font-semibold text-zinc-700 outline-none ring-1 ring-inset ring-zinc-200"
-        aria-label="Account"
-      >
-        {connected.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.label}
-          </option>
-        ))}
-      </select>
-      <div className="h-6 w-px bg-zinc-200" />
-      <div className="inline-flex rounded-lg bg-zinc-100 p-0.5" role="group" aria-label="Framework">
-        {FRAMEWORKS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFramework(f.value)}
-            className={`rounded-md px-2 py-1 text-xs font-semibold transition ${
-              framework === f.value ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-      <div className="inline-flex rounded-lg bg-zinc-100 p-0.5" role="group" aria-label="Period">
-        {PERIODS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setDays(p)}
-            className={`rounded-md px-2 py-1 text-xs font-semibold transition ${
-              days === p ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-600 hover:text-zinc-900"
-            }`}
-          >
-            {p}d
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  const filterBar = (
-    <div className="mb-4 inline-flex flex-wrap gap-1 rounded-xl bg-zinc-100 p-0.5" role="tablist" aria-label="Event type">
-      {EVENT_FILTERS.map((f) => (
-        <button
-          key={f.id}
-          type="button"
-          role="tab"
-          aria-selected={eventFilter === f.id}
-          onClick={() => setEventFilter(f.id)}
-          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-            eventFilter === f.id ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
-          }`}
-        >
-          {f.label}
-          <span className={eventFilter === f.id ? "text-zinc-400" : "text-zinc-400/80"}> · {filterCounts[f.id]}</span>
-        </button>
-      ))}
-    </div>
-  );
-
-  const timelineNode = onlyBaseline ? (
-    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
-      <p className="text-xs font-medium text-zinc-800">Baseline recorded</p>
-      <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-        History starts with your first completed scan. Remediations, exceptions, and control changes will appear here.
-      </p>
-    </div>
-  ) : events.length === 0 ? (
-    <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-4 text-center">
-      <p className="text-xs font-medium text-zinc-800">No events in this window</p>
-      <p className="mx-auto mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-500">
-        Run a scan or verify a remediation from Findings to populate this timeline.
-      </p>
-    </div>
-  ) : (
-    <>
-      {filterBar}
-      {dayGroups.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/50 px-3 py-6 text-center text-xs text-zinc-500">
-          No changes match these filters.
-        </p>
-      ) : (
-        <EvidenceTimeline dayGroups={dayGroups} previousById={previousById} onDrawer={setDrawer} onControl={(id) => setControlFilter(id)} />
-      )}
-    </>
-  );
+  async function handleDownload(event: HistoryEvent) {
+    setDownloadingId(event.scan_run_id);
+    try {
+      await downloadEvidenceForScan(effectiveAccountId, framework, event.timestamp, days);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   return (
-    <>
-      <PageShell
-        variant="compact"
-        eyebrow="Security progress"
-        title="History"
-        description="What changed over time — every remediation, exception, and control movement with its resource and evidence."
-        actions={headerActions}
-        width="w-full max-w-none"
-      >
-        {historyQ.isLoading && (
-          <p className="rounded-lg border border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-500">Loading history…</p>
-        )}
-
-        {historyQ.isError && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-6 text-center text-sm text-amber-900">
-            History is temporarily unavailable. Try again in a moment.
-          </p>
-        )}
-
-        {!historyQ.isLoading && !historyQ.isError && historyQ.data && (
-          <HistoryDashboard
-            events={events}
-            days={days}
-            currentScore={historyQ.data.current_posture_score}
-            currentSummary={historyQ.data.current_summary}
-            periodSummary={historyQ.data.period_summary}
-            scanCount={historyQ.data.scan_count}
-            persistentGaps={historyQ.data.persistent_gaps}
-            openFindingsCount={historyQ.data.current_summary?.open_findings_count}
-            resolvedInPeriod={resolvedInPeriod}
-            activeControl={controlFilter}
-            onSelectControl={setControlFilter}
-            timeline={timelineNode}
+    <div className="history-page history-page--fill px-1 pb-8 pt-2 sm:px-0">
+      <div className="history-filter-bar">
+          <HistoryFilterDropdown
+            label="Account"
+            boxClassName="history-filter-box--account"
+            ariaLabel="Account"
+            value={effectiveAccountId}
+            options={connected.map((a) => ({ value: a.id, label: a.label }))}
+            onChange={(id) => {
+              setAccountId(id);
+              setPageSize(DEFAULT_VISIBLE_EVENTS);
+              setPage(1);
+            }}
+            valueIcon={<img src={AWS_LOGO_LIGHT} alt="" className="history-filter-box__aws" width={30} height={19} />}
+            optionIcon={() => (
+              <img
+                src={AWS_LOGO_LIGHT}
+                alt=""
+                className="history-filter-menu__icon history-filter-menu__aws"
+                width={30}
+                height={19}
+              />
+            )}
           />
-        )}
-      </PageShell>
+
+          <HistoryFilterDropdown
+            label="Period"
+            boxClassName="history-filter-box--period"
+            ariaLabel="Period"
+            value={String(days)}
+            options={PERIODS.map((p) => ({ value: String(p.value), label: p.label }))}
+            onChange={(v) => {
+              setDays(Number(v));
+              setPageSize(DEFAULT_VISIBLE_EVENTS);
+              setPage(1);
+            }}
+          />
+
+          <HistoryFilterDropdown
+            label="Framework"
+            boxClassName="history-filter-box--framework"
+            ariaLabel="Framework"
+            value={framework}
+            options={FRAMEWORKS.map((f) => ({ value: f.value, label: f.label }))}
+            onChange={(v) => {
+              setFramework(v);
+              setPageSize(DEFAULT_VISIBLE_EVENTS);
+              setPage(1);
+            }}
+            valueIcon={<FrameworkMark framework={framework} className="history-filter-box__framework-mark" />}
+            optionIcon={(id) => <FrameworkMark framework={id} className="history-filter-menu__icon" />}
+          />
+
+        <Link to="/controls" className="history-compliance-link">
+          View in compliance
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
+          </svg>
+        </Link>
+      </div>
+
+      {historyQ.isLoading && <p className="history-loading">Loading history…</p>}
+
+      {historyQ.isError && (
+        <p className="history-empty text-amber-800">History is temporarily unavailable. Try again in a moment.</p>
+      )}
+
+      {!historyQ.isLoading && !historyQ.isError && historyQ.data && (
+        <>
+          <div className="history-stats">
+            <div className="history-stats__cell history-stats__cell--posture">
+              <p className="history-stats__label">Posture</p>
+              <p className="history-stats__value">
+                {currentScore != null ? `${currentScore}%` : "—"}
+                {scoreDelta != null && scoreDelta !== 0 && (
+                  <span className={`history-stats__delta${positive ? "" : " history-stats__delta--down"}`}>
+                    {positive ? "▲" : "▼"} {Math.abs(scoreDelta)} pts
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="history-stats__cell history-stats__cell--chart">
+              <HistorySparkline points={trendPoints} />
+            </div>
+
+            <div className="history-stats__cell history-stats__cell--metric">
+              <p className="history-stats__label">Scans</p>
+              <p className="history-stats__value">{scans}</p>
+            </div>
+
+            <div
+              className="history-stats__cell history-stats__cell--metric"
+              title={
+                controlsPassed > 0
+                  ? `${controlsPassed} control${controlsPassed === 1 ? "" : "s"} fully passed on Compliance`
+                  : "Findings verified or cleared — a control only passes when all its findings are gone"
+              }
+            >
+              <p className="history-stats__label history-stats__label--good">Resolved</p>
+              <p className="history-stats__value history-stats__num--good">{findingsResolved}</p>
+            </div>
+
+            <div className="history-stats__cell history-stats__cell--metric">
+              <p className="history-stats__label history-stats__label--bad">Regressed</p>
+              <p className="history-stats__value history-stats__num--bad">{regressed}</p>
+            </div>
+
+            <div className="history-stats__cell history-stats__cell--coverage">
+              {POINT_IN_TIME_FRAMEWORKS.has(framework) ? (
+                <HistoryControlChurnCell
+                  events={events}
+                  scanCadence={historyQ.data?.scan_cadence}
+                  periodDays={days}
+                />
+              ) : (
+                <div className="history-coverage">
+                  <p className="history-stats__label">Coverage</p>
+                  <div className="history-coverage__row">
+                    <p className="history-coverage__stat">
+                      <span className="history-coverage__count">{coverage.covered}</span>
+                      <span className="history-coverage__suffix">/ {coverage.total} days</span>
+                    </p>
+                    <span className="history-coverage__gap">
+                      {coverage.gap === 1 ? "1 gap" : `${coverage.gap} gaps`}
+                    </span>
+                  </div>
+                  <div className="history-coverage__bar">
+                    <div
+                      className="history-coverage__fill"
+                      style={{ width: `${coverage.total > 0 ? (coverage.covered / coverage.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="history-panel history-panel--fill">
+            <div className="history-toolbar">
+              <div className="history-tabs" role="tablist" aria-label="Event type">
+                {EVENT_FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={eventFilter === f.id}
+                    className={`history-tab${eventFilter === f.id ? " history-tab--active" : ""}`}
+                    onClick={() => {
+                      setEventFilter(f.id);
+                      setPageSize(DEFAULT_VISIBLE_EVENTS);
+                      setPage(1);
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="history-toolbar__end">
+                {filteredEvents.length > 0 ? (
+                  <HistoryPageSizeDropdown
+                    value={pageSize}
+                    defaultSize={DEFAULT_VISIBLE_EVENTS}
+                    onChange={(size) => {
+                      setPageSize(size);
+                      setPage(1);
+                    }}
+                  />
+                ) : null}
+                <div className="history-search">
+                  <label className="history-search__input-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={2} aria-hidden>
+                      <circle cx="11" cy="11" r="7" />
+                      <path strokeLinecap="round" d="M20 20l-3-3" />
+                    </svg>
+                    <input
+                      type="search"
+                      placeholder="Search events…"
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPageSize(DEFAULT_VISIBLE_EVENTS);
+                        setPage(1);
+                      }}
+                      aria-label="Search events"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {onlyBaseline ? (
+              <div className="history-empty">
+                <p className="font-semibold text-emerald-800">Baseline recorded</p>
+                <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
+                  History starts with your first completed scan. Remediations and control changes will appear here.
+                </p>
+              </div>
+            ) : events.length === 0 ? (
+              <div className="history-empty">
+                <p className="font-semibold text-zinc-800">No events in this window</p>
+                <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
+                  Run a scan or verify a remediation from Findings to populate this timeline.
+                </p>
+              </div>
+            ) : filteredEvents.length === 0 ? (
+              <div className="history-empty">No changes match these filters.</div>
+            ) : (
+              <div className="history-table-body">
+                <div className="history-table-wrap">
+                  <div className="history-table-inner">
+                    <table className="history-table">
+                      <colgroup>
+                        <col className="history-col-datetime" />
+                        <col className="history-col-type" />
+                        <col className="history-col-control" />
+                        <col className="history-col-resource" />
+                        <col className="history-col-detail" />
+                        <col className="history-col-actions" />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th>Date/Time</th>
+                          <th>Type</th>
+                          <th>Control</th>
+                          <th>Resource</th>
+                          <th>Detail</th>
+                          <th aria-label="Actions" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                      {pageEvents.map((event) => {
+                        const typeDisplay = historyTypeDisplay(event);
+                        const control = controlOf(event);
+                        const resource = historyResourceLabel(event);
+                        const detail = historyDetailLine(event) || eventPresentation(event).subline;
+                        const previous = previousById.get(event.scan_run_id) ?? null;
+
+                        return (
+                          <tr key={`${event.scan_run_id}:${event.timestamp}:${event.type}`}>
+                            <td className="history-table__datetime">{formatDateTime(event.timestamp)}</td>
+                            <td>
+                              <span className={`history-type ${typeDisplay.className}`}>{typeDisplay.label}</span>
+                            </td>
+                            <td className="history-table__control">{control?.id ?? "—"}</td>
+                            <td className="history-table__resource">{resource}</td>
+                            <td className="history-table__detail">{detail || "—"}</td>
+                            <td className="history-table__actions">
+                              <button
+                                type="button"
+                                className="history-icon-btn"
+                                title="View snapshot"
+                                aria-label="View snapshot"
+                                onClick={() => setDrawer({ event, previous, tab: "snapshot" })}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 3h7v7M10 14 21 3M5 10H3v11h11v-2" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                className="history-icon-btn"
+                                title="Download evidence"
+                                aria-label="Download evidence"
+                                disabled={downloadingId === event.scan_run_id}
+                                onClick={() => void handleDownload(event)}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />
+                                </svg>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <EventsFooter
+                  page={safePage}
+                  totalPages={totalPages}
+                  totalItems={filteredEvents.length}
+                  pageSize={pageSize}
+                  onPage={setPage}
+                />
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {drawer && (
         <HistorySnapshotDrawer
@@ -463,10 +523,13 @@ export default function HistoryV2() {
           accountId={effectiveAccountId}
           periodDays={days}
           initialTab={drawer.tab}
-          expandInfrastructure={drawer.infra}
+          expandInfrastructure={false}
+          postureTrend={trendPoints}
+          allEvents={events}
+          scansInWindow={scans}
           onClose={() => setDrawer(null)}
         />
       )}
-    </>
+    </div>
   );
 }

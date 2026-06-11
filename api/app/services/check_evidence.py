@@ -10,20 +10,25 @@ from app.services.check_frameworks import check_framework_map
 CLASS_BENCHMARK = "benchmark"
 CLASS_SUPPORTING = "supporting"
 CLASS_HYGIENE = "hygiene"
+CLASS_ACTIVITY = "activity"
 
 CLASS_LABELS: dict[str, str] = {
     CLASS_BENCHMARK: "Required benchmark mapping",
     CLASS_SUPPORTING: "Supporting evidence",
     CLASS_HYGIENE: "Hygiene only",
+    CLASS_ACTIVITY: "Activity detection",
 }
 
 # Mapped to frameworks but too indirect to fail SOC 2 / ISO controls by default.
 _SUPPORTING_ONLY_CHECKS = frozenset({
     "iam.policy.wildcard_resource",
+    "s3.bucket.no_mfa_delete",
 })
 
 
 def evidence_class_for_check(check_id: str) -> str:
+    if check_id.startswith("cloudtrail.event."):
+        return CLASS_ACTIVITY
     if check_id in OPTIONAL_CHECK_IDS:
         return CLASS_HYGIENE
     if check_id in _SUPPORTING_ONLY_CHECKS:

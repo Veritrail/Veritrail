@@ -211,10 +211,10 @@ function CardAction({
   return (
     <Link
       to={href}
-      className={`inline-flex min-w-[116px] items-center justify-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+      className={`vigil-toolbar-btn min-w-[116px] px-4 ${
         connect
-          ? "border-indigo-500 bg-indigo-600 text-white shadow-sm shadow-indigo-950/10 hover:border-indigo-600 hover:bg-indigo-700"
-          : `border-slate-200 bg-white text-slate-700 shadow-sm shadow-slate-950/[0.03] hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-md hover:shadow-zinc-950/[0.07] ${manageAccentCls}`
+          ? "vigil-toolbar-btn--neutral"
+          : `border-slate-200 font-semibold text-slate-700 shadow-sm shadow-slate-950/[0.03] hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-md hover:shadow-zinc-950/[0.07] ${manageAccentCls}`
       }`}
     >
       {connect ? <IconSync className="h-4 w-4" /> : <IconGear className="h-4 w-4" />}

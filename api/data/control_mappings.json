@@ -495,8 +495,10 @@
     "control_id": "A.10.1.1",
     "title": "Policy on the Use of Cryptographic Controls",
     "description": "A policy on the use of cryptographic controls for protecting information shall be developed and implemented.",
-    "guidance": "Evidence: KMS customer-managed keys have automatic rotation enabled. RDS storage is encrypted. EBS volumes are encrypted. EBS encryption-by-default is enabled in all regions.",
+    "guidance": "Evidence: S3 buckets have default encryption (SSE-S3 or SSE-KMS) enabled. KMS customer-managed keys have automatic rotation enabled. RDS storage is encrypted. EBS volumes are encrypted. EBS encryption-by-default is enabled in all regions.",
     "checks": [
+      "s3.bucket.no_default_encryption",
+      "s3.bucket.no_kms",
       "kms.key.no_rotation",
       "kms.key.policy_wildcard_principal",
       "rds.instance.no_encryption",
@@ -573,12 +575,13 @@
     "control_id": "A.13.1.1",
     "title": "Network Controls",
     "description": "Networks shall be managed and controlled to protect information in systems and applications from threats via the network.",
-    "guidance": "Evidence: No security groups allow unrestricted SSH or RDP from 0.0.0.0/0. Default security groups have no inbound or outbound rules. VPC flow logs are enabled for network visibility.",
+    "guidance": "Evidence: No security groups allow unrestricted SSH or RDP from 0.0.0.0/0. Default security groups have no inbound or outbound rules. VPC flow logs are enabled for network visibility. RDS instances are not publicly accessible.",
     "checks": [
       "ec2.security_group.unrestricted_ssh",
       "ec2.security_group.unrestricted_rdp",
       "ec2.security_group.default_allows_traffic",
       "vpc.flow_logs.not_enabled",
+      "rds.instance.publicly_accessible",
       "lambda.function.public_url",
       "eks.cluster.public_endpoint",
       "eks.cluster.control_plane_logging_disabled",
@@ -593,9 +596,10 @@
     "control_id": "A.13.2.3",
     "title": "Electronic Messaging",
     "description": "Information involved in electronic messaging shall be appropriately protected in transit.",
-    "guidance": "Evidence: S3 buckets enforce HTTPS-only via aws:SecureTransport policy condition. Account-level and bucket-level S3 Block Public Access prevents accidental data exposure.",
+    "guidance": "Evidence: S3 buckets enforce HTTPS-only via aws:SecureTransport policy condition. Load balancer listeners use modern TLS security policies. Account-level and bucket-level S3 Block Public Access prevents accidental data exposure.",
     "checks": [
       "s3.bucket.no_https_policy",
+      "elb.load_balancer.weak_tls_policy",
       "s3.account.public_access_not_blocked",
       "s3.bucket.public_access_not_blocked"
     ]
@@ -805,8 +809,9 @@
     "control_id": "A.12.3.1",
     "title": "Information Backup",
     "description": "Backup copies of information, software and system images shall be taken and tested regularly in accordance with an agreed backup policy.",
-    "guidance": "Evidence: RDS instances have deletion protection enabled to prevent accidental loss. DynamoDB tables have Point-in-Time Recovery enabled for continuous backup.",
+    "guidance": "Evidence: AWS Backup plans exist for critical resources. RDS instances have deletion protection enabled. DynamoDB tables have Point-in-Time Recovery enabled for continuous backup.",
     "checks": [
+      "backup.plan.missing",
       "rds.instance.no_deletion_protection",
       "rds.instance.no_automated_backup",
       "dynamodb.table.no_pitr"

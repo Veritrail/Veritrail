@@ -1,112 +1,245 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+
+import { api } from "../api";
 import { frameworkLabel } from "../data/frameworks";
+import { HistorySparkline } from "./HistorySparkline";
 import { InfrastructureEventsList } from "./InfrastructureEventsList";
-import { ImpactList } from "./ImpactList";
-import { causeSentence, impactItems } from "../lib/historyPresentation";
+import {
+  drawerComparePreviousScan,
+  drawerPostureDelta,
+  drawerPostureScore,
+  drawerSnapshotSummary,
+  findingRemediatedControl,
+  remediationsBetween,
+  reopeningsBetween,
+  snapshotOpenFindings,
+} from "../lib/historyEvidence";
+import { causeSentence } from "../lib/historyPresentation";
 import {
   type HistoryEvent,
+  type PostureTrendPoint,
   scanAsOfDate,
   scanDateLabel,
+  scanShortDate,
   downloadEvidenceForScan,
 } from "../lib/complianceHistory";
+import "../styles/history-page.css";
 
-function PostureShift({ before, after }: { before: number | null; after: number | null }) {
-  if (after == null) return <span className="text-zinc-500">—</span>;
-  if (before == null || before === after) {
-    return <span className="text-4xl font-semibold tabular-nums tracking-tight text-zinc-950">{after}%</span>;
-  }
+const FRAMEWORK_DISPLAY: Record<string, string> = {
+  soc2: "SOC 2 Trust Services Criteria",
+  cis_aws_l1: "CIS AWS Foundations Benchmark",
+  iso27001: "ISO 27001:2022",
+};
 
-  const down = after < before;
-  const pts = after - before;
-  return (
-    <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-      <span className="flex items-baseline gap-2 text-4xl font-semibold tabular-nums tracking-tight">
-        <span className="text-zinc-300">{before}%</span>
-        <span className="text-xl font-normal text-zinc-300">→</span>
-        <span className={down ? "text-rose-700" : "text-emerald-700"}>{after}%</span>
-      </span>
-      <span className={`rounded-full px-2 py-1 text-xs font-bold tabular-nums ${down ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
-        {pts > 0 ? "+" : "−"}{Math.abs(pts)} pts
-      </span>
-    </span>
-  );
+const PREVIEW_LIMIT = 3;
+
+type ControlItem = { control_id: string; title: string; open_finding_count?: number };
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
-function ControlChangeList({
-  title,
+function formatNextScan(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function compareColumnDate(iso: string): string {
+  return new Date(iso)
+    .toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    .toUpperCase();
+}
+
+function primaryCauseBanner(event: HistoryEvent): string | null {
+  const cause = causeSentence(event);
+  if (!cause) return null;
+  if ((event.infrastructure_events_count ?? 0) > 0 && cause.tone === "bad") {
+    return `A spike in unusual API activity triggered a regression in ${cause.control}.`;
+  }
+  if (cause.tone === "bad") {
+    return `${cause.control} ${cause.text}.`;
+  }
+  if (cause.tone === "good") {
+    return `${cause.control} ${cause.text}.`;
+  }
+  return `${cause.control} ${cause.text}.`;
+}
+
+function ChangePreview({
   tone,
+  countLabel,
   items,
 }: {
-  title: string;
-  tone: "fail" | "pass";
-  items: { control_id: string; title: string; open_finding_count?: number }[];
+  tone: "pass" | "fail";
+  countLabel: string;
+  items: ControlItem[];
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return null;
+
+  const visible = expanded ? items : items.slice(0, PREVIEW_LIMIT);
+  const headClass = tone === "pass" ? "history-drawer__change-head--pass" : "history-drawer__change-head--fail";
+
   return (
-    <div>
-      <h4 className="text-[13px] font-semibold text-zinc-900">{title}</h4>
-      <ul className="mt-2 space-y-2">
-        {items.map((c) => (
-          <li key={c.control_id} className="rounded-xl border border-zinc-200/80 bg-white px-3 py-3 text-sm shadow-sm shadow-zinc-950/[0.02]">
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="font-mono text-[11px] font-semibold text-zinc-500">{c.control_id}</span>
-              <span className={`text-[10px] font-bold uppercase tracking-wide ${tone === "fail" ? "text-rose-700" : "text-emerald-700"}`}>
-                {tone === "fail" ? "PASS → FAIL" : "FAIL → PASS"}
-              </span>
-            </div>
-            <p className="mt-1 font-medium text-zinc-900">{c.title}</p>
-            {(c.open_finding_count ?? 0) > 0 && (
-              <p className="mt-0.5 text-xs text-zinc-500">{c.open_finding_count} open finding{c.open_finding_count === 1 ? "" : "s"}</p>
-            )}
+    <div className="history-drawer__change-card">
+      <div className={`history-drawer__change-head ${headClass}`}>
+        {tone === "pass" ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )}
+        <span>{countLabel}</span>
+      </div>
+      <ul className="history-drawer__change-list">
+        {visible.map((c) => (
+          <li key={c.control_id}>
+            <span className="font-mono text-[11px] text-zinc-500">{c.control_id}</span> {c.title}
           </li>
         ))}
       </ul>
+      {items.length > PREVIEW_LIMIT && (
+        <button type="button" className="history-drawer__view-all" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? "Show less" : `View all (${items.length})`}
+        </button>
+      )}
     </div>
   );
 }
 
-function CompareRow({
-  label,
-  before,
-  after,
+function CompareChange({
+  delta,
   betterWhen,
+  pts = false,
 }: {
-  label: string;
-  before: number | null | undefined;
-  after: number | null | undefined;
+  delta: number | null;
   betterWhen: "lower" | "higher";
+  pts?: boolean;
 }) {
-  const b = before ?? null;
-  const a = after ?? null;
-  const delta = b != null && a != null ? a - b : null;
-  const improved = delta == null || delta === 0 ? null : betterWhen === "lower" ? delta < 0 : delta > 0;
+  if (delta == null || delta === 0) return <span className="text-zinc-400">—</span>;
+  const improved = betterWhen === "lower" ? delta < 0 : delta > 0;
+  const cls = improved ? "history-drawer__chg--good" : "history-drawer__chg--bad";
+  const arrow = delta > 0 ? "↑" : "↓";
+  const label = pts ? `${arrow} ${Math.abs(delta)} pts` : `${arrow} ${Math.abs(delta)}`;
+  return <span className={`history-drawer__chg ${cls}`}>{label}</span>;
+}
+
+function complianceControlHref(
+  framework: string,
+  controlId: string,
+  accountId: string,
+  status: "fail" | "pass",
+): string {
+  const params = new URLSearchParams({
+    framework,
+    control: controlId,
+    view: "detailed",
+    status,
+  });
+  if (accountId) params.set("account_id", accountId);
+  return `/controls?${params}`;
+}
+
+type ControlRowTone = "fail" | "pass" | "improved" | "reopened";
+
+const CONTROL_ROW_META: Record<
+  ControlRowTone,
+  { title: string; transition: string; transitionClass: string; complianceStatus: "fail" | "pass" }
+> = {
+  pass: {
+    title: "Controls that passed",
+    transition: "FAIL → PASS",
+    transitionClass: "history-drawer__control-transition--pass",
+    complianceStatus: "pass",
+  },
+  improved: {
+    title: "Controls improved",
+    transition: "Improved",
+    transitionClass: "history-drawer__control-transition--improved",
+    complianceStatus: "fail",
+  },
+  fail: {
+    title: "Controls that failed",
+    transition: "PASS → FAIL",
+    transitionClass: "history-drawer__control-transition--fail",
+    complianceStatus: "fail",
+  },
+  reopened: {
+    title: "Controls regressed",
+    transition: "Reopened",
+    transitionClass: "history-drawer__control-transition--reopened",
+    complianceStatus: "fail",
+  },
+};
+
+function ControlRows({
+  tone,
+  items,
+  framework,
+  accountId,
+  onNavigate,
+}: {
+  tone: ControlRowTone;
+  items: ControlItem[];
+  framework: string;
+  accountId: string;
+  onNavigate: () => void;
+}) {
+  if (items.length === 0) return null;
+  const meta = CONTROL_ROW_META[tone];
+
   return (
-    <div className="flex items-center justify-between gap-2 py-2">
-      <span className="text-xs text-zinc-600">{label}</span>
-      <span className="flex items-center gap-1.5 text-xs tabular-nums">
-        <span className="text-zinc-400">{b ?? "—"}</span>
-        <span className="text-zinc-300">→</span>
-        <span className="font-semibold text-zinc-900">{a ?? "—"}</span>
-        {delta != null && delta !== 0 && (
-          <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${improved ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-            {delta > 0 ? `+${delta}` : delta}
-          </span>
-        )}
-      </span>
+    <div className="history-drawer__card history-drawer__controls">
+      <div className="history-drawer__controls-head">
+        <span>{meta.title}</span>
+        <span className="history-drawer__controls-count">{items.length}</span>
+      </div>
+      {items.map((c) => (
+        <Link
+          key={c.control_id}
+          to={complianceControlHref(framework, c.control_id, accountId, meta.complianceStatus)}
+          onClick={onNavigate}
+          className="history-drawer__control-row"
+        >
+          <div className="min-w-0">
+            <div className="history-drawer__control-line">
+              <span className="history-drawer__control-id">{c.control_id}</span>
+              <span className={`history-drawer__control-transition ${meta.transitionClass}`}>{meta.transition}</span>
+            </div>
+            <p className="history-drawer__control-title">{c.title}</p>
+          </div>
+          <svg className="history-drawer__control-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      ))}
     </div>
   );
 }
 
-function SummaryTile({ label, value, detail, tone = "zinc" }: { label: string; value: string | number; detail?: string; tone?: "zinc" | "emerald" | "rose" }) {
-  const toneClass = tone === "emerald" ? "text-emerald-700 bg-emerald-50 ring-emerald-100" : tone === "rose" ? "text-rose-700 bg-rose-50 ring-rose-100" : "text-zinc-950 bg-zinc-50 ring-zinc-200/70";
-  return (
-    <div className={`rounded-2xl px-3 py-3 ring-1 ${toneClass}`}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-70">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">{value}</p>
-      {detail && <p className="mt-0.5 text-[11px] font-medium opacity-70">{detail}</p>}
-    </div>
-  );
+function findingPartialControlItems(event: HistoryEvent, kind: "improved" | "reopened"): ControlItem[] {
+  if (kind === "improved" && event.type !== "finding_resolved" && event.type !== "finding_excepted") return [];
+  if (kind === "reopened" && event.type !== "finding_reopened") return [];
+  const c = findingRemediatedControl(event);
+  if (!c) return [];
+  return [{ control_id: c.control_id, title: c.title }];
 }
 
 export function HistorySnapshotDrawer({
@@ -116,6 +249,9 @@ export function HistorySnapshotDrawer({
   periodDays,
   initialTab,
   expandInfrastructure = false,
+  postureTrend = [],
+  allEvents = [],
+  scansInWindow,
   onClose,
 }: {
   event: HistoryEvent;
@@ -124,29 +260,63 @@ export function HistorySnapshotDrawer({
   periodDays: number;
   initialTab: "snapshot" | "compare";
   expandInfrastructure?: boolean;
+  postureTrend?: PostureTrendPoint[];
+  allEvents?: HistoryEvent[];
+  scansInWindow?: number;
   onClose: () => void;
 }) {
-  const canCompare = !!previousEvent;
+  const comparePrevious = useMemo(() => drawerComparePreviousScan(allEvents, event), [allEvents, event]);
+  const compareSnap = comparePrevious ? drawerSnapshotSummary(comparePrevious, allEvents) : null;
+  const canCompare = comparePrevious != null;
   const [activeTab, setActiveTab] = useState<"snapshot" | "compare">(canCompare && initialTab === "compare" ? "compare" : "snapshot");
   const [downloading, setDownloading] = useState(false);
 
-  const snap = event.snapshot;
-  const cause = causeSentence(event);
-  const impacts = impactItems(event);
-  const openedThisScan = event.type === "baseline_established" ? event.findings_discovered ?? event.findings_opened : snap?.findings_opened ?? event.findings_opened;
+  const settingsQ = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api<{ scan_status: { next_scan_at: string | null } }>("/v1/settings"),
+  });
+
+  const snap = drawerSnapshotSummary(event, allEvents);
+  const causeBanner = primaryCauseBanner(event);
+  const openedThisScan =
+    event.type === "baseline_established"
+      ? (event.findings_discovered ?? event.findings_opened)
+      : event.type.startsWith("finding_")
+        ? event.findings_opened
+        : (snap?.findings_opened ?? event.findings_opened);
+
+  const score = drawerPostureScore(event, allEvents, postureTrend);
+  const vsPrev = drawerPostureDelta(event, comparePrevious, allEvents, postureTrend);
+
+  const trendUpToEvent = useMemo(() => {
+    const cutoff = new Date(event.timestamp).getTime();
+    return postureTrend.filter((p) => new Date(p.timestamp).getTime() <= cutoff);
+  }, [postureTrend, event.timestamp]);
+
+  const passed = event.diff.newly_passed;
+  const failed = event.diff.newly_failed;
+  const improved = findingPartialControlItems(event, "improved");
+  const reopened = findingPartialControlItems(event, "reopened");
+  const openNow = snapshotOpenFindings(snap);
+  const openBefore = comparePrevious ? snapshotOpenFindings(compareSnap ?? undefined) : null;
+  const resolvedSince =
+    comparePrevious != null ? remediationsBetween(allEvents, comparePrevious.timestamp, event.timestamp) : 0;
+  const reopenedSince =
+    comparePrevious != null ? reopeningsBetween(allEvents, comparePrevious.timestamp, event.timestamp) : 0;
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-zinc-950/25 backdrop-blur-[2px]" onClick={onClose} aria-hidden />
+      <div className="history-drawer__backdrop" onClick={onClose} aria-hidden />
 
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-xl flex-col overflow-hidden bg-white shadow-2xl" role="dialog" aria-labelledby="history-snapshot-title">
-        <header className="shrink-0 border-b border-zinc-200 bg-white px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">{frameworkLabel(event.framework)} snapshot</p>
-              <h2 id="history-snapshot-title" className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">{scanDateLabel(event.timestamp)}</h2>
-            </div>
-            <button type="button" onClick={onClose} className="rounded-xl p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700" aria-label="Close">
+      <div className="history-drawer history-drawer__panel" role="dialog" aria-labelledby="history-snapshot-title">
+        <header className="history-drawer__header">
+          <p className="history-drawer__eyebrow">{frameworkLabel(event.framework)} snapshot</p>
+          <div className="history-drawer__title-row">
+            <h2 id="history-snapshot-title" className="history-drawer__title">
+              {scanDateLabel(event.timestamp)}
+              {activeTab === "compare" && <span className="history-drawer__badge">Current scan</span>}
+            </h2>
+            <button type="button" onClick={onClose} className="history-drawer__close" aria-label="Close">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -154,128 +324,313 @@ export function HistorySnapshotDrawer({
           </div>
 
           {canCompare && (
-            <div className="mt-4 inline-flex rounded-2xl bg-zinc-100 p-1" role="group" aria-label="Snapshot view">
+            <div className="history-drawer__tabs history-tabs" role="group" aria-label="Snapshot view">
               {(["snapshot", "compare"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${activeTab === tab ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500 hover:text-zinc-900"}`}
+                  className={`history-tab${activeTab === tab ? " history-tab--active" : ""}`}
                 >
-                  {tab === "snapshot" ? "Overview" : `Compare to ${new Date(previousEvent!.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`}
+                  {tab === "snapshot" ? "Overview" : "Compare to previous"}
                 </button>
               ))}
             </div>
           )}
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="history-drawer__body">
           {activeTab === "snapshot" && (
-            <div className="space-y-6">
-              <section className="rounded-3xl border border-zinc-200/80 bg-gradient-to-br from-zinc-50 to-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Posture movement</p>
-                    <div className="mt-2">
-                      {event.type !== "baseline_established" ? (
-                        <PostureShift before={event.posture_before} after={event.posture_after} />
-                      ) : (
-                        <p className="text-4xl font-semibold tabular-nums tracking-tight text-zinc-950">{event.posture_after != null ? `${event.posture_after}%` : "—"}</p>
-                      )}
-                    </div>
-                  </div>
-                  <SummaryTile label="Resolved" value={event.findings_resolved ?? 0} detail="findings" tone={(event.findings_resolved ?? 0) > 0 ? "emerald" : "zinc"} />
+            <>
+              <div className="history-drawer__card history-drawer__posture-card">
+                <div className="history-drawer__posture-half">
+                  <p className="history-drawer__card-label">Posture score</p>
+                  <p className="history-drawer__score">{score}%</p>
+                  {vsPrev != null && (
+                    <p className={`history-drawer__delta ${vsPrev < 0 ? "history-drawer__delta--down" : "history-drawer__delta--up"}`}>
+                      {vsPrev < 0 ? "▼" : "▲"} {Math.abs(vsPrev)} pts vs previous
+                    </p>
+                  )}
                 </div>
+                <div className="history-drawer__posture-half">
+                  <p className="history-drawer__card-label">Score over time</p>
+                  <HistorySparkline points={trendUpToEvent} className="history-drawer__spark" />
+                </div>
+              </div>
 
-                {cause && event.type !== "baseline_established" && (
-                  <p className="mt-5 text-base leading-snug text-zinc-900">
-                    <span className="font-semibold">{cause.control}</span>{" "}
-                    <span className={cause.tone === "bad" ? "text-rose-600" : cause.tone === "good" ? "text-emerald-600" : "text-zinc-500"}>{cause.text}</span>
-                  </p>
-                )}
+              <div className="history-drawer__grid">
+                <div className="history-drawer__stat history-drawer__stat--pass">
+                  <p className="history-drawer__stat-label">Passing</p>
+                  <p className="history-drawer__stat-value">{snap?.controls_passed ?? "—"}</p>
+                  <p className="history-drawer__stat-detail">controls</p>
+                </div>
+                <div className="history-drawer__stat history-drawer__stat--fail">
+                  <p className="history-drawer__stat-label">Failing</p>
+                  <p className="history-drawer__stat-value">{snap?.controls_failed ?? "—"}</p>
+                  <p className="history-drawer__stat-detail">controls</p>
+                </div>
+                <div className="history-drawer__stat">
+                  <p className="history-drawer__stat-label">No data</p>
+                  <p className="history-drawer__stat-value">{snap?.controls_no_data ?? "—"}</p>
+                  <p className="history-drawer__stat-detail">controls</p>
+                </div>
+                <div className="history-drawer__stat history-drawer__stat--open">
+                  <p className="history-drawer__stat-label">Opened this scan</p>
+                  <p className="history-drawer__stat-value">{openedThisScan ?? "—"}</p>
+                  <p className="history-drawer__stat-detail">finding{openedThisScan === 1 ? "" : "s"}</p>
+                </div>
+              </div>
 
-                {event.type === "baseline_established" && <p className="mt-3 text-sm leading-relaxed text-zinc-600">First recorded posture for this framework in the selected window.</p>}
-              </section>
-
-              {impacts.length > 0 && (
-                <section className="rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">What changed</p>
-                  <div className="mt-3"><ImpactList items={impacts} size="sm" /></div>
-                </section>
+              {causeBanner && event.type !== "baseline_established" && (
+                <div className="history-drawer__cause" style={{ marginTop: "0.875rem" }}>
+                  <svg className="history-drawer__cause-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <circle cx="12" cy="12" r="9" />
+                    <path strokeLinecap="round" d="M12 10v6M12 7h.01" />
+                  </svg>
+                  <p>{causeBanner}</p>
+                </div>
               )}
 
-              {event.type !== "baseline_established" && (event.diff.newly_failed.length > 0 || event.diff.newly_passed.length > 0) && (
-                <section className="space-y-4 rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Control changes</p>
-                  <ControlChangeList title="Controls that failed" tone="fail" items={event.diff.newly_failed} />
-                  <ControlChangeList title="Controls that passed" tone="pass" items={event.diff.newly_passed} />
-                </section>
+              {event.type === "baseline_established" && (
+                <p className="mt-3 text-sm leading-relaxed text-zinc-600">First recorded posture for this framework in the selected window.</p>
               )}
 
-              <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <SummaryTile label="Passing" value={snap?.controls_passed ?? "—"} tone="emerald" />
-                <SummaryTile label="Failing" value={snap?.controls_failed ?? "—"} tone="rose" />
-                <SummaryTile label="No data" value={snap?.controls_no_data ?? "—"} />
-                <SummaryTile label="Opened" value={openedThisScan ?? "—"} detail="this scan" />
-              </section>
+              {(passed.length > 0 || failed.length > 0) && event.type !== "baseline_established" && (
+                <div className="history-drawer__split" style={{ marginTop: "0.875rem" }}>
+                  <ChangePreview
+                    tone="pass"
+                    countLabel={`+${passed.length} control${passed.length === 1 ? "" : "s"}`}
+                    items={passed}
+                  />
+                  <ChangePreview
+                    tone="fail"
+                    countLabel={`+${failed.length} control${failed.length === 1 ? "" : "s"}`}
+                    items={failed}
+                  />
+                </div>
+              )}
+
+              {event.type !== "baseline_established" && (
+                <div style={{ marginTop: improved.length > 0 || reopened.length > 0 ? "0.875rem" : undefined }}>
+                  <ControlRows
+                    tone="improved"
+                    items={improved}
+                    framework={event.framework}
+                    accountId={accountId}
+                    onNavigate={onClose}
+                  />
+                  <ControlRows
+                    tone="reopened"
+                    items={reopened}
+                    framework={event.framework}
+                    accountId={accountId}
+                    onNavigate={onClose}
+                  />
+                </div>
+              )}
+
+              <div className="history-drawer__card history-drawer__meta" style={{ marginTop: "0.875rem" }}>
+                <div className="history-drawer__meta-row">
+                  <span className="history-drawer__meta-key">Scan time</span>
+                  <span className="history-drawer__meta-val">{formatDateTime(event.timestamp)}</span>
+                </div>
+                <div className="history-drawer__meta-row">
+                  <span className="history-drawer__meta-key">Framework</span>
+                  <span className="history-drawer__meta-val">{FRAMEWORK_DISPLAY[event.framework] ?? frameworkLabel(event.framework)}</span>
+                </div>
+                <div className="history-drawer__meta-row">
+                  <span className="history-drawer__meta-key">Scans in window</span>
+                  <span className="history-drawer__meta-val">{scansInWindow ?? "—"}</span>
+                </div>
+                <div className="history-drawer__meta-row">
+                  <span className="history-drawer__meta-key">Next scan</span>
+                  <span className="history-drawer__meta-val">{formatNextScan(settingsQ.data?.scan_status.next_scan_at)}</span>
+                </div>
+              </div>
 
               {(event.infrastructure_events_count ?? 0) > 0 && event.type !== "baseline_established" && (
-                <details className="rounded-2xl border border-zinc-200/80 bg-zinc-50/40 px-4 py-3" open={expandInfrastructure}>
-                  <summary className="cursor-pointer text-[12px] font-semibold text-zinc-600">Technical CloudTrail context ({event.infrastructure_events_count})</summary>
+                <details className="history-drawer__card" style={{ marginTop: "0.875rem", padding: "0.75rem 1rem" }} open={expandInfrastructure}>
+                  <summary className="cursor-pointer text-xs font-semibold text-zinc-600">
+                    Technical CloudTrail context ({event.infrastructure_events_count})
+                  </summary>
                   <div className="mt-3">
-                    <InfrastructureEventsList accountId={accountId} onDate={scanAsOfDate(event.timestamp)} count={event.infrastructure_events_count ?? 0} defaultExpanded />
+                    <InfrastructureEventsList
+                      accountId={accountId}
+                      onDate={scanAsOfDate(event.timestamp)}
+                      count={event.infrastructure_events_count ?? 0}
+                      defaultExpanded
+                    />
                   </div>
                 </details>
               )}
-            </div>
+            </>
           )}
 
-          {activeTab === "compare" && previousEvent && (
-            <div className="space-y-5">
-              <section className="rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Scan comparison</p>
-                <p className="mt-2 text-sm font-semibold text-zinc-700">
-                  {new Date(previousEvent.timestamp).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+          {activeTab === "compare" && comparePrevious && (
+            <>
+              <div className="history-drawer__card">
+                <p className="history-drawer__section-label">Scan comparison</p>
+                <p className="history-drawer__compare-title">
+                  {scanShortDate(event.timestamp)}
                   <span className="mx-2 font-normal text-zinc-400">→</span>
-                  {scanDateLabel(event.timestamp)}
+                  {scanShortDate(comparePrevious.timestamp)}
                 </p>
-                <div className="mt-4 divide-y divide-zinc-100 rounded-2xl bg-zinc-50/70 px-4 py-1 ring-1 ring-zinc-200/70">
-                  <CompareRow label="Score" before={previousEvent.posture_after} after={event.posture_after} betterWhen="higher" />
-                  <CompareRow label="Passing controls" before={previousEvent.snapshot?.controls_passed} after={event.snapshot?.controls_passed} betterWhen="higher" />
-                  <CompareRow label="Failing controls" before={previousEvent.snapshot?.controls_failed} after={event.snapshot?.controls_failed} betterWhen="lower" />
-                  <CompareRow label="No data" before={previousEvent.snapshot?.controls_no_data} after={event.snapshot?.controls_no_data} betterWhen="lower" />
-                  <CompareRow label="Findings opened" before={previousEvent.findings_opened} after={event.findings_opened} betterWhen="lower" />
-                  <CompareRow label="Findings resolved" before={previousEvent.findings_resolved} after={event.findings_resolved} betterWhen="higher" />
-                </div>
-              </section>
+                <table className="history-drawer__table">
+                  <thead>
+                    <tr>
+                      <th>Metric</th>
+                      <th>{compareColumnDate(event.timestamp)}</th>
+                      <th>{compareColumnDate(comparePrevious.timestamp)}</th>
+                      <th>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Score</td>
+                      <td>{score}</td>
+                      <td>{drawerPostureScore(comparePrevious, allEvents, postureTrend)}</td>
+                      <td>
+                        <CompareChange
+                          delta={score - drawerPostureScore(comparePrevious, allEvents, postureTrend)}
+                          betterWhen="higher"
+                          pts
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Passing controls</td>
+                      <td>{snap?.controls_passed ?? "—"}</td>
+                      <td>{compareSnap?.controls_passed ?? "—"}</td>
+                      <td>
+                        <CompareChange
+                          delta={
+                            snap?.controls_passed != null && compareSnap?.controls_passed != null
+                              ? snap.controls_passed - compareSnap.controls_passed
+                              : null
+                          }
+                          betterWhen="higher"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Failing controls</td>
+                      <td>{snap?.controls_failed ?? "—"}</td>
+                      <td>{compareSnap?.controls_failed ?? "—"}</td>
+                      <td>
+                        <CompareChange
+                          delta={
+                            snap?.controls_failed != null && compareSnap?.controls_failed != null
+                              ? snap.controls_failed - compareSnap.controls_failed
+                              : null
+                          }
+                          betterWhen="lower"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>No data</td>
+                      <td>{snap?.controls_no_data ?? "—"}</td>
+                      <td>{compareSnap?.controls_no_data ?? "—"}</td>
+                      <td>
+                        <CompareChange
+                          delta={
+                            snap?.controls_no_data != null && compareSnap?.controls_no_data != null
+                              ? snap.controls_no_data - compareSnap.controls_no_data
+                              : null
+                          }
+                          betterWhen="lower"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Open findings</td>
+                      <td>{openNow ?? "—"}</td>
+                      <td>{openBefore ?? "—"}</td>
+                      <td>
+                        <CompareChange
+                          delta={openNow != null && openBefore != null ? openNow - openBefore : null}
+                          betterWhen="lower"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Resolved since prior scan</td>
+                      <td>{resolvedSince}</td>
+                      <td>—</td>
+                      <td>
+                        <CompareChange delta={resolvedSince > 0 ? resolvedSince : null} betterWhen="higher" />
+                      </td>
+                    </tr>
+                    {reopenedSince > 0 && (
+                      <tr>
+                        <td>Reopened since prior scan</td>
+                        <td>{reopenedSince}</td>
+                        <td>—</td>
+                        <td>
+                          <CompareChange delta={reopenedSince} betterWhen="lower" />
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-              {(event.diff.newly_failed.length > 0 || event.diff.newly_passed.length > 0) && (
-                <section className="space-y-4 rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400">Changes in this scan</p>
-                  <ControlChangeList title="Controls that failed" tone="fail" items={event.diff.newly_failed} />
-                  <ControlChangeList title="Controls that passed" tone="pass" items={event.diff.newly_passed} />
-                </section>
+              <ControlRows
+                tone="fail"
+                items={failed}
+                framework={event.framework}
+                accountId={accountId}
+                onNavigate={onClose}
+              />
+              <ControlRows
+                tone="pass"
+                items={passed}
+                framework={event.framework}
+                accountId={accountId}
+                onNavigate={onClose}
+              />
+              <ControlRows
+                tone="improved"
+                items={improved}
+                framework={event.framework}
+                accountId={accountId}
+                onNavigate={onClose}
+              />
+              <ControlRows
+                tone="reopened"
+                items={reopened}
+                framework={event.framework}
+                accountId={accountId}
+                onNavigate={onClose}
+              />
+
+              {causeBanner && (
+                <div className="history-drawer__card" style={{ marginTop: "0.875rem" }}>
+                  <p className="history-drawer__section-label">Primary cause</p>
+                  <p className="history-drawer__primary-cause">{causeBanner}</p>
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
 
-        <div className="shrink-0 border-t border-zinc-100 bg-white px-6 py-4">
+        <div className="history-drawer__footer">
           <button
             type="button"
             disabled={downloading}
             onClick={() => {
               setDownloading(true);
-              void downloadEvidenceForScan(accountId, event.framework, event.timestamp, periodDays).finally(() => setDownloading(false));
+              void downloadEvidenceForScan(accountId, event.framework, event.timestamp, periodDays).finally(() =>
+                setDownloading(false),
+              );
             }}
-            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+            className="history-drawer__download"
           >
-            {downloading ? "Generating…" : "Download Audit Package"}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />
+            </svg>
+            {downloading ? "Generating…" : "Download audit package"}
           </button>
-          <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-            Evidence as of {scanAsOfDate(event.timestamp)}. Rolling packs on{" "}
-            <Link to="/controls" className="font-medium text-indigo-600 hover:text-indigo-800">Compliance</Link>.
-          </p>
         </div>
       </div>
     </>

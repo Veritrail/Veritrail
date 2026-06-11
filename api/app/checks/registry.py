@@ -45,6 +45,7 @@ from app.checks import (
     entra_user_inactive,
     entra_admin_unreviewed,
     identity_center_user_inactive,
+    backup_plan_missing,
     access_analyzer_not_enabled,
     aws_account_contact_incomplete,
     aws_account_security_contact_missing,
@@ -197,6 +198,7 @@ ALL_CHECKS = [
     aws_account_security_contact_missing,
     iam_server_certificate_expired,
     iam_cloudshell_access,
+    backup_plan_missing,
     # AWS Config
     config_not_enabled,
     aws_config_rules_non_compliant,

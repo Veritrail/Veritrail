@@ -155,18 +155,6 @@ function ServiceActivityTable({
       <div className="service-activity-header">
         <h3 className="service-activity-title">Service activity</h3>
         <div className="service-activity-toolbar">
-          <label className="service-activity-search">
-            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search services"
-              aria-label="Search services"
-            />
-          </label>
           <button
             type="button"
             className="service-activity-filter-btn"
@@ -181,6 +169,18 @@ function ServiceActivityTable({
               />
             </svg>
           </button>
+          <label className="service-activity-search">
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search services"
+              aria-label="Search services"
+            />
+          </label>
         </div>
       </div>
 

@@ -399,6 +399,31 @@ def _hub_status(*, region="us-east-1", enabled=False, account_id=None):
     return s
 
 
+# --- backup.plan.missing ---
+
+class TestBackupPlanMissing:
+    def test_flags_account_with_no_plans(self, mock_db):
+        from app.checks import backup_plan_missing
+
+        acc_id = uuid.uuid4()
+        acc = MagicMock()
+        acc.account_id = "123456789012"
+        mock_db.get.return_value = acc
+        mock_db.scalar.return_value = 0
+
+        drafts = backup_plan_missing.run(mock_db, acc_id)
+        assert len(drafts) == 1
+        assert drafts[0].check_id == "backup.plan.missing"
+
+    def test_skips_when_plans_exist(self, mock_db):
+        from app.checks import backup_plan_missing
+
+        mock_db.get.return_value = MagicMock(account_id="123456789012")
+        mock_db.scalar.return_value = 2
+        drafts = backup_plan_missing.run(mock_db, uuid.uuid4())
+        assert drafts == []
+
+
 # --- rds.instance.no_automated_backup ---
 
 class TestRdsNoAutomatedBackup:

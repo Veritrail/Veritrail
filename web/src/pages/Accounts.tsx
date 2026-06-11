@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
   ADVANCED_POLICY_RAW_ACTIONS,
@@ -136,14 +137,10 @@ const PERMISSION_VERIFY_DESCRIPTION = "Verified from deployed IAM role policy.";
 const workflowInlineBtn =
   "inline-flex shrink-0 items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
 
-const cardOutlineBtn =
-  "inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-[13px] font-medium text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
+const neutralToolbarBtn = "vigil-toolbar-btn vigil-toolbar-btn--neutral shrink-0";
 
-const cardRescanBtn =
-  "inline-flex h-9 shrink-0 items-center rounded-lg border border-blue-600 bg-blue-600 px-3 text-[13px] font-semibold text-white shadow-sm transition hover:border-blue-700 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50";
-
-const verifyPermissionsBtn =
-  "inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(99,102,241,0.32)] transition hover:from-blue-600 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-50";
+const neutralToolbarBtnLg =
+  "vigil-toolbar-btn vigil-toolbar-btn--neutral vigil-toolbar-btn--lg w-full sm:w-auto sm:min-w-[12rem]";
 
 function WorkflowCheckIcon() {
   return (
@@ -303,7 +300,7 @@ function PermissionVerificationPanel({
           type="button"
           onClick={onVerify}
           disabled={verifying}
-          className={verifyPermissionsBtn}
+          className={neutralToolbarBtn}
         >
           {verifying ? VERIFY_PROGRESS_STEPS[progressStep] : "Verify permissions in AWS"}
         </button>
@@ -911,7 +908,7 @@ function CapabilityBadges({
   return (
     <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
       <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
-        Core Scanner
+        Core scanner
       </span>
       {(policyGenDeployed || policyGenSelected) && (
         <span
@@ -921,7 +918,7 @@ function CapabilityBadges({
               : "bg-indigo-50/50 text-indigo-700 ring-indigo-200/40"
           }`}
         >
-          Policy Generation
+          Policy generation
         </span>
       )}
       {ssmCollapsed ? (
@@ -1775,7 +1772,7 @@ function FirstAccountOnboarding({
           type="button"
           onClick={onContinue}
           disabled={disabled || continuing}
-          className="mt-8 w-full rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[12rem]"
+          className={`mt-8 ${neutralToolbarBtnLg}`}
         >
           {continuing ? "Setting up…" : "Continue to deploy"}
         </button>
@@ -2442,7 +2439,7 @@ function ScanPhaseBlock({
                     done
                       ? "bg-emerald-500 text-white"
                       : active
-                        ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
+                        ? "bg-emerald-100 text-emerald-800 ring-4 ring-emerald-50"
                         : "bg-zinc-200 text-zinc-500"
                   }`}
                 >
@@ -2523,7 +2520,7 @@ function AccountCardActionBar({
     <div className="flex w-full min-w-0 flex-col rounded-b-xl border-t border-zinc-100 bg-white lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:py-0 lg:pr-5">
       <div className="flex min-w-0 flex-col sm:flex-row lg:shrink-0">
         <FooterStat divided icon={FOOTER_ICON_CLOCK} label="Last scan started" value={lastScanLabel} />
-        <FooterStat divided icon={FOOTER_ICON_REPEAT} label="Scheduled" value={scheduleLabel} />
+        <FooterStat divided icon={FOOTER_ICON_REPEAT} label="Scan schedule" value={scheduleLabel} />
         <FooterStat icon={FOOTER_ICON_CALENDAR} label="Next scan" value={nextScanLabel} />
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-zinc-200 px-4 py-3 lg:border-t-0 lg:shrink-0 lg:py-3 lg:pl-0 lg:pr-0">
@@ -2531,14 +2528,14 @@ function AccountCardActionBar({
           type="button"
           onClick={onToggleDetails}
           aria-expanded={expanded}
-          className={cardOutlineBtn}
+          className={neutralToolbarBtn}
         >
           View details
         </button>
-        <button type="button" onClick={onViewFindings} className={cardOutlineBtn}>
+        <button type="button" onClick={onViewFindings} className={neutralToolbarBtn}>
           View findings
         </button>
-        <button type="button" onClick={onRescan} disabled={scanDisabled} className={cardRescanBtn}>
+        <button type="button" onClick={onRescan} disabled={scanDisabled} className={neutralToolbarBtn}>
           {scanRunning ? "Scanning…" : "Scan"}
         </button>
       </div>
@@ -2763,7 +2760,15 @@ function AccountCard({
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <AwsIconTile />
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-bold leading-tight text-zinc-900">{acc.label}</h2>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h2 className="truncate text-lg font-bold leading-tight text-zinc-900">{acc.label}</h2>
+              {connected && (
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+                  Connected
+                </span>
+              )}
+            </div>
             {connected && acc.account_id ? (
               <div className="mt-0.5 flex items-center gap-1">
                 <p className="font-mono text-xs tabular-nums text-zinc-500">{acc.account_id}</p>
@@ -2782,7 +2787,14 @@ function AccountCard({
 
         {connected ? (
           <div className="flex shrink-0 items-center gap-2">
-            {hasStats && stats ? <SeverityCounts stats={stats} /> : null}
+            {hasStats && stats ? (
+              <div>
+                <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 sm:px-4">
+                  Findings
+                </p>
+                <SeverityCounts stats={stats} />
+              </div>
+            ) : null}
             <AccountMenu {...accountMenu} />
           </div>
         ) : (
@@ -2830,7 +2842,7 @@ function AccountCard({
 
       {connected && (
         <AccountCardActionBar
-          lastScanLabel={formatFooterScanDate(acc.last_scan_at)}
+          lastScanLabel={formatFooterScanDate(acc.last_scan_at, { utc: true })}
           scheduleLabel={scheduleLabel}
           nextScanLabel={nextScanLabel}
           expanded={expanded}
@@ -3033,63 +3045,96 @@ function PostureSummary({
   const connected = accounts.filter((a) => isAccountConnected(a));
   const metrics = buildPortfolioMetrics(findings, statsMap, connected);
 
-  const tiles: {
-    label: string;
-    value: number;
-    accent: string;
-    trendCount: number;
-    trendLabel: string;
-    trendTone: PostureTone;
-  }[] = [
-    {
-      label: "Connected",
-      value: connected.length,
-      accent: "bg-sky-300",
-      trendCount: metrics.connectedThisWeek,
-      trendLabel: metrics.connectedThisWeek === 0 ? "No change" : `${metrics.connectedThisWeek} this week`,
-      trendTone: metrics.connectedThisWeek > 0 ? "good" : "muted",
-    },
-    {
-      label: "Open findings",
-      value: metrics.totalOpen,
-      accent: "bg-orange-300",
-      trendCount: metrics.openNew7d,
-      trendLabel: metrics.openNew7d === 0 ? "No change" : `${metrics.openNew7d} vs last 7 days`,
-      trendTone: metrics.openNew7d > 0 ? "warn" : "muted",
-    },
-    {
-      label: "Critical + high",
-      value: metrics.totalCrit,
-      accent: "bg-rose-300",
-      trendCount: metrics.critHighNew7d,
-      trendLabel: metrics.critHighNew7d === 0 ? "No change" : `${metrics.critHighNew7d} vs last 7 days`,
-      trendTone: metrics.critHighNew7d > 0 ? "bad" : metrics.totalCrit > 0 ? "muted" : "good",
-    },
-    {
-      label: "Accounts at risk",
-      value: metrics.needsAttention,
-      accent: "bg-amber-200",
-      trendCount: metrics.atRiskNew7d,
-      trendLabel: metrics.atRiskNew7d === 0 ? "No change" : `${metrics.atRiskNew7d} vs last 7 days`,
-      trendTone: metrics.atRiskNew7d > 0 ? "warn" : "muted",
-    },
-  ];
+  // Scan freshness across connected accounts: fresh when the most recent
+  // successful scan is inside the daily window (+grace), matching the
+  // stale-scan alert threshold.
+  const latestScanMs = connected.reduce<number | null>((latest, a) => {
+    if (!a.last_scan_at) return latest;
+    const t = new Date(a.last_scan_at).getTime();
+    if (Number.isNaN(t)) return latest;
+    return latest === null || t > latest ? t : latest;
+  }, null);
+  const hoursSinceScan = latestScanMs === null ? null : (Date.now() - latestScanMs) / 3_600_000;
+  const freshness: "fresh" | "stale" | "none" =
+    hoursSinceScan === null ? "none" : hoursSinceScan <= 26 ? "fresh" : "stale";
+  const freshnessSub =
+    hoursSinceScan === null
+      ? "No scans yet"
+      : hoursSinceScan < 24
+        ? "Last scan today"
+        : `Last scan ${Math.floor(hoursSinceScan / 24)}d ago`;
+  const allConnected = connected.length === accounts.length && connected.length > 0;
+
+  const tileShell =
+    "rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]";
+  const tileLabel = "text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-400";
+  const tileValue = "mt-2 text-[2rem] font-bold leading-none tracking-tight tabular-nums text-zinc-900";
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {tiles.map((t) => (
-        <div
-          key={t.label}
-          className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]"
-        >
-          <div className={`h-1 ${t.accent}`} aria-hidden />
-          <div className="px-5 py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-400">{t.label}</p>
-            <p className="mt-2 text-[2rem] font-bold leading-none tracking-tight tabular-nums text-zinc-900">{t.value}</p>
-            <PostureTrend count={t.trendCount} label={t.trendLabel} tone={t.trendTone} />
-          </div>
+      <div className={`${tileShell} px-5 py-4`}>
+        <p className={tileLabel}>Connected</p>
+        <p className={tileValue}>{connected.length}</p>
+        {allConnected ? (
+          <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
+            All accounts connected
+          </p>
+        ) : (
+          <PostureTrend
+            count={metrics.connectedThisWeek}
+            label={metrics.connectedThisWeek === 0 ? "No change" : `${metrics.connectedThisWeek} this week`}
+            tone={metrics.connectedThisWeek > 0 ? "good" : "muted"}
+          />
+        )}
+      </div>
+
+      <div className={`${tileShell} border-l-[3px] border-l-amber-400 px-5 py-4`}>
+        <p className={tileLabel}>Open findings</p>
+        <p className={tileValue}>{metrics.totalOpen}</p>
+        <PostureTrend
+          count={metrics.openNew7d}
+          label={metrics.openNew7d === 0 ? "No change" : `${metrics.openNew7d} vs last 7 days`}
+          tone={metrics.openNew7d > 0 ? "warn" : "muted"}
+        />
+      </div>
+
+      <div className={`${tileShell} border-l-[3px] border-l-rose-400 px-5 py-4`}>
+        <p className={tileLabel}>Critical + high</p>
+        <p className={tileValue}>{metrics.totalCrit}</p>
+        <PostureTrend
+          count={metrics.critHighNew7d}
+          label={metrics.critHighNew7d === 0 ? "No change" : `${metrics.critHighNew7d} vs last 7 days`}
+          tone={metrics.critHighNew7d > 0 ? "bad" : metrics.totalCrit > 0 ? "muted" : "good"}
+        />
+      </div>
+
+      <div
+        className={`${tileShell} border-l-[3px] px-5 py-4 ${
+          freshness === "fresh"
+            ? "border-l-emerald-400"
+            : freshness === "stale"
+              ? "border-l-amber-400"
+              : "border-l-zinc-200"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className={tileLabel}>Scan freshness</p>
+          {freshness === "fresh" && (
+            <svg className="h-5 w-5 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          )}
         </div>
-      ))}
+        <p
+          className={`mt-2 text-[2rem] font-bold leading-none tracking-tight ${
+            freshness === "fresh" ? "text-emerald-600" : freshness === "stale" ? "text-amber-600" : "text-zinc-300"
+          }`}
+        >
+          {freshness === "fresh" ? "Fresh" : freshness === "stale" ? "Stale" : "\u2014"}
+        </p>
+        <p className="mt-2 text-xs font-medium text-zinc-500">{freshnessSub}</p>
+      </div>
     </div>
   );
 }
@@ -3138,10 +3183,7 @@ export default function Accounts() {
 
   const allFindings = useQuery({
     queryKey: ["findings-snapshot-all"],
-    queryFn: () =>
-      api<{ items: Finding[]; total: number; next_cursor: string | null }>(
-        `/v1/findings?status=open&limit=500`
-      ),
+    queryFn: () => fetchAllFindings<Finding>({ status: "open" }),
     enabled: (accounts.data?.length ?? 0) > 0,
   });
 
@@ -3182,9 +3224,9 @@ export default function Accounts() {
               onClick={() => create.mutate(pendingConnectionOptions)}
               disabled={create.isPending || hasPending}
               title={hasPending ? "Finish setting up the pending account first" : undefined}
-              className={cardOutlineBtn}
+              className={`${neutralToolbarBtn} gap-1.5`}
             >
-              <svg className="h-4 w-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+              <svg className="h-3.5 w-3.5 shrink-0 opacity-55" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               {create.isPending ? "Adding…" : "Add account"}

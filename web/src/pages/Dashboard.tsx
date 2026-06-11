@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import { isAccountConnected } from "../lib/accountConnection";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 
 type Account = { id: string; label: string; account_id: string | null; status: string };
 type Finding = {
@@ -8,7 +9,6 @@ type Finding = {
   check_id: string; title: string; resource_arn: string; first_seen: string;
 };
 
-type FindingPage = { items: Finding[]; total: number; next_cursor: string | null };
 type ScanRun = { id: string; status: string; started_at: string; finished_at: string | null; error: string | null };
 
 const checkLabels: Record<string, string> = {
@@ -84,7 +84,10 @@ function scoreLabel(s: number) {
 
 export default function Dashboard() {
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
-  const findings = useQuery({ queryKey: ["dashboard-findings"], queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500") });
+  const findings = useQuery({
+    queryKey: ["dashboard-findings"],
+    queryFn: () => fetchAllFindings<Finding>({ status: "open" }),
+  });
 
   const connectedAccount = accounts.data?.find((a) => isAccountConnected(a));
 

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 
 const STORAGE_KEY = "vigil.recheckNotifications.v3";
 const HISTORY_LIMIT = 100;
@@ -114,8 +115,6 @@ type PersistedLegacy = {
   pending: PendingRecheck | null;
   outcome: Omit<VerifyNotification, "id" | "kind"> | null;
 };
-
-type FindingPage = { items: { id: string }[] };
 
 type PolicyGenStatusRow = { status?: string; job_id?: string };
 
@@ -476,7 +475,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
 
   const openMetricsQ = useQuery({
     queryKey: ["findings", "open"],
-    queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500"),
+    queryFn: () => fetchAllFindings<{ id: string }>({ status: "open" }),
     refetchInterval: pendingRecheck ? 3000 : false,
     enabled: !!pendingRecheck,
   });

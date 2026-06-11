@@ -183,6 +183,13 @@ Resources:
                   - cloudtrail:GetTrailStatus
                   - cloudtrail:LookupEvents
                 Resource: "*"
+              - Sid: AwsBackupConfiguration
+                Effect: Allow
+                Action:
+                  - backup:ListBackupPlans
+                  - backup:ListBackupVaults
+                Resource: "*"
+
               - Sid: GuardDutyConfiguration
                 Effect: Allow
                 Action:

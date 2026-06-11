@@ -81,6 +81,10 @@ import {
   ImpactAccessComparison,
   ImpactUsageStats,
   ImpactVerdictCard,
+  ImpactMetaPanel,
+  ImpactMetaRow,
+  ImpactMetaGrid,
+  ImpactMetaCell,
   type ImpactReportTab,
 } from "./ImpactAnalysisPanel";
 import { bucketServicesByUsage, servicesForDependencyReview } from "../lib/blastRadiusDisplay";
@@ -2990,7 +2994,10 @@ function BlastRadiusSection({
                   showStats={false}
                 />
               ) : (
-                <ImpactReportEmpty message="No service usage recorded for this role." />
+                <ImpactReportEmpty
+                  title="No service usage recorded"
+                  subtitle="This role has no recorded AWS API activity in your account."
+                />
               )
             ) : null}
 
@@ -3030,7 +3037,10 @@ function BlastRadiusSection({
                   ) : null}
                 </div>
               ) : (
-                <ImpactReportEmpty message="No keep or verify dependencies to review — only unused services on record." />
+                <ImpactReportEmpty
+                  title="No dependencies to review"
+                  subtitle="Only unused services on record — nothing to keep or verify."
+                />
               )
             ) : null}
 
@@ -3038,14 +3048,23 @@ function BlastRadiusSection({
               <>
                 {infoRows.length > 0 ? <BlastRadiusConsiderations items={infoRows} tone="info" /> : null}
                 {warningRows.length > 0 ? <BlastRadiusConsiderations items={warningRows} tone="warning" /> : null}
-                <p className="text-[11px] text-zinc-500 px-0.5">
-                  {data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
-                    ? `Role last assumed ${data.days_since_last_assumed} days ago`
-                    : "Role has never been assumed"}
-                </p>
                 {infoRows.length === 0 && warningRows.length === 0 ? (
-                  <ImpactReportEmpty message="No breakage warnings identified for this remediation." />
-                ) : null}
+                  <ImpactReportEmpty
+                    variant="safe"
+                    title="No breakage warnings identified"
+                    subtitle={
+                      data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
+                        ? `Role last assumed ${data.days_since_last_assumed} days ago — remediation looks low risk.`
+                        : "Role has never been assumed — remediation looks low risk."
+                    }
+                  />
+                ) : (
+                  <p className="text-[11px] text-zinc-500 px-0.5">
+                    {data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
+                      ? `Role last assumed ${data.days_since_last_assumed} days ago`
+                      : "Role has never been assumed"}
+                  </p>
+                )}
               </>
             ) : null}
           </div>
@@ -3077,16 +3096,16 @@ function BlastRadiusSection({
         {/* User: summary (hidden for MFA-only — keys/password are not part of remediation) */}
         {data.resource_type === "iam_user" && !mfaOnlyUserCheck && (
           <div className="space-y-2">
-            <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
-              <div className="px-3 py-2 text-xs text-zinc-600">
-                {data.active_key_count} active access key{data.active_key_count !== 1 ? "s" : ""}
-              </div>
-              {data.has_console_password && (
-                <div className="border-t border-zinc-200 px-3 py-2 text-xs text-zinc-600">
-                  Has console password
-                </div>
-              )}
-            </div>
+            <ImpactMetaPanel>
+              <ImpactMetaRow
+                label="Active access keys"
+                value={data.active_key_count ?? 0}
+                mono
+              />
+              {data.has_console_password ? (
+                <ImpactMetaRow label="Console password" value="Set" tone="warn" />
+              ) : null}
+            </ImpactMetaPanel>
             {((data.attached_policies?.length ?? 0) > 0 || (data.inline_policy_names?.length ?? 0) > 0) && (
               <div>
                 <div className="mb-2 text-sm font-semibold text-zinc-700">Direct policy attachments</div>
@@ -3109,75 +3128,77 @@ function BlastRadiusSection({
 
         {/* RDS instance: metadata grid */}
         {data.resource_type === "rds_instance" && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            {([
-              ["Instance", data.db_instance_id ?? "—", null],
-              ["Engine", data.engine ?? "—", null],
-              ["Region", data.region ?? "—", null],
-              ["Encrypted", data.storage_encrypted ? "Yes" : "No", data.storage_encrypted],
-              ["Public access", data.publicly_accessible ? "Enabled" : "Disabled", !data.publicly_accessible],
-              ["Backup retention", data.backup_retention_period != null ? `${data.backup_retention_period}d` : "—", (data.backup_retention_period ?? 0) > 0],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium truncate ${ok === true ? "text-emerald-700" : ok === false ? "text-red-600" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={3}>
+            <ImpactMetaCell label="Instance" value={data.db_instance_id ?? "—"} mono />
+            <ImpactMetaCell label="Engine" value={data.engine ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Encrypted"
+              value={data.storage_encrypted ? "Yes" : "No"}
+              mono
+              tone={data.storage_encrypted ? "ok" : "bad"}
+            />
+            <ImpactMetaCell
+              label="Public access"
+              value={data.publicly_accessible ? "Enabled" : "Disabled"}
+              mono
+              tone={data.publicly_accessible ? "bad" : "ok"}
+            />
+            <ImpactMetaCell
+              label="Backup retention"
+              value={data.backup_retention_period != null ? `${data.backup_retention_period}d` : "—"}
+              mono
+              tone={(data.backup_retention_period ?? 0) > 0 ? "ok" : "bad"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* DynamoDB table: metadata grid */}
         {data.resource_type === "dynamodb_table" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([
-              ["Table", data.table_name ?? "—", null],
-              ["Region", data.region ?? "—", null],
-              ["Encrypted", data.kms_encrypted ? "Yes" : "No", data.kms_encrypted],
-              ["PITR", data.pitr_enabled ? "Enabled" : "Disabled", data.pitr_enabled],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium truncate ${ok === true ? "text-emerald-700" : ok === false ? "text-red-600" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Table" value={data.table_name ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Encrypted"
+              value={data.kms_encrypted ? "Yes" : "No"}
+              mono
+              tone={data.kms_encrypted ? "ok" : "bad"}
+            />
+            <ImpactMetaCell
+              label="PITR"
+              value={data.pitr_enabled ? "Enabled" : "Disabled"}
+              mono
+              tone={data.pitr_enabled ? "ok" : "bad"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* EC2 instance: metadata grid */}
         {data.resource_type === "ec2_instance" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([
-              ["Instance", data.instance_id ?? "—", null],
-              ["Type", data.instance_type ?? "—", null],
-              ["State", data.state ?? "—", data.state === "running"],
-              ["Region", data.region ?? "—", null],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium ${ok === true ? "text-emerald-700" : ok === false ? "text-zinc-500" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Instance" value={data.instance_id ?? "—"} mono />
+            <ImpactMetaCell label="Type" value={data.instance_type ?? "—"} mono />
+            <ImpactMetaCell
+              label="State"
+              value={data.state ?? "—"}
+              mono
+              tone={data.state === "running" ? "ok" : "muted"}
+            />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+          </ImpactMetaGrid>
         )}
 
         {/* EBS volume: metadata + attached instances */}
         {data.resource_type === "ebs_volume" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              {([
-                ["Volume", data.volume_id ?? "—", null],
-                ["Size", data.size_gib != null ? `${data.size_gib} GiB` : "—", null],
-                ["Type", data.volume_type ?? "—", null],
-                ["State", data.state ?? "—", null],
-                ["Region", data.region ?? "—", null],
-                ["Attached", `${(data.attached_instances ?? []).length}`, null],
-              ] as [string, string, null][]).map(([label, val]) => (
-                <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                  <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                  <div className="font-mono font-medium text-zinc-700 truncate">{val}</div>
-                </div>
-              ))}
-            </div>
+            <ImpactMetaGrid cols={3}>
+              <ImpactMetaCell label="Volume" value={data.volume_id ?? "—"} mono />
+              <ImpactMetaCell label="Size" value={data.size_gib != null ? `${data.size_gib} GiB` : "—"} mono />
+              <ImpactMetaCell label="Type" value={data.volume_type ?? "—"} mono />
+              <ImpactMetaCell label="State" value={data.state ?? "—"} mono />
+              <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+              <ImpactMetaCell label="Attached" value={`${(data.attached_instances ?? []).length}`} mono />
+            </ImpactMetaGrid>
             {data.attached_instances && data.attached_instances.length > 0 && (
               <div>
                 <div className="text-sm font-semibold text-zinc-700 mb-2">
@@ -3252,57 +3273,62 @@ function BlastRadiusSection({
 
         {/* CloudTrail trail: metadata grid */}
         {data.resource_type === "cloudtrail_trail" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([
-              ["Trail", data.trail_name ?? "—", null],
-              ["Region", data.home_region ?? "—", null],
-              ["Logging", data.is_logging ? "Active" : "Stopped", data.is_logging],
-              ["Multi-region", data.is_multi_region ? "Yes" : "No", data.is_multi_region],
-              ["Log validation", data.log_validation_enabled ? "Enabled" : "Off", data.log_validation_enabled],
-              ["KMS encrypted", data.kms_key_id ? "Yes" : "No", !!data.kms_key_id],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium ${ok === true ? "text-emerald-700" : ok === false ? "text-zinc-500" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Trail" value={data.trail_name ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.home_region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Logging"
+              value={data.is_logging ? "Active" : "Stopped"}
+              mono
+              tone={data.is_logging ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Multi-region"
+              value={data.is_multi_region ? "Yes" : "No"}
+              mono
+              tone={data.is_multi_region ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Log validation"
+              value={data.log_validation_enabled ? "Enabled" : "Off"}
+              mono
+              tone={data.log_validation_enabled ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="KMS encrypted"
+              value={data.kms_key_id ? "Yes" : "No"}
+              mono
+              tone={data.kms_key_id ? "ok" : "muted"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* VPC: metadata */}
         {data.resource_type === "vpc" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">VPC</div>
-              <div className="font-mono font-medium text-zinc-700">{data.vpc_id ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Region</div>
-              <div className="font-mono font-medium text-zinc-700">{data.region ?? "—"}</div>
-            </div>
-            <div className="col-span-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Instances in VPC</div>
-              <div className="text-2xl font-bold tabular-nums text-zinc-700">{data.instance_count ?? 0}</div>
-            </div>
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="VPC" value={data.vpc_id ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Instances in VPC"
+              value={data.instance_count ?? 0}
+              span={2}
+              emphasis
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* IAM password policy: current settings */}
         {data.resource_type === "iam_password_policy" && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Min length</div>
-              <div className="font-mono font-medium text-zinc-700">{data.min_length ?? "none"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Max age</div>
-              <div className={`font-mono font-medium ${data.max_age ? "text-amber-700" : "text-zinc-400"}`}>{data.max_age ? `${data.max_age}d` : "none"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Reuse prevention</div>
-              <div className="font-mono font-medium text-zinc-700">{data.password_reuse_prevention ?? "none"}</div>
-            </div>
-          </div>
+          <ImpactMetaGrid cols={3}>
+            <ImpactMetaCell label="Min length" value={data.min_length ?? "none"} mono />
+            <ImpactMetaCell
+              label="Max age"
+              value={data.max_age ? `${data.max_age}d` : "none"}
+              mono
+              tone={data.max_age ? "warn" : "muted"}
+            />
+            <ImpactMetaCell label="Reuse prevention" value={data.password_reuse_prevention ?? "none"} mono />
+          </ImpactMetaGrid>
         )}
 
         {/* S3 account-level block: affected buckets */}
@@ -3323,40 +3349,58 @@ function BlastRadiusSection({
 
         {/* S3 bucket: posture grid */}
         {data.resource_type === "s3_bucket" && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              {([
-                ["Encryption", data.encrypted ? "Enabled" : "None", data.encrypted],
-                ["KMS", data.kms_encrypted ? "Enabled" : "SSE-S3 / None", data.kms_encrypted],
-                ["Public access", data.public_access_blocked ? "Blocked" : "Open", data.public_access_blocked],
-                ["HTTPS-only", data.https_only ? "Enforced" : "Not enforced", data.https_only],
-                ["Versioning", data.versioning_enabled ? "Enabled" : "Off", data.versioning_enabled],
-                ["Logging", data.logging_enabled ? "Enabled" : "Off", data.logging_enabled],
-              ] as [string, string, boolean | undefined][]).map(([label, val, ok]) => (
-                <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                  <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                  <div className={`font-mono font-medium ${ok ? "text-emerald-700" : "text-zinc-500"}`}>{val}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ImpactMetaGrid cols={3}>
+            <ImpactMetaCell
+              label="Encryption"
+              value={data.encrypted ? "Enabled" : "None"}
+              mono
+              tone={data.encrypted ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="KMS"
+              value={data.kms_encrypted ? "Enabled" : "SSE-S3 / None"}
+              mono
+              tone={data.kms_encrypted ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Public access"
+              value={data.public_access_blocked ? "Blocked" : "Open"}
+              mono
+              tone={data.public_access_blocked ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="HTTPS-only"
+              value={data.https_only ? "Enforced" : "Not enforced"}
+              mono
+              tone={data.https_only ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Versioning"
+              value={data.versioning_enabled ? "Enabled" : "Off"}
+              mono
+              tone={data.versioning_enabled ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Logging"
+              value={data.logging_enabled ? "Enabled" : "Off"}
+              mono
+              tone={data.logging_enabled ? "ok" : "muted"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* KMS key: metadata + dependent trails */}
         {data.resource_type === "kms_key" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">Alias</div>
-                <div className="font-mono text-zinc-700 truncate">{data.alias ?? "no alias"}</div>
-              </div>
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">Key state</div>
-                <div className={`font-mono font-medium ${data.key_state === "Enabled" ? "text-emerald-700" : "text-amber-700"}`}>
-                  {data.key_state ?? "unknown"}
-                </div>
-              </div>
-            </div>
+            <ImpactMetaGrid cols={2}>
+              <ImpactMetaCell label="Alias" value={data.alias ?? "no alias"} mono />
+              <ImpactMetaCell
+                label="Key state"
+                value={data.key_state ?? "unknown"}
+                mono
+                tone={data.key_state === "Enabled" ? "ok" : "warn"}
+              />
+            </ImpactMetaGrid>
 
             {data.dependent_trails && data.dependent_trails.length > 0 ? (
               <div>
@@ -3384,30 +3428,36 @@ function BlastRadiusSection({
         {/* Security group: metadata + affected instances */}
         {data.resource_type === "security_group" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 min-w-0">
-                <div className="font-medium text-zinc-400 mb-0.5">Security group</div>
-                <div className="font-mono text-zinc-700 truncate" title={data.group_id}>{data.group_id}</div>
-                {data.is_default && (
-                  <div className="mt-1">
-                    <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700">
-                      Default
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 min-w-0">
-                <div className="font-medium text-zinc-400 mb-0.5">VPC</div>
-                <div className="font-mono text-zinc-700 truncate" title={data.vpc_id ?? undefined}>{data.vpc_id ?? "—"}</div>
-              </div>
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 min-w-0">
-                <div className="font-medium text-zinc-400 mb-0.5">Region</div>
-                <div className="text-zinc-700 truncate" title={data.region}>{AWS_REGION_LABELS[data.region ?? ""] ?? data.region}</div>
-                {data.region && AWS_REGION_LABELS[data.region] && (
-                  <div className="mt-0.5 font-mono text-[11px] text-zinc-400 truncate">{data.region}</div>
-                )}
-              </div>
-            </div>
+            <ImpactMetaGrid cols={3}>
+              <ImpactMetaCell
+                label="Security group"
+                value={
+                  <>
+                    <span className="block truncate">{data.group_id}</span>
+                    {data.is_default ? (
+                      <span className="mt-1 inline-flex rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                        Default
+                      </span>
+                    ) : null}
+                  </>
+                }
+                mono
+                title={data.group_id}
+              />
+              <ImpactMetaCell label="VPC" value={data.vpc_id ?? "—"} mono title={data.vpc_id ?? undefined} />
+              <ImpactMetaCell
+                label="Region"
+                value={
+                  <>
+                    <span className="block truncate">{AWS_REGION_LABELS[data.region ?? ""] ?? data.region ?? "—"}</span>
+                    {data.region && AWS_REGION_LABELS[data.region] ? (
+                      <span className="mt-0.5 block truncate text-[10px] font-normal text-zinc-400">{data.region}</span>
+                    ) : null}
+                  </>
+                }
+                title={data.region}
+              />
+            </ImpactMetaGrid>
 
             {data.affected_instances && data.affected_instances.length > 0 ? (
               <div>
@@ -3451,121 +3501,108 @@ function BlastRadiusSection({
         )}
 
         {data.resource_type === "ebs_snapshot" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Snapshot</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.snapshot_id ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Encrypted</div>
-              <div className={`font-mono font-medium ${data.encrypted ? "text-emerald-700" : "text-red-600"}`}>{data.encrypted ? "Yes" : "No"}</div>
-            </div>
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Snapshot" value={data.snapshot_id ?? "—"} mono />
+            <ImpactMetaCell
+              label="Encrypted"
+              value={data.encrypted ? "Yes" : "No"}
+              mono
+              tone={data.encrypted ? "ok" : "bad"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {data.resource_type === "ec2_ami" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">AMI</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.image_id ?? data.name ?? "—"}</div>
-            </div>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="AMI" value={data.image_id ?? data.name ?? "—"} mono />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "acm_certificate" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Domain</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.domain_name ?? "—"}</div>
-            </div>
-            {data.days_until_expiry != null && (
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">Expires in</div>
-                <div className={`font-mono font-medium ${data.days_until_expiry <= 7 ? "text-red-600" : "text-amber-700"}`}>{data.days_until_expiry}d</div>
-              </div>
-            )}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Domain" value={data.domain_name ?? "—"} mono />
+            {data.days_until_expiry != null ? (
+              <ImpactMetaRow
+                label="Expires in"
+                value={`${data.days_until_expiry}d`}
+                mono
+                tone={data.days_until_expiry <= 7 ? "bad" : "warn"}
+              />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "lambda_function" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Function</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.function_name ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Runtime</div>
-              <div className="font-mono font-medium text-zinc-700">{data.runtime ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">DLQ</div>
-              <div className={`font-mono font-medium ${data.has_dlq ? "text-emerald-700" : "text-zinc-500"}`}>{data.has_dlq ? "Yes" : "No"}</div>
-            </div>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Function" value={data.function_name ?? "—"} mono />
+            <ImpactMetaRow label="Runtime" value={data.runtime ?? "—"} mono />
+            <ImpactMetaRow
+              label="DLQ"
+              value={data.has_dlq ? "Yes" : "No"}
+              mono
+              tone={data.has_dlq ? "ok" : "muted"}
+            />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "elb_load_balancer" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Load balancer</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.name ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Access logs</div>
-              <div className={`font-mono font-medium ${data.access_logs_enabled ? "text-emerald-700" : "text-zinc-500"}`}>{data.access_logs_enabled ? "On" : "Off"}</div>
-            </div>
-            {data.ssl_policy && (
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">TLS policy</div>
-                <div className="font-mono text-[11px] text-zinc-700 truncate">{data.ssl_policy}</div>
-              </div>
-            )}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Load balancer" value={data.name ?? "—"} mono />
+            <ImpactMetaRow
+              label="Access logs"
+              value={data.access_logs_enabled ? "On" : "Off"}
+              mono
+              tone={data.access_logs_enabled ? "ok" : "muted"}
+            />
+            {data.ssl_policy ? (
+              <ImpactMetaRow label="TLS policy" value={data.ssl_policy} mono title={data.ssl_policy} />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
         {(data.resource_type === "sns_topic" || data.resource_type === "sqs_queue") && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600">
-            Region <span className="font-mono font-medium text-zinc-800">{data.region ?? "—"}</span>
-            {" · "}
-            KMS <span className={`font-mono font-medium ${data.kms_encrypted ? "text-emerald-700" : "text-zinc-500"}`}>{data.kms_encrypted ? "enabled" : "not enabled"}</span>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaRow
+              label="KMS"
+              value={data.kms_encrypted ? "enabled" : "not enabled"}
+              mono
+              tone={data.kms_encrypted ? "ok" : "muted"}
+            />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "identity_repo" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Repository</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.repo ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Default branch</div>
-              <div className="font-mono font-medium text-zinc-700">{data.default_branch ?? "main"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Protection</div>
-              <div className={`font-mono font-medium ${data.has_branch_protection ? "text-emerald-700" : "text-zinc-500"}`}>
-                {data.has_branch_protection ? `${data.required_reviews ?? 0} reviews` : "None"}
-              </div>
-            </div>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Repository" value={data.repo ?? "—"} mono title={data.repo} />
+            <ImpactMetaRow label="Default branch" value={data.default_branch ?? "main"} mono />
+            <ImpactMetaRow
+              label="Protection"
+              value={data.has_branch_protection ? `${data.required_reviews ?? 0} reviews` : "None"}
+              mono
+              tone={data.has_branch_protection ? "ok" : "muted"}
+            />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "identity_user" && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600">
-            <span className="font-mono font-medium text-zinc-800">{data.username}</span>
-            {data.source && <> @ {data.source}</>}
-            {data.days_inactive != null && <> · inactive {data.days_inactive}d</>}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="User" value={data.username ?? "—"} mono />
+            {data.source ? <ImpactMetaRow label="Source" value={data.source} /> : null}
+            {data.days_inactive != null ? (
+              <ImpactMetaRow label="Inactive" value={`${data.days_inactive}d`} mono tone="warn" />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "identity_org" && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600">
-            {data.provider_type === "github" ? "GitHub" : "GitLab"} org{" "}
-            <span className="font-mono font-medium text-zinc-800">{data.org}</span>
-            {(data.outside_collaborator_count ?? 0) > 0 && (
-              <> · {data.outside_collaborator_count} outside collaborator(s)</>
-            )}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Provider" value={data.provider_type === "github" ? "GitHub" : "GitLab"} />
+            <ImpactMetaRow label="Organization" value={data.org ?? "—"} mono />
+            {(data.outside_collaborator_count ?? 0) > 0 ? (
+              <ImpactMetaRow label="Outside collaborators" value={data.outside_collaborator_count!} />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
       </div>

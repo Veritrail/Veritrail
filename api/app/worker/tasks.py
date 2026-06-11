@@ -17,6 +17,7 @@ from app.collectors.last_accessed import collect_perm_usage
 from app.collectors.account import collect_s3, collect_s3_account_public_access_block, collect_kms
 from app.collectors.cloudtrail import collect_cloudtrail
 from app.collectors.cloudtrail_events import collect_cloudtrail_events
+from app.collectors.backup import collect_backup
 from app.collectors.guardduty import collect_guardduty
 from app.collectors.guardduty_findings import collect_guardduty_findings
 from app.collectors.identity_center import collect_identity_center, list_permission_set_snapshots
@@ -881,7 +882,7 @@ def run_scan(account_id: str) -> dict:
 
         # Collectors are fast; checks + finalize dominate wall time — weight progress accordingly.
         # Keep in sync with the collector _step(...) calls below + WORKER_COLLECTOR_STEPS (web).
-        _COLLECTOR_STEPS = 31
+        _COLLECTOR_STEPS = 32
         _FINALIZE_STEPS = 2
         _TOTAL_STEPS = _COLLECTOR_STEPS + len(enabled_checks) + _FINALIZE_STEPS
         _step_counter = 0
@@ -933,6 +934,9 @@ def run_scan(account_id: str) -> dict:
         vpc_stats = _step("collect_vpc", lambda: collect_vpc(db, acc))
         stats["vpcs"] = vpc_stats.get("vpcs", 0)
         stats["security_groups"] = vpc_stats.get("security_groups", 0)
+        backup_stats = _step("collect_backup", lambda: collect_backup(db, acc))
+        stats["backup_plans"] = backup_stats.get("backup_plans", 0)
+        stats["backup_vaults"] = backup_stats.get("backup_vaults", 0)
         stats["guardduty_detectors"] = _step("collect_guardduty", lambda: collect_guardduty(db, acc))
         stats["guardduty_findings"] = _step("collect_guardduty_findings", lambda: collect_guardduty_findings(db, acc))
         stats["identity_center_users"] = _step("collect_identity_center", lambda: collect_identity_center(db, acc))

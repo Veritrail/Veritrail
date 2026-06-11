@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Production launch checklist (June 2026 assessment blockers):
+#   [ ] Rotate RESEND_API_KEY; set DIGEST_FROM to a verified Resend domain
+#   [ ] Set ENCRYPTION_KEY, JWT_SECRET, APP_SECRET (not dev defaults)
+#   [ ] TRUST_PRINCIPAL_ARN = prod control-plane role; IAP OAuth client configured
+#   [ ] CFN templates uploaded to amzn-s3-vigil; EVIDENCE_VAULT_* if using Object Lock
+#   [ ] Nightly pg_dump backups scheduled (see docs/backup-restore-runbook.md)
+#   [ ] Smoke-test: signup → connect AWS → scan → evidence pack download
+#
 # One command: Docker + certbot (if missing) + .env + TLS + migrate + prod compose up.
 #
 #   ./scripts/launch-prod.sh

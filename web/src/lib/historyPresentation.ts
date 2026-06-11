@@ -1,5 +1,38 @@
 import type { HistoryEvent, HistoryEventType } from "./complianceHistory";
 
+const DETAIL_NOISE = /^(fast verify:|verify:|auto:)\s*/i;
+const SCAN_CLEARED_NOTE = /^(?:not present in latest scan|fixed|cleared in scan|no longer detected)$/i;
+const NO_LONGER_PRESENT_NOTE = /^.+\s+is no longer present$/i;
+const FAST_VERIFY_NOTE = /^(?:fast verify:\s*)?resource passes check in aws$/i;
+const SUPERSEDED_NOTE = /^superseded by\b/i;
+
+function stripDetailNoise(detail: string): string {
+  return detail.replace(DETAIL_NOISE, "").trim();
+}
+
+/** Ensure user-facing detail lines start with a capital letter. */
+export function sentenceCaseDetail(text: string): string {
+  const s = text.trim();
+  if (!s) return s;
+  const first = s.charAt(0);
+  if (first === first.toUpperCase() && first !== first.toLowerCase()) return s;
+  return first.toUpperCase() + s.slice(1);
+}
+
+/** User-facing detail for resolved finding events (History table + cards). */
+export function formatResolvedFindingDetail(detail?: string | null): string {
+  const raw = (detail ?? "").trim();
+  if (!raw) return "Manually verified";
+  if (FAST_VERIFY_NOTE.test(raw)) return "Verified via AWS API";
+  if (SCAN_CLEARED_NOTE.test(raw) || NO_LONGER_PRESENT_NOTE.test(raw)) return "No longer detected";
+  if (SUPERSEDED_NOTE.test(raw)) return "Superseded";
+  const cleaned = stripDetailNoise(raw);
+  if (FAST_VERIFY_NOTE.test(cleaned) || /^resource passes check in aws$/i.test(cleaned)) return "Verified via AWS API";
+  if (SCAN_CLEARED_NOTE.test(cleaned) || NO_LONGER_PRESENT_NOTE.test(cleaned)) return "No longer detected";
+  if (SUPERSEDED_NOTE.test(cleaned)) return "Superseded";
+  return sentenceCaseDetail(cleaned) || "Manually verified";
+}
+
 export type EventPresentation = {
   headline: string;
   subline: string;
@@ -15,7 +48,7 @@ export function eventPresentation(event: HistoryEvent): EventPresentation {
   if (event.type === "finding_resolved") {
     return {
       headline: "Finding resolved",
-      subline: event.detail || event.top_change?.title || "A remediation was verified",
+      subline: formatResolvedFindingDetail(event.detail),
       tone: "improved",
       dotClass: "bg-emerald-500 ring-emerald-100",
       cardClass: "border-emerald-200/70 bg-emerald-50/20",

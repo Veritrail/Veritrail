@@ -315,8 +315,8 @@ NARRATIVES: dict[str, str] = {
         "Vigil verifies MFA enrollment for all console-access IAM users and GitHub/GitLab organization members."
     ),
     "A.10.1.1": (
-        "Vigil verifies encryption key management: KMS key rotation status, "
-        "key state (enabled/disabled/pending deletion), and CloudTrail trail KMS encryption."
+        "Vigil verifies encryption at rest: S3 bucket default encryption, KMS key rotation status, "
+        "RDS and EBS storage encryption, and related cryptographic control configuration."
     ),
     "A.10.1.2": (
         "Vigil verifies that key management policies are in place: KMS key rotation enabled, "

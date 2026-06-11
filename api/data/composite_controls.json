@@ -16,6 +16,7 @@
       "cloudtrail.event.iam_role_policy_mutation",
       "cloudtrail.event.iam_user_policy_attachment",
       "cloudtrail.event.root_activity",
+      "ec2.instance.no_instance_profile",
       "entra.admin.unreviewed",
       "entra.org.mfa_not_enforced",
       "entra.user.inactive_90d",
@@ -258,6 +259,7 @@
       "CC7"
     ],
     "checks": [
+      "backup.plan.missing",
       "dynamodb.table.no_pitr",
       "ec2.ebs.snapshot_public",
       "ec2.ebs.snapshot_unencrypted",

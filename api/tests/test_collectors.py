@@ -337,3 +337,54 @@ class TestCollectIdentityCenter:
         assert snapshot["assignment_count"] == 2
         assert snapshot["account_assignments"][0]["principal"]["email"] == "alice@example.com"
         assert snapshot["account_assignments"][1]["principal"]["display_name"] == "Engineering"
+
+
+class TestCollectBackup:
+    def test_collects_backup_plans(self):
+        from app.collectors.backup import collect_backup
+
+        ec2_client = boto3.client("ec2", region_name="us-east-1")
+        ec2_stub = Stubber(ec2_client)
+        ec2_stub.add_response(
+            "describe_regions",
+            {
+                "Regions": [
+                    {
+                        "RegionName": "us-east-1",
+                        "OptInStatus": "opt-in-not-required",
+                    }
+                ]
+            },
+        )
+        ec2_stub.activate()
+
+        backup_client = boto3.client("backup", region_name="us-east-1")
+        backup_stub = Stubber(backup_client)
+        backup_stub.add_response(
+            "list_backup_plans",
+            {
+                "BackupPlansList": [
+                    {
+                        "BackupPlanId": "plan-abc",
+                        "BackupPlanArn": "arn:aws:backup:us-east-1:123456789012:backup-plan:plan-abc",
+                        "BackupPlanName": "daily",
+                        "CreationDate": datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    }
+                ]
+            },
+        )
+        backup_stub.add_response("list_backup_vaults", {"BackupVaultList": [{"BackupVaultName": "Default"}]})
+        backup_stub.activate()
+
+        acc = make_account()
+        db = MagicMock()
+        db.execute = MagicMock()
+        db.commit = MagicMock()
+
+        sess = _make_stubbed_session({"ec2": ec2_stub, "backup": backup_stub})
+        with patch("app.collectors.backup.assume_role", return_value=sess):
+            stats = collect_backup(db, acc)
+
+        backup_stub.assert_no_pending_responses()
+        assert stats["backup_plans"] == 1
+        assert stats["backup_vaults"] == 1

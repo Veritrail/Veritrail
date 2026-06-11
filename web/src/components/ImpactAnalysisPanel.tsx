@@ -215,6 +215,88 @@ export function ImpactUsageStats({
   );
 }
 
+export type ImpactMetaValueTone = "default" | "ok" | "warn" | "bad" | "muted";
+
+function impactMetaValueClass(
+  base: "impact-meta-val" | "impact-meta-cell-value",
+  { mono, tone, emphasis }: { mono?: boolean; tone?: ImpactMetaValueTone; emphasis?: boolean },
+) {
+  return [
+    base,
+    mono ? "mono" : "",
+    emphasis ? "emphasis" : "",
+    tone && tone !== "default" ? tone : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Stacked key/value rows — best for identity and repo metadata */
+export function ImpactMetaPanel({ children }: { children: ReactNode }) {
+  return <div className="impact-meta">{children}</div>;
+}
+
+export function ImpactMetaRow({
+  label,
+  value,
+  mono,
+  tone = "default",
+  title,
+}: {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+  tone?: ImpactMetaValueTone;
+  title?: string;
+}) {
+  return (
+    <div className="impact-meta-row">
+      <span className="impact-meta-key">{label}</span>
+      <span className={impactMetaValueClass("impact-meta-val", { mono, tone })} title={title}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Compact stat grid — best for AWS resource posture fields */
+export function ImpactMetaGrid({
+  cols = 2,
+  children,
+}: {
+  cols?: 2 | 3;
+  children: ReactNode;
+}) {
+  return <div className={`impact-meta-grid cols-${cols}`}>{children}</div>;
+}
+
+export function ImpactMetaCell({
+  label,
+  value,
+  mono,
+  tone = "default",
+  span,
+  emphasis,
+  title,
+}: {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+  tone?: ImpactMetaValueTone;
+  span?: 2 | 3;
+  emphasis?: boolean;
+  title?: string;
+}) {
+  return (
+    <div className={`impact-meta-cell${span ? ` span-${span}` : ""}`}>
+      <div className="impact-meta-cell-label">{label}</div>
+      <div className={impactMetaValueClass("impact-meta-cell-value", { mono, tone, emphasis })} title={title}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function AccessCompareListItem({
   tone,
   children,
@@ -313,6 +395,49 @@ export function ImpactAccessComparison({
   );
 }
 
-export function ImpactReportEmpty({ message }: { message: string }) {
-  return <p className="impact-report-empty">{message}</p>;
+function ImpactReportEmptyIcon({ variant }: { variant: "safe" | "neutral" }) {
+  if (variant === "safe") {
+    return (
+      <div className="impact-report-empty-icon impact-report-empty-icon--safe" aria-hidden>
+        <span className="impact-report-empty-pulse" />
+        <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <div className="impact-report-empty-icon impact-report-empty-icon--neutral" aria-hidden>
+      <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"
+        />
+      </svg>
+    </div>
+  );
+}
+
+export function ImpactReportEmpty({
+  title,
+  subtitle,
+  variant = "neutral",
+}: {
+  title: string;
+  subtitle?: string;
+  variant?: "safe" | "neutral";
+}) {
+  return (
+    <div className={`impact-report-empty-state impact-report-empty-state--${variant}`}>
+      <ImpactReportEmptyIcon variant={variant} />
+      <p className="impact-report-empty-title">{title}</p>
+      {subtitle ? <p className="impact-report-empty-subtitle">{subtitle}</p> : null}
+    </div>
+  );
 }
