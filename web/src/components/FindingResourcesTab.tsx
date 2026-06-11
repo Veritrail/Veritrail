@@ -829,8 +829,8 @@ export function FindingResourcesTab({
                 const rowAssetType = assetTypeLabel(f.check_id);
                 const isSelected = f.id === selectedFinding.id;
                 const rowBg = isSelected
-                  ? "bg-indigo-50/60 shadow-[inset_2px_0_0_0_theme(colors.indigo.400)]"
-                  : "bg-white hover:bg-indigo-50/30";
+                  ? "bg-gradient-to-r from-indigo-50 via-indigo-50/45 to-transparent shadow-[inset_3px_0_0_0_theme(colors.indigo.500),inset_0_0_0_1px_theme(colors.indigo.100)]"
+                  : "bg-white hover:bg-indigo-50/40 hover:shadow-[inset_0_0_0_1px_rgba(99,102,241,0.14)]";
 
                 return (
                   <tr
@@ -845,7 +845,7 @@ export function FindingResourcesTab({
                         handleRowSelect(f);
                       }
                     }}
-                    className={`group cursor-pointer border-b border-zinc-100 transition-colors last:border-b-0 ${rowBg}`}
+                    className={`group cursor-pointer border-b border-zinc-100 transition-[background-color,box-shadow] duration-150 last:border-b-0 ${rowBg}`}
                   >
                     <td className="px-4 py-4 align-middle">
                       <div className="flex items-center gap-3">
