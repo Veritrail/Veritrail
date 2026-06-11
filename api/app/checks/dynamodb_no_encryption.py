@@ -20,7 +20,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
         FindingDraft(
             check_id=CHECK_ID,
             resource_arn=getattr(r, "arn"),
-            title="DynamoDB table `{table_name}` is not encrypted at rest".format(**{"table_name": getattr(r, "table_name")}),
+            title="DynamoDB table `{table_name}` is not encrypted with a customer-managed KMS key".format(**{"table_name": getattr(r, "table_name")}),
             severity="medium",
             risk_score=score("medium"),
             evidence={"table_name": getattr(r, "table_name")},
