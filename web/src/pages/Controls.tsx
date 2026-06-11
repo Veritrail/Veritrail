@@ -1068,7 +1068,7 @@ function CompositeExpandedDetails({
   const underlying = underlyingCriteriaForComposite(ctrl, frameworkRows);
 
   return (
-    <div className={`space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
+    <div className={`vigil-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
       {underlying.length > 0 && (
         <div>
           <p className="vigil-kicker">Underlying criteria</p>
@@ -2475,7 +2475,7 @@ export default function Controls() {
 
                   <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
                     <div className="vigil-accordion-panel__inner">
-                      <div className="space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
+                      <div className="vigil-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
                         <ControlStatusBlock
                           control={ctrl}
                           periodDays={exportWindow.period}

@@ -96,6 +96,28 @@
   animation: vigil-scan-indeterminate 1.15s ease-in-out infinite;
 }
 
+/* Shared expand/collapse reveal for row accordions (Findings + Compliance). */
+@keyframes vigil-expand-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vigil-expand-in {
+  animation: vigil-expand-in 0.16s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vigil-expand-in {
+    animation: none;
+  }
+}
+
 .findings-v2-page.findings-v2-shell {
   --fv-rail-critical: #fdd0d0;
   --fv-rail-high: #fdd0d0;
