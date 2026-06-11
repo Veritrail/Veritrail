@@ -71,6 +71,7 @@ export const checkLabels: Record<string, string> = {
   "ec2.security_group.unrestricted_rdp": "Unrestricted RDP",
   "ec2.security_group.default_allows_traffic": "Default security group has rules",
   "ec2.instance.imdsv2_not_required": "IMDSv2 not required",
+  "ec2.instance.no_instance_profile": "No IAM instance profile",
   "ec2.ebs.encryption_not_default": "EBS encryption not default",
   "ec2.ebs.volume_unencrypted": "EBS volume not encrypted",
   "ec2.ebs.snapshot_public": "Public EBS snapshot",

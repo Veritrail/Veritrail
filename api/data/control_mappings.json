@@ -256,7 +256,7 @@
     "control_id": "1.5",
     "title": "Ensure hardware MFA is enabled for the root user",
     "description": "CIS recommends hardware MFA for root. Vigil verifies MFA is enabled but cannot distinguish hardware vs virtual from IAM alone.",
-    "guidance": "Attach a hardware MFA device to the root account; document attestation if virtual MFA is used.",
+    "guidance": "Manual attestation required: the IAM API does not distinguish hardware vs virtual MFA. Attach a hardware MFA device to root and attest, or document the virtual-MFA exception.",
     "checks": []
   },
   {
@@ -684,8 +684,10 @@
     "control_id": "1.17",
     "title": "Ensure IAM instance roles are used for AWS resource access",
     "description": "Long-lived IAM user credentials on EC2 instances are discouraged; instance profiles are preferred.",
-    "guidance": "Review workloads for embedded access keys; migrate to instance profiles. Manual architecture attestation.",
-    "checks": []
+    "guidance": "Vigil flags running instances with no IAM instance profile attached. Attach instance roles for AWS access; instances that never call AWS APIs can be snoozed with a note.",
+    "checks": [
+      "ec2.instance.no_instance_profile"
+    ]
   },
   {
     "framework": "cis_aws_l1",

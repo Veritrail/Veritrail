@@ -76,6 +76,8 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
                         metadata_options = inst.get("MetadataOptions", {})
                         imdsv2_required = metadata_options.get("HttpTokens") == "required"
 
+                        profile_arn = (inst.get("IamInstanceProfile") or {}).get("Arn")
+
                         sg_ids = [sg["GroupId"] for sg in inst.get("SecurityGroups", [])]
 
                         tags = {t["Key"]: t["Value"] for t in inst.get("Tags", [])}
@@ -88,6 +90,7 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
                             instance_type=instance_type,
                             state=state,
                             imdsv2_required=imdsv2_required,
+                            iam_instance_profile_arn=profile_arn,
                             vpc_id=vpc_id,
                             subnet_id=subnet_id,
                             security_group_ids=sg_ids,
@@ -98,6 +101,7 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
                             set_={
                                 "state": state,
                                 "imdsv2_required": imdsv2_required,
+                                "iam_instance_profile_arn": profile_arn,
                                 "vpc_id": vpc_id,
                                 "subnet_id": subnet_id,
                                 "security_group_ids": sg_ids,

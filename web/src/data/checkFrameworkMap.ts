@@ -39,6 +39,7 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "ec2.ebs.snapshot_unencrypted": ["iso27001", "soc2"],
   "ec2.ebs.volume_unencrypted": ["cis_aws_l1", "iso27001", "soc2"],
   "ec2.instance.imdsv2_not_required": ["cis_aws_l1", "iso27001", "soc2"],
+  "ec2.instance.no_instance_profile": ["cis_aws_l1"],
   "ec2.security_group.default_allows_traffic": ["cis_aws_l1", "iso27001", "soc2"],
   "ec2.security_group.unrestricted_rdp": ["cis_aws_l1", "iso27001", "soc2"],
   "ec2.security_group.unrestricted_ssh": ["cis_aws_l1", "iso27001", "soc2"],

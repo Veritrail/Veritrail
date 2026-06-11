@@ -136,6 +136,7 @@ class Ec2Instance(Base):
     instance_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     state: Mapped[str] = mapped_column(String(20))
     imdsv2_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    iam_instance_profile_arn: Mapped[str | None] = mapped_column(String(512), nullable=True)
     vpc_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     subnet_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     security_group_ids: Mapped[list] = mapped_column(JSON, default=list)
