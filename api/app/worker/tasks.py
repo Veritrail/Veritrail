@@ -1641,3 +1641,17 @@ def ai_triage_single_finding(finding_id: str) -> dict:
         return {"ok": False, "error": str(e)}
     finally:
         db.close()
+
+
+@celery_app.task(name="app.worker.tasks.alert_stale_scans")
+def alert_stale_scans() -> dict:
+    """Hourly evidence-gap guard: alert when a connected account has not
+    scanned within its configured interval (+ grace). See scan_alert."""
+    from app.services.scan_alert import notify_stale_scans
+
+    db = SessionLocal()
+    try:
+        sent = notify_stale_scans(db)
+        return {"alerts_sent": sent}
+    finally:
+        db.close()

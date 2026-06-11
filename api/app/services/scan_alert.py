@@ -277,3 +277,134 @@ def notify_new_findings(db: Session, account_id: uuid.UUID, scan_run_id: uuid.UU
 
     log.info("new_findings_alert.done", account_id=str(acc.id), count=len(items), sent=sent)
     return sent
+
+
+# --- stale-scan alerting -----------------------------------------------------
+# For an evidence product the one unforgivable failure is a silent scan gap
+# inside the audit window. Alert when a connected account has not completed a
+# scan within its configured interval (+ grace), once per stale episode.
+
+_STALE_GRACE_HOURS = 2
+_STALE_REALERT_HOURS = 24
+
+
+def _expected_interval_hours(org_settings: dict | None) -> int | None:
+    from app.services.scan_schedule import _INTERVAL_HOURS, get_scanning_settings
+
+    scanning = get_scanning_settings(org_settings)
+    if not scanning.get("enabled") or scanning.get("interval") == "manual":
+        return None
+    if scanning["interval"] == "custom":
+        return scanning.get("custom_hours") or 24
+    return _INTERVAL_HOURS.get(scanning["interval"], 24)
+
+
+def send_stale_scan_email(
+    *, to: str, org_name: str, account_label: str, account_id: str | None,
+    hours_overdue: int, last_scan_label: str,
+) -> bool:
+    if not settings.RESEND_API_KEY:
+        log.info("stale_scan_alert.skipped", reason="RESEND_API_KEY not set", to=to)
+        return False
+    acct = f" ({account_id})" if account_id else ""
+    subject = f"Vigil: No recent scan — {account_label}"
+    text = (
+        f"Vigil has not completed a scan for {account_label}{acct} in over "
+        f"{hours_overdue} hours (last scan {last_scan_label}).\n\n"
+        f"Organization: {org_name}\n\n"
+        "Continuous evidence has a gap until the next successful scan. Open "
+        "Vigil → Accounts to verify the IAM role and trigger a scan."
+    )
+    try:
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
+            json={"from": settings.DIGEST_FROM, "to": [to], "subject": subject, "text": text},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.error("stale_scan_alert.email_failed", error=str(e))
+        return False
+
+
+def _post_stale_scan_slack(slack_url: str, account_label: str, hours_overdue: int) -> bool:
+    text = (
+        f":warning: *Vigil scan gap* — `{account_label}` has not completed a scan "
+        f"in over {hours_overdue}h. Evidence collection has a gap until the next "
+        "successful scan."
+    )
+    try:
+        resp = httpx.post(slack_url, json={"text": text}, timeout=10)
+        resp.raise_for_status()
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.error("stale_scan_alert.slack_failed", error=str(e))
+        return False
+
+
+def notify_stale_scans(db: Session) -> int:
+    """Alert once per stale episode for every connected, schedule-enabled
+    account whose last scan exceeds interval + grace. Returns alerts sent."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+    now = datetime.now(timezone.utc)
+    sent_count = 0
+    accounts = db.scalars(
+        select(AwsAccount).where(AwsAccount.status == "connected")
+    ).all()
+    for acc in accounts:
+        org = db.get(Org, acc.org_id)
+        if not org:
+            continue
+        hours = _expected_interval_hours(org.settings)
+        if hours is None or not acc.last_scan_at:
+            continue
+        last = acc.last_scan_at
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        deadline = last + timedelta(hours=hours + _STALE_GRACE_HOURS)
+
+        notifications = (org.settings or {}).setdefault("notifications", {})
+        markers = notifications.setdefault("stale_scan_alerted", {})
+        key = str(acc.id)
+
+        if now <= deadline:
+            if key in markers:
+                del markers[key]
+                flag_modified(org, "settings")
+                db.commit()
+            continue
+
+        prev = markers.get(key)
+        if prev:
+            try:
+                prev_dt = datetime.fromisoformat(prev)
+            except ValueError:
+                prev_dt = None
+            if prev_dt and now - prev_dt < timedelta(hours=_STALE_REALERT_HOURS):
+                continue
+
+        hours_overdue = int((now - last).total_seconds() // 3600)
+        last_label = last.strftime("%Y-%m-%d %H:%M UTC")
+        sent = False
+        slack_url = notifications.get("slack_webhook_url")
+        if slack_url:
+            sent = _post_stale_scan_slack(slack_url, acc.label, hours_overdue) or sent
+        recipient = resolve_alert_recipient(org, db)
+        if recipient:
+            sent = send_stale_scan_email(
+                to=recipient, org_name=org.name, account_label=acc.label,
+                account_id=acc.account_id, hours_overdue=hours_overdue,
+                last_scan_label=last_label,
+            ) or sent
+        if sent:
+            markers[key] = now.isoformat()
+            flag_modified(org, "settings")
+            db.commit()
+            sent_count += 1
+            log.info("stale_scan_alert.sent", account_id=key, hours_overdue=hours_overdue)
+    return sent_count

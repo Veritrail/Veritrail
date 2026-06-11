@@ -116,9 +116,10 @@
     "control_id": "CC6.7",
     "title": "Logical Access \u2014 Transmission Encryption",
     "description": "The entity restricts the transmission of confidential information to authorized internal and external users and protects it during transmission.",
-    "guidance": "Evidence: S3 buckets enforce HTTPS-only via bucket policy (aws:SecureTransport condition).",
+    "guidance": "Evidence: S3 buckets enforce HTTPS-only via bucket policy (aws:SecureTransport condition). Load balancer listeners use modern TLS security policies.",
     "checks": [
-      "s3.bucket.no_https_policy"
+      "s3.bucket.no_https_policy",
+      "elb.load_balancer.weak_tls_policy"
     ]
   },
   {
