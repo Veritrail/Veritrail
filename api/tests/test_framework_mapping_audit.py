@@ -7,9 +7,14 @@ from pathlib import Path
 
 from app.services.check_frameworks import check_framework_map, frameworks_for_check
 
-REPO = Path(__file__).resolve().parents[2]
-MATRIX_PATH = REPO / "api/data/cis_v5_level1_matrix.json"
-WEB_MAP_PATH = REPO / "web/src/data/checkFrameworkMap.ts"
+_API_ROOT = Path(__file__).resolve().parents[1]
+MATRIX_PATH = _API_ROOT / "data" / "cis_v5_level1_matrix.json"
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WEB_MAP_PATH = REPO_ROOT / "web/src/data/checkFrameworkMap.ts"
+# Docker api service: app at /app, web mounted at /web
+if not WEB_MAP_PATH.exists():
+    WEB_MAP_PATH = Path("/web/src/data/checkFrameworkMap.ts")
 
 
 def _web_framework_map() -> dict[str, set[str]]:
