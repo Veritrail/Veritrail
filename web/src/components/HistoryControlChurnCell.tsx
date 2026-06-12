@@ -35,10 +35,12 @@ export function HistoryControlChurnCell({
   events,
   scanCadence,
   periodDays,
+  showActivity = true,
 }: {
   events: HistoryEvent[];
   scanCadence?: ScanCadenceDay[];
   periodDays: number;
+  showActivity?: boolean;
 }) {
   const changed = useMemo(() => uniqueControlsChanged(events), [events]);
   const series = useMemo(() => churnDaySeries(scanCadence, periodDays), [scanCadence, periodDays]);
@@ -50,7 +52,11 @@ export function HistoryControlChurnCell({
         <span className="history-churn__count">{changed}</span>
         <span className="history-churn__suffix">control{changed === 1 ? "" : "s"} changed</span>
       </p>
-      <HistoryCadenceBars values={series} />
+      {showActivity ? (
+        <HistoryCadenceBars values={series} />
+      ) : (
+        <p className="history-churn__note">Point-in-time control movement</p>
+      )}
     </div>
   );
 }

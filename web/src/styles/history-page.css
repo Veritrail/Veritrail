@@ -264,11 +264,11 @@
   display: grid;
   width: 100%;
   grid-template-columns:
-    minmax(8.5rem, 1.05fr)
-    minmax(9rem, 1.15fr)
-    minmax(4.75rem, 0.62fr)
-    minmax(5.25rem, 0.72fr)
-    minmax(5.25rem, 0.72fr)
+    minmax(8rem, 0.85fr)
+    minmax(18rem, 2fr)
+    minmax(4.5rem, 0.52fr)
+    minmax(5rem, 0.62fr)
+    minmax(5rem, 0.62fr)
     minmax(11rem, 1.1fr);
   align-items: stretch;
   border-radius: 0.625rem;
@@ -293,8 +293,7 @@
 
 .history-stats__cell--chart {
   justify-content: center;
-  padding-top: 0.875rem;
-  padding-bottom: 0.875rem;
+  padding: 0.75rem 1.75rem;
 }
 
 .history-stats__cell--metric {
@@ -354,8 +353,12 @@
 .history-stats__spark {
   display: block;
   width: 100%;
-  height: 3.75rem;
+  height: 4.5rem;
   overflow: visible;
+}
+
+.history-stats__spark--zero {
+  filter: drop-shadow(0 8px 14px rgb(59 130 246 / 0.12));
 }
 
 .history-coverage {
@@ -460,6 +463,14 @@
   width: 100%;
   height: 1.125rem;
   overflow: visible;
+}
+
+.history-churn__note {
+  margin: 0.15rem 0 0;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .history-panel {
@@ -932,11 +943,12 @@
 
   .history-stats__cell--posture,
   .history-stats__cell--chart {
-    grid-column: span 1;
+    grid-column: 1 / -1;
   }
 
   .history-stats__cell--chart {
     border-right: none;
+    border-top: 1px solid var(--history-border);
   }
 
   .history-stats__cell--coverage {

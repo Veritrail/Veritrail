@@ -426,6 +426,7 @@ export default function HistoryV2() {
                   events={events}
                   scanCadence={historyQ.data?.scan_cadence}
                   periodDays={days}
+                  showActivity={false}
                 />
               ) : (
                 <div className="history-coverage">
