@@ -1,11 +1,10 @@
 import type { PostureTrendPoint } from "../lib/complianceHistory";
 
-const SPARK_W = 360;
+const SPARK_W = 720;
 const SPARK_H = 72;
-const SPARK_PAD_X = 16;
+const SPARK_PAD_X = 22;
 const SPARK_PAD_Y = 12;
 const SPARK_STROKE = "#3b82f6";
-const SPARK_FRAME = "#e5e7eb";
 const SPARK_FILL_ID = "history-spark-fill";
 
 function densifyTrend(points: PostureTrendPoint[], samples: number): PostureTrendPoint[] {
@@ -60,13 +59,9 @@ function smoothSparkPath(coords: { x: number; y: number }[]): string {
 }
 
 function sparkFrame() {
-  const baseY = SPARK_H - SPARK_PAD_Y;
   return (
     <>
-      <line x1={SPARK_PAD_X} y1={baseY} x2={SPARK_W - SPARK_PAD_X} y2={baseY} stroke={SPARK_FRAME} strokeWidth={1} />
-      <line x1={SPARK_PAD_X} y1={SPARK_H / 2} x2={SPARK_W - SPARK_PAD_X} y2={SPARK_H / 2} stroke="#eef2ff" strokeWidth={1} strokeDasharray="3 7" />
-      <line x1={SPARK_PAD_X} y1={SPARK_PAD_Y} x2={SPARK_PAD_X} y2={baseY} stroke={SPARK_FRAME} strokeWidth={1} />
-      <line x1={SPARK_W - SPARK_PAD_X} y1={SPARK_PAD_Y} x2={SPARK_W - SPARK_PAD_X} y2={baseY} stroke={SPARK_FRAME} strokeWidth={1} />
+      <line x1={SPARK_PAD_X} y1={SPARK_H / 2} x2={SPARK_W - SPARK_PAD_X} y2={SPARK_H / 2} stroke="#eaf1ff" strokeWidth={1} strokeDasharray="6 18" />
     </>
   );
 }
@@ -90,7 +85,7 @@ function ZeroPostureAnimation({ className }: { className: string }) {
         </linearGradient>
       </defs>
       <path
-        d={`M ${SPARK_PAD_X},${baseY} C ${SPARK_W * 0.28},${baseY - 18} ${SPARK_W * 0.42},${baseY + 4} ${SPARK_W * 0.58},${baseY - 10} S ${SPARK_W - SPARK_PAD_X * 1.8},${baseY - 8} ${SPARK_W - SPARK_PAD_X},${baseY - 20}`}
+        d={`M ${SPARK_PAD_X},${baseY - 4} C ${SPARK_W * 0.24},${baseY - 18} ${SPARK_W * 0.38},${baseY + 2} ${SPARK_W * 0.54},${baseY - 10} S ${SPARK_W * 0.78},${baseY - 12} ${SPARK_W - SPARK_PAD_X},${baseY - 22}`}
         fill="none"
         stroke="#dbeafe"
         strokeWidth={3}
@@ -148,7 +143,7 @@ function FlatPostureBand({
         <animate attributeName="x" values={`${SPARK_PAD_X};${SPARK_W - SPARK_PAD_X - 70};${SPARK_PAD_X}`} dur="4.2s" repeatCount="indefinite" />
       </rect>
       {[SPARK_PAD_X, SPARK_W * 0.5, SPARK_W - SPARK_PAD_X].map((x, i) => (
-        <circle key={i} cx={x} cy={y} r={i === 1 ? 5 : 4.5} fill="#fff" stroke="#3b82f6" strokeWidth={2.5} />
+        <circle key={i} cx={x} cy={y} r={i === 1 ? 4 : 3.5} fill="#fff" stroke="#3b82f6" strokeWidth={2} />
       ))}
     </svg>
   );
@@ -173,7 +168,7 @@ export function HistorySparkline({
           x2={SPARK_W - SPARK_PAD_X}
           y2={SPARK_H / 2}
           stroke="#d1d5db"
-          strokeWidth={1.5}
+          strokeWidth={1.8}
           strokeDasharray="4 4"
         />
       </svg>
@@ -221,9 +216,9 @@ export function HistorySparkline({
       </defs>
       {sparkFrame()}
       <path d={areaPath} fill={`url(#${SPARK_FILL_ID})`} />
-      <path d={path} fill="none" stroke={SPARK_STROKE} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={start.x} cy={start.y} r={4} fill="#fff" stroke={SPARK_STROKE} strokeWidth={2.5} />
-      <circle cx={end.x} cy={end.y} r={4.5} fill={SPARK_STROKE} />
+      <path d={path} fill="none" stroke={SPARK_STROKE} strokeWidth={3.25} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={start.x} cy={start.y} r={3.25} fill="#fff" stroke={SPARK_STROKE} strokeWidth={2} />
+      <circle cx={end.x} cy={end.y} r={4} fill={SPARK_STROKE} />
     </svg>
   );
 }
