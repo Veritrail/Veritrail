@@ -359,7 +359,7 @@
 }
 
 .history-stats__spark--zero {
-  filter: drop-shadow(0 8px 14px rgb(59 130 246 / 0.12));
+  filter: drop-shadow(0 5px 10px rgb(59 130 246 / 0.08));
 }
 
 .history-stats__spark--flat {

@@ -32,24 +32,14 @@ function trendDomain(scores: number[]) {
   return { low: Math.max(0, low), high: Math.min(100, high) };
 }
 
-function ZeroPostureAnimation({ className }: { className: string }) {
+function ZeroPostureState({ className }: { className: string }) {
   const viewBox = `0 0 ${SPARK_W} ${SPARK_H}`;
   const baseY = SPARK_H - SPARK_PAD_Y;
-  const points = [0.18, 0.34, 0.5, 0.66, 0.82].map((ratio) => ({
-    x: SPARK_PAD_X + ratio * (SPARK_W - SPARK_PAD_X * 2),
-    delay: ratio * 1.2,
-  }));
+  const dotPoints = [0.18, 0.34, 0.5, 0.66, 0.82];
 
   return (
     <svg viewBox={viewBox} className={`${className} history-stats__spark--zero`} preserveAspectRatio="none" aria-label="Zero percent posture">
       {sparkFrame()}
-      <defs>
-        <linearGradient id="history-zero-scan" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#93c5fd" stopOpacity={0} />
-          <stop offset="45%" stopColor="#3b82f6" stopOpacity={0.75} />
-          <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0} />
-        </linearGradient>
-      </defs>
       <polyline
         points={[
           `${SPARK_PAD_X},${baseY - 6}`,
@@ -66,19 +56,17 @@ function ZeroPostureAnimation({ className }: { className: string }) {
         strokeLinejoin="round"
         strokeDasharray="6 10"
       />
-      <rect x={SPARK_PAD_X} y={SPARK_PAD_Y} width="52" height={SPARK_H - SPARK_PAD_Y * 2} rx="26" fill="url(#history-zero-scan)" opacity={0.7}>
-        <animate attributeName="x" values={`${SPARK_PAD_X};${SPARK_W - SPARK_PAD_X - 52};${SPARK_PAD_X}`} dur="3.8s" repeatCount="indefinite" />
-      </rect>
-      {points.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={baseY - (i % 2 === 0 ? 7 : 16)} r={4.5} fill="#3b82f6" opacity={0.85}>
-            <animate attributeName="opacity" values="0.35;1;0.35" dur="1.9s" begin={`${p.delay}s`} repeatCount="indefinite" />
-          </circle>
-          <circle cx={p.x} cy={baseY - (i % 2 === 0 ? 7 : 16)} r={4.5} fill="none" stroke="#60a5fa" strokeWidth={1.5} opacity={0.45}>
-            <animate attributeName="r" values="4.5;13;4.5" dur="1.9s" begin={`${p.delay}s`} repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.45;0;0.45" dur="1.9s" begin={`${p.delay}s`} repeatCount="indefinite" />
-          </circle>
-        </g>
+      {dotPoints.map((ratio, i) => (
+        <circle
+          key={i}
+          cx={SPARK_PAD_X + ratio * (SPARK_W - SPARK_PAD_X * 2)}
+          cy={baseY - (i % 2 === 0 ? 7 : 16)}
+          r={3.5}
+          fill="#bfdbfe"
+          stroke="#60a5fa"
+          strokeWidth={1.5}
+          opacity={0.8}
+        />
       ))}
     </svg>
   );
@@ -105,17 +93,9 @@ function FlatPostureBand({
           <stop offset="45%" stopColor="#60a5fa" stopOpacity={0.35} />
           <stop offset="100%" stopColor="#ccfbf1" stopOpacity={0.25} />
         </linearGradient>
-        <linearGradient id="history-flat-sweep" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0} />
-          <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.75} />
-          <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
-        </linearGradient>
       </defs>
       <rect x={SPARK_PAD_X} y={bandTop} width={SPARK_W - SPARK_PAD_X * 2} height={bandHeight} rx={bandHeight / 2} fill="url(#history-flat-band)" />
       <line x1={SPARK_PAD_X} y1={y} x2={SPARK_W - SPARK_PAD_X} y2={y} stroke="#3b82f6" strokeWidth={3} strokeLinecap="round" />
-      <rect x={SPARK_PAD_X} y={bandTop - 2} width="70" height={bandHeight + 4} rx={(bandHeight + 4) / 2} fill="url(#history-flat-sweep)" opacity={0.5}>
-        <animate attributeName="x" values={`${SPARK_PAD_X};${SPARK_W - SPARK_PAD_X - 70};${SPARK_PAD_X}`} dur="4.2s" repeatCount="indefinite" />
-      </rect>
       <circle cx={SPARK_W - SPARK_PAD_X} cy={y} r={3.5} fill={SPARK_STROKE} />
     </svg>
   );
@@ -152,7 +132,7 @@ export function HistorySparkline({
   const hasOnlyZeroScores = scores.every((score) => score <= 0);
 
   if (hasOnlyZeroScores) {
-    return <ZeroPostureAnimation className={className} />;
+    return <ZeroPostureState className={className} />;
   }
 
   const rawMin = Math.min(...scores);
