@@ -1,4 +1,5 @@
 import type { HistoryEvent, HistoryEventType } from "./complianceHistory";
+import { maskSensitiveText } from "./sensitiveDisplay";
 
 const DETAIL_NOISE = /^(fast verify:|verify:|auto:)\s*/i;
 const SCAN_CLEARED_NOTE = /^(?:not present in latest scan|fixed|cleared in scan|no longer detected)$/i;
@@ -30,7 +31,7 @@ export function formatResolvedFindingDetail(detail?: string | null): string {
   if (FAST_VERIFY_NOTE.test(cleaned) || /^resource passes check in aws$/i.test(cleaned)) return "Verified via AWS API";
   if (SCAN_CLEARED_NOTE.test(cleaned) || NO_LONGER_PRESENT_NOTE.test(cleaned)) return "No longer detected";
   if (SUPERSEDED_NOTE.test(cleaned)) return "Superseded";
-  return sentenceCaseDetail(cleaned) || "Manually verified";
+  return maskSensitiveText(sentenceCaseDetail(cleaned) || "Manually verified");
 }
 
 export type EventPresentation = {

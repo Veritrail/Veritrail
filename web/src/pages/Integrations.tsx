@@ -8,17 +8,14 @@ import NotificationsBell from "../components/NotificationsBell";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import {
-  AwsBrandTile,
-  formatSync,
-  GitHubMark,
-  GitLabMark,
-  IconClock,
+  formatSyncDetail,
   IconShield,
-  IconSync,
-  SlackMark,
+  IntegrationBrandIcon,
   Spinner,
   StatusDot,
 } from "../components/IntegrationsUi";
+import type { IntegrationBrandId } from "../lib/integrationBrands";
+import "../styles/integrations-page.css";
 
 type ProviderSummary = {
   id: string;
@@ -45,403 +42,225 @@ type SettingsSlice = {
 
 type Tone = "ok" | "warn" | "idle" | "sync";
 
-type IntegrationCard = {
+type IntegrationRow = {
+  key: string;
   name: string;
-  valueProp: string;
+  statusText: string;
   icon: ReactNode;
-  iconBg: string;
-  framedIcon?: boolean;
-  connected?: boolean;
+  href: string;
+  connected: boolean;
   syncing?: boolean;
   loading?: boolean;
-  href: string;
-  cta: string;
-  evidenceTypes: string[];
-  lastSync: string;
-  permissionsLabel: string;
+  lastSyncAt: string | null;
+  lastSyncLabel?: string;
   healthLabel: string;
   healthTone?: Tone;
-  primarySource?: boolean;
-  accent?: "primary" | "connected" | "none";
+  permissionsLabel: string;
+  permissionsVerified?: boolean;
+  capabilities: string[];
 };
 
-type SummaryMetric = {
-  label: string;
-  value: string | number;
-  tone?: Tone;
+type ExploreCard = {
+  key: string;
+  brand: IntegrationBrandId;
+  name: string;
+  description: string;
+  href?: string;
+  comingSoon?: boolean;
 };
 
 function integrationCta(connected: boolean): string {
   return connected ? "Manage" : "Connect";
 }
 
-function integrationStatus(card: IntegrationCard): { label: string; tone: Tone } {
-  if (card.loading) return { label: "Loading", tone: "idle" };
-  if (card.syncing) return { label: "Syncing", tone: "sync" };
-  if (card.connected) return { label: "Connected", tone: "ok" };
-  return { label: "Not connected", tone: "idle" };
-}
-
-function StatusPill({ label, tone }: { label: string; tone: Tone }) {
-  const cls =
-    tone === "ok"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : tone === "warn"
-        ? "bg-amber-50 text-amber-700 ring-amber-200"
-        : tone === "sync"
-          ? "bg-sky-50 text-sky-700 ring-sky-200"
-          : "bg-zinc-100 text-zinc-500 ring-zinc-200";
+function CapabilityPills({ tags }: { tags: string[] }) {
+  const visible = tags.slice(0, 3);
+  const extra = tags.length - visible.length;
   return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${cls}`}
-    >
-      {tone === "sync" && <Spinner className="h-2.5 w-2.5" />}
-      {label}
-    </span>
-  );
-}
-
-function PrimarySourceBadge() {
-  return (
-    <span className="inline-flex shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200">
-      Primary source
-    </span>
-  );
-}
-
-function StatValue({ value, tone }: { value: string; tone?: Tone }) {
-  if (!tone) {
-    return <p className="mt-1 truncate text-sm font-semibold text-zinc-900">{value}</p>;
-  }
-  return (
-    <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-sm font-semibold text-zinc-900">
-      {tone === "sync" ? (
-        <Spinner className="h-3.5 w-3.5 shrink-0 text-sky-600" />
-      ) : (
-        <StatusDot tone={tone} />
-      )}
-      <span className="truncate">{value}</span>
-    </p>
-  );
-}
-
-function StatsRow({
-  children,
-  compact,
-}: {
-  children: ReactNode;
-  compact?: boolean;
-}) {
-  const spacing = compact ? "mt-4" : "mt-5";
-  return (
-    <div className={`${spacing} overflow-hidden rounded-xl border border-slate-200/70 bg-slate-50/60`}>
-      <div className="grid divide-y divide-slate-200/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0">{children}</div>
-    </div>
-  );
-}
-
-function StatColumn({
-  icon,
-  label,
-  value,
-  valueTone,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  valueTone?: Tone;
-}) {
-  return (
-    <div className="min-w-0 px-3.5 py-3">
-      <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-        <span className="text-zinc-400">{icon}</span>
-        {label}
-      </div>
-      <StatValue value={value} tone={valueTone} />
-    </div>
-  );
-}
-
-function EvidenceTags({ types }: { types: string[] }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {types.map((t) => (
-        <span
-          key={t}
-          className="rounded-md border border-[#edf1f6] bg-[#f8fafc] px-2.5 py-1.5 text-[12px] font-medium text-[#5f6673]"
-        >
-          {t}
+    <div className="integrations-capabilities">
+      {visible.map((tag) => (
+        <span key={tag} className="integrations-capability">
+          {tag}
         </span>
       ))}
+      {extra > 0 && <span className="integrations-capability">+{extra}</span>}
     </div>
   );
 }
 
-function IconGear({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-    </svg>
-  );
-}
-
-function CardAction({
-  href,
+function SummaryCard({
   label,
-  connect = false,
-  accent = "none",
+  value,
+  tone,
 }: {
-  href: string;
   label: string;
-  connect?: boolean;
-  accent?: IntegrationCard["accent"];
+  value: number;
+  tone: Tone;
 }) {
-  const manageAccentCls =
-    !connect && accent === "primary"
-      ? "border-l-[3px] border-l-transparent hover:border-l-sky-400"
-      : !connect && accent === "connected"
-        ? "border-l-[3px] border-l-transparent hover:border-l-emerald-400"
-        : "";
+  const iconCls =
+    tone === "ok"
+      ? "integrations-summary-icon integrations-summary-icon--ok"
+      : tone === "sync"
+        ? "integrations-summary-icon integrations-summary-icon--sync"
+        : tone === "warn"
+          ? "integrations-summary-icon integrations-summary-icon--warn"
+          : "integrations-summary-icon integrations-summary-icon--sync";
+
+  const icon =
+    tone === "warn" ? (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+        />
+      </svg>
+    ) : tone === "sync" ? (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"
+        />
+      </svg>
+    ) : (
+      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+    );
 
   return (
-    <Link
-      to={href}
-      className={`vigil-toolbar-btn min-w-[116px] px-4 ${
-        connect
-          ? "vigil-toolbar-btn--neutral"
-          : `border-slate-200 font-semibold text-slate-700 shadow-sm shadow-slate-950/[0.03] hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-md hover:shadow-zinc-950/[0.07] ${manageAccentCls}`
-      }`}
-    >
-      {connect ? <IconSync className="h-4 w-4" /> : <IconGear className="h-4 w-4" />}
-      {label}
-    </Link>
+    <div className="integrations-summary-card">
+      <span className={iconCls}>{icon}</span>
+      <div>
+        <span className="integrations-summary-label">{label}</span>
+        <div className="integrations-summary-value">{value}</div>
+      </div>
+    </div>
   );
 }
 
-function IntegrationCardView({ card }: { card: IntegrationCard }) {
-  const status = integrationStatus(card);
-  const accentCls =
-    card.accent === "primary"
-      ? "border-l-[3px] border-l-sky-400"
-      : card.accent === "connected"
-        ? "border-l-[3px] border-l-emerald-400"
-        : "";
+function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
+  const collection =
+    row.lastSyncLabel != null
+      ? { primary: row.lastSyncLabel, secondary: "" }
+      : formatSyncDetail(row.lastSyncAt);
 
   return (
-    <article
-      className={`flex min-h-[17rem] flex-col overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.035] transition hover:border-zinc-300/80 hover:shadow-md hover:shadow-zinc-950/[0.055] ${accentCls}`}
-    >
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex items-start gap-3.5">
-          {card.framedIcon ? (
-            card.icon
-          ) : (
-            <span
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm ${card.iconBg}`}
-            >
-              <span className="h-6 w-6">{card.icon}</span>
-            </span>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-bold tracking-[-0.01em] text-zinc-950">{card.name}</h2>
-              <StatusPill label={status.label} tone={status.tone} />
-              {card.primarySource && <PrimarySourceBadge />}
-            </div>
-            <p className="mt-1.5 truncate text-sm text-zinc-600">{card.valueProp}</p>
+    <tr>
+      <td>
+        <div className="integrations-table__integration">
+          {row.icon}
+          <div className="min-w-0">
+            <div className="integrations-table__name">{row.name}</div>
+            {row.connected && <span className="integrations-table__badge">Connected</span>}
           </div>
         </div>
-
-        <StatsRow compact>
-          <StatColumn icon={<IconClock className="h-3.5 w-3.5" />} label="Last collection" value={card.lastSync} />
-          <StatColumn
-            icon={<IconSync className="h-3.5 w-3.5" />}
-            label="Sync"
-            value={card.healthLabel}
-            valueTone={card.healthTone}
-          />
-          <StatColumn icon={<IconShield className="h-3.5 w-3.5" />} label="Permissions" value={card.permissionsLabel} />
-        </StatsRow>
-      </div>
-
-      <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-slate-300/80 bg-slate-50/60 px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
-        <EvidenceTags types={card.evidenceTypes} />
-        <CardAction
-          href={card.href}
-          label={card.cta}
-          connect={!card.connected && card.cta === "Connect"}
-          accent={card.accent}
-        />
-      </div>
-    </article>
-  );
-}
-
-function SummaryStrip({ items }: { items: SummaryMetric[] }) {
-  const railClass: Record<Tone, string> = {
-    ok: "bg-emerald-400",
-    sync: "bg-indigo-400",
-    warn: "bg-amber-400",
-    idle: "bg-slate-300",
-  };
-  const valueClass: Record<Tone, string> = {
-    ok: "text-slate-950",
-    sync: "text-slate-950",
-    warn: "text-amber-700",
-    idle: "text-slate-950",
-  };
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="relative overflow-hidden rounded-xl border border-zinc-200/90 bg-white px-4 py-3.5 shadow-sm shadow-zinc-950/[0.025]"
-        >
-          {item.tone && <span className={`absolute inset-y-3 left-0 w-0.5 rounded-r-full ${railClass[item.tone]}`} />}
-          <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">{item.label}</span>
-          <span
-            className={`mt-2 block text-2xl font-extrabold leading-none tabular-nums tracking-[-0.03em] ${
-              item.tone ? valueClass[item.tone] : "text-slate-950"
-            }`}
-          >
-            {item.value}
-          </span>
+      </td>
+      <td>
+        <p className="integrations-table__status">{row.statusText}</p>
+      </td>
+      <td>
+        {row.loading ? (
+          <span className="text-slate-400">—</span>
+        ) : (
+          <>
+            <div className="integrations-table__collection-primary">{collection.primary}</div>
+            {collection.secondary && (
+              <div className="integrations-table__collection-secondary">{collection.secondary}</div>
+            )}
+          </>
+        )}
+      </td>
+      <td>
+        <span className="integrations-table__sync">
+          {row.syncing ? <Spinner className="h-3.5 w-3.5 text-sky-600" /> : <StatusDot tone={row.healthTone ?? "idle"} />}
+          {row.healthLabel}
+        </span>
+      </td>
+      <td>
+        <span className="integrations-table__permissions">
+          {row.permissionsVerified && <IconShield className="h-3.5 w-3.5 text-emerald-600" />}
+          {row.permissionsLabel}
+        </span>
+      </td>
+      <td>
+        <CapabilityPills tags={row.capabilities} />
+      </td>
+      <td>
+        <div className="integrations-table__actions">
+          <Link to={row.href} className="integrations-manage-btn">
+            {integrationCta(row.connected)}
+          </Link>
+          <Link to={row.href} className="integrations-chevron" aria-label={`Open ${row.name}`}>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
         </div>
-      ))}
-    </div>
+      </td>
+    </tr>
   );
 }
 
-function IntegrationSection({
-  title,
-  description,
-  cards,
-}: {
-  title: string;
-  description: string;
-  cards: IntegrationCard[];
-}) {
-  if (cards.length === 0) return null;
-  return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-zinc-400">{title}</h2>
-        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <div className="integrations-table-wrap px-6 py-10 text-center text-sm text-slate-500">
+        No connected integrations yet. Connect AWS or a source control provider to get started.
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {cards.map((card) => (
-          <IntegrationCardView key={card.name} card={card} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-type CatalogueEntry = {
-  name: string;
-  href?: string;
-  icon: ReactNode;
-  iconBg: string;
-  comingSoon?: boolean;
-};
-
-const COMING_SOON_CATALOGUE: CatalogueEntry[] = [
-  {
-    name: "Jira",
-    comingSoon: true,
-    iconBg: "bg-[#0052CC]",
-    icon: (
-      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden fill="currentColor">
-        <path d="M11.53 2C6.82 2 3 5.82 3 10.53c0 2.31 1.01 4.39 2.61 5.82L2 22l5.92-3.47A9.42 9.42 0 0 0 11.53 19c4.71 0 8.53-3.82 8.53-8.47C20.06 5.82 16.24 2 11.53 2Z" />
-      </svg>
-    ),
-  },
-  {
-    name: "Azure DevOps",
-    comingSoon: true,
-    iconBg: "bg-[#0078D4]",
-    icon: (
-      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden fill="currentColor">
-        <path d="M5.4 4.2h8.28l-1.02 5.58 5.94-2.78L8.9 19.8 7.2 12.6l-4.5 2.1L5.4 4.2z" />
-      </svg>
-    ),
-  },
-  {
-    name: "Datadog",
-    comingSoon: true,
-    iconBg: "bg-[#632CA6]",
-    icon: (
-      <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden fill="currentColor">
-        <path d="M12 3c-4.2 0-7.6 3.1-8.2 7.1l2.1.4c.5-3 3.1-5.2 6.1-5.2 3.4 0 6.2 2.8 6.2 6.2s-2.8 6.2-6.2 6.2c-1.6 0-3-.6-4.1-1.7L4.8 18.2A9.9 9.9 0 0 0 12 21c5.5 0 10-4.5 10-10S17.5 3 12 3Zm-1.1 5.8v4.4l3.8 2.2.9-1.5-2.9-1.7V8.8l-1.8-1Z" />
-      </svg>
-    ),
-  },
-];
-
-function CatalogueTile({ entry }: { entry: CatalogueEntry }) {
-  const body = (
-    <>
-      <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-sm ${entry.iconBg} ${
-          entry.comingSoon ? "opacity-80" : ""
-        }`}
-      >
-        {entry.icon}
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-zinc-950">{entry.name}</p>
-        <p className={`text-[11px] font-medium ${entry.comingSoon ? "text-zinc-400" : "text-indigo-600"}`}>
-          {entry.comingSoon ? "Coming soon" : "Connect"}
-        </p>
-      </div>
-    </>
-  );
-
-  const cls =
-    "flex w-[11.5rem] shrink-0 items-center gap-3 rounded-xl border border-zinc-200/90 bg-white px-3.5 py-3 shadow-sm shadow-zinc-950/[0.025]";
-
-  if (entry.comingSoon || !entry.href) {
-    return <div className={`${cls} opacity-75`}>{body}</div>;
+    );
   }
 
   return (
-    <Link
-      to={entry.href}
-      className={`${cls} transition hover:border-indigo-200 hover:bg-indigo-50/30 hover:shadow-md hover:shadow-zinc-950/[0.04]`}
-    >
-      {body}
-    </Link>
+    <div className="integrations-table-wrap">
+      <table className="integrations-table">
+        <thead>
+          <tr>
+            <th>Integration</th>
+            <th>Status</th>
+            <th>Last collection</th>
+            <th>Sync</th>
+            <th>Permissions</th>
+            <th>Capabilities</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <IntegrationsTableRow key={row.key} row={row} />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-function AvailableIntegrationsCatalogue({ slack }: { slack: IntegrationCard | null }) {
-  const entries: CatalogueEntry[] = [
-    ...(slack
-      ? [
-          {
-            name: slack.name,
-            href: slack.href,
-            iconBg: slack.iconBg,
-            icon: <span className="h-4 w-4">{slack.icon}</span>,
-          } satisfies CatalogueEntry,
-        ]
-      : []),
-    ...COMING_SOON_CATALOGUE,
-  ];
-
+function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
   return (
-    <section className="space-y-3">
+    <section className="integrations-explore">
       <div>
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-zinc-400">Available integrations</h2>
+        <h2>Explore more integrations</h2>
         <p className="mt-1 text-sm text-zinc-500">Optional destinations and alerts you can connect next.</p>
       </div>
-      <div className="flex flex-wrap gap-3">{entries.map((entry) => <CatalogueTile key={entry.name} entry={entry} />)}</div>
+      <div className="integrations-explore-grid">
+        {cards.map((card) => (
+          <article key={card.key} className="integrations-explore-card">
+            <IntegrationBrandIcon brand={card.brand} size={48} variant="plain" className="integrations-explore-card__icon" />
+            <div className="integrations-explore-card__body">
+              <div className="integrations-explore-card__name">{card.name}</div>
+              <p className="integrations-explore-card__desc">{card.description}</p>
+            </div>
+            {card.comingSoon || !card.href ? (
+              <button type="button" className="integrations-connect-btn" disabled>
+                Connect
+              </button>
+            ) : (
+              <Link to={card.href} className="integrations-connect-btn">
+                Connect
+              </Link>
+            )}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -458,10 +277,7 @@ function ScanProgressBanner() {
           <span className="text-sky-800/80"> We&apos;re syncing your AWS environment and refreshing findings.</span>
         </p>
       </div>
-      <Link
-        to="/accounts"
-        className="shrink-0 text-sm font-semibold text-sky-700 transition hover:text-sky-900"
-      >
+      <Link to="/accounts" className="shrink-0 text-sm font-semibold text-sky-700 transition hover:text-sky-900">
         View progress &gt;
       </Link>
     </div>
@@ -474,7 +290,10 @@ function IntegrationsContent() {
 
   const github = useQuery({ queryKey: ["github-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/github") });
   const gitlab = useQuery({ queryKey: ["gitlab-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/gitlab") });
-  const googleWorkspace = useQuery({ queryKey: ["google-workspace-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/google-workspace") });
+  const googleWorkspace = useQuery({
+    queryKey: ["google-workspace-provider"],
+    queryFn: () => api<ProviderSummary | null>("/v1/integrations/google-workspace"),
+  });
   const entra = useQuery({ queryKey: ["entra-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/entra") });
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<AccountRow[]>("/v1/accounts") });
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<SettingsSlice>("/v1/settings") });
@@ -496,152 +315,194 @@ function IntegrationsContent() {
   }, [scanStatus, qc]);
 
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
-  const connectedCount = [awsAccount?.status === "connected", !!github.data, !!gitlab.data, !!googleWorkspace.data, !!entra.data, slackConnected].filter(
+
+  const awsConnected = awsAccount?.status === "connected";
+  const githubConnected = !!github.data;
+  const gitlabConnected = !!gitlab.data;
+  const googleConnected = !!googleWorkspace.data;
+  const entraConnected = !!entra.data;
+
+  const connectedCount = [awsConnected, githubConnected, gitlabConnected, googleConnected, entraConnected, slackConnected].filter(
     Boolean,
   ).length;
-  const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(Boolean).length;
-  const errorCount = [accounts.isError, github.isError, gitlab.isError, googleWorkspace.isError, entra.isError, settings.isError].filter(Boolean).length;
+  const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(
+    Boolean,
+  ).length;
+  const errorCount = [accounts.isError, github.isError, gitlab.isError, googleWorkspace.isError, entra.isError, settings.isError].filter(
+    Boolean,
+  ).length;
 
-  const awsCard: IntegrationCard = {
-    name: "AWS",
-    valueProp: "Posture scans, evidence packs, and SSM remediation.",
-    icon: <AwsBrandTile className="h-14 w-14 p-1.5" />,
-    iconBg: "",
-    framedIcon: true,
-    href: "/accounts",
-    cta: integrationCta(awsAccount?.status === "connected"),
-    connected: awsAccount?.status === "connected",
-    syncing: awsScanRunning,
-    loading: accounts.isLoading,
-    primarySource: true,
-    accent: "primary",
-    evidenceTypes: ["IAM", "S3", "KMS", "CloudTrail", "Remediation"],
-    lastSync: formatSync(awsAccount?.last_scan_at ?? null) || "—",
-    healthLabel: awsScanRunning ? "Scanning" : awsAccount?.last_scan_at ? "Stable" : "Awaiting scan",
-    healthTone: awsScanRunning ? "sync" : awsAccount?.last_scan_at ? "ok" : "idle",
-    permissionsLabel: awsAccount?.status === "connected" ? "Connector verified" : "Not connected",
-  };
+  const integrationRows: IntegrationRow[] = [
+    {
+      key: "aws",
+      name: "AWS",
+      statusText: "Posture scans, audit evidence, and automated remediation.",
+      icon: <IntegrationBrandIcon brand="aws" size={48} />,
+      href: "/accounts",
+      connected: awsConnected,
+      syncing: awsScanRunning,
+      loading: accounts.isLoading,
+      lastSyncAt: awsAccount?.last_scan_at ?? null,
+      healthLabel: awsScanRunning ? "Scanning" : awsAccount?.last_scan_at ? "Stable" : "Awaiting scan",
+      healthTone: awsScanRunning ? "sync" : awsAccount?.last_scan_at ? "ok" : "idle",
+      permissionsLabel: awsConnected ? "Connector verified" : "Not connected",
+      permissionsVerified: awsConnected,
+      capabilities: ["IAM", "S3", "KMS", "CloudTrail", "Remediation"],
+    },
+    {
+      key: "github",
+      name: "GitHub",
+      statusText: "Repository controls, reviews, and change-management evidence.",
+      icon: <IntegrationBrandIcon brand="github" size={48} />,
+      href: "/integrations/github",
+      connected: githubConnected,
+      syncing: githubSync.isSyncing,
+      loading: github.isLoading,
+      lastSyncAt: github.data?.last_synced_at ?? null,
+      healthLabel: githubSync.isSyncing ? "Syncing" : githubConnected ? "Stable" : "Not configured",
+      healthTone: githubSync.isSyncing ? "sync" : githubConnected ? "ok" : "idle",
+      permissionsLabel: githubConnected ? "OAuth connected" : "Not connected",
+      permissionsVerified: githubConnected,
+      capabilities: ["Branch protection", "Reviews", "Repositories"],
+    },
+    {
+      key: "gitlab",
+      name: "GitLab",
+      statusText: "Merge-request controls, protected branches, and change-management evidence.",
+      icon: <IntegrationBrandIcon brand="gitlab" size={48} />,
+      href: "/integrations/gitlab",
+      connected: gitlabConnected,
+      syncing: gitlabSync.isSyncing,
+      loading: gitlab.isLoading,
+      lastSyncAt: gitlab.data?.last_synced_at ?? null,
+      healthLabel: gitlabSync.isSyncing ? "Syncing" : gitlabConnected ? "Stable" : "Not configured",
+      healthTone: gitlabSync.isSyncing ? "sync" : gitlabConnected ? "ok" : "idle",
+      permissionsLabel: gitlabConnected ? "OAuth connected" : "Not connected",
+      permissionsVerified: gitlabConnected,
+      capabilities: ["Protected branches", "MR approvals", "Projects"],
+    },
+    ...(googleConnected
+      ? [
+          {
+            key: "google-workspace",
+            name: "Google Workspace",
+            statusText: "Directory MFA, inactive users, and admin roster for CC6 evidence",
+            icon: <IntegrationBrandIcon brand="google-workspace" size={48} />,
+            href: "/integrations/google-workspace",
+            connected: true,
+            syncing: googleWorkspaceSync.isSyncing,
+            loading: googleWorkspace.isLoading,
+            lastSyncAt: googleWorkspace.data?.last_synced_at ?? null,
+            healthLabel: googleWorkspaceSync.isSyncing ? "Syncing" : "Stable",
+            healthTone: (googleWorkspaceSync.isSyncing ? "sync" : "ok") as Tone,
+            permissionsLabel: "OAuth connected",
+            permissionsVerified: true,
+            capabilities: ["MFA enforcement", "Inactive users", "Admin review"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(entraConnected
+      ? [
+          {
+            key: "entra",
+            name: "Microsoft Entra ID",
+            statusText: "Graph directory read for MFA posture, stale users, and privileged roles",
+            icon: <IntegrationBrandIcon brand="entra" size={48} />,
+            href: "/integrations/entra",
+            connected: true,
+            syncing: entraSync.isSyncing,
+            loading: entra.isLoading,
+            lastSyncAt: entra.data?.last_synced_at ?? null,
+            healthLabel: entraSync.isSyncing ? "Syncing" : "Stable",
+            healthTone: (entraSync.isSyncing ? "sync" : "ok") as Tone,
+            permissionsLabel: "OAuth connected",
+            permissionsVerified: true,
+            capabilities: ["MFA posture", "Inactive users", "Admin review"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(slackConnected
+      ? [
+          {
+            key: "slack",
+            name: "Slack",
+            statusText: "Scan alerts and weekly digests for your channel",
+            icon: <IntegrationBrandIcon brand="slack" size={48} />,
+            href: "/settings",
+            connected: true,
+            loading: settings.isLoading,
+            lastSyncAt: null,
+            lastSyncLabel: "Webhook active",
+            healthLabel: "Stable",
+            healthTone: "ok" as Tone,
+            permissionsLabel: "Webhook configured",
+            permissionsVerified: true,
+            capabilities: ["Digest", "Alerts"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+  ];
 
-  const githubCard: IntegrationCard = {
-    name: "GitHub",
-    valueProp: "Evidence from repositories, reviews, and branch protection.",
-    icon: <GitHubMark className="h-full w-full" />,
-    iconBg: "bg-zinc-950",
-    href: "/integrations/github",
-    cta: integrationCta(!!github.data),
-    connected: !!github.data,
-    syncing: githubSync.isSyncing,
-    loading: github.isLoading,
-    accent: github.data ? "connected" : "none",
-    evidenceTypes: ["Branch protection", "Reviews"],
-    lastSync: formatSync(github.data?.last_synced_at ?? null) || "—",
-    healthLabel: githubSync.isSyncing ? "Syncing" : github.data ? "Stable" : "Not configured",
-    healthTone: githubSync.isSyncing ? "sync" : github.data ? "ok" : undefined,
-    permissionsLabel: github.data ? "OAuth connected" : "Not connected",
-  };
+  const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
 
-  const gitlabCard: IntegrationCard = {
-    name: "GitLab",
-    valueProp: "Evidence from merge requests and project policies.",
-    icon: <GitLabMark className="h-full w-full" />,
-    iconBg: "bg-[#e24329]",
-    href: "/integrations/gitlab",
-    cta: integrationCta(!!gitlab.data),
-    connected: !!gitlab.data,
-    syncing: gitlabSync.isSyncing,
-    loading: gitlab.isLoading,
-    accent: gitlab.data ? "connected" : "none",
-    evidenceTypes: ["Protected branches", "MR approvals"],
-    lastSync: formatSync(gitlab.data?.last_synced_at ?? null) || "—",
-    healthLabel: gitlabSync.isSyncing ? "Syncing" : gitlab.data ? "Stable" : "Not configured",
-    healthTone: gitlabSync.isSyncing ? "sync" : gitlab.data ? "ok" : undefined,
-    permissionsLabel: gitlab.data ? "OAuth connected" : "Not connected",
-  };
-
-  const googleWorkspaceCard: IntegrationCard = {
-    name: "Google Workspace",
-    valueProp: "Directory MFA, inactive users, and admin roster for CC6 evidence.",
-    icon: <span className="flex h-full w-full items-center justify-center text-lg font-bold text-white">G</span>,
-    iconBg: "bg-[#4285F4]",
-    href: "/integrations/google-workspace",
-    cta: integrationCta(!!googleWorkspace.data),
-    connected: !!googleWorkspace.data,
-    syncing: googleWorkspaceSync.isSyncing,
-    loading: googleWorkspace.isLoading,
-    accent: googleWorkspace.data ? "connected" : "none",
-    evidenceTypes: ["MFA enforcement", "Inactive users", "Admin review"],
-    lastSync: formatSync(googleWorkspace.data?.last_synced_at ?? null) || "—",
-    healthLabel: googleWorkspaceSync.isSyncing ? "Syncing" : googleWorkspace.data ? "Stable" : "Not configured",
-    healthTone: googleWorkspaceSync.isSyncing ? "sync" : googleWorkspace.data ? "ok" : undefined,
-    permissionsLabel: googleWorkspace.data ? "OAuth connected" : "Not connected",
-  };
-
-  const entraCard: IntegrationCard = {
-    name: "Microsoft Entra ID",
-    valueProp: "Graph directory read for MFA posture, stale users, and privileged roles.",
-    icon: <span className="flex h-full w-full items-center justify-center text-lg font-bold text-white">E</span>,
-    iconBg: "bg-[#0078D4]",
-    href: "/integrations/entra",
-    cta: integrationCta(!!entra.data),
-    connected: !!entra.data,
-    syncing: entraSync.isSyncing,
-    loading: entra.isLoading,
-    accent: entra.data ? "connected" : "none",
-    evidenceTypes: ["MFA posture", "Inactive users", "Admin review"],
-    lastSync: formatSync(entra.data?.last_synced_at ?? null) || "—",
-    healthLabel: entraSync.isSyncing ? "Syncing" : entra.data ? "Stable" : "Not configured",
-    healthTone: entraSync.isSyncing ? "sync" : entra.data ? "ok" : undefined,
-    permissionsLabel: entra.data ? "OAuth connected" : "Not connected",
-  };
-
-  const slackCard: IntegrationCard = {
-    name: "Slack",
-    valueProp: "Scan alerts and weekly digests for your channel.",
-    icon: <SlackMark className="h-full w-full" />,
-    iconBg: "bg-[#4A154B]",
-    href: "/settings",
-    cta: integrationCta(slackConnected),
-    connected: slackConnected,
-    loading: settings.isLoading,
-    accent: "none",
-    evidenceTypes: ["Digest", "Alerts"],
-    lastSync: slackConnected ? "Webhook active" : "—",
-    healthLabel: slackConnected ? "Stable" : "Not configured",
-    healthTone: slackConnected ? "ok" : undefined,
-    permissionsLabel: slackConnected ? "Webhook configured" : "Not configured",
-  };
-  const allCards = [awsCard, githubCard, gitlabCard, googleWorkspaceCard, entraCard, slackCard];
-  const connectedCards = allCards.filter((card) => card.primarySource || card.connected || card.syncing);
-  const availableSlack = !slackConnected ? slackCard : null;
-  const summaryMetrics: SummaryMetric[] = [
-    { label: "Connected", value: connectedCount, tone: "ok" },
-    { label: "Syncing", value: syncingCount, tone: syncingCount > 0 ? "sync" : "idle" },
-    { label: "Errors", value: errorCount, tone: errorCount > 0 ? "warn" : "idle" },
+  const exploreCards: ExploreCard[] = [
+    ...(!slackConnected
+      ? [
+          {
+            key: "slack",
+            brand: "slack",
+            name: "Slack",
+            description: "Send alerts and updates",
+            href: "/settings",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    {
+      key: "jira",
+      brand: "jira",
+      name: "Jira",
+      description: "Sync issues and tickets",
+      comingSoon: true,
+    },
+    {
+      key: "azure-devops",
+      brand: "azure-devops",
+      name: "Azure DevOps",
+      description: "Track work and pipelines",
+      comingSoon: true,
+    },
+    {
+      key: "datadog",
+      brand: "datadog",
+      name: "Datadog",
+      description: "Stream metrics and events",
+      comingSoon: true,
+    },
   ];
 
   return (
-    <div className="min-h-full bg-[#f8fafc]">
-      <div className="w-full space-y-6 pb-8">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Integrations</h1>
-            <p className="mt-1 max-w-2xl text-sm text-zinc-500">
-              Connected sources for findings, compliance mapping, and audit evidence.
-            </p>
-          </div>
-          <NotificationsBell />
-        </header>
+    <div className="integrations-page">
+      <header className="integrations-page__header flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Integrations</h1>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+            Connect and manage sources for findings, compliance mapping, and audit evidence.
+          </p>
+        </div>
+        <NotificationsBell />
+      </header>
 
-        <SummaryStrip items={summaryMetrics} />
+      <div className="integrations-summary">
+        <SummaryCard label="Connected" value={connectedCount} tone="ok" />
+        <SummaryCard label="Syncing" value={syncingCount} tone="sync" />
+        <SummaryCard label="Errors" value={errorCount} tone="warn" />
+      </div>
 
-        {awsScanRunning && <ScanProgressBanner />}
+      {awsScanRunning && <ScanProgressBanner />}
 
-        <IntegrationSection
-          title="Connected sources"
-          description="Active sources that feed findings, compliance mappings, and audit evidence."
-          cards={connectedCards}
-        />
-        <AvailableIntegrationsCatalogue slack={availableSlack} />
+      <div className="integrations-page__body">
+        <IntegrationsTable rows={activeRows} />
+        <ExploreIntegrationsSection cards={exploreCards} />
       </div>
     </div>
   );

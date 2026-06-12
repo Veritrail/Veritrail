@@ -17,6 +17,7 @@ from app.core.db import get_db
 from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser, PullRequest, Repo, RepoProtection
 from app.services.gitlab_sync import provider_config, set_provider_config, sync_gitlab_provider
+from app.services.integration_repos import RepoInScopeOut, count_protected_repos, list_repos_in_scope
 from app.services.gitlab_tokens import GitLabReconnectRequired, apply_oauth_tokens, ensure_gitlab_token
 
 router = APIRouter()
@@ -124,15 +125,7 @@ def _provider_out(db: Session, provider: IdentityProvider) -> GitLabProviderOut:
     group_ids = config.get("group_ids") or ([config["group_id"]] if config.get("group_id") else [])
     identity_users = db.scalar(select(func.count()).select_from(IdentityUser).where(IdentityUser.provider_id == provider.id)) or 0
     repos = db.scalar(select(func.count()).select_from(Repo).where(Repo.provider_id == provider.id)) or 0
-    protected = (
-        db.scalar(
-            select(func.count())
-            .select_from(RepoProtection)
-            .join(Repo, Repo.id == RepoProtection.repo_id)
-            .where(Repo.provider_id == provider.id)
-        )
-        or 0
-    )
+    protected = count_protected_repos(db, provider.id)
     prs = (
         db.scalar(
             select(func.count())
@@ -259,6 +252,14 @@ def gitlab_callback(
     except Exception:
         db.rollback()
         return RedirectResponse(f"{_frontend_url()}/integrations/gitlab?error=server_error")
+
+
+@router.get("/gitlab/scope-repos", response_model=list[RepoInScopeOut])
+def list_gitlab_scope_repos(p=Depends(current_principal), db: Session = Depends(get_db)):
+    provider = _provider_for_org(db, p["org_id"])
+    if not provider:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GitLab is not connected")
+    return list_repos_in_scope(db, provider.id)
 
 
 @router.get("/gitlab", response_model=GitLabProviderOut | None)

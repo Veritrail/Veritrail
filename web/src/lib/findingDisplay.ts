@@ -1,3 +1,5 @@
+import { maskAccessKeyId, maskSensitiveText } from "./sensitiveDisplay";
+
 export type FindingLike = {
   check_id: string;
   resource_arn: string;
@@ -198,6 +200,10 @@ export type ResourceDetailRow = {
   mono?: boolean;
 };
 
+export function displayFindingTitle(title: string | null | undefined): string {
+  return maskSensitiveText(title ?? "");
+}
+
 export function resourceDetailRowsFromFinding(f: FindingLike): ResourceDetailRow[] {
   const e = f.evidence;
   const rows: ResourceDetailRow[] = [];
@@ -223,7 +229,8 @@ export function resourceDetailRowsFromFinding(f: FindingLike): ResourceDetailRow
   }
 
   if (cid.startsWith("iam.access_key")) {
-    push("Access key", evidenceString(e, "key_id"), true);
+    const keyId = evidenceString(e, "key_id");
+    push("Access key", keyId ? maskAccessKeyId(keyId) : null, true);
     push("IAM user", evidenceString(e, "user_name", "user_arn"));
     return rows;
   }

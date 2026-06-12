@@ -62,7 +62,9 @@ import {
   severityLabel,
   severityPillClassName,
   formatIamServiceDisplayName,
+  displayFindingTitle,
 } from "../lib/findingDisplay";
+import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
 import { ResourcesIcon } from "./ResourcesIcon";
 import { fetchClientIpForRemediation } from "../lib/cliRemediation";
@@ -2176,7 +2178,7 @@ function KeyActivityCard({ keyData }: { keyData: { key_id: string; last_used: st
 
   return (
     <div className={`rounded-lg border px-3 py-2.5 text-xs ${keyData.active ? "border-red-100 bg-red-50" : "border-zinc-200 bg-zinc-50"}`}>
-      <div className="font-mono font-semibold text-zinc-700">{keyData.key_id}</div>
+      <div className="font-mono font-semibold text-zinc-700">{maskAccessKeyId(keyData.key_id)}</div>
       {keyData.last_used ? (
         <>
           <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Last API activity</div>
@@ -6702,7 +6704,7 @@ export function FindingDrawer({
         </span>
       </div>
       <h2 id="finding-drawer-title" className={`mt-1.5 pr-8 ${drawerTitle}`}>
-        {checkLabels[finding.check_id] ?? finding.title}
+        {checkLabels[finding.check_id] ?? displayFindingTitle(finding.title)}
       </h2>
       <div className="mt-3 border-b border-zinc-200/90" role="tablist" aria-label="Finding details">
         <div className="-mb-px flex gap-3">

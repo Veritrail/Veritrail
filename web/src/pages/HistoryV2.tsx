@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
 import { FrameworkMark } from "../components/FrameworkMark";
@@ -22,6 +22,9 @@ import {
   historyDetailLine,
   historyResourceLabel,
   historyTypeDisplay,
+  buildCompositeGroupScope,
+  collapseRedundantFindingEvents,
+  matchesCompositeGroup,
   matchesEventFilter,
   postureSeries,
   scanCoverageDays,
@@ -56,6 +59,24 @@ const EVENT_FILTERS: { id: EventFilter; label: string }[] = [
 ];
 
 const DEFAULT_VISIBLE_EVENTS = 15;
+
+const COMPOSITE_GROUP_ORDER = [
+  "identity_governance",
+  "asset_inventory",
+  "secure_sdlc",
+  "change_management",
+  "data_protection",
+  "vulnerability_management",
+  "logging_monitoring",
+  "backup_resilience",
+  "container_vulnerability_monitoring",
+] as const;
+
+type CompositeControlSummary = {
+  id: string;
+  title: string;
+  check_ids: string[];
+};
 
 /** Frameworks assessed at a point in time — no Type II day-coverage bar. */
 const POINT_IN_TIME_FRAMEWORKS = new Set(["cis_aws_l1", "iso27001"]);
@@ -139,9 +160,11 @@ function EventsFooter({
 }
 
 export default function HistoryV2() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [days, setDays] = useState(90);
-  const [framework, setFramework] = useState("soc2");
-  const [accountId, setAccountId] = useState("");
+  const [framework, setFramework] = useState(() => searchParams.get("framework") ?? "soc2");
+  const [accountId, setAccountId] = useState(() => searchParams.get("account_id") ?? "");
+  const [compositeFilter, setCompositeFilter] = useState(() => searchParams.get("composite") ?? "");
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(DEFAULT_VISIBLE_EVENTS);
@@ -152,6 +175,55 @@ export default function HistoryV2() {
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
   const connected = accountsQ.data?.filter((a) => a.status === "connected") ?? [];
   const effectiveAccountId = accountId || connected[0]?.id || "";
+
+  const compositesQ = useQuery({
+    queryKey: ["controls", "composites", effectiveAccountId],
+    queryFn: () =>
+      api<CompositeControlSummary[]>(
+        `/v1/controls/composites${effectiveAccountId ? `?account_id=${effectiveAccountId}` : ""}`,
+      ),
+    enabled: !!effectiveAccountId,
+  });
+
+  const compositeOptions = useMemo(() => {
+    const order = new Map(COMPOSITE_GROUP_ORDER.map((id, index) => [id, index]));
+    const rows = [...(compositesQ.data ?? [])].sort(
+      (a, b) => (order.get(a.id as (typeof COMPOSITE_GROUP_ORDER)[number]) ?? 99) - (order.get(b.id as (typeof COMPOSITE_GROUP_ORDER)[number]) ?? 99),
+    );
+    return [{ value: "", label: "All groups" }, ...rows.map((row) => ({ value: row.id, label: row.title }))];
+  }, [compositesQ.data]);
+
+  const compositeGroupScope = useMemo(() => {
+    if (!compositeFilter) return null;
+    const composite = compositesQ.data?.find((row) => row.id === compositeFilter);
+    if (!composite) {
+      if (compositesQ.isSuccess) {
+        return { checkIds: new Set<string>(), controlIds: new Set<string>() };
+      }
+      return null;
+    }
+    return buildCompositeGroupScope(composite);
+  }, [compositeFilter, compositesQ.data, compositesQ.isSuccess]);
+
+  const activeCompositeLabel = compositeOptions.find((option) => option.value === compositeFilter)?.label;
+
+  useEffect(() => {
+    const nextFramework = searchParams.get("framework");
+    const nextAccountId = searchParams.get("account_id");
+    const nextComposite = searchParams.get("composite") ?? "";
+    if (nextFramework) setFramework(nextFramework);
+    setAccountId(nextAccountId ?? "");
+    setCompositeFilter(nextComposite);
+  }, [searchParams]);
+
+  function patchSearchParams(patch: Record<string, string | null | undefined>) {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setSearchParams(next, { replace: true });
+  }
 
   const historyQ = useQuery<ComplianceHistoryResponse>({
     queryKey: ["history", effectiveAccountId, framework, days],
@@ -170,8 +242,9 @@ export default function HistoryV2() {
 
   const filteredEvents = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return events.filter((e) => {
+    const filtered = events.filter((e) => {
       if (!matchesEventFilter(e, eventFilter)) return false;
+      if (!matchesCompositeGroup(e, compositeGroupScope)) return false;
       if (!q) return true;
       const typeLabel = historyTypeDisplay(e).label.toLowerCase();
       const control = controlOf(e)?.id?.toLowerCase() ?? "";
@@ -179,7 +252,8 @@ export default function HistoryV2() {
       const detail = historyDetailLine(e).toLowerCase();
       return typeLabel.includes(q) || control.includes(q) || resource.includes(q) || detail.includes(q);
     });
-  }, [events, eventFilter, search]);
+    return collapseRedundantFindingEvents(filtered);
+  }, [events, eventFilter, search, compositeGroupScope]);
 
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -234,6 +308,7 @@ export default function HistoryV2() {
               setAccountId(id);
               setPageSize(DEFAULT_VISIBLE_EVENTS);
               setPage(1);
+              patchSearchParams({ account_id: id });
             }}
             valueIcon={<img src={AWS_LOGO_LIGHT} alt="" className="history-filter-box__aws" width={30} height={19} />}
             optionIcon={() => (
@@ -270,9 +345,24 @@ export default function HistoryV2() {
               setFramework(v);
               setPageSize(DEFAULT_VISIBLE_EVENTS);
               setPage(1);
+              patchSearchParams({ framework: v });
             }}
             valueIcon={<FrameworkMark framework={framework} className="history-filter-box__framework-mark" />}
             optionIcon={(id) => <FrameworkMark framework={id} className="history-filter-menu__icon" />}
+          />
+
+          <HistoryFilterDropdown
+            label="Group"
+            boxClassName="history-filter-box--group"
+            ariaLabel="Compliance group"
+            value={compositeFilter}
+            options={compositeOptions}
+            onChange={(value) => {
+              setCompositeFilter(value);
+              setPageSize(DEFAULT_VISIBLE_EVENTS);
+              setPage(1);
+              patchSearchParams({ composite: value || null });
+            }}
           />
 
         <Link to="/controls" className="history-compliance-link">
@@ -429,7 +519,11 @@ export default function HistoryV2() {
                 </p>
               </div>
             ) : filteredEvents.length === 0 ? (
-              <div className="history-empty">No changes match these filters.</div>
+              <div className="history-empty">
+                {compositeFilter
+                  ? `No changes for ${activeCompositeLabel ?? "this group"} match these filters.`
+                  : "No changes match these filters."}
+              </div>
             ) : (
               <div className="history-table-body">
                 <div className="history-table-wrap">

@@ -2,7 +2,9 @@
 // a readable resource label, a clean change phrase, an event-type badge, the
 // mapped control, and a posture sparkline series.
 import type { HistoryEvent, HistoryEventType, PostureTrendPoint, SnapshotSummary } from "./complianceHistory";
+import { labelForCheck } from "../data/checkLabels";
 import { formatResolvedFindingDetail, primaryCause, sentenceCaseDetail } from "./historyPresentation";
+import { maskSensitiveText } from "./sensitiveDisplay";
 
 export type ResourceRef = { kind: string; name: string };
 
@@ -172,20 +174,40 @@ export function matchesEventFilter(event: HistoryEvent, filter: EventFilter): bo
   }
 }
 
+const IAM_ACCESS_KEY_SUFFIX_RE = /#(?:AKIA|ASIA|AROA)[A-Z0-9]{16}$/i;
+
+function formatIamResourceSegment(name: string): string {
+  return maskSensitiveText(name.replace(IAM_ACCESS_KEY_SUFFIX_RE, ""));
+}
+
 export function historyResourceLabel(event: HistoryEvent): string {
   const res = shortResource(event.resource_arn);
   if (res) {
     const kind = res.kind.replace(/\b\w/g, (c) => c.toUpperCase());
-    return `${kind} ${res.name}`.trim();
+    return `${kind} ${formatIamResourceSegment(res.name)}`.trim();
   }
   const control = controlOf(event);
   if (control) return control.title;
-  return event.top_change?.title ?? "—";
+  return maskSensitiveText(event.top_change?.title ?? "—");
+}
+
+function findingCheckLabel(event: HistoryEvent): string | null {
+  if (!event.check_id) return null;
+  return labelForCheck(event.check_id);
+}
+
+function enrichedResolvedDetail(event: HistoryEvent): string {
+  const formatted = formatResolvedFindingDetail(event.detail);
+  const checkLabel = findingCheckLabel(event);
+  if (checkLabel && (formatted === "No longer detected" || formatted === "Manually verified")) {
+    return `${formatted} — ${checkLabel}`;
+  }
+  return formatted;
 }
 
 export function historyDetailLine(event: HistoryEvent): string {
   if (event.type === "finding_resolved") {
-    return formatResolvedFindingDetail(event.detail);
+    return enrichedResolvedDetail(event);
   }
   const detail = cleanDetail(event.detail);
   if (detail) return detail;
@@ -214,6 +236,85 @@ export function matchesControl(event: HistoryEvent, controlId: string | null): b
     event.diff?.newly_passed?.some((c) => c.control_id === controlId) ||
     false
   );
+}
+
+export type CompositeGroupScope = {
+  checkIds: Set<string>;
+};
+
+/** Scope a composite group by its mapped check IDs only (not whole SOC2 controls). */
+export function buildCompositeGroupScope(composite: { check_ids: string[] }): CompositeGroupScope {
+  return { checkIds: new Set(composite.check_ids) };
+}
+
+/**
+ * Match history events to a composite group via finding check_id.
+ * We intentionally do not match whole framework controls (e.g. CC6.6): one control
+ * can span S3, IAM, and GitHub checks, so control-level matching pulls in unrelated resources.
+ */
+export function matchesCompositeGroup(event: HistoryEvent, scope: CompositeGroupScope | null): boolean {
+  if (!scope) return true;
+  return Boolean(event.check_id && scope.checkIds.has(event.check_id));
+}
+
+const GROUPABLE_FINDING_EVENT_TYPES = new Set<HistoryEventType>([
+  "finding_resolved",
+  "finding_excepted",
+  "finding_reopened",
+]);
+
+function findingEventGroupKey(event: HistoryEvent): string | null {
+  if (!GROUPABLE_FINDING_EVENT_TYPES.has(event.type)) return null;
+  const control = controlOf(event);
+  const minute = event.timestamp.slice(0, 16);
+  const resource = historyResourceLabel(event).toLowerCase();
+  return `${event.type}|${minute}|${control?.id ?? ""}|${resource}`;
+}
+
+function mergeFindingEventGroup(group: HistoryEvent[]): HistoryEvent {
+  if (group.length === 1) return group[0];
+  const primary = group[0];
+  const labels = [
+    ...new Set(
+      group.map((event) => findingCheckLabel(event)).filter((label): label is string => Boolean(label)),
+    ),
+  ];
+  const base = formatResolvedFindingDetail(primary.detail);
+  const detail =
+    labels.length > 0
+      ? `${base === "Manually verified" ? "No longer detected" : base} — ${labels.join(", ")}`
+      : base;
+
+  return {
+    ...primary,
+    scan_run_id: group.map((event) => event.scan_run_id).join("+"),
+    findings_resolved: group.reduce((sum, event) => sum + (event.findings_resolved ?? 0), 0),
+    detail,
+  };
+}
+
+/** Collapse same-minute finding events that share control + resource (different checks, one user). */
+export function collapseRedundantFindingEvents(events: HistoryEvent[]): HistoryEvent[] {
+  const out: HistoryEvent[] = [];
+  let index = 0;
+  while (index < events.length) {
+    const event = events[index];
+    const key = findingEventGroupKey(event);
+    if (!key) {
+      out.push(event);
+      index += 1;
+      continue;
+    }
+    const group = [event];
+    let next = index + 1;
+    while (next < events.length && findingEventGroupKey(events[next]) === key) {
+      group.push(events[next]);
+      next += 1;
+    }
+    out.push(mergeFindingEventGroup(group));
+    index = next;
+  }
+  return out;
 }
 
 export type PosturePoint = { t: string; posture: number };

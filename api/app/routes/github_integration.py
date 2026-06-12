@@ -17,6 +17,7 @@ from app.core.db import get_db
 from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser, PullRequest, Repo, RepoProtection
 from app.services.github_sync import provider_config, set_provider_config, sync_github_provider
+from app.services.integration_repos import RepoInScopeOut, count_protected_repos, list_repos_in_scope
 
 router = APIRouter()
 settings = get_settings()
@@ -140,15 +141,7 @@ def _provider_out(db: Session, provider: IdentityProvider) -> GitHubProviderOut:
     org_logins = config.get("org_logins") or ([config["org_login"]] if config.get("org_login") else [])
     identity_users = db.scalar(select(func.count()).select_from(IdentityUser).where(IdentityUser.provider_id == provider.id)) or 0
     repos = db.scalar(select(func.count()).select_from(Repo).where(Repo.provider_id == provider.id)) or 0
-    protected = (
-        db.scalar(
-            select(func.count())
-            .select_from(RepoProtection)
-            .join(Repo, Repo.id == RepoProtection.repo_id)
-            .where(Repo.provider_id == provider.id)
-        )
-        or 0
-    )
+    protected = count_protected_repos(db, provider.id)
     prs = (
         db.scalar(
             select(func.count())
@@ -302,6 +295,14 @@ def github_callback(
     db: Session = Depends(get_db),
 ):
     return handle_github_integration_callback(code=code, state=state, error=error, db=db)
+
+
+@router.get("/github/scope-repos", response_model=list[RepoInScopeOut])
+def list_github_scope_repos(p=Depends(current_principal), db: Session = Depends(get_db)):
+    provider = _provider_for_org(db, p["org_id"])
+    if not provider:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GitHub is not connected")
+    return list_repos_in_scope(db, provider.id)
 
 
 @router.get("/github", response_model=GitHubProviderOut | None)

@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.sensitive_display import mask_sensitive_text
 from app.models import Finding, FindingEvent, ScanRun
 from app.models.cloudtrail import CloudTrailEvent
 from app.models.control import Control, CheckControl
@@ -408,6 +409,8 @@ def _control_flip_for_finding_event(
 
 
 def _finding_control_lookup(db: Session, framework: str, findings: list[Finding]) -> dict[uuid.UUID, dict[str, Any]]:
+    from app.services.check_controls import controls_for_check
+
     check_ids = sorted({f.check_id for f in findings})
     if not check_ids:
         return {}
@@ -419,6 +422,16 @@ def _finding_control_lookup(db: Session, framework: str, findings: list[Finding]
     by_check: dict[str, dict[str, Any]] = {}
     for check_id, control_id, title in rows:
         by_check.setdefault(check_id, {"control_id": control_id, "title": title})
+    for finding in findings:
+        if finding.check_id in by_check:
+            continue
+        for row in controls_for_check(finding.check_id):
+            if row["framework"] == framework:
+                by_check[finding.check_id] = {
+                    "control_id": row["control_id"],
+                    "title": row["title"],
+                }
+                break
     return {f.id: by_check[f.check_id] for f in findings if f.check_id in by_check}
 
 
@@ -514,7 +527,7 @@ def _finding_events(
                 "findings_resolved": 1 if positive else 0,
                 "resource_arn": finding.resource_arn,
                 "check_id": finding.check_id,
-                "detail": evt.note or finding.title,
+                "detail": mask_sensitive_text(evt.note or finding.title),
                 "snapshot": _snapshot_summary(
                     after_counts,
                     score_after,
@@ -524,7 +537,9 @@ def _finding_events(
                 ),
                 "top_change": {
                     "control_id": control.get("control_id") if control else None,
-                    "title": control.get("title") if control else finding.title,
+                    "title": mask_sensitive_text(
+                        control.get("title") if control else finding.title
+                    ),
                     "direction": change_direction,
                     "label": "Finding resolved" if evt.action == "resolved" else "Exception recorded" if evt.action == "excepted" else "Finding reopened",
                 },

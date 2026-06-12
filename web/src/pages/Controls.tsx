@@ -8,7 +8,6 @@ import { FRAMEWORKS } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import { FilterChipBar } from "../components/FilterChipBar";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
-import { CompliancePostureLine } from "../components/CompliancePostureLine";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
@@ -141,112 +140,14 @@ function controlDisplayStatus(
 }
 
 function ComplianceRowSummary({
-  expanded,
   displayStatus,
-  count,
   href,
   onNavigate,
 }: {
-  expanded: boolean;
   displayStatus: ComplianceDisplayStatus;
-  count: number;
   href: string | null;
   onNavigate: (href: string) => void;
 }) {
-  if (expanded) {
-    if (count === 0) {
-      return <span className="shrink-0 text-sm font-medium text-zinc-400">No findings</span>;
-    }
-    if (href) {
-      return (
-        <button
-          type="button"
-          title="View open findings"
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate(href);
-          }}
-          className="shrink-0 text-sm font-medium tabular-nums text-zinc-600 transition hover:text-indigo-700"
-        >
-          {count} findings
-        </button>
-      );
-    }
-    return (
-      <span className="shrink-0 text-sm font-medium tabular-nums text-zinc-600">{count} findings</span>
-    );
-  }
-
-  const label: Record<ComplianceDisplayStatus, string> = {
-    passing: "Passing",
-    failing: "Failing",
-    at_risk: "At risk",
-    unevaluated: "Not evaluated",
-  };
-
-  const dotClass: Record<ComplianceDisplayStatus, string> = {
-    passing: "bg-emerald-500",
-    failing: "bg-rose-500",
-    at_risk: "bg-amber-500",
-    unevaluated: "bg-zinc-400",
-  };
-  const countClass: Record<ComplianceDisplayStatus, string> = {
-    passing: "text-emerald-700",
-    failing: "text-rose-600",
-    at_risk: "text-amber-700",
-    unevaluated: "text-zinc-500",
-  };
-
-  const chip = (
-    <>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass[displayStatus]}`} aria-hidden />
-      {displayStatus === "passing" && count === 0 ? (
-        label.passing
-      ) : (
-        <>
-          {label[displayStatus]}
-          <span className={`font-semibold tabular-nums ${countClass[displayStatus]}`}>{count}</span>
-        </>
-      )}
-    </>
-  );
-
-  const chipToneClass: Record<ComplianceDisplayStatus, string> = {
-    passing: "bg-emerald-50 text-emerald-800 ring-emerald-200/80",
-    failing: "bg-rose-50 text-rose-800 ring-rose-200/70",
-    at_risk: "bg-amber-50 text-amber-800 ring-amber-200/70",
-    unevaluated: "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
-  };
-  const chipClass = `inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ${chipToneClass[displayStatus]}`;
-
-  if (count > 0 && href) {
-    return (
-      <button
-        type="button"
-        title="View open findings"
-        onClick={(e) => {
-          e.stopPropagation();
-          onNavigate(href);
-        }}
-        className={`${chipClass} transition hover:bg-zinc-200/50`}
-      >
-        {chip}
-      </button>
-    );
-  }
-
-  return <span className={chipClass}>{chip}</span>;
-}
-
-function ComplianceStatusBadge({
-  displayStatus,
-  href,
-  onNavigate,
-}: {
-  displayStatus: ComplianceDisplayStatus;
-  href?: string | null;
-  onNavigate?: (href: string) => void;
-}) {
   const label: Record<ComplianceDisplayStatus, string> = {
     passing: "Passing",
     failing: "Failing",
@@ -267,7 +168,6 @@ function ComplianceStatusBadge({
     at_risk: "bg-amber-50 text-amber-800 ring-amber-200/70",
     unevaluated: "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
   };
-
   const chipClass = `inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ${chipToneClass[displayStatus]}`;
   const content = (
     <>
@@ -276,7 +176,7 @@ function ComplianceStatusBadge({
     </>
   );
 
-  if (href && onNavigate) {
+  if (href) {
     return (
       <button
         type="button"
@@ -536,6 +436,7 @@ const NESTED_COMPOSITE_DISPLAY: Record<string, { title: string; hint: string }> 
 type CompositeGroupVisual = {
   bg: string;
   text: string;
+  ring: string;
   Icon: ({ className }: { className?: string }) => JSX.Element;
 };
 
@@ -624,32 +525,30 @@ function CompositeGroupFallbackIcon({ className = "h-4 w-4" }: { className?: str
   );
 }
 
-const COMPOSITE_GROUP_ICON_BG = "bg-zinc-100";
-const COMPOSITE_GROUP_ICON_TEXT = "text-zinc-600";
-
 const COMPOSITE_GROUP_VISUALS: Record<string, CompositeGroupVisual> = {
-  identity_governance: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: IdentityGovernanceIcon },
-  asset_inventory: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: AssetInventoryIcon },
-  secure_sdlc: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: SecureSdlcIcon },
-  change_management: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: ChangeManagementIcon },
-  data_protection: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: DataProtectionIcon },
-  vulnerability_management: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: VulnerabilityManagementIcon },
-  logging_monitoring: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: LoggingMonitoringIcon },
-  backup_resilience: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: BackupResilienceIcon },
-  container_vulnerability_monitoring: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: VulnerabilityManagementIcon },
+  identity_governance: { bg: "bg-violet-50", text: "text-violet-600", ring: "ring-violet-200/80", Icon: IdentityGovernanceIcon },
+  asset_inventory: { bg: "bg-sky-50", text: "text-sky-600", ring: "ring-sky-200/80", Icon: AssetInventoryIcon },
+  secure_sdlc: { bg: "bg-indigo-50", text: "text-indigo-600", ring: "ring-indigo-200/80", Icon: SecureSdlcIcon },
+  change_management: { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-200/80", Icon: ChangeManagementIcon },
+  data_protection: { bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-200/80", Icon: DataProtectionIcon },
+  vulnerability_management: { bg: "bg-rose-50", text: "text-rose-600", ring: "ring-rose-200/80", Icon: VulnerabilityManagementIcon },
+  logging_monitoring: { bg: "bg-blue-50", text: "text-blue-600", ring: "ring-blue-200/80", Icon: LoggingMonitoringIcon },
+  backup_resilience: { bg: "bg-teal-50", text: "text-teal-600", ring: "ring-teal-200/80", Icon: BackupResilienceIcon },
+  container_vulnerability_monitoring: { bg: "bg-orange-50", text: "text-orange-600", ring: "ring-orange-200/80", Icon: VulnerabilityManagementIcon },
 };
 
 function CompositeGroupIcon({ id }: { id: string }) {
   const visual = COMPOSITE_GROUP_VISUALS[id] ?? {
-    bg: COMPOSITE_GROUP_ICON_BG,
-    text: COMPOSITE_GROUP_ICON_TEXT,
+    bg: "bg-zinc-100",
+    text: "text-zinc-600",
+    ring: "ring-zinc-200/70",
     Icon: CompositeGroupFallbackIcon,
   };
-  const { bg, text, Icon } = visual;
+  const { bg, text, ring, Icon } = visual;
 
   return (
     <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-zinc-200/70 ${bg} ${text}`}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${bg} ${text} ${ring}`}
       aria-hidden
     >
       <Icon className="h-[18px] w-[18px]" />
@@ -942,7 +841,7 @@ function findingsHrefForChecks(checkIds: string[], findingCountByCheck: Map<stri
 function sortedTopFailingChecks(
   checkIds: string[],
   findingCountByCheck: Map<string, number>,
-  max = 5,
+  max = 6,
 ): string[] {
   return [...checkIds]
     .filter((id) => (findingCountByCheck.get(id) ?? 0) > 0)
@@ -969,7 +868,7 @@ function compositeRiskSummary(ctrl: CompositeControlRow): string {
 function TopFailingChecksTable({
   checkIds,
   findingCountByCheck,
-  max = 5,
+  max = 6,
 }: {
   checkIds: string[];
   findingCountByCheck: Map<string, number>;
@@ -986,15 +885,8 @@ function TopFailingChecksTable({
   const maxCount = findingCountByCheck.get(top[0]) ?? 1;
 
   return (
-    <div className="compliance-top-checks-table mt-3 overflow-hidden rounded-xl border border-zinc-200/80 bg-white">
-      <div className="compliance-top-checks-table__head grid grid-cols-[auto_minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 border-b border-zinc-100 bg-zinc-50/60 px-4 py-2.5 vigil-kicker">
-        <span className="w-5" aria-hidden />
-        <span>Check</span>
-        <span className="text-right">Findings</span>
-        <span className="text-right">Density</span>
-      </div>
-      <ul>
-        {top.map((checkId, index) => {
+    <ul className="compliance-top-checks-table">
+      {top.map((checkId, index) => {
           const count = findingCountByCheck.get(checkId) ?? 0;
           const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 0;
           return (
@@ -1002,30 +894,32 @@ function TopFailingChecksTable({
               <button
                 type="button"
                 onClick={() => navigate(`/findings?checks=${encodeURIComponent(checkId)}`)}
-                className="compliance-top-checks-table__row group grid w-full grid-cols-[auto_minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 px-4 py-3 text-left transition hover:bg-zinc-50/80"
+                className="compliance-top-checks-table__row group grid w-full grid-cols-[auto_minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 py-3 text-left transition hover:bg-zinc-50/80"
               >
                 <span className="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-zinc-400">
                   {index + 1}
                 </span>
                 <span className="truncate text-sm font-medium text-zinc-900">{labelForCheck(checkId)}</span>
-                <span className="text-right text-sm font-semibold tabular-nums text-zinc-800">{count}</span>
+                <span className="text-right text-sm font-semibold tabular-nums text-zinc-900">{count}</span>
                 <span className="flex justify-end" aria-hidden>
                   <span className="compliance-density-bar">
-                    <span className="compliance-density-bar__fill" style={{ width: `${pct}%` }} />
+                    <span
+                      className={`compliance-density-bar__fill${count <= 1 ? " compliance-density-bar__fill--muted" : ""}`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </span>
                 </span>
               </button>
             </li>
           );
         })}
-      </ul>
-    </div>
+    </ul>
   );
 }
 
-function InsightIcon({ children }: { children: ReactNode }) {
+function InsightIcon({ tone, children }: { tone: "emerald" | "sky" | "rose"; children: ReactNode }) {
   return (
-    <span className="compliance-group-insight__icon" aria-hidden>
+    <span className={`compliance-group-insight__icon compliance-group-insight__icon--${tone}`} aria-hidden>
       {children}
     </span>
   );
@@ -1034,89 +928,95 @@ function InsightIcon({ children }: { children: ReactNode }) {
 function CompositeGroupInsights({
   ctrl,
   findingCountByCheck,
+}: {
+  ctrl: CompositeControlRow;
+  findingCountByCheck: Map<string, number>;
+}) {
+  const topCheckId = sortedTopFailingChecks(ctrl.check_ids, findingCountByCheck, 1)[0];
+  const topIssueCount = topCheckId ? (findingCountByCheck.get(topCheckId) ?? 0) : 0;
+
+  return (
+    <div className="compliance-group-insights-card">
+      <p className="compliance-group-card-title">Group insights</p>
+      <ul className="compliance-group-insight-rows">
+        <li className="compliance-group-insight-row">
+          <div className="compliance-group-insight-row__lead">
+            <InsightIcon tone="emerald">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </InsightIcon>
+            <span className="compliance-group-insight-row__label">Total findings</span>
+          </div>
+          <span className="compliance-group-insight-row__value tabular-nums">{ctrl.finding_count}</span>
+        </li>
+        {topCheckId ? (
+          <li className="compliance-group-insight-row">
+            <div className="compliance-group-insight-row__lead">
+              <InsightIcon tone="sky">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+              </InsightIcon>
+              <span className="compliance-group-insight-row__label">Top issue</span>
+            </div>
+            <span className="compliance-group-insight-row__value compliance-group-insight-row__value--wrap">
+              {labelForCheck(topCheckId)}{" "}
+              <span className="tabular-nums text-rose-700">({topIssueCount} findings)</span>
+            </span>
+          </li>
+        ) : null}
+        <li className="compliance-group-insight-row">
+          <div className="compliance-group-insight-row__lead">
+            <InsightIcon tone="rose">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </InsightIcon>
+            <span className="compliance-group-insight-row__label">Risk summary</span>
+          </div>
+          <span className="compliance-group-insight-row__value compliance-group-insight-row__value--wrap">
+            {compositeRiskSummary(ctrl)}
+            {ctrl.finding_count > 0 ? <span className="compliance-group-insight-row__dot" aria-hidden /> : null}
+          </span>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function CompositeGroupExplore({
+  groupId,
   findingsHref,
   framework,
   accountId,
 }: {
-  ctrl: CompositeControlRow;
-  findingCountByCheck: Map<string, number>;
+  groupId: string;
   findingsHref: string | null;
   framework: string;
   accountId?: string | null;
 }) {
   const navigate = useNavigate();
-  const topCheckId = sortedTopFailingChecks(ctrl.check_ids, findingCountByCheck, 1)[0];
-  const topIssueCount = topCheckId ? (findingCountByCheck.get(topCheckId) ?? 0) : 0;
-  const historyParams = new URLSearchParams({ framework });
+  const historyParams = new URLSearchParams({ framework, composite: groupId });
   if (accountId) historyParams.set("account_id", accountId);
 
   return (
-    <div className="compliance-group-insights rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-5">
-      <p className="text-sm font-semibold text-zinc-900">Group insights</p>
-      <ul className="mt-4 space-y-4">
-        <li className="compliance-group-insight">
-          <InsightIcon>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 5.25v2.25m-6 0h6m-6 0v12A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V8.25m-18 0h18" />
-            </svg>
-          </InsightIcon>
-          <div className="min-w-0">
-            <p className="vigil-kicker">Total findings</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums text-zinc-900">
-              {ctrl.finding_count} open {ctrl.finding_count === 1 ? "finding" : "findings"}
-            </p>
-          </div>
-        </li>
-        {topCheckId ? (
-          <li className="compliance-group-insight">
-            <InsightIcon>
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71a1.5 1.5 0 001.95-1.574l-1.065-3.558A2.25 2.25 0 0017.25 9H6.75a2.25 2.25 0 00-2.165 1.618L3.52 14.176zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-            </InsightIcon>
-            <div className="min-w-0">
-              <p className="vigil-kicker">Top issue</p>
-              <p className="mt-1 text-sm font-medium leading-snug text-zinc-900">
-                {labelForCheck(topCheckId)}{" "}
-                <span className="font-semibold tabular-nums text-rose-700">({topIssueCount} findings)</span>
-              </p>
-            </div>
-          </li>
-        ) : null}
-        <li className="compliance-group-insight">
-          <InsightIcon>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-          </InsightIcon>
-          <div className="min-w-0">
-            <p className="vigil-kicker">Risk summary</p>
-            <p className="mt-1 text-sm leading-snug text-zinc-700">{compositeRiskSummary(ctrl)}</p>
-          </div>
-        </li>
-      </ul>
-      <div className="mt-5 border-t border-zinc-200/70 pt-4">
-        <p className="text-sm font-semibold text-zinc-900">Explore this group</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {findingsHref ? (
-            <button
-              type="button"
-              onClick={() => navigate(findingsHref)}
-              className="compliance-group-explore-btn compliance-group-explore-btn--primary"
-            >
-              View findings
-            </button>
-          ) : (
-            <span className="text-sm text-zinc-500">No open findings in this group.</span>
-          )}
-          <Link
-            to={`/history?${historyParams.toString()}`}
-            className="compliance-group-explore-btn"
-            onClick={(e) => e.stopPropagation()}
-          >
-            View history
-          </Link>
-        </div>
+    <div className="compliance-group-explore-card">
+      <div className="compliance-group-explore-card__copy">
+        <p className="compliance-group-card-title">Explore this group</p>
+        <p className="compliance-group-explore-card__hint">Dive deeper into findings and historical activity.</p>
+      </div>
+      <div className="compliance-group-explore-card__actions">
+        {findingsHref ? (
+          <button type="button" onClick={() => navigate(findingsHref)} className="compliance-group-explore-btn compliance-group-explore-btn--primary">
+            View findings
+          </button>
+        ) : (
+          <span className="text-sm text-zinc-500">No open findings</span>
+        )}
+        <Link to={`/history?${historyParams.toString()}`} className="compliance-group-explore-btn" onClick={(e) => e.stopPropagation()}>
+          View history
+        </Link>
       </div>
     </div>
   );
@@ -1125,7 +1025,7 @@ function CompositeGroupInsights({
 function TopFailingChecksList({
   checkIds,
   findingCountByCheck,
-  max = 5,
+  max = 6,
   variant = "default",
 }: {
   checkIds: string[];
@@ -1224,32 +1124,26 @@ function CompositeExpandedDetails({
   if (variant === "card") {
     return (
       <div className="compliance-group-expanded">
-        <div className="compliance-group-expanded__checks">
-          <p className="text-sm font-semibold text-zinc-900">Top failing checks</p>
+        <div className="compliance-group-checks-card">
           {ctrl.finding_count > 0 ? (
-            <>
-              <TopFailingChecksTable checkIds={ctrl.check_ids} findingCountByCheck={findingCountByCheck} />
-              {findingsHref ? (
-                <button
-                  type="button"
-                  onClick={() => navigate(findingsHref)}
-                  className="mt-4 text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
-                >
-                  View all {ctrl.finding_count} findings →
-                </button>
-              ) : null}
-            </>
+            <div className="compliance-top-checks__header grid grid-cols-[auto_minmax(0,1fr)_4.5rem_6.5rem] items-end gap-3">
+              <p className="col-span-2 compliance-group-card-title">Top failing checks</p>
+              <span className="compliance-top-checks__col-head">Findings</span>
+              <span className="compliance-top-checks__col-head">Density</span>
+            </div>
+          ) : (
+            <p className="compliance-group-card-title">Top failing checks</p>
+          )}
+          {ctrl.finding_count > 0 ? (
+            <TopFailingChecksTable checkIds={ctrl.check_ids} findingCountByCheck={findingCountByCheck} />
           ) : (
             <p className="mt-2 text-sm text-zinc-500">No open findings on mapped checks.</p>
           )}
         </div>
-        <CompositeGroupInsights
-          ctrl={ctrl}
-          findingCountByCheck={findingCountByCheck}
-          findingsHref={findingsHref}
-          framework={framework}
-          accountId={accountId}
-        />
+        <div className="compliance-group-expanded__side">
+          <CompositeGroupInsights ctrl={ctrl} findingCountByCheck={findingCountByCheck} />
+          <CompositeGroupExplore groupId={ctrl.id} findingsHref={findingsHref} framework={framework} accountId={accountId} />
+        </div>
       </div>
     );
   }
@@ -1346,9 +1240,7 @@ function QuietNestedCompositeRow({
           ) : null}
         </div>
         <ComplianceRowSummary
-          expanded={isExpanded}
           displayStatus={compositeDisplayStatus(child, findingCountByCheck)}
-          count={child.finding_count}
           href={href}
           onNavigate={(h) => navigate(h)}
         />
@@ -1402,55 +1294,34 @@ function CompositeControlsPanel({
               type="button"
               onClick={() => onToggle(ctrl.id)}
               aria-expanded={isExpanded}
-              className={`flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors ${
+              className={`flex w-full items-start gap-3.5 px-5 py-4 text-left transition-colors ${
                 displayStatus === "passing" && !isExpanded
                   ? "bg-emerald-50/30 hover:bg-emerald-50/50"
                   : "hover:bg-zinc-50/60"
-              } ${isExpanded ? "bg-zinc-50/30" : ""}`}
+              } ${isExpanded ? "bg-white" : ""}`}
             >
               <CompositeGroupIcon id={ctrl.id} />
               <div className="min-w-0 flex-1 py-0.5">
-                <p className="text-body font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
+                <p className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-zinc-900">{ctrl.title}</p>
                 <p
-                  className={`mt-0.5 text-meta leading-relaxed text-zinc-500 ${isExpanded ? "" : "line-clamp-1"}`}
+                  className={`mt-1 text-[13px] leading-relaxed text-zinc-500 ${isExpanded ? "" : "line-clamp-1"}`}
                 >
                   {ctrl.description}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2.5 self-center">
-                <ComplianceStatusBadge
+              <div className="flex shrink-0 items-center gap-3 self-center">
+                <ComplianceRowSummary
                   displayStatus={displayStatus}
                   href={findingsHref}
                   onNavigate={(href) => navigate(href)}
                 />
-                {ctrl.finding_count > 0 ? (
-                  findingsHref ? (
-                    <button
-                      type="button"
-                      title="View open findings"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(findingsHref);
-                      }}
-                      className="shrink-0 text-sm font-medium tabular-nums text-zinc-600 transition hover:text-indigo-700"
-                    >
-                      {ctrl.finding_count} findings
-                    </button>
-                  ) : (
-                    <span className="shrink-0 text-sm font-medium tabular-nums text-zinc-600">
-                      {ctrl.finding_count} findings
-                    </span>
-                  )
-                ) : displayStatus === "passing" ? (
-                  <span className="shrink-0 text-sm font-medium text-zinc-400">No findings</span>
-                ) : null}
                 <ComplianceExpandChevron expanded={isExpanded} />
               </div>
             </button>
 
             <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
               <div className="vigil-accordion-panel__inner">
-                <div className="border-t border-zinc-100 bg-zinc-50/20 px-5 pb-5 pt-4">
+                <div className="border-t border-zinc-100 bg-white px-5 pb-5 pt-5">
                   <CompositeExpandedDetails
                     ctrl={ctrl}
                     findingCountByCheck={findingCountByCheck}
@@ -2278,12 +2149,6 @@ export default function Controls() {
     setExpanded(ctrl.id);
   }
 
-  const topBlockerDetailed = useMemo(() => {
-    const failing = rows.filter((row) => row.status === "fail");
-    if (failing.length === 0) return null;
-    return failing.reduce((worst, row) => (row.finding_count > worst.finding_count ? row : worst));
-  }, [rows]);
-
   const compositePanelRows = useMemo(() => {
     const all = compositeControls.data ?? [];
     const nestedChildIds = new Set(Object.values(NESTED_COMPOSITE_IDS));
@@ -2314,91 +2179,6 @@ export default function Controls() {
     setStatusFilter(filter);
     setExpanded(null);
     setExpandedComposite(null);
-  }
-
-  const topBlockerComposite = useMemo(() => {
-    const failing = primaryComposites.filter((c) => c.status === "fail" && c.finding_count > 0);
-    if (failing.length === 0) return null;
-    return failing.reduce((worst, row) => (row.finding_count > worst.finding_count ? row : worst));
-  }, [primaryComposites]);
-
-  const heroStats = useMemo(() => {
-    if (complianceView === "composite") {
-      return {
-        passRate: compositeTotal > 0 ? Math.round((compositePassed / compositeTotal) * 100) : null,
-        passed: compositePassed,
-        total: compositeTotal,
-        failed: compositeFailed,
-        openFindings: primaryComposites.reduce((sum, row) => sum + row.finding_count, 0),
-      };
-    }
-    const activeStats = frameworkStatsById[framework];
-    return {
-      passRate: activeStats?.passRate ?? (total > 0 ? Math.round((passed / total) * 100) : null),
-      passed: activeStats?.passed ?? passed,
-      total: activeStats?.total ?? total,
-      failed: activeStats?.failed ?? failed,
-      openFindings: activeStats?.openFindings ?? rows.reduce((sum, r) => sum + r.finding_count, 0),
-    };
-  }, [
-    complianceView,
-    compositeTotal,
-    compositePassed,
-    compositeFailed,
-    primaryComposites,
-    frameworkStatsById,
-    framework,
-    passed,
-    total,
-    failed,
-    rows,
-  ]);
-
-  const activeTopBlocker =
-    complianceView === "composite" ? topBlockerComposite : topBlockerDetailed;
-
-  const controlToCompositeId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const composite of primaryComposites) {
-      for (const row of underlyingCriteriaForComposite(composite, rows)) {
-        map.set(row.control_id, composite.id);
-      }
-    }
-    return map;
-  }, [primaryComposites, rows]);
-
-  const viewTrend = useMemo(() => {
-    if (complianceView === "composite") {
-      const improved = new Set<string>();
-      const regressed = new Set<string>();
-      for (const event of complianceTimeline.data?.events ?? []) {
-        for (const passedCtrl of event.diff?.newly_passed ?? []) {
-          const compositeId = controlToCompositeId.get(passedCtrl.control_id);
-          if (compositeId) improved.add(compositeId);
-        }
-        for (const failedCtrl of event.diff?.newly_failed ?? []) {
-          const compositeId = controlToCompositeId.get(failedCtrl.control_id);
-          if (compositeId) regressed.add(compositeId);
-        }
-      }
-      return { improved: improved.size, regressed: regressed.size };
-    }
-    const summary = complianceTimeline.data?.period_summary;
-    return {
-      improved: summary?.controls_improved ?? 0,
-      regressed: summary?.controls_regressed ?? 0,
-    };
-  }, [complianceView, complianceTimeline.data, controlToCompositeId]);
-
-  function jumpToTopBlocker() {
-    if (!activeTopBlocker) return;
-    if (complianceView === "composite") {
-      setExpandedComposite(activeTopBlocker.id);
-      return;
-    }
-    setComplianceViewWithUrl("detailed");
-    setStatusFilter("fail");
-    openControl(activeTopBlocker as ControlRow);
   }
 
   async function downloadPack(opts?: { framework?: string; period?: number; asOf?: string }) {
@@ -2507,30 +2287,9 @@ export default function Controls() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
-            {hasScanned && connectedAccount && !controls.isLoading ? (
-              <CompliancePostureLine
-                unitLabel={complianceView === "composite" ? "groups" : "criteria"}
-                passed={heroStats.passed}
-                total={heroStats.total}
-                failed={heroStats.failed}
-                openFindings={heroStats.openFindings}
-                passRate={heroStats.passRate}
-                trendImproved={viewTrend.improved}
-                trendRegressed={viewTrend.regressed}
-                findingsResolved={complianceTimeline.data?.period_summary?.findings_resolved ?? 0}
-                loading={complianceTimeline.isLoading}
-                topBlocker={
-                  activeTopBlocker
-                    ? complianceView === "composite"
-                      ? activeTopBlocker.title
-                      : `${activeTopBlocker.control_id} ${shortControlTitle(activeTopBlocker.title)}`
-                    : null
-                }
-                onTopBlockerClick={activeTopBlocker ? jumpToTopBlocker : undefined}
-              />
-            ) : (
+            {!hasScanned && connectedAccount && !controls.isLoading ? (
               <p className="mt-1 text-sm text-zinc-500">Control status against selected frameworks.</p>
-            )}
+            ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {connectedAccounts.length > 0 && activeAccount && (
                 <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
@@ -2693,9 +2452,7 @@ export default function Controls() {
                     </div>
                     <div className="flex shrink-0 items-center gap-3 self-center">
                       <ComplianceRowSummary
-                        expanded={isExpanded}
                         displayStatus={displayStatus}
-                        count={ctrl.finding_count}
                         href={findingsHref}
                         onNavigate={(href) => navigate(href)}
                       />

@@ -42,6 +42,11 @@
   min-width: 14.5rem;
 }
 
+.history-filter-dropdown.history-filter-box--group {
+  min-width: 12.5rem;
+  max-width: 18rem;
+}
+
 .history-filter-box {
   display: flex;
   width: 100%;
@@ -301,7 +306,7 @@
   font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: 0;
-  color: #9ca3af;
+  color: #6b7280;
   margin-bottom: 0.5rem;
   white-space: nowrap;
 }
@@ -395,7 +400,7 @@
   flex-shrink: 0;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #9ca3af;
+  color: #6b7280;
   white-space: nowrap;
   line-height: 1.2;
 }
@@ -490,7 +495,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.875rem 1rem;
+  padding: 0.9375rem 1.125rem;
   border-bottom: 1px solid var(--history-border);
 }
 
@@ -744,21 +749,22 @@
   top: 0;
   z-index: 1;
   text-align: left;
-  padding: 0.65rem 1rem;
+  padding: 0.7rem 1rem;
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--history-muted);
+  letter-spacing: 0.06em;
+  color: #6b7280;
   background: #f9fafb;
   border-bottom: 1px solid var(--history-border);
   white-space: nowrap;
 }
 
 .history-table tbody td {
-  padding: 0.75rem 1rem;
+  padding: 0.8125rem 1rem;
   border-bottom: 1px solid #f3f4f6;
   vertical-align: middle;
+  line-height: 1.45;
   color: #374151;
 }
 

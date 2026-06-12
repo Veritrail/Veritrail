@@ -3209,7 +3209,7 @@ export default function Accounts() {
     <div className="mx-auto w-full max-w-screen-2xl space-y-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-950">AWS Accounts</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-950">Accounts</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {showFirstAccountOnboarding
               ? "Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and generate evidence for your auditor."

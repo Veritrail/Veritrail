@@ -26,6 +26,7 @@
     "checks": [
       "iam.root.has_access_keys",
       "iam.access_key.multiple_active",
+      "iam.access_key.no_rotation_90d",
       "iam.account.password_policy_weak",
       "secretsmanager.secret.no_rotation",
       "ssm.parameter.plaintext_secret",

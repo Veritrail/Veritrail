@@ -86,7 +86,7 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "guardduty.open_findings": ["soc2"],
   "iam.access_inventory_gap": ["soc2"],
   "iam.access_key.multiple_active": ["cis_aws_l1", "iso27001", "soc2"],
-  "iam.access_key.no_rotation_90d": ["cis_aws_l1", "iso27001"],
+  "iam.access_key.no_rotation_90d": ["soc2", "cis_aws_l1", "iso27001"],
   "iam.access_key.unused_45d": ["cis_aws_l1", "iso27001", "soc2"],
   "iam.account.no_support_role": ["cis_aws_l1"],
   "iam.account.password_policy_weak": ["cis_aws_l1", "iso27001", "soc2"],
