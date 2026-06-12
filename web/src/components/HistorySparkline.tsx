@@ -115,6 +115,45 @@ function ZeroPostureAnimation({ className }: { className: string }) {
   );
 }
 
+function FlatPostureBand({
+  className,
+  score,
+}: {
+  className: string;
+  score: number;
+}) {
+  const viewBox = `0 0 ${SPARK_W} ${SPARK_H}`;
+  const y = SPARK_H - SPARK_PAD_Y - (Math.max(0, Math.min(100, score)) / 100) * (SPARK_H - SPARK_PAD_Y * 2);
+  const bandTop = Math.max(SPARK_PAD_Y, y - 10);
+  const bandHeight = Math.min(SPARK_H - SPARK_PAD_Y - bandTop, 20);
+
+  return (
+    <svg viewBox={viewBox} className={`${className} history-stats__spark--flat`} preserveAspectRatio="none" aria-hidden>
+      {sparkFrame()}
+      <defs>
+        <linearGradient id="history-flat-band" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#dbeafe" stopOpacity={0.25} />
+          <stop offset="45%" stopColor="#60a5fa" stopOpacity={0.35} />
+          <stop offset="100%" stopColor="#ccfbf1" stopOpacity={0.25} />
+        </linearGradient>
+        <linearGradient id="history-flat-sweep" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity={0} />
+          <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.75} />
+          <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <rect x={SPARK_PAD_X} y={bandTop} width={SPARK_W - SPARK_PAD_X * 2} height={bandHeight} rx={bandHeight / 2} fill="url(#history-flat-band)" />
+      <line x1={SPARK_PAD_X} y1={y} x2={SPARK_W - SPARK_PAD_X} y2={y} stroke="#3b82f6" strokeWidth={4} strokeLinecap="round" />
+      <rect x={SPARK_PAD_X} y={bandTop - 2} width="70" height={bandHeight + 4} rx={(bandHeight + 4) / 2} fill="url(#history-flat-sweep)" opacity={0.5}>
+        <animate attributeName="x" values={`${SPARK_PAD_X};${SPARK_W - SPARK_PAD_X - 70};${SPARK_PAD_X}`} dur="4.2s" repeatCount="indefinite" />
+      </rect>
+      {[SPARK_PAD_X, SPARK_W * 0.5, SPARK_W - SPARK_PAD_X].map((x, i) => (
+        <circle key={i} cx={x} cy={y} r={i === 1 ? 5 : 4.5} fill="#fff" stroke="#3b82f6" strokeWidth={2.5} />
+      ))}
+    </svg>
+  );
+}
+
 export function HistorySparkline({
   points,
   className = "history-stats__spark",
@@ -126,7 +165,7 @@ export function HistorySparkline({
 
   if (points.length === 0) {
     return (
-      <svg viewBox={viewBox} className={className} preserveAspectRatio="xMidYMid meet" aria-hidden>
+      <svg viewBox={viewBox} className={className} preserveAspectRatio="none" aria-hidden>
         {sparkFrame()}
         <line
           x1={SPARK_PAD_X}
@@ -151,6 +190,11 @@ export function HistorySparkline({
 
   const rawMin = Math.min(...scores);
   const rawMax = Math.max(...scores);
+
+  if (rawMin === rawMax) {
+    return <FlatPostureBand className={className} score={rawMax} />;
+  }
+
   const padRange = rawMin === rawMax ? 12 : 0;
   const low = Math.max(0, rawMin - padRange);
   const high = Math.min(100, rawMax + padRange);
@@ -168,7 +212,7 @@ export function HistorySparkline({
   const end = coords[coords.length - 1];
 
   return (
-    <svg viewBox={viewBox} className={className} preserveAspectRatio="xMidYMid meet" aria-hidden>
+    <svg viewBox={viewBox} className={className} preserveAspectRatio="none" aria-hidden>
       <defs>
         <linearGradient id={SPARK_FILL_ID} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={SPARK_STROKE} stopOpacity={0.2} />

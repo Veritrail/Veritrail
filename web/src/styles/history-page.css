@@ -265,7 +265,7 @@
   width: 100%;
   grid-template-columns:
     minmax(8rem, 0.85fr)
-    minmax(18rem, 2fr)
+    minmax(24rem, 3fr)
     minmax(4.5rem, 0.52fr)
     minmax(5rem, 0.62fr)
     minmax(5rem, 0.62fr)
@@ -293,7 +293,7 @@
 
 .history-stats__cell--chart {
   justify-content: center;
-  padding: 0.75rem 1.75rem;
+  padding: 0.65rem 1rem;
 }
 
 .history-stats__cell--metric {
@@ -359,6 +359,10 @@
 
 .history-stats__spark--zero {
   filter: drop-shadow(0 8px 14px rgb(59 130 246 / 0.12));
+}
+
+.history-stats__spark--flat {
+  filter: drop-shadow(0 7px 12px rgb(59 130 246 / 0.1));
 }
 
 .history-coverage {
