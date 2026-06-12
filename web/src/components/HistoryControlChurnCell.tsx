@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 
-import type { HistoryEvent, ScanCadenceDay } from "../lib/complianceHistory";
-import { BAR_COUNT, HistoryCadenceBars, bucketActivitySeries } from "./HistoryCadenceBars";
+import type { HistoryEvent } from "../lib/complianceHistory";
 
 function uniqueControlsChanged(events: HistoryEvent[]): number {
   const ids = new Set<string>();
@@ -13,50 +12,24 @@ function uniqueControlsChanged(events: HistoryEvent[]): number {
   return ids.size;
 }
 
-function churnDaySeries(scanCadence: ScanCadenceDay[] | undefined, periodDays: number): number[] {
-  const byDay = new Map<string, number>();
-  for (const row of scanCadence ?? []) {
-    byDay.set(row.date, row.posture_change_count);
-  }
-
-  const end = new Date();
-  end.setHours(0, 0, 0, 0);
-  const daily: number[] = [];
-  for (let i = periodDays - 1; i >= 0; i -= 1) {
-    const d = new Date(end);
-    d.setDate(d.getDate() - i);
-    daily.push(byDay.get(d.toISOString().slice(0, 10)) ?? 0);
-  }
-
-  return bucketActivitySeries(daily, BAR_COUNT);
-}
-
 export function HistoryControlChurnCell({
   events,
-  scanCadence,
-  periodDays,
-  showActivity = true,
 }: {
   events: HistoryEvent[];
-  scanCadence?: ScanCadenceDay[];
-  periodDays: number;
-  showActivity?: boolean;
 }) {
   const changed = useMemo(() => uniqueControlsChanged(events), [events]);
-  const series = useMemo(() => churnDaySeries(scanCadence, periodDays), [scanCadence, periodDays]);
+  const hasChurn = changed > 0;
 
   return (
     <div className="history-churn">
       <p className="history-stats__label">Control churn</p>
-      <p className="history-churn__stat">
+      <div className={`history-churn__summary${hasChurn ? " history-churn__summary--active" : ""}`}>
         <span className="history-churn__count">{changed}</span>
         <span className="history-churn__suffix">control{changed === 1 ? "" : "s"} changed</span>
+      </div>
+      <p className="history-churn__note">
+        {hasChurn ? "Movement detected in this window" : "No control movement in this window"}
       </p>
-      {showActivity ? (
-        <HistoryCadenceBars values={series} />
-      ) : (
-        <p className="history-churn__note">Point-in-time control movement</p>
-      )}
     </div>
   );
 }

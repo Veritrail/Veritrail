@@ -422,12 +422,7 @@ export default function HistoryV2() {
 
             <div className="history-stats__cell history-stats__cell--coverage">
               {POINT_IN_TIME_FRAMEWORKS.has(framework) ? (
-                <HistoryControlChurnCell
-                  events={events}
-                  scanCadence={historyQ.data?.scan_cadence}
-                  periodDays={days}
-                  showActivity={false}
-                />
+                <HistoryControlChurnCell events={events} />
               ) : (
                 <div className="history-coverage">
                   <p className="history-stats__label">Coverage</p>

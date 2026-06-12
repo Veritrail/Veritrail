@@ -434,17 +434,27 @@
 .history-churn {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
   width: 100%;
   min-width: 0;
   overflow: hidden;
 }
 
-.history-churn__stat {
-  margin: 0;
-  min-width: 0;
-  white-space: nowrap;
-  line-height: 1.2;
+.history-churn__summary {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  padding: 0.45rem 0.65rem;
+  box-shadow: inset 0 0 0 1px #e5e7eb;
+}
+
+.history-churn__summary--active {
+  background: #eef7ff;
+  box-shadow: inset 0 0 0 1px #bfdbfe;
 }
 
 .history-churn__count {
@@ -456,7 +466,6 @@
 }
 
 .history-churn__suffix {
-  margin-left: 0.3rem;
   font-size: 0.8125rem;
   font-weight: 500;
   color: #6b7280;
@@ -470,7 +479,7 @@
 }
 
 .history-churn__note {
-  margin: 0.15rem 0 0;
+  margin: 0;
   color: #9ca3af;
   font-size: 0.75rem;
   font-weight: 500;
