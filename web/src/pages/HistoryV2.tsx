@@ -408,10 +408,10 @@ export default function HistoryV2() {
               title={
                 controlsPassed > 0
                   ? `${controlsPassed} control${controlsPassed === 1 ? "" : "s"} fully passed on Compliance`
-                  : "Findings verified or cleared — a control only passes when all its findings are gone"
+                  : "Findings verified or cleared in the selected period"
               }
             >
-              <p className="history-stats__label history-stats__label--good">Resolved</p>
+              <p className="history-stats__label history-stats__label--good">Findings resolved</p>
               <p className="history-stats__value history-stats__num--good">{findingsResolved}</p>
             </div>
 
@@ -422,19 +422,19 @@ export default function HistoryV2() {
 
             <div className="history-stats__cell history-stats__cell--coverage">
               {POINT_IN_TIME_FRAMEWORKS.has(framework) ? (
-                <HistoryControlChurnCell events={events} />
+                <HistoryControlChurnCell
+                  events={events}
+                  scanCadence={historyQ.data?.scan_cadence}
+                  periodDays={days}
+                  showActivity={false}
+                />
               ) : (
                 <div className="history-coverage">
                   <p className="history-stats__label">Coverage</p>
-                  <div className="history-coverage__row">
-                    <p className="history-coverage__stat">
-                      <span className="history-coverage__count">{coverage.covered}</span>
-                      <span className="history-coverage__suffix">/ {coverage.total} days</span>
-                    </p>
-                    <span className="history-coverage__gap">
-                      {coverage.gap === 1 ? "1 gap" : `${coverage.gap} gaps`}
-                    </span>
-                  </div>
+                  <p className="history-coverage__stat">
+                    <span className="history-coverage__count">{coverage.covered}</span>
+                    <span className="history-coverage__suffix">/ {coverage.total} days</span>
+                  </p>
                   <div className="history-coverage__bar">
                     <div
                       className="history-coverage__fill"

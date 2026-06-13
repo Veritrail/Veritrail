@@ -155,30 +155,6 @@ function TextField({ id, label, value, onChange, placeholder, type = "text", mon
   );
 }
 
-function TabIcon({ d }: { d: string }) {
-  return (
-    <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d={d} />
-    </svg>
-  );
-}
-
-const SECTION_ICONS: Record<SectionId, string> = {
-  scanning: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z",
-  notifications:
-    "M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0",
-  detection:
-    "M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15",
-  trust:
-    "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z",
-  auditors:
-    "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z",
-  records:
-    "M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z",
-  advanced:
-    "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5",
-};
-
 function SectionHeader({ title, description }: { title: string; description: string }) {
   return (
     <div className="mb-4">
@@ -187,6 +163,41 @@ function SectionHeader({ title, description }: { title: string; description: str
     </div>
   );
 }
+
+function Segmented({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string; disabled?: boolean }[];
+}) {
+  return (
+    <div className="inline-flex flex-wrap items-center gap-1 rounded-full border border-zinc-200 bg-zinc-100/70 p-1">
+      {options.map((o) => {
+        const active = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            disabled={o.disabled}
+            onClick={() => onChange(o.value)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              active
+                ? "bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/80"
+                : "text-zinc-500 hover:text-zinc-800"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const SETTINGS_CARD = "rounded-xl border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-950/[0.02]";
 
 export default function Settings() {
   const qc = useQueryClient();
@@ -260,21 +271,12 @@ export default function Settings() {
   const [saveError, setSaveError] = useState("");
   const [slackTestState, setSlackTestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [slackTestError, setSlackTestError] = useState("");
-  const [active, setActive] = useState<SectionId>(() => {
-    if (typeof window === "undefined") return "scanning";
-    const h = window.location.hash.replace("#", "") as SectionId;
-    return h in SECTION_ICONS ? h : "scanning";
-  });
 
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const lastSavedJson = useRef<string>("");
 
   const minCustomHours = data?.scan_status.min_custom_hours ?? 6;
   const canDaily = data?.scan_status.max_interval === "daily";
-
-  useEffect(() => {
-    if (typeof window !== "undefined") window.history.replaceState(null, "", `#${active}`);
-  }, [active]);
 
   useEffect(() => {
     if (!data) return;
@@ -389,29 +391,6 @@ export default function Settings() {
   const slackConnected = slackWebhookUrl.trim().length > 0;
   const deliveryPlaceholder = data?.account_email ?? "you@company.com";
   const vaultLabel = vaultStatus.data?.enabled ? "Enabled" : vaultStatus.data?.configured ? "Configured" : "Not configured";
-  const alertsOn = scanFailureEnabled || criticalAlertEnabled || emailDigestEnabled;
-
-  const activeAuditors = (auditorList.data ?? []).filter(
-    (a) => a.is_active && new Date(a.expires_at) > new Date(),
-  ).length;
-
-  const scanBadge = !scanEnabled
-    ? "Manual"
-    : freqMode === "custom"
-      ? "Custom"
-      : freqMode === "weekly"
-        ? "Weekly"
-        : "Daily";
-
-  const SECTIONS: { id: SectionId; label: string; badge?: string }[] = [
-    { id: "scanning", label: "Scanning", badge: scanBadge },
-    { id: "notifications", label: "Notifications", badge: alertsOn ? "On" : "Off" },
-    { id: "detection", label: "Detection scope", badge: `${enabledOptional}/${optionalTotal}` },
-    { id: "trust", label: "Trust Center", badge: trustCenter.data?.is_enabled ? "Live" : "Off" },
-    { id: "auditors", label: "Auditor access", badge: activeAuditors ? String(activeAuditors) : undefined },
-    { id: "records", label: "Evidence records", badge: vaultStatus.data?.enabled ? "On" : vaultStatus.data?.configured ? "Set" : "Off" },
-    { id: "advanced", label: "Advanced", badge: aiFindingReviewEnabled ? "On" : "Off" },
-  ];
 
   return (
     <ProductShell>
@@ -423,78 +402,74 @@ export default function Settings() {
         actions={<SaveIndicator status={saveStatus} error={saveError} />}
         width="w-full"
       >
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-          {/* Section rail */}
-          <nav className="flex gap-1 overflow-x-auto rounded-xl border border-zinc-200 bg-white p-2 shadow-sm shadow-zinc-950/[0.02] lg:sticky lg:top-4 lg:w-60 lg:shrink-0 lg:flex-col lg:overflow-visible">
-            {SECTIONS.map((s) => {
-              const isActive = active === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setActive(s.id)}
-                  aria-current={isActive ? "page" : undefined}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition lg:shrink ${
-                    isActive
-                      ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/70"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
-                  }`}
-                >
-                  <TabIcon d={SECTION_ICONS[s.id]} />
-                  <span className="whitespace-nowrap">{s.label}</span>
-                  {s.badge && (
-                    <span
-                      className={`ml-auto hidden rounded-full px-1.5 py-0.5 text-[10px] font-bold lg:inline ${
-                        isActive ? "bg-white text-indigo-600 ring-1 ring-indigo-200" : "bg-zinc-100 text-zinc-500"
-                      }`}
-                    >
-                      {s.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Section content */}
-          <div className="min-w-0 flex-1 lg:max-w-3xl">
-            {active === "scanning" && (
-              <section>
+        <div className="w-full space-y-10">
+            <section id="scanning">
                 <SectionHeader title="Scanning" description="Vigil collects evidence and refreshes findings and compliance on a schedule." />
-                <PageCard>
-                  <SettingRow title="Automated scans" description="Runs evidence collection on a schedule and refreshes findings/compliance.">
-                    <Toggle checked={scanEnabled} onChange={setScanEnabled} />
-                  </SettingRow>
-                  {scanEnabled && (
-                    <div className="grid gap-3 border-t border-zinc-100 px-4 py-3 sm:grid-cols-[1fr_10rem]">
-                      <div>
-                        <label htmlFor="scan-interval" className="mb-1.5 block text-xs font-semibold text-zinc-600">Frequency</label>
-                        <select id="scan-interval" value={freqMode} onChange={(e) => setFreqMode(e.target.value as FreqMode)} className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25">
-                          <option value="daily" disabled={!canDaily}>Daily{canDaily ? "" : " (paid plan)"}</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="custom">Custom interval</option>
-                        </select>
-                        <p className="mt-1.5 text-xs text-zinc-400">{scanScheduleLabel}</p>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className={SETTINGS_CARD}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-zinc-900">Automated scans</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Collect evidence and refresh findings on a schedule.</p>
                       </div>
-                      {freqMode === "custom" && (
-                        <div>
-                          <label htmlFor="custom-hours" className="mb-1.5 block text-xs font-semibold text-zinc-600">Hours</label>
-                          <input id="custom-hours" type="number" min={minCustomHours} max={720} step={1} value={customHours} onChange={(e) => setCustomHours(Number(e.target.value))} className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25" />
-                          <p className="mt-1.5 text-xs text-zinc-400">{minCustomHours}–720</p>
-                        </div>
-                      )}
+                      <Toggle checked={scanEnabled} onChange={setScanEnabled} />
                     </div>
-                  )}
-                  <div className="border-t border-zinc-100 bg-zinc-50/60 px-4 py-2 text-xs text-zinc-500">
-                    {!data?.scan_status.account_connected ? <span>Connect an AWS account to enable scheduled scans.</span> : <span>{lastScan ? <>Last scan: {lastScan}</> : "No scan completed yet."}{scanEnabled && nextScan && <>{" · "}Next: {nextScan}</>}</span>}
+                    {scanEnabled && (
+                      <div className="mt-5 border-t border-zinc-100 pt-4">
+                        <p className="mb-2 text-xs font-semibold text-zinc-600">Frequency</p>
+                        <Segmented
+                          value={freqMode}
+                          onChange={(v) => setFreqMode(v as FreqMode)}
+                          options={[
+                            { value: "daily", label: canDaily ? "Daily" : "Daily · paid", disabled: !canDaily },
+                            { value: "weekly", label: "Weekly" },
+                            { value: "custom", label: "Custom" },
+                          ]}
+                        />
+                        {freqMode === "custom" && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={minCustomHours}
+                              max={720}
+                              step={1}
+                              value={customHours}
+                              onChange={(e) => setCustomHours(Number(e.target.value))}
+                              className="w-24 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
+                            />
+                            <span className="text-xs text-zinc-500">hours ({minCustomHours}–720)</span>
+                          </div>
+                        )}
+                        <p className="mt-3 text-xs text-zinc-400">{scanScheduleLabel}</p>
+                      </div>
+                    )}
                   </div>
-                </PageCard>
-              </section>
-            )}
 
-            {active === "notifications" && (
-              <section className="space-y-5">
+                  <div className={SETTINGS_CARD}>
+                    <p className="text-sm font-semibold text-zinc-900">Scan status</p>
+                    {!data?.scan_status.account_connected ? (
+                      <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-800">
+                        Connect an AWS account to enable scheduled scans.
+                      </p>
+                    ) : (
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className="rounded-lg border border-zinc-100 bg-zinc-50/70 px-3.5 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Last scan</p>
+                          <p className="mt-1.5 text-[13px] font-semibold leading-snug text-zinc-900">{lastScan ?? "No scan yet"}</p>
+                        </div>
+                        <div className="rounded-lg border border-zinc-100 bg-zinc-50/70 px-3.5 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Next scan</p>
+                          <p className="mt-1.5 text-[13px] font-semibold leading-snug text-zinc-900">{scanEnabled ? nextScan ?? "—" : "Manual only"}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+            <section id="notifications">
                 <SectionHeader title="Notifications" description="Where Vigil sends scan-failure alerts and weekly posture summaries." />
+                <div className="grid items-start gap-4 lg:grid-cols-2">
                 <PageCard title="Email alerts" description="Failure alerts and weekly summaries share one delivery address.">
                   <SettingRow title="Scan failure email" description="Notify when a scan fails or loses AWS access.">
                     <Toggle checked={scanFailureEnabled} onChange={setScanFailureEnabled} />
@@ -536,11 +511,10 @@ export default function Settings() {
                     </div>
                   </div>
                 </PageCard>
+                </div>
               </section>
-            )}
 
-            {active === "detection" && (
-              <section className="space-y-5">
+            <section id="detection" className="space-y-5">
                 <SectionHeader title="Detection scope" description="What Vigil scans and what counts toward your compliance score." />
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-zinc-600">
                   <span><strong className="font-semibold text-zinc-900">{BENCHMARK_CHECK_COUNT}</strong> benchmark checks · always on</span>
@@ -601,10 +575,8 @@ export default function Settings() {
                   )}
                 </PageCard>
               </section>
-            )}
 
-            {active === "trust" && (
-              <section>
+            <section id="trust">
                 <SectionHeader title="Trust Center" description="Your public compliance and security page for auditors and prospects." />
                 <PageCard className="border-indigo-200/60 bg-indigo-50/[0.15]">
                   <div className="px-1 py-1">
@@ -612,17 +584,13 @@ export default function Settings() {
                   </div>
                 </PageCard>
               </section>
-            )}
 
-            {active === "auditors" && (
-              <section>
+            <section id="auditors">
                 <SectionHeader title="Auditor access" description="Invite external auditors with scoped, time-boxed read access." />
                 <AuditorManagement />
               </section>
-            )}
 
-            {active === "records" && (
-              <section>
+            <section id="records">
                 <SectionHeader title="Evidence records" description="Immutable archive for signed evidence packs." />
                 <PageCard>
                   <div className="px-4 py-3 text-sm">
@@ -656,10 +624,8 @@ export default function Settings() {
                   </div>
                 </PageCard>
               </section>
-            )}
 
-            {active === "advanced" && (
-              <section>
+            <section id="advanced">
                 <SectionHeader title="Advanced" description="Optional and experimental features. No compliance-score impact." />
                 <PageCard>
                   <SettingRow
@@ -670,8 +636,6 @@ export default function Settings() {
                   </SettingRow>
                 </PageCard>
               </section>
-            )}
-          </div>
         </div>
       </PageShell>
     </ProductShell>

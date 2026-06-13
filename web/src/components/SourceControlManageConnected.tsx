@@ -4,9 +4,7 @@ import { api } from "../api";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import {
   formatSync,
-  IconGitMerge,
   IconRepo,
-  IconUsers,
   IntegrationBrandIcon,
   ProgressBar,
   Spinner,
@@ -107,7 +105,7 @@ function ProtectionRepoStatus({ status }: { status: RepoRow["protection_status"]
 
 function SummaryCard({ label, value, tone }: { label: string; value: string; tone: HealthTone }) {
   return (
-    <div className="scm-summary-card">
+    <div className={`scm-summary-card scm-summary-card--${tone}`}>
       <span className="scm-summary-label">{label}</span>
       <span className="scm-summary-value">
         {tone === "sync" ? <Spinner className="h-3.5 w-3.5 text-sky-600" /> : <StatusDot tone={tone} />}
@@ -198,6 +196,14 @@ export function SourceControlManageConnected({
   const protectionTitle = protectionAccent === "warn" ? "Branch protection needs review" : "Branch protection";
   const previewRepos = (scopeRepos.data ?? []).slice(0, 5);
   const activityLabel = config.brand === "gitlab" ? "MRs" : "PRs";
+  const repoBrandName = config.brand === "gitlab" ? "GitLab" : "GitHub";
+  const repoHostBase =
+    config.brand === "gitlab"
+      ? typeof p.base_url === "string" && p.base_url
+        ? p.base_url.replace(/\/+$/, "")
+        : "https://gitlab.com"
+      : "https://github.com";
+  const repoWebUrl = (fullName: string) => `${repoHostBase}/${fullName.split("/").map(encodeURIComponent).join("/")}`;
 
   return (
     <div className="scm-page space-y-5">
@@ -227,7 +233,7 @@ export function SourceControlManageConnected({
             type="button"
             onClick={onSync}
             disabled={isSyncing || syncDisabled}
-            className={`${HEADER_ACTION_BTN} bg-zinc-950 text-white shadow-sm hover:bg-zinc-800`}
+            className={`${HEADER_ACTION_BTN} bg-[#2563eb] text-white shadow-sm shadow-blue-600/20 hover:bg-[#1d4ed8]`}
           >
             {isSyncing ? "Syncing…" : "Sync now"}
           </button>
@@ -286,22 +292,12 @@ export function SourceControlManageConnected({
 
           <div className="scm-mini-metrics">
             <div className="scm-mini-metric">
-              <span className="scm-mini-metric__icon" aria-hidden>
-                <IconUsers className="h-4 w-4" />
-              </span>
-              <div className="scm-mini-metric__text">
-                <div className="scm-mini-metric__label">Members</div>
-                <div className="scm-mini-metric__value">{p.identity_users}</div>
-              </div>
+              <div className="scm-mini-metric__label">Members</div>
+              <div className="scm-mini-metric__value">{p.identity_users}</div>
             </div>
             <div className="scm-mini-metric">
-              <span className="scm-mini-metric__icon" aria-hidden>
-                <IconGitMerge className="h-4 w-4" />
-              </span>
-              <div className="scm-mini-metric__text">
-                <div className="scm-mini-metric__label">{config.mergedMetricLabel}</div>
-                <div className="scm-mini-metric__value">{p.pull_requests}</div>
-              </div>
+              <div className="scm-mini-metric__label">{config.mergedMetricLabel}</div>
+              <div className="scm-mini-metric__value">{p.pull_requests}</div>
             </div>
           </div>
 
@@ -361,12 +357,18 @@ export function SourceControlManageConnected({
               {previewRepos.map((repo) => (
                 <tr key={repo.full_name}>
                   <td>
-                    <div className="scm-repo-cell">
+                    <a
+                      href={repoWebUrl(repo.full_name)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="scm-repo-cell scm-repo-link"
+                      title={`Open ${repo.full_name} on ${repoBrandName}`}
+                    >
                       <span className="scm-repo-icon">
                         <IconRepo />
                       </span>
                       {repo.short_name}
-                    </div>
+                    </a>
                   </td>
                   <td>
                     <ProtectionRepoStatus status={repo.protection_status} />
@@ -377,15 +379,17 @@ export function SourceControlManageConnected({
                       <span>
                         {repo.activity_count} {activityLabel}
                       </span>
-                      <Link
-                        to={config.editScopeHref}
+                      <a
+                        href={repoWebUrl(repo.full_name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="scm-repos-row-chevron"
-                        aria-label={`Open ${repo.short_name}`}
+                        aria-label={`Open ${repo.short_name} on ${repoBrandName}`}
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
                         </svg>
-                      </Link>
+                      </a>
                     </div>
                   </td>
                 </tr>

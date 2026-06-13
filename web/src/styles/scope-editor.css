@@ -1,0 +1,519 @@
+.scope-edit {
+  --se-border: #e8edf3;
+  --se-muted: #64748b;
+  --se-accent: #2563eb;
+  --se-accent-hover: #1d4ed8;
+  width: 100%;
+}
+
+.scope-edit__breadcrumb {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.scope-edit__breadcrumb a {
+  color: var(--se-accent);
+}
+
+.scope-edit__breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.scope-edit__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.scope-edit__title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.scope-edit__subtitle {
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--se-muted);
+}
+
+.scope-edit__manage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--se-border);
+  border-radius: 0.625rem;
+  background: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.scope-edit__manage-btn:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.scope-edit__manage-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* stat cards */
+.scope-stats {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 1.25rem;
+  border: 1px solid var(--se-border);
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.scope-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0 0.5rem;
+}
+
+.scope-stat + .scope-stat {
+  border-left: 1px solid #f1f5f9;
+  padding-left: 1.5rem;
+}
+
+.scope-stat__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+}
+
+.scope-stat__icon--blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.scope-stat__icon--green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.scope-stat__icon--purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.scope-stat__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--se-muted);
+}
+
+.scope-stat__value {
+  margin-top: 0.125rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.scope-stat__sub {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* two-column grid */
+.scope-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .scope-grid {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.7fr);
+    align-items: stretch;
+    /* Fill the viewport height so the cards stay tall even with few/no repos
+       (keeps GitHub and GitLab visually consistent). */
+    min-height: calc(100vh - 21rem);
+  }
+}
+
+.scope-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--se-border);
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 1.375rem 1.5rem;
+}
+
+.scope-card__head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.scope-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.scope-card__subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--se-muted);
+}
+
+/* owners */
+.scope-owners {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 1.125rem;
+}
+
+.scope-owner-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--se-border);
+  border-radius: 0.625rem;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.scope-owner-row:hover {
+  border-color: #cbd5e1;
+  background: #fafbfd;
+}
+
+.scope-owner-row__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #0f172a;
+  color: #fff;
+}
+
+/* GitLab fox is its own brand color on a light tile, not white-on-black. */
+.scope-owner-row__mark--gitlab {
+  background: #fdeee8;
+  color: #e24329;
+}
+
+.scope-owner-row__text {
+  min-width: 0;
+  flex: 1;
+}
+
+.scope-owner-row__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.scope-owner-row__meta {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--se-muted);
+}
+
+.scope-add-owner {
+  margin-top: 0.625rem;
+  width: 100%;
+  padding: 0.625rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.625rem;
+  background: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.scope-add-owner:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.scope-add-owner:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.scope-auth-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.625rem;
+  background: #ecfdf5;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #047857;
+}
+
+.scope-auth-pill svg {
+  flex-shrink: 0;
+}
+
+/* repo scope */
+.scope-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-top: 1.125rem;
+}
+
+.scope-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--se-border);
+  border-radius: 0.625rem;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.scope-search:focus-within {
+  border-color: var(--se-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.scope-search svg {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.scope-search input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.scope-search input::placeholder {
+  color: #94a3b8;
+}
+
+.scope-repo-count {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--se-muted);
+}
+
+.scope-repo-table-wrap {
+  margin-top: 1rem;
+  flex: 1 1 auto;
+  min-height: 8rem;
+  /* Cap to the viewport so the whole page fits without scrolling — the table
+     scrolls internally instead. The offset covers header + stats + the repo
+     card's own header/filter/footer + page padding (measured ~35rem). */
+  max-height: calc(100vh - 36rem);
+  overflow: auto;
+  border: 1px solid var(--se-border);
+  border-radius: 0.75rem;
+}
+
+/* In-card action row (Cancel / Save) pinned to the bottom of the repo card. */
+.scope-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--se-border);
+}
+
+.scope-repo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.scope-repo-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.625rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--se-muted);
+  background: #fafbfd;
+  border-bottom: 1px solid var(--se-border);
+  white-space: nowrap;
+}
+
+.scope-repo-table thead th:last-child,
+.scope-repo-table tbody td:last-child {
+  width: 3rem;
+  text-align: center;
+}
+
+.scope-repo-table tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: #334155;
+}
+
+.scope-repo-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.scope-repo-table tbody tr:hover {
+  background: #fafbfd;
+}
+
+.scope-repo-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-weight: 600;
+  color: #0f172a;
+  min-width: 0;
+}
+
+.scope-repo-cell svg {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.scope-repo-cell__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scope-vis {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--se-muted);
+}
+
+.scope-vis svg {
+  flex-shrink: 0;
+}
+
+.scope-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--se-muted);
+}
+
+.scope-branch svg {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.scope-checkbox {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 0.3rem;
+  border: 1px solid #cbd5e1;
+  accent-color: var(--se-accent);
+  cursor: pointer;
+}
+
+/* buttons + footer */
+.scope-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--se-border);
+  border-radius: 0.625rem;
+  background: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.scope-btn-outline:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.scope-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid var(--se-accent);
+  border-radius: 0.625rem;
+  background: var(--se-accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.scope-btn-primary:hover:not(:disabled) {
+  background: var(--se-accent-hover);
+  border-color: var(--se-accent-hover);
+}
+
+.scope-btn-primary:disabled,
+.scope-btn-outline:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+
+@media (max-width: 1024px) {
+  .scope-stats {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .scope-stat + .scope-stat {
+    border-left: none;
+    border-top: 1px solid #f1f5f9;
+    padding-left: 0.5rem;
+    padding-top: 1rem;
+  }
+}

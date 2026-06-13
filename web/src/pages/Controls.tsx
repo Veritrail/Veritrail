@@ -195,20 +195,6 @@ function ComplianceRowSummary({
   return <span className={chipClass}>{content}</span>;
 }
 
-function ComplianceRowChevron({ expanded, className = "" }: { expanded: boolean; className?: string }) {
-  return (
-    <svg
-      className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-90" : ""} ${className}`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}
-
 function CompliancePanelShell({
   title,
   subtitle,
@@ -2433,7 +2419,6 @@ export default function Controls() {
                         : "hover:bg-zinc-50/60"
                     }`}
                   >
-                    <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
                     <div className="min-w-0 flex-1 py-0.5">
                       <p className="text-body font-semibold leading-snug text-zinc-900">
                         <span className="font-mono text-meta font-semibold text-zinc-500">{ctrl.control_id}</span>{" "}
@@ -2456,6 +2441,7 @@ export default function Controls() {
                         href={findingsHref}
                         onNavigate={(href) => navigate(href)}
                       />
+                      <ComplianceExpandChevron expanded={isExpanded} />
                     </div>
                   </button>
 

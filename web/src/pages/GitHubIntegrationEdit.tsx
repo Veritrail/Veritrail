@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import { GitHubMark, Spinner } from "../components/IntegrationsUi";
+import { GitHubMark, IconUsers, Spinner } from "../components/IntegrationsUi";
+import "../styles/scope-editor.css";
 
 type GitHubProvider = {
   login: string | null;
@@ -20,6 +21,77 @@ type GitHubRepo = {
   private: boolean;
   default_branch: string | null;
 };
+
+function RepoGlyph({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.04A9 9 0 0 0 6 3.75c-1.05 0-2.06.18-3 .51v14.25A9 9 0 0 1 6 18c2.3 0 4.41.87 6 2.29m0-14.25A9 9 0 0 1 18 3.75c1.05 0 2.06.18 3 .51v14.25A9 9 0 0 0 18 18a9 9 0 0 0-6 2.29m0-14.25v14.25" />
+    </svg>
+  );
+}
+
+function ShieldIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.6 3.82 10.3 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15A11.96 11.96 0 0 1 12 2.71Z" />
+    </svg>
+  );
+}
+
+function ExternalIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+function BranchIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="6" cy="6" r="2.25" />
+      <circle cx="6" cy="18" r="2.25" />
+      <circle cx="18" cy="8" r="2.25" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 8.25v7.5M18 10.25a6 6 0 0 1-6 6h-1.5" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <path strokeLinecap="round" d="m20 20-3-3" />
+    </svg>
+  );
+}
+
+function CheckBadgeIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m8.5 12 2.5 2.5 4.5-5" />
+    </svg>
+  );
+}
 
 export default function GitHubIntegrationEdit() {
   const qc = useQueryClient();
@@ -82,14 +154,11 @@ export default function GitHubIntegrationEdit() {
     if (!query) return repos.data || [];
     return (repos.data || []).filter((repo) => repo.full_name.toLowerCase().includes(query));
   }, [repoFilter, repos.data]);
-  const groupedRepos = useMemo(() => {
-    return filteredRepos.reduce<Record<string, GitHubRepo[]>>((groups, repo) => {
-      const owner = repo.full_name.split("/")[0] || "Other";
-      groups[owner] = groups[owner] || [];
-      groups[owner].push(repo);
-      return groups;
-    }, {});
-  }, [filteredRepos]);
+
+  const totalRepoCount = repos.data?.length ?? 0;
+  const selectedRepoCount = selectedRepos.length === 0 ? totalRepoCount : selectedRepos.length;
+  const allFullNames = useMemo(() => (repos.data ?? []).map((r) => r.full_name), [repos.data]);
+  const allChecked = selectedRepos.length === 0 || (allFullNames.length > 0 && allFullNames.every((n) => selectedSet.has(n)));
 
   const save = useMutation({
     mutationFn: () =>
@@ -145,11 +214,23 @@ export default function GitHubIntegrationEdit() {
   const scopeError = orgs.error || repos.error;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 pb-10">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Source control</p>
-        <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.03em] text-zinc-950">Configure GitHub access</h1>
-      </div>
+    <div className="scope-edit space-y-6">
+      <p className="scope-edit__breadcrumb">
+        <Link to="/integrations">Integrations</Link>
+        {" / "}Source control
+      </p>
+
+      <header className="scope-edit__header">
+        <div className="min-w-0">
+          <h1 className="scope-edit__title">Configure GitHub access</h1>
+          <p className="scope-edit__subtitle">Select GitHub owners and repositories Vigil can scan and monitor.</p>
+        </div>
+        <button onClick={() => manageAccess.mutate()} disabled={manageAccess.isPending} className="scope-edit__manage-btn">
+          <ShieldIcon />
+          {manageAccess.isPending ? "Opening GitHub…" : "Manage GitHub permissions"}
+          {!manageAccess.isPending && <ExternalIcon />}
+        </button>
+      </header>
 
       {scopeError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(scopeError as Error).message}</div>
@@ -157,112 +238,204 @@ export default function GitHubIntegrationEdit() {
 
       {justConnected && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          GitHub connected. Select at least one organization below, then save to start syncing.
+          GitHub connected. Select at least one owner below, then save to start syncing.
         </div>
       )}
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-950 text-white">
-              <GitHubMark className="h-6 w-6" />
-            </span>
-            <div>
-              <h2 className="text-xl font-semibold text-zinc-950">Source access</h2>
-              <p className="mt-1 text-sm text-zinc-500">Authenticated as {provider.data.login || "GitHub user"}</p>
-            </div>
+      <div className="scope-stats">
+        <div className="scope-stat">
+          <span className="scope-stat__icon scope-stat__icon--blue">
+            <IconUsers className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="scope-stat__label">Connected owners</div>
+            <div className="scope-stat__value">{orgLogins.length}</div>
+            <div className="scope-stat__sub">Selected</div>
           </div>
-          <button
-            onClick={() => manageAccess.mutate()}
-            disabled={manageAccess.isPending}
-            className="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
-          >
-            {manageAccess.isPending ? "Opening GitHub..." : "Manage GitHub permissions"}
-            {!manageAccess.isPending && <span className="ml-2" aria-hidden="true">↗</span>}
-          </button>
         </div>
-
-        <div className="mt-6">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-medium text-zinc-950">Connected sources</div>
-              <div className="mt-1 text-sm text-zinc-500">Choose which GitHub owners can feed this workspace.</div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm text-zinc-600">{orgLogins.length} selected</div>
+        <div className="scope-stat">
+          <span className="scope-stat__icon scope-stat__icon--green">
+            <RepoGlyph className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="scope-stat__label">Selected repositories</div>
+            <div className="scope-stat__value">{selectedRepoCount}</div>
+            <div className="scope-stat__sub">Selected</div>
           </div>
+        </div>
+        <div className="scope-stat">
+          <span className="scope-stat__icon scope-stat__icon--purple">
+            <ShieldIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="scope-stat__label">Total repositories</div>
+            <div className="scope-stat__value">{totalRepoCount}</div>
+            <div className="scope-stat__sub">Found across selected owners</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="scope-grid">
+        <section className="scope-card">
+          <h2 className="scope-card__title">1. Source access</h2>
+          <p className="scope-card__subtitle">Choose which GitHub owners can feed this workspace.</p>
+
           {!!availableOwners.length && (
-            <div className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200">
+            <div className="scope-owners">
               {availableOwners.map((owner) => (
-                <label key={owner} className="flex cursor-pointer items-center justify-between gap-4 bg-white px-4 py-3 hover:bg-zinc-50">
-                  <div>
-                    <div className="text-sm font-medium text-zinc-950">{owner}</div>
-                    <div className="mt-1 text-xs text-zinc-500">{owner === provider.data?.login ? "Personal account" : "GitHub organization"}</div>
+                <label key={owner} className="scope-owner-row">
+                  <span className="scope-owner-row__mark">
+                    <GitHubMark className="h-4 w-4" />
+                  </span>
+                  <div className="scope-owner-row__text">
+                    <div className="scope-owner-row__name">{owner}</div>
+                    <div className="scope-owner-row__meta">{owner === provider.data?.login ? "Personal account" : "Organization"}</div>
                   </div>
-                  <input type="checkbox" checked={orgLogins.includes(owner)} onChange={() => toggleOwner(owner)} className="h-4 w-4 rounded border-zinc-300 text-sky-600 focus:ring-sky-500" />
+                  <input
+                    type="checkbox"
+                    className="scope-checkbox"
+                    checked={orgLogins.includes(owner)}
+                    onChange={() => toggleOwner(owner)}
+                  />
                 </label>
               ))}
             </div>
           )}
-          {!orgs.isLoading && !availableOwners.length && <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-5 text-sm text-zinc-500">No GitHub sources are visible yet. Manage access in GitHub and return to refresh this list.</div>}
-        </div>
-      </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-950">Repository scope</h2>
-            <p className="mt-1 text-sm text-zinc-500">Leave empty to include every repository under the selected owners.</p>
-          </div>
-          <button onClick={() => setSelectedRepos([])} className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
-            Include all repositories
+          <button onClick={() => manageAccess.mutate()} disabled={manageAccess.isPending} className="scope-add-owner">
+            Add another owner
           </button>
-        </div>
 
-        <div className="mt-5">
-          <input type="search" value={repoFilter} onChange={(event) => setRepoFilter(event.target.value)} placeholder="Filter repositories..." className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-950 outline-none placeholder:text-zinc-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
-        </div>
+          {!orgs.isLoading && !availableOwners.length && (
+            <p className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm text-zinc-500">
+              No GitHub sources are visible yet. Manage access in GitHub and return to refresh this list.
+            </p>
+          )}
 
-        {repos.isLoading && (
-          <div className="mt-6 flex justify-center py-8">
-            <Spinner className="h-6 w-6 text-zinc-400" />
+          {provider.data.login && (
+            <div className="scope-auth-pill">
+              <CheckBadgeIcon />
+              Authenticated as {provider.data.login}
+            </div>
+          )}
+        </section>
+
+        <section className="scope-card">
+          <div className="scope-card__head-row">
+            <div className="min-w-0">
+              <h2 className="scope-card__title">2. Repository scope</h2>
+              <p className="scope-card__subtitle">Choose the repositories Vigil should scan under the selected owners.</p>
+            </div>
+            <button onClick={() => setSelectedRepos([])} className="scope-btn-outline">
+              Include all repositories
+            </button>
           </div>
-        )}
-        {repos.data && (
-          <div className="mt-4 max-h-[420px] overflow-auto rounded-lg border border-zinc-200">
-            {Object.entries(groupedRepos).map(([owner, ownerRepos]) => (
-              <div key={owner}>
-                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-2">
-                  <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">{owner}</div>
-                  <div className="text-xs text-zinc-500">{ownerRepos.length} repositories</div>
-                </div>
-                <div className="divide-y divide-zinc-100">
-                  {ownerRepos.map((repo) => (
-                    <label key={repo.full_name} className="group flex cursor-pointer items-center justify-between gap-4 px-4 py-2.5 transition-colors hover:bg-zinc-50">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-zinc-950">{repo.full_name}</div>
-                        <div className="mt-0.5 text-xs text-zinc-500">{repo.private ? "Private" : "Public"} · default branch {repo.default_branch || "unknown"}</div>
-                      </div>
-                      <input type="checkbox" checked={!selectedRepos.length || selectedSet.has(repo.full_name)} onChange={() => toggleRepo(repo.full_name)} className="h-4 w-4 shrink-0 rounded border-zinc-300 text-sky-600 transition-colors group-hover:border-sky-400 focus:ring-sky-500" />
-                    </label>
+
+          <div className="scope-filter-row">
+            <label className="scope-search">
+              <SearchIcon />
+              <input
+                type="search"
+                value={repoFilter}
+                onChange={(event) => setRepoFilter(event.target.value)}
+                placeholder="Filter repositories…"
+                aria-label="Filter repositories"
+              />
+            </label>
+            <span className="scope-repo-count">
+              {filteredRepos.length} {filteredRepos.length === 1 ? "repository" : "repositories"}
+            </span>
+          </div>
+
+          {repos.isLoading ? (
+            <div className="mt-6 flex justify-center py-8">
+              <Spinner className="h-6 w-6 text-zinc-400" />
+            </div>
+          ) : (
+            <div className="scope-repo-table-wrap">
+              <table className="scope-repo-table">
+                <thead>
+                  <tr>
+                    <th>Repository</th>
+                    <th>Visibility</th>
+                    <th>Default branch</th>
+                    <th>
+                      <input
+                        type="checkbox"
+                        className="scope-checkbox"
+                        checked={allChecked}
+                        onChange={() => setSelectedRepos([])}
+                        aria-label="Select all repositories"
+                        title="Select all"
+                      />
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRepos.map((repo) => (
+                    <tr key={repo.full_name}>
+                      <td>
+                        <div className="scope-repo-cell">
+                          <RepoGlyph className="h-4 w-4" />
+                          <span className="scope-repo-cell__name">{repo.full_name}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="scope-vis">
+                          {repo.private ? <LockIcon /> : <GlobeIcon />}
+                          {repo.private ? "Private" : "Public"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="scope-branch">
+                          <BranchIcon />
+                          {repo.default_branch || "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="scope-checkbox"
+                          checked={!selectedRepos.length || selectedSet.has(repo.full_name)}
+                          onChange={() => toggleRepo(repo.full_name)}
+                          aria-label={`Include ${repo.full_name}`}
+                        />
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </div>
-            ))}
-            {!!repos.data.length && !filteredRepos.length && <div className="px-4 py-6 text-sm text-zinc-500">No repositories match this filter.</div>}
-            {!repos.data.length && <div className="px-4 py-6 text-sm text-zinc-500">No repositories found for this owner.</div>}
+                  {!!repos.data?.length && !filteredRepos.length && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-sm text-zinc-500">
+                        No repositories match this filter.
+                      </td>
+                    </tr>
+                  )}
+                  {!repos.data?.length && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-sm text-zinc-500">
+                        No repositories found for the selected owners.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {save.error && (
+            <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-800">{(save.error as Error).message}</p>
+          )}
+
+          <div className="scope-card__actions">
+            <Link to="/integrations/github" className="scope-btn-outline">
+              Cancel
+            </Link>
+            <button onClick={() => save.mutate()} disabled={save.isPending || !orgLogins.length} className="scope-btn-primary">
+              <ShieldIcon />
+              {save.isPending ? "Saving…" : "Save scope"}
+            </button>
           </div>
-        )}
-      </div>
-
-      {save.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{(save.error as Error).message}</div>}
-
-      <div className="flex justify-end gap-3">
-        <Link to="/integrations/github" className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
-          Cancel
-        </Link>
-        <button onClick={() => save.mutate()} disabled={save.isPending || !orgLogins.length} className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60">
-          {save.isPending ? "Saving..." : "Save scope"}
-        </button>
+        </section>
       </div>
     </div>
   );
