@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BASE, auditorToken } from "../api";
+import "../styles/auditor.css";
 
 const FRAMEWORKS = [
   { key: "soc2", label: "SOC 2" },
@@ -45,23 +46,17 @@ export default function AuditorExport() {
   }
 
   return (
-    <div className="w-full max-w-xl space-y-6 pb-8">
+    <div className="aud-page max-w-xl space-y-5 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Export Evidence Pack</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Download an auditor-watermarked evidence pack (ZIP + PDF + CSV).
-        </p>
+        <h1 className="aud-title">Export Evidence Pack</h1>
+        <p className="aud-subtitle">Download an auditor-watermarked evidence pack (ZIP + PDF + CSV).</p>
       </div>
 
-      <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="aud-card aud-card__pad space-y-4">
         {/* Framework */}
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-zinc-500">Framework</label>
-          <select
-            value={framework}
-            onChange={(e) => setFramework(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700"
-          >
+          <label className="aud-field-label">Framework</label>
+          <select value={framework} onChange={(e) => setFramework(e.target.value)} className="aud-select w-full">
             {FRAMEWORKS.map((fw) => (
               <option key={fw.key} value={fw.key}>{fw.label}</option>
             ))}
@@ -70,46 +65,33 @@ export default function AuditorExport() {
 
         {/* Account ID */}
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-zinc-500">AWS Account ID</label>
+          <label className="aud-field-label">AWS Account ID</label>
           <input
             type="text"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
-            placeholder="e.g. a1b2c3d4-..."
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 font-mono"
+            placeholder="e.g. a1b2c3d4-…"
+            className="aud-input font-mono"
           />
         </div>
 
         {/* Period */}
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-zinc-500">
-            Period (days): {period}
-          </label>
-          <input
-            type="range"
-            min={7}
-            max={365}
-            value={period}
-            onChange={(e) => setPeriod(Number(e.target.value))}
-            className="w-full accent-sky-500"
-          />
-          <div className="flex justify-between text-[11px] text-zinc-400">
+          <label className="aud-field-label">Period (days): {period}</label>
+          <input type="range" min={7} max={365} value={period} onChange={(e) => setPeriod(Number(e.target.value))} className="aud-range" />
+          <div className="mt-1 flex justify-between text-[11px] text-zinc-400">
             <span>7 days</span>
             <span>365 days</span>
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        <button
-          onClick={handleDownload}
-          disabled={downloading}
-          className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
-        >
+        <button onClick={handleDownload} disabled={downloading} className="aud-btn-primary">
           {downloading ? "Generating evidence pack…" : "Download Evidence Pack"}
         </button>
 
-        <p className="text-[11px] text-zinc-400 text-center">
+        <p className="text-center text-[11px] leading-relaxed text-zinc-400">
           This pack is logged in the audit activity trail and marked with an auditor watermark.
         </p>
       </div>

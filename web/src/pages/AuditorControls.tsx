@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { auditorApi } from "../api";
+import "../styles/auditor.css";
 
 type AuditorControl = {
   id: string;
@@ -17,12 +18,6 @@ const FRAMEWORKS = [
   { key: "soc2", label: "SOC 2" },
   { key: "cis_aws_l1", label: "CIS AWS Foundations L1" },
 ];
-
-const statusBadge: Record<string, string> = {
-  pass: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200",
-  fail: "bg-red-100 text-red-700 ring-1 ring-red-200",
-  no_data: "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
-};
 
 export default function AuditorControls() {
   const [framework, setFramework] = useState("soc2");
@@ -41,23 +36,20 @@ export default function AuditorControls() {
   const score = total > 0 ? Math.round((counts.pass / total) * 100) : 0;
 
   return (
-    <div className="w-full space-y-6 pb-8">
+    <div className="aud-page space-y-5 pb-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance Matrix</h1>
-        <p className="mt-1 text-sm text-zinc-500">Read-only · control-to-finding mappings per framework.</p>
+        <h1 className="aud-title">Compliance Matrix</h1>
+        <p className="aud-subtitle">Read-only · control-to-finding mappings per framework.</p>
       </div>
 
       {/* Framework selector */}
-      <div className="flex gap-2">
+      <div className="aud-seg">
         {FRAMEWORKS.map((fw) => (
           <button
             key={fw.key}
+            type="button"
             onClick={() => setFramework(fw.key)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              framework === fw.key
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-50"
-            }`}
+            className={`aud-seg__btn${framework === fw.key ? " aud-seg__btn--active" : ""}`}
           >
             {fw.label}
           </button>
@@ -67,56 +59,46 @@ export default function AuditorControls() {
       {/* Score bar */}
       {data && (
         <div className="flex items-center gap-4">
-          <div className="flex-1 h-3 rounded-full bg-zinc-200 overflow-hidden">
-            <div className="flex h-full">
-              <div
-                className="bg-emerald-500 transition-all"
-                style={{ width: `${total ? (counts.pass / total) * 100 : 0}%` }}
-              />
-              <div
-                className="bg-red-400 transition-all"
-                style={{ width: `${total ? (counts.fail / total) * 100 : 0}%` }}
-              />
-              <div
-                className="bg-zinc-300 transition-all"
-                style={{ width: `${total ? (counts.no_data / total) * 100 : 0}%` }}
-              />
-            </div>
+          <div className="aud-posture">
+            <span style={{ width: `${total ? (counts.pass / total) * 100 : 0}%`, background: "#10b981" }} />
+            <span style={{ width: `${total ? (counts.fail / total) * 100 : 0}%`, background: "#f87171" }} />
+            <span style={{ width: `${total ? (counts.no_data / total) * 100 : 0}%`, background: "#d4d4d8" }} />
           </div>
-          <span className="text-2xl font-bold tabular-nums text-zinc-900">{score}%</span>
+          <span className="text-2xl font-extrabold tabular-nums text-zinc-900">{score}%</span>
         </div>
       )}
 
       {/* Controls table */}
-      {isLoading && <div className="text-sm text-zinc-400 py-8">Loading…</div>}
+      {isLoading && <div className="py-8 text-sm text-zinc-400">Loading…</div>}
 
       {data && (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs font-semibold uppercase text-zinc-500">
+        <div className="aud-table-wrap">
+          <table className="aud-table">
+            <thead>
               <tr>
-                <th className="px-4 py-3 w-24">Control ID</th>
-                <th className="px-4 py-3">Title</th>
-                <th className="px-4 py-3 w-20">Status</th>
-                <th className="px-4 py-3 w-20">Findings</th>
-                <th className="px-4 py-3 w-24">Checks</th>
+                <th className="w-24">Control ID</th>
+                <th>Title</th>
+                <th className="w-20">Status</th>
+                <th className="w-20">Findings</th>
+                <th className="w-20">Checks</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody>
               {data.map((ctrl) => (
-                <tr key={ctrl.id} className="hover:bg-zinc-50/50">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-zinc-700">{ctrl.control_id}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-zinc-900">{ctrl.title}</div>
-                    <div className="text-xs text-zinc-500">{ctrl.description}</div>
+                <tr key={ctrl.id}>
+                  <td className="font-mono text-xs font-semibold text-zinc-700">{ctrl.control_id}</td>
+                  <td>
+                    <div className="aud-td-strong">{ctrl.title}</div>
+                    <div className="mt-0.5 text-xs leading-relaxed text-zinc-500">{ctrl.description}</div>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadge[ctrl.status] || ""}`}>
+                  <td>
+                    <span className={`aud-pill aud-pill--${ctrl.status}`}>
+                      <span className="aud-pill__dot" aria-hidden />
                       {ctrl.status === "no_data" ? "no data" : ctrl.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs tabular-nums">{ctrl.finding_count}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-zinc-500">{ctrl.check_ids.length}</td>
+                  <td className="font-semibold tabular-nums text-zinc-900">{ctrl.finding_count}</td>
+                  <td className="tabular-nums text-zinc-500">{ctrl.check_ids.length}</td>
                 </tr>
               ))}
             </tbody>
