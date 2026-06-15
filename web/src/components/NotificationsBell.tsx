@@ -238,7 +238,7 @@ export default function NotificationsBell() {
           />
         </svg>
         {notificationCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#439385] px-1 text-[10px] font-bold text-white ring-2 ring-zinc-50">
+          <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#d93025] px-1 text-[10px] font-medium leading-none text-white ring-2 ring-white">
             {notificationCount > 9 ? "9+" : notificationCount}
           </span>
         )}
