@@ -16,6 +16,7 @@ NEW_COLOR = "#f97316"
 RESOLVED_COLOR = "#22c55e"
 INK = "#0f172a"
 MUTED = "#94a3b8"
+AXIS = "#475569"
 GRID = "#e9edf3"
 WHITE = "#ffffff"
 
@@ -100,17 +101,24 @@ def sparkline_png(series: list[float], w: int = 240, h: int = 64, color: str = "
     return _png_bytes(img.resize((w, h), Image.LANCZOS))
 
 
-def grouped_bars_png(labels: list[str], new_vals: list[int], resolved_vals: list[int], w: int = 500, h: int = 330) -> bytes:
-    """Per-day New (orange) vs Resolved (green) grouped bars. Fonts scale with
-    height so the chart stays legible when displayed at 2x in a narrow column."""
+def grouped_bars_png(
+    labels: list[str],
+    new_vals: list[int],
+    resolved_vals: list[int],
+    w: int = 500,
+    h: int = 300,
+    *,
+    draw_x_labels: bool = True,
+) -> bytes:
+    """Per-day New (orange) vs Resolved (green) grouped bars."""
     img = Image.new("RGB", (w, h), WHITE)
     d = ImageDraw.Draw(img)
-    label_font = _font(max(13, int(h * 0.075)))
     value_font = _font(max(11, int(h * 0.058)))
     lab_gap = int(h * 0.085)
     val_gap = int(h * 0.045)
 
-    pad_l, pad_r, pad_t, pad_b = int(w * 0.02), int(w * 0.02), int(h * 0.10), int(h * 0.13)
+    pad_l, pad_r, pad_t = int(w * 0.02), int(w * 0.02), int(h * 0.10)
+    pad_b = int(h * 0.13) if draw_x_labels else int(h * 0.05)
     plot_w = w - pad_l - pad_r
     base_y = h - pad_b
     top_y = pad_t
@@ -122,6 +130,9 @@ def grouped_bars_png(labels: list[str], new_vals: list[int], resolved_vals: list
     group_w = plot_w / n
     bar_w = min(group_w * 0.30, w * 0.045)
     gap = group_w * 0.10
+    if draw_x_labels:
+        label_size = max(13, min(15, int(group_w * 0.40)))
+        label_font = _font(label_size)
     for i, lab in enumerate(labels):
         gx = pad_l + i * group_w + group_w / 2
         nv = new_vals[i] if i < len(new_vals) else 0
@@ -134,5 +145,10 @@ def grouped_bars_png(labels: list[str], new_vals: list[int], resolved_vals: list
             d.rounded_rectangle([x0, y0, x1, base_y], radius=min(4, bar_w / 2), fill=col)
             if val:
                 _text_centered(d, (x0 + x1) / 2, y0 - val_gap, str(val), value_font, "#64748b")
-        _text_centered(d, gx, base_y + lab_gap, lab, label_font, MUTED)
+        if draw_x_labels:
+            lab_text = str(lab)
+            l, t, r, b = d.textbbox((0, 0), lab_text, font=label_font)
+            if (r - l) > group_w * 0.92:
+                lab_text = lab_text[: max(1, int(len(lab_text) * group_w * 0.85 / (r - l)))]
+            _text_centered(d, gx, base_y + lab_gap, lab_text, label_font, INK)
     return _png_bytes(img)

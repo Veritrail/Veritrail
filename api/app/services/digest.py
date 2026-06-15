@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -13,9 +14,6 @@ from app.services.mail import send_mail
 
 log = structlog.get_logger()
 settings = get_settings()
-
-_SEV_EMOJI = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "⚪"}
-
 
 def _findings_app_url() -> str:
     base = settings.API_PUBLIC_URL
@@ -34,17 +32,49 @@ def _posture_score(counts: dict[str, int]) -> int:
     return max(0, min(100, 100 - (counts["critical"] + counts["high"]) * 10 - counts["medium"] * 3))
 
 
-def _open_trend_series(total_open: int, per_day: list[dict] | None) -> list[int]:
-    """Reconstruct an approximate 7-day open-findings series from daily new/resolved,
-    anchored to today's open count (open_prev = open_today - new_today + resolved_today)."""
-    if not per_day:
-        return [total_open, total_open]
-    n = len(per_day)
-    series = [0] * n
-    series[-1] = total_open
-    for i in range(n - 1, 0, -1):
-        series[i - 1] = max(0, series[i] - int(per_day[i].get("new", 0)) + int(per_day[i].get("resolved", 0)))
-    return series
+def _vigil_mark_path() -> Path | None:
+    here = Path(__file__).resolve()
+    candidates = [here.parent / "assets" / "vigil-mark.png"]
+    if len(here.parents) > 3:
+        candidates.append(here.parents[3] / "web" / "public" / "favicon.png")
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+def _load_vigil_mark() -> bytes | None:
+    path = _vigil_mark_path()
+    if not path:
+        return None
+    try:
+        return path.read_bytes()
+    except OSError:
+        return None
+
+
+def _brand_row_html(*, has_mark: bool, mark_top_right: bool = False) -> str:
+    mark_img = (
+        '<img src="cid:vigil-mark" width="28" height="28" alt="" '
+        'style="display:block;width:28px;height:28px;border-radius:7px">'
+    )
+    if not has_mark:
+        return '<div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Vigil</div>'
+    if mark_top_right:
+        return (
+            '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+            '<td style="vertical-align:middle;font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Vigil</td>'
+            f'<td width="36" align="right" style="vertical-align:top;padding-left:12px">{mark_img}</td>'
+            "</tr></table>"
+        )
+    return (
+        '<table cellpadding="0" cellspacing="0"><tr>'
+        '<td style="padding-right:10px;vertical-align:middle">'
+        f"{mark_img}"
+        "</td>"
+        '<td style="vertical-align:middle;font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Vigil</td>'
+        "</tr></table>"
+    )
 
 
 def send_digest(
@@ -71,20 +101,23 @@ def send_digest(
     posture = _posture_score(counts)
 
     images: dict[str, bytes] = {}
+    mark = _load_vigil_mark()
+    if mark:
+        images["vigil-mark"] = mark
     try:
-        from app.services.digest_charts import donut_png, grouped_bars_png, sparkline_png
+        from app.services.digest_charts import donut_png, grouped_bars_png
 
         images["digest-donut"] = donut_png(counts, total=total_open)
-        images["digest-spark"] = sparkline_png(_open_trend_series(total_open, per_day))
         if per_day:
             images["digest-bars"] = grouped_bars_png(
-                [d.get("label", "") for d in per_day],
+                [_compact_bar_label(d.get("label", "")) for d in per_day],
                 [int(d.get("new", 0)) for d in per_day],
                 [int(d.get("resolved", 0)) for d in per_day],
+                draw_x_labels=False,
             )
     except Exception:  # noqa: BLE001 — charts are best-effort; fall back to a text-table email
         log.warning("digest.charts_failed", exc_info=True)
-        images = {}
+        images = {k: v for k, v in images.items() if k == "vigil-mark"}
 
     subject = _subject(open_findings)
     html = _html(
@@ -188,21 +221,25 @@ def _severity_legend_html(counts: dict[str, int], other: int = 0) -> str:
     return f'<table width="100%" cellpadding="0" cellspacing="0">{rows}</table>'
 
 
-def _category_rows_html(cats: list[tuple[str, int]]) -> str:
-    maxc = max((c for _, c in cats), default=1) or 1
+def _category_rows_html(cats: list[tuple[str, int]], *, total_open: int) -> str:
+    """Bar width = share of all open findings (not relative to the top category)."""
+    total = total_open if total_open > 0 else sum(c for _, c in cats) or 1
     rows = ""
     for i, (name, c) in enumerate(cats):
-        w = c / maxc * 100
+        pct = c / total * 100
         color = _RANK_COLORS[min(i, len(_RANK_COLORS) - 1)]
         rows += (
             "<tr>"
             f'<td style="padding:7px 12px 7px 0;font-size:13px;color:#3f3f46;white-space:nowrap;width:130px">{h(name)}</td>'
             '<td style="padding:7px 0;vertical-align:middle">'
-            '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
-            f'<td style="background:{color};height:8px;width:{w:.1f}%;border-radius:4px;font-size:0;line-height:0">&nbsp;</td>'
+            '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;border-radius:4px">'
+            "<tr>"
+            f'<td style="background:{color};height:8px;width:{pct:.1f}%;min-width:4px;border-radius:4px;font-size:0;line-height:0">&nbsp;</td>'
             '<td style="font-size:0;line-height:0">&nbsp;</td>'
             "</tr></table></td>"
-            f'<td style="padding:7px 0 7px 12px;font-size:13px;font-weight:700;color:#18181b;text-align:right;width:44px">{c}</td>'
+            f'<td style="padding:7px 0 7px 12px;font-size:13px;color:#18181b;text-align:right;white-space:nowrap;width:72px">'
+            f'<span style="font-weight:700">{c}</span>'
+            f'<span style="color:#94a3b8;font-weight:500;font-size:12px"> · {pct:.0f}%</span></td>'
             "</tr>"
         )
     return rows
@@ -223,30 +260,100 @@ def _delta_line(curr: int, prev: int | None, *, good_when_up: bool, suffix: str 
     return f'<span style="color:{color};font-weight:700">{arrow} {pct}</span> <span style="color:#94a3b8">{suffix} ({prev})</span>'
 
 
-def _stat_cell_html(label: str, value: str, value_color: str, hint_html: str, *, chart_cid: str | None = None) -> str:
-    chart = (
-        f'<div style="margin-top:10px"><img src="cid:{chart_cid}" width="120" alt="" style="display:block;width:100%;max-width:130px;height:auto"></div>'
-        if chart_cid
-        else ""
-    )
+def _weekly_highlight_html(new_count: int, resolved: int, posture_score: int) -> str:
+    if new_count:
+        new_part = f"{new_count} new finding{'s' if new_count != 1 else ''} opened this week"
+    else:
+        new_part = "No new findings this week"
+    if resolved:
+        res_part = f"{resolved} resolved"
+    else:
+        res_part = "none resolved"
+    return f"{new_part}, {res_part}, and posture score remains at {posture_score}."
+
+
+def _stat_cell_html(
+    label: str,
+    value: str,
+    value_color: str,
+    hint_html: str,
+) -> str:
     return (
-        '<td style="padding:0 8px;width:25%;height:100%;vertical-align:top">'
-        '<table width="100%" cellpadding="0" cellspacing="0" style="height:100%;border:1px solid #e9edf3;border-radius:12px;background:#fff">'
-        '<tr><td style="padding:16px 16px 18px;vertical-align:top">'
+        '<td style="padding:0 5px;width:25%;vertical-align:top">'
+        '<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eceff3;border-radius:10px;background:#f8fafc">'
+        '<tr><td style="padding:12px 10px 14px;vertical-align:top">'
+        '<table width="100%" cellpadding="0" cellspacing="0">'
+        '<tr><td align="center" style="text-align:center">'
         f'<div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8">{h(label)}</div>'
-        f'<div style="font-size:28px;font-weight:800;letter-spacing:-0.02em;color:{value_color};margin-top:6px;line-height:1">{h(value)}</div>'
-        f'<div style="font-size:11px;margin-top:6px">{hint_html}</div>'
-        f"{chart}"
+        "</td></tr></table>"
+        '<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px">'
+        '<tr><td align="center" style="text-align:center;vertical-align:middle">'
+        f'<div style="font-size:26px;font-weight:800;letter-spacing:-0.03em;color:{value_color};line-height:1">{h(value)}</div>'
+        f'<div style="font-size:11px;margin-top:6px;line-height:1.4;color:#64748b">{hint_html}</div>'
+        "</td></tr></table>"
         "</td></tr></table></td>"
     )
 
 
-def _sidebar_card(title: str, body: str, *, subtitle: str = "") -> str:
-    sub = f'<div style="font-size:12.5px;color:#94a3b8;margin-top:3px">{subtitle}</div>' if subtitle else ""
+def _compact_bar_label(label: str) -> str:
+    """Compact M/D labels — readable in a narrow column without overlapping."""
+    import calendar
+
+    parts = (label or "").strip().split()
+    if len(parts) >= 2 and parts[-1].isdigit():
+        mon = parts[0][:3].title()
+        for i, abbr in enumerate(calendar.month_abbr):
+            if abbr == mon:
+                return f"{i}/{parts[-1]}"
+        return f"{mon}/{parts[-1]}"
+    return label[:5] if len(label) > 5 else label
+
+
+def _bar_axis_html(labels: list[str]) -> str:
+    if not labels:
+        return ""
+    width_pct = 100 // len(labels)
+    cells = "".join(
+        f'<td width="{width_pct}%" style="padding:0 2px;text-align:center;'
+        f"font-size:12px;font-weight:600;line-height:1.25;color:#1e293b;"
+        f"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif\">{h(lab)}</td>"
+        for lab in labels
+    )
+    return f'<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px"><tr>{cells}</tr></table>'
+
+
+def _sidebar_card(
+    title: str,
+    body: str,
+    *,
+    subtitle: str = "",
+    min_height_px: int | None = None,
+    pin_body_bottom: bool = False,
+) -> str:
+    sub = f'<div style="font-size:12.5px;color:#94a3b8;margin-top:3px;line-height:1.35">{subtitle}</div>' if subtitle else ""
+    if min_height_px:
+        shell = (
+            f"height:{min_height_px}px;min-height:{min_height_px}px;"
+            f"margin-bottom:16px;border:1px solid #eceff3;border-radius:16px;background:#fff"
+        )
+        h_attr = f' height="{min_height_px}"'
+    else:
+        shell = "margin-bottom:16px;border:1px solid #eceff3;border-radius:16px;background:#fff"
+        h_attr = ""
+    header = (
+        f'<div style="font-size:15px;font-weight:700;letter-spacing:-0.01em;color:#0f172a;line-height:1.25">{h(title)}</div>{sub}'
+    )
+    if pin_body_bottom and min_height_px:
+        return (
+            f'<table width="100%" cellpadding="0" cellspacing="0"{h_attr} style="{shell}">'
+            f'<tr><td style="padding:22px 22px 0;vertical-align:top">{header}</td></tr>'
+            f'<tr><td style="padding:12px 22px 24px;vertical-align:bottom">{body}</td></tr>'
+            "</table>"
+        )
     return (
-        '<table width="100%" height="100%" cellpadding="0" cellspacing="0" style="height:100%;margin-bottom:16px;border:1px solid #eceff3;border-radius:16px;background:#fff">'
+        f'<table width="100%" cellpadding="0" cellspacing="0"{h_attr} style="{shell}">'
         '<tr><td style="padding:22px 22px 24px;vertical-align:top">'
-        f'<div style="font-size:15px;font-weight:700;letter-spacing:-0.01em;color:#0f172a">{title}</div>{sub}'
+        f"{header}"
         f'<div style="margin-top:16px">{body}</div>'
         "</td></tr></table>"
     )
@@ -322,6 +429,10 @@ def _html(
     cats = _category_breakdown(open_findings)
     other_sev = max(0, total_open - sum(counts.values()))
 
+    # Matched pair heights (email clients ignore height:100% on table cells).
+    CHART_PAIR_MIN_H = 400
+    BOTTOM_PAIR_MIN_H = 188
+
     # ── Cards ──
     if "digest-donut" in images:
         severity_body = (
@@ -330,25 +441,40 @@ def _html(
         )
     else:
         severity_body = f'<div>{_severity_bar_html(counts)}</div><div style="margin-top:14px">{_severity_legend_html(counts, other_sev)}</div>'
-    severity_card = _sidebar_card("Findings by severity", severity_body, subtitle=f"{total_open} open total")
+    severity_card = _sidebar_card(
+        "Findings by severity",
+        severity_body,
+        subtitle=f"{total_open} open total",
+        min_height_px=CHART_PAIR_MIN_H,
+    )
 
     bars_card = ""
-    if "digest-bars" in images:
+    if "digest-bars" in images and per_day:
+        bar_labels = [_compact_bar_label(d.get("label", "")) for d in per_day]
+        bars_body = (
+            '<img src="cid:digest-bars" width="500" alt="" style="display:block;width:100%;max-width:100%;height:auto">'
+            f"{_bar_axis_html(bar_labels)}"
+            '<div style="margin-top:14px;font-size:12px;color:#64748b;line-height:1.4">'
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f97316;margin-right:6px;vertical-align:middle"></span>'
+            '<span style="vertical-align:middle">New</span>'
+            '&nbsp;&nbsp;&nbsp;'
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#22c55e;margin-right:6px;vertical-align:middle"></span>'
+            '<span style="vertical-align:middle">Resolved</span></div>'
+        )
         bars_card = _sidebar_card(
             "New vs resolved",
-            '<img src="cid:digest-bars" width="500" alt="" style="display:block;width:100%;height:auto">'
-            '<div style="margin-top:12px;font-size:12px;color:#94a3b8">'
-            '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f97316;margin-right:6px"></span>New'
-            '&nbsp;&nbsp;&nbsp;<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#22c55e;margin-right:6px"></span>Resolved</div>',
+            bars_body,
             subtitle="Last 7 days",
+            min_height_px=CHART_PAIR_MIN_H,
+            pin_body_bottom=True,
         )
 
     cats_card = ""
     if cats:
         cats_card = _sidebar_card(
             "Top risk categories",
-            f'<table width="100%" cellpadding="0" cellspacing="0">{_category_rows_html(cats)}</table>',
-            subtitle="Open findings by service",
+            f'<table width="100%" cellpadding="0" cellspacing="0">{_category_rows_html(cats, total_open=total_open)}</table>',
+            subtitle="Share of open findings by service",
         )
 
     coverage_card = ""
@@ -361,12 +487,18 @@ def _html(
             f'<td style="padding:8px 0;font-size:13.5px;font-weight:700;color:#16a34a;text-align:right;border-top:1px solid #f4f5f7">{coverage.get("regions", "—")}</td></tr>'
             "</table>"
         )
-        coverage_card = _sidebar_card("Coverage", cov_rows)
+        coverage_card = _sidebar_card("Coverage", cov_rows, min_height_px=BOTTOM_PAIR_MIN_H)
 
     help_card = _sidebar_card(
         "Need help?",
-        '<div style="font-size:13.5px;color:#52525b;line-height:1.55">Reply to this email or open the Vigil console to dig into any finding.</div>'
-        f'<div style="margin-top:16px"><a href="{h(findings_url)}" style="display:inline-block;background:#0b1220;color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none">Open Vigil Console</a></div>',
+        '<div style="font-size:13.5px;color:#52525b;line-height:1.5;margin:0">'
+        "Reply to this email or open the Vigil console to dig into any finding."
+        "</div>"
+        f'<div style="margin-top:18px">'
+        f'<a href="{h(findings_url)}" style="display:inline-block;background:#0b1220;color:#fff;'
+        f'padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;line-height:1;'
+        f'text-decoration:none">Open Vigil Console</a></div>',
+        min_height_px=BOTTOM_PAIR_MIN_H,
     )
 
     # ── Main: top open risks card ──
@@ -401,39 +533,44 @@ def _html(
             return f'<div style="{top_margin}">{single}</div>' if top_margin else single
         return (
             f'<table width="100%" cellpadding="0" cellspacing="0" style="{top_margin}"><tr>'
-            f'<td width="50%" valign="top" style="height:100%;padding-right:8px">{left}</td>'
-            f'<td width="50%" valign="top" style="height:100%;padding-left:8px">{right}</td>'
+            f'<td width="50%" valign="top" style="padding-right:8px">{left}</td>'
+            f'<td width="50%" valign="top" style="padding-left:8px">{right}</td>'
             "</tr></table>"
         )
 
-    charts_row = _two_col(severity_card, bars_card, top_margin="margin-top:18px")
+    charts_row = _two_col(severity_card, bars_card, top_margin="margin-top:20px")
     bottom_row = _two_col(coverage_card, help_card)
+
+    stats_row = (
+        f'{_stat_cell_html("Posture score", f"{posture_score}", score_color, posture_hint)}'
+        f'{_stat_cell_html("Open findings", f"{total_open}", "#18181b", open_hint)}'
+        f'{_stat_cell_html("New this week", f"{new_count}", "#ea580c" if new_count else "#16a34a", new_hint)}'
+        f'{_stat_cell_html("Resolved", f"{resolved_this_week}", "#16a34a", resolved_hint)}'
+    )
+    highlight = h(_weekly_highlight_html(new_count, resolved_this_week, posture_score))
+    has_mark = "vigil-mark" in images
+    brand_row = _brand_row_html(has_mark=has_mark)
+    report_header = f"""
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;background:#fff">
+      <tr><td style="background:#0b1220;padding:20px 28px 18px">
+        {brand_row}
+        <div style="font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.03em;margin-top:10px;line-height:1.2">Weekly Security Digest</div>
+        <div style="font-size:13px;color:#cbd5e1;margin-top:8px;line-height:1.4">{h(account_label)} · {date_range}</div>
+        <div style="font-size:13px;color:#94a3b8;margin-top:5px;line-height:1.45">A weekly summary of findings, severity, and remediation progress.</div>
+      </td></tr>
+      <tr><td style="padding:14px 14px 16px;background:#fff">
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>{stats_row}</tr></table>
+        <div style="margin-top:14px;font-size:12.5px;line-height:1.5;color:#64748b;text-align:center">{highlight}</div>
+      </td></tr>
+    </table>"""
 
     return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f5f7;margin:0;padding:28px 16px">
-  <div style="max-width:760px;margin:0 auto">
+  <div style="max-width:680px;margin:0 auto">
 
-    <!-- Hero -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#0b1220;border-radius:18px;overflow:hidden">
-      <tr><td style="padding:34px 36px">
-        <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.02em">Vigil</div>
-        <div style="font-size:30px;font-weight:800;color:#fff;letter-spacing:-0.03em;margin-top:20px">Weekly Security Digest</div>
-        <div style="font-size:14.5px;color:#94a3b8;margin-top:7px">Your security posture at a glance.</div>
-        <div style="font-size:13px;color:#cbd5e1;margin-top:18px;background:rgba(255,255,255,0.07);display:inline-block;padding:7px 14px;border-radius:9px">{date_range}</div>
-      </td></tr>
-    </table>
-
-    <!-- Stat cards -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin:18px -8px 0;width:calc(100% + 16px)">
-      <tr>
-        {_stat_cell_html("Posture score", f"{posture_score}", score_color, posture_hint, chart_cid="digest-spark" if "digest-spark" in images else None)}
-        {_stat_cell_html("Open findings", f"{total_open}", "#18181b", open_hint)}
-        {_stat_cell_html("New this week", f"{new_count}", "#ea580c" if new_count else "#16a34a", new_hint)}
-        {_stat_cell_html("Resolved", f"{resolved_this_week}", "#16a34a", resolved_hint)}
-      </tr>
-    </table>
+    {report_header}
 
     <!-- Charts: severity donut | new-vs-resolved (a naturally matched pair) -->
     {charts_row}
@@ -449,7 +586,7 @@ def _html(
 
     <!-- Footer -->
     <div style="padding:14px 8px 8px;text-align:center">
-      <div style="font-size:12px;color:#94a3b8">Vigil · AI-powered security monitoring for your cloud</div>
+      <div style="font-size:12px;color:#94a3b8">Vigil · Continuous cloud monitoring</div>
       <div style="font-size:11px;color:#a1a1aa;margin-top:6px">
         Weekly digest for {h(org_name)} · {h(account_label)} · {end.strftime('%B %d, %Y')}<br>
         You're receiving this because you're subscribed to the Vigil Weekly Digest. <a href="{h(unsubscribe_href)}" style="color:#71717a;text-decoration:underline">Unsubscribe</a>
