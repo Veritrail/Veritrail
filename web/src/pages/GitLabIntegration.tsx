@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { SourceControlManageConnected } from "../components/SourceControlManageConnected";
+import { SourceControlManageConnected, type SourceControlManageConfig } from "../components/SourceControlManageConnected";
 import { GitLabMark, Spinner } from "../components/IntegrationsUi";
 import { GITLAB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
@@ -29,7 +29,7 @@ type SyncStats = {
   pull_requests: number;
 };
 
-const GITLAB_CONFIG = {
+const GITLAB_CONFIG: SourceControlManageConfig = {
   brand: "gitlab" as const,
   title: "GitLab evidence source",
   scopeReposPath: "/v1/integrations/gitlab/scope-repos",
@@ -45,8 +45,11 @@ const GITLAB_CONFIG = {
     { key: "merge", label: "Self-merge checks" },
     { key: "branch", label: "Branch protections" },
   ],
-  accountLabel: (p: GitLabProvider) => p.username || "GitLab user",
-  subtitleSuffix: (p: GitLabProvider) => (p.base_url ? p.base_url.replace(/^https?:\/\//, "") : "gitlab.com"),
+  accountLabel: (p) => (p as GitLabProvider).username || "GitLab user",
+  subtitleSuffix: (p) => {
+    const base = (p as GitLabProvider).base_url;
+    return base ? base.replace(/^https?:\/\//, "") : "gitlab.com";
+  },
 };
 
 export default function GitLabIntegration() {

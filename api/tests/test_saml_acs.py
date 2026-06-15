@@ -56,13 +56,13 @@ def test_acs_provisions_new_user_and_redirects_with_token(monkeypatch):
 
     resp = _run_acs(monkeypatch, db=db, auth=_fake_auth(nameid="new@acme.com"))
 
-    # provisioned into the config's org and a session was issued
-    db.add.assert_called_once()
-    created = db.add.call_args[0][0]
+    # JIT user + session row on login redirect
+    assert db.add.call_count == 2
+    created = db.add.call_args_list[0][0][0]
     assert created.email == "new@acme.com"
     assert created.org_id == org_id
     assert created.role == "viewer"
-    db.commit.assert_called_once()
+    assert db.commit.call_count == 2
 
     assert resp.status_code in (302, 303, 307)
     assert "/auth/callback?token=" in resp.headers["location"]
@@ -79,7 +79,10 @@ def test_acs_existing_user_logs_in(monkeypatch):
 
     resp = _run_acs(monkeypatch, db=db, auth=_fake_auth())
 
-    db.add.assert_not_called()
+    from app.models.user_session import UserSession
+
+    db.add.assert_called_once()
+    assert isinstance(db.add.call_args[0][0], UserSession)
     assert "/auth/callback?token=" in resp.headers["location"]
 
 
@@ -153,5 +156,5 @@ def test_put_config_rejects_bad_slug(monkeypatch, slug):
     body = auth_saml.SamlConfigIn(slug=slug)
     db = MagicMock()
     with pytest.raises(HTTPException) as exc:
-        auth_saml.put_saml_config(body, p={"org_id": str(uuid.uuid4())}, db=db)
+        auth_saml.put_saml_config(body, _rbac=MagicMock(), p={"org_id": str(uuid.uuid4())}, db=db)
     assert exc.value.status_code == 400

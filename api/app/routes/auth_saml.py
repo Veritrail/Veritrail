@@ -25,7 +25,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal, issue_refresh_token, issue_token
-from app.models import User
+from app.models import OrgSamlConfig, User
 from app.services.user_session import record_user_session
 
 router = APIRouter()

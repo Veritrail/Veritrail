@@ -37,7 +37,7 @@ def test_verify_failure_keeps_connected_status(mock_verify, connected_acc):
     body = MagicMock(role_arn=bad_arn)
 
     with pytest.raises(HTTPException):
-        verify(str(connected_acc.id), body, p={"org_id": str(connected_acc.org_id)}, db=db)
+        verify(str(connected_acc.id), body, _rbac=MagicMock(), p={"org_id": str(connected_acc.org_id)}, db=db)
 
     assert connected_acc.status == "connected"
     assert connected_acc.role_arn == "arn:aws:iam::123456789012:role/VigilReadOnlyScannerRole"
@@ -78,7 +78,7 @@ def test_verify_role_update_does_not_auto_scan(mock_verify, mock_apply, mock_del
 
     from app.routes.accounts import verify
 
-    verify(str(connected_acc.id), body, p={"org_id": str(connected_acc.org_id)}, db=db)
+    verify(str(connected_acc.id), body, _rbac=MagicMock(), p={"org_id": str(connected_acc.org_id)}, db=db)
 
     mock_delay.assert_not_called()
 
@@ -104,6 +104,6 @@ def test_verify_first_connect_still_auto_scans(mock_verify, mock_apply, mock_del
 
     from app.routes.accounts import verify
 
-    verify(str(acc.id), body, p={"org_id": str(acc.org_id)}, db=db)
+    verify(str(acc.id), body, _rbac=MagicMock(), p={"org_id": str(acc.org_id)}, db=db)
 
     mock_delay.assert_called_once_with(str(acc.id))

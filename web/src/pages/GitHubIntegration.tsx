@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { SourceControlManageConnected } from "../components/SourceControlManageConnected";
+import { SourceControlManageConnected, type SourceControlManageConfig } from "../components/SourceControlManageConnected";
 import { GitHubMark, Spinner } from "../components/IntegrationsUi";
 import { GITHUB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
@@ -28,7 +28,7 @@ type SyncStats = {
   pull_requests: number;
 };
 
-const GITHUB_CONFIG = {
+const GITHUB_CONFIG: SourceControlManageConfig = {
   brand: "github" as const,
   title: "GitHub evidence source",
   scopeReposPath: "/v1/integrations/github/scope-repos",
@@ -44,7 +44,7 @@ const GITHUB_CONFIG = {
     { key: "merge", label: "Self-merge checks" },
     { key: "branch", label: "Branch protections" },
   ],
-  accountLabel: (p: GitHubProvider) => p.login || "GitHub user",
+  accountLabel: (p) => (p as GitHubProvider).login || "GitHub user",
 };
 
 export default function GitHubIntegration() {

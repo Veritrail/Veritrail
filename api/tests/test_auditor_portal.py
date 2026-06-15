@@ -420,7 +420,7 @@ def test_revoke_auditor_sets_inactive():
 
     from app.routes.auditor import revoke_auditor
     principal = {"sub": _fake_uuid(), "org_id": str(org.id), "scope": "user"}
-    result = revoke_auditor(auditor_id=str(uuid.uuid4()), p=principal, db=db)
+    result = revoke_auditor(auditor_id=str(uuid.uuid4()), _rbac=MagicMock(), p=principal, db=db)
     assert result["ok"] is True
     assert grant.is_active is False
     assert db.commit.called
