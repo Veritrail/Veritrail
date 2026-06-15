@@ -108,7 +108,10 @@ function openDaysSince(iso: string): number {
 }
 
 const RESOURCE_NAME_DISPLAY_MAX = 40;
-const RESOURCE_ARN_DISPLAY_MAX = 38;
+/** Visible ARN chars before "..." — keeps copy clear of the Type pill. */
+const RESOURCE_ARN_VISUAL_MAX = 32;
+/** Fixed slot width (ch) — must stay at 36 so the column layout does not shift. */
+const RESOURCE_ARN_SLOT_CH = 36;
 
 function truncateDisplayText(text: string, max: number): string {
   const trimmed = text.trim();
@@ -116,8 +119,10 @@ function truncateDisplayText(text: string, max: number): string {
   return `${trimmed.slice(0, max - 1)}…`;
 }
 
-function truncateArnDisplay(arn: string, max = RESOURCE_ARN_DISPLAY_MAX): string {
-  return truncateDisplayText(arn, max);
+function truncateArnDisplay(arn: string, max = RESOURCE_ARN_VISUAL_MAX): string {
+  const trimmed = arn.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 3)}...`;
 }
 
 function ResourceTypePill({ label }: { label: string }) {
@@ -857,12 +862,18 @@ export function FindingResourcesTab({
                           >
                             {truncateDisplayText(name, RESOURCE_NAME_DISPLAY_MAX)}
                           </p>
-                          <p className="mt-1 inline-flex max-w-full items-center gap-1.5 font-mono text-[11px] leading-4 text-zinc-500">
-                            <span className="truncate" title={f.resource_arn}>
-                              {truncateArnDisplay(f.resource_arn)}
-                            </span>
-                            <span className="opacity-0 transition-opacity group-hover:opacity-100">
-                              <CopyArnButton arn={f.resource_arn} />
+                          <p
+                            className="mt-1 flex items-center font-mono text-[11px] leading-4 text-zinc-500"
+                            style={{ minWidth: `${RESOURCE_ARN_SLOT_CH}ch` }}
+                          >
+                            <span
+                              className="inline-flex items-center gap-1 whitespace-nowrap"
+                              title={f.resource_arn}
+                            >
+                              <span>{truncateArnDisplay(f.resource_arn)}</span>
+                              <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                                <CopyArnButton arn={f.resource_arn} />
+                              </span>
                             </span>
                           </p>
                         </div>
