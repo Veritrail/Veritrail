@@ -572,17 +572,150 @@ type Finding = {
   account_id: string;
   severity: string;
   status: string;
-  first_seen: string;
 };
 
-function isWithinLastDays(iso: string | null | undefined, days: number): boolean {
-  if (!iso) return false;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return false;
-  return Date.now() - t <= days * 24 * 60 * 60 * 1000;
+type FindingStats = { critHigh: number; medium: number; low: number; info: number; open: number };
+
+function formatShortScanDate(iso: string | null | undefined, opts?: { utc?: boolean }): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: opts?.utc ? "UTC" : undefined,
+  });
 }
 
-type FindingStats = { critHigh: number; medium: number; open: number };
+function matchesAccountSearch(acc: Account, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const opts = accountConnectionOptions(acc);
+  const tags = [
+    "aws",
+    "amazon",
+    "core scanner",
+    opts.enable_advanced_policy_generation ? "policy generation" : "",
+    anyRemediationEnabled(opts.remediation_modules) ? "ssm remediation" : "",
+  ];
+  const haystack = [acc.label, acc.account_id ?? "", acc.status, ...tags].join(" ").toLowerCase();
+  return haystack.includes(needle);
+}
+
+const SEV_MIX_COLORS = { critHigh: "#ef4444", medium: "#f59e0b", low: "#10b981", info: "#a1a1aa" } as const;
+
+type MixSegment = { key: string; value: number; color: string };
+
+function getMixSegments(stats: FindingStats | undefined): MixSegment[] {
+  const open = stats?.open ?? 0;
+  const critHigh = stats?.critHigh ?? 0;
+  const medium = stats?.medium ?? 0;
+  const low = stats?.low ?? 0;
+  const info = stats?.info ?? 0;
+  const segments: MixSegment[] = [];
+  if (critHigh > 0) segments.push({ key: "ch", value: critHigh, color: SEV_MIX_COLORS.critHigh });
+  if (medium > 0) segments.push({ key: "m", value: medium, color: SEV_MIX_COLORS.medium });
+  if (low > 0) segments.push({ key: "l", value: low, color: SEV_MIX_COLORS.low });
+  if (info > 0) segments.push({ key: "info", value: info, color: SEV_MIX_COLORS.info });
+  const other = open - critHigh - medium - low - info;
+  if (other > 0) segments.push({ key: "other", value: other, color: SEV_MIX_COLORS.info });
+  return segments;
+}
+
+function mixSegmentTotal(segments: MixSegment[]): number {
+  return segments.reduce((sum, seg) => sum + seg.value, 0);
+}
+
+function FindingsMixDonutSvg({ segments, size = 72, stroke = 11 }: { segments: MixSegment[]; size?: number; stroke?: number }) {
+  const total = mixSegmentTotal(segments);
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circum = 2 * Math.PI * r;
+  let cumulative = 0;
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0" aria-hidden>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f4f4f5" strokeWidth={stroke} />
+      {segments.map((seg) => {
+        const fraction = seg.value / total;
+        const dash = fraction * circum;
+        const rotation = cumulative * 360 - 90;
+        cumulative += fraction;
+        return (
+          <circle
+            key={seg.key}
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={stroke}
+            strokeDasharray={`${dash} ${circum - dash}`}
+            strokeLinecap="butt"
+            transform={`rotate(${rotation} ${cx} ${cy})`}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function FindingsMixDonut({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
+  const total = stats?.open ?? 0;
+  const critHigh = stats?.critHigh ?? 0;
+  const medium = stats?.medium ?? 0;
+  const low = stats?.low ?? 0;
+  const info = stats?.info ?? 0;
+  const other = Math.max(0, total - critHigh - medium - low - info);
+  const segments = getMixSegments(stats);
+  const showChart = hasScanned && segments.length > 0;
+
+  return (
+    <div className="flex shrink-0 items-center gap-4">
+      <div className="relative h-[4.5rem] w-[4.5rem] shrink-0">
+        {showChart ? (
+          <FindingsMixDonutSvg segments={segments} size={72} stroke={11} />
+        ) : (
+          <div className="absolute inset-0 rounded-full border-[11px] border-zinc-100" aria-hidden />
+        )}
+        <div className="pointer-events-none absolute inset-[13%] flex flex-col items-center justify-center rounded-full bg-white text-center leading-none">
+          <span className="text-[15px] font-bold tabular-nums text-zinc-900">{hasScanned ? total : "—"}</span>
+          <span className="mt-px text-[8px] font-semibold uppercase tracking-wide text-zinc-400">Open</span>
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-bold text-zinc-900">Severity breakdown</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden />
+            <span className="font-semibold tabular-nums text-zinc-800">{hasScanned ? critHigh : "—"}</span> C/H
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-amber-500" aria-hidden />
+            <span className="font-semibold tabular-nums text-zinc-800">{hasScanned ? medium : "—"}</span> M
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
+            <span className="font-semibold tabular-nums text-zinc-800">{hasScanned ? low : "—"}</span> L
+          </span>
+          {hasScanned && info > 0 ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-zinc-400" aria-hidden />
+              <span className="font-semibold tabular-nums text-zinc-800">{info}</span> Info
+            </span>
+          ) : null}
+          {hasScanned && other > 0 ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-zinc-400" aria-hidden />
+              <span className="font-semibold tabular-nums text-zinc-800">{other}</span> Other
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AwsIcon({ className = "h-full w-full object-contain" }: { className?: string }) {
   return (
@@ -596,10 +729,12 @@ function AwsIcon({ className = "h-full w-full object-contain" }: { className?: s
   );
 }
 
-function AwsIconTile({ className }: { className?: string }) {
+function AwsIconTile({ className, compact }: { className?: string; compact?: boolean }) {
   return (
     <div
-      className={`flex shrink-0 items-center justify-center rounded-xl border border-zinc-200/90 bg-white p-3 shadow-sm shadow-zinc-950/[0.03] ${className ?? "h-[4.5rem] w-[4.5rem]"}`}
+      className={`flex shrink-0 items-center justify-center rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03] ${
+        compact ? "h-[4.25rem] w-[4.25rem] p-3" : "h-[4.5rem] w-[4.5rem] p-3"
+      } ${className ?? ""}`}
     >
       <AwsIcon className="h-full w-full" />
     </div>
@@ -906,13 +1041,13 @@ function CapabilityBadges({
   const ssmCollapsed = remediationBadgesCollapsed(acc, remediationModules, capabilityVerify);
 
   return (
-    <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
+    <div className="mt-1.5 flex min-w-0 flex-nowrap items-center gap-x-1.5">
+      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
         Core scanner
       </span>
       {(policyGenDeployed || policyGenSelected) && (
         <span
-          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
             policyGenDeployed
               ? "bg-indigo-50 text-indigo-800 ring-indigo-200/60"
               : "bg-indigo-50/50 text-indigo-700 ring-indigo-200/40"
@@ -923,7 +1058,7 @@ function CapabilityBadges({
       )}
       {ssmCollapsed ? (
         <span
-          className={ssmRemediationBadgeClass}
+          className={`${ssmRemediationBadgeClass} shrink-0`}
           title={remediationEnabled.map((m) => m.label).join(" · ")}
         >
           SSM remediation
@@ -934,11 +1069,11 @@ function CapabilityBadges({
           return (
             <span
               key={m.id}
-              className={
+              className={`shrink-0 ${
                 deployed || !connected
                   ? ssmRemediationBadgeClass
                   : "rounded-full bg-amber-50/40 px-2.5 py-1 text-[11px] font-medium text-amber-800/70 ring-1 ring-amber-200/40"
-              }
+              }`}
             >
               {m.badgeLabel}
             </span>
@@ -2116,38 +2251,23 @@ function InCardAccountSetupWizard({
   );
 }
 
-function FindingsSeverityStrip({ stats }: { stats: FindingStats }) {
-  const items = [
-    { value: stats.critHigh, label: "Crit + high", warn: stats.critHigh > 0 },
-    { value: stats.medium, label: "Medium", warn: false },
-    { value: stats.open, label: "Open", warn: false },
-  ];
-
-  return (
-    <div className="inline-flex overflow-hidden rounded-lg border border-zinc-200/90 bg-zinc-50/40 shadow-sm">
-      {items.map((item, i) => (
-        <div
-          key={item.label}
-          className={`flex min-w-[3.25rem] flex-col items-center px-3 py-1.5 ${
-            i > 0 ? "border-l border-zinc-200/80" : ""
-          }`}
-        >
-          <span
-            className={`text-base font-semibold tabular-nums leading-none ${
-              item.warn ? "text-orange-600" : "text-zinc-900"
-            }`}
-          >
-            {item.value}
-          </span>
-          <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-            {item.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+function resolveScanFreshness(lastScanAt: string | null | undefined): {
+  freshness: "fresh" | "stale" | "none";
+  detail: string;
+} {
+  if (!lastScanAt) return { freshness: "none", detail: "No scans yet" };
+  const t = new Date(lastScanAt).getTime();
+  if (Number.isNaN(t)) return { freshness: "none", detail: "No scans yet" };
+  const hoursSince = (Date.now() - t) / 3_600_000;
+  const freshness = hoursSince <= 26 ? "fresh" : "stale";
+  const detail =
+    hoursSince < 24
+      ? "Last scan today"
+      : hoursSince < 48
+        ? "Last scan yesterday"
+        : `Last scan ${Math.floor(hoursSince / 24)}d ago`;
+  return { freshness, detail };
 }
-
 
 const cardClass =
   "rounded-xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-200 hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_20px_rgba(0,0,0,0.05)]";
@@ -2155,10 +2275,13 @@ const cardClass =
 function buildStatsMap(items: Finding[] | undefined): Map<string, FindingStats> {
   const map = new Map<string, FindingStats>();
   for (const f of items ?? []) {
-    const cur = map.get(f.account_id) ?? { critHigh: 0, medium: 0, open: 0 };
+    const cur = map.get(f.account_id) ?? { critHigh: 0, medium: 0, low: 0, info: 0, open: 0 };
     cur.open += 1;
-    if (f.severity === "critical" || f.severity === "high") cur.critHigh += 1;
-    if (f.severity === "medium") cur.medium += 1;
+    const sev = (f.severity || "").toLowerCase();
+    if (sev === "critical" || sev === "high") cur.critHigh += 1;
+    else if (sev === "medium") cur.medium += 1;
+    else if (sev === "low") cur.low += 1;
+    else if (sev === "info") cur.info += 1;
     map.set(f.account_id, cur);
   }
   return map;
@@ -2255,27 +2378,6 @@ function CopyIdButton({ text }: { text: string }) {
   );
 }
 
-function SeverityCounts({ stats }: { stats: FindingStats }) {
-  const items = [
-    { value: stats.critHigh, label: "Critical", cls: stats.critHigh > 0 ? "text-red-600" : "text-zinc-400" },
-    { value: stats.medium, label: "Medium", cls: stats.medium > 0 ? "text-amber-600" : "text-zinc-400" },
-    { value: stats.open, label: "Open", cls: "text-zinc-900" },
-  ];
-  return (
-    <div className="inline-flex items-center">
-      {items.map((it, i) => (
-        <div key={it.label} className="relative min-w-[4.25rem] px-3 py-0.5 text-center sm:min-w-[4.75rem] sm:px-4">
-          {i > 0 && <span className="absolute left-0 top-1/2 h-8 w-px -translate-y-1/2 bg-zinc-200/80" aria-hidden />}
-          <p className={`text-xl font-bold leading-none tracking-tight tabular-nums sm:text-2xl ${it.cls}`}>
-            {it.value}
-          </p>
-          <p className="mt-0.5 text-[11px] font-medium text-zinc-500 sm:text-xs">{it.label}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 type AccountMenuProps = {
   onUpdateConnector: () => void;
   onManageCapabilities: () => void;
@@ -2315,7 +2417,7 @@ function AccountMenu({
       {open && (
         <>
           <button type="button" aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
+          <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
             <button
               role="menuitem"
               disabled={scanDisabled}
@@ -2468,96 +2570,45 @@ function ScanPhaseBlock({
   );
 }
 
-function FooterStat({
-  icon,
-  label,
-  value,
-  divided,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  divided?: boolean;
-}) {
-  return (
-    <div
-      className={`relative flex min-w-0 items-center gap-2.5 px-4 py-2.5 ${
-        divided ? "border-b border-zinc-100 sm:border-b-0" : ""
-      }`}
-    >
-      {divided && <span className="absolute right-0 top-1/2 hidden h-7 w-px -translate-y-1/2 bg-zinc-200/70 sm:block" aria-hidden />}
-      <span className="shrink-0 text-zinc-400/90">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-normal leading-tight text-zinc-500">{label}</p>
-        <p className="mt-0.5 truncate text-[13px] font-normal leading-snug text-zinc-700">{value}</p>
-      </div>
-    </div>
-  );
-}
-
 function AccountCardActionBar({
-  lastScanLabel,
-  scheduleLabel,
-  nextScanLabel,
   expanded,
   onToggleDetails,
   onViewFindings,
   onRescan,
   scanDisabled,
   scanRunning,
+  inline,
 }: {
-  lastScanLabel: string;
-  scheduleLabel: string;
-  nextScanLabel: string;
   expanded: boolean;
   onToggleDetails: () => void;
   onViewFindings: () => void;
   onRescan: () => void;
   scanDisabled: boolean;
   scanRunning: boolean;
+  inline?: boolean;
 }) {
+  const shell = inline
+    ? "flex shrink-0 flex-wrap items-center justify-end gap-2"
+    : "flex flex-wrap items-center justify-end gap-2 border-t border-zinc-100 px-4 py-3 sm:px-5";
   return (
-    <div className="flex w-full min-w-0 flex-col rounded-b-xl border-t border-zinc-100 bg-white lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:py-0 lg:pr-5">
-      <div className="flex min-w-0 flex-col sm:flex-row lg:shrink-0">
-        <FooterStat divided icon={FOOTER_ICON_CLOCK} label="Last scan started" value={lastScanLabel} />
-        <FooterStat divided icon={FOOTER_ICON_REPEAT} label="Scan schedule" value={scheduleLabel} />
-        <FooterStat icon={FOOTER_ICON_CALENDAR} label="Next scan" value={nextScanLabel} />
-      </div>
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-zinc-200 px-4 py-3 lg:border-t-0 lg:shrink-0 lg:py-3 lg:pl-0 lg:pr-0">
-        <button
-          type="button"
-          onClick={onToggleDetails}
-          aria-expanded={expanded}
-          className={neutralToolbarBtn}
-        >
-          View details
-        </button>
-        <button type="button" onClick={onViewFindings} className={neutralToolbarBtn}>
-          View findings
-        </button>
-        <button type="button" onClick={onRescan} disabled={scanDisabled} className={neutralToolbarBtn}>
-          {scanRunning ? "Scanning…" : "Scan"}
-        </button>
-      </div>
+    <div className={shell}>
+      <button
+        type="button"
+        onClick={onToggleDetails}
+        aria-expanded={expanded}
+        className={neutralToolbarBtn}
+      >
+        Details
+      </button>
+      <button type="button" onClick={onViewFindings} className={neutralToolbarBtn}>
+        Findings
+      </button>
+      <button type="button" onClick={onRescan} disabled={scanDisabled} className={neutralToolbarBtn}>
+        {scanRunning ? "Scanning…" : "Scan"}
+      </button>
     </div>
   );
 }
-
-const FOOTER_ICON_CLOCK = (
-  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-  </svg>
-);
-const FOOTER_ICON_REPEAT = (
-  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-4.14-3.36-7.5-7.5-7.5-2.3 0-4.36 1.04-5.74 2.67M4.5 12c0 4.14 3.36 7.5 7.5 7.5 2.3 0 4.36-1.04 5.74-2.67M16.5 7.5h3v-3M7.5 16.5h-3v3" />
-  </svg>
-);
-const FOOTER_ICON_CALENDAR = (
-  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-  </svg>
-);
 
 function AccountCard({
   acc,
@@ -2622,10 +2673,14 @@ function AccountCard({
     queryFn: () => api("/v1/settings"),
     enabled: connected,
   });
-  const scheduleLabel = scanScheduleText(settings.data);
-  const nextScanLabel = settings.data
-    ? formatFooterScanDate(settings.data.scan_status.next_scan_at, { utc: true })
+  const nextScanShort = settings.data
+    ? formatShortScanDate(settings.data.scan_status.next_scan_at, { utc: true })
     : "—";
+  const { freshness, detail: freshnessDetail } = resolveScanFreshness(acc.last_scan_at);
+  const freshnessScanLabel =
+    freshness === "fresh" ? "Fresh scan" : freshness === "stale" ? "Stale scan" : "No scans yet";
+  const freshnessScanClass =
+    freshness === "fresh" ? "text-emerald-700" : freshness === "stale" ? "text-amber-700" : "text-zinc-500";
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -2730,8 +2785,6 @@ function AccountCard({
     setShowRemoveConfirm(true);
   };
 
-  const hasStats = connected && hasScanned && !!stats;
-
   const ensureExpanded = () => {
     if (!expanded) onToggle();
   };
@@ -2756,48 +2809,69 @@ function AccountCard({
 
   return (
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
-      <div className="flex items-center gap-4 px-5 py-4">
-        <div className="flex min-w-0 flex-1 items-center gap-4">
-          <AwsIconTile />
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <h2 className="truncate text-lg font-bold leading-tight text-zinc-900">{acc.label}</h2>
-              {connected && (
+      {connected ? (
+        <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-[minmax(26rem,1.6fr)_8.75rem_auto_auto] xl:items-center xl:gap-x-5 xl:px-5 xl:py-4">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <AwsIconTile compact />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h2 className="truncate text-base font-bold leading-tight text-zinc-900">{acc.label}</h2>
                 <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
                   Connected
                 </span>
-              )}
+              </div>
+              {acc.account_id ? (
+                <div className="mt-0.5 flex items-center gap-1">
+                  <p className="font-mono text-xs tabular-nums text-zinc-500">{acc.account_id}</p>
+                  <CopyIdButton text={acc.account_id} />
+                </div>
+              ) : null}
+              <CapabilityBadges acc={acc} capabilityVerify={capabilityVerify} />
             </div>
-            {connected && acc.account_id ? (
-              <div className="mt-0.5 flex items-center gap-1">
-                <p className="font-mono text-xs tabular-nums text-zinc-500">{acc.account_id}</p>
-                <CopyIdButton text={acc.account_id} />
-              </div>
-            ) : (
-              <p className="mt-0.5 text-xs text-zinc-500">Setup required</p>
-            )}
-            <CapabilityBadges
-              acc={acc}
-              connectionOptions={connected ? undefined : setupConnectionOptions}
-              capabilityVerify={capabilityVerify}
-            />
           </div>
-        </div>
 
-        {connected ? (
-          <div className="flex shrink-0 items-center gap-2">
-            {hasStats && stats ? (
-              <div>
-                <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 sm:px-4">
-                  Findings
-                </p>
-                <SeverityCounts stats={stats} />
-              </div>
-            ) : null}
+          <div className="shrink-0 text-sm xl:border-l xl:border-zinc-100 xl:pl-5">
+            <p className={`font-semibold ${freshnessScanClass}`}>{hasScanned ? freshnessScanLabel : "Not scanned"}</p>
+            <p className="mt-0.5 text-zinc-500">{hasScanned ? freshnessDetail : "Run first scan"}</p>
+            <p className="mt-0.5 text-zinc-500">
+              Next scan <span className="font-medium text-zinc-700">{nextScanShort}</span>
+            </p>
+          </div>
+
+          <div className="xl:border-l xl:border-zinc-100 xl:pl-5">
+            <FindingsMixDonut stats={stats} hasScanned={hasScanned} />
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2 xl:pl-2">
+            <AccountCardActionBar
+              expanded={expanded}
+              onToggleDetails={onToggle}
+              onViewFindings={() => navigate("/findings")}
+              onRescan={() => triggerScan(acc.id)}
+              scanDisabled={isScanActive}
+              scanRunning={isScanActive}
+              inline
+            />
             <AccountMenu {...accountMenu} />
           </div>
-        ) : (
+        </div>
+      ) : (
+        <div className="flex items-center gap-4 px-5 py-4">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <AwsIconTile />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <h2 className="truncate text-lg font-bold leading-tight text-zinc-900">{acc.label}</h2>
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500">Setup required</p>
+              <CapabilityBadges
+                acc={acc}
+                connectionOptions={setupConnectionOptions}
+                capabilityVerify={capabilityVerify}
+              />
+            </div>
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <button type="button" onClick={onToggle} className={ghostBtn}>
               {expanded ? "Hide setup" : "Continue setup"}
@@ -2811,8 +2885,8 @@ function AccountCard({
               Remove account
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {connected && isScanActive && (
         <ScanPhaseBlock
@@ -2835,23 +2909,9 @@ function AccountCard({
       )}
 
       {connected && !hasScanned && !isScanActive && (
-        <div className="border-t border-zinc-100/80 bg-zinc-50/40 px-4 py-2.5 text-center text-xs text-zinc-500">
+        <div className="border-t border-zinc-100/80 bg-zinc-50/40 px-4 py-2 text-center text-xs text-zinc-500">
           Run a scan to populate findings.
         </div>
-      )}
-
-      {connected && (
-        <AccountCardActionBar
-          lastScanLabel={formatFooterScanDate(acc.last_scan_at, { utc: true })}
-          scheduleLabel={scheduleLabel}
-          nextScanLabel={nextScanLabel}
-          expanded={expanded}
-          onToggleDetails={onToggle}
-          onViewFindings={() => navigate("/findings")}
-          onRescan={() => triggerScan(acc.id)}
-          scanDisabled={isScanActive}
-          scanRunning={isScanActive}
-        />
       )}
 
       <div
@@ -2945,204 +3005,11 @@ function AccountCard({
   );
 }
 
-type PostureTone = "good" | "warn" | "bad" | "muted";
-
-function PostureTrend({
-  count,
-  label,
-  tone,
-}: {
-  count: number;
-  label: string;
-  tone: PostureTone;
-}) {
-  const toneText: Record<PostureTone, string> = {
-    good: "text-emerald-600",
-    warn: "text-amber-600",
-    bad: "text-red-600",
-    muted: "text-zinc-500",
-  };
-
-  return (
-    <p className={`mt-2.5 flex items-center gap-1 text-xs font-medium ${toneText[tone]}`}>
-      {count === 0 ? (
-        <span className="text-zinc-400" aria-hidden>
-          —
-        </span>
-      ) : (
-        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-        </svg>
-      )}
-      <span>{label}</span>
-    </p>
-  );
-}
-
-type PortfolioMetrics = {
-  totalOpen: number;
-  totalCrit: number;
-  needsAttention: number;
-  connectedThisWeek: number;
-  openNew7d: number;
-  critHighNew7d: number;
-  atRiskNew7d: number;
-};
-
-function buildPortfolioMetrics(
-  findings: Finding[] | undefined,
-  statsMap: Map<string, FindingStats>,
-  connected: Account[],
-): PortfolioMetrics {
-  const critAccounts = new Set<string>();
-  let totalOpen = 0;
-  let totalCrit = 0;
-  let openNew7d = 0;
-  let critHighNew7d = 0;
-  const atRiskNewAccounts = new Set<string>();
-
-  for (const a of connected) {
-    const s = statsMap.get(a.id);
-    if (!s) continue;
-    totalOpen += s.open;
-    totalCrit += s.critHigh;
-    if (s.critHigh > 0) critAccounts.add(a.id);
-  }
-
-  for (const f of findings ?? []) {
-    if (!isWithinLastDays(f.first_seen, 7)) continue;
-    openNew7d += 1;
-    if (f.severity === "critical" || f.severity === "high") {
-      critHighNew7d += 1;
-      atRiskNewAccounts.add(f.account_id);
-    }
-  }
-
-  const connectedThisWeek = connected.filter(
-    (a) => isAccountConnected(a) && isWithinLastDays(a.last_scan_at, 7),
-  ).length;
-
-  return {
-    totalOpen,
-    totalCrit,
-    needsAttention: critAccounts.size,
-    connectedThisWeek,
-    openNew7d,
-    critHighNew7d,
-    atRiskNew7d: atRiskNewAccounts.size,
-  };
-}
-
-function PostureSummary({
-  accounts,
-  statsMap,
-  findings,
-}: {
-  accounts: Account[];
-  statsMap: Map<string, FindingStats>;
-  findings: Finding[] | undefined;
-}) {
-  const connected = accounts.filter((a) => isAccountConnected(a));
-  const metrics = buildPortfolioMetrics(findings, statsMap, connected);
-
-  // Scan freshness across connected accounts: fresh when the most recent
-  // successful scan is inside the daily window (+grace), matching the
-  // stale-scan alert threshold.
-  const latestScanMs = connected.reduce<number | null>((latest, a) => {
-    if (!a.last_scan_at) return latest;
-    const t = new Date(a.last_scan_at).getTime();
-    if (Number.isNaN(t)) return latest;
-    return latest === null || t > latest ? t : latest;
-  }, null);
-  const hoursSinceScan = latestScanMs === null ? null : (Date.now() - latestScanMs) / 3_600_000;
-  const freshness: "fresh" | "stale" | "none" =
-    hoursSinceScan === null ? "none" : hoursSinceScan <= 26 ? "fresh" : "stale";
-  const freshnessSub =
-    hoursSinceScan === null
-      ? "No scans yet"
-      : hoursSinceScan < 24
-        ? "Last scan today"
-        : `Last scan ${Math.floor(hoursSinceScan / 24)}d ago`;
-  const allConnected = connected.length === accounts.length && connected.length > 0;
-
-  const tileShell =
-    "rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]";
-  const tileLabel = "text-[11px] font-semibold uppercase tracking-[0.06em] text-zinc-400";
-  const tileValue = "mt-2 text-[2rem] font-bold leading-none tracking-tight tabular-nums text-zinc-900";
-
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div className={`${tileShell} px-5 py-4`}>
-        <p className={tileLabel}>Connected</p>
-        <p className={tileValue}>{connected.length}</p>
-        {allConnected ? (
-          <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
-            All accounts connected
-          </p>
-        ) : (
-          <PostureTrend
-            count={metrics.connectedThisWeek}
-            label={metrics.connectedThisWeek === 0 ? "No change" : `${metrics.connectedThisWeek} this week`}
-            tone={metrics.connectedThisWeek > 0 ? "good" : "muted"}
-          />
-        )}
-      </div>
-
-      <div className={`${tileShell} border-l-[3px] border-l-amber-400 px-5 py-4`}>
-        <p className={tileLabel}>Open findings</p>
-        <p className={tileValue}>{metrics.totalOpen}</p>
-        <PostureTrend
-          count={metrics.openNew7d}
-          label={metrics.openNew7d === 0 ? "No change" : `${metrics.openNew7d} vs last 7 days`}
-          tone={metrics.openNew7d > 0 ? "warn" : "muted"}
-        />
-      </div>
-
-      <div className={`${tileShell} border-l-[3px] border-l-rose-400 px-5 py-4`}>
-        <p className={tileLabel}>Critical + high</p>
-        <p className={tileValue}>{metrics.totalCrit}</p>
-        <PostureTrend
-          count={metrics.critHighNew7d}
-          label={metrics.critHighNew7d === 0 ? "No change" : `${metrics.critHighNew7d} vs last 7 days`}
-          tone={metrics.critHighNew7d > 0 ? "bad" : metrics.totalCrit > 0 ? "muted" : "good"}
-        />
-      </div>
-
-      <div
-        className={`${tileShell} border-l-[3px] px-5 py-4 ${
-          freshness === "fresh"
-            ? "border-l-emerald-400"
-            : freshness === "stale"
-              ? "border-l-amber-400"
-              : "border-l-zinc-200"
-        }`}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <p className={tileLabel}>Scan freshness</p>
-          {freshness === "fresh" && (
-            <svg className="h-5 w-5 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
-          )}
-        </div>
-        <p
-          className={`mt-2 text-[2rem] font-bold leading-none tracking-tight ${
-            freshness === "fresh" ? "text-emerald-600" : freshness === "stale" ? "text-amber-600" : "text-zinc-300"
-          }`}
-        >
-          {freshness === "fresh" ? "Fresh" : freshness === "stale" ? "Stale" : "\u2014"}
-        </p>
-        <p className="mt-2 text-xs font-medium text-zinc-500">{freshnessSub}</p>
-      </div>
-    </div>
-  );
-}
-
 export default function Accounts() {
   const qc = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [setupInitialStep, setSetupInitialStep] = useState(1);
+  const [accountSearch, setAccountSearch] = useState("");
   const [pendingConnectionOptions, setPendingConnectionOptions] = useState<ConnectionOptions>(
     DEFAULT_CONNECTION_OPTIONS,
   );
@@ -3200,44 +3067,30 @@ export default function Accounts() {
     return [...pending, ...connected];
   }, [accounts.data]);
   const hasPending = accs.some((a) => !isAccountConnected(a));
-  const hasConnectedAccount = accs.some((a) => isAccountConnected(a));
+  const filteredAccs = useMemo(
+    () => accs.filter((acc) => matchesAccountSearch(acc, accountSearch)),
+    [accs, accountSearch],
+  );
 
   const showFirstAccountOnboarding =
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="mx-auto w-full max-w-screen-2xl space-y-7">
+    <div className="mx-auto w-full max-w-[84rem] space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-950">Accounts</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-600">Cloud coverage</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-950">Accounts</h1>
+          <p className="mt-1.5 text-sm text-zinc-500">
             {showFirstAccountOnboarding
               ? "Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and generate evidence for your auditor."
-              : "Connected accounts and scan freshness at a glance."}
+              : "Connected cloud accounts and scan freshness at a glance."}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <NotificationsBell />
-          {accs.length > 0 && (
-            <button
-              type="button"
-              onClick={() => create.mutate(pendingConnectionOptions)}
-              disabled={create.isPending || hasPending}
-              title={hasPending ? "Finish setting up the pending account first" : undefined}
-              className={`${neutralToolbarBtn} gap-1.5`}
-            >
-              <svg className="h-3.5 w-3.5 shrink-0 opacity-55" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              {create.isPending ? "Adding…" : "Add account"}
-            </button>
-          )}
         </div>
       </div>
-
-      {hasConnectedAccount && (
-        <PostureSummary accounts={accs} statsMap={statsMap} findings={allFindings.data?.items} />
-      )}
 
       {accounts.isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -3269,21 +3122,66 @@ export default function Accounts() {
 
       {accs.length > 0 && !showFirstAccountOnboarding && (
         <div className="space-y-4">
-          {accs.map((acc) => (
-            <AccountCard
-              key={acc.id}
-              acc={acc}
-              stats={statsMap.get(acc.id)}
-              expanded={expandedId === acc.id}
-              setupInitialStep={expandedId === acc.id ? setupInitialStep : 1}
-              onToggle={() => setExpandedId((id) => (id === acc.id ? null : acc.id))}
-            />
-          ))}
-        </div>
-      )}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-end">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <label className="relative block min-w-[16rem] flex-1 sm:min-w-[18rem]">
+                <span className="sr-only">Search accounts</span>
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
+                </svg>
+                <input
+                  type="search"
+                  value={accountSearch}
+                  onChange={(e) => setAccountSearch(e.target.value)}
+                  placeholder="Search account, ID, provider…"
+                  className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => create.mutate(pendingConnectionOptions)}
+                disabled={create.isPending || hasPending}
+                title={hasPending ? "Finish setting up the pending account first" : undefined}
+                className={`${neutralToolbarBtn} w-full justify-center gap-1.5 sm:w-auto`}
+              >
+                <svg className="h-3.5 w-3.5 shrink-0 opacity-55" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                {create.isPending ? "Adding…" : "Add account"}
+              </button>
+            </div>
+          </div>
 
-      {hasPending && accs.length > 0 && (
-        <p className="text-center text-xs text-zinc-500">Finish pending setup before adding another account.</p>
+          {filteredAccs.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-8 text-center text-sm text-zinc-500">
+              No accounts match &ldquo;{accountSearch.trim()}&rdquo;
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {filteredAccs.map((acc) => (
+                <AccountCard
+                  key={acc.id}
+                  acc={acc}
+                  stats={statsMap.get(acc.id)}
+                  expanded={expandedId === acc.id}
+                  setupInitialStep={expandedId === acc.id ? setupInitialStep : 1}
+                  onToggle={() => setExpandedId((id) => (id === acc.id ? null : acc.id))}
+                />
+              ))}
+            </div>
+          )}
+
+          {hasPending && (
+            <p className="text-xs text-zinc-500">Finish pending setup before adding another account.</p>
+          )}
+        </div>
       )}
 
       {create.error && (

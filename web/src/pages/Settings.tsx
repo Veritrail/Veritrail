@@ -5,10 +5,7 @@ import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { PageCard, PageShell } from "../components/PageShell";
 import { ProductShell } from "../components/ProductShell";
 import { InfoTip, Toggle } from "../components/SettingsUi";
-import { AuditorManagement } from "../components/AuditorManagement";
-import { TeamMembersSettings } from "../components/TeamMembersSettings";
 import { DomainsSettings } from "../components/DomainsSettings";
-import { TrustCenterSettings } from "../components/TrustCenterSettings";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import "../styles/settings-cards.css";
 
@@ -129,12 +126,12 @@ function buildPayload(state: {
   };
 }
 
-function SettingRow({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function SettingRow({ title, description, children, first }: { title: string; description: string; children: ReactNode; first?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1">
+    <div className={`flex items-center justify-between gap-6 py-4 ${first ? "" : "border-t border-zinc-100"}`}>
+      <div className="min-w-0 max-w-xl">
         <p className="text-sm font-semibold text-zinc-900">{title}</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{description}</p>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-zinc-500">{description}</p>
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -285,10 +282,10 @@ const KPI_ACCENT: Record<string, string> = {
 
 function KpiTile({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: keyof typeof KPI_ACCENT }) {
   return (
-    <div className={`rounded-xl border border-l-[3px] border-zinc-200 ${KPI_ACCENT[accent]} bg-white px-4 py-3.5 shadow-sm shadow-zinc-950/[0.02]`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
-      <p className="mt-1.5 text-2xl font-extrabold tracking-tight text-zinc-900">{value}</p>
-      <p className="mt-1 text-xs text-zinc-500">{sub}</p>
+    <div className={`rounded-xl border border-l-[3px] border-zinc-200 ${KPI_ACCENT[accent]} bg-white px-4 py-4 shadow-sm shadow-zinc-950/[0.02] transition-shadow hover:shadow-md hover:shadow-zinc-950/[0.04]`}>
+      <p className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-zinc-400">{label}</p>
+      <p className="mt-2 text-[26px] font-extrabold leading-none tracking-tight text-zinc-900">{value}</p>
+      <p className="mt-2 text-xs text-zinc-500">{sub}</p>
     </div>
   );
 }
@@ -556,29 +553,21 @@ export default function Settings() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <KpiTile label="Scanning" value={scanBadge} sub={scanEnabled ? "Automated scans on" : "Manual only"} accent={scanEnabled ? "blue" : "slate"} />
             <KpiTile label="Notifications" value={alertsOn ? "On" : "Off"} sub="Digest & alert emails" accent={alertsOn ? "violet" : "slate"} />
-            <KpiTile label="Auditors" value={String(activeAuditors)} sub={activeAuditors ? "Active external access" : "No external access"} accent={activeAuditors ? "indigo" : "slate"} />
             <KpiTile label="Optional checks" value={`${enabledOptional} / ${optionalTotal}`} sub={enabledOptional ? `${enabledOptional} scored` : "None scored"} accent={enabledOptional ? "amber" : "slate"} />
+            <KpiTile label="AI review" value={aiFindingReviewEnabled ? "On" : "Off"} sub="Advisory summaries" accent={aiFindingReviewEnabled ? "indigo" : "slate"} />
           </div>
 
-          {/* Stacked section cards */}
-          <div>
+          {/* Section cards — two-column masonry */}
+          <div className="settings2__cards">
             <SettingsCard icon={CARD_ICONS.scanning} tone="blue" title="Scanning" subtitle="Set scan cadence and automate evidence collection." badge={scanBadge} badgeTone="info">
                 {(
-                  <div className="space-y-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-900">Automated scans</p>
-                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Collect evidence and refresh findings on a schedule.</p>
-                      </div>
+                  <div className="-mt-1">
+                    <SettingRow title="Automated scans" description="Collect evidence and refresh findings on a schedule." first>
                       <Toggle checked={scanEnabled} onChange={setScanEnabled} disabled={!canEditWorkspace} />
-                    </div>
+                    </SettingRow>
                     {scanEnabled && (
-                      <div className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-zinc-900">Frequency</p>
-                            <p className="mt-0.5 text-xs text-zinc-500">Changes apply after the next completed scan.</p>
-                          </div>
+                      <SettingRow title="Frequency" description="Changes apply after the next completed scan.">
+                        <div className="flex flex-col items-end gap-2">
                           <Segmented
                             value={freqMode}
                             onChange={(v) => setFreqMode(v as FreqMode)}
@@ -589,73 +578,63 @@ export default function Settings() {
                               { value: "custom", label: "Custom" },
                             ]}
                           />
+                          {freqMode === "custom" && (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={minCustomHours}
+                                max={720}
+                                step={1}
+                                value={customHours}
+                                onChange={(e) => setCustomHours(Number(e.target.value))}
+                                readOnly={!canEditWorkspace}
+                                className="w-24 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25 disabled:opacity-70"
+                              />
+                              <span className="text-xs text-zinc-500">hours ({minCustomHours}–720)</span>
+                            </div>
+                          )}
                         </div>
-                        {freqMode === "custom" && (
-                          <div className="mt-3 flex items-center gap-2">
-                            <input
-                              type="number"
-                              min={minCustomHours}
-                              max={720}
-                              step={1}
-                              value={customHours}
-                              onChange={(e) => setCustomHours(Number(e.target.value))}
-                              readOnly={!canEditWorkspace}
-                              className="w-24 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25 disabled:opacity-70"
-                            />
-                            <span className="text-xs text-zinc-500">hours ({minCustomHours}–720)</span>
+                      </SettingRow>
+                    )}
+                    <div className="mt-5 border-t border-zinc-100 pt-5">
+                      {!data?.scan_status.account_connected ? (
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-800">
+                          Connect an AWS account to enable scheduled scans.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="rounded-lg border border-zinc-100 bg-zinc-50/70 px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Last scan</p>
+                            <p className="mt-1 text-sm font-semibold leading-snug text-zinc-900">{lastScan ?? "No scan yet"}</p>
                           </div>
-                        )}
-                      </div>
-                    )}
-                    {!data?.scan_status.account_connected ? (
-                      <p className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-800">
-                        Connect an AWS account to enable scheduled scans.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 px-4 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Last scan</p>
-                          <p className="mt-1 text-sm font-semibold leading-snug text-zinc-900">{lastScan ?? "No scan yet"}</p>
+                          <div className="rounded-lg border border-zinc-100 bg-zinc-50/70 px-4 py-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Next scan</p>
+                            <p className="mt-1 text-sm font-semibold leading-snug text-zinc-900">{scanEnabled ? nextScan ?? "—" : "Manual only"}</p>
+                          </div>
                         </div>
-                        <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 px-4 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Next scan</p>
-                          <p className="mt-1 text-sm font-semibold leading-snug text-zinc-900">{scanEnabled ? nextScan ?? "—" : "Manual only"}</p>
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
             </SettingsCard>
 
             <SettingsCard icon={CARD_ICONS.notifications} tone="violet" title="Notifications" subtitle="Manage alerts, digest, and delivery channels." badge={alertsOn ? "On" : "Off"} badgeTone={alertsOn ? "on" : "off"}>
               {(
-                <div className="-my-1">
-                    <div className="flex items-center justify-between gap-3 py-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-900">Scan failure email</p>
-                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Notify when a scan fails or loses AWS access.</p>
-                      </div>
+                <div className="-mt-1">
+                    <SettingRow title="Scan failure email" description="Notify when a scan fails or loses AWS access." first>
                       <Toggle checked={scanFailureEnabled} onChange={setScanFailureEnabled} disabled={!canEditWorkspace} />
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-zinc-100 py-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-900">Critical finding alerts</p>
-                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Notify immediately by email on new critical or high findings.</p>
-                      </div>
+                    </SettingRow>
+                    <SettingRow title="Critical finding alerts" description="Notify immediately by email on new critical or high findings.">
                       <Toggle checked={criticalAlertEnabled} onChange={setCriticalAlertEnabled} disabled={!canEditWorkspace} />
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-zinc-100 py-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-900">Weekly email digest</p>
-                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Findings summary every Monday at 9:00 UTC.</p>
-                      </div>
+                    </SettingRow>
+                    <SettingRow title="Weekly email digest" description="Findings summary every Monday at 9:00 UTC.">
                       <Toggle checked={emailDigestEnabled} onChange={setEmailDigestEnabled} disabled={!canEditWorkspace} />
-                    </div>
+                    </SettingRow>
                     {alertsOn && (
                       <div className="border-t border-zinc-100 pt-4">
                         <div>
                           <p className="text-sm font-semibold text-zinc-900">Delivery email</p>
-                          <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Where operational security emails are sent.</p>
+                          <p className="mt-0.5 text-[13px] leading-relaxed text-zinc-500">Where operational security emails are sent.</p>
                           <input
                             id="delivery-email"
                             type="email"
@@ -663,13 +642,13 @@ export default function Settings() {
                             onChange={(e) => setDigestEmail(e.target.value)}
                             placeholder={deliveryPlaceholder}
                             readOnly={!canEditWorkspace}
-                            className="mt-3 w-full min-w-0 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-transparent focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
+                            className="mt-3 w-full max-w-md min-w-0 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-transparent focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/25"
                           />
                         </div>
                       </div>
                     )}
                     {emailDigestEnabled && (
-                      <div className="border-t border-zinc-100 pt-4 flex flex-wrap items-center gap-3">
+                      <div className="mt-4 border-t border-zinc-100 pt-4 flex flex-wrap items-center gap-3">
                         <button
                           type="button"
                           onClick={sendDigestTest}
@@ -722,21 +701,6 @@ export default function Settings() {
                 )}
             </SettingsCard>
 
-            <SettingsCard icon={CARD_ICONS.trust} tone="green" title="Trust Center" subtitle="Public security profile, not a live compliance scorecard." badge={trustCenter.data?.is_enabled ? "Live" : "Off"} badgeTone={trustCenter.data?.is_enabled ? "on" : "off"}>
-              {canEditWorkspace ? <TrustCenterSettings /> : <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>}
-            </SettingsCard>
-
-            <SettingsCard icon={CARD_ICONS.auditors} tone="indigo" title="Access" subtitle="Invite external auditors and manage workspace roles." badge={activeAuditors ? `${activeAuditors} active` : "None"} badgeTone={activeAuditors ? "on" : "off"}>
-              {canEditWorkspace ? (
-                <div className="space-y-4">
-                  <AuditorManagement />
-                  {isOwner && <TeamMembersSettings />}
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-500">Admins and owners can manage access.</p>
-              )}
-            </SettingsCard>
-
             {canEditWorkspace && (
               <SettingsCard icon={CARD_ICONS.domains} tone="sky" title="Domains" subtitle="Verify a company domain via DNS, then optionally let new signups auto-join.">
                 <DomainsSettings />
@@ -744,12 +708,10 @@ export default function Settings() {
             )}
 
             <SettingsCard icon={CARD_ICONS.advanced} tone="violet" title="Advanced" subtitle="Optional and experimental features. No compliance-score impact." badge={aiFindingReviewEnabled ? "On" : "Off"} badgeTone={aiFindingReviewEnabled ? "on" : "off"}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-zinc-900">AI finding review</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">Advisory summaries in finding drawers when an LLM is configured.</p>
-                </div>
-                <Toggle checked={aiFindingReviewEnabled} onChange={setAiFindingReviewEnabled} disabled={!canEditWorkspace} />
+              <div className="-my-1">
+                <SettingRow title="AI finding review" description="Advisory summaries in finding drawers when an LLM is configured." first>
+                  <Toggle checked={aiFindingReviewEnabled} onChange={setAiFindingReviewEnabled} disabled={!canEditWorkspace} />
+                </SettingRow>
               </div>
             </SettingsCard>
           </div>

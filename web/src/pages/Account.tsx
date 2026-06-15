@@ -288,7 +288,7 @@ function ProviderRow({
           title={lastMethod ? "Set a password or connect another sign-in method before disconnecting your last one." : undefined}
           className="inline-flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60"
         >
-          {disconnecting ? "Saving…" : "Manage"}
+          {disconnecting ? "Disconnecting…" : "Disconnect"}
         </button>
       ) : connectUrl ? (
         <a
@@ -838,7 +838,7 @@ export default function Account() {
                   icon={<ProviderLogo provider="github" />}
                   connected={!!me?.github_id}
                   connectUrl={ghConnectUrl ?? null}
-                  onDisconnect={() => setToast({ kind: "success", text: "GitHub management will open here soon." })}
+                  onDisconnect={() => disconnectGh.mutate()}
                   disconnecting={disconnectGh.isPending}
                   lastMethod={!!me && (me.has_password ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
                 />
@@ -847,7 +847,7 @@ export default function Account() {
                   icon={<ProviderLogo provider="gitlab" />}
                   connected={!!me?.gitlab_id}
                   connectUrl={glConnectUrl ?? null}
-                  onDisconnect={() => setToast({ kind: "success", text: "GitLab management will open here soon." })}
+                  onDisconnect={() => disconnectGl.mutate()}
                   disconnecting={disconnectGl.isPending}
                   lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
                 />
@@ -856,7 +856,7 @@ export default function Account() {
                   icon={<ProviderLogo provider="google" />}
                   connected={!!me?.google_id}
                   connectUrl={googleConnectUrl ?? null}
-                  onDisconnect={() => setToast({ kind: "success", text: "Google management will open here soon." })}
+                  onDisconnect={() => disconnectGoogle.mutate()}
                   disconnecting={disconnectGoogle.isPending}
                   lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) === 0}
                 />

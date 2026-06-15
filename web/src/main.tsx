@@ -33,6 +33,9 @@ import AuditorControls from "./pages/AuditorControls";
 import AuditorEvidence from "./pages/AuditorEvidence";
 import AuditorExport from "./pages/AuditorExport";
 import TrustCenter from "./pages/TrustCenter";
+import TrustCenterAdmin from "./pages/TrustCenterAdmin";
+import Auditors from "./pages/Auditors";
+import Members from "./pages/Members";
 
 const qc = new QueryClient();
 
@@ -55,6 +58,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/account" element={<Account />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/trust-center" element={<TrustCenterAdmin />} />
+            <Route path="/auditors" element={<Auditors />} />
+            <Route path="/members" element={<Members />} />
             <Route path="/detection" element={<Navigate to="/settings#detection" replace />} />
             <Route path="/controls" element={<Controls />} />
             <Route path="/history" element={<History />} />
