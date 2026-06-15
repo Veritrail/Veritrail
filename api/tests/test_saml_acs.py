@@ -49,6 +49,7 @@ def _run_acs(monkeypatch, *, db, auth, slug="acme"):
 
 
 def test_acs_provisions_new_user_and_redirects_with_token(monkeypatch):
+    monkeypatch.setattr(auth_saml.settings, "ALLOW_SSO_SIGNUP", True)
     org_id = uuid.uuid4()
     db = MagicMock()
     # 1st scalar: enabled config lookup. 2nd: user-by-email (none -> JIT provision).
