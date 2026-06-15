@@ -18,6 +18,10 @@ from app.core.security import current_principal, issue_mfa_challenge_token, issu
 from app.models import AwsAccount, Org, User
 from app.services.org_invites import provision_sso_user
 from app.services.user_session import record_user_session
+from app.routes.github_integration import (
+    handle_github_integration_callback,
+    is_github_integration_state,
+)
 
 router = APIRouter()
 settings = get_settings()

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, BASE, formatApiError, logout, token } from "../api";
@@ -25,11 +25,6 @@ function displayNameFromEmail(email: string): string {
   return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
 }
 
-function currentDevice(): string {
-  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  return deviceLabel(ua);
-}
-
 interface Me {
   id: string;
   email: string;
@@ -46,6 +41,33 @@ interface Me {
 interface SessionInfo {
   location: string | null;
   signed_in_at: string | null;
+}
+
+interface SessionRow {
+  id: string;
+  user_agent: string | null;
+  location: string | null;
+  signed_in_at: string | null;
+  last_seen_at: string | null;
+  current: boolean;
+}
+
+function sessionDeviceLabel(ua: string | null): string {
+  if (!ua) return "Unknown device";
+  return deviceLabel(ua);
+}
+
+function formatSessionWhen(iso: string | null): string {
+  if (!iso) return "—";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "—";
+  const sec = Math.round((Date.now() - t) / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 48) return `${hr}h ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 interface MfaSetup {
@@ -365,10 +387,6 @@ function ProviderLogo({ provider }: { provider: "github" | "gitlab" | "google" }
 export default function Account() {
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const currentBrowser = useMemo(
-    () => detectBrowser(typeof navigator !== "undefined" ? navigator.userAgent : ""),
-    [],
-  );
 
   const { data: me } = useQuery<Me>({
     queryKey: ["me"],
@@ -380,6 +398,29 @@ export default function Account() {
     queryFn: () => api("/v1/auth/me/session"),
     enabled: !!me,
   });
+
+  const { data: sessions = [] } = useQuery<SessionRow[]>({
+    queryKey: ["me-sessions"],
+    queryFn: () => api("/v1/auth/me/sessions"),
+    enabled: !!me,
+  });
+
+  const revokeSession = useMutation({
+    mutationFn: (sessionId: string) =>
+      api(`/v1/auth/me/sessions/${sessionId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["me-sessions"] });
+    },
+  });
+
+  const revokeOtherSessions = useMutation({
+    mutationFn: () => api("/v1/auth/me/sessions/revoke-others", { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["me-sessions"] });
+    },
+  });
+
+  const otherSessionCount = sessions.filter((s) => !s.current).length;
 
   // change password
   const [current, setCurrent] = useState("");
@@ -883,19 +924,47 @@ export default function Account() {
             icon={<svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>}
             title="Sessions"
           >
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3.5">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-white">
-                  <BrowserIcon browser={currentBrowser} className="h-6 w-6" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-800">{currentDevice()}</p>
-                  <p className="mt-0.5 text-xs text-zinc-400">
-                    {session?.location ? `This device · ${session.location}` : "This device · signed in"}
-                  </p>
-                </div>
-              </div>
-              <StatusChip tone="on">Current</StatusChip>
+            <div className="space-y-2">
+              {(sessions.length ? sessions : [{ id: "current", user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null, location: session?.location ?? null, signed_in_at: session?.signed_in_at ?? null, last_seen_at: null, current: true }]).map((row) => {
+                const browser = detectBrowser(row.user_agent ?? "");
+                const subtitle = row.current
+                  ? row.location
+                    ? `This device · ${row.location}`
+                    : "This device · signed in"
+                  : [row.location, row.last_seen_at ? `Active ${formatSessionWhen(row.last_seen_at)}` : null]
+                      .filter(Boolean)
+                      .join(" · ") || "Other device";
+                return (
+                  <div
+                    key={row.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3.5"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white">
+                        <BrowserIcon browser={browser} className="h-6 w-6" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-800">
+                          {sessionDeviceLabel(row.user_agent)}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-zinc-400">{subtitle}</p>
+                      </div>
+                    </div>
+                    {row.current ? (
+                      <StatusChip tone="on">Current</StatusChip>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => revokeSession.mutate(row.id)}
+                        disabled={revokeSession.isPending}
+                        className="shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-zinc-50 disabled:opacity-50"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <button type="button" onClick={signOut} className="mt-4 w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-zinc-50">
               Sign out
@@ -910,10 +979,19 @@ export default function Account() {
               <h2 className="text-base font-bold text-red-600">Danger zone</h2>
             </div>
             <p className="mt-2 text-sm leading-relaxed text-slate-500">
-              Sign out of Vigil on this device. Signing out of all devices needs session management, which isn't available yet.
+              Sign out of all other devices. They will need to sign in again. This device stays signed in.
             </p>
-            <button type="button" onClick={signOut} className="mt-4 w-full rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50">
-              Sign out
+            <button
+              type="button"
+              onClick={() => revokeOtherSessions.mutate()}
+              disabled={revokeOtherSessions.isPending || otherSessionCount === 0}
+              className="mt-4 w-full rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {revokeOtherSessions.isPending
+                ? "Signing out other devices…"
+                : otherSessionCount > 0
+                  ? `Sign out ${otherSessionCount} other device${otherSessionCount === 1 ? "" : "s"}`
+                  : "No other active sessions"}
             </button>
           </section>
         </div>

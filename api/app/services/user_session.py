@@ -80,6 +80,41 @@ def revoke_session_for_refresh(db: Session, refresh_token: str) -> None:
         db.delete(row)
 
 
+def list_user_sessions(db: Session, user_id: uuid.UUID) -> list[UserSession]:
+    return list(
+        db.scalars(
+            select(UserSession)
+            .where(UserSession.user_id == user_id)
+            .order_by(UserSession.last_seen_at.desc())
+        ).all()
+    )
+
+
+def revoke_session_by_id(db: Session, user_id: uuid.UUID, session_id: uuid.UUID) -> bool:
+    row = db.scalar(
+        select(UserSession).where(UserSession.id == session_id, UserSession.user_id == user_id)
+    )
+    if not row:
+        return False
+    db.delete(row)
+    return True
+
+
+def revoke_other_sessions(db: Session, user_id: uuid.UUID, keep_refresh_token: str) -> int:
+    keep_hash = hash_refresh_token(keep_refresh_token)
+    rows = list(
+        db.scalars(
+            select(UserSession).where(
+                UserSession.user_id == user_id,
+                UserSession.token_hash != keep_hash,
+            )
+        ).all()
+    )
+    for row in rows:
+        db.delete(row)
+    return len(rows)
+
+
 def refresh_session_geolocation(session: UserSession) -> bool:
     """Fill geo fields when missing (e.g. session created before egress fallback)."""
     if format_location(session.city, session.region, session.country):

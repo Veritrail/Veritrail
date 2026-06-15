@@ -31,13 +31,17 @@ from app.core.auth_cookies import (
 )
 from app.core.totp import new_secret, provisioning_uri, qr_png_data_url, verify_totp
 from app.models import Org, User
+from app.models.user_session import UserSession
 from app.core.config import get_settings
 from app.services.password_reset_email import send_password_reset_email
 from app.services.user_session import (
     ensure_session_for_refresh,
     refresh_session_geolocation,
     get_session_for_refresh,
+    list_user_sessions,
     record_user_session,
+    revoke_other_sessions,
+    revoke_session_by_id,
     revoke_session_for_refresh,
     rotate_user_session,
     session_location_label,
@@ -372,6 +376,8 @@ def refresh(request: Request, body: RefreshIn, db: Session = Depends(get_db)):
     user = db.get(User, uuid.UUID(payload["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
+    if not get_session_for_refresh(db, user.id, raw):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session ended — sign in again")
     uid, oid = str(user.id), str(user.org_id)
     remember_me = bool(payload.get("remember_me"))
     new_refresh = issue_refresh_token(uid, oid, remember_me=remember_me)
@@ -412,6 +418,35 @@ class MeOut(BaseModel):
 class SessionOut(BaseModel):
     location: str | None = None
     signed_in_at: str | None = None
+
+
+class SessionListItemOut(BaseModel):
+    id: str
+    user_agent: str | None = None
+    location: str | None = None
+    signed_in_at: str | None = None
+    last_seen_at: str | None = None
+    current: bool = False
+
+
+def _session_list_item(row: UserSession, *, current: bool) -> SessionListItemOut:
+    return SessionListItemOut(
+        id=str(row.id),
+        user_agent=row.user_agent,
+        location=session_location_label(row),
+        signed_in_at=row.created_at.isoformat() if row.created_at else None,
+        last_seen_at=row.last_seen_at.isoformat() if row.last_seen_at else None,
+        current=current,
+    )
+
+
+def _current_refresh_hash(request: Request) -> str | None:
+    from app.services.user_session import hash_refresh_token
+
+    raw = refresh_token_from_request(request, None)
+    if not raw:
+        return None
+    return hash_refresh_token(raw)
 
 
 def get_current_user(
@@ -466,6 +501,56 @@ def get_my_session(
         location=session_location_label(row),
         signed_in_at=row.created_at.isoformat() if row.created_at else None,
     )
+
+
+@router.get("/me/sessions", response_model=list[SessionListItemOut])
+def list_my_sessions(
+    request: Request,
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user_id = uuid.UUID(principal["sub"])
+    current_hash = _current_refresh_hash(request)
+    rows = list_user_sessions(db, user_id)
+    return [
+        _session_list_item(row, current=bool(current_hash and row.token_hash == current_hash))
+        for row in rows
+    ]
+
+
+@router.delete("/me/sessions/{session_id}", status_code=204)
+def revoke_my_session(
+    session_id: uuid.UUID,
+    request: Request,
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user_id = uuid.UUID(principal["sub"])
+    current_hash = _current_refresh_hash(request)
+    target = db.scalar(
+        select(UserSession).where(UserSession.id == session_id, UserSession.user_id == user_id)
+    )
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found")
+    if current_hash and target.token_hash == current_hash:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "use sign out for this device")
+    if not revoke_session_by_id(db, user_id, session_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found")
+    db.commit()
+
+
+@router.post("/me/sessions/revoke-others", status_code=204)
+def revoke_other_my_sessions(
+    request: Request,
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user_id = uuid.UUID(principal["sub"])
+    raw = refresh_token_from_request(request, None)
+    if not raw:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "no active session on this device")
+    revoke_other_sessions(db, user_id, raw)
+    db.commit()
 
 
 class ChangePasswordIn(BaseModel):
