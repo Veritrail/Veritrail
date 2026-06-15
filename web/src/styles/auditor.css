@@ -660,3 +660,211 @@
   color: #4f46e5;
   transform: translateX(2px);
 }
+
+/* ── As-of (sample by date) bar ───────────────────────────────── */
+.aud-asof {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.625rem 1.5rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e8edf3;
+}
+.aud-asof--active {
+  background: #fffbeb;
+  border-bottom-color: #fde68a;
+}
+.aud-asof__status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+.aud-asof__status strong {
+  font-weight: 600;
+  color: #0f172a;
+}
+.aud-asof--active .aud-asof__status strong {
+  color: #92400e;
+}
+.aud-asof__pip {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+.aud-asof__pip--active {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+.aud-asof__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.aud-asof__field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.aud-asof__field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+.aud-asof__input {
+  border: 1px solid #d8dee8;
+  border-radius: 0.5rem;
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.8125rem;
+  color: #0f172a;
+  background: #fff;
+}
+.aud-asof__input:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.25);
+}
+.aud-asof__reset {
+  border: 1px solid #fcd34d;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 0.5rem;
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.aud-asof__reset:hover {
+  background: #fde68a;
+}
+
+/* ── Control detail panel (why a control passes/fails) ────────── */
+.aud-ctrl-detail {
+  background: #f8fafc;
+  border-top: 1px solid #e8edf3;
+  padding: 1.25rem 1.5rem;
+}
+.aud-ctrl-detail__cols {
+  display: grid;
+  gap: 1.25rem;
+}
+@media (min-width: 900px) {
+  .aud-ctrl-detail__cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.aud-ctrl-detail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
+}
+.aud-ctrl-detail__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.aud-ctrl-detail__count {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.aud-ctrl-finding {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #eef2f6;
+}
+.aud-ctrl-finding:first-child {
+  border-top: none;
+}
+.aud-ctrl-finding__sev {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.375rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+.aud-ctrl-finding__body {
+  min-width: 0;
+  flex: 1;
+}
+.aud-ctrl-finding__title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+.aud-ctrl-finding__res {
+  margin-top: 0.125rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aud-ctrl-snap {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4375rem 0;
+  border-top: 1px solid #eef2f6;
+}
+.aud-ctrl-snap:first-child {
+  border-top: none;
+}
+.aud-ctrl-snap__type {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #475569;
+  background: #eef2f6;
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  flex-shrink: 0;
+}
+.aud-ctrl-snap__id {
+  min-width: 0;
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aud-ctrl-snap__when {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.aud-ctrl-detail__empty {
+  font-size: 0.8125rem;
+  color: #64748b;
+  padding: 0.5rem 0;
+}
+.aud-row-toggle {
+  cursor: pointer;
+}
+.aud-row-toggle:hover {
+  background: #f8fafc;
+}
+.aud-row-toggle__chevron {
+  display: inline-block;
+  transition: transform 0.15s;
+  color: #94a3b8;
+}
+.aud-row-toggle__chevron--open {
+  transform: rotate(90deg);
+}

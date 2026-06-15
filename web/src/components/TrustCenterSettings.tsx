@@ -17,6 +17,7 @@ type TrustCenterSettings = {
 const AVAILABLE_FRAMEWORKS = [
   { key: "soc2", label: "SOC 2" },
   { key: "cis_aws_l1", label: "CIS AWS Foundations L1" },
+  { key: "iso27001", label: "ISO 27001" },
 ];
 
 export function TrustCenterSettings() {
@@ -35,6 +36,7 @@ export function TrustCenterSettings() {
   const [customMessage, setCustomMessage] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
 
   useEffect(() => {
     if (!data || hydrated) return;
@@ -44,6 +46,7 @@ export function TrustCenterSettings() {
     setLogoUrl(data.company_logo_url || "");
     setFrameworks(data.frameworks_to_show || ["soc2", "cis_aws_l1"]);
     setCustomMessage(data.custom_message || "");
+    setAcknowledged(data.is_enabled);
     setHydrated(true);
   }, [data, hydrated]);
 
@@ -67,28 +70,48 @@ export function TrustCenterSettings() {
     },
   });
 
+  const canSave = !enabled || acknowledged;
+
   if (isLoading) {
     return <p className="text-xs text-zinc-400">Loading trust center settings…</p>;
   }
 
   return (
     <div className="space-y-4 px-3 pb-3">
-      <div className={`${settingsCardClass} p-5 space-y-4`}>
-        {/* Enable toggle */}
+      <div className={`${settingsCardClass} space-y-4 p-5`}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-zinc-900">Enable Trust Center</p>
-            <p className="text-xs text-zinc-500">Public compliance transparency page for prospects and customers.</p>
+            <p className="text-sm font-medium text-zinc-900">Enable public security profile</p>
+            <p className="text-xs text-zinc-500">
+              A marketing-safe summary for prospects and customers — not a live compliance scorecard.
+            </p>
           </div>
           <Toggle checked={enabled} onChange={setEnabled} />
         </div>
 
         {enabled && (
           <>
-            <div className="border-t border-zinc-100 pt-4 space-y-3">
-              {/* Subdomain slug */}
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs leading-relaxed text-amber-950">
+              <p className="font-semibold">Before you publish</p>
+              <p className="mt-1">
+                The public page shows monitoring status, frameworks, and document availability only. It does{" "}
+                <strong>not</strong> expose finding counts, pass/fail scores, control gaps, account IDs, or resource
+                names. Detailed evidence stays in the auditor portal.
+              </p>
+              <label className="mt-3 flex cursor-pointer items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={(e) => setAcknowledged(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-400"
+                />
+                <span>I understand what is — and is not — shown publicly.</span>
+              </label>
+            </div>
+
+            <div className="space-y-3 border-t border-zinc-100 pt-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500">Subdomain slug</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-500">Public URL slug</label>
                 <input
                   type="text"
                   value={slug}
@@ -101,7 +124,6 @@ export function TrustCenterSettings() {
                 </p>
               </div>
 
-              {/* Company name */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-500">Company name</label>
                 <input
@@ -113,7 +135,6 @@ export function TrustCenterSettings() {
                 />
               </div>
 
-              {/* Logo URL */}
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-500">Company logo URL (optional)</label>
                 <input
@@ -125,18 +146,17 @@ export function TrustCenterSettings() {
                 />
               </div>
 
-              {/* Frameworks to show */}
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-zinc-500">Frameworks to display</label>
+                <label className="mb-1.5 block text-xs font-medium text-zinc-500">Frameworks to list</label>
                 <div className="flex flex-wrap gap-2">
                   {AVAILABLE_FRAMEWORKS.map((fw) => {
                     const checked = frameworks.includes(fw.key);
                     return (
                       <label
                         key={fw.key}
-                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium cursor-pointer transition ${
+                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                           checked
-                            ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                            ? "border-[#439385]/40 bg-[#439385]/10 text-[#2f6d63]"
                             : "border-zinc-200 bg-white text-zinc-600"
                         }`}
                       >
@@ -159,25 +179,24 @@ export function TrustCenterSettings() {
                 </div>
               </div>
 
-              {/* Custom message */}
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500">Custom message (optional)</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-500">Intro message (optional)</label>
                 <textarea
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
                   placeholder="We take your security seriously…"
                   rows={3}
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm resize-none"
+                  className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm"
                 />
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-3 border-t border-zinc-100 pt-4">
               <button
+                type="button"
                 onClick={() => mutation.mutate()}
-                disabled={mutation.isPending}
-                className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-50"
+                disabled={mutation.isPending || !canSave}
+                className="rounded-lg bg-[#439385] px-4 py-2 text-sm font-semibold text-white hover:bg-[#367a6f] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mutation.isPending ? "Saving…" : "Save"}
               </button>
@@ -192,8 +211,25 @@ export function TrustCenterSettings() {
                 </a>
               )}
               {saveMsg && <span className="text-xs font-medium text-emerald-600">{saveMsg}</span>}
+              {!canSave && (
+                <span className="text-xs text-amber-700">Confirm the disclosure above to save.</span>
+              )}
             </div>
           </>
+        )}
+
+        {!enabled && (
+          <div className="flex items-center gap-3 border-t border-zinc-100 pt-4">
+            <button
+              type="button"
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending}
+              className="rounded-lg bg-[#439385] px-4 py-2 text-sm font-semibold text-white hover:bg-[#367a6f] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {mutation.isPending ? "Saving…" : "Save"}
+            </button>
+            {saveMsg && <span className="text-xs font-medium text-emerald-600">{saveMsg}</span>}
+          </div>
         )}
       </div>
     </div>

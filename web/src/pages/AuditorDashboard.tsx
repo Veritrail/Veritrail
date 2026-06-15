@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { auditorApi } from "../api";
+import { useAuditorAsOf } from "../components/AuditorAsOf";
 import "../styles/auditor.css";
 
 type DashboardData = {
@@ -81,9 +82,10 @@ function Metric({ tone, icon, label, value }: { tone: string; icon: React.ReactN
 }
 
 export default function AuditorDashboard() {
+  const { asOf } = useAuditorAsOf();
   const { data, isLoading } = useQuery<DashboardData>({
-    queryKey: ["auditor-dashboard"],
-    queryFn: () => auditorApi("/auditor/dashboard"),
+    queryKey: ["auditor-dashboard", asOf],
+    queryFn: () => auditorApi(`/auditor/dashboard${asOf ? `?as_of=${asOf}` : ""}`),
   });
 
   if (isLoading) {

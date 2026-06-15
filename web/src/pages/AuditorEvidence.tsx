@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { auditorApi } from "../api";
+import { useAuditorAsOf } from "../components/AuditorAsOf";
 import "../styles/auditor.css";
 
 type EvidenceSnapshot = {
@@ -21,6 +22,7 @@ type EvidencePage = {
 const LIMIT = 50;
 
 export default function AuditorEvidence() {
+  const { asOf } = useAuditorAsOf();
   const [entityType, setEntityType] = useState("");
   const [offset, setOffset] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -29,9 +31,10 @@ export default function AuditorEvidence() {
   if (entityType) params.set("entity_type", entityType);
   params.set("limit", String(LIMIT));
   params.set("offset", String(offset));
+  if (asOf) params.set("as_of", asOf);
 
   const { data, isLoading } = useQuery<EvidencePage>({
-    queryKey: ["auditor-evidence", entityType, offset],
+    queryKey: ["auditor-evidence", entityType, offset, asOf],
     queryFn: () => auditorApi(`/auditor/evidence?${params.toString()}`),
   });
 

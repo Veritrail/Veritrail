@@ -11,6 +11,7 @@ from app.core.security import current_principal
 from app.models import AwsAccount, EvidenceExport
 from app.services.evidence_coverage import parse_as_of
 from app.services.evidence_pack import build_evidence_pack
+from app.core.route_deps import RequireAdmin
 
 
 def _parse_vault_retain_until(raw: str | None) -> datetime | None:
@@ -31,6 +32,7 @@ FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001"}
 
 @router.get("/evidence-pack")
 def download_evidence_pack(
+    _rbac: RequireAdmin,
     framework: str = Query(...),
     account_id: str = Query(...),
     period: int = Query(default=90, ge=7, le=365),
@@ -432,6 +434,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
 
 @router.get("/findings.csv")
 def export_findings_csv(
+    _rbac: RequireAdmin,
     status_filter: str | None = Query(default="open", alias="status"),
     account_id: str | None = Query(default=None),
     p=Depends(current_principal),

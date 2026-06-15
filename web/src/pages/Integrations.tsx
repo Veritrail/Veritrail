@@ -45,7 +45,7 @@ type Tone = "ok" | "warn" | "idle" | "sync";
 type IntegrationRow = {
   key: string;
   name: string;
-  statusText: string;
+  description: string;
   icon: ReactNode;
   href: string;
   connected: boolean;
@@ -138,6 +138,34 @@ function SummaryCard({
   );
 }
 
+function TableStatus({
+  loading,
+  syncing,
+  label,
+  tone,
+}: {
+  loading?: boolean;
+  syncing?: boolean;
+  label: string;
+  tone?: Tone;
+}) {
+  const resolved = tone ?? "idle";
+  if (loading) {
+    return (
+      <span className="integrations-table__status integrations-table__status--idle">
+        <Spinner className="h-3.5 w-3.5 text-slate-400" />
+        Loading
+      </span>
+    );
+  }
+  return (
+    <span className={`integrations-table__status integrations-table__status--${resolved}`}>
+      {syncing ? <Spinner className="h-3.5 w-3.5 text-sky-600" /> : <StatusDot tone={resolved} />}
+      {label}
+    </span>
+  );
+}
+
 function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
   const collection =
     row.lastSyncLabel != null
@@ -156,7 +184,10 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
         </div>
       </td>
       <td>
-        <p className="integrations-table__status">{row.statusText}</p>
+        <TableStatus loading={row.loading} syncing={row.syncing} label={row.healthLabel} tone={row.healthTone} />
+      </td>
+      <td>
+        <p className="integrations-table__description">{row.description}</p>
       </td>
       <td>
         {row.loading ? (
@@ -169,12 +200,6 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
             )}
           </>
         )}
-      </td>
-      <td>
-        <span className="integrations-table__sync">
-          {row.syncing ? <Spinner className="h-3.5 w-3.5 text-sky-600" /> : <StatusDot tone={row.healthTone ?? "idle"} />}
-          {row.healthLabel}
-        </span>
       </td>
       <td>
         <span className="integrations-table__permissions">
@@ -217,8 +242,8 @@ function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
           <tr>
             <th>Integration</th>
             <th>Status</th>
+            <th>Description</th>
             <th>Last collection</th>
-            <th>Sync</th>
             <th>Permissions</th>
             <th>Capabilities</th>
             <th />
@@ -336,14 +361,14 @@ function IntegrationsContent() {
     {
       key: "aws",
       name: "AWS",
-      statusText: "Posture scans, audit evidence, and automated remediation.",
+      description: "Posture scans, audit evidence, and automated remediation.",
       icon: <IntegrationBrandIcon brand="aws" size={48} />,
       href: "/accounts",
       connected: awsConnected,
       syncing: awsScanRunning,
       loading: accounts.isLoading,
       lastSyncAt: awsAccount?.last_scan_at ?? null,
-      healthLabel: awsScanRunning ? "Scanning" : awsAccount?.last_scan_at ? "Stable" : "Awaiting scan",
+      healthLabel: awsScanRunning ? "Scanning" : awsAccount?.last_scan_at ? "Healthy" : "Awaiting scan",
       healthTone: awsScanRunning ? "sync" : awsAccount?.last_scan_at ? "ok" : "idle",
       permissionsLabel: awsConnected ? "Connector verified" : "Not connected",
       permissionsVerified: awsConnected,
@@ -352,15 +377,21 @@ function IntegrationsContent() {
     {
       key: "github",
       name: "GitHub",
-      statusText: "Repository controls, reviews, and change-management evidence.",
+      description: "Repository controls, branch protection, pull request reviews, and change evidence.",
       icon: <IntegrationBrandIcon brand="github" size={48} />,
       href: "/integrations/github",
       connected: githubConnected,
       syncing: githubSync.isSyncing,
       loading: github.isLoading,
       lastSyncAt: github.data?.last_synced_at ?? null,
-      healthLabel: githubSync.isSyncing ? "Syncing" : githubConnected ? "Stable" : "Not configured",
-      healthTone: githubSync.isSyncing ? "sync" : githubConnected ? "ok" : "idle",
+      healthLabel: githubSync.isSyncing
+        ? "Syncing"
+        : github.data?.status === "error"
+          ? "Needs reconnect"
+          : githubConnected
+            ? "Healthy"
+            : "Not configured",
+      healthTone: githubSync.isSyncing ? "sync" : github.data?.status === "error" ? "warn" : githubConnected ? "ok" : "idle",
       permissionsLabel: githubConnected ? "OAuth connected" : "Not connected",
       permissionsVerified: githubConnected,
       capabilities: ["Branch protection", "Reviews", "Repositories"],
@@ -368,15 +399,21 @@ function IntegrationsContent() {
     {
       key: "gitlab",
       name: "GitLab",
-      statusText: "Merge-request controls, protected branches, and change-management evidence.",
+      description: "Merge-request controls, protected branches, and change-management evidence.",
       icon: <IntegrationBrandIcon brand="gitlab" size={48} />,
       href: "/integrations/gitlab",
       connected: gitlabConnected,
       syncing: gitlabSync.isSyncing,
       loading: gitlab.isLoading,
       lastSyncAt: gitlab.data?.last_synced_at ?? null,
-      healthLabel: gitlabSync.isSyncing ? "Syncing" : gitlabConnected ? "Stable" : "Not configured",
-      healthTone: gitlabSync.isSyncing ? "sync" : gitlabConnected ? "ok" : "idle",
+      healthLabel: gitlabSync.isSyncing
+        ? "Syncing"
+        : gitlab.data?.status === "error"
+          ? "Needs reconnect"
+          : gitlabConnected
+            ? "Healthy"
+            : "Not configured",
+      healthTone: gitlabSync.isSyncing ? "sync" : gitlab.data?.status === "error" ? "warn" : gitlabConnected ? "ok" : "idle",
       permissionsLabel: gitlabConnected ? "OAuth connected" : "Not connected",
       permissionsVerified: gitlabConnected,
       capabilities: ["Protected branches", "MR approvals", "Projects"],
@@ -386,14 +423,14 @@ function IntegrationsContent() {
           {
             key: "google-workspace",
             name: "Google Workspace",
-            statusText: "Directory MFA, inactive users, and admin roster for CC6 evidence",
+            description: "Directory MFA, inactive users, and admin roster for CC6 evidence",
             icon: <IntegrationBrandIcon brand="google-workspace" size={48} />,
             href: "/integrations/google-workspace",
             connected: true,
             syncing: googleWorkspaceSync.isSyncing,
             loading: googleWorkspace.isLoading,
             lastSyncAt: googleWorkspace.data?.last_synced_at ?? null,
-            healthLabel: googleWorkspaceSync.isSyncing ? "Syncing" : "Stable",
+            healthLabel: googleWorkspaceSync.isSyncing ? "Syncing" : "Healthy",
             healthTone: (googleWorkspaceSync.isSyncing ? "sync" : "ok") as Tone,
             permissionsLabel: "OAuth connected",
             permissionsVerified: true,
@@ -406,14 +443,14 @@ function IntegrationsContent() {
           {
             key: "entra",
             name: "Microsoft Entra ID",
-            statusText: "Graph directory read for MFA posture, stale users, and privileged roles",
+            description: "Graph directory read for MFA posture, stale users, and privileged roles",
             icon: <IntegrationBrandIcon brand="entra" size={48} />,
             href: "/integrations/entra",
             connected: true,
             syncing: entraSync.isSyncing,
             loading: entra.isLoading,
             lastSyncAt: entra.data?.last_synced_at ?? null,
-            healthLabel: entraSync.isSyncing ? "Syncing" : "Stable",
+            healthLabel: entraSync.isSyncing ? "Syncing" : "Healthy",
             healthTone: (entraSync.isSyncing ? "sync" : "ok") as Tone,
             permissionsLabel: "OAuth connected",
             permissionsVerified: true,
@@ -426,14 +463,14 @@ function IntegrationsContent() {
           {
             key: "slack",
             name: "Slack",
-            statusText: "Scan alerts and weekly digests for your channel",
+            description: "Scan alerts and weekly digests for your channel",
             icon: <IntegrationBrandIcon brand="slack" size={48} />,
-            href: "/settings",
+            href: "/integrations/slack",
             connected: true,
             loading: settings.isLoading,
             lastSyncAt: null,
             lastSyncLabel: "Webhook active",
-            healthLabel: "Stable",
+            healthLabel: "Healthy",
             healthTone: "ok" as Tone,
             permissionsLabel: "Webhook configured",
             permissionsVerified: true,
@@ -453,7 +490,7 @@ function IntegrationsContent() {
             brand: "slack",
             name: "Slack",
             description: "Send alerts and updates",
-            href: "/settings",
+            href: "/integrations/slack",
           } satisfies ExploreCard,
         ]
       : []),

@@ -1,0 +1,306 @@
+.integration-setup {
+  --is-border: #e8edf3;
+  --is-muted: #64748b;
+  --is-text: #0f172a;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.integration-setup__breadcrumb {
+  margin-bottom: 1.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.integration-setup__breadcrumb a {
+  color: #64748b;
+  transition: color 0.15s;
+}
+
+.integration-setup__breadcrumb a:hover {
+  color: #334155;
+}
+
+.integration-setup__brand {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+
+.integration-setup__header {
+  margin-bottom: 1.5rem;
+}
+
+.integration-setup__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.integration-setup__title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--is-text);
+}
+
+.integration-setup__subtitle {
+  margin-top: 0.5rem;
+  max-width: 34rem;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--is-muted);
+}
+
+.integration-setup__badge {
+  position: relative;
+  top: 0.125rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #047857;
+  background: #ecfdf5;
+  box-shadow: inset 0 0 0 1px #a7f3d0;
+}
+
+.integration-setup__card {
+  border: 1px solid var(--is-border);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.integration-setup__section {
+  padding: 1.25rem 1.5rem;
+}
+
+.integration-setup__section + .integration-setup__section {
+  border-top: 1px solid #f1f5f9;
+}
+
+.integration-setup__section-label {
+  margin-bottom: 0.875rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.integration-setup__field-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--is-text);
+}
+
+.integration-setup__field-hint {
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--is-muted);
+}
+
+.integration-setup__field-hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.integration-setup__input {
+  margin-top: 0.75rem;
+  width: 100%;
+  height: 2.75rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.625rem;
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+  color: var(--is-text);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.integration-setup__input::placeholder {
+  color: #a1a1aa;
+}
+
+.integration-setup__input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.integration-setup__saved {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.integration-setup__toggle-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.integration-setup__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 0;
+}
+
+.integration-setup__toggle-row + .integration-setup__toggle-row {
+  border-top: 1px solid #f1f5f9;
+}
+
+.integration-setup__toggle-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--is-text);
+}
+
+.integration-setup__toggle-desc {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--is-muted);
+}
+
+.integration-setup__feedback {
+  padding: 0 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.integration-setup__feedback--error {
+  color: #b91c1c;
+}
+
+.integration-setup__feedback--ok {
+  color: #047857;
+}
+
+.integration-setup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  padding: 1rem 1.5rem 1.25rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.integration-setup__actions-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.integration-setup__actions-secondary {
+  margin-left: auto;
+}
+
+.integration-setup__btn {
+  display: inline-flex;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.integration-setup__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.integration-setup__btn--primary {
+  border: 1px solid #d4d4d8;
+  background: #fff;
+  color: var(--is-text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.integration-setup__btn--primary:hover:not(:disabled) {
+  border-color: #a1a1aa;
+  background: #fafafa;
+}
+
+.integration-setup__btn--secondary {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.integration-setup__btn--secondary:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.integration-setup__btn--danger {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  padding: 0 0.5rem;
+}
+
+.integration-setup__btn--danger:hover:not(:disabled) {
+  color: #991b1b;
+}
+
+.integration-setup__loading {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.integration-setup__callout {
+  margin-bottom: 1rem;
+  border: 1px solid #e0f2fe;
+  border-radius: 0.625rem;
+  background: #f0f9ff;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #0c4a6e;
+}
+
+.integration-setup__callout a {
+  font-weight: 600;
+  color: #0369a1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.integration-setup__grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .integration-setup__grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .integration-setup__grid--2 .integration-setup__field--wide {
+    grid-column: 1 / -1;
+  }
+}

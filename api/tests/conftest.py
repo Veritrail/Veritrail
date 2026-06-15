@@ -16,6 +16,20 @@ def _disable_assume_role_audit_db_writes(request, monkeypatch):
     monkeypatch.setattr("app.core.aws._audit_assume_role", lambda **_kwargs: None)
 
 
+@pytest.fixture(autouse=True)
+def _no_real_email(monkeypatch):
+    """Stub the SMTP transport so route/service tests never send real mail.
+
+    Dev/CI containers may have working SMTP; without this, any test that
+    exercises an email-sending route (auditor invite, digest, password reset)
+    would dispatch a real message and bounce. send_mail still returns success.
+    """
+    import smtplib
+
+    monkeypatch.setattr(smtplib, "SMTP", MagicMock())
+    monkeypatch.setattr(smtplib, "SMTP_SSL", MagicMock())
+
+
 def make_account(
     role_arn: str = "arn:aws:iam::123456789012:role/VigilScannerRole",
     external_id: str = "test-external-id",

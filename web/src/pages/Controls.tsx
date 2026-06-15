@@ -2239,7 +2239,7 @@ export default function Controls() {
               ref={exportPanelRef}
               role="dialog"
               aria-label="Generate Audit Package"
-              className="fixed z-[201] rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-lg shadow-zinc-950/10"
+              className="fixed z-[201] overflow-visible rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-lg shadow-zinc-950/10"
               style={{ top: exportAnchor.top, right: exportAnchor.right }}
             >
               <EvidencePackExportPanel
@@ -2252,8 +2252,6 @@ export default function Controls() {
                 coverage={evidenceCoverage.data}
                 coverageLoading={evidenceCoverage.isFetching}
                 controlsEvaluated={total}
-                openFindings={rows.reduce((sum, r) => sum + r.finding_count, 0)}
-                passingCount={passed}
                 lastScanLabel={
                   activeAccount?.last_scan_at ? lastScanLabel(activeAccount.last_scan_at) : null
                 }

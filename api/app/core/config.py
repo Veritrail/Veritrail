@@ -50,8 +50,16 @@ class Settings(BaseSettings):
     ENTRA_CLIENT_SECRET: str = ""
     ENTRA_INTEGRATION_CALLBACK_PATH: str = "/v1/integrations/entra/callback"
 
-    RESEND_API_KEY: str = ""
+    # Outbound email (SMTP). Gmail: smtp.gmail.com:587 + app password.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    MAIL_FROM: str = ""
+    # Legacy alias — falls back when MAIL_FROM is empty.
     DIGEST_FROM: str = "hygiene@example.com"
+    RESEND_API_KEY: str = ""  # unused; kept so old .env files do not break load
 
     # Fernet key for encrypting role_arn + external_id at rest.
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

@@ -14,7 +14,7 @@ type ScanRun = { id: string; status: string; started_at: string; finished_at: st
 const checkLabels: Record<string, string> = {
   "iam.user.no_mfa": "MFA not enabled",
   "iam.user.inactive_90d": "Inactive user",
-  "iam.user.credentials_unused_45d": "Unused credentials",
+  "iam.user.credentials_unused_45d": "Unused console password",
   "iam.access_key.unused_90d": "Unused access key",
   "iam.access_key.unused_45d": "Unused access key",
   "iam.access_key.no_rotation_90d": "Long-lived access key",

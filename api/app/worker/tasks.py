@@ -139,6 +139,11 @@ def _enqueue_post_scan_tasks(account_id: str) -> None:
     except Exception:  # noqa: BLE001
         log.exception("scan.followup_enqueue_failed", account_id=account_id, task="collect_perm_usage")
 
+    try:
+        check_integration_health_task.delay(account_id)
+    except Exception:  # noqa: BLE001
+        log.exception("scan.followup_enqueue_failed", account_id=account_id, task="check_integration_health")
+
     settings = get_settings()
     if not settings.AI_TRIAGE_ENABLED:
         return
@@ -1120,6 +1125,26 @@ def collect_perm_usage_task(account_id: str) -> dict:
         db.close()
 
 
+@celery_app.task(name="app.worker.tasks.check_integration_health_task")
+def check_integration_health_task(account_id: str) -> dict:
+    """Background task: refresh OAuth/API connection status for org integrations."""
+    from app.services.integration_health import check_org_integration_health_for_account
+
+    db = SessionLocal()
+    try:
+        results = check_org_integration_health_for_account(db, uuid.UUID(account_id))
+        if results is None:
+            return {"error": "account not found"}
+        log.info("integration.health.complete", account_id=account_id, results=results)
+        return {"ok": True, "results": results}
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.exception("integration.health.failed", account_id=account_id)
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.worker.tasks.recheck_finding")
 def recheck_finding(account_id: str, check_id: str) -> dict:
     """Re-collect only what's needed for check_id, then rerun that check."""
@@ -1256,7 +1281,11 @@ def send_weekly_digests() -> dict:
 
         for org in orgs:
             org_settings = org.settings or {}
-            if not org_settings.get("notifications", {}).get("email_digest_enabled", False):
+            notifications = org_settings.get("notifications", {})
+            email_digest = notifications.get("email_digest_enabled", False)
+            slack_digest = notifications.get("slack_digest_enabled", False)
+            slack_url = notifications.get("slack_webhook_url")
+            if not email_digest and not (slack_digest and slack_url):
                 skipped += 1
                 continue
 
@@ -1321,6 +1350,14 @@ def send_weekly_digests() -> dict:
 
             unsubscribe_token = persist_digest_unsubscribe_token(db, org)
 
+            # ── Rich-digest extras: per-day trend, coverage, last-week deltas ──
+            from app.models.digest_snapshot import DigestSnapshot
+            from app.services.digest_data import gather_digest_extras
+
+            per_day, coverage, prev = gather_digest_extras(
+                db, org_id=org.id, account_id=acc.id, since=since
+            )
+
             digest_email = org_settings.get("notifications", {}).get("digest_email")
             if digest_email:
                 recipients = [digest_email]
@@ -1332,6 +1369,8 @@ def send_weekly_digests() -> dict:
                 ]
 
             for email in recipients:
+                if not email_digest:
+                    break
                 ok = send_digest(
                     to=email,
                     org_name=org.name if hasattr(org, "name") else str(org.id),
@@ -1340,24 +1379,50 @@ def send_weekly_digests() -> dict:
                     new_this_week=new_dicts,
                     resolved_this_week=resolved_count,
                     unsubscribe_token=unsubscribe_token,
+                    per_day=per_day,
+                    coverage=coverage,
+                    prev=prev,
                 )
                 if ok:
                     sent += 1
 
             slack_url = org_settings.get("notifications", {}).get("slack_webhook_url")
-            if slack_url:
+            if slack_digest and slack_url:
                 try:
                     import httpx as _httpx
-                    critical_count = sum(1 for f in open_findings if f.severity in ("critical", "high"))
-                    _httpx.post(slack_url, json={
-                        "text": (
-                            f":shield: *Vigil weekly digest — {acc.label}*\n"
-                            f"Open findings: {len(open_findings)} ({critical_count} critical/high) · "
-                            f"New this week: {len(new_this_week)} · Resolved: {resolved_count}"
-                        )
-                    }, timeout=10)
+                    from app.services.digest import build_digest_slack_blocks
+                    fallback, blocks = build_digest_slack_blocks(
+                        account_label=acc.label,
+                        open_findings=findings_dicts,
+                        new_this_week=new_dicts,
+                        resolved_this_week=resolved_count,
+                    )
+                    _httpx.post(slack_url, json={"text": fallback, "blocks": blocks}, timeout=10)
                 except Exception:  # noqa: BLE001
                     pass
+
+            # Snapshot this week's headline numbers so next week can show deltas.
+            try:
+                from app.services.digest import _posture_score, _severity_counts
+
+                snap_counts = _severity_counts(findings_dicts)
+                db.add(
+                    DigestSnapshot(
+                        org_id=org.id,
+                        open_count=len(findings_dicts),
+                        new_count=len(new_dicts),
+                        resolved_count=resolved_count,
+                        posture_score=_posture_score(snap_counts),
+                        critical_count=snap_counts["critical"],
+                        high_count=snap_counts["high"],
+                        medium_count=snap_counts["medium"],
+                        low_count=snap_counts["low"],
+                    )
+                )
+                db.commit()
+            except Exception:  # noqa: BLE001
+                db.rollback()
+                log.warning("digest.snapshot_failed", org_id=str(org.id), exc_info=True)
 
         log.info("digests.complete", sent=sent, skipped=skipped)
         return {"sent": sent, "skipped": skipped}

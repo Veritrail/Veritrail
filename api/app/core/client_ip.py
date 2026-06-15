@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from fastapi import Request
 
-from app.core.config import get_settings
+
+def _normalize_ip(ip: str) -> str:
+    if ip.startswith("::ffff:"):
+        return ip[7:]
+    return ip
 
 
 def client_ip_from_request(request: Request) -> str | None:
-    if get_settings().APP_ENV != "dev":
-        fwd = request.headers.get("x-forwarded-for")
-        if fwd:
-            return fwd.split(",")[0].strip()
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return _normalize_ip(fwd.split(",")[0].strip())
     if request.client:
-        return request.client.host
+        return _normalize_ip(request.client.host)
     return None

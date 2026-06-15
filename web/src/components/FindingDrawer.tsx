@@ -16,6 +16,7 @@ import {
 } from "./PolicyProposalReview";
 import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import { DrawerDateField } from "./DrawerDateField";
+import { JiraFindingAction } from "./JiraFindingAction";
 import { todayIso } from "../lib/isoDate";
 import {
   drawerBody,
@@ -35,10 +36,6 @@ import {
   drawerSectionTitle,
   drawerTitle,
 } from "./drawerStyles";
-import {
-  credentialUnusedFrameworkImpact,
-  type CredentialFrameworkImpactItem,
-} from "../data/credentialFrameworkImpact";
 import { frameworkLabel } from "../data/frameworks";
 import { FrameworkMark } from "./FrameworkMark";
 import { showWhatIfTab, whatIfUnavailableReason } from "../data/blastRadiusChecks";
@@ -122,7 +119,7 @@ const drawerFooterCardBase =
 const drawerFooterReopen = `${drawerFooterCardBase} w-full justify-center border-zinc-200 bg-zinc-50/80 ${drawerBtnText} text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50`;
 const drawerFooterActionBase =
   `inline-flex h-[42px] items-center justify-center gap-2 rounded-[10px] px-4 ${drawerBtnText} transition-all duration-150 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60`;
-const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#059669] text-white shadow-[0_6px_16px_rgba(5,150,105,0.16)] hover:bg-[#047857] hover:shadow-[0_8px_18px_rgba(4,120,87,0.18)]`;
+const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#439385] text-white shadow-[0_6px_16px_rgba(67,147,133,0.18)] hover:bg-[#367a6f] hover:shadow-[0_8px_18px_rgba(54,122,111,0.22)]`;
 const drawerFooterVerifySoft = `${drawerFooterActionBase} flex-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70`;
 const drawerFooterExceptionGhost = `${drawerFooterActionBase} flex-[0.8] border border-zinc-200 bg-white text-zinc-600 shadow-sm shadow-zinc-900/[0.02] hover:border-amber-200 hover:bg-amber-50/60 hover:text-amber-700`;
 
@@ -501,47 +498,6 @@ type Remediation = {
   cli?: string;
   risk: string;
 };
-
-function FrameworkThresholdCard({ item }: { item: CredentialFrameworkImpactItem }) {
-  const isCis = item.isActive;
-  return (
-    <div
-      className={`flex flex-col rounded-xl px-3 py-2.5 ring-1 ${
-        isCis
-          ? "bg-gradient-to-b from-amber-50/95 to-amber-50/40 ring-amber-200/80"
-          : "bg-white ring-zinc-200/80"
-      }`}
-    >
-      <p className={`text-[13px] font-semibold leading-tight ${isCis ? "text-amber-950" : "text-zinc-900"}`}>
-        {item.framework}
-        {item.control ? <span className="font-medium text-zinc-500"> {item.control}</span> : null}
-      </p>
-      <p className="mt-1.5 text-[12px] font-medium text-zinc-700">Fails at {item.thresholdDays}+ days</p>
-      <p
-        className={`mt-1 text-[11px] font-medium uppercase tracking-wide ${
-          isCis ? "text-amber-800/90" : "text-zinc-400"
-        }`}
-      >
-        {item.statusLabel}
-      </p>
-    </div>
-  );
-}
-
-function FrameworkImpactCard({ items }: { items: readonly CredentialFrameworkImpactItem[] }) {
-  return (
-    <div className={drawerPanel}>
-      <div className={drawerSectionHead}>
-        <h3 className={drawerSectionTitle}>Framework impact</h3>
-      </div>
-      <div className={`${drawerSectionBody} grid grid-cols-1 gap-2 sm:grid-cols-2`}>
-        {items.map((item) => (
-          <FrameworkThresholdCard key={item.id} item={item} />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 
 const remediations: Record<string, Remediation> = {
@@ -6457,6 +6413,20 @@ export function FindingDrawer({
   const [remDetailMode, setRemDetailMode] = useState<FindingRemediationMode | null>(null);
   const [policyChangePaneVisible, setPolicyChangePaneVisible] = useState(false);
   const [policyReviewAcknowledged, setPolicyReviewAcknowledged] = useState(false);
+  const [jiraIssue, setJiraIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
+
+  useEffect(() => {
+    if (!finding) {
+      setJiraIssue(null);
+      return;
+    }
+    const stored = (finding.evidence as { jira?: { issue_key?: string; issue_url?: string } } | undefined)?.jira;
+    if (stored?.issue_key && stored.issue_url) {
+      setJiraIssue({ issue_key: stored.issue_key, issue_url: stored.issue_url });
+    } else {
+      setJiraIssue(null);
+    }
+  }, [finding?.id, finding?.evidence]);
 
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
@@ -6717,9 +6687,9 @@ export function FindingDrawer({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onTabChange(t.id)}
-                className={`relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-t-md border-b-2 px-1 pb-2.5 pt-1 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                className={`relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-t-md border-b-2 px-1 pb-2.5 pt-1 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#439385]/40 ${
                   active
-                    ? "border-emerald-500 font-semibold text-zinc-900"
+                    ? "border-[#439385] font-semibold text-zinc-900"
                     : "border-transparent font-medium text-zinc-500 hover:border-zinc-200 hover:text-zinc-700"
                 }`}
               >
@@ -6772,9 +6742,6 @@ export function FindingDrawer({
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}
           />
-          {credentialUnusedFrameworkImpact(finding.check_id) && (
-            <FrameworkImpactCard items={credentialUnusedFrameworkImpact(finding.check_id)!} />
-          )}
           {hasException && (
             <ExceptionFlowPanel
               reason={finding.exception_reason}
@@ -6953,6 +6920,7 @@ export function FindingDrawer({
             className={drawerFooterExceptionGhost}
             sheetContainerRef={drawerSheetRef}
           />
+          <JiraFindingAction findingId={finding.id} existing={jiraIssue} onCreated={setJiraIssue} />
           <button
             type="button"
             disabled={verifying || verified}

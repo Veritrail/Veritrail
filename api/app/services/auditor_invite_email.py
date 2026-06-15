@@ -1,16 +1,10 @@
-"""Email auditor invite links via Resend."""
+"""Email auditor invite links."""
 from __future__ import annotations
 
 from datetime import datetime
 
-import httpx
-import structlog
-
-from app.core.config import get_settings
 from app.core.html_email import html_email as h
-
-log = structlog.get_logger()
-settings = get_settings()
+from app.services.mail import send_mail
 
 
 def send_auditor_invite_email(
@@ -20,11 +14,7 @@ def send_auditor_invite_email(
     auditor_name: str | None,
     verify_url: str,
     expires_at: datetime,
-) -> bool:
-    if not settings.RESEND_API_KEY:
-        log.info("auditor_invite.skipped", reason="RESEND_API_KEY not set", to=to)
-        return False
-
+) -> tuple[bool, str | None]:
     greeting = auditor_name or "there"
     expiry_label = expires_at.strftime("%B %d, %Y")
     subject = f"{org_name} invited you to Vigil auditor access"
@@ -53,22 +43,4 @@ def send_auditor_invite_email(
     </div>
     """
 
-    try:
-        resp = httpx.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
-            json={
-                "from": settings.DIGEST_FROM,
-                "to": [to],
-                "subject": subject,
-                "html": html,
-                "text": text,
-            },
-            timeout=10,
-        )
-        resp.raise_for_status()
-        log.info("auditor_invite.sent", to=to, org=org_name)
-        return True
-    except Exception as e:  # noqa: BLE001
-        log.error("auditor_invite.failed", to=to, error=str(e))
-        return False
+    return send_mail(to=to, subject=subject, text=text, html=html)

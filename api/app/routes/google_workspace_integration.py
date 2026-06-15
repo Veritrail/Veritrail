@@ -17,6 +17,7 @@ from app.core.db import get_db
 from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser
 from app.services.google_workspace_sync import provider_config, set_provider_config, sync_google_workspace_provider
+from app.core.route_deps import RequireAdmin
 from app.services.google_workspace_tokens import (
     GoogleWorkspaceReconnectRequired,
     apply_oauth_tokens,
@@ -228,7 +229,7 @@ def get_google_workspace_provider(p=Depends(current_principal), db: Session = De
 
 
 @router.put("/google-workspace/scope", response_model=GoogleWorkspaceScopeOut)
-def update_google_workspace_scope(body: GoogleWorkspaceScopeIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def update_google_workspace_scope(body: GoogleWorkspaceScopeIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if not provider:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Google Workspace is not connected")
@@ -243,7 +244,7 @@ def update_google_workspace_scope(body: GoogleWorkspaceScopeIn, p=Depends(curren
 
 
 @router.post("/google-workspace/sync", response_model=GoogleWorkspaceSyncOut)
-def sync_google_workspace(body: GoogleWorkspaceSyncIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def sync_google_workspace(body: GoogleWorkspaceSyncIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if not provider:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Google Workspace is not connected")
@@ -264,7 +265,7 @@ def sync_google_workspace(body: GoogleWorkspaceSyncIn, p=Depends(current_princip
 
 
 @router.delete("/google-workspace", status_code=status.HTTP_204_NO_CONTENT)
-def disconnect_google_workspace(p=Depends(current_principal), db: Session = Depends(get_db)):
+def disconnect_google_workspace(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
         db.delete(provider)

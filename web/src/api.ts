@@ -142,6 +142,16 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   return res.json() as Promise<T>;
 }
 
+/** Unauthenticated public API routes (`/trust`, `/auditor`). */
+export async function publicApi<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, init);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(parseApiError(res.status, body));
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function logout(): Promise<void> {
   try {
     await fetch(`${BASE}/v1/auth/logout`, { method: "POST", credentials: "include" });

@@ -1,13 +1,16 @@
 /* Impact analysis tab — pre-flight verdict panel */
 
-.impact-analysis {
+.impact-analysis,
+.impact-tab-content {
   --ia-title: #111827;
   --ia-muted: #667085;
   --ia-subtitle: #475467;
   --ia-border: #e6ebf2;
   --ia-divider: #eef2f6;
-  --ia-primary: #1f4e79;
-  --ia-primary-hover: #183b5c;
+  --ia-primary: #439385;
+  --ia-primary-hover: #367a6f;
+  --ia-teal-soft: #e8f4f2;
+  --ia-teal-ring: #52a898;
   --ia-ghost-bg: #f8fafc;
   --ia-ghost-border: #dce3ec;
   --ia-ghost-text: #344054;
@@ -44,8 +47,8 @@
   justify-content: center;
   margin-bottom: 16px;
   border-radius: 999px;
-  background: #ecfdf5;
-  color: #059669;
+  background: var(--ia-teal-soft);
+  color: var(--ia-primary);
 }
 
 .impact-empty-graphic svg {
@@ -55,7 +58,7 @@
 
 /* Blast-radius pulse — rings expand and fade from the core (sonar ping). */
 .impact-pulse-core {
-  fill: #059669;
+  fill: var(--ia-primary);
   transform-box: fill-box;
   transform-origin: center;
   animation: impact-core-breathe 2.4s ease-in-out infinite;
@@ -63,14 +66,14 @@
 
 .impact-pulse-core-ring {
   fill: none;
-  stroke: #059669;
+  stroke: var(--ia-primary);
   stroke-width: 1.5;
   opacity: 0.45;
 }
 
 .impact-pulse-ring {
   fill: none;
-  stroke: #10b981;
+  stroke: var(--ia-teal-ring);
   stroke-width: 2;
   opacity: 0;
   transform-box: fill-box;
@@ -153,8 +156,8 @@
 .impact-analyze-button--primary {
   gap: 8px;
   margin-top: 18px;
-  border-color: #047857;
-  background: #059669;
+  border-color: var(--ia-primary-hover);
+  background: var(--ia-primary);
   color: #ffffff;
 }
 
@@ -165,8 +168,8 @@
 }
 
 .impact-analyze-button--primary:hover {
-  border-color: #065f46;
-  background: #047857;
+  border-color: #2d6b61;
+  background: var(--ia-primary-hover);
 }
 
 .impact-empty-lead {

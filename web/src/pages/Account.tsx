@@ -1,17 +1,51 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, BASE, formatApiError, token } from "../api";
+import { api, BASE, formatApiError, logout, token } from "../api";
+import { BrowserIcon } from "../components/BrowserIcon";
+import { deviceLabel, detectBrowser } from "../lib/browserDetect";
+
+function nameParts(email: string): string[] {
+  return (email.split("@")[0] || "")
+    .replace(/[._+-]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+}
+
+function initialsFromEmail(email: string): string {
+  const parts = nameParts(email);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (parts[0]?.slice(0, 2) || "?").toUpperCase();
+}
+
+function displayNameFromEmail(email: string): string {
+  const parts = nameParts(email);
+  if (!parts.length) return email;
+  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+
+function currentDevice(): string {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  return deviceLabel(ua);
+}
 
 interface Me {
   id: string;
   email: string;
+  role: string;
+  org_id: string;
   github_id: string | null;
   gitlab_id: string | null;
   google_id: string | null;
   totp_enabled: boolean;
   has_password: boolean;
   mfa_backup_codes_remaining: number;
+}
+
+interface SessionInfo {
+  location: string | null;
+  signed_in_at: string | null;
 }
 
 interface MfaSetup {
@@ -113,6 +147,50 @@ function SoftIcon({ icon, tint }: { icon: ReactNode; tint: string }) {
   return <span className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${tint}`}>{icon}</span>;
 }
 
+function SimpleCard({ icon, title, children, className = "" }: { icon?: ReactNode; title: string; children: ReactNode; className?: string }) {
+  return (
+    <section className={`rounded-xl border border-zinc-200 bg-white p-6 shadow-sm ${className}`}>
+      <div className="mb-5 flex items-center gap-2.5">
+        {icon && <span className="text-slate-500 [&_svg]:h-5 [&_svg]:w-5">{icon}</span>}
+        <h2 className="text-base font-bold text-slate-900">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function IdentityStat({ icon, label, value, tone }: { icon: ReactNode; label: string; value: string; tone: "ok" | "muted" }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className={`[&_svg]:h-[18px] [&_svg]:w-[18px] ${tone === "ok" ? "text-emerald-500" : "text-zinc-400"}`}>{icon}</span>
+      <div className="leading-tight">
+        <p className="text-[11px] font-medium text-zinc-400">{label}</p>
+        <p className={`text-sm font-semibold ${tone === "ok" ? "text-emerald-700" : "text-slate-700"}`}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function StatusRow({ icon, label, value, tone }: { icon: ReactNode; label: string; value: string; tone: "ok" | "good" | "muted" | "warn" }) {
+  const valueClass = tone === "ok" || tone === "good" ? "text-emerald-600" : tone === "warn" ? "text-amber-600" : "text-slate-500";
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <div className="flex items-center gap-2.5 text-sm text-slate-600">
+        <span className="text-zinc-400 [&_svg]:h-[18px] [&_svg]:w-[18px]">{icon}</span>
+        {label}
+      </div>
+      <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${valueClass}`}>
+        {value}
+        {tone === "ok" ? (
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+        ) : tone === "good" ? null : (
+          <span className={`h-1.5 w-1.5 rounded-full ${tone === "warn" ? "bg-amber-400" : "bg-slate-300"}`} aria-hidden />
+        )}
+      </span>
+    </div>
+  );
+}
+
 function PostureCard({
   icon,
   tint,
@@ -208,18 +286,16 @@ function ProviderRow({
           onClick={onDisconnect}
           disabled={disconnecting || lastMethod}
           title={lastMethod ? "Set a password or connect another sign-in method before disconnecting your last one." : undefined}
-          className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-700 transition-colors hover:text-blue-900 disabled:opacity-60 disabled:hover:text-blue-700"
+          className="inline-flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60"
         >
           {disconnecting ? "Saving…" : "Manage"}
-          <ChevronRightIcon />
         </button>
       ) : connectUrl ? (
         <a
           href={connectUrl}
-          className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-700 transition-colors hover:text-blue-900"
+          className="inline-flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
         >
           Connect
-          <ChevronRightIcon />
         </a>
       ) : (
         <span className="shrink-0 text-xs text-zinc-400">Sign in again to connect</span>
@@ -289,10 +365,20 @@ function ProviderLogo({ provider }: { provider: "github" | "gitlab" | "google" }
 export default function Account() {
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
+  const currentBrowser = useMemo(
+    () => detectBrowser(typeof navigator !== "undefined" ? navigator.userAgent : ""),
+    [],
+  );
 
   const { data: me } = useQuery<Me>({
     queryKey: ["me"],
     queryFn: () => api("/v1/auth/me"),
+  });
+
+  const { data: session } = useQuery<SessionInfo>({
+    queryKey: ["me-session"],
+    queryFn: () => api("/v1/auth/me/session"),
+    enabled: !!me,
   });
 
   // change password
@@ -505,55 +591,68 @@ export default function Account() {
   const mfaOn = !!me?.totp_enabled;
   const hasPw = !!me?.has_password;
 
+  const displayEmail = me?.email ?? "";
+  const initials = displayEmail ? initialsFromEmail(displayEmail) : "?";
+
+  async function signOut() {
+    try {
+      await logout();
+    } finally {
+      window.location.href = "/login";
+    }
+  }
+
   return (
     <div className="w-full max-w-none space-y-6 pb-10">
       <header>
         <h1 className="text-[32px] font-extrabold leading-tight tracking-tight text-slate-950">Account</h1>
-        <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-          {me ? (
-            <>
-              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-              Signed in as <span className="font-semibold text-slate-700">{me.email}</span>
-            </>
-          ) : (
-            "Manage how you sign in and keep your account secure."
-          )}
-        </p>
+        <p className="mt-1.5 text-sm text-slate-500">Manage your sign-in and personal security settings.</p>
+        {me && (
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+            Signed in as <span className="font-semibold text-slate-700">{me.email}</span>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+              Verified
+            </span>
+          </p>
+        )}
       </header>
 
-      {/* Security posture at a glance — mirrors the Accounts KPI row. */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <PostureCard
-          icon={<ShieldIcon />}
-          tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500"}
-          label="Two-factor authentication"
-          value={mfaOn ? "On" : "Off"}
-          valueClass={mfaOn ? "text-emerald-700" : "text-slate-950"}
-          sub={mfaOn ? "Authenticator app" : "Not configured"}
-        />
-        <PostureCard
-          icon={<KeyIcon />}
-          tint="bg-sky-50 text-sky-600"
-          label="Sign-in methods"
-          value={signinMethodCount}
-          valueClass={onlyOneMethod ? "text-amber-600" : "text-slate-950"}
-          sub={onlyOneMethod ? "Only one — add a backup" : "Ways you can sign in"}
-        />
-        <PostureCard
-          icon={<LockIcon />}
-          tint="bg-indigo-50 text-indigo-600"
-          label="Password status"
-          value={hasPw ? "Set" : "SSO only"}
-          valueClass={hasPw ? "text-slate-950" : "text-slate-500"}
-          sub={hasPw ? "Email + password" : "No password set"}
-        />
-        <PostureCard
-          icon={<LinkIcon />}
-          tint="bg-amber-50 text-amber-600"
-          label="Connected SSO"
-          value={`${providerCount} of 3`}
-          sub="GitHub · GitLab · Google"
-        />
+      {/* Identity strip */}
+      <div className="flex flex-wrap items-stretch divide-x divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div className="flex flex-1 items-center gap-3.5 px-6 py-5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-base font-bold text-indigo-700">{initials}</span>
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-bold leading-tight text-slate-900">{me ? displayNameFromEmail(me.email) : "Loading…"}</p>
+            {me && <span className="mt-1.5 inline-flex rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold capitalize text-zinc-600">{me.role}</span>}
+          </div>
+        </div>
+        <div className="flex flex-1 items-center justify-center gap-2.5 px-6 py-5">
+          <span className="text-zinc-400 [&_svg]:h-[18px] [&_svg]:w-[18px]">
+            <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m-9 9h18" /></svg>
+          </span>
+          <div className="leading-tight">
+            <p className="text-[11px] font-medium text-zinc-400">Workspace</p>
+            <p className="text-sm font-semibold text-slate-700">{me ? me.email.split("@")[1] : "—"}</p>
+          </div>
+        </div>
+        <div className="flex flex-1 items-center justify-center gap-2.5 px-6 py-5 text-sm">
+          <span className="text-zinc-400 [&_svg]:h-[18px] [&_svg]:w-[18px]"><LockIcon /></span>
+          <span className="font-medium text-slate-700">{hasPw ? "Password set" : "No password"}</span>
+        </div>
+        <div className="flex flex-1 items-center justify-center gap-2.5 px-6 py-5 text-sm">
+          <span className="text-zinc-400 [&_svg]:h-[18px] [&_svg]:w-[18px]"><ShieldIcon /></span>
+          <span className="font-medium text-slate-700">2FA</span>
+          <StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>
+        </div>
+        <div className="flex flex-1 items-center justify-center gap-2.5 px-6 py-5">
+          <span className="text-zinc-400 [&_svg]:h-[18px] [&_svg]:w-[18px]"><LinkIcon /></span>
+          <div className="leading-tight">
+            <p className="text-[11px] font-medium text-zinc-400">Providers</p>
+            <p className="text-sm font-semibold text-slate-700">{providerCount} connected</p>
+          </div>
+        </div>
       </div>
 
       {me && onlyOneMethod && (
@@ -569,23 +668,12 @@ export default function Account() {
         </div>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_1.05fr]">
-        <Panel
-          icon={<ShieldIcon />}
-          tint="bg-blue-50 text-blue-600"
-          title="Profile & Security"
-          description="Manage your account identity and password."
-        >
-          <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-bold text-slate-800">Email address</label>
-              <div className="mt-2 flex min-h-12 items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-slate-700">
-                <span className="truncate">{me?.email ?? "Loading..."}</span>
-                <StatusChip tone="on">Verified</StatusChip>
-              </div>
-            </div>
-
-            <form noValidate onSubmit={submitPassword} className="space-y-4">
+      <div className="grid items-start gap-5 xl:grid-cols-[1.7fr_1fr]">
+        {/* ── Left column ── */}
+        <div className="space-y-5">
+          <SimpleCard icon={<ShieldIcon />} title="Security">
+            <div className="space-y-7">
+              <form noValidate onSubmit={submitPassword} className="space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="text-lg font-extrabold text-slate-950">Password</h3>
@@ -652,24 +740,98 @@ export default function Account() {
                 <button
                   type="submit"
                   disabled={changePw.isPending}
-                  className="rounded-lg bg-blue-700 px-8 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60"
                 >
                   {changePw.isPending ? "Saving..." : me?.has_password ? "Update password" : "Set password"}
                 </button>
               </div>
             </form>
-          </div>
-        </Panel>
 
-        <div className="space-y-5">
-          <Panel
-            icon={<LinkIcon />}
-            tint="bg-blue-50 text-blue-600"
-            title="Connected providers"
-            description="Manage external identity providers used to sign in."
-            flush
-          >
-            <div className="mx-6 my-5 overflow-hidden rounded-lg border border-zinc-200">
+            {/* Two-factor authentication */}
+            <div className="border-t border-zinc-100 pt-7">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="text-slate-500 [&_svg]:h-[18px] [&_svg]:w-[18px]"><ShieldIcon /></span>
+                <h3 className="text-sm font-bold text-slate-900">Two-factor authentication</h3>
+                <StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>
+              </div>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+                Add an extra layer of security to your account by requiring a verification code in addition to your password when signing in.
+              </p>
+              {mfaMsg && (
+                <div className={`mt-3 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
+                  {mfaMsg.text}
+                </div>
+              )}
+              <div className="mt-4 flex items-center justify-between gap-4">
+                <p className="text-sm text-slate-600">Status: <span className="font-semibold text-slate-800">{mfaOn ? "On" : "Off"}</span></p>
+                {me?.totp_enabled ? (
+                  <button
+                    type="button"
+                    onClick={() => { setShowDisableMfa(true); setMfaMsg(null); }}
+                    className="shrink-0 rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-zinc-50"
+                  >
+                    Disable
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => startMfaSetup.mutate()}
+                    disabled={startMfaSetup.isPending}
+                    className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60"
+                  >
+                    {startMfaSetup.isPending ? "Preparing..." : "Set up 2FA"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Recovery codes */}
+            <div className="border-t border-zinc-100 pt-7">
+              <div className="flex items-center gap-2.5">
+                <span className="text-slate-500 [&_svg]:h-[18px] [&_svg]:w-[18px]"><KeyIcon /></span>
+                <h3 className="text-sm font-bold text-slate-900">Recovery codes</h3>
+              </div>
+              <p className="mt-1.5 text-sm text-slate-500">Recovery codes allow you to sign in if you lose access to your authenticator.</p>
+              <div className="mt-4">
+                {!mfaOn ? (
+                  <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/70 px-4 py-3.5 text-sm text-slate-500">
+                    <span className="text-zinc-400 [&_svg]:h-4 [&_svg]:w-4"><LockIcon /></span>
+                    Unavailable until two-factor authentication is enabled.
+                  </div>
+                ) : recoveryCodes ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+                    <p className="text-sm font-semibold text-amber-900">Save these now — they won't be shown again.</p>
+                    <p className="mt-0.5 text-xs text-amber-800/80">Each code works once. Store them somewhere safe.</p>
+                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-amber-200/70 bg-white p-4">
+                      {recoveryCodes.map((c) => (
+                        <code key={c} className="font-mono text-sm tracking-wide text-slate-800">{c}</code>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">Copy all</button>
+                      <button type="button" onClick={() => downloadRecoveryCodes(recoveryCodes)} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">Download .txt</button>
+                      <button type="button" onClick={() => setRecoveryCodes(null)} className="ml-auto rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50">Done</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">{me?.mfa_backup_codes_remaining ?? 0} of 10 codes remaining</p>
+                      <p className="mt-0.5 text-xs text-zinc-500">Each code signs you in once when your authenticator is unavailable.</p>
+                    </div>
+                    <button type="button" onClick={() => generateCodes.mutate()} disabled={generateCodes.isPending} className="shrink-0 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60">
+                      {generateCodes.isPending ? "Generating…" : (me?.mfa_backup_codes_remaining ?? 0) > 0 ? "Regenerate codes" : "Generate codes"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            </div>
+          </SimpleCard>
+
+          {/* Connected providers */}
+          <SimpleCard icon={<LinkIcon />} title="Connected providers">
+            <div className="overflow-hidden rounded-lg border border-zinc-200">
               <div className="divide-y divide-zinc-200">
                 <ProviderRow
                   name="GitHub"
@@ -700,166 +862,61 @@ export default function Account() {
                 />
               </div>
             </div>
-          </Panel>
-
-          <Panel
-            icon={<ShieldIcon />}
-            tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}
-            title="Two-factor authentication"
-            description="Add an extra layer of security to your account."
-            status={<StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>}
-          >
-            {mfaMsg && (
-              <div className={`mb-3 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
-                {mfaMsg.text}
-              </div>
-            )}
-
-            {me?.totp_enabled ? (
-              <div className="flex items-center justify-between gap-5">
-                <p className="max-w-xl text-sm leading-relaxed text-slate-600">
-                  Two-factor authentication is enabled for this account.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setShowDisableMfa(true); setMfaMsg(null); }}
-                  className="shrink-0 rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-zinc-50"
-                >
-                  Disable
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-6">
-                <p className="max-w-xl text-sm leading-relaxed text-slate-600">
-                  Two-factor authentication helps protect your account by requiring a verification code in addition to your password when signing in.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => startMfaSetup.mutate()}
-                  disabled={startMfaSetup.isPending}
-                  className="shrink-0 rounded-lg bg-blue-700 px-8 py-3 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
-                >
-                  {startMfaSetup.isPending ? "Preparing..." : "Set up 2FA"}
-                </button>
-              </div>
-            )}
-          </Panel>
+          </SimpleCard>
         </div>
-      </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_1.05fr]">
-        <Panel
-          icon={<KeyIcon />}
-          tint="bg-emerald-50 text-emerald-600"
-          title="Recovery codes"
-          description="One-time codes to sign in if you lose your authenticator."
-        >
-          {!me?.totp_enabled ? (
-            <div className="rounded-lg border border-dashed border-zinc-200 px-5 py-4 text-sm text-zinc-500">
-              Enable two-factor authentication above to generate recovery codes.
+        {/* ── Right column ── */}
+        <div className="space-y-5">
+          <SimpleCard
+            icon={<svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>}
+            title="Account status"
+          >
+            <div className="-my-2.5 divide-y divide-zinc-100">
+              <StatusRow icon={<MailIcon />} label="Email" value="Verified" tone="ok" />
+              <StatusRow icon={<LockIcon />} label="Password" value={hasPw ? "Set" : "Not set"} tone={hasPw ? "ok" : "muted"} />
+              <StatusRow icon={<ShieldIcon />} label="Two-factor authentication" value={mfaOn ? "On" : "Off"} tone={mfaOn ? "ok" : "muted"} />
+              <StatusRow icon={<LinkIcon />} label="Connected providers" value={`${providerCount} connected`} tone={providerCount > 0 ? "good" : "muted"} />
             </div>
-          ) : recoveryCodes ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
-              <p className="text-sm font-semibold text-amber-900">Save these now — they won't be shown again.</p>
-              <p className="mt-0.5 text-xs text-amber-800/80">Each code works once. Store them somewhere safe.</p>
-              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-amber-200/70 bg-white p-4">
-                {recoveryCodes.map((c) => (
-                  <code key={c} className="font-mono text-sm tracking-wide text-slate-800">{c}</code>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})}
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
-                >
-                  Copy all
-                </button>
-                <button
-                  type="button"
-                  onClick={() => downloadRecoveryCodes(recoveryCodes)}
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
-                >
-                  Download .txt
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecoveryCodes(null)}
-                  className="ml-auto rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-800">{me.mfa_backup_codes_remaining} of 10 codes remaining</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Each code signs you in once when your authenticator is unavailable.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => generateCodes.mutate()}
-                disabled={generateCodes.isPending}
-                className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-              >
-                {generateCodes.isPending ? "Generating…" : me.mfa_backup_codes_remaining > 0 ? "Regenerate codes" : "Generate codes"}
-              </button>
-            </div>
-          )}
-        </Panel>
+          </SimpleCard>
 
-        <Panel
-          icon={<BulbIcon />}
-          tint="bg-amber-50 text-amber-600"
-          title="Security tips"
-          description="Simple actions to keep your account secure."
-        >
-          <div className="flex items-center justify-between gap-8">
-            <ul className="space-y-4 text-sm text-slate-600">
-              {["Use a unique, strong password", "Enable two-factor authentication", "Review connected apps regularly"].map((tip) => (
-                <li key={tip} className="flex items-center gap-3">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-300 text-emerald-600">
-                    <CheckIcon className="h-3.5 w-3.5" />
-                  </span>
-                  {tip}
-                </li>
-              ))}
-            </ul>
-            <div className="hidden h-32 w-48 shrink-0 items-center justify-center md:flex">
-              <svg className="h-32 w-48" viewBox="0 0 192 128" fill="none" aria-hidden="true">
-                <circle cx="104" cy="64" r="50" fill="#EEF1FF" />
-                <circle cx="104" cy="64" r="38" fill="#E5EAFF" />
-                <circle cx="50" cy="61" r="5" fill="#3B6FF6" />
-                <circle cx="151" cy="19" r="4" fill="#3B6FF6" />
-                <circle cx="172" cy="35" r="2.5" fill="#2F5FE6" />
-                <circle cx="69" cy="99" r="2.5" fill="#EAB308" />
-                <circle cx="126" cy="14" r="2" fill="#7FA1FF" />
-                <g filter="url(#securityShieldShadow)">
-                  <path d="M81 31H127a6 6 0 0 1 6 6V64c0 21-12 35-29 42-17-7-29-21-29-42V37a6 6 0 0 1 6-6Z" fill="#DDE5FF" />
-                  <path d="M87 38H121a5 5 0 0 1 5 5V64c0 18-10 30-22 36-12-6-22-18-22-36V43a5 5 0 0 1 5-5Z" fill="url(#securityShield)" />
-                  <path d="M104 38H121a5 5 0 0 1 5 5V64c0 18-10 30-22 36V38Z" fill="white" opacity=".08" />
-                  <path d="m92 68 8 8L118 58" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-                </g>
-                <defs>
-                  <filter id="securityShieldShadow" x="45" y="12" width="118" height="120" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
-                    <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
-                    <feOffset dy="8" />
-                    <feGaussianBlur stdDeviation="10" />
-                    <feColorMatrix type="matrix" values="0 0 0 0 0.145 0 0 0 0 0.278 0 0 0 0 0.706 0 0 0 0.18 0" />
-                    <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow" />
-                    <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape" />
-                  </filter>
-                  <linearGradient id="securityShield" x1="83" x2="126" y1="42" y2="100" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#5B7CFF" />
-                    <stop offset="1" stopColor="#1D4ED8" />
-                  </linearGradient>
-                </defs>
+          <SimpleCard
+            icon={<svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>}
+            title="Sessions"
+          >
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3.5">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-white">
+                  <BrowserIcon browser={currentBrowser} className="h-6 w-6" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-800">{currentDevice()}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    {session?.location ? `This device · ${session.location}` : "This device · signed in"}
+                  </p>
+                </div>
+              </div>
+              <StatusChip tone="on">Current</StatusChip>
+            </div>
+            <button type="button" onClick={signOut} className="mt-4 w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-zinc-50">
+              Sign out
+            </button>
+          </SimpleCard>
+
+          <section className="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-2.5 text-red-600">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.2 3.37 1.93 3.37h14.74c1.73 0 2.81-1.87 1.94-3.37L13.95 3.38c-.87-1.5-3.04-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z" />
               </svg>
+              <h2 className="text-base font-bold text-red-600">Danger zone</h2>
             </div>
-          </div>
-        </Panel>
+            <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              Sign out of Vigil on this device. Signing out of all devices needs session management, which isn't available yet.
+            </p>
+            <button type="button" onClick={signOut} className="mt-4 w-full rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50">
+              Sign out
+            </button>
+          </section>
+        </div>
       </div>
 
       <div className="hidden">
@@ -1245,7 +1302,7 @@ export default function Account() {
                 <button
                   type="submit"
                   disabled={enableMfa.isPending || mfaEnableCode.length !== 6}
-                  className="flex-1 rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
+                  className="flex-1 rounded-lg border border-zinc-200 bg-white px-5 py-3 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60"
                 >
                   {enableMfa.isPending ? "Enabling..." : "Enable 2FA"}
                 </button>

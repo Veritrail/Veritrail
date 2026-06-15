@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
+import InviteAccept from "./pages/InviteAccept";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Findings from "./pages/Findings";
@@ -18,6 +19,8 @@ import GitLabIntegration from "./pages/GitLabIntegration";
 import GitLabIntegrationEdit from "./pages/GitLabIntegrationEdit";
 import GoogleWorkspaceIntegration from "./pages/GoogleWorkspaceIntegration";
 import EntraIntegration from "./pages/EntraIntegration";
+import SlackIntegration from "./pages/SlackIntegration";
+import JiraIntegration from "./pages/JiraIntegration";
 import Integrations from "./pages/Integrations";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
@@ -39,6 +42,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
+          <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -65,6 +69,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/gitlab/edit" element={<GitLabIntegrationEdit />} />
             <Route path="/integrations/google-workspace" element={<GoogleWorkspaceIntegration />} />
             <Route path="/integrations/entra" element={<EntraIntegration />} />
+            <Route path="/integrations/slack" element={<SlackIntegration />} />
+            <Route path="/integrations/jira" element={<JiraIntegration />} />
           </Route>
           <Route path="/auditor/verify/:token" element={<AuditorLogin />} />
           <Route path="/auditor/login" element={<AuditorLogin />} />

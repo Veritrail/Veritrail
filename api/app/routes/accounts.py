@@ -78,6 +78,7 @@ from app.data.remediation_modules import (
     set_remediation_modules,
 )
 from app.models.org import Org
+from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
 settings = get_settings()
@@ -370,7 +371,7 @@ def _account_out(acc: AwsAccount) -> AccountOut:
 
 
 @router.post("", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
-def create_account(body: AccountIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def create_account(body: AccountIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     if not db.get(Org, uuid.UUID(p["org_id"])):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session expired — please sign in again")
     ext = secrets.token_urlsafe(24)
@@ -392,7 +393,7 @@ def create_account(body: AccountIn, p=Depends(current_principal), db: Session = 
 def update_connection_options(
     account_id: str,
     body: ConnectionOptionsIn,
-    p=Depends(current_principal),
+    _rbac: RequireAdmin, p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
     acc = db.get(AwsAccount, uuid.UUID(account_id))
@@ -437,7 +438,7 @@ def update_connection_options(
 def update_cloudtrail_onboarding(
     account_id: str,
     body: CloudTrailOnboardingIn,
-    p=Depends(current_principal),
+    _rbac: RequireAdmin, p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
     acc = db.get(AwsAccount, uuid.UUID(account_id))
@@ -590,7 +591,7 @@ def iam_history(
 
 
 @router.post("/{account_id}/sync-local-trust", status_code=200)
-def sync_local_trust(account_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def sync_local_trust(account_id: str, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Dev helper: add your current AWS caller (e.g. SSO) to VigilReadOnly trust policy."""
     if settings.APP_ENV != "dev":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "only available in dev")
@@ -604,7 +605,7 @@ def sync_local_trust(account_id: str, p=Depends(current_principal), db: Session 
 
 
 @router.post("/{account_id}/verify", response_model=AccountOut)
-def verify(account_id: str, body: VerifyIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def verify(account_id: str, body: VerifyIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     acc = db.get(AwsAccount, uuid.UUID(account_id))
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
@@ -638,7 +639,7 @@ def verify(account_id: str, body: VerifyIn, p=Depends(current_principal), db: Se
 
 
 @router.post("/{account_id}/verify-capabilities")
-def verify_capabilities(account_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def verify_capabilities(account_id: str, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Confirm optional CFN nested stacks are deployed (assume advanced role, check remediation runner)."""
     from app.services.account_capabilities import apply_capability_verification
 
@@ -657,7 +658,7 @@ def verify_capabilities(account_id: str, p=Depends(current_principal), db: Sessi
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_account(account_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def delete_account(account_id: str, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     acc = db.get(AwsAccount, uuid.UUID(account_id))
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
@@ -667,7 +668,7 @@ def delete_account(account_id: str, p=Depends(current_principal), db: Session = 
 
 @router.post("/scan-all")
 @limiter.limit("3/hour")
-def trigger_scan_all(request: Request, p=Depends(current_principal), db: Session = Depends(get_db)):
+def trigger_scan_all(request: Request, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Queue a scan for every connected account in the org."""
     from app.worker.tasks import run_scan
 
@@ -700,7 +701,7 @@ def trigger_scan_all(request: Request, p=Depends(current_principal), db: Session
 
 @router.post("/{account_id}/scan")
 @limiter.limit("3/hour")
-def trigger_scan(account_id: str, request: Request, p=Depends(current_principal), db: Session = Depends(get_db)):
+def trigger_scan(account_id: str, request: Request, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.worker.tasks import run_scan
     acc = db.get(AwsAccount, uuid.UUID(account_id))
     if not acc or str(acc.org_id) != p["org_id"]:
@@ -1525,7 +1526,7 @@ def _policy_gen_regions(
 def start_role_policy_generation(
     account_id: str,
     role_arn: str,
-    p=Depends(current_principal),
+    _rbac: RequireAdmin, p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
     """Start AWS CloudTrail policy generation for an IAM role (async; minutes to complete)."""
@@ -2890,7 +2891,7 @@ class ApplyPolicyIn(BaseModel):
 def apply_role_policy(
     account_id: str,
     body: ApplyPolicyIn,
-    p=Depends(current_principal),
+    _rbac: RequireAdmin, p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
     """Apply a generated IAM policy to a role.

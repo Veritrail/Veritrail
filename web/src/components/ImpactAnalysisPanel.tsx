@@ -93,7 +93,7 @@ function ImpactCapabilityCard({
 
 export function ImpactAnalysisEmpty({ onRun }: { onRun: () => void }) {
   return (
-    <div className="impact-tab-content">
+    <div className="impact-analysis impact-tab-content">
       <div className="impact-empty-hero">
         <ImpactHeroGraphic />
         <h3 className="impact-empty-title">Understand the impact before you remediate</h3>

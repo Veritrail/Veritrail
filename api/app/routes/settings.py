@@ -19,6 +19,7 @@ from app.checks.optional_checks import OPTIONAL_LINKED
 from app.services.check_settings import hidden_check_ids, optional_checks_for_ui
 from app.services.cis_benchmark_coverage import cis_benchmark_coverage
 from app.services.digest_tokens import ensure_digest_unsubscribe_token
+from app.core.route_deps import RequireAdmin
 from app.services.scan_schedule import (
     DEFAULT_SCANNING,
     get_scanning_settings,
@@ -38,6 +39,9 @@ DEFAULT_SETTINGS: dict = {
         "digest_email": None,
         "digest_unsubscribe_token": None,
         "slack_webhook_url": None,
+        "slack_digest_enabled": False,
+        "slack_scan_failure_enabled": True,
+        "slack_critical_alerts_enabled": True,
         "scan_failure_email_enabled": True,
         "critical_alert_enabled": True,
     },
@@ -64,6 +68,9 @@ class NotificationsIn(BaseModel):
     email_digest_enabled: bool = False
     digest_email: str | None = None
     slack_webhook_url: str | None = None
+    slack_digest_enabled: bool = False
+    slack_scan_failure_enabled: bool = True
+    slack_critical_alerts_enabled: bool = True
     scan_failure_email_enabled: bool = True
     critical_alert_enabled: bool = True
 
@@ -164,7 +171,7 @@ def get_settings(p=Depends(current_principal), db: Session = Depends(get_db)):
 
 
 @router.patch("", response_model=SettingsOut)
-def patch_settings(body: SettingsPatch, p=Depends(current_principal), db: Session = Depends(get_db)):
+def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
     current = dict(org.settings or {})
 
@@ -218,7 +225,7 @@ def patch_settings(body: SettingsPatch, p=Depends(current_principal), db: Sessio
 
 
 @router.post("/test-digest", status_code=200)
-def test_digest(p=Depends(current_principal), db: Session = Depends(get_db)):
+def test_digest(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Fire a digest email immediately to the configured address (or current user)."""
     from app.services.digest import send_digest
     from datetime import datetime, timedelta, timezone
@@ -274,8 +281,10 @@ def test_digest(p=Depends(current_principal), db: Session = Depends(get_db)):
     ) or 0
 
     from app.services.digest_tokens import persist_digest_unsubscribe_token
+    from app.services.digest_data import gather_digest_extras
 
     unsubscribe_token = persist_digest_unsubscribe_token(db, org)
+    per_day, coverage, prev = gather_digest_extras(db, org_id=org.id, account_id=acc.id, since=since)
 
     ok = send_digest(
         to=digest_email,
@@ -288,10 +297,13 @@ def test_digest(p=Depends(current_principal), db: Session = Depends(get_db)):
         new_this_week=[{"title": f.title, "severity": f.severity} for f in new_this_week],
         resolved_this_week=resolved_count,
         unsubscribe_token=unsubscribe_token,
+        per_day=per_day,
+        coverage=coverage,
+        prev=prev,
     )
 
     if not ok:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to send email — check RESEND_API_KEY")
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to send email — check SMTP settings in .env")
 
     return {"sent_to": digest_email}
 
@@ -316,7 +328,7 @@ def _validate_slack_webhook(url: str) -> str:
 
 
 @router.post("/test-slack", status_code=200)
-def test_slack(body: SlackTestBody = SlackTestBody(), p=Depends(current_principal), db: Session = Depends(get_db)):
+def test_slack(_rbac: RequireAdmin, body: SlackTestBody = SlackTestBody(), p=Depends(current_principal), db: Session = Depends(get_db)):
     """POST a test message to the configured Slack webhook URL."""
     import httpx
 
@@ -391,7 +403,7 @@ def get_trust_center_settings(p=Depends(current_principal), db: Session = Depend
 
 
 @router.put("/trust-center", response_model=TrustCenterSettingsOut)
-def update_trust_center_settings(body: TrustCenterSettingsIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def update_trust_center_settings(body: TrustCenterSettingsIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
 
     config = db.scalar(

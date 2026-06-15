@@ -93,6 +93,13 @@ export default function GitLabIntegration() {
     },
   });
 
+  const verify = useMutation({
+    mutationFn: () => api<{ status: string; username: string | null }>("/v1/integrations/gitlab/verify", { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gitlab-provider"] });
+    },
+  });
+
   const connect = useMutation({
     mutationFn: () => {
       const base = baseUrlInput.trim() || undefined;
@@ -115,6 +122,33 @@ export default function GitLabIntegration() {
         </div>
       )}
       {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">GitLab connection failed: {error}</div>}
+      {p?.status === "error" && (
+        <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-semibold">GitLab connection needs attention</p>
+          <p className="mt-1 text-amber-900/90">
+            OAuth access may have expired. Verify the token or reconnect GitLab to restore evidence collection.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => verify.mutate()}
+              disabled={verify.isPending}
+              className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
+            >
+              {verify.isPending ? "Verifying…" : "Verify connection"}
+            </button>
+            <button
+              type="button"
+              onClick={() => connect.mutate()}
+              disabled={connect.isPending}
+              className="rounded-lg bg-[#e24329] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c93a22] disabled:opacity-60"
+            >
+              {connect.isPending ? "Opening GitLab…" : "Reconnect GitLab"}
+            </button>
+          </div>
+          {verify.isError && <p className="mt-3 text-sm text-red-700">{(verify.error as Error).message}</p>}
+        </div>
+      )}
       {lastSync && (
         <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           Sync complete — {lastSync.identity_users} members, {lastSync.repos} repos, {lastSync.repo_protections} protected branches, {lastSync.pull_requests}{" "}

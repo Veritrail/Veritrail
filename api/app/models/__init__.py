@@ -1,4 +1,5 @@
 from app.models.org import Org, User
+from app.models.user_session import UserSession
 from app.models.aws_account import AssumeRoleAudit, AwsAccount, ScanRun
 from app.models.iam import IamUser, IamAccessKey, IamRole, IamPolicy, IamPermUsage
 from app.models.finding import Finding, FindingEvent
@@ -16,7 +17,9 @@ from app.models.remediation_execution import RemediationExecution
 from app.models.evidence_export import EvidenceExport
 from app.models.ai_triage import AITriageResult
 from app.models.auditor import AuditorAccess, AuditActivityLog, TrustCenterConfig
+from app.models.org_team import OrgActivityLog, OrgDomain, OrgInvite, OrgJoinRequest
 from app.models.saml import OrgSamlConfig
+from app.models.digest_snapshot import DigestSnapshot
 
 __all__ = [
     "Org", "User",
@@ -36,5 +39,8 @@ __all__ = [
     "EvidenceExport",
     "AITriageResult",
     "AuditorAccess", "AuditActivityLog", "TrustCenterConfig",
+    "OrgInvite", "OrgActivityLog", "OrgDomain", "OrgJoinRequest",
     "OrgSamlConfig",
+    "DigestSnapshot",
+    "UserSession",
 ]

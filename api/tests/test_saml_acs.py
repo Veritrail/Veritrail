@@ -61,7 +61,7 @@ def test_acs_provisions_new_user_and_redirects_with_token(monkeypatch):
     created = db.add.call_args[0][0]
     assert created.email == "new@acme.com"
     assert created.org_id == org_id
-    assert created.role == "member"
+    assert created.role == "viewer"
     db.commit.assert_called_once()
 
     assert resp.status_code in (302, 303, 307)

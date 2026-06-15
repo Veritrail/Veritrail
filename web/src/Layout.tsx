@@ -2,6 +2,7 @@ import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-route
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, logout, restoreSession, token } from "./api";
+import { roleAtLeast, useMe } from "./hooks/useMe";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
@@ -20,6 +21,9 @@ export default function Layout() {
   const location = useLocation();
   const [authReady, setAuthReady] = useState(false);
   const requiresAccount = pathRequiresConnectedAccount(location.pathname);
+
+  const meQ = useMe();
+  const canManageAccounts = roleAtLeast(meQ.data?.role, "admin");
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -97,12 +101,14 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-7 space-y-1">
-          <NavLink to="/accounts" className={navItem}>
-            <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-            </svg>
-            Accounts
-          </NavLink>
+          {canManageAccounts && (
+            <NavLink to="/accounts" className={navItem}>
+              <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </svg>
+              Accounts
+            </NavLink>
+          )}
 
           <NavLink to="/findings" className={navItem}>
             <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
@@ -129,12 +135,14 @@ export default function Layout() {
             History
           </NavLink>
 
-          <NavLink to="/integrations" className={navItem}>
-            <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7a2 2 0 012-2h2.5a2 2 0 011.6.8l.8 1.067a2 2 0 001.6.8H18a2 2 0 012 2V17a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" />
-            </svg>
-            Integrations
-          </NavLink>
+          {canManageAccounts && (
+            <NavLink to="/integrations" className={navItem}>
+              <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7a2 2 0 012-2h2.5a2 2 0 011.6.8l.8 1.067a2 2 0 001.6.8H18a2 2 0 012 2V17a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" />
+              </svg>
+              Integrations
+            </NavLink>
+          )}
 
           <NavLink to="/settings" className={navItem}>
             <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">

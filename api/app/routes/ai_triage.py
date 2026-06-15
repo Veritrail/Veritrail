@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.route_deps import RequireEditor
 from app.core.security import current_principal
 from app.models import Finding
 from app.models.org import Org
@@ -50,7 +51,12 @@ def get_finding_triage(finding_id: str, p=Depends(current_principal), db: Sessio
 
 
 @router.post("/{finding_id}/triage")
-def run_finding_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def run_finding_triage(
+    finding_id: str,
+    _rbac: RequireEditor,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
     finding = _owned_finding(db, p, finding_id)
     org = db.get(Org, finding.org_id)
     enabled = _org_ai_review_enabled(org)

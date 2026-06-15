@@ -184,6 +184,33 @@ def test_current_auditor_principal_rejects_user():
 
 # ── Auditor invite ──────────────────────────────────────────────────
 
+def test_dedupe_auditors_by_email():
+    from app.routes.auditor import _dedupe_auditors_by_email
+    from app.models.auditor import AuditorAccess
+
+    org_id = uuid.uuid4()
+    older = AuditorAccess(
+        org_id=org_id,
+        email="auditor@test.com",
+        access_token="a" * 64,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+        is_active=False,
+    )
+    newer = AuditorAccess(
+        org_id=org_id,
+        email="Auditor@test.com",
+        access_token="b" * 64,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        is_active=True,
+    )
+    older.created_at = datetime.now(timezone.utc) - timedelta(days=10)
+    newer.created_at = datetime.now(timezone.utc)
+
+    out = _dedupe_auditors_by_email([newer, older])
+    assert len(out) == 1
+    assert out[0].access_token == "b" * 64
+
+
 def test_invite_auditor_creates_grant():
     """Inviting an auditor creates an AuditorAccess with token and expiry."""
     from app.models.org import Org
@@ -199,7 +226,7 @@ def test_invite_auditor_creates_grant():
     principal = {"sub": _fake_uuid(), "org_id": org_id, "scope": "user"}
 
     body = AuditorInviteIn(email="auditor@test.com", name="Test Auditor", expiry_days=30)
-    result = invite_auditor(body=body, p=principal, db=db)
+    result = invite_auditor(body=body, _rbac=MagicMock(), p=principal, db=db)
 
     # Check that db.add was called with an AuditorAccess
     assert db.add.called
@@ -276,6 +303,58 @@ def test_trust_center_public_route_not_found():
         get_trust_center(subdomain_slug="nonexistent", db=db)
     assert exc.value.status_code == 404
     assert "not found" in str(exc.value.detail).lower()
+
+
+def test_trust_center_public_profile_has_no_numeric_leaks():
+    """Public trust center returns profile fields only — no scores or gap counts."""
+    from datetime import datetime, timezone
+    from app.models.auditor import TrustCenterConfig
+    from app.models.org import Org
+    from app.models import AwsAccount
+
+    org_id = uuid.uuid4()
+    config = TrustCenterConfig(
+        org_id=org_id,
+        is_enabled=True,
+        subdomain_slug="acme",
+        company_name="ACME Corp",
+        frameworks_to_show=["soc2"],
+    )
+    org = Org(id=org_id, name="ACME Corp")
+    account = AwsAccount(
+        id=uuid.uuid4(),
+        org_id=org_id,
+        status="connected",
+        last_scan_at=datetime.now(timezone.utc),
+    )
+
+    db = MagicMock()
+    db.scalar.return_value = config
+    db.get.return_value = org
+    db.scalars.return_value.all.return_value = [account]
+
+    from app.routes.trust_center import get_trust_center
+
+    result = get_trust_center(subdomain_slug="acme", db=db)
+    payload = result.model_dump()
+
+    assert payload["company_name"] == "ACME Corp"
+    assert payload["monitoring_active"] is True
+    assert payload["refresh_cadence"] == "daily"
+    assert payload["frameworks"][0]["framework_label"] == "SOC 2"
+    assert payload["documents"]
+
+    forbidden = (
+        "open_findings_count",
+        "top_gaps",
+        "score_pct",
+        "connected_accounts",
+        "last_scan_at",
+        "controls_evaluated",
+        "recent_activity",
+    )
+    for key in forbidden:
+        assert key not in payload
 
 
 # ── Auditor listing ─────────────────────────────────────────────────

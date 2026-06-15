@@ -1,53 +1,40 @@
-"""Public Trust Center — unauthenticated compliance transparency portal."""
+"""Public Trust Center — unauthenticated security profile (no live posture scores)."""
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.models import Finding, AwsAccount
+from app.models import AwsAccount
 from app.models.auditor import TrustCenterConfig
-from app.models.control import Control, CheckControl
 from app.models.org import Org
-from app.services.finding_history import finding_open_for_control
+
 router = APIRouter()
 
+MONITORING_AREAS = [
+    "Identity & access",
+    "Data protection",
+    "Logging & monitoring",
+    "Change management",
+    "Backup & resilience",
+    "Network exposure",
+]
 
-class TrustFrameworkScore(BaseModel):
-    framework: str
-    framework_label: str
-    control_count: int
-    passed: int
-    failed: int
-    no_data: int
-    score_pct: float
+FRAMEWORK_DOCUMENTS: dict[str, tuple[str, str]] = {
+    "soc2": ("SOC 2 Type II report", "on_request"),
+    "cis_aws_l1": ("CIS benchmark overview", "on_request"),
+    "iso27001": ("ISO 27001 certificate", "on_request"),
+}
 
-
-class TrustControlGap(BaseModel):
-    control_id: str
-    title: str
-    framework: str
-    framework_label: str
-    open_findings: int
-
-
-class TrustCenterData(BaseModel):
-    company_name: str
-    company_logo_url: str | None
-    custom_message: str | None
-    is_enabled: bool
-    frameworks: list[TrustFrameworkScore]
-    last_scan_at: str | None
-    connected_accounts: int
-    recent_activity: dict
-    open_findings_count: int
-    controls_evaluated: int
-    top_gaps: list[TrustControlGap]
+DEFAULT_DOCUMENTS: list[tuple[str, str, str]] = [
+    ("security_overview", "Security overview", "on_request"),
+    ("dpa", "Data processing agreement", "on_request"),
+    ("subprocessors", "Subprocessor list", "on_request"),
+]
 
 
 def _framework_label(framework_key: str) -> str:
@@ -59,13 +46,81 @@ def _framework_label(framework_key: str) -> str:
     return labels.get(framework_key, framework_key.upper())
 
 
+def _scan_freshness(last_scan: datetime | None) -> str:
+    if not last_scan:
+        return "awaiting_first_scan"
+    if last_scan.tzinfo is None:
+        last_scan = last_scan.replace(tzinfo=timezone.utc)
+    age = datetime.now(timezone.utc) - last_scan
+    if age < timedelta(hours=24):
+        return "within_24h"
+    if age < timedelta(days=7):
+        return "within_7_days"
+    return "stale"
+
+
+def _freshness_label(code: str) -> str:
+    return {
+        "within_24h": "Updated within the last day",
+        "within_7_days": "Updated within the last week",
+        "stale": "Monitoring active — refresh pending",
+        "awaiting_first_scan": "Awaiting first scan",
+    }[code]
+
+
+class TrustFrameworkRef(BaseModel):
+    framework: str
+    framework_label: str
+
+
+class TrustDocumentRef(BaseModel):
+    id: str
+    label: str
+    availability: str
+
+
+class TrustCenterData(BaseModel):
+    company_name: str
+    company_logo_url: str | None
+    custom_message: str | None
+    monitoring_active: bool
+    refresh_cadence: str
+    scan_freshness: str
+    scan_freshness_label: str
+    auditor_access_model: str
+    frameworks: list[TrustFrameworkRef]
+    monitoring_areas: list[str]
+    documents: list[TrustDocumentRef]
+
+
+def _build_documents(framework_keys: list[str]) -> list[TrustDocumentRef]:
+    docs: list[TrustDocumentRef] = []
+    seen: set[str] = set()
+    for key in framework_keys:
+        entry = FRAMEWORK_DOCUMENTS.get(key)
+        if not entry:
+            continue
+        doc_id = f"framework_{key}"
+        if doc_id in seen:
+            continue
+        seen.add(doc_id)
+        label, availability = entry
+        docs.append(TrustDocumentRef(id=doc_id, label=label, availability=availability))
+    for doc_id, label, availability in DEFAULT_DOCUMENTS:
+        if doc_id in seen:
+            continue
+        seen.add(doc_id)
+        docs.append(TrustDocumentRef(id=doc_id, label=label, availability=availability))
+    return docs
+
+
 @router.get("/{subdomain_slug}", response_model=TrustCenterData)
 def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
-    """Public trust center page data for a given org subdomain."""
+    """Public security profile for a given org slug. No scores, gaps, or finding counts."""
     config = db.scalar(
         select(TrustCenterConfig).where(
             TrustCenterConfig.subdomain_slug == subdomain_slug,
-            TrustCenterConfig.is_enabled == True,
+            TrustCenterConfig.is_enabled == True,  # noqa: E712
         )
     )
     if not config:
@@ -74,7 +129,6 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
     org = db.get(Org, config.org_id)
     org_name = org.name if org else config.company_name
 
-    # Connected accounts
     accounts = db.scalars(
         select(AwsAccount).where(
             AwsAccount.org_id == config.org_id,
@@ -83,181 +137,25 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
     ).all()
 
     last_scan = max((a.last_scan_at for a in accounts if a.last_scan_at), default=None)
+    freshness = _scan_freshness(last_scan)
+    monitoring_active = bool(accounts) and freshness != "awaiting_first_scan"
 
-    acc_id = accounts[0].id if accounts else None
-    open_findings: list[Finding] = []
-    if acc_id:
-        open_findings = db.scalars(
-            select(Finding).where(
-                Finding.account_id == acc_id,
-                Finding.status == "open",
-            )
-        ).all()
-
-    open_by_check: dict[str, list[Finding]] = {}
-    for f in open_findings:
-        open_by_check.setdefault(f.check_id, []).append(f)
-
-    # Compute framework scores
-    frameworks_to_show = config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"]
-
-    framework_scores = []
-    gap_candidates: list[tuple[int, Control, str, str]] = []
-    for fw_key in frameworks_to_show:
-        controls = db.scalars(
-            select(Control).where(Control.framework == fw_key).order_by(Control.control_id)
-        ).all()
-
-        if not controls:
-            continue
-
-        passed = 0
-        failed = 0
-        no_data = 0
-        for ctrl in controls:
-            check_ids = [
-                row[0] for row in db.execute(
-                    select(CheckControl.check_id).where(CheckControl.control_id == ctrl.id)
-                ).all()
-            ]
-            if not check_ids:
-                no_data += 1
-                continue
-            hits: list[Finding] = []
-            for cid in check_ids:
-                hits.extend(open_by_check.get(cid, []))
-            if any(finding_open_for_control(f, f.status) for f in hits):
-                failed += 1
-                gap_candidates.append((len(hits), ctrl, fw_key, _framework_label(fw_key)))
-            elif acc_id:
-                passed += 1
-            else:
-                no_data += 1
-
-        total = passed + failed + no_data
-        score = round((passed / max(total, 1)) * 100, 1)
-
-        framework_scores.append(TrustFrameworkScore(
-            framework=fw_key,
-            framework_label=_framework_label(fw_key),
-            control_count=len(controls),
-            passed=passed,
-            failed=failed,
-            no_data=no_data,
-            score_pct=score,
-        ))
-
-    gap_candidates.sort(key=lambda row: row[0], reverse=True)
-    top_gaps = [
-        TrustControlGap(
-            control_id=ctrl.control_id,
-            title=ctrl.title,
-            framework=fw_key,
-            framework_label=fw_label,
-            open_findings=count,
-        )
-        for count, ctrl, fw_key, fw_label in gap_candidates[:8]
+    framework_keys = config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"]
+    frameworks = [
+        TrustFrameworkRef(framework=key, framework_label=_framework_label(key))
+        for key in framework_keys
     ]
-
-    open_findings_count = len(open_findings) if acc_id else 0
-    controls_evaluated = sum(fw.control_count for fw in framework_scores)
-
-    # Recent activity summary
-    recent_activity: dict = {}
-    if last_scan:
-        recent_activity["last_scan_at"] = last_scan.isoformat()
-    recent_activity["connected_accounts"] = len(accounts)
-    recent_activity["open_findings_count"] = open_findings_count
 
     return TrustCenterData(
         company_name=config.company_name or org_name,
         company_logo_url=config.company_logo_url,
         custom_message=config.custom_message,
-        is_enabled=config.is_enabled,
-        frameworks=framework_scores,
-        last_scan_at=last_scan.isoformat() if last_scan else None,
-        connected_accounts=len(accounts),
-        recent_activity=recent_activity,
-        open_findings_count=open_findings_count,
-        controls_evaluated=controls_evaluated,
-        top_gaps=top_gaps,
+        monitoring_active=monitoring_active,
+        refresh_cadence="daily",
+        scan_freshness=freshness,
+        scan_freshness_label=_freshness_label(freshness),
+        auditor_access_model="private_invite",
+        frameworks=frameworks,
+        monitoring_areas=list(MONITORING_AREAS),
+        documents=_build_documents(framework_keys),
     )
-
-
-@router.get("/{subdomain_slug}/frameworks", response_model=list[TrustFrameworkScore])
-def get_trust_center_frameworks(subdomain_slug: str, db: Session = Depends(get_db)):
-    """Detailed framework scores for a trust center."""
-    config = db.scalar(
-        select(TrustCenterConfig).where(
-            TrustCenterConfig.subdomain_slug == subdomain_slug,
-            TrustCenterConfig.is_enabled == True,
-        )
-    )
-    if not config:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Trust center not found or disabled")
-
-    accounts = db.scalars(
-        select(AwsAccount).where(
-            AwsAccount.org_id == config.org_id,
-            AwsAccount.status == "connected",
-        )
-    ).all()
-
-    acc_id = accounts[0].id if accounts else None
-    open_findings: list[Finding] = []
-    if acc_id:
-        open_findings = db.scalars(
-            select(Finding).where(
-                Finding.account_id == acc_id,
-                Finding.status == "open",
-            )
-        ).all()
-
-    open_by_check: dict[str, list[Finding]] = {}
-    for f in open_findings:
-        open_by_check.setdefault(f.check_id, []).append(f)
-
-    frameworks_to_show = config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"]
-
-    result = []
-    for fw_key in frameworks_to_show:
-        controls = db.scalars(
-            select(Control).where(Control.framework == fw_key).order_by(Control.control_id)
-        ).all()
-        if not controls:
-            continue
-        passed = 0
-        failed = 0
-        no_data = 0
-        for ctrl in controls:
-            check_ids = [
-                row[0] for row in db.execute(
-                    select(CheckControl.check_id).where(CheckControl.control_id == ctrl.id)
-                ).all()
-            ]
-            if not check_ids:
-                no_data += 1
-                continue
-            hits: list[Finding] = []
-            for cid in check_ids:
-                hits.extend(open_by_check.get(cid, []))
-            if any(finding_open_for_control(f, f.status) for f in hits):
-                failed += 1
-            elif acc_id:
-                passed += 1
-            else:
-                no_data += 1
-
-        total = passed + failed + no_data
-        score = round((passed / max(total, 1)) * 100, 1)
-        result.append(TrustFrameworkScore(
-            framework=fw_key,
-            framework_label=_framework_label(fw_key),
-            control_count=len(controls),
-            passed=passed,
-            failed=failed,
-            no_data=no_data,
-            score_pct=score,
-        ))
-
-    return result

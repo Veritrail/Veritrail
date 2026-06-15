@@ -1,58 +1,44 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { BASE } from "../api";
+import { publicApi } from "../api";
 
-type TrustFrameworkScore = {
+type TrustFrameworkRef = {
   framework: string;
   framework_label: string;
-  control_count: number;
-  passed: number;
-  failed: number;
-  no_data: number;
-  score_pct: number;
 };
 
-type TrustControlGap = {
-  control_id: string;
-  title: string;
-  framework: string;
-  framework_label: string;
-  open_findings: number;
+type TrustDocumentRef = {
+  id: string;
+  label: string;
+  availability: string;
 };
 
 type TrustCenterData = {
   company_name: string;
   company_logo_url: string | null;
   custom_message: string | null;
-  is_enabled: boolean;
-  frameworks: TrustFrameworkScore[];
-  last_scan_at: string | null;
-  connected_accounts: number;
-  recent_activity: Record<string, unknown>;
-  open_findings_count: number;
-  controls_evaluated: number;
-  top_gaps: TrustControlGap[];
+  monitoring_active: boolean;
+  refresh_cadence: string;
+  scan_freshness: string;
+  scan_freshness_label: string;
+  auditor_access_model: string;
+  frameworks: TrustFrameworkRef[];
+  monitoring_areas: string[];
+  documents: TrustDocumentRef[];
 };
 
-const MONITORING_AREAS = [
-  "IAM users, roles, and access keys",
-  "Root account and MFA posture",
-  "S3 bucket public access and encryption",
-  "KMS key rotation and policies",
-];
+const REFRESH_LABELS: Record<string, string> = {
+  daily: "Daily automated scans",
+};
 
-function formatWhen(iso: string | null) {
-  if (!iso) return "Not yet scanned";
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-}
+const ACCESS_LABELS: Record<string, string> = {
+  private_invite: "Private auditor portal (invite only)",
+};
 
-function relativeScanAge(iso: string | null): string {
-  if (!iso) return "Awaiting first scan";
-  const hours = (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60);
-  if (hours < 24) return "Updated within the last day";
-  if (hours < 48) return "Updated within the last 2 days";
-  const days = Math.floor(hours / 24);
-  return `Last updated ${days} day${days === 1 ? "" : "s"} ago`;
+function documentAvailabilityLabel(code: string): string {
+  if (code === "on_request") return "Available on request";
+  if (code === "not_published") return "Not published";
+  return code.replace(/_/g, " ");
 }
 
 export default function TrustCenter() {
@@ -60,198 +46,187 @@ export default function TrustCenter() {
 
   const { data, isLoading, error } = useQuery<TrustCenterData>({
     queryKey: ["trust-center", slug],
-    queryFn: async () => {
-      const res = await fetch(`${BASE}/trust/${slug}`);
-      if (!res.ok) {
-        throw new Error(res.status === 404 ? "Trust center not found" : "Failed to load");
-      }
-      return res.json();
-    },
+    queryFn: () => publicApi<TrustCenterData>(`/trust/${slug}`),
   });
 
   if (isLoading) {
     return (
       <TrustShell>
-        <div className="text-center py-20 text-zinc-400">Loading trust center…</div>
+        <div className="py-20 text-center text-zinc-400">Loading security profile…</div>
       </TrustShell>
     );
   }
   if (error || !data) {
     return (
       <TrustShell>
-        <div className="text-center py-20">
-          <h1 className="text-2xl font-bold text-zinc-700">Trust Center Not Found</h1>
-          <p className="mt-2 text-zinc-500">This organization&apos;s trust center is not available.</p>
+        <div className="py-20 text-center">
+          <h1 className="text-2xl font-bold text-zinc-700">Security profile not found</h1>
+          <p className="mt-2 text-zinc-500">This organization&apos;s public page is not available.</p>
         </div>
       </TrustShell>
     );
   }
 
-  const totalFailed = data.frameworks.reduce((n, fw) => n + fw.failed, 0);
-  const totalPassed = data.frameworks.reduce((n, fw) => n + fw.passed, 0);
+  const frameworkNames = data.frameworks.map((fw) => fw.framework_label).join(", ") || "selected frameworks";
 
   return (
     <TrustShell>
-      <div className="max-w-4xl mx-auto px-4 space-y-10 py-10">
-        {/* Header */}
-        <div className="text-center">
-          {data.company_logo_url && (
-            <img src={data.company_logo_url} alt={data.company_name} className="mx-auto h-16 mb-4 object-contain" />
-          )}
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">{data.company_name}</h1>
-          <p className="mt-2 text-zinc-500">Compliance &amp; Security Trust Center</p>
-          {data.custom_message && (
-            <p className="mt-3 max-w-xl mx-auto text-sm text-zinc-600 italic">&ldquo;{data.custom_message}&rdquo;</p>
-          )}
-        </div>
-
-        {/* Status bar */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="AWS accounts monitored" value={String(data.connected_accounts)} />
-          <StatCard label="Controls evaluated" value={String(data.controls_evaluated || "—")} />
-          <StatCard label="Open security findings" value={String(data.open_findings_count)} tone={data.open_findings_count > 0 ? "warn" : "ok"} />
-          <StatCard label="Last automated scan" value={formatWhen(data.last_scan_at)} sub={relativeScanAge(data.last_scan_at)} />
-        </div>
-
-        {/* What we monitor */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-zinc-900">What we monitor</h2>
-          <p className="text-sm text-zinc-600">
-            Read-only scans run daily against connected AWS accounts. Evidence is mapped to the frameworks below.
-          </p>
-          <ul className="grid gap-2 sm:grid-cols-2 text-sm text-zinc-700">
-            {MONITORING_AREAS.map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-emerald-600 shrink-0">✓</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {data.frameworks.map((fw) => (
-              <span
-                key={fw.framework}
-                className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100"
-              >
-                {fw.framework_label}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        {/* Framework scores */}
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <h2 className="text-lg font-bold text-zinc-900">Compliance posture</h2>
-            <p className="text-xs text-zinc-500">
-              {totalPassed} controls passing · {totalFailed} need attention
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.frameworks.map((fw) => (
-              <div key={fw.framework} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{fw.framework_label}</p>
-                <div className="mt-3 flex items-end gap-2">
-                  <span className="text-3xl font-bold tabular-nums text-zinc-900">{fw.score_pct}%</span>
-                  <span className="text-sm text-zinc-500">passing</span>
+      <div className="mx-auto max-w-4xl space-y-6 px-4 py-10">
+        <section className="rounded-2xl border border-zinc-200 bg-white p-7 shadow-sm">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-4">
+              {data.company_logo_url ? (
+                <img
+                  src={data.company_logo_url}
+                  alt={data.company_name}
+                  className="h-14 w-14 shrink-0 rounded-xl border border-zinc-200 bg-white object-contain p-2"
+                />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-xl font-bold text-zinc-400">
+                  {data.company_name.slice(0, 1)}
                 </div>
-                <div className="mt-3 h-2 rounded-full bg-zinc-200 overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 rounded-full transition-all"
-                    style={{ width: `${fw.score_pct}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-[11px] text-zinc-500">{fw.control_count} mapped controls</p>
-                <div className="mt-3 flex flex-wrap gap-3 text-[11px]">
-                  <span className="text-emerald-600 font-semibold">{fw.passed} passed</span>
-                  <span className="text-red-500 font-semibold">{fw.failed} gaps</span>
-                  {fw.no_data > 0 && <span className="text-zinc-500">{fw.no_data} awaiting data</span>}
-                </div>
+              )}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#439385]">Security profile</p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900">{data.company_name}</h1>
+                <p className="mt-1 text-sm text-zinc-500">Continuous compliance monitoring summary</p>
+                {data.custom_message && (
+                  <p className="mt-3 max-w-lg text-sm leading-relaxed text-zinc-600">&ldquo;{data.custom_message}&rdquo;</p>
+                )}
               </div>
-            ))}
+            </div>
+            <StatusPill active={data.monitoring_active} />
           </div>
         </section>
 
-        {/* Top gaps */}
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-bold text-zinc-900">Open control gaps</h2>
-          {data.top_gaps.length === 0 ? (
-            <p className="text-sm text-zinc-600">
-              No open control gaps in the selected frameworks — posture is green for published frameworks.
+        <section className="grid gap-4 sm:grid-cols-2">
+          <SignalCard
+            title="Monitoring"
+            value={data.monitoring_active ? "Active" : "Pending"}
+            detail={data.scan_freshness_label}
+          />
+          <SignalCard
+            title="Evidence refresh"
+            value={REFRESH_LABELS[data.refresh_cadence] ?? data.refresh_cadence}
+            detail={`Frameworks: ${frameworkNames}`}
+          />
+          <SignalCard
+            title="Auditor access"
+            value={ACCESS_LABELS[data.auditor_access_model] ?? data.auditor_access_model}
+            detail="Detailed evidence shared privately with invited auditors."
+          />
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-bold text-zinc-900">Security controls monitored</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">
+              Automated posture checks mapped to industry frameworks. Detailed findings stay in the private workspace.
             </p>
-          ) : (
-            <ul className="divide-y divide-zinc-100">
-              {data.top_gaps.map((gap) => (
-                <li key={`${gap.framework}-${gap.control_id}`} className="py-3 first:pt-0 last:pb-0">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-zinc-900">
-                        {gap.control_id} · {gap.title}
-                      </p>
-                      <p className="text-xs text-zinc-500 mt-0.5">{gap.framework_label}</p>
-                    </div>
-                    <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200">
-                      {gap.open_findings} open finding{gap.open_findings === 1 ? "" : "s"}
-                    </span>
-                  </div>
+            <ul className="mt-4 space-y-2.5 text-sm text-zinc-700">
+              {data.monitoring_areas.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <span className="mt-0.5 shrink-0 text-[#439385]">
+                    <CheckIcon />
+                  </span>
+                  <span>{item}</span>
                 </li>
               ))}
             </ul>
-          )}
-          <p className="text-[11px] text-zinc-400 border-t border-zinc-100 pt-3">
-            Summary only — no resource names or account IDs are shown on this public page.
-          </p>
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-zinc-100 pt-4">
+              {data.frameworks.map((fw) => (
+                <FrameworkBadge key={fw.framework} label={fw.framework_label} />
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-bold text-zinc-900">Documents</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">
+              Compliance artifacts are shared on request — not published as a live scorecard.
+            </p>
+            <ul className="mt-4 divide-y divide-zinc-100">
+              {data.documents.map((doc) => (
+                <li key={doc.id} className="flex items-center justify-between gap-3 py-3 first:pt-0">
+                  <span className="text-sm font-medium text-zinc-800">{doc.label}</span>
+                  <span className="shrink-0 rounded-full bg-zinc-100 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-600">
+                    {documentAvailabilityLabel(doc.availability)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
-        {/* Footer */}
-        <div className="text-center pt-4 pb-8">
-          <div className="flex items-center justify-center gap-2 text-xs text-zinc-400">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-              />
-            </svg>
-            <span>
-              Powered by <strong>Vigil</strong> — continuous compliance evidence
-            </span>
-          </div>
+        <p className="border-t border-zinc-200 pt-4 text-center text-xs leading-relaxed text-zinc-400">
+          This page is a high-level security profile only. It does not list findings, control gaps, resource names, or
+          account identifiers. Auditors receive scoped access through a separate private portal.
+        </p>
+
+        <div className="flex items-center justify-center gap-2 pb-6 text-xs text-zinc-400">
+          <ShieldIcon className="h-4 w-4" />
+          <span>
+            Powered by <strong className="text-zinc-500">Vigil</strong> — continuous compliance evidence
+          </span>
         </div>
       </div>
     </TrustShell>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "neutral" | "ok" | "warn";
-}) {
-  const valueClass =
-    tone === "warn" ? "text-amber-800" : tone === "ok" ? "text-emerald-800" : "text-zinc-900";
-  const borderClass =
-    tone === "warn"
-      ? "border-amber-200 bg-amber-50/40"
-      : tone === "ok"
-        ? "border-emerald-200 bg-emerald-50/40"
-        : "border-zinc-200 bg-white";
-
+function StatusPill({ active }: { active: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${borderClass}`}>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{label}</div>
-      <div className={`mt-1 text-lg font-bold leading-snug ${valueClass}`}>{value}</div>
-      {sub && <div className="mt-1 text-[11px] text-zinc-500">{sub}</div>}
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${
+        active
+          ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
+          : "bg-zinc-100 text-zinc-600 ring-zinc-200"
+      }`}
+    >
+      <span className={`h-2 w-2 rounded-full ${active ? "bg-emerald-500" : "bg-zinc-400"}`} aria-hidden />
+      {active ? "Monitoring active" : "Monitoring pending"}
+    </span>
+  );
+}
+
+function SignalCard({ title, value, detail }: { title: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">{title}</p>
+      <p className="mt-1 text-sm font-bold text-zinc-900">{value}</p>
+      <p className="mt-1 text-xs leading-relaxed text-zinc-500">{detail}</p>
     </div>
+  );
+}
+
+function FrameworkBadge({ label }: { label: string }) {
+  return (
+    <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
+      {label}
+    </span>
   );
 }
 
 function TrustShell({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen bg-gradient-to-b from-zinc-50 to-white">{children}</div>;
+}
+
+function ShieldIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.6 3.82 10.3 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15A11.96 11.96 0 0 1 12 2.71Z"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
+  );
 }

@@ -138,7 +138,7 @@ NARRATIVES: dict[str, str] = {
     "CIS 1.11": (
         "Vigil flags IAM users with no console sign-in and access keys with no recorded API use "
         "within the CIS 45-day threshold, supporting credential deactivation per benchmark "
-        "guidance. Detection is automated on each scan; Vigil is read-only and never disables or "
+        "guidance. Detection is automated on each scan; Vigil never disables or "
         "deletes credentials — your team performs that change in AWS using the remediation "
         "guidance on each finding."
     ),
@@ -467,7 +467,7 @@ def evidence_refs_from_checks(check_ids: list[str]) -> list[str]:
 
 
 _READ_ONLY_POSTURE = (
-    "Vigil is read-only and performs detection only — it never disables, deletes, rotates, "
+    "Vigil performs detection only — it never disables, deletes, rotates, "
     "or modifies any resource in your AWS account. All remediation (including disabling or "
     "deleting stale or unused credentials) is performed by your team in your own environment; "
     "Vigil surfaces per-finding console/CLI guidance and re-verifies on the next scan."
@@ -477,7 +477,7 @@ _READ_ONLY_POSTURE = (
 def scope_limitations_for(framework: str) -> list[str]:
     """Platform-wide audit scope boundaries for evidence pack export artifacts.
 
-    The read-only posture is listed first for every framework so the auditor-facing
+    The detection-only posture is listed first for every framework so the auditor-facing
     README, source_manifest.json, and PDF all state that Vigil never writes to customer AWS.
     """
     return [_READ_ONLY_POSTURE, *PLATFORM_SCOPE_LIMITATIONS.get(framework, [])]

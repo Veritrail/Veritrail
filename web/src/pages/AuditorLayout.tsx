@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { auditorToken, clearAuditorToken, auditorApi } from "../api";
+import { AuditorAsOfProvider, AuditorAsOfBar } from "../components/AuditorAsOf";
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
@@ -39,6 +40,7 @@ export default function AuditorLayout() {
     : null;
 
   return (
+    <AuditorAsOfProvider>
     <div className="flex min-h-screen bg-zinc-50 text-zinc-900">
       <aside
         className="w-60 flex-shrink-0 sticky top-0 h-screen flex flex-col overflow-y-auto"
@@ -125,10 +127,12 @@ export default function AuditorLayout() {
       </aside>
 
       <main className="flex flex-1 flex-col overflow-auto">
+        <AuditorAsOfBar />
         <div className="flex-1 px-6 py-6">
           <Outlet />
         </div>
       </main>
     </div>
+    </AuditorAsOfProvider>
   );
 }

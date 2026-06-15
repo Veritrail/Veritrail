@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { auditorApi } from "../api";
+import { useAuditorAsOf } from "../components/AuditorAsOf";
 import "../styles/auditor.css";
 
 type AuditorFinding = {
@@ -27,6 +28,7 @@ type FindingsPage = {
 const LIMIT = 50;
 
 export default function AuditorFindings() {
+  const { asOf } = useAuditorAsOf();
   const [severity, setSeverity] = useState("");
   const [statusFilter, setStatusFilter] = useState("open");
   const [offset, setOffset] = useState(0);
@@ -36,9 +38,10 @@ export default function AuditorFindings() {
   if (statusFilter) params.set("status", statusFilter);
   params.set("limit", String(LIMIT));
   params.set("offset", String(offset));
+  if (asOf) params.set("as_of", asOf);
 
   const { data, isLoading } = useQuery<FindingsPage>({
-    queryKey: ["auditor-findings", severity, statusFilter, offset],
+    queryKey: ["auditor-findings", severity, statusFilter, offset, asOf],
     queryFn: () => auditorApi(`/auditor/findings?${params.toString()}`),
   });
 

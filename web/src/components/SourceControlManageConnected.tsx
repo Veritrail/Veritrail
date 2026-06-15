@@ -126,6 +126,10 @@ function ArrowIcon() {
 const HEADER_ACTION_BTN =
   "inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
 
+const HEADER_BTN_SECONDARY = `${HEADER_ACTION_BTN} border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-zinc-300 hover:bg-zinc-50`;
+
+const HEADER_BTN_PRIMARY_WHITE = `${HEADER_ACTION_BTN} border border-zinc-300 bg-white text-zinc-950 shadow-sm shadow-zinc-950/[0.04] hover:border-zinc-400 hover:bg-zinc-50`;
+
 type Props = {
   config: SourceControlManageConfig;
   provider: ProviderBase & Record<string, unknown>;
@@ -225,7 +229,7 @@ export function SourceControlManageConnected({
         <div className="flex shrink-0 flex-wrap gap-2">
           <Link
             to={config.editScopeHref}
-            className={`${HEADER_ACTION_BTN} border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-zinc-300 hover:bg-zinc-50`}
+            className={HEADER_BTN_SECONDARY}
           >
             Edit scope
           </Link>
@@ -233,7 +237,7 @@ export function SourceControlManageConnected({
             type="button"
             onClick={onSync}
             disabled={isSyncing || syncDisabled}
-            className={`${HEADER_ACTION_BTN} bg-[#2563eb] text-white shadow-sm shadow-blue-600/20 hover:bg-[#1d4ed8]`}
+            className={HEADER_BTN_PRIMARY_WHITE}
           >
             {isSyncing ? "Syncing…" : "Sync now"}
           </button>

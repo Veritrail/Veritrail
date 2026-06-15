@@ -1,0 +1,311 @@
+/* Masonry: cards flow down two balanced columns so varying heights pack
+   without the row-pairing gaps a rigid grid would leave. Full-width cards
+   (view-only banner, Advanced) span both columns. */
+.settings-grid {
+  column-count: 1;
+  column-gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .settings-grid {
+    column-count: 2;
+  }
+}
+
+.settings-card {
+  break-inside: avoid;
+  margin-bottom: 1rem;
+  border: 1px solid #e8edf3;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.settings-card--full {
+  column-span: all;
+}
+
+/* Top row: Scanning + Notifications side by side, equal height, aligned. */
+.settings-toprow {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: stretch;
+}
+
+@media (min-width: 1024px) {
+  .settings-toprow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.settings-toprow .settings-card {
+  height: 100%;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-toprow .settings-card__body {
+  flex: 1;
+}
+
+.settings-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 1.125rem 1.25rem;
+  text-align: left;
+}
+
+.settings-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+}
+
+.settings-card__icon--blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.settings-card__icon--violet {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+.settings-card__icon--green {
+  background: #ecfdf5;
+  color: #059669;
+}
+.settings-card__icon--amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+.settings-card__icon--indigo {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+.settings-card__icon--sky {
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.settings-card__titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-card__title {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.settings-card__subtitle {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.settings-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.settings-badge--on {
+  background: #ecfdf5;
+  color: #047857;
+}
+.settings-badge--info {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.settings-badge--off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.settings-badge--warn {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.settings-card__body {
+  border-top: 1px solid #f1f5f9;
+  padding: 1.125rem 1.25rem 1.25rem;
+}
+
+/* ── Redesigned master-detail settings ─────────────────────── */
+.settings2 {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1180px;
+}
+
+.settings2__main {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .settings2__main {
+    grid-template-columns: 19rem minmax(0, 1fr);
+  }
+}
+
+.settings2__nav {
+  border: 1px solid #e8edf3;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.settings2__search {
+  position: relative;
+}
+
+.settings2__search svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.settings2__search input {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  padding: 0.5625rem 0.75rem 0.5625rem 2.25rem;
+  font-size: 0.8125rem;
+  color: #0f172a;
+}
+
+.settings2__search input::placeholder {
+  color: #94a3b8;
+}
+
+.settings2__search input:focus {
+  outline: none;
+  border-color: transparent;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.settings2__navlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 0.625rem;
+  padding: 0.6875rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.12s, box-shadow 0.12s;
+}
+
+.nav-item:hover {
+  background: #f8fafc;
+}
+
+/* Quieter selected state: subtle fill + a thin teal accent bar, no loud outline. */
+.nav-item--active {
+  background: #f1f5f9;
+  box-shadow: inset 2px 0 0 #0d9488;
+}
+
+/* One calm, neutral icon treatment in the nav — no pastel rainbow. */
+.nav-item .settings-card__icon {
+  width: 2.125rem;
+  height: 2.125rem;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.nav-item--active .settings-card__icon {
+  background: #ccfbf1;
+  color: #0d9488;
+}
+
+.nav-item__titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.nav-item__title {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.nav-item--active .nav-item__title {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.nav-item__sub {
+  display: block;
+  margin-top: 0.0625rem;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+}
+
+.settings2__detail {
+  border: 1px solid #e8edf3;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  width: 100%;
+}
+
+.settings2__detail--compact {
+  max-width: 36rem;
+  justify-self: start;
+}
+
+.settings2__detailhead {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 1.25rem 1.375rem;
+}
+
+.settings2__detailbody {
+  border-top: 1px solid #f1f5f9;
+  padding: 1.375rem;
+}
