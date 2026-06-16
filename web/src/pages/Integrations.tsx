@@ -547,7 +547,7 @@ function IntegrationsContent() {
 
 export default function Integrations() {
   return (
-    <ProductShell>
+    <ProductShell className="flex min-h-full flex-col">
       <IntegrationsContent />
     </ProductShell>
   );

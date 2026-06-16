@@ -14,7 +14,13 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.auth_cookies import attach_refresh_cookie
-from app.core.security import current_principal, issue_mfa_challenge_token, issue_refresh_token, issue_token
+from app.core.security import (
+    current_principal,
+    issue_mfa_challenge_token,
+    issue_refresh_token,
+    issue_signup_pending_token,
+    issue_token,
+)
 from app.models import AwsAccount, Org, User
 from app.services.org_invites import provision_sso_user
 from app.services.user_session import record_user_session
@@ -59,14 +65,38 @@ def _valid_link_token(link_token: str | None) -> bool:
     return bool(link_token and link_token not in ("null", "undefined"))
 
 
-def _oauth_login_state(*, remember: str | None) -> str:
-    if remember == "0":
-        return "login-noremember"
-    return "login"
+def _oauth_login_state(*, remember: str | None, invite_token: str | None = None) -> str:
+    base = "login-noremember" if remember == "0" else "login"
+    if invite_token and invite_token not in ("null", "undefined"):
+        return f"{base}:{invite_token}"
+    return base
 
 
 def _remember_me_from_oauth_state(state: str | None) -> bool:
-    return state != "login-noremember"
+    if not state:
+        return True
+    return not state.startswith("login-noremember")
+
+
+def _invite_token_from_oauth_state(state: str | None) -> str | None:
+    if not state or state.startswith("link:"):
+        return None
+    if state in ("login", "login-noremember"):
+        return None
+    if state.startswith("login-noremember:"):
+        return state.split(":", 1)[1] or None
+    if state.startswith("login:"):
+        return state.split(":", 1)[1] or None
+    return None
+
+
+def _apply_pending_invite_after_oauth(db: Session, user: User, state: str | None) -> None:
+    invite_token = _invite_token_from_oauth_state(state)
+    if not invite_token:
+        return
+    from app.services.org_invites import accept_invite_for_user
+
+    accept_invite_for_user(db, invite_token, user)
 
 
 def _oauth_login_redirect(
@@ -138,6 +168,17 @@ def _provision_sso_user_or_redirect(
     try:
         return provision_sso_user(db, email=email, **identity_fields)
     except HTTPException as exc:
+        if exc.status_code == 403 and exc.detail == "signup_pending":
+            signup_token = issue_signup_pending_token(email, **identity_fields)
+            log.info("oauth.signup.pending", provider=provider, email=email)
+            qs = urlencode(
+                {
+                    "mode": "onboard",
+                    "signup_token": signup_token,
+                    "email": email,
+                }
+            )
+            return RedirectResponse(f"{_frontend_url()}/login?{qs}")
         if exc.status_code == 403:
             log.warning("oauth.signup.blocked", provider=provider, email=email)
             return RedirectResponse(f"{_frontend_url()}/login?error=no_account_for_idp")
@@ -209,13 +250,13 @@ def _claim_or_block(
 # ── Google ────────────────────────────────────────────────────────────────────
 
 @router.get("/google")
-def google_login(link_token: str | None = None, remember: str | None = None):
+def google_login(link_token: str | None = None, remember: str | None = None, invite_token: str | None = None):
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(400, "Google OAuth not configured")
     if _valid_link_token(link_token):
         state = f"link:{link_token}"
     else:
-        state = _oauth_login_state(remember=remember)
+        state = _oauth_login_state(remember=remember, invite_token=invite_token)
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": _google_callback_uri(),
@@ -322,6 +363,15 @@ def google_callback(
             )
         db.commit()
 
+        try:
+            _apply_pending_invite_after_oauth(db, user, state)
+            db.commit()
+        except HTTPException as exc:
+            log.warning("oauth.invite_accept_failed", provider="google", email=email, detail=exc.detail)
+            return RedirectResponse(
+                f"{_frontend_url()}/login?error=invite_accept_failed&invite_token={quote(_invite_token_from_oauth_state(state) or '', safe='')}"
+            )
+
         return _oauth_login_redirect(
             user,
             remember_me=_remember_me_from_oauth_state(state),
@@ -337,13 +387,13 @@ def google_callback(
 # ── GitHub ────────────────────────────────────────────────────────────────────
 
 @router.get("/github")
-def github_login(link_token: str | None = None, remember: str | None = None):
+def github_login(link_token: str | None = None, remember: str | None = None, invite_token: str | None = None):
     if not settings.GITHUB_CLIENT_ID:
         raise HTTPException(400, "GitHub OAuth not configured")
     if _valid_link_token(link_token):
         state = f"link:{link_token}"
     else:
-        state = _oauth_login_state(remember=remember)
+        state = _oauth_login_state(remember=remember, invite_token=invite_token)
     params = {
         "client_id": settings.GITHUB_CLIENT_ID,
         "redirect_uri": _github_callback_uri(),
@@ -463,6 +513,16 @@ def github_callback(
             )
 
         db.commit()
+
+        try:
+            _apply_pending_invite_after_oauth(db, user, state)
+            db.commit()
+        except HTTPException as exc:
+            log.warning("oauth.invite_accept_failed", provider="github", email=email, detail=exc.detail)
+            return RedirectResponse(
+                f"{_frontend_url()}/login?error=invite_accept_failed&invite_token={quote(_invite_token_from_oauth_state(state) or '', safe='')}"
+            )
+
         return _oauth_login_redirect(
             user,
             remember_me=_remember_me_from_oauth_state(state),
@@ -478,13 +538,13 @@ def github_callback(
 # ── GitLab ────────────────────────────────────────────────────────────────────
 
 @router.get("/gitlab")
-def gitlab_login(link_token: str | None = None, remember: str | None = None):
+def gitlab_login(link_token: str | None = None, remember: str | None = None, invite_token: str | None = None):
     if not settings.GITLAB_CLIENT_ID:
         raise HTTPException(400, "GitLab OAuth not configured")
     if _valid_link_token(link_token):
         state = f"link:{link_token}"
     else:
-        state = _oauth_login_state(remember=remember)
+        state = _oauth_login_state(remember=remember, invite_token=invite_token)
     params = {
         "client_id": settings.GITLAB_CLIENT_ID,
         "redirect_uri": _gitlab_callback_uri(),
@@ -609,6 +669,16 @@ def gitlab_callback(
             )
 
         db.commit()
+
+        try:
+            _apply_pending_invite_after_oauth(db, user, state)
+            db.commit()
+        except HTTPException as exc:
+            log.warning("oauth.invite_accept_failed", provider="gitlab", email=email, detail=exc.detail)
+            return RedirectResponse(
+                f"{_frontend_url()}/login?error=invite_accept_failed&invite_token={quote(_invite_token_from_oauth_state(state) or '', safe='')}"
+            )
+
         return _oauth_login_redirect(
             user,
             remember_me=_remember_me_from_oauth_state(state),

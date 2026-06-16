@@ -18,6 +18,7 @@ from app.core.security import (
     decode_mfa_challenge_token,
     decode_password_reset_token,
     decode_refresh_token,
+    decode_signup_pending_token,
     issue_mfa_challenge_token,
     issue_password_reset_token,
     issue_refresh_token,
@@ -151,11 +152,28 @@ class RefreshIn(BaseModel):
     refresh_token: str = ""
 
 
+class CompleteSignupIn(BaseModel):
+    signup_token: str
+    org_name: str = ""
+    invite_token: str | None = None
+
+
+class WorkspaceOut(BaseModel):
+    org_id: str
+    org_name: str
+    role: str
+
+
+class WorkspaceSwitchIn(BaseModel):
+    org_id: str
+
+
 @router.post("/signup")
 @limiter.limit("5/minute")
 def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
     from app.services.org_invites import block_signup_without_invite_when_pending, consume_invite_for_signup
     from app.services.org_activity import log_org_activity
+    from app.services.org_membership import add_membership
 
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
@@ -170,6 +188,7 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
             role=role,
         )
         db.add(user)
+        add_membership(db, user.id, org.id, role)
         log_org_activity(
             db,
             org_id=org.id,
@@ -200,6 +219,7 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
                 role=role,
             )
             db.add(user)
+            add_membership(db, user.id, org.id, role)
             log_org_activity(
                 db,
                 org_id=org.id,
@@ -225,7 +245,115 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
                 role="owner",
             )
             db.add_all([org, user])
+            add_membership(db, user.id, org.id, "owner")
 
+    db.commit()
+    return _issue_login_tokens(request, db, user, remember_me=True)
+
+
+@router.post("/complete-signup")
+@limiter.limit("10/minute")
+def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depends(get_db)):
+    from app.services.org_domain import assert_domain_available_for_new_workspace
+    from app.services.org_invites import consume_invite_for_signup
+    from app.services.org_activity import log_org_activity
+    from app.services.org_membership import add_membership
+    from app.services.org_provision import unique_org_slug
+
+    payload = decode_signup_pending_token(body.signup_token)
+    email = payload["email"]
+    if db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
+
+    identity_fields: dict[str, str] = {}
+    for field in ("google_id", "github_id", "gitlab_id"):
+        if payload.get(field):
+            identity_fields[field] = payload[field]
+
+    if not settings.ALLOW_SSO_SIGNUP and not body.invite_token:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "no_account_for_idp")
+
+    if body.invite_token:
+        org, role = consume_invite_for_signup(db, body.invite_token, email)
+        user = User(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            email=email,
+            password_hash="",
+            role=role,
+            **identity_fields,
+        )
+        db.add(user)
+        add_membership(db, user.id, org.id, role)
+        log_org_activity(
+            db,
+            org_id=org.id,
+            actor_user_id=user.id,
+            action="member.invite_accepted",
+            target_type="user",
+            target_id=str(user.id),
+            detail={"email": user.email, "role": role, "via": "sso_complete_signup"},
+        )
+    else:
+        if not body.org_name.strip():
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "org_name is required")
+        assert_domain_available_for_new_workspace(db, email)
+        org_name = body.org_name.strip()
+        org = Org(id=uuid.uuid4(), name=org_name, slug=unique_org_slug(db, org_name))
+        user = User(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            email=email,
+            password_hash="",
+            role="owner",
+            **identity_fields,
+        )
+        db.add_all([org, user])
+        add_membership(db, user.id, org.id, "owner")
+
+    db.commit()
+    return _issue_login_tokens(request, db, user, remember_me=True)
+
+
+@router.get("/workspaces", response_model=list[WorkspaceOut])
+def list_workspaces(
+    principal: dict = Depends(current_user_principal),
+    db: Session = Depends(get_db),
+):
+    from app.core.rbac import normalize_role
+    from app.services.org_membership import list_memberships
+
+    user = db.get(User, uuid.UUID(principal["sub"]))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    return [
+        WorkspaceOut(
+            org_id=str(org.id),
+            org_name=org.name or "Workspace",
+            role=normalize_role(membership.role),
+        )
+        for membership, org in list_memberships(db, user.id)
+    ]
+
+
+@router.post("/workspaces/switch")
+@limiter.limit("30/minute")
+def switch_workspace(
+    request: Request,
+    body: WorkspaceSwitchIn,
+    principal: dict = Depends(current_user_principal),
+    db: Session = Depends(get_db),
+):
+    from app.services.org_membership import set_active_workspace
+
+    user = db.get(User, uuid.UUID(principal["sub"]))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    try:
+        org_uuid = uuid.UUID(body.org_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid org_id") from exc
+    set_active_workspace(db, user, org_uuid)
     db.commit()
     return _issue_login_tokens(request, db, user, remember_me=True)
 
@@ -407,6 +535,7 @@ class MeOut(BaseModel):
     email: str
     role: str
     org_id: str
+    org_name: str
     github_id: str | None
     gitlab_id: str | None
     google_id: str | None
@@ -467,11 +596,13 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    org = db.get(Org, user.org_id)
     return MeOut(
         id=str(user.id),
         email=user.email,
         role=normalize_role(user.role),
         org_id=str(user.org_id),
+        org_name=(org.name if org else None) or "Workspace",
         github_id=user.github_id,
         gitlab_id=user.gitlab_id,
         google_id=user.google_id,

@@ -234,12 +234,21 @@ async def saml_acs(slug: str, request: Request, db: Session = Depends(get_db)):
     if not email:
         return _error_redirect("saml_no_email")
 
+    from app.services.org_membership import add_membership, get_membership, set_active_workspace
+
     user = db.scalar(select(User).where(User.email == email))
-    if user and user.org_id != cfg.org_id:
-        # Global email uniqueness: this identity already belongs to another org.
-        log.warning("saml.email_other_org", slug=slug, email=email)
-        return _error_redirect("saml_email_other_org")
-    if not user:
+    if user:
+        membership = get_membership(db, user.id, cfg.org_id)
+        if membership:
+            set_active_workspace(db, user, cfg.org_id)
+        else:
+            if not settings.ALLOW_SSO_SIGNUP:
+                log.warning("saml.signup_blocked", slug=slug, email=email)
+                return _error_redirect("no_account_for_idp")
+            add_membership(db, user.id, cfg.org_id, "viewer")
+            set_active_workspace(db, user, cfg.org_id)
+            log.info("saml.jit_membership", slug=slug, email=email, org_id=str(cfg.org_id))
+    else:
         if not settings.ALLOW_SSO_SIGNUP:
             log.warning("saml.signup_blocked", slug=slug, email=email)
             return _error_redirect("no_account_for_idp")
@@ -251,6 +260,7 @@ async def saml_acs(slug: str, request: Request, db: Session = Depends(get_db)):
             role="viewer",
         )
         db.add(user)
+        add_membership(db, user.id, cfg.org_id, "viewer")
         log.info("saml.jit_provisioned", slug=slug, email=email, org_id=str(cfg.org_id))
 
     db.commit()

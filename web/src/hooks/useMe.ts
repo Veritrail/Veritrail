@@ -8,6 +8,7 @@ export type Me = {
   email: string;
   role: OrgRole;
   org_id: string;
+  org_name: string;
 };
 
 const ROLE_RANK: Record<OrgRole, number> = {

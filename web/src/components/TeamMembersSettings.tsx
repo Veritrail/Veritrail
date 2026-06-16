@@ -113,6 +113,10 @@ export function TeamMembersSettings() {
     >
       <div className={accessComposer}>
         <p className="mb-2 text-xs font-semibold text-zinc-600">Invite a member</p>
+        <p className="mb-2 text-xs text-zinc-500">
+          For people who do not have a Vigil account yet — contractors and personal emails are fine. If they already
+          belong to another workspace, they must leave that account first or use a different email.
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="email"

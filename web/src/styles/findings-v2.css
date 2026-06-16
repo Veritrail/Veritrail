@@ -145,6 +145,45 @@
   background: rgba(248, 250, 252, 0.8);
 }
 
+/* Findings: white toolbar so the page reads white -> grey column head -> white
+   rows, matching the History page. Scoped to Findings; Compliance keeps grey. */
+.findings-v2-page .findings-v2-table-toolbar {
+  background: #ffffff;
+}
+
+/* Findings toolbar buttons adopt the History filter-button family: flat (no
+   shadow), 8px radius, lighter border, #374151 text. Scoped to Findings. */
+.findings-v2-page .findings-v2-toolbar-btn {
+  border-radius: 0.5rem;
+  border-color: #cbd5e1;
+  color: #374151;
+  box-shadow: none;
+}
+
+.findings-v2-page .findings-v2-toolbar-btn:hover:not(:disabled) {
+  border-color: #9aa7b8;
+  background: #f9fafb;
+  color: #111827;
+}
+
+/* Scan = Vigil teal primary, not a neutral outline. */
+.findings-v2-page .findings-v2-toolbar-btn--scan {
+  border-color: #0d9488;
+  background: #0d9488;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(13, 148, 136, 0.28);
+}
+
+.findings-v2-page .findings-v2-toolbar-btn--scan:hover:not(:disabled) {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.findings-v2-page .findings-v2-toolbar-btn--scan svg {
+  color: #ffffff;
+}
+
 .findings-v2-filter-cluster,
 .findings-v2-control-cluster {
   display: flex;
@@ -206,10 +245,11 @@
   padding: 0.5rem 1rem 0.625rem;
   border-bottom: 1px solid var(--fv-divider);
   background: #f8fafc;
-  color: var(--fv-meta);
-  font-size: 11px;
+  /* Match History column-header typography. */
+  color: #6b7280;
+  font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 

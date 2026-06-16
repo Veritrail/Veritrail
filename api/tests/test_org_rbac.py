@@ -13,7 +13,14 @@ from app.core.rbac import normalize_role, require_min_role, role_at_least
 from app.core.security import issue_token
 from app.models.org import Org, User
 from app.models.org_team import OrgInvite
-from app.services.org_invites import consume_invite_for_signup, create_invite, get_valid_invite
+from app.services.org_invites import (
+    accept_invite_for_user,
+    consume_invite_for_signup,
+    create_invite,
+    ensure_email_invitable,
+    get_valid_invite,
+    provision_sso_user,
+)
 
 
 def _user(role: str, *, org_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> User:
@@ -107,6 +114,55 @@ def test_consume_invite_for_signup_sets_role_and_accepts():
     assert invite.accepted_at is not None
 
 
+def test_ensure_email_invitable_allows_unknown_email():
+    db = MagicMock()
+    org = MagicMock(spec=Org)
+    org.id = uuid.uuid4()
+    db.scalar.side_effect = [None, None]
+
+    ensure_email_invitable(db, org, "contractor@gmail.com")
+
+
+def test_ensure_email_invitable_rejects_existing_member():
+    db = MagicMock()
+    org = MagicMock(spec=Org)
+    org.id = uuid.uuid4()
+    existing = MagicMock(spec=User)
+    existing.id = uuid.uuid4()
+    membership = MagicMock()
+    db.scalar.side_effect = [existing, membership]
+
+    with pytest.raises(HTTPException) as exc:
+        ensure_email_invitable(db, org, "member@example.com")
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "User is already a member of this workspace"
+
+
+def test_ensure_email_invitable_allows_user_on_other_workspace():
+    db = MagicMock()
+    org = MagicMock(spec=Org)
+    org.id = uuid.uuid4()
+    existing = MagicMock(spec=User)
+    existing.id = uuid.uuid4()
+    existing.org_id = uuid.uuid4()
+    db.scalar.side_effect = [existing, None, None]
+
+    ensure_email_invitable(db, org, "zenmyx@gmail.com")
+
+
+def test_ensure_email_invitable_rejects_pending_invite():
+    db = MagicMock()
+    org = MagicMock(spec=Org)
+    org.id = uuid.uuid4()
+    pending = MagicMock(spec=OrgInvite)
+    db.scalar.side_effect = [None, pending]
+
+    with pytest.raises(HTTPException) as exc:
+        ensure_email_invitable(db, org, "pending@example.com")
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "Pending invite already exists for this email"
+
+
 def test_get_valid_invite_rejects_email_mismatch():
     db = MagicMock()
     invite = OrgInvite(
@@ -122,6 +178,53 @@ def test_get_valid_invite_rejects_email_mismatch():
     with pytest.raises(HTTPException) as exc:
         get_valid_invite(db, invite.token, email="b@example.com")
     assert exc.value.status_code == 400
+
+
+def test_accept_invite_for_user_cross_org_switches_workspace():
+    """Existing user on solo org can accept invite into another workspace."""
+    from app.models.org_team import OrgMembership
+
+    solo_org = uuid.uuid4()
+    target_org = uuid.uuid4()
+    user = MagicMock(spec=User)
+    user.id = uuid.uuid4()
+    user.email = "zenmyx@gmail.com"
+    user.org_id = solo_org
+    user.role = "owner"
+
+    org = MagicMock(spec=Org)
+    org.id = target_org
+    org.name = "Cloud Castles"
+
+    invite = OrgInvite(
+        org_id=target_org,
+        email="zenmyx@gmail.com",
+        role="viewer",
+        token="x" * 64,
+        status="pending",
+        expires_at=None,
+    )
+    new_membership = OrgMembership(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        org_id=target_org,
+        role="viewer",
+    )
+
+    db = MagicMock()
+    db.get.return_value = org
+    db.scalar.side_effect = [invite, None, new_membership]
+
+    with patch("app.services.org_invites.add_membership", return_value=new_membership):
+        org_out, role = accept_invite_for_user(db, invite.token, user)
+
+    db.flush.assert_called()
+    assert org_out is org
+    assert role == "viewer"
+    assert user.org_id == target_org
+    assert user.role == "viewer"
+    assert invite.status == "accepted"
+    assert invite.accepted_at is not None
 
 
 # ── Members routes (mocked DB) ──────────────────────────────────────
@@ -315,8 +418,11 @@ def test_auth_me_includes_role(client):
     user.password_hash = "hashed"
     user.mfa_backup_codes = []
 
+    org = MagicMock()
+    org.name = "Acme Corp"
+
     db = MagicMock()
-    db.get.return_value = user
+    db.get.side_effect = [user, org]
 
     client.app.dependency_overrides[current_principal] = lambda: {
         "sub": str(user_id),
@@ -330,6 +436,7 @@ def test_auth_me_includes_role(client):
         body = res.json()
         assert body["role"] == "owner"
         assert body["org_id"] == str(org_id)
+        assert body["org_name"] == "Acme Corp"
         assert body["email"] == "owner@acme.com"
         assert body["has_password"] is True
     finally:
@@ -350,3 +457,92 @@ def test_domain_managed_blocks_new_workspace():
         assert_domain_available_for_new_workspace(db, "newhire@acme.com")
     assert exc.value.status_code == 409
     assert "invite" in str(exc.value.detail).lower()
+
+
+def test_provision_sso_user_returns_signup_pending_without_invite():
+    db = MagicMock()
+    db.scalar.side_effect = [None, None]
+
+    with pytest.raises(HTTPException) as exc:
+        provision_sso_user(db, email="new@gmail.com", google_id="gid-1")
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "signup_pending"
+
+
+def test_signup_pending_token_roundtrip():
+    from app.core.security import decode_signup_pending_token, issue_signup_pending_token
+
+    tok = issue_signup_pending_token("user@gmail.com", google_id="g123")
+    payload = decode_signup_pending_token(tok)
+    assert payload["email"] == "user@gmail.com"
+    assert payload["google_id"] == "g123"
+
+
+def test_complete_signup_creates_org(client):
+    from app.core.db import get_db
+    from app.core.security import issue_signup_pending_token
+
+    signup_token = issue_signup_pending_token("sso-new@gmail.com", google_id="g-new")
+    db = MagicMock()
+    db.scalar.return_value = None
+    db.get.return_value = None
+
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        res = client.post(
+            "/v1/auth/complete-signup",
+            json={"signup_token": signup_token, "org_name": "My Workspace"},
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["access_token"]
+        assert body["org_id"]
+        assert db.add_all.called or db.add.call_count >= 2
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+def test_switch_workspace_returns_new_tokens(client):
+    from app.core.db import get_db
+    from app.core.security import current_user_principal
+    from app.models.org_team import OrgMembership
+
+    user_id = uuid.uuid4()
+    org_a = uuid.uuid4()
+    org_b = uuid.uuid4()
+    user = MagicMock()
+    user.id = user_id
+    user.org_id = org_a
+    user.email = "multi@example.com"
+    user.role = "owner"
+    user.totp_enabled = False
+
+    membership_b = MagicMock(spec=OrgMembership)
+    membership_b.org_id = org_b
+    membership_b.role = "viewer"
+
+    db = MagicMock()
+    db.get.return_value = user
+    db.scalar.return_value = membership_b
+
+    client.app.dependency_overrides[current_user_principal] = lambda: {
+        "sub": str(user_id),
+        "org_id": str(org_a),
+    }
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    try:
+        res = client.post(
+            "/v1/auth/workspaces/switch",
+            headers=_auth_header("owner", str(org_a), str(user_id)),
+            json={"org_id": str(org_b)},
+        )
+        assert res.status_code == 200
+        body = res.json()
+        assert body["org_id"] == str(org_b)
+        assert body["access_token"]
+        assert user.org_id == org_b
+        assert user.role == "viewer"
+    finally:
+        client.app.dependency_overrides.clear()

@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, BASE, formatApiError, logout, token } from "../api";
+import { api, BASE, formatApiError, logout, storeTokens, token } from "../api";
 import { BrowserIcon } from "../components/BrowserIcon";
 import { deviceLabel, detectBrowser } from "../lib/browserDetect";
 
@@ -384,6 +384,12 @@ function ProviderLogo({ provider }: { provider: "github" | "gitlab" | "google" }
   );
 }
 
+interface WorkspaceEntry {
+  org_id: string;
+  org_name: string;
+  role: string;
+}
+
 export default function Account() {
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -391,6 +397,27 @@ export default function Account() {
   const { data: me } = useQuery<Me>({
     queryKey: ["me"],
     queryFn: () => api("/v1/auth/me"),
+  });
+
+  const { data: workspaces = [] } = useQuery<WorkspaceEntry[]>({
+    queryKey: ["workspaces"],
+    queryFn: () => api("/v1/auth/workspaces"),
+    enabled: !!me,
+  });
+
+  const switchWorkspace = useMutation({
+    mutationFn: (orgId: string) =>
+      api<{ access_token: string }>("/v1/auth/workspaces/switch", {
+        method: "POST",
+        body: JSON.stringify({ org_id: orgId }),
+      }),
+    onSuccess: (data) => {
+      storeTokens(data.access_token);
+      qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: ["workspaces"] });
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      window.location.reload();
+    },
   });
 
   const { data: session } = useQuery<SessionInfo>({
@@ -652,6 +679,26 @@ export default function Account() {
           <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
             Signed in as <span className="font-semibold text-slate-700">{me.email}</span>
+            {workspaces.length > 1 && (
+              <label className="inline-flex items-center gap-1.5 text-sm">
+                <span className="text-slate-500">·</span>
+                <span className="text-slate-500">Workspace</span>
+                <select
+                  className="rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-sm font-medium text-slate-700"
+                  value={me.org_id}
+                  disabled={switchWorkspace.isPending}
+                  onChange={(e) => {
+                    if (e.target.value !== me.org_id) switchWorkspace.mutate(e.target.value);
+                  }}
+                >
+                  {workspaces.map((ws) => (
+                    <option key={ws.org_id} value={ws.org_id}>
+                      {ws.org_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
               Verified

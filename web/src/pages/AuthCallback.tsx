@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { storeTokens } from "../api";
+import { api, storeTokens } from "../api";
 import { postAuthPath } from "../lib/postAuthRedirect";
+
+const PENDING_INVITE_KEY = "vigil_pending_invite_token";
 
 export default function AuthCallback() {
   const nav = useNavigate();
@@ -15,12 +17,27 @@ export default function AuthCallback() {
     const token = params.get("token");
     const error = params.get("error");
 
-    if (token) {
-      storeTokens(token);
-      void postAuthPath().then((path) => nav(path, { replace: true }));
-    } else {
-      nav(`/login?error=${error ?? "unknown"}`, { replace: true });
-    }
+    void (async () => {
+      if (token) {
+        storeTokens(token);
+        const pendingInvite = sessionStorage.getItem(PENDING_INVITE_KEY);
+        if (pendingInvite) {
+          try {
+            const res = await api<{ access_token: string }>("/v1/members/invites/accept", {
+              method: "POST",
+              body: JSON.stringify({ token: pendingInvite }),
+            });
+            sessionStorage.removeItem(PENDING_INVITE_KEY);
+            storeTokens(res.access_token);
+          } catch {
+            /* fall through — user can reopen invite link */
+          }
+        }
+        nav(await postAuthPath(), { replace: true });
+      } else {
+        nav(`/login?error=${error ?? "unknown"}`, { replace: true });
+      }
+    })();
   }, [nav, params]);
 
   return (

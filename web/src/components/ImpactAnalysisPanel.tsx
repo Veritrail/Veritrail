@@ -112,7 +112,7 @@ export function ImpactAnalysisEmpty({ onRun }: { onRun: () => void }) {
           ))}
         </ul>
 
-        <button type="button" onClick={onRun} className="impact-analyze-button impact-analyze-button--primary">
+        <button type="button" onClick={onRun} className="impact-analyze-button impact-analyze-button--secondary">
           <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
             <path
               strokeLinecap="round"

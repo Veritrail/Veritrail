@@ -2,11 +2,24 @@ import {
   anyRemediationEnabled,
   type RemediationModules,
 } from "../data/remediationModules";
+import { extractAccountIdFromIamRoleArn } from "./awsArn";
 
 /** How the connector behaves after deploy (core is always read-only scan). */
 export type ConnectionPosture = "read-only" | "read-only-analysis" | "scoped-write";
 
 export const SCANNER_ROLE_NAME = "VigilScannerRole";
+/** Placeholder account id when the real AWS account id is not known yet. */
+export const UNKNOWN_AWS_ACCOUNT_ID = "000000000000";
+
+/** Example / placeholder Role ARN for onboarding inputs. */
+export function scannerRoleArnExample(
+  accountId?: string | null,
+  typedRoleArn?: string,
+): string {
+  const fromTyped = typedRoleArn ? extractAccountIdFromIamRoleArn(typedRoleArn) : null;
+  const id = fromTyped ?? accountId ?? UNKNOWN_AWS_ACCOUNT_ID;
+  return `arn:aws:iam::${id}:role/${SCANNER_ROLE_NAME}`;
+}
 /** Legacy split-stack policy-gen role; new deploys use one connector role only. */
 export const POLICY_GENERATION_ROLE_NAME = "VigilPolicyGenerationRole";
 export const SCANNER_ROLE_NAME_LEGACY = "VigilReadOnlyScannerRole";

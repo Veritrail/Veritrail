@@ -156,7 +156,7 @@ export function TrustCenterSettings() {
                         key={fw.key}
                         className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                           checked
-                            ? "border-[#439385]/40 bg-[#439385]/10 text-[#2f6d63]"
+                            ? "border-zinc-300 bg-zinc-900 text-white"
                             : "border-zinc-200 bg-white text-zinc-600"
                         }`}
                       >
@@ -196,7 +196,7 @@ export function TrustCenterSettings() {
                 type="button"
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending || !canSave}
-                className="rounded-lg bg-[#439385] px-4 py-2 text-sm font-semibold text-white hover:bg-[#367a6f] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mutation.isPending ? "Saving…" : "Save"}
               </button>
@@ -224,7 +224,7 @@ export function TrustCenterSettings() {
               type="button"
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending}
-              className="rounded-lg bg-[#439385] px-4 py-2 text-sm font-semibold text-white hover:bg-[#367a6f] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {mutation.isPending ? "Saving…" : "Save"}
             </button>

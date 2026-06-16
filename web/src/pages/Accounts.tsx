@@ -26,7 +26,11 @@ import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { isAccountConnected } from "../lib/accountConnection";
 import { friendlyScanFailureMessage } from "../lib/scanFailureMessages";
-import { CONNECTOR_STACK_NAME, SCANNER_ROLE_NAME } from "../lib/connectionPosture";
+import {
+  CONNECTOR_STACK_NAME,
+  SCANNER_ROLE_NAME,
+  scannerRoleArnExample,
+} from "../lib/connectionPosture";
 
 type ConnectionOptions = {
   enable_advanced_policy_generation: boolean;
@@ -685,8 +689,8 @@ function FindingsMixDonut({ stats, hasScanned }: { stats: FindingStats | undefin
         </div>
       </div>
       <div>
-        <p className="text-sm font-bold text-zinc-900">Severity breakdown</p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+        <p className="text-center text-sm font-bold text-zinc-900">Severity breakdown</p>
+        <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-zinc-500">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden />
             <span className="font-semibold tabular-nums text-zinc-800">{hasScanned ? critHigh : "—"}</span> C/H
@@ -699,12 +703,6 @@ function FindingsMixDonut({ stats, hasScanned }: { stats: FindingStats | undefin
             <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
             <span className="font-semibold tabular-nums text-zinc-800">{hasScanned ? low : "—"}</span> L
           </span>
-          {hasScanned && info > 0 ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-zinc-400" aria-hidden />
-              <span className="font-semibold tabular-nums text-zinc-800">{info}</span> Info
-            </span>
-          ) : null}
           {hasScanned && other > 0 ? (
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-zinc-400" aria-hidden />
@@ -748,6 +746,7 @@ function CopyInputField({
   placeholder,
   onChange,
   validation,
+  accountId,
 }: {
   label: string;
   value: string;
@@ -755,8 +754,10 @@ function CopyInputField({
   placeholder?: string;
   onChange?: (v: string) => void;
   validation?: "idle" | "pending" | "success" | "error" | "invalid-format";
+  accountId?: string | null;
 }) {
   const [copied, setCopied] = useState(false);
+  const roleArnExample = scannerRoleArnExample(accountId, value);
 
   async function copy() {
     await navigator.clipboard.writeText(value);
@@ -783,7 +784,7 @@ function CopyInputField({
           type="text"
           readOnly={readOnly}
           value={value}
-          placeholder={placeholder}
+          placeholder={placeholder ?? roleArnExample}
           onChange={
             readOnly
               ? undefined
@@ -825,7 +826,7 @@ function CopyInputField({
       )}
       {validation === "invalid-format" && (
         <p className="mt-1.5 text-xs text-red-600">
-          Enter a valid IAM role ARN (e.g. arn:aws:iam::123456789012:role/VigilScannerRole)
+          Enter a valid IAM role ARN (e.g. {roleArnExample})
         </p>
       )}
       {validation === "error" && (
@@ -1646,7 +1647,7 @@ function AccountDetailsPanel({
           label="Role ARN"
           value={roleArn}
           readOnly={false}
-          placeholder={`arn:aws:iam::123456789012:role/${SCANNER_ROLE_NAME}`}
+          accountId={acc.account_id}
           onChange={setRoleArn}
           validation={roleArnValidation}
         />
@@ -2201,7 +2202,7 @@ function InCardAccountSetupWizard({
               label="Role ARN"
               value={roleArn}
               readOnly={false}
-              placeholder={`arn:aws:iam::123456789012:role/${SCANNER_ROLE_NAME}`}
+              accountId={acc.account_id}
               onChange={setRoleArn}
               validation={roleArnValidation}
             />
@@ -2227,7 +2228,7 @@ function InCardAccountSetupWizard({
               label="Role ARN"
               value={roleArn}
               readOnly={false}
-              placeholder={`arn:aws:iam::123456789012:role/${SCANNER_ROLE_NAME}`}
+              accountId={acc.account_id}
               onChange={setRoleArn}
               validation={roleArnValidation}
             />
@@ -2603,7 +2604,7 @@ function AccountCardActionBar({
       <button type="button" onClick={onViewFindings} className={neutralToolbarBtn}>
         Findings
       </button>
-      <button type="button" onClick={onRescan} disabled={scanDisabled} className={neutralToolbarBtn}>
+      <button type="button" onClick={onRescan} disabled={scanDisabled} className={`${neutralToolbarBtn} account-scan-btn`}>
         {scanRunning ? "Scanning…" : "Scan"}
       </button>
     </div>
@@ -2810,8 +2811,8 @@ function AccountCard({
   return (
     <div className={`group ${cardClass} ${!connected ? "border-l-[3px] border-l-amber-400" : ""}`}>
       {connected ? (
-        <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-[minmax(26rem,1.6fr)_8.75rem_auto_auto] xl:items-center xl:gap-x-5 xl:px-5 xl:py-4">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
+        <div className="flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between xl:gap-x-6 xl:px-5 xl:py-4">
+          <div className="flex min-w-0 items-start gap-3">
             <AwsIconTile compact />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -3076,7 +3077,7 @@ export default function Accounts() {
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="mx-auto w-full max-w-[84rem] space-y-6">
+    <div className="accounts-page mx-auto w-full max-w-[84rem] space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-600">Cloud coverage</p>

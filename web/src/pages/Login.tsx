@@ -4,7 +4,7 @@ import { api, BASE, formatApiError, restoreSession, storeTokens, token } from ".
 import { postAuthPath } from "../lib/postAuthRedirect";
 import "../styles/login-auth.css";
 
-type AuthMode = "login" | "signup" | "forgot";
+type AuthMode = "login" | "signup" | "forgot" | "onboard";
 
 interface LoginResponse {
   access_token?: string | null;
@@ -16,6 +16,8 @@ interface LoginResponse {
 
 const MFA_STORAGE_KEY = "vigil_mfa_token";
 const PENDING_CREDENTIALS_KEY = "vigil_pending_credentials";
+
+const PENDING_INVITE_KEY = "vigil_pending_invite_token";
 
 function oauthErrorMessage(code: string): string {
   switch (code) {
@@ -36,7 +38,11 @@ function oauthErrorMessage(code: string): string {
     case "no_account_for_idp":
       return "No account matches that sign-in. Sign up first, then connect this provider.";
     case "domain_managed":
-      return "This email domain already has a Vigil workspace. Ask your admin for an invite.";
+      return "This email domain already has a Vigil workspace. Ask your admin for an invite, or choose a different workspace name.";
+    case "invite_accept_failed":
+      return "Could not join the workspace from your invite. Open the invite link again and try once more.";
+    case "signup_pending":
+      return "Finish setting up your workspace to continue.";
     case "saml_invalid_response":
     case "saml_not_authenticated":
       return "SSO sign-in failed. Contact your administrator.";
@@ -156,23 +162,26 @@ function GitLabIcon() {
   );
 }
 
-function AuthOAuthButtons({ rememberMe }: { rememberMe: boolean }) {
-  const rememberQuery = rememberMe ? "" : "?remember=0";
+function AuthOAuthButtons({ rememberMe, inviteToken }: { rememberMe: boolean; inviteToken?: string | null }) {
+  const params = new URLSearchParams();
+  if (!rememberMe) params.set("remember", "0");
+  if (inviteToken) params.set("invite_token", inviteToken);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
   return (
     <>
       <div className="auth-divider">
         <span>or continue with</span>
       </div>
       <div className="auth-oauth-grid">
-        <a href={`${BASE}/v1/auth/google${rememberQuery}`} className="auth-oauth-btn">
+        <a href={`${BASE}/v1/auth/google${suffix}`} className="auth-oauth-btn">
           <GoogleIcon />
           Google
         </a>
-        <a href={`${BASE}/v1/auth/github${rememberQuery}`} className="auth-oauth-btn">
+        <a href={`${BASE}/v1/auth/github${suffix}`} className="auth-oauth-btn">
           <GitHubIcon />
           GitHub
         </a>
-        <a href={`${BASE}/v1/auth/gitlab${rememberQuery}`} className="auth-oauth-btn">
+        <a href={`${BASE}/v1/auth/gitlab${suffix}`} className="auth-oauth-btn">
           <GitLabIcon />
           GitLab
         </a>
@@ -204,12 +213,16 @@ export default function Login() {
   const [params, setParams] = useSearchParams();
   const inviteToken = params.get("invite_token");
   const inviteEmail = params.get("email");
+  const signupToken = params.get("signup_token");
   const [mode, setMode] = useState<AuthMode>(() => {
     if (params.get("mode") === "forgot") return "forgot";
-    if (params.get("mode") === "signup" || params.get("invite_token")) return "signup";
+    if (params.get("mode") === "onboard" || params.get("signup_token")) return "onboard";
+    if (params.get("mode") === "login") return "login";
+    if (params.get("mode") === "signup") return "signup";
+    if (params.get("invite_token")) return "login";
     return "login";
   });
-  const [email, setEmail] = useState(() => inviteEmail ?? "");
+  const [email, setEmail] = useState(() => inviteEmail ?? params.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [orgName, setOrgName] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -244,9 +257,22 @@ export default function Login() {
   }, [location.state]);
 
   useEffect(() => {
+    if (inviteToken) sessionStorage.setItem(PENDING_INVITE_KEY, inviteToken);
+  }, [inviteToken]);
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       if (token()) {
+        if (inviteToken) {
+          try {
+            const access = await acceptInviteAfterLogin(token()!);
+            storeTokens(access);
+          } catch {
+            if (!cancelled) setCheckingSession(false);
+            return;
+          }
+        }
         if (!cancelled) nav(await postAuthPath(), { replace: true });
         return;
       }
@@ -333,6 +359,47 @@ export default function Login() {
     }
   }
 
+  async function acceptInviteAfterLogin(accessToken: string) {
+    const pending = inviteToken ?? sessionStorage.getItem(PENDING_INVITE_KEY);
+    if (!pending) return accessToken;
+    const res = await api<{ access_token: string }>("/v1/members/invites/accept", {
+      method: "POST",
+      body: JSON.stringify({ token: pending }),
+    });
+    sessionStorage.removeItem(PENDING_INVITE_KEY);
+    return res.access_token;
+  }
+
+  async function submitOnboard(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErr(null);
+    if (!signupToken) {
+      setErr("Signup session expired — sign in again.");
+      return;
+    }
+    if (!inviteToken && !orgName.trim()) {
+      setErr("Enter your organization name.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api<{ access_token: string }>("/v1/auth/complete-signup", {
+        method: "POST",
+        body: JSON.stringify({
+          signup_token: signupToken,
+          org_name: inviteToken ? "" : orgName,
+          ...(inviteToken ? { invite_token: inviteToken } : {}),
+        }),
+      });
+      storeTokens(res.access_token);
+      nav(await postAuthPath());
+    } catch (e) {
+      setErr(formatApiError(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErr(null);
@@ -406,6 +473,8 @@ export default function Login() {
       }
       clearMfaToken();
       storeTokens(res.access_token);
+      const accessToken = await acceptInviteAfterLogin(res.access_token);
+      if (accessToken !== res.access_token) storeTokens(accessToken);
       if (mode === "login") {
         await offerCredentialSave(e.currentTarget);
         sessionStorage.removeItem(PENDING_CREDENTIALS_KEY);
@@ -444,6 +513,8 @@ export default function Login() {
       });
       clearMfaToken();
       storeTokens(res.access_token);
+      const accessToken = await acceptInviteAfterLogin(res.access_token);
+      if (accessToken !== res.access_token) storeTokens(accessToken);
       const pending = takePendingCredentials();
       if (pending) await offerCredentialSave(null, pending);
       nav(await postAuthPath());
@@ -515,6 +586,54 @@ export default function Login() {
             <button type="button" className="auth-back-link" onClick={exitMfa}>
               Back to sign in
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "onboard") {
+    return (
+      <div className="auth-shell">
+        <div className="auth-shell__inner">
+          <div className="auth-card">
+            <header className="auth-card__header auth-card__header--signup">
+              <h1 className="auth-card__title">Create your workspace</h1>
+              <p className="auth-card__subtitle">
+                {email ? `Signed in as ${email}` : "Choose a workspace name to finish sign-up."}
+              </p>
+            </header>
+
+            <form noValidate onSubmit={submitOnboard}>
+              {!inviteToken && (
+                <div className="auth-field">
+                  <label htmlFor="organization" className="auth-field__label">
+                    Workspace name
+                  </label>
+                  <input
+                    id="organization"
+                    name="organization"
+                    autoComplete="organization"
+                    className="auth-field__input !px-3"
+                    value={orgName}
+                    onChange={e => setOrgName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              )}
+              {inviteToken && (
+                <p className="auth-invite-note">
+                  You&apos;re joining via workspace invite. Organization is set by your inviter.
+                </p>
+              )}
+
+              {err && <div className="auth-alert">{err}</div>}
+
+              <button type="submit" className="auth-submit" disabled={loading || !signupToken}>
+                {loading ? "Please wait…" : inviteToken ? "Join workspace" : "Create workspace"}
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -768,7 +887,7 @@ export default function Login() {
             </button>
           </form>
 
-          <AuthOAuthButtons rememberMe={rememberMe} />
+          <AuthOAuthButtons rememberMe={rememberMe} inviteToken={inviteToken} />
           <AuthLegalFooter mode={mode} />
 
           <div className="auth-mode-switch">

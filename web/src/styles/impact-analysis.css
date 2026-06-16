@@ -172,6 +172,27 @@
   background: var(--ia-primary-hover);
 }
 
+/* Teal secondary — outline, subordinate to the primary Verify fix action. */
+.impact-analyze-button--secondary {
+  gap: 8px;
+  margin-top: 18px;
+  border-color: var(--ia-primary);
+  background: #ffffff;
+  color: var(--ia-primary);
+}
+
+.impact-analyze-button--secondary svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.impact-analyze-button--secondary:hover {
+  border-color: var(--ia-primary-hover);
+  background: rgba(67, 147, 133, 0.08);
+  color: var(--ia-primary-hover);
+}
+
 .impact-empty-lead {
   margin: 0;
   max-width: 20rem;

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.org import Org, User
 from app.models.org_team import ORG_ROLES, OrgInvite
+from app.services.org_membership import add_membership, get_membership
 
 
 def _normalize_email(email: str) -> str:
@@ -63,10 +64,8 @@ def ensure_can_invite_role(inviter: User, target_role: str) -> None:
 def ensure_email_invitable(db: Session, org: Org, email: str) -> None:
     normalized = _normalize_email(email)
     existing = db.scalar(select(User).where(User.email == normalized))
-    if existing:
-        if existing.org_id == org.id:
-            raise HTTPException(status.HTTP_409_CONFLICT, "User is already a member of this workspace")
-        raise HTTPException(status.HTTP_409_CONFLICT, "Email is registered to another workspace")
+    if existing and get_membership(db, existing.id, org.id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "User is already a member of this workspace")
 
     pending = db.scalar(
         select(OrgInvite).where(
@@ -122,6 +121,22 @@ def consume_invite_for_signup(db: Session, invite_token: str, email: str) -> tup
     return org, invite.role
 
 
+def accept_invite_for_user(db: Session, invite_token: str, user: User) -> tuple[Org, str]:
+    """Add membership for an existing user and switch active workspace."""
+    invite = get_valid_invite(db, invite_token, email=user.email)
+    org = db.get(Org, invite.org_id)
+    if not org:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+    existing = get_membership(db, user.id, invite.org_id)
+    membership = existing if existing else add_membership(db, user.id, org.id, invite.role)
+    db.flush()
+    user.org_id = org.id
+    user.role = membership.role
+    invite.status = "accepted"
+    invite.accepted_at = datetime.now(timezone.utc)
+    return org, membership.role
+
+
 def provision_sso_user(
     db: Session,
     *,
@@ -129,9 +144,7 @@ def provision_sso_user(
     password_hash: str = "",
     **identity_fields,
 ) -> tuple[User, bool]:
-    """Create or return user. Pending invite joins existing org; else new org if allowed."""
-    from app.core.config import get_settings
-
+    """Create or return user. Pending invite joins existing org; else signup_pending."""
     normalized = _normalize_email(email)
     existing = db.scalar(select(User).where(User.email == normalized))
     if existing:
@@ -156,27 +169,7 @@ def provision_sso_user(
         pending.status = "accepted"
         pending.accepted_at = datetime.now(timezone.utc)
         db.add(user)
+        add_membership(db, user.id, org.id, pending.role)
         return user, True
 
-    if not get_settings().ALLOW_SSO_SIGNUP:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "no_account_for_idp")
-
-    from app.services.org_domain import assert_domain_available_for_new_workspace
-
-    assert_domain_available_for_new_workspace(db, normalized)
-
-    from app.services.org_provision import unique_org_slug
-
-    org_name = normalized.split("@")[0] or "Workspace"
-    org = Org(id=uuid.uuid4(), name=org_name, slug=unique_org_slug(db, org_name))
-    user = User(
-        id=uuid.uuid4(),
-        org_id=org.id,
-        email=normalized,
-        password_hash=password_hash,
-        role="owner",
-        **identity_fields,
-    )
-    db.add_all([org, user])
-    return user, True
-
+    raise HTTPException(status.HTTP_403_FORBIDDEN, "signup_pending")

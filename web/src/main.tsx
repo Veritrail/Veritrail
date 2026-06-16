@@ -11,7 +11,7 @@ import Accounts from "./pages/Accounts";
 import AuthCallback from "./pages/AuthCallback";
 import Account from "./pages/Account";
 import Dashboard from "./pages/Dashboard";
-import Settings from "./pages/Settings";
+import Workspace from "./pages/Workspace";
 import Controls from "./pages/Controls";
 import GitHubIntegration from "./pages/GitHubIntegration";
 import GitHubIntegrationEdit from "./pages/GitHubIntegrationEdit";
@@ -33,9 +33,6 @@ import AuditorControls from "./pages/AuditorControls";
 import AuditorEvidence from "./pages/AuditorEvidence";
 import AuditorExport from "./pages/AuditorExport";
 import TrustCenter from "./pages/TrustCenter";
-import TrustCenterAdmin from "./pages/TrustCenterAdmin";
-import Auditors from "./pages/Auditors";
-import Members from "./pages/Members";
 
 const qc = new QueryClient();
 
@@ -57,11 +54,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/resources" element={<Navigate to="/findings" replace />} />
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/account" element={<Account />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/trust-center" element={<TrustCenterAdmin />} />
-            <Route path="/auditors" element={<Auditors />} />
-            <Route path="/members" element={<Members />} />
-            <Route path="/detection" element={<Navigate to="/settings#detection" replace />} />
+            <Route path="/workspace" element={<Workspace />} />
+            <Route path="/settings" element={<Navigate to="/workspace" replace />} />
+            <Route path="/trust-center" element={<Navigate to="/workspace#sharing" replace />} />
+            <Route path="/auditors" element={<Navigate to="/workspace#sharing" replace />} />
+            <Route path="/members" element={<Navigate to="/workspace#access" replace />} />
+            <Route path="/detection" element={<Navigate to="/workspace#scanning" replace />} />
             <Route path="/controls" element={<Controls />} />
             <Route path="/history" element={<History />} />
             <Route path="/compliance-history" element={<Navigate to="/history" replace />} />

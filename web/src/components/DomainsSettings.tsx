@@ -85,7 +85,7 @@ export function DomainsSettings() {
                 <button
                   onClick={() => approveM.mutate(r.id)}
                   disabled={approveM.isPending}
-                  className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+                  className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
                 >
                   Approve as viewer
                 </button>
@@ -113,7 +113,7 @@ export function DomainsSettings() {
           <button
             onClick={() => addM.mutate()}
             disabled={addM.isPending || !newDomain.trim()}
-            className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-50"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
           >
             {addM.isPending ? "Adding…" : "Add domain"}
           </button>
@@ -188,7 +188,7 @@ export function DomainsSettings() {
                   onClick={() => patchM.mutate({ id: d.id, body: { auto_join_enabled: !d.auto_join_enabled } })}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                     d.auto_join_enabled
-                      ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                      ? "bg-zinc-900 text-white hover:bg-zinc-800"
                       : "border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
                   }`}
                 >
