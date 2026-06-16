@@ -160,8 +160,8 @@
   background: currentColor;
   content: "";
   pointer-events: none;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Ccircle cx='12' cy='12' r='8.25' stroke='black' stroke-width='1.8'/%3E%3Ccircle cx='12' cy='12' r='3.15' stroke='black' stroke-width='1.8'/%3E%3Cpath d='M12 12l4.55-4.55' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M16.4 5.75h1.85V7.6' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Ccircle cx='12' cy='12' r='8.25' stroke='black' stroke-width='1.8'/%3E%3Ccircle cx='12' cy='12' r='3.15' stroke='black' stroke-width='1.8'/%3E%3Cpath d='M12 12l4.55-4.55' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M16.4 5.75h1.85V7.6' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("/icons/scanning-kpi.svg") center / contain no-repeat;
+  mask: url("/icons/scanning-kpi.svg") center / contain no-repeat;
 }
 
 .workspace-summary__content {
