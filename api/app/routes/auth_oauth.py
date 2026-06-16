@@ -301,7 +301,6 @@ def google_callback(
 
         info = info_resp.json()
         email: str = info.get("email", "").lower()
-        name: str = info.get("name") or email.split("@")[0]
         google_id: str = str(info.get("sub") or "")
 
         if not email or not google_id:

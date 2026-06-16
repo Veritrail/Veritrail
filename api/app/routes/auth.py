@@ -270,9 +270,6 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
         if payload.get(field):
             identity_fields[field] = payload[field]
 
-    if not settings.ALLOW_SSO_SIGNUP and not body.invite_token:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "no_account_for_idp")
-
     if body.invite_token:
         org, role = consume_invite_for_signup(db, body.invite_token, email)
         user = User(

@@ -15,7 +15,8 @@ type InvitePreview = {
 export default function InviteAccept() {
   const { token: inviteToken } = useParams<{ token: string }>();
   const nav = useNavigate();
-  const [status, setStatus] = useState<"loading" | "ready" | "error" | "accepting">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [accepting, setAccepting] = useState(false);
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [error, setError] = useState("");
   const [signedInEmail, setSignedInEmail] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export default function InviteAccept() {
 
   async function acceptInvite() {
     if (!inviteToken) return;
-    setStatus("accepting");
+    setAccepting(true);
     setError("");
     try {
       if (!accessToken()) {
@@ -65,7 +66,7 @@ export default function InviteAccept() {
       nav(await postAuthPath(), { replace: true });
     } catch (e) {
       setError((e as Error).message);
-      setStatus("ready");
+      setAccepting(false);
     }
   }
 
@@ -115,10 +116,10 @@ export default function InviteAccept() {
                 <button
                   type="button"
                   onClick={() => void acceptInvite()}
-                  disabled={status === "accepting"}
+                  disabled={accepting}
                   className="block w-full rounded-lg bg-zinc-900 py-2.5 text-center text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
                 >
-                  {status === "accepting" ? "Joining…" : `Join as ${signedInEmail}`}
+                  {accepting ? "Joining…" : `Join as ${signedInEmail}`}
                 </button>
               ) : signedInEmail && inviteEmail && signedInEmail.toLowerCase() !== inviteEmail ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
