@@ -482,9 +482,9 @@
 
 .workspace-overview {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.4rem;
   align-items: stretch;
-  min-height: clamp(40rem, calc(100vh - 19rem), 54rem);
+  min-height: clamp(38rem, calc(100vh - 20rem), 51rem);
 }
 
 @media (min-width: 1180px) {
@@ -502,13 +502,13 @@
 @media (min-width: 900px) {
   .workspace-overview__cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(18rem, 1fr));
+    grid-template-rows: repeat(2, minmax(17.25rem, 1fr));
   }
 }
 
 .workspace-overview-card {
   display: flex;
-  min-height: 18rem;
+  min-height: 17.25rem;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid #e2e8f0;
@@ -551,16 +551,16 @@
 .workspace-overview-card__header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 1.15rem;
+  gap: 1.05rem;
   align-items: start;
-  min-height: 8.75rem;
-  padding: 1.7rem 1.65rem 1.45rem;
+  min-height: 8rem;
+  padding: 1.55rem 1.6rem 1.3rem;
 }
 
 .workspace-overview-card__icon {
   display: inline-flex;
-  width: 3.35rem;
-  height: 3.35rem;
+  width: 3.15rem;
+  height: 3.15rem;
   align-items: center;
   justify-content: center;
   border-radius: 0.7rem;
@@ -569,8 +569,8 @@
 }
 
 .workspace-overview-card__icon svg {
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 1.52rem;
+  height: 1.52rem;
 }
 
 .workspace-overview-card__title {
@@ -582,7 +582,7 @@
 }
 
 .workspace-overview-card__description {
-  margin: 0.5rem 0 0;
+  margin: 0.4rem 0 0;
   max-width: 24rem;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -591,11 +591,11 @@
 
 .workspace-overview-card__rows {
   display: grid;
-  gap: 1rem;
+  gap: 0.875rem;
   align-content: start;
   flex: 1;
-  margin: 0 1.65rem;
-  padding: 1.5rem 0;
+  margin: 0 1.55rem;
+  padding: 1.3rem 0;
   border-top: 1px solid #e8edf3;
 }
 
@@ -648,11 +648,11 @@
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  margin: auto 1.65rem 1.65rem;
+  margin: auto 1.55rem 1.55rem;
   border: 0;
   border-radius: 0.5rem;
   background: var(--overview-action-bg);
-  padding: 0.7rem 1rem;
+  padding: 0.675rem 1rem;
   font-size: 0.8125rem;
   font-weight: 700;
   color: var(--overview-accent);
@@ -1400,11 +1400,20 @@
   height: 0.85rem;
 }
 
+.workspace-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .workspace-shell {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 1.5rem;
-  align-items: start;
+  display: block;
+  min-width: 0;
+}
+
+.workspace-tab-bar {
+  margin: 0;
 }
 
 .workspace-shell--overview {

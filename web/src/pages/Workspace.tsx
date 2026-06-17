@@ -560,52 +560,14 @@ function ReadinessChecklistPanel({
   );
 }
 
-const NAV_ITEMS: { id: TabId; label: string; sub: string; icon: string }[] = [
-  { id: "overview", label: "Overview", sub: "Workspace status", icon: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m-9 9h18" },
-  { id: "access", label: "Access", sub: "Members and roles", icon: "M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" },
-  { id: "sharing", label: "Sharing", sub: "Trust Center and auditors", icon: ICONS.sharing },
-  { id: "scanning", label: "Scanning", sub: "Schedule and history", icon: ICONS.clock },
-  { id: "notifications", label: "Notifications", sub: "Alerts and routing", icon: ICONS.notifications },
-];
-
-function WorkspaceNav({ active, onSelect }: { active: TabId; onSelect: (tab: TabId) => void }) {
+function WorkspaceTabBar({ active, onSelect }: { active: TabId; onSelect: (tab: TabId) => void }) {
   return (
-    <nav className="workspace-nav__list" aria-label="Workspace sections">
-      <div className="workspace-nav__items">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelect(item.id)}
-            aria-current={active === item.id ? "page" : undefined}
-            className={`workspace-nav__item ${active === item.id ? "is-active" : ""}`}
-          >
-            <span className="workspace-nav__icon">
-              <Icon d={item.icon} />
-            </span>
-            <span className="workspace-nav__text">
-              <span className="workspace-nav__label">{item.label}</span>
-              <span className="workspace-nav__sub">{item.sub}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="workspace-nav__help">
-        <div className="workspace-nav__help-row">
-          <div>
-            <p className="workspace-nav__help-title">Need help?</p>
-            <p className="workspace-nav__help-text">Visit our help center or contact support.</p>
-          </div>
-          <span className="workspace-nav__help-icon" aria-hidden>
-            <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 0 1 15 0m-15 0v3a2.25 2.25 0 0 0 2.25 2.25h.75v-6h-3Zm15 0v3a2.25 2.25 0 0 1-2.25 2.25h-.75v-6h3Z" />
-            </svg>
-          </span>
-        </div>
-        <a className="workspace-nav__help-link" href="https://github.com/awakzdev/Vigil#readme" target="_blank" rel="noreferrer">
-          Go to help center &rarr;
-        </a>
-      </div>
+    <nav className="workspace-tab-bar" aria-label="Workspace sections">
+      <Segmented
+        value={active}
+        onChange={(value) => onSelect(value as TabId)}
+        options={TABS.map((item) => ({ value: item.id, label: item.label }))}
+      />
     </nav>
   );
 }
@@ -1182,13 +1144,10 @@ export default function Workspace() {
           />
         </div>
 
-        <div className={`workspace-shell${tab === "overview" ? " workspace-shell--overview" : ""}`}>
-          {tab !== "overview" && (
-            <aside className="workspace-nav">
-              <WorkspaceNav active={tab} onSelect={selectTab} />
-            </aside>
-          )}
+        <div className="workspace-main">
+        <WorkspaceTabBar active={tab} onSelect={selectTab} />
 
+        <div className="workspace-shell">
           <div className="workspace-shell__content">
         {tab === "overview" && (
           <div className="workspace-overview">
@@ -1421,6 +1380,7 @@ export default function Workspace() {
           </div>
         )}
           </div>
+        </div>
         </div>
       </div>
     </ProductShell>
