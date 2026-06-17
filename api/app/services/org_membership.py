@@ -41,6 +41,8 @@ def add_membership(
     org_id: uuid.UUID,
     role: str,
 ) -> OrgMembership:
+    # SessionLocal uses autoflush=False — flush so a just-added user/org exists for FK.
+    db.flush()
     existing = get_membership(db, user_id, org_id)
     if existing:
         return existing

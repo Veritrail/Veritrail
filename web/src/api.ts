@@ -3,6 +3,10 @@ export const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
 
 const ACCESS_KEY = "vigil_access_token";
 const AUDITOR_KEY = "vigil_auditor_token";
+export const SIGNED_OUT_KEY = "vigil_signed_out";
+const PENDING_INVITE_KEY = "vigil_pending_invite_token";
+const PENDING_CREDENTIALS_KEY = "vigil_pending_credentials";
+const MFA_STORAGE_KEY = "vigil_mfa_token";
 
 /** Short-lived access token in sessionStorage (refresh is HttpOnly cookie). */
 export function token(): string | null {
@@ -33,6 +37,20 @@ export function storeTokens(access: string, _refresh?: string) {
 
 export function clearTokens() {
   sessionStorage.removeItem(ACCESS_KEY);
+}
+
+/** Clear SPA auth leftovers after explicit sign-out. */
+export function markSignedOut() {
+  sessionStorage.setItem(SIGNED_OUT_KEY, "1");
+  sessionStorage.removeItem(PENDING_INVITE_KEY);
+  sessionStorage.removeItem(PENDING_CREDENTIALS_KEY);
+  sessionStorage.removeItem(MFA_STORAGE_KEY);
+}
+
+export function consumeSignedOut(): boolean {
+  const signedOut = sessionStorage.getItem(SIGNED_OUT_KEY) === "1";
+  if (signedOut) sessionStorage.removeItem(SIGNED_OUT_KEY);
+  return signedOut;
 }
 
 function parseApiError(_status: number, body: string): string {
@@ -153,6 +171,7 @@ export async function publicApi<T = unknown>(path: string, init: RequestInit = {
 }
 
 export async function logout(): Promise<void> {
+  markSignedOut();
   try {
     await fetch(`${BASE}/v1/auth/logout`, { method: "POST", credentials: "include" });
   } finally {

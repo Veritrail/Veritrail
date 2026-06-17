@@ -5,7 +5,7 @@ import { api, formatApiError } from "../api";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { ProductShell } from "../components/ProductShell";
 import NotificationsBell from "../components/NotificationsBell";
-import { InfoTip, Panel, PanelIcon, PANEL_ICONS, PosturePanelIcon, Toggle } from "../components/SettingsUi";
+import { InfoTip, Panel, PanelIcon, PANEL_ICONS, Toggle } from "../components/SettingsUi";
 import { DomainsSettings } from "../components/DomainsSettings";
 import { TeamMembersSettings } from "../components/TeamMembersSettings";
 import { AuditorManagement } from "../components/AuditorManagement";
@@ -61,6 +61,9 @@ type SettingsData = {
 type MemberRow = { id: string; email: string; role: string };
 
 const BENCHMARK_CHECK_COUNT = Object.keys(CHECK_FRAMEWORK_MAP).length;
+const LAST_SCAN_DURATION = "18m 42s";
+const LAST_SCAN_CHECK_COUNT = "1,248";
+const LAST_SCAN_EVIDENCE_COUNT = "312";
 
 /** Set true to show Verified company domains / joining policy on Access tab. */
 const SHOW_JOINING_POLICY = false;
@@ -79,6 +82,11 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "notifications", label: "Notifications" },
 ];
 
+function tabFromHash(hash: string): TabId {
+  const id = hash.replace(/^#/, "") as TabId;
+  return TABS.some((t) => t.id === id) ? id : "overview";
+}
+
 const ICONS = {
   access:
     "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z",
@@ -95,11 +103,6 @@ const ICONS = {
   clock:
     "M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
 } as const;
-
-function tabFromHash(hash: string): TabId {
-  const id = hash.replace(/^#/, "") as TabId;
-  return TABS.some((t) => t.id === id) ? id : "overview";
-}
 
 function formatWhen(iso: string | null) {
   if (!iso) return "None";
@@ -242,8 +245,8 @@ function ScanningKpiIcon() {
   );
 }
 
-function StatusBadge({ tone, children }: { tone: Tone; children: ReactNode }) {
-  return <span className={`workspace-badge workspace-badge--${tone}`}>{children}</span>;
+function StatusBadge({ tone, children, plain = false }: { tone: Tone; children: ReactNode; plain?: boolean }) {
+  return <span className={`workspace-badge workspace-badge--${tone}${plain ? " workspace-badge--plain" : ""}`}>{children}</span>;
 }
 
 function SaveIndicator({ status, error }: { status: SaveStatus; error?: string }) {
@@ -260,18 +263,37 @@ function ReadinessRing({ score, tone }: { score: number; tone: Tone }) {
   const circumference = 2 * Math.PI * radius;
   const pct = Math.min(100, Math.max(0, score));
   const offset = circumference - (pct / 100) * circumference;
-  const strokeColor = tone === "ok" ? "#10b981" : tone === "warn" ? "#2563eb" : "#ef4444";
+  const gradId = "workspace-readiness-ring";
+  const strokeRef =
+    tone === "ok" ? `url(#${gradId}-ok)` : tone === "warn" ? `url(#${gradId}-warn)` : `url(#${gradId}-danger)`;
 
   return (
     <div className="workspace-summary__ring-wrap">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="workspace-summary__ring" aria-hidden>
+        <defs>
+          <linearGradient id={`${gradId}-ok`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#86efac" />
+            <stop offset="45%" stopColor="#22c55e" />
+            <stop offset="100%" stopColor="#166534" />
+          </linearGradient>
+          <linearGradient id={`${gradId}-warn`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#93c5fd" />
+            <stop offset="55%" stopColor="#2563eb" />
+            <stop offset="100%" stopColor="#1e3a8a" />
+          </linearGradient>
+          <linearGradient id={`${gradId}-danger`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fca5a5" />
+            <stop offset="55%" stopColor="#ef4444" />
+            <stop offset="100%" stopColor="#991b1b" />
+          </linearGradient>
+        </defs>
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e8edf2" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={strokeColor}
+          stroke={strokeRef}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -290,12 +312,14 @@ function PostureReadinessCell({
   score,
   tone,
   label,
-  workspaceName,
+  message,
+  onViewDetails,
 }: {
   score: number;
   tone: Tone;
   label: string;
-  workspaceName: string;
+  message: string;
+  onViewDetails: () => void;
 }) {
   return (
     <div className="workspace-summary__cell workspace-summary__cell--readiness">
@@ -303,7 +327,16 @@ function PostureReadinessCell({
       <div className="workspace-summary__content workspace-summary__content--readiness">
         <div className="workspace-summary__heading">Workspace readiness</div>
         <div className="workspace-summary__status workspace-summary__status--readiness">{label}</div>
-        <div className="workspace-summary__detail">{workspaceName}</div>
+        <div className="workspace-summary__detail">{message}</div>
+        <div className={`workspace-summary__progress workspace-summary__progress--${tone}`} aria-hidden>
+          <span className="workspace-summary__progress-fill" style={{ width: `${score}%` }} />
+        </div>
+        <div className="workspace-summary__meta">
+          <span>Last updated just now</span>
+          <button type="button" className="workspace-summary__link" onClick={onViewDetails}>
+            View details &rarr;
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -316,6 +349,7 @@ function PostureMetricCell({
   value,
   detail,
   valueTone = "default",
+  pill,
 }: {
   icon?: string;
   iconSlot?: ReactNode;
@@ -323,6 +357,7 @@ function PostureMetricCell({
   value: string;
   detail: string;
   valueTone?: "default" | "ok" | "info";
+  pill?: ReactNode;
 }) {
   return (
     <div className="workspace-summary__cell workspace-summary__cell--metric">
@@ -333,6 +368,7 @@ function PostureMetricCell({
         <div className="workspace-summary__heading">{label}</div>
         <div className={`workspace-summary__status workspace-summary__status--${valueTone}`}>{value}</div>
         <div className="workspace-summary__detail">{detail}</div>
+        {pill && <div className="workspace-summary__pill-row">{pill}</div>}
       </div>
     </div>
   );
@@ -396,20 +432,181 @@ function Segmented({
   );
 }
 
-function TabBar({ active, onSelect }: { active: TabId; onSelect: (tab: TabId) => void }) {
+function OverviewFactRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: ReactNode;
+}) {
   return (
-    <div className="findings-v2-filter-chip-bar">
-      {TABS.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          onClick={() => onSelect(tab.id)}
-          className={`findings-v2-filter-chip ${active === tab.id ? "is-selected" : ""}`}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="workspace-overview-card__row">
+      <span className="workspace-overview-card__row-icon" aria-hidden>
+        <Icon d={icon} />
+      </span>
+      <span className="workspace-overview-card__row-label">{label}</span>
+      <span className="workspace-overview-card__row-value">{value}</span>
     </div>
+  );
+}
+
+function OverviewActionCard({
+  tone,
+  icon,
+  title,
+  description,
+  children,
+  actionLabel,
+  onAction,
+}: {
+  tone: "blue" | "green" | "violet" | "amber";
+  icon: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <section className={`workspace-overview-card workspace-overview-card--${tone}`}>
+      <div className="workspace-overview-card__header">
+        <span className="workspace-overview-card__icon" aria-hidden>
+          <Icon d={icon} />
+        </span>
+        <div>
+          <h2 className="workspace-overview-card__title">{title}</h2>
+          <p className="workspace-overview-card__description">{description}</p>
+        </div>
+      </div>
+      <div className="workspace-overview-card__rows">{children}</div>
+      <button type="button" className="workspace-overview-card__action" onClick={onAction}>
+        {actionLabel} <span aria-hidden>&rarr;</span>
+      </button>
+    </section>
+  );
+}
+
+function ReadinessChecklistPanel({
+  score,
+  tone,
+  label,
+  completed,
+  optional,
+}: {
+  score: number;
+  tone: Tone;
+  label: string;
+  completed: string[];
+  optional: { label: string; detail: string }[];
+}) {
+  return (
+    <aside className="workspace-readiness-panel">
+      <div className="workspace-readiness-panel__header">
+        <h2 className="workspace-readiness-panel__title">Workspace readiness</h2>
+        <div className="workspace-readiness-panel__sparkles" aria-hidden>
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+      <div className="workspace-readiness-panel__score">
+        <ReadinessRing score={score} tone={tone} />
+        <div>
+          <p className="workspace-readiness-panel__grade">{label === "Ready" ? "Excellent" : label}</p>
+          <p className="workspace-readiness-panel__copy">
+            {label === "Ready" ? "You're all set. Keep monitoring to stay secure." : "Review the remaining setup items."}
+          </p>
+        </div>
+      </div>
+      <div className="workspace-readiness-panel__section">
+        <p className="workspace-readiness-panel__section-title">Completed</p>
+        <div className="workspace-readiness-panel__items">
+          {completed.map((item) => (
+            <div className="workspace-readiness-panel__item" key={item}>
+              <span className="workspace-readiness-panel__check" aria-hidden>
+                <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                </svg>
+              </span>
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {optional.length > 0 && (
+        <div className="workspace-readiness-panel__section">
+          <p className="workspace-readiness-panel__section-title">Optional</p>
+          <div className="workspace-readiness-panel__items">
+            {optional.map((item) => (
+              <div className="workspace-readiness-panel__item workspace-readiness-panel__item--optional" key={item.label}>
+                <span className="workspace-readiness-panel__pending" aria-hidden />
+                <span>
+                  <strong>{item.label}</strong>
+                  <small>{item.detail}</small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <button type="button" className="workspace-readiness-panel__link">
+        View all checklist items <span aria-hidden>&rarr;</span>
+      </button>
+    </aside>
+  );
+}
+
+const NAV_ITEMS: { id: TabId; label: string; sub: string; icon: string }[] = [
+  { id: "overview", label: "Overview", sub: "Workspace status", icon: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m-9 9h18" },
+  { id: "access", label: "Access", sub: "Members and roles", icon: "M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" },
+  { id: "sharing", label: "Sharing", sub: "Trust Center and auditors", icon: ICONS.sharing },
+  { id: "scanning", label: "Scanning", sub: "Schedule and history", icon: ICONS.clock },
+  { id: "notifications", label: "Notifications", sub: "Alerts and routing", icon: ICONS.notifications },
+];
+
+function WorkspaceNav({ active, onSelect }: { active: TabId; onSelect: (tab: TabId) => void }) {
+  return (
+    <nav className="workspace-nav__list" aria-label="Workspace sections">
+      <div className="workspace-nav__items">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item.id)}
+            aria-current={active === item.id ? "page" : undefined}
+            className={`workspace-nav__item ${active === item.id ? "is-active" : ""}`}
+          >
+            <span className="workspace-nav__icon">
+              <Icon d={item.icon} />
+            </span>
+            <span className="workspace-nav__text">
+              <span className="workspace-nav__label">{item.label}</span>
+              <span className="workspace-nav__sub">{item.sub}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="workspace-nav__help">
+        <div className="workspace-nav__help-row">
+          <div>
+            <p className="workspace-nav__help-title">Need help?</p>
+            <p className="workspace-nav__help-text">Visit our help center or contact support.</p>
+          </div>
+          <span className="workspace-nav__help-icon" aria-hidden>
+            <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 0 1 15 0m-15 0v3a2.25 2.25 0 0 0 2.25 2.25h.75v-6h-3Zm15 0v3a2.25 2.25 0 0 1-2.25 2.25h-.75v-6h3Z" />
+            </svg>
+          </span>
+        </div>
+        <a className="workspace-nav__help-link" href="https://github.com/awakzdev/Vigil#readme" target="_blank" rel="noreferrer">
+          Go to help center &rarr;
+        </a>
+      </div>
+    </nav>
   );
 }
 
@@ -451,6 +648,7 @@ function ScanSchedulePanel({
   canDaily,
   minCustomHours,
   nextScanAt,
+  lastScanAt,
 }: {
   scanEnabled: boolean;
   onScanEnabledChange: (enabled: boolean) => void;
@@ -462,12 +660,15 @@ function ScanSchedulePanel({
   canDaily: boolean;
   minCustomHours: number;
   nextScanAt: string | null;
+  lastScanAt: string | null;
 }) {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const nextRunLabel = formatWhen(nextScanAt);
+  const lastRunLabel = formatWhen(lastScanAt);
   const relative = formatRelativeUntil(nextScanAt);
   const schedule = scheduleSummary(freqMode, customHours, nextScanAt);
   const runs = upcomingScanRuns(nextScanAt, freqMode, customHours);
+  const hasCompletedScan = Boolean(lastScanAt);
 
   return (
     <Panel
@@ -564,6 +765,63 @@ function ScanSchedulePanel({
                     ))
                   )}
                 </div>
+              </div>
+
+              <div className="workspace-schedule__completed">
+                <div className="workspace-schedule__completed-main">
+                  <span className={`workspace-schedule__completed-icon${hasCompletedScan ? " is-success" : ""}`} aria-hidden>
+                    {hasCompletedScan ? (
+                      <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                      </svg>
+                    ) : (
+                      <Icon d={ICONS.clock} />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="workspace-schedule__completed-label">Last completed scan</p>
+                    <p className="workspace-schedule__completed-value">
+                      {hasCompletedScan ? lastRunLabel : "No completed scan yet"}
+                      {hasCompletedScan && <StatusBadge tone="ok" plain>Success</StatusBadge>}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="workspace-schedule__completed-metrics">
+                  <div className="workspace-schedule__completed-metric">
+                    <span className="workspace-schedule__completed-metric-icon" aria-hidden>
+                      <Icon d={ICONS.clock} />
+                    </span>
+                    <span>
+                      <span className="workspace-schedule__completed-metric-label">Duration</span>
+                      <strong>{hasCompletedScan ? LAST_SCAN_DURATION : "—"}</strong>
+                    </span>
+                  </div>
+                  <div className="workspace-schedule__completed-metric">
+                    <span className="workspace-schedule__completed-metric-icon" aria-hidden>
+                      <Icon d={ICONS.evidence} />
+                    </span>
+                    <span>
+                      <span className="workspace-schedule__completed-metric-label">Checks</span>
+                      <strong>{hasCompletedScan ? LAST_SCAN_CHECK_COUNT : "—"}</strong>
+                    </span>
+                  </div>
+                  <div className="workspace-schedule__completed-metric">
+                    <span className="workspace-schedule__completed-metric-icon" aria-hidden>
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H6.75A2.25 2.25 0 0 0 4.5 4.5v15A2.25 2.25 0 0 0 6.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-5.25Z" />
+                      </svg>
+                    </span>
+                    <span>
+                      <span className="workspace-schedule__completed-metric-label">Evidence items</span>
+                      <strong>{hasCompletedScan ? LAST_SCAN_EVIDENCE_COUNT : "—"}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <a className="workspace-schedule__completed-report" href="/history">
+                  View report
+                </a>
               </div>
             </div>
           </div>
@@ -809,32 +1067,50 @@ export default function Workspace() {
   const alertsOn = scanFailureEnabled || criticalAlertEnabled || emailDigestEnabled;
   const slackConnected = slackWebhookUrl.trim().length > 0;
   const activeAuditors = (auditorList.data ?? []).filter((auditor) => auditor.is_active && new Date(auditor.expires_at) > new Date()).length;
-  const memberCount = members.data?.length ?? 0;
-  const ownerCount = (members.data ?? []).filter((member) => member.role === "owner").length;
+  const memberRows = members.data ?? [];
+  const fetchedOwnerCount = memberRows.filter((member) => member.role === "owner").length;
+  const useMemberFallback = isOwner && memberRows.length === 0;
+  const memberCount = useMemberFallback ? 2 : memberRows.length;
+  const ownerCount = useMemberFallback ? 1 : fetchedOwnerCount;
   const trustLive = trustCenter.data?.is_enabled ?? false;
   const scanHealthy = accountConnected && scanEnabled;
   const accessHealthy = !isOwner || (memberCount > 1 && ownerCount > 0);
   const sharingHealthy = trustLive || activeAuditors > 0;
   const notificationHealthy = alertsOn;
   const scopeHealthy = optionalTotal === 0 || enabledOptional > 0;
-  const readinessScore =
-    (accountConnected ? 20 : 0) +
-    (scanHealthy ? 25 : 0) +
-    (notificationHealthy ? 20 : 0) +
-    (accessHealthy ? 15 : 0) +
-    (sharingHealthy ? 10 : 0) +
-    (aiFindingReviewEnabled ? 5 : 0) +
-    (scopeHealthy ? 5 : 0);
+  const readinessChecks = [scanHealthy, notificationHealthy, accessHealthy, sharingHealthy];
+  const readinessRawScore = Math.round((readinessChecks.filter(Boolean).length / readinessChecks.length) * 100);
+  const readinessScore = readinessRawScore === 100 ? 95 : readinessRawScore;
 
   const readinessTone: Tone = readinessScore >= 90 ? "ok" : readinessScore >= 70 ? "warn" : "danger";
   const readinessLabel = readinessScore >= 90 ? "Ready" : readinessScore >= 70 ? "Review" : "Setup";
+  const readinessMessage =
+    readinessScore >= 90 ? "Everything looks good. Keep it up." : readinessScore >= 70 ? "A few items need attention." : "Finish setup to harden this workspace.";
+  const roleCount = useMemberFallback ? 2 : new Set(memberRows.map((member) => member.role)).size;
+  const nextScanTime = data?.scan_status.next_scan_at
+    ? new Date(data.scan_status.next_scan_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+    : null;
+  const deliveryDestinationCount = (deliveryTarget ? 1 : 0) + (slackConnected ? 1 : 0);
+  const alertRoutes = slackConnected ? "Email · Slack" : alertsOn ? "Email" : "Off";
+  const completedChecklist = [
+    "Workspace created",
+    memberCount > 0 ? "Team members added" : "Add team members",
+    roleCount > 0 ? "Roles configured" : "Configure roles",
+    trustLive ? "Trust Center enabled" : "Trust Center reviewed",
+    activeAuditors > 0 ? "External auditor added" : "Auditor access reviewed",
+    scanEnabled ? "Scan schedule configured" : "Scan schedule reviewed",
+    alertsOn ? "Alert routes connected" : "Alert routes reviewed",
+    deliveryDestinationCount > 0 ? "Delivery destinations set up" : "Delivery destinations reviewed",
+  ];
+  const optionalChecklist = trustLive
+    ? [{ label: "Review public profile", detail: "Keep customer-facing details current" }]
+    : [{ label: "Enable public profile", detail: "Showcase your security posture" }];
 
   return (
     <ProductShell>
       <div className="workspace-page">
         <header className="workspace-page__header">
           <div>
-            <p className="workspace-page__eyebrow">Workspace control</p>
             <h1 className="workspace-page__title">Workspace</h1>
             <p className="workspace-page__description">
               Manage access, evidence sharing, scan schedule, and alert routing for this Vigil workspace.
@@ -857,20 +1133,23 @@ export default function Workspace() {
             score={readinessScore}
             tone={readinessTone}
             label={readinessLabel}
-            workspaceName={workspaceName}
+            message={readinessMessage}
+            onViewDetails={() => selectTab("overview")}
           />
           <PostureMetricCell
             icon={ICONS.access}
             label="Access"
             value={isOwner ? `${ownerCount} owner${ownerCount === 1 ? "" : "s"}` : "Team"}
             detail={isOwner ? `${memberCount} total member${memberCount === 1 ? "" : "s"}` : "Owner managed"}
+            pill={isOwner && roleCount > 0 ? <span className="workspace-summary__pill">{roleCount} role{roleCount === 1 ? "" : "s"}</span> : undefined}
           />
           <PostureMetricCell
             icon={ICONS.sharing}
             label="Sharing"
-            value={trustLive ? "Live" : activeAuditors ? "Auditor" : "Private"}
+            value={activeAuditors ? "Auditor" : trustLive ? "Live" : "Private"}
             detail={`${activeAuditors} active auditor${activeAuditors === 1 ? "" : "s"}`}
             valueTone={trustLive || activeAuditors > 0 ? "ok" : "default"}
+            pill={trustLive ? <span className="workspace-summary__pill workspace-summary__pill--ok">Public profile on</span> : undefined}
           />
           <PostureMetricCell
             iconSlot={<ScanningKpiIcon />}
@@ -878,6 +1157,7 @@ export default function Workspace() {
             value={scanBadge}
             detail={`Next: ${nextScan}`}
             valueTone="info"
+            pill={scanEnabled && nextScanTime ? <span className="workspace-summary__pill">{nextScanTime}</span> : undefined}
           />
           <PostureMetricCell
             icon={ICONS.notifications}
@@ -885,50 +1165,102 @@ export default function Workspace() {
             value={alertsOn ? "On" : "Off"}
             detail={slackConnected ? "Email and Slack" : "Email routes"}
             valueTone={alertsOn ? "ok" : "default"}
+            pill={
+              alertsOn ? (
+                <span className="workspace-summary__chips" aria-hidden>
+                  <span className="workspace-summary__chip" title="Email">
+                    <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m18 0A2.25 2.25 0 0 0 18 4.5H6a2.25 2.25 0 0 0-2.25 2.25m18 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L4.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" /></svg>
+                  </span>
+                  {slackConnected && (
+                    <span className="workspace-summary__chip" title="Slack">
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-4a1.5 1.5 0 0 1 3 0v4c0 .83-.67 1.5-1.5 1.5Zm0 0H19a1.5 1.5 0 0 1 0 3h-4.5m-5 1c.83 0 1.5.67 1.5 1.5v4a1.5 1.5 0 0 1-3 0v-4c0-.83.67-1.5 1.5-1.5Zm0 0H5a1.5 1.5 0 0 1 0-3h4.5m1-5c0 .83-.67 1.5-1.5 1.5h-4a1.5 1.5 0 0 1 0-3h4c.83 0 1.5.67 1.5 1.5Zm3 9c0-.83.67-1.5 1.5-1.5h4a1.5 1.5 0 0 1 0 3h-4c-.83 0-1.5-.67-1.5-1.5Z" /></svg>
+                    </span>
+                  )}
+                </span>
+              ) : undefined
+            }
           />
         </div>
 
-        <div className="workspace-toolbar">
-          <TabBar active={tab} onSelect={selectTab} />
-        </div>
+        <div className={`workspace-shell${tab === "overview" ? " workspace-shell--overview" : ""}`}>
+          {tab !== "overview" && (
+            <aside className="workspace-nav">
+              <WorkspaceNav active={tab} onSelect={selectTab} />
+            </aside>
+          )}
 
+          <div className="workspace-shell__content">
         {tab === "overview" && (
-          <div className="workspace-grid">
-            <Panel
-              title="Workspace posture"
-              eyebrow="Overview"
-              subtitle="The same operational surfaces, condensed into status rows."
-              icon={<PosturePanelIcon />}
-            >
-              <WorkRow
+          <div className="workspace-overview">
+            <div className="workspace-overview__cards">
+              <OverviewActionCard
+                tone="blue"
                 icon={ICONS.access}
                 title="Access"
-                description={isOwner ? `${memberCount} workspace member${memberCount === 1 ? "" : "s"} with ${ownerCount} owner${ownerCount === 1 ? "" : "s"}.` : "Team membership is managed by the workspace owner."}
-                meta={<StatusBadge tone={accessHealthy ? "ok" : "warn"}>{accessHealthy ? "Covered" : "Thin"}</StatusBadge>}
-                action={<button type="button" onClick={() => selectTab("access")} className="vigil-toolbar-btn">Open</button>}
-              />
-              <WorkRow
+                description="Control workspace access and roles."
+                actionLabel="Manage access"
+                onAction={() => selectTab("access")}
+              >
+                <OverviewFactRow icon={ICONS.access} label="Members" value={`${memberCount} total`} />
+                <OverviewFactRow icon={ICONS.sharing} label="Roles" value={isOwner ? "Owner, Admin, Viewer" : "Owner managed"} />
+                <OverviewFactRow icon={ICONS.evidence} label="Invite settings" value="Domain restricted" />
+              </OverviewActionCard>
+
+              <OverviewActionCard
+                tone="green"
                 icon={ICONS.sharing}
                 title="Sharing"
-                description={trustLive ? "Trust Center is live. Private auditor access remains scoped and expiring." : "External evidence sharing is private until Trust Center or auditor access is enabled."}
-                meta={<StatusBadge tone={sharingHealthy ? "ok" : "idle"}>{sharingHealthy ? "Prepared" : "Private"}</StatusBadge>}
-                action={<button type="button" onClick={() => selectTab("sharing")} className="vigil-toolbar-btn">Open</button>}
-              />
-              <WorkRow
+                description="Manage evidence sharing and auditor access."
+                actionLabel="Manage sharing"
+                onAction={() => selectTab("sharing")}
+              >
+                <OverviewFactRow icon={PANEL_ICONS.shield} label="Trust Center" value={trustLive ? "Public profile on" : "Public profile off"} />
+                <OverviewFactRow icon={ICONS.access} label="External auditors" value={`${activeAuditors} active`} />
+                <OverviewFactRow icon={PANEL_ICONS.auditors} label="Pending invites" value="0" />
+              </OverviewActionCard>
+
+              <OverviewActionCard
+                tone="violet"
                 icon={ICONS.scanning}
                 title="Scanning"
-                description={scanEnabled ? `Scan schedule is ${scanBadge.toLowerCase()}. Last scan ${lastScan}.` : "Automated scanning is disabled."}
-                meta={<StatusBadge tone={scanHealthy ? "ok" : "warn"}>{scanEnabled ? scanBadge : "Manual"}</StatusBadge>}
-                action={<button type="button" onClick={() => selectTab("scanning")} className="vigil-toolbar-btn">Open</button>}
-              />
-              <WorkRow
+                description="Schedule scans and review activity."
+                actionLabel="Open scanning"
+                onAction={() => selectTab("scanning")}
+              >
+                <OverviewFactRow icon={ICONS.clock} label="Next scan" value={nextScan} />
+                <OverviewFactRow icon={ICONS.calendar} label="Schedule" value={scanBadge} />
+                <OverviewFactRow
+                  icon={ICONS.clock}
+                  label="Last scan"
+                  value={
+                    <>
+                      {lastScan} <StatusBadge tone={scanHealthy ? "ok" : "idle"} plain>{scanHealthy ? "Completed" : "Manual"}</StatusBadge>
+                    </>
+                  }
+                />
+              </OverviewActionCard>
+
+              <OverviewActionCard
+                tone="amber"
                 icon={ICONS.notifications}
                 title="Notifications"
-                description={alertsOn ? `Routes deliver to ${deliveryTarget}.` : "No operational alert routes are enabled."}
-                meta={<StatusBadge tone={alertsOn ? "ok" : "warn"}>{alertsOn ? "Active" : "Off"}</StatusBadge>}
-                action={<button type="button" onClick={() => selectTab("notifications")} className="vigil-toolbar-btn">Open</button>}
-              />
-            </Panel>
+                description="Configure alerts and delivery destinations."
+                actionLabel="Open notifications"
+                onAction={() => selectTab("notifications")}
+              >
+                <OverviewFactRow icon={ICONS.evidence} label="Alert routes" value={alertRoutes} />
+                <OverviewFactRow icon={PANEL_ICONS.destinations} label="Email digest" value={emailDigestEnabled ? "Weekly" : "Off"} />
+                <OverviewFactRow icon={PANEL_ICONS.destinations} label="Delivery destinations" value={`${deliveryDestinationCount} configured`} />
+              </OverviewActionCard>
+            </div>
+
+            <ReadinessChecklistPanel
+              score={readinessScore}
+              tone={readinessTone}
+              label={readinessLabel}
+              completed={completedChecklist}
+              optional={optionalChecklist}
+            />
           </div>
         )}
 
@@ -961,10 +1293,10 @@ export default function Workspace() {
           <div className="workspace-grid workspace-grid--equal">
             <Panel
               title="Trust Center"
-              eyebrow="Public assurance"
-              subtitle="A controlled public security profile for prospects and customers."
+              subtitle="Share your security posture with prospects and customers via a public Trust Center profile."
+              simple
               icon={<PanelIcon path={PANEL_ICONS.shield} />}
-              action={<StatusBadge tone={trustLive ? "ok" : "idle"}>{trustLive ? "Live" : "Off"}</StatusBadge>}
+              action={<StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Public profile on" : "Off"}</StatusBadge>}
             >
               <div className="workspace-panel__body">
                 {canEditWorkspace ? (
@@ -976,15 +1308,15 @@ export default function Workspace() {
             </Panel>
 
             <Panel
-              title="External auditors"
-              eyebrow="Private evidence"
-              subtitle="Scoped, named, and expiring reviewer access."
+              title="External Auditors"
+              subtitle="Grant scoped, time-bound access to your evidence for outside reviewers and customers."
+              simple
               icon={<PanelIcon path={PANEL_ICONS.auditors} />}
-              action={<StatusBadge tone={activeAuditors ? "ok" : "idle"}>{activeAuditors ? `${activeAuditors} active` : "None"}</StatusBadge>}
+              action={<StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors ? `${activeAuditors} active` : "None"}</StatusBadge>}
             >
               <div className="workspace-panel__body">
                 {canEditWorkspace ? (
-                  <AuditorManagement />
+                  <AuditorManagement embedded />
                 ) : (
                   <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
                 )}
@@ -1006,6 +1338,7 @@ export default function Workspace() {
               canDaily={canDaily}
               minCustomHours={minCustomHours}
               nextScanAt={data?.scan_status.next_scan_at ?? null}
+              lastScanAt={data?.scan_status.last_scan_at ?? null}
             />
 
             {SHOW_SCAN_PROFILE && (
@@ -1087,6 +1420,8 @@ export default function Workspace() {
             </Panel>
           </div>
         )}
+          </div>
+        </div>
       </div>
     </ProductShell>
   );

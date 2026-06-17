@@ -250,7 +250,12 @@ def _claim_or_block(
 # ── Google ────────────────────────────────────────────────────────────────────
 
 @router.get("/google")
-def google_login(link_token: str | None = None, remember: str | None = None, invite_token: str | None = None):
+def google_login(
+    link_token: str | None = None,
+    remember: str | None = None,
+    invite_token: str | None = None,
+    pick_account: str | None = None,
+):
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(400, "Google OAuth not configured")
     if _valid_link_token(link_token):
@@ -263,7 +268,7 @@ def google_login(link_token: str | None = None, remember: str | None = None, inv
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
-        "prompt": "select_account",
+        "prompt": "select_account login" if pick_account else "select_account",
         "state": state,
     }
     if settings.APP_ENV == "production" and settings.GOOGLE_ALLOWED_DOMAIN:

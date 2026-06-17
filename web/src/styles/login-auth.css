@@ -630,7 +630,7 @@
   gap: 0.5rem;
   border: none;
   border-radius: 0.75rem;
-  background: #0f172a;
+  background: #0d9488;
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -640,7 +640,7 @@
 }
 
 .auth-submit:hover:not(:disabled) {
-  background: #1e293b;
+  background: #0f766e;
 }
 
 .auth-submit:disabled {

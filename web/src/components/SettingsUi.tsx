@@ -59,6 +59,7 @@ export function Panel({
   title,
   subtitle,
   action,
+  simple = false,
   children,
 }: {
   icon?: ReactNode;
@@ -66,15 +67,16 @@ export function Panel({
   title: string;
   subtitle?: string;
   action?: ReactNode;
+  simple?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className="workspace-panel">
+    <section className={`workspace-panel${simple ? " workspace-panel--simple" : ""}`}>
       <div className="workspace-panel__header">
         <div className="workspace-panel__header-main">
           {icon}
           <div className="workspace-panel__header-text min-w-0">
-            {eyebrow && <div className="workspace-panel__eyebrow">{eyebrow}</div>}
+            {!simple && eyebrow && <div className="workspace-panel__eyebrow">{eyebrow}</div>}
             <h2 className="workspace-panel__title">{title}</h2>
             {subtitle && <p className="workspace-panel__subtitle">{subtitle}</p>}
           </div>

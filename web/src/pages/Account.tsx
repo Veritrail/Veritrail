@@ -30,6 +30,7 @@ interface Me {
   email: string;
   role: string;
   org_id: string;
+  org_name: string;
   github_id: string | null;
   gitlab_id: string | null;
   google_id: string | null;
@@ -666,7 +667,7 @@ export default function Account() {
     try {
       await logout();
     } finally {
-      window.location.href = "/login";
+      window.location.href = "/login?signed_out=1";
     }
   }
 
@@ -722,7 +723,7 @@ export default function Account() {
           </span>
           <div className="leading-tight">
             <p className="text-[11px] font-medium text-zinc-400">Workspace</p>
-            <p className="text-sm font-semibold text-slate-700">{me ? me.email.split("@")[1] : "—"}</p>
+            <p className="text-sm font-semibold text-slate-700">{me ? me.org_name : "—"}</p>
           </div>
         </div>
         <div className="flex flex-1 items-center justify-center gap-2.5 px-6 py-5 text-sm">

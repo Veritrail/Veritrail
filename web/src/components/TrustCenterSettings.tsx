@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { trustCenterPublicUrl } from "../lib/appOrigin";
-import { settingsCardClass, Toggle } from "./SettingsUi";
+import { Toggle } from "./SettingsUi";
 
 type TrustCenterSettings = {
   is_enabled: boolean;
@@ -14,11 +14,44 @@ type TrustCenterSettings = {
   configured: boolean;
 };
 
+type SavePayload = {
+  is_enabled: boolean;
+  subdomain_slug: string;
+  company_name: string;
+  company_logo_url: string | null;
+  frameworks_to_show: string[];
+  custom_message: string | null;
+};
+
 const AVAILABLE_FRAMEWORKS = [
   { key: "soc2", label: "SOC 2" },
-  { key: "cis_aws_l1", label: "CIS AWS Foundations L1" },
   { key: "iso27001", label: "ISO 27001" },
+  { key: "cis_aws_l1", label: "CIS AWS L1" },
 ];
+
+const DEFAULT_FRAMEWORKS = ["soc2", "iso27001", "cis_aws_l1"];
+const TRUST_FRAMEWORK_KEYS = new Set(DEFAULT_FRAMEWORKS);
+
+function normalizeFrameworks(keys: string[] | undefined): string[] {
+  const filtered = (keys ?? []).filter((key) => TRUST_FRAMEWORK_KEYS.has(key));
+  return filtered.length ? filtered : DEFAULT_FRAMEWORKS;
+}
+
+function CheckIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
+    </svg>
+  );
+}
 
 export function TrustCenterSettings() {
   const qc = useQueryClient();
@@ -32,11 +65,13 @@ export function TrustCenterSettings() {
   const [slug, setSlug] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [frameworks, setFrameworks] = useState<string[]>(["soc2", "cis_aws_l1"]);
+  const [frameworks, setFrameworks] = useState<string[]>(DEFAULT_FRAMEWORKS);
   const [customMessage, setCustomMessage] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
+  const [configureOpen, setConfigureOpen] = useState(false);
+  const [copyMsg, setCopyMsg] = useState("");
 
   useEffect(() => {
     if (!data || hydrated) return;
@@ -44,24 +79,28 @@ export function TrustCenterSettings() {
     setSlug(data.subdomain_slug || "");
     setCompanyName(data.company_name || "");
     setLogoUrl(data.company_logo_url || "");
-    setFrameworks(data.frameworks_to_show || ["soc2", "cis_aws_l1"]);
+    setFrameworks(normalizeFrameworks(data.frameworks_to_show));
     setCustomMessage(data.custom_message || "");
     setAcknowledged(data.is_enabled);
     setHydrated(true);
   }, [data, hydrated]);
 
+  function buildPayload(override?: Partial<SavePayload>): SavePayload {
+    return {
+      is_enabled: override?.is_enabled ?? enabled,
+      subdomain_slug: override?.subdomain_slug ?? slug,
+      company_name: override?.company_name ?? companyName,
+      company_logo_url: override?.company_logo_url ?? (logoUrl || null),
+      frameworks_to_show: normalizeFrameworks(override?.frameworks_to_show ?? frameworks),
+      custom_message: override?.custom_message ?? (customMessage || null),
+    };
+  }
+
   const mutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (override?: Partial<SavePayload>) =>
       api("/v1/settings/trust-center", {
         method: "PUT",
-        body: JSON.stringify({
-          is_enabled: enabled,
-          subdomain_slug: slug,
-          company_name: companyName,
-          company_logo_url: logoUrl || null,
-          frameworks_to_show: frameworks,
-          custom_message: customMessage || null,
-        }),
+        body: JSON.stringify(buildPayload(override)),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["trust-center-settings"] });
@@ -71,167 +110,187 @@ export function TrustCenterSettings() {
   });
 
   const canSave = !enabled || acknowledged;
+  const publicUrl = slug ? trustCenterPublicUrl(slug) : "";
+
+  function toggleFramework(key: string) {
+    setFrameworks((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
+  }
+
+  function handleEnabledChange(next: boolean) {
+    setEnabled(next);
+    if (!next) setAcknowledged(false);
+    mutation.mutate({ is_enabled: next });
+  }
+
+  function copyPublicUrl() {
+    if (!publicUrl) return;
+    void navigator.clipboard.writeText(publicUrl).then(() => {
+      setCopyMsg("Copied");
+      setTimeout(() => setCopyMsg(""), 2000);
+    });
+  }
 
   if (isLoading) {
     return <p className="text-xs text-zinc-400">Loading trust center settings…</p>;
   }
 
   return (
-    <div className="space-y-4 px-3 pb-3">
-      <div className={`${settingsCardClass} space-y-4 p-5`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-zinc-900">Enable public security profile</p>
-            <p className="text-xs text-zinc-500">
-              A marketing-safe summary for prospects and customers — not a live compliance scorecard.
-            </p>
-          </div>
-          <Toggle checked={enabled} onChange={setEnabled} />
+    <div className="workspace-trust space-y-5">
+      <div className="workspace-trust__toggle-row">
+        <div>
+          <p className="workspace-trust__label">Enable public security profile</p>
+          <p className="workspace-trust__hint">
+            Make your Trust Center profile accessible to anyone with the link.
+          </p>
         </div>
+        <Toggle checked={enabled} onChange={handleEnabledChange} />
+      </div>
 
-        {enabled && (
-          <>
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs leading-relaxed text-amber-950">
-              <p className="font-semibold">Before you publish</p>
-              <p className="mt-1">
-                The public page shows monitoring status, frameworks, and document availability only. It does{" "}
-                <strong>not</strong> expose finding counts, pass/fail scores, control gaps, account IDs, or resource
-                names. Detailed evidence stays in the auditor portal.
-              </p>
-              <label className="mt-3 flex cursor-pointer items-start gap-2">
-                <input
-                  type="checkbox"
-                  checked={acknowledged}
-                  onChange={(e) => setAcknowledged(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-400"
-                />
-                <span>I understand what is — and is not — shown publicly.</span>
-              </label>
+      {enabled && (
+        <>
+          <div>
+            <p className="workspace-trust__section-label">Included frameworks</p>
+            <div className="workspace-trust__frameworks">
+              {AVAILABLE_FRAMEWORKS.map((fw) => {
+                const checked = frameworks.includes(fw.key);
+                return (
+                  <button
+                    key={fw.key}
+                    type="button"
+                    onClick={() => toggleFramework(fw.key)}
+                    className={`workspace-trust__framework-pill${checked ? " is-on" : ""}`}
+                    aria-pressed={checked}
+                  >
+                    {checked && <CheckIcon />}
+                    {fw.label}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            <div className="space-y-3 border-t border-zinc-100 pt-4">
+          <div>
+            <p className="workspace-trust__section-label">Your public profile link</p>
+            <div className="workspace-trust__url-field">
+              <input
+                type="text"
+                readOnly
+                value={publicUrl || "Set a URL slug in Configure profile"}
+                className="workspace-trust__url-input"
+              />
+              <button
+                type="button"
+                onClick={copyPublicUrl}
+                disabled={!publicUrl}
+                className="workspace-trust__url-copy"
+                aria-label="Copy public profile link"
+              >
+                {copyMsg ? (
+                  <span className="workspace-trust__url-copy-text">{copyMsg}</span>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75m6 12H9.75m3 0h3.375m-3.75-3h.008v-.008H12v.008Zm0 0h.008v-.008H12V15m0 3.75h3.375M15.75 9h.008v-.008H15.75V9Zm0 3.75h.008v-.008H15.75V12.75Zm-3.75 0h.008v-.008H12v.008Zm0 0h.008v-.008H12V9Zm0 3.75h.008v-.008H12v.008Z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {configureOpen && (
+            <div className="workspace-trust__configure space-y-3">
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs leading-relaxed text-amber-950">
+                <p className="font-semibold">Before you publish</p>
+                <p className="mt-1">
+                  The public page shows monitoring status, frameworks, and document availability only. It does not
+                  expose finding counts, pass/fail scores, or resource names.
+                </p>
+                <label className="mt-3 flex cursor-pointer items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={acknowledged}
+                    onChange={(e) => setAcknowledged(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-400"
+                  />
+                  <span>I understand what is — and is not — shown publicly.</span>
+                </label>
+              </div>
+
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500">Public URL slug</label>
+                <label className="workspace-trust__field-label">Public URL slug</label>
                 <input
                   type="text"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                  placeholder="your-company"
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  placeholder="cloud-castles"
+                  className="workspace-trust__field-input"
                 />
-                <p className="mt-1 text-[11px] text-zinc-400">
-                  {slug ? trustCenterPublicUrl(slug) : "e.g. your-company → /trust/your-company"}
-                </p>
               </div>
-
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500">Company name</label>
+                <label className="workspace-trust__field-label">Company name</label>
                 <input
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="ACME Corp"
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  placeholder="Cloud Castles"
+                  className="workspace-trust__field-input"
                 />
               </div>
-
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500">Company logo URL (optional)</label>
+                <label className="workspace-trust__field-label">Company logo URL (optional)</label>
                 <input
                   type="url"
                   value={logoUrl}
                   onChange={(e) => setLogoUrl(e.target.value)}
                   placeholder="https://example.com/logo.png"
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  className="workspace-trust__field-input"
                 />
               </div>
-
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-zinc-500">Frameworks to list</label>
-                <div className="flex flex-wrap gap-2">
-                  {AVAILABLE_FRAMEWORKS.map((fw) => {
-                    const checked = frameworks.includes(fw.key);
-                    return (
-                      <label
-                        key={fw.key}
-                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                          checked
-                            ? "border-zinc-300 bg-zinc-900 text-white"
-                            : "border-zinc-200 bg-white text-zinc-600"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            if (checked) {
-                              setFrameworks(frameworks.filter((f) => f !== fw.key));
-                            } else {
-                              setFrameworks([...frameworks, fw.key]);
-                            }
-                          }}
-                          className="sr-only"
-                        />
-                        {fw.label}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500">Intro message (optional)</label>
+                <label className="workspace-trust__field-label">Intro message (optional)</label>
                 <textarea
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
                   placeholder="We take your security seriously…"
                   rows={3}
-                  className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                  className="workspace-trust__field-input resize-none"
                 />
               </div>
             </div>
+          )}
 
-            <div className="flex items-center gap-3 border-t border-zinc-100 pt-4">
-              <button
-                type="button"
-                onClick={() => mutation.mutate()}
-                disabled={mutation.isPending || !canSave}
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          <div className="workspace-trust__actions">
+            {slug && (
+              <a
+                href={`/trust/${slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="vigil-toolbar-btn workspace-trust__preview-btn"
               >
-                {mutation.isPending ? "Saving…" : "Save"}
-              </button>
-              {slug && (
-                <a
-                  href={`/trust/${slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50"
-                >
-                  Preview ↗
-                </a>
-              )}
-              {saveMsg && <span className="text-xs font-medium text-emerald-600">{saveMsg}</span>}
-              {!canSave && (
-                <span className="text-xs text-amber-700">Confirm the disclosure above to save.</span>
-              )}
-            </div>
-          </>
-        )}
-
-        {!enabled && (
-          <div className="flex items-center gap-3 border-t border-zinc-100 pt-4">
+                Preview profile
+                <ExternalLinkIcon />
+              </a>
+            )}
             <button
               type="button"
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => {
+                if (!configureOpen) {
+                  setConfigureOpen(true);
+                  return;
+                }
+                mutation.mutate({});
+              }}
+              disabled={mutation.isPending || (configureOpen && !canSave)}
+              className="vigil-toolbar-btn workspace-btn--accent"
             >
-              {mutation.isPending ? "Saving…" : "Save"}
+              {mutation.isPending ? "Saving…" : configureOpen ? "Save profile" : "Configure profile"}
             </button>
-            {saveMsg && <span className="text-xs font-medium text-emerald-600">{saveMsg}</span>}
+            {saveMsg && <span className="text-xs font-semibold text-emerald-600">{saveMsg}</span>}
+            {configureOpen && !canSave && (
+              <span className="text-xs text-amber-700">Confirm the disclosure to save.</span>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

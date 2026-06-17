@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, BASE, formatApiError, restoreSession, storeTokens, token } from "../api";
+import { api, BASE, consumeSignedOut, formatApiError, restoreSession, storeTokens, token } from "../api";
 import { postAuthPath } from "../lib/postAuthRedirect";
 import "../styles/login-auth.css";
 
@@ -162,10 +162,19 @@ function GitLabIcon() {
   );
 }
 
-function AuthOAuthButtons({ rememberMe, inviteToken }: { rememberMe: boolean; inviteToken?: string | null }) {
+function AuthOAuthButtons({
+  rememberMe,
+  inviteToken,
+  pickAccount,
+}: {
+  rememberMe: boolean;
+  inviteToken?: string | null;
+  pickAccount?: boolean;
+}) {
   const params = new URLSearchParams();
   if (!rememberMe) params.set("remember", "0");
   if (inviteToken) params.set("invite_token", inviteToken);
+  if (pickAccount) params.set("pick_account", "1");
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return (
     <>
@@ -236,6 +245,12 @@ export default function Login() {
   const [requestAccessEmail, setRequestAccessEmail] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState(false);
   const [loginFormKey, setLoginFormKey] = useState(0);
+  const [freshSignIn] = useState(
+    () =>
+      params.get("signed_out") === "1" ||
+      consumeSignedOut() ||
+      Boolean((location.state as { signedOut?: boolean } | null)?.signedOut),
+  );
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -263,6 +278,10 @@ export default function Login() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      if (freshSignIn) {
+        if (!cancelled) setCheckingSession(false);
+        return;
+      }
       if (token()) {
         if (inviteToken) {
           try {
@@ -285,7 +304,7 @@ export default function Login() {
     return () => {
       cancelled = true;
     };
-  }, [nav]);
+  }, [nav, freshSignIn, inviteToken]);
 
   useEffect(() => {
     const token = params.get("mfa_token");
@@ -887,7 +906,7 @@ export default function Login() {
             </button>
           </form>
 
-          <AuthOAuthButtons rememberMe={rememberMe} inviteToken={inviteToken} />
+          <AuthOAuthButtons rememberMe={rememberMe} inviteToken={inviteToken} pickAccount={freshSignIn} />
           <AuthLegalFooter mode={mode} />
 
           <div className="auth-mode-switch">
