@@ -586,6 +586,31 @@ function WorkspaceDetailSection({
   return <section className="workspace-detail">{children}</section>;
 }
 
+function WorkspaceSectionIntro({
+  icon,
+  title,
+  description,
+  meta,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  meta?: ReactNode;
+}) {
+  return (
+    <div className="access-invite-card workspace-section-intro">
+      <span className="access-invite-card__icon workspace-section-intro__icon" aria-hidden>
+        <Icon d={icon} />
+      </span>
+      <div className="access-invite-card__copy">
+        <p className="access-invite-card__title">{title}</p>
+        <p className="access-invite-card__description">{description}</p>
+      </div>
+      {meta ? <div className="workspace-section-intro__meta">{meta}</div> : null}
+    </div>
+  );
+}
+
 function ModuleCard({
   check,
   enabled,
@@ -1307,39 +1332,36 @@ export default function Workspace() {
               </>
             }
           >
-            <div className="workspace-grid workspace-grid--equal workspace-grid--sharing">
-              <Panel
-                title="Trust Center"
-                subtitle="Share your security posture with prospects and customers via a public Trust Center profile."
-                simple
-                icon={<PanelIcon path={PANEL_ICONS.shield} />}
-                action={<StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Public profile on" : "Off"}</StatusBadge>}
-              >
-                <div className="workspace-panel__body">
+            <section className="access-card workspace-sharing-card">
+              <div className="access-card__body workspace-sharing-card__body">
+                <WorkspaceSectionIntro
+                  icon={ICONS.sharing}
+                  title="Evidence sharing"
+                  description="Manage customer-facing trust content and scoped auditor access from one calm review surface."
+                  meta={
+                    <>
+                      <StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Trust Center live" : "Trust Center off"}</StatusBadge>
+                      <StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors} auditor{activeAuditors === 1 ? "" : "s"}</StatusBadge>
+                    </>
+                  }
+                />
+                <section className="access-members-section workspace-sharing-section">
                   {canEditWorkspace ? (
                     <TrustCenterSettings />
                   ) : (
                     <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
                   )}
-                </div>
-              </Panel>
+                </section>
 
-              <Panel
-                title="External Auditors"
-                subtitle="Grant scoped, time-bound access to your evidence for outside reviewers and customers."
-                simple
-                icon={<PanelIcon path={PANEL_ICONS.auditors} />}
-                action={<StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors ? `${activeAuditors} active` : "None"}</StatusBadge>}
-              >
-                <div className="workspace-panel__body">
+                <section className="access-members-section workspace-sharing-section">
                   {canEditWorkspace ? (
                     <AuditorManagement embedded />
                   ) : (
                     <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
                   )}
-                </div>
-              </Panel>
-            </div>
+                </section>
+              </div>
+            </section>
           </WorkspaceDetailSection>
         )}
 
@@ -1416,6 +1438,17 @@ export default function Workspace() {
           >
             <section className="access-card workspace-notifications-card">
               <div className="access-card__body workspace-notifications-card__body">
+                <WorkspaceSectionIntro
+                  icon={ICONS.notifications}
+                  title="Alert routing"
+                  description="Choose which workspace events create alerts and keep delivery targets visible for quick checks."
+                  meta={
+                    <>
+                      <StatusBadge tone={alertsOn ? "ok" : "warn"} plain>{alertsOn ? "Routes active" : "Routes off"}</StatusBadge>
+                      <StatusBadge tone={slackConnected ? "ok" : "idle"} plain>{slackConnected ? "Slack connected" : "Email only"}</StatusBadge>
+                    </>
+                  }
+                />
                 <section className="access-members-section workspace-notifications-section">
                   <div className="workspace-notifications-section__header">
                     <div>

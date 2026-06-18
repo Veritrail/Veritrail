@@ -53,6 +53,14 @@ function ExternalLinkIcon() {
   );
 }
 
+function ShieldIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+    </svg>
+  );
+}
+
 export function TrustCenterSettings() {
   const qc = useQueryClient();
 
@@ -135,22 +143,32 @@ export function TrustCenterSettings() {
   }
 
   return (
-    <div className="workspace-trust space-y-5">
-      <div className="workspace-trust__toggle-row">
-        <div>
-          <p className="workspace-trust__label">Enable public security profile</p>
-          <p className="workspace-trust__hint">
-            Make your Trust Center profile accessible to anyone with the link.
-          </p>
+    <div className="workspace-trust">
+      <div className="workspace-notifications-routes">
+        <div className="workspace-route-row workspace-route-row--ok">
+          <span className="workspace-route-row__icon" aria-hidden>
+            <ShieldIcon />
+          </span>
+          <div className="workspace-route-row__copy">
+            <p className="workspace-route-row__title">Public security profile</p>
+            <p className="workspace-route-row__description">
+              Make your Trust Center profile accessible to anyone with the link.
+            </p>
+          </div>
+          <div className="workspace-route-row__control">
+            <span className={`workspace-route-badge workspace-route-badge--${enabled ? "ok" : "idle"}`}>
+              {enabled ? "Live" : "Off"}
+            </span>
+            <Toggle checked={enabled} onChange={handleEnabledChange} />
+          </div>
         </div>
-        <Toggle checked={enabled} onChange={handleEnabledChange} />
       </div>
 
       {enabled && (
-        <>
-          <div>
+        <div className="workspace-trust__body">
+          <div className="workspace-trust__block">
             <p className="workspace-trust__section-label">Included frameworks</p>
-            <div className="workspace-trust__frameworks">
+            <div className="findings-v2-filter-chip-bar workspace-trust__framework-bar">
               {AVAILABLE_FRAMEWORKS.map((fw) => {
                 const checked = frameworks.includes(fw.key);
                 return (
@@ -158,7 +176,7 @@ export function TrustCenterSettings() {
                     key={fw.key}
                     type="button"
                     onClick={() => toggleFramework(fw.key)}
-                    className={`workspace-trust__framework-pill${checked ? " is-on" : ""}`}
+                    className={`findings-v2-filter-chip${checked ? " is-selected" : ""}`}
                     aria-pressed={checked}
                   >
                     {checked && <CheckIcon />}
@@ -169,91 +187,92 @@ export function TrustCenterSettings() {
             </div>
           </div>
 
-          <div>
-            <p className="workspace-trust__section-label">Your public profile link</p>
-            <div className="workspace-trust__url-field">
-              <input
-                type="text"
-                readOnly
-                value={publicUrl || "Set a URL slug in Configure profile"}
-                className="workspace-trust__url-input"
-              />
-              <button
-                type="button"
-                onClick={copyPublicUrl}
-                disabled={!publicUrl}
-                className="workspace-trust__url-copy"
-                aria-label="Copy public profile link"
-              >
-                {copyMsg ? (
-                  <span className="workspace-trust__url-copy-text">{copyMsg}</span>
-                ) : (
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75m6 12H9.75m3 0h3.375m-3.75-3h.008v-.008H12v.008Zm0 0h.008v-.008H12V15m0 3.75h3.375M15.75 9h.008v-.008H15.75V9Zm0 3.75h.008v-.008H15.75V12.75Zm-3.75 0h.008v-.008H12v.008Zm0 0h.008v-.008H12V9Zm0 3.75h.008v-.008H12v.008Z" />
-                  </svg>
-                )}
-              </button>
+          <div className="workspace-trust__block">
+            <p className="workspace-trust__section-label">Public profile link</p>
+            <div className="workspace-field">
+              <div className="workspace-destination-input">
+                <input
+                  type="text"
+                  readOnly
+                  value={publicUrl || "Set a URL slug in Configure profile"}
+                />
+                <button
+                  type="button"
+                  onClick={copyPublicUrl}
+                  disabled={!publicUrl}
+                  className="workspace-trust__url-copy"
+                  aria-label="Copy public profile link"
+                >
+                  {copyMsg ? copyMsg : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75m6 12H9.75m3 0h3.375m-3.75-3h.008v-.008H12v.008Zm0 0h.008v-.008H12V15m0 3.75h3.375M15.75 9h.008v-.008H15.75V9Zm0 3.75h.008v-.008H15.75V12.75Zm-3.75 0h.008v-.008H12v.008Zm0 0h.008v-.008H12V9Zm0 3.75h.008v-.008H12v.008Z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
           {configureOpen && (
-            <div className="workspace-trust__configure space-y-3">
-              <div className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs leading-relaxed text-amber-950">
-                <p className="font-semibold">Before you publish</p>
-                <p className="mt-1">
+            <div className="workspace-trust__configure">
+              <div className="workspace-trust__notice">
+                <p className="workspace-trust__notice-title">Before you publish</p>
+                <p className="workspace-trust__notice-copy">
                   The public page shows monitoring status, frameworks, and document availability only. It does not
                   expose finding counts, pass/fail scores, or resource names.
                 </p>
-                <label className="mt-3 flex cursor-pointer items-start gap-2">
+                <label className="workspace-trust__notice-check">
                   <input
                     type="checkbox"
                     checked={acknowledged}
                     onChange={(e) => setAcknowledged(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-400"
                   />
                   <span>I understand what is — and is not — shown publicly.</span>
                 </label>
               </div>
 
-              <div>
-                <label className="workspace-trust__field-label">Public URL slug</label>
-                <input
-                  type="text"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                  placeholder="cloud-castles"
-                  className="workspace-trust__field-input"
-                />
-              </div>
-              <div>
-                <label className="workspace-trust__field-label">Company name</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Cloud Castles"
-                  className="workspace-trust__field-input"
-                />
-              </div>
-              <div>
-                <label className="workspace-trust__field-label">Company logo URL (optional)</label>
-                <input
-                  type="url"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://example.com/logo.png"
-                  className="workspace-trust__field-input"
-                />
-              </div>
-              <div>
-                <label className="workspace-trust__field-label">Intro message (optional)</label>
-                <textarea
-                  value={customMessage}
-                  onChange={(e) => setCustomMessage(e.target.value)}
-                  placeholder="We take your security seriously…"
-                  rows={3}
-                  className="workspace-trust__field-input resize-none"
-                />
+              <div className="workspace-form-grid">
+                <div className="workspace-field">
+                  <label htmlFor="trust-slug">Public URL slug</label>
+                  <input
+                    id="trust-slug"
+                    type="text"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    placeholder="cloud-castles"
+                  />
+                </div>
+                <div className="workspace-field">
+                  <label htmlFor="trust-company">Company name</label>
+                  <input
+                    id="trust-company"
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Cloud Castles"
+                  />
+                </div>
+                <div className="workspace-field">
+                  <label htmlFor="trust-logo">Company logo URL (optional)</label>
+                  <input
+                    id="trust-logo"
+                    type="url"
+                    value={logoUrl}
+                    onChange={(e) => setLogoUrl(e.target.value)}
+                    placeholder="https://example.com/logo.png"
+                  />
+                </div>
+                <div className="workspace-field" style={{ gridColumn: "1 / -1" }}>
+                  <label htmlFor="trust-message">Intro message (optional)</label>
+                  <textarea
+                    id="trust-message"
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    placeholder="We take your security seriously…"
+                    rows={3}
+                    className="workspace-trust__textarea"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -280,7 +299,7 @@ export function TrustCenterSettings() {
                 mutation.mutate({});
               }}
               disabled={mutation.isPending || (configureOpen && !canSave)}
-              className="vigil-toolbar-btn workspace-btn--accent"
+              className="vigil-toolbar-btn"
             >
               {mutation.isPending ? "Saving…" : configureOpen ? "Save profile" : "Configure profile"}
             </button>
@@ -289,7 +308,7 @@ export function TrustCenterSettings() {
               <span className="text-xs text-amber-700">Confirm the disclosure to save.</span>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
