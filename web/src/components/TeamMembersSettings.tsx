@@ -110,6 +110,7 @@ export function TeamMembersSettings() {
       title="Workspace members"
       description="Teammates who can sign in here. Roles control what they're allowed to change."
       status={<StatusPill tone="muted">{memberCount} member{memberCount === 1 ? "" : "s"}</StatusPill>}
+      hideHeader
     >
       <div className={accessComposer}>
         <span className="access-invite-card__icon" aria-hidden>

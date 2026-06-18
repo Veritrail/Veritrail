@@ -60,6 +60,7 @@ export function Panel({
   subtitle,
   action,
   simple = false,
+  hideHeader = false,
   children,
 }: {
   icon?: ReactNode;
@@ -68,21 +69,24 @@ export function Panel({
   subtitle?: string;
   action?: ReactNode;
   simple?: boolean;
+  hideHeader?: boolean;
   children: ReactNode;
 }) {
   return (
     <section className={`workspace-panel${simple ? " workspace-panel--simple" : ""}`}>
-      <div className="workspace-panel__header">
-        <div className="workspace-panel__header-main">
-          {icon}
-          <div className="workspace-panel__header-text min-w-0">
-            {!simple && eyebrow && <div className="workspace-panel__eyebrow">{eyebrow}</div>}
-            <h2 className="workspace-panel__title">{title}</h2>
-            {subtitle && <p className="workspace-panel__subtitle">{subtitle}</p>}
+      {!hideHeader && (
+        <div className="workspace-panel__header">
+          <div className="workspace-panel__header-main">
+            {icon}
+            <div className="workspace-panel__header-text min-w-0">
+              {!simple && eyebrow && <div className="workspace-panel__eyebrow">{eyebrow}</div>}
+              <h2 className="workspace-panel__title">{title}</h2>
+              {subtitle && <p className="workspace-panel__subtitle">{subtitle}</p>}
+            </div>
           </div>
+          {action}
         </div>
-        {action}
-      </div>
+      )}
       {children}
     </section>
   );

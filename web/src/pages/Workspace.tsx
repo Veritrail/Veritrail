@@ -647,22 +647,26 @@ function ScanSchedulePanel({
   const hasCompletedScan = Boolean(lastScanAt);
 
   return (
-    <Panel
-      title="Scan schedule"
-      subtitle="Automated scans collect evidence and refresh findings."
-      icon={<PanelIcon path={PANEL_ICONS.calendar} />}
-    >
-      <div className="workspace-panel__body workspace-schedule">
-        <div className="workspace-schedule__toggle-row">
-          <div>
-            <p className="workspace-row__title">Automated scans</p>
-            <p className="workspace-row__description">Changes apply after the next completed scan.</p>
+    <section className="access-card workspace-scan-card">
+      <div className="access-card__body workspace-schedule">
+        <div className="access-invite-card workspace-scan-control-card">
+          <span className="access-invite-card__icon workspace-scan-control-card__icon" aria-hidden>
+            <Icon d={ICONS.calendar} />
+          </span>
+          <div className="access-invite-card__copy">
+            <p className="access-invite-card__title">Automated scans</p>
+            <p className="access-invite-card__description">Changes apply after the next completed scan.</p>
           </div>
-          <Toggle checked={scanEnabled} onChange={onScanEnabledChange} disabled={!canEditWorkspace} />
+          <div className="workspace-scan-control-card__action">
+            <span className={`workspace-scan-control-card__status${scanEnabled ? " is-on" : ""}`}>
+              {scanEnabled ? "Enabled" : "Manual"}
+            </span>
+            <Toggle checked={scanEnabled} onChange={onScanEnabledChange} disabled={!canEditWorkspace} />
+          </div>
         </div>
 
         {scanEnabled && (
-          <div className="workspace-schedule__box">
+          <div className="access-members-section workspace-schedule__box workspace-schedule__box--card">
             <div className="workspace-schedule__tabs">
               <Segmented
                 className="workspace-schedule__segmented"
@@ -803,7 +807,7 @@ function ScanSchedulePanel({
           </div>
         )}
       </div>
-    </Panel>
+    </section>
   );
 }
 
@@ -1410,15 +1414,33 @@ export default function Workspace() {
               </>
             }
           >
-            <div className="workspace-grid workspace-grid--two workspace-grid--notifications">
-              <Panel title="Alert routes" eyebrow="Notifications" subtitle="Operational events and where they are delivered." action={<StatusBadge tone={alertsOn ? "ok" : "warn"}>{alertsOn ? "Active" : "Off"}</StatusBadge>}>
-                <RouteRow title="Scan failures" description="AWS access breaks, collector errors, or scheduled run failures." destination="Email" checked={scanFailureEnabled} onChange={setScanFailureEnabled} disabled={!canEditWorkspace} tone="warn" />
-                <RouteRow title="Critical findings" description="New critical or high findings that need fast operator review." destination={slackConnected ? "Email + Slack" : "Email"} checked={criticalAlertEnabled} onChange={setCriticalAlertEnabled} disabled={!canEditWorkspace} tone="danger" />
-                <RouteRow title="Weekly digest" description="Weekly summary of posture movement and active findings." destination="Email digest" checked={emailDigestEnabled} onChange={setEmailDigestEnabled} disabled={!canEditWorkspace} tone="ok" />
-              </Panel>
+            <section className="access-card workspace-notifications-card">
+              <div className="access-card__body workspace-notifications-card__body">
+                <section className="access-members-section workspace-notifications-section">
+                  <div className="workspace-notifications-section__header">
+                    <div>
+                      <p className="workspace-panel__eyebrow">Notifications</p>
+                      <h2 className="access-members-section__title">Alert routes</h2>
+                      <p className="workspace-notifications-section__description">Operational events and where they are delivered.</p>
+                    </div>
+                    <StatusBadge tone={alertsOn ? "ok" : "warn"}>{alertsOn ? "Active" : "Off"}</StatusBadge>
+                  </div>
+                  <div className="workspace-notifications-routes">
+                    <RouteRow title="Scan failures" description="AWS access breaks, collector errors, or scheduled run failures." destination="Email" checked={scanFailureEnabled} onChange={setScanFailureEnabled} disabled={!canEditWorkspace} tone="warn" />
+                    <RouteRow title="Critical findings" description="New critical or high findings that need fast operator review." destination={slackConnected ? "Email + Slack" : "Email"} checked={criticalAlertEnabled} onChange={setCriticalAlertEnabled} disabled={!canEditWorkspace} tone="danger" />
+                    <RouteRow title="Weekly digest" description="Weekly summary of posture movement and active findings." destination="Email digest" checked={emailDigestEnabled} onChange={setEmailDigestEnabled} disabled={!canEditWorkspace} tone="ok" />
+                  </div>
+                </section>
 
-              <Panel title="Destinations" eyebrow="Delivery" subtitle="Use monitored team destinations for production workspaces.">
-                <div className="workspace-panel__body workspace-destinations">
+                <section className="access-members-section workspace-notifications-section">
+                  <div className="workspace-notifications-section__header">
+                    <div>
+                      <p className="workspace-panel__eyebrow">Delivery</p>
+                      <h2 className="access-members-section__title">Destinations</h2>
+                      <p className="workspace-notifications-section__description">Use monitored team destinations for production workspaces.</p>
+                    </div>
+                  </div>
+                  <div className="workspace-destinations">
                   <div className="workspace-destination-row">
                     <span className="workspace-destination-row__icon workspace-destination-row__icon--email" aria-hidden>
                       <Icon d={PANEL_ICONS.destinations} />
@@ -1480,9 +1502,10 @@ export default function Workspace() {
                     <span className="workspace-destinations__target">Current target: {deliveryTarget}</span>
                     {digestTestMsg && <span className={`text-xs font-semibold ${digestTestState === "error" ? "text-red-600" : "text-emerald-600"}`}>{digestTestMsg}</span>}
                   </div>
-                </div>
-              </Panel>
-            </div>
+                  </div>
+                </section>
+              </div>
+            </section>
           </WorkspaceDetailSection>
         )}
           </div>

@@ -947,7 +947,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 1.4rem;
-  margin: 1.1rem 1.35rem;
+  margin: 1.1rem 0;
   border: 1px solid #dfe6ef;
   border-radius: 0.5rem;
   background: #ffffff;
@@ -962,7 +962,7 @@
 }
 
 .workspace-route-row:last-child {
-  margin-bottom: 1.35rem;
+  margin-bottom: 0;
 }
 
 .workspace-route-row__icon {
@@ -1076,7 +1076,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.45rem;
-  padding: 1.6rem 1.75rem;
+  padding: 0;
 }
 
 .workspace-destination-row {
@@ -1193,6 +1193,35 @@
   color: #64748b;
 }
 
+.workspace-notifications-card .access-card__body {
+  padding-top: 2.2rem;
+}
+
+.workspace-notifications-card__body {
+  display: grid;
+  gap: 1.35rem;
+}
+
+.workspace-notifications-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.45rem;
+}
+
+.workspace-notifications-section__description {
+  margin: 0.45rem 0 0;
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.workspace-notifications-routes {
+  border-top: 1px solid #e6ebf2;
+  padding-top: 0.25rem;
+}
+
 @media (max-width: 720px) {
   .workspace-destination-row,
   .workspace-destinations__footer {
@@ -1202,13 +1231,17 @@
   .workspace-destination-row__icon {
     display: none;
   }
+
+  .workspace-notifications-section__header {
+    flex-direction: column;
+  }
 }
 
 /* Scan schedule (Scanning tab) */
 .workspace-schedule {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.35rem;
 }
 
 .workspace-schedule__toggle-row {
@@ -1219,6 +1252,53 @@
   gap: 1rem;
 }
 
+.workspace-scan-card .access-card__body {
+  padding-top: 2.2rem;
+}
+
+.workspace-scan-control-card {
+  grid-template-columns: auto minmax(18rem, 1fr) auto;
+}
+
+.workspace-scan-control-card__icon svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.workspace-scan-control-card__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.workspace-scan-control-card__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 0.5rem 0.8rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.workspace-scan-control-card__status::before {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.workspace-scan-control-card__status.is-on {
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .workspace-schedule__box {
   overflow: hidden;
   border: 1px solid #e2e8f0;
@@ -1226,10 +1306,14 @@
   background: #fff;
 }
 
+.workspace-schedule__box--card {
+  padding: 0;
+}
+
 .workspace-schedule__tabs {
   border-bottom: 1px solid #e2e8f0;
-  background: #f4f4f5;
-  padding: 0.625rem 0.875rem;
+  background: #f8fafc;
+  padding: 0.8rem 0.9rem;
 }
 
 .workspace-schedule__segmented.findings-v2-filter-chip-bar {
@@ -1243,7 +1327,7 @@
   flex-direction: column;
   gap: 1.25rem;
   background: #fff;
-  padding: 1.25rem 1.125rem 1.375rem;
+  padding: 1.6rem 1.4rem 1.45rem;
 }
 
 .workspace-schedule__custom-hours {
@@ -1845,6 +1929,10 @@
   flex-direction: column;
   gap: 1.35rem;
   padding: 0 2.2rem 2.2rem;
+}
+
+.access-card--no-header .access-card__body {
+  padding-top: 2.2rem;
 }
 
 .access-status-pill {
