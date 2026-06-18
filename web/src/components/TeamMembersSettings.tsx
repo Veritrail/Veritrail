@@ -112,40 +112,66 @@ export function TeamMembersSettings() {
       status={<StatusPill tone="muted">{memberCount} member{memberCount === 1 ? "" : "s"}</StatusPill>}
     >
       <div className={accessComposer}>
-        <p className="mb-2 text-xs font-semibold text-zinc-600">Invite a member</p>
-        <p className="mb-2 text-xs text-zinc-500">
-          For people who do not have a Vigil account yet — contractors and personal emails are fine. If they already
-          belong to another workspace, they must leave that account first or use a different email.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="teammate@company.com"
-            className={`${accessInput} min-w-[180px] flex-1 sm:max-w-[300px]`}
-          />
-          <Select
-            value={role}
-            onChange={(v) => setRole(v as (typeof ASSIGNABLE_ROLES)[number])}
-            options={[
-              { value: "admin", label: "Admin" },
-              { value: "editor", label: "Editor" },
-              { value: "viewer", label: "Viewer" },
-            ]}
-          />
-          <Select
-            value={expiryDays == null ? "" : String(expiryDays)}
-            onChange={(v) => setExpiryDays(v === "" ? null : Number(v))}
-            options={[
-              { value: "", label: "No expiration" },
-              { value: "7", label: "7 days" },
-              { value: "14", label: "14 days" },
-              { value: "30", label: "30 days" },
-            ]}
-          />
+        <span className="access-invite-card__icon" aria-hidden>
+          <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0-8.53 5.25a2.25 2.25 0 0 1-2.44 0L2.25 6.75" />
+          </svg>
+        </span>
+        <div className="access-invite-card__copy">
+          <p className="access-invite-card__title">Invite a member</p>
+          <p className="access-invite-card__description">
+            For people who do not have a Vigil account yet — contractors and personal emails are fine. If they already
+            belong to another workspace, they must leave that account first or use a different email.
+          </p>
+        </div>
+        <div className="access-invite-card__form">
+          <label className="access-field access-field--email">
+            <span>Email address</span>
+            <span className="access-input-shell">
+              <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0-8.53 5.25a2.25 2.25 0 0 1-2.44 0L2.25 6.75" />
+              </svg>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="teammate@company.com"
+                className={accessInput}
+              />
+            </span>
+          </label>
+          <label className="access-field">
+            <span>Role</span>
+            <Select
+              className="access-select-btn"
+              value={role}
+              onChange={(v) => setRole(v as (typeof ASSIGNABLE_ROLES)[number])}
+              options={[
+                { value: "admin", label: "Admin" },
+                { value: "editor", label: "Editor" },
+                { value: "viewer", label: "Viewer" },
+              ]}
+            />
+          </label>
+          <label className="access-field">
+            <span>Access expiration</span>
+            <Select
+              className="access-select-btn"
+              value={expiryDays == null ? "" : String(expiryDays)}
+              onChange={(v) => setExpiryDays(v === "" ? null : Number(v))}
+              options={[
+                { value: "", label: "No expiration" },
+                { value: "7", label: "7 days" },
+                { value: "14", label: "14 days" },
+                { value: "30", label: "30 days" },
+              ]}
+            />
+          </label>
           <button onClick={() => inviteMutation.mutate()} disabled={inviteMutation.isPending || !email.trim()} className={accessPrimaryBtn}>
             {inviteMutation.isPending ? "Inviting…" : "Invite"}
+            <svg fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L6 12Zm0 0h7.5" />
+            </svg>
           </button>
         </div>
         {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
@@ -155,9 +181,9 @@ export function TeamMembersSettings() {
       {isLoading && <p className="text-xs text-zinc-400">Loading…</p>}
 
       {invites && invites.length > 0 && (
-        <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Pending invites</p>
-          <div className="space-y-2">
+        <div className="access-members-section">
+          <p className="access-members-section__title">Pending invites</p>
+          <div className="access-members-list">
             {invites.map((entry) => (
               <AccessRow
                 key={entry.id}
@@ -185,9 +211,9 @@ export function TeamMembersSettings() {
       )}
 
       {members && members.length > 0 && (
-        <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Members</p>
-          <div className="space-y-2">
+        <div className="access-members-section">
+          <p className="access-members-section__title">Members</p>
+          <div className="access-members-list">
             {members.map((entry) => (
               <AccessRow
                 key={entry.id}

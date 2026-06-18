@@ -4,18 +4,18 @@
 import type { ReactNode } from "react";
 
 export const accessInput =
-  "h-10 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/25";
+  "access-input";
 
 export const accessPrimaryBtn =
-  "h-10 shrink-0 rounded-lg border border-zinc-300 bg-zinc-900 px-5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
+  "access-primary-btn";
 
 export const accessGhostBtn =
-  "rounded-md px-2.5 py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-100";
+  "access-ghost-btn";
 
 export const accessDangerBtn =
-  "rounded-md px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50";
+  "access-danger-btn";
 
-export const accessComposer = "rounded-lg border border-zinc-200 bg-zinc-50/70 p-3";
+export const accessComposer = "access-invite-card";
 
 export function AccessCard({
   title,
@@ -29,15 +29,20 @@ export function AccessCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-[15px] font-semibold tracking-tight text-zinc-900">{title}</h3>
-          <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{description}</p>
+    <section className="access-card">
+      <div className="access-card__header">
+        <span className="access-card__icon" aria-hidden>
+          <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm6 1.125a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+          </svg>
+        </span>
+        <div className="access-card__title-wrap">
+          <h3 className="access-card__title">{title}</h3>
+          <p className="access-card__description">{description}</p>
         </div>
-        {status}
+        {status && <div className="access-card__status">{status}</div>}
       </div>
-      <div className="mt-4 space-y-3">{children}</div>
+      <div className="access-card__body">{children}</div>
     </section>
   );
 }
@@ -57,7 +62,7 @@ export function Avatar({ email, name }: { email: string; name?: string | null })
   for (const ch of email) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   const tone = AVATAR_TONES[hash % AVATAR_TONES.length];
   return (
-    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-semibold ${tone}`}>
+    <div className={`access-avatar ${tone}`}>
       {initial}
     </div>
   );
@@ -79,7 +84,7 @@ export function StatusPill({
           ? "bg-teal-50 text-teal-700 ring-teal-200/70"
           : "bg-zinc-100 text-zinc-500 ring-zinc-200/70";
   return (
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>
+    <span className={`access-status-pill ${cls}`}>
       {children}
     </span>
   );
@@ -98,14 +103,14 @@ export function AccessRow({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-zinc-100 bg-white px-3 py-2.5 transition hover:border-indigo-200 hover:bg-indigo-50/50 hover:shadow-sm hover:shadow-indigo-950/[0.03]">
+    <div className="access-row">
       <Avatar email={email} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-zinc-900">{email}</p>
-        <p className="mt-0.5 truncate text-xs text-zinc-500">{meta}</p>
+      <div className="access-row__identity">
+        <p className="access-row__email">{email}</p>
+        <p className="access-row__meta">{meta}</p>
       </div>
-      {right && <div className="hidden shrink-0 flex-col items-end text-right sm:flex">{right}</div>}
-      {actions && <div className="flex shrink-0 items-center gap-0.5">{actions}</div>}
+      {right && <div className="access-row__right">{right}</div>}
+      {actions && <div className="access-row__actions">{actions}</div>}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
 import { AccessCard } from "../components/accessUi";
 import { roleAtLeast, useMe } from "../hooks/useMe";
+import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import "../styles/findings-v2.css";
 import "../styles/settings-cards.css";
 import "../styles/workspace-page.css";
@@ -572,6 +573,19 @@ function WorkspaceTabBar({ active, onSelect }: { active: TabId; onSelect: (tab: 
   );
 }
 
+function WorkspaceDetailSection({
+  children,
+}: {
+  icon?: ReactNode;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  meta?: ReactNode;
+  children: ReactNode;
+}) {
+  return <section className="workspace-detail">{children}</section>;
+}
+
 function ModuleCard({
   check,
   enabled,
@@ -810,16 +824,31 @@ function RouteRow({
   disabled: boolean;
   tone: Tone;
 }) {
+  const routeIcon =
+    tone === "danger"
+      ? "M12 3.75 4.5 6.75v5.5c0 4.33 3.03 7.2 7.5 8 4.47-.8 7.5-3.67 7.5-8v-5.5L12 3.75Zm0 4.75v4.25m0 3.5h.01"
+      : tone === "ok"
+        ? "M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0-8.53 5.25a2.25 2.25 0 0 1-2.44 0L2.25 6.75"
+        : "M3 15.25a4.75 4.75 0 0 0 4.75 4.75h8.75a4.5 4.5 0 0 0 .5-8.97 6 6 0 0 0-11.5-1.98A4.75 4.75 0 0 0 3 15.25Zm9 1.5v-3m0-3h.01";
+
   return (
-    <div className="workspace-route-row">
-      <div className="min-w-0">
-        <p className="workspace-row__title">{title}</p>
-        <p className="workspace-row__description">{description}</p>
+    <div className={`workspace-route-row workspace-route-row--${tone}`}>
+      <span className="workspace-route-row__icon" aria-hidden>
+        <Icon d={routeIcon} />
+      </span>
+      <div className="workspace-route-row__copy">
+        <p className="workspace-route-row__title">{title}</p>
+        <p className="workspace-route-row__description">{description}</p>
       </div>
-      <div>
-        <StatusBadge tone={checked ? tone : "idle"}>{checked ? destination : "Off"}</StatusBadge>
+      <div className="workspace-route-row__control">
+        <span className={`workspace-route-badge workspace-route-badge--${checked ? tone : "idle"}`}>
+          <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0-8.53 5.25a2.25 2.25 0 0 1-2.44 0L2.25 6.75" />
+          </svg>
+          {checked ? destination : "Off"}
+        </span>
+        <Toggle checked={checked} onChange={onChange} disabled={disabled} />
       </div>
-      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
     </div>
   );
 }
@@ -1224,81 +1253,119 @@ export default function Workspace() {
         )}
 
         {tab === "access" && (
-          <div className="workspace-grid">
-            {isOwner ? (
-              <TeamMembersSettings />
-            ) : (
-              <AccessCard title="Workspace members" description="Invite teammates and manage workspace roles.">
-                <p className="text-sm text-zinc-500">Only the workspace owner can manage team members.</p>
-              </AccessCard>
-            )}
+          <WorkspaceDetailSection
+            icon={<Icon d={ICONS.access} />}
+            eyebrow="Access"
+            title="Members and roles"
+            description="Invite teammates, review workspace membership, and keep administrative access easy to scan."
+            meta={
+              <>
+                <StatusBadge tone="info" plain>{memberCount} member{memberCount === 1 ? "" : "s"}</StatusBadge>
+                <StatusBadge tone={isOwner ? "ok" : "idle"} plain>{isOwner ? "Owner controls" : "Owner managed"}</StatusBadge>
+              </>
+            }
+          >
+            <div className="workspace-grid workspace-grid--access">
+              {isOwner ? (
+                <TeamMembersSettings />
+              ) : (
+                <AccessCard title="Workspace members" description="Invite teammates and manage workspace roles.">
+                  <p className="text-sm text-zinc-500">Only the workspace owner can manage team members.</p>
+                </AccessCard>
+              )}
 
-            {SHOW_JOINING_POLICY && canEditWorkspace && (
-              <Panel
-                title="Verified company domains"
-                eyebrow="Joining policy"
-                subtitle="Control who can request or automatically join this workspace."
-                icon={<PanelIcon path={PANEL_ICONS.domains} />}
-              >
-                <div className="workspace-panel__body">
-                  <DomainsSettings />
-                </div>
-              </Panel>
-            )}
-          </div>
+              {SHOW_JOINING_POLICY && canEditWorkspace && (
+                <Panel
+                  title="Verified company domains"
+                  eyebrow="Joining policy"
+                  subtitle="Control who can request or automatically join this workspace."
+                  icon={<PanelIcon path={PANEL_ICONS.domains} />}
+                >
+                  <div className="workspace-panel__body">
+                    <DomainsSettings />
+                  </div>
+                </Panel>
+              )}
+            </div>
+          </WorkspaceDetailSection>
         )}
 
         {tab === "sharing" && (
-          <div className="workspace-grid workspace-grid--equal">
-            <Panel
-              title="Trust Center"
-              subtitle="Share your security posture with prospects and customers via a public Trust Center profile."
-              simple
-              icon={<PanelIcon path={PANEL_ICONS.shield} />}
-              action={<StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Public profile on" : "Off"}</StatusBadge>}
-            >
-              <div className="workspace-panel__body">
-                {canEditWorkspace ? (
-                  <TrustCenterSettings />
-                ) : (
-                  <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
-                )}
-              </div>
-            </Panel>
+          <WorkspaceDetailSection
+            icon={<Icon d={ICONS.sharing} />}
+            eyebrow="Sharing"
+            title="Evidence sharing"
+            description="Manage customer-facing trust content and scoped auditor access from one calm review surface."
+            meta={
+              <>
+                <StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Trust Center live" : "Trust Center off"}</StatusBadge>
+                <StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors} auditor{activeAuditors === 1 ? "" : "s"}</StatusBadge>
+              </>
+            }
+          >
+            <div className="workspace-grid workspace-grid--equal workspace-grid--sharing">
+              <Panel
+                title="Trust Center"
+                subtitle="Share your security posture with prospects and customers via a public Trust Center profile."
+                simple
+                icon={<PanelIcon path={PANEL_ICONS.shield} />}
+                action={<StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Public profile on" : "Off"}</StatusBadge>}
+              >
+                <div className="workspace-panel__body">
+                  {canEditWorkspace ? (
+                    <TrustCenterSettings />
+                  ) : (
+                    <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
+                  )}
+                </div>
+              </Panel>
 
-            <Panel
-              title="External Auditors"
-              subtitle="Grant scoped, time-bound access to your evidence for outside reviewers and customers."
-              simple
-              icon={<PanelIcon path={PANEL_ICONS.auditors} />}
-              action={<StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors ? `${activeAuditors} active` : "None"}</StatusBadge>}
-            >
-              <div className="workspace-panel__body">
-                {canEditWorkspace ? (
-                  <AuditorManagement embedded />
-                ) : (
-                  <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
-                )}
-              </div>
-            </Panel>
-          </div>
+              <Panel
+                title="External Auditors"
+                subtitle="Grant scoped, time-bound access to your evidence for outside reviewers and customers."
+                simple
+                icon={<PanelIcon path={PANEL_ICONS.auditors} />}
+                action={<StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors ? `${activeAuditors} active` : "None"}</StatusBadge>}
+              >
+                <div className="workspace-panel__body">
+                  {canEditWorkspace ? (
+                    <AuditorManagement embedded />
+                  ) : (
+                    <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
+                  )}
+                </div>
+              </Panel>
+            </div>
+          </WorkspaceDetailSection>
         )}
 
         {tab === "scanning" && (
-          <div className="workspace-grid">
-            <ScanSchedulePanel
-              scanEnabled={scanEnabled}
-              onScanEnabledChange={setScanEnabled}
-              freqMode={freqMode}
-              onFreqModeChange={setFreqMode}
-              customHours={customHours}
-              onCustomHoursChange={setCustomHours}
-              canEditWorkspace={canEditWorkspace}
-              canDaily={canDaily}
-              minCustomHours={minCustomHours}
-              nextScanAt={data?.scan_status.next_scan_at ?? null}
-              lastScanAt={data?.scan_status.last_scan_at ?? null}
-            />
+          <WorkspaceDetailSection
+            icon={<Icon d={ICONS.scanning} />}
+            eyebrow="Scanning"
+            title="Scan cadence"
+            description="Set automated evidence refreshes and see the next scheduled runs without digging through activity logs."
+            meta={
+              <>
+                <StatusBadge tone={scanEnabled ? "ok" : "idle"} plain>{scanEnabled ? scanBadge : "Manual"}</StatusBadge>
+                <StatusBadge tone={scanHealthy ? "ok" : "warn"} plain>{scanHealthy ? "Last scan complete" : "No recent scan"}</StatusBadge>
+              </>
+            }
+          >
+            <div className="workspace-grid">
+              <ScanSchedulePanel
+                scanEnabled={scanEnabled}
+                onScanEnabledChange={setScanEnabled}
+                freqMode={freqMode}
+                onFreqModeChange={setFreqMode}
+                customHours={customHours}
+                onCustomHoursChange={setCustomHours}
+                canEditWorkspace={canEditWorkspace}
+                canDaily={canDaily}
+                minCustomHours={minCustomHours}
+                nextScanAt={data?.scan_status.next_scan_at ?? null}
+                lastScanAt={data?.scan_status.last_scan_at ?? null}
+              />
 
             {SHOW_SCAN_PROFILE && (
             <Panel title="Scan profile" eyebrow="Facts" icon={<PanelIcon path={PANEL_ICONS.evidence} />}>
@@ -1326,58 +1393,97 @@ export default function Workspace() {
               </div>
             </Panel>
             )}
-          </div>
+            </div>
+          </WorkspaceDetailSection>
         )}
 
         {tab === "notifications" && (
-          <div className="workspace-grid workspace-grid--two">
-            <Panel title="Alert routes" eyebrow="Notifications" subtitle="Operational events and where they are delivered." action={<StatusBadge tone={alertsOn ? "ok" : "warn"}>{alertsOn ? "Active" : "Off"}</StatusBadge>}>
-              <RouteRow title="Scan failures" description="AWS access breaks, collector errors, or scheduled run failures." destination="Email" checked={scanFailureEnabled} onChange={setScanFailureEnabled} disabled={!canEditWorkspace} tone="warn" />
-              <RouteRow title="Critical findings" description="New critical or high findings that need fast operator review." destination={slackConnected ? "Email + Slack" : "Email"} checked={criticalAlertEnabled} onChange={setCriticalAlertEnabled} disabled={!canEditWorkspace} tone="danger" />
-              <RouteRow title="Weekly digest" description="Weekly summary of posture movement and active findings." destination="Email digest" checked={emailDigestEnabled} onChange={setEmailDigestEnabled} disabled={!canEditWorkspace} tone="ok" />
-            </Panel>
+          <WorkspaceDetailSection
+            icon={<Icon d={ICONS.notifications} />}
+            eyebrow="Notifications"
+            title="Alert routing"
+            description="Choose which workspace events create alerts and keep delivery targets visible for quick checks."
+            meta={
+              <>
+                <StatusBadge tone={alertsOn ? "ok" : "warn"} plain>{alertsOn ? "Routes active" : "Routes off"}</StatusBadge>
+                <StatusBadge tone={slackConnected ? "ok" : "idle"} plain>{slackConnected ? "Slack connected" : "Email only"}</StatusBadge>
+              </>
+            }
+          >
+            <div className="workspace-grid workspace-grid--two workspace-grid--notifications">
+              <Panel title="Alert routes" eyebrow="Notifications" subtitle="Operational events and where they are delivered." action={<StatusBadge tone={alertsOn ? "ok" : "warn"}>{alertsOn ? "Active" : "Off"}</StatusBadge>}>
+                <RouteRow title="Scan failures" description="AWS access breaks, collector errors, or scheduled run failures." destination="Email" checked={scanFailureEnabled} onChange={setScanFailureEnabled} disabled={!canEditWorkspace} tone="warn" />
+                <RouteRow title="Critical findings" description="New critical or high findings that need fast operator review." destination={slackConnected ? "Email + Slack" : "Email"} checked={criticalAlertEnabled} onChange={setCriticalAlertEnabled} disabled={!canEditWorkspace} tone="danger" />
+                <RouteRow title="Weekly digest" description="Weekly summary of posture movement and active findings." destination="Email digest" checked={emailDigestEnabled} onChange={setEmailDigestEnabled} disabled={!canEditWorkspace} tone="ok" />
+              </Panel>
 
-            <Panel title="Destinations" eyebrow="Delivery" subtitle="Use monitored team destinations for production workspaces.">
-              <div className="workspace-panel__body space-y-4">
-                <div className="workspace-form-grid">
-                  <div className="workspace-field">
-                    <label htmlFor="delivery-email">Delivery email</label>
-                    <input
-                      id="delivery-email"
-                      type="email"
-                      value={digestEmail}
-                      onChange={(event) => setDigestEmail(event.target.value)}
-                      placeholder={deliveryPlaceholder}
-                      readOnly={!canEditWorkspace}
-                    />
+              <Panel title="Destinations" eyebrow="Delivery" subtitle="Use monitored team destinations for production workspaces.">
+                <div className="workspace-panel__body workspace-destinations">
+                  <div className="workspace-destination-row">
+                    <span className="workspace-destination-row__icon workspace-destination-row__icon--email" aria-hidden>
+                      <Icon d={PANEL_ICONS.destinations} />
+                    </span>
+                    <div className="workspace-field">
+                      <label htmlFor="delivery-email">Delivery email</label>
+                      <div className="workspace-destination-input">
+                        <input
+                          id="delivery-email"
+                          type="email"
+                          value={digestEmail}
+                          onChange={(event) => setDigestEmail(event.target.value)}
+                          placeholder={deliveryPlaceholder}
+                          readOnly={!canEditWorkspace}
+                        />
+                        <span className="workspace-destination-input__check" aria-hidden>
+                          <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="workspace-field">
-                    <label htmlFor="slack-webhook">Slack webhook</label>
-                    <input
-                      id="slack-webhook"
-                      type="password"
-                      value={slackWebhookUrl}
-                      onChange={(event) => setSlackWebhookUrl(event.target.value)}
-                      placeholder="https://hooks.slack.com/services/..."
-                      readOnly={!canEditWorkspace}
-                    />
+                  <div className="workspace-destination-row">
+                    <span className="workspace-destination-row__icon workspace-destination-row__icon--slack" aria-hidden>
+                      <img src={INTEGRATION_BRAND.slack.src} alt="" />
+                    </span>
+                    <div className="workspace-field">
+                      <label htmlFor="slack-webhook">Slack webhook</label>
+                      <div className="workspace-destination-input">
+                        <input
+                          id="slack-webhook"
+                          type="password"
+                          value={slackWebhookUrl}
+                          onChange={(event) => setSlackWebhookUrl(event.target.value)}
+                          placeholder="https://hooks.slack.com/services/..."
+                          readOnly={!canEditWorkspace}
+                        />
+                        <span className="workspace-destination-input__check" aria-hidden>
+                          <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="workspace-destinations__footer">
+                    <button
+                      type="button"
+                      onClick={sendDigestTest}
+                      disabled={!canEditWorkspace || !emailDigestEnabled || digestTestState === "sending"}
+                      className="workspace-destinations__test-btn"
+                    >
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L6 12Zm0 0h7.5" />
+                      </svg>
+                      {digestTestState === "sending" ? "Sending..." : "Send test digest"}
+                    </button>
+                    <span className="workspace-destinations__target">Current target: {deliveryTarget}</span>
+                    {digestTestMsg && <span className={`text-xs font-semibold ${digestTestState === "error" ? "text-red-600" : "text-emerald-600"}`}>{digestTestMsg}</span>}
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={sendDigestTest}
-                    disabled={!canEditWorkspace || !emailDigestEnabled || digestTestState === "sending"}
-                    className="vigil-toolbar-btn"
-                  >
-                    {digestTestState === "sending" ? "Sending..." : "Send test digest"}
-                  </button>
-                  <span className="text-xs text-zinc-400">Current target: {deliveryTarget}</span>
-                  {digestTestMsg && <span className={`text-xs font-semibold ${digestTestState === "error" ? "text-red-600" : "text-emerald-600"}`}>{digestTestMsg}</span>}
-                </div>
-              </div>
-            </Panel>
-          </div>
+              </Panel>
+            </div>
+          </WorkspaceDetailSection>
         )}
           </div>
         </div>
