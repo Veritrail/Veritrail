@@ -1230,9 +1230,19 @@
   align-items: center;
 }
 
+.workspace-sharing-card .workspace-section-intro .access-invite-card__icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 1px solid #e0e7ff;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  box-shadow: none;
+}
+
 .workspace-section-intro__icon svg {
-  width: 2rem;
-  height: 2rem;
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .workspace-section-intro__meta {
@@ -2592,7 +2602,96 @@
 .workspace-trust {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0;
+  min-height: 100%;
+}
+
+.workspace-trust__routes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.workspace-trust__routes .workspace-route-row {
+  margin: 0;
+  gap: 0.9rem;
+  padding: 0.95rem 1.05rem;
+  box-shadow: 0 8px 18px -18px rgba(15, 23, 42, 0.28);
+}
+
+.workspace-well-icon {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  border: 1px solid transparent;
+}
+
+.workspace-well-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.workspace-well-icon--shield {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.workspace-well-icon--neutral {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.workspace-trust__framework-row .workspace-route-row__control {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.workspace-trust__framework-control {
+  gap: 0.65rem;
+}
+
+.workspace-trust__link-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "icon head"
+    ". field";
+  align-items: start;
+  gap: 0.75rem 0.9rem;
+}
+
+.workspace-trust__link-row .workspace-well-icon {
+  grid-area: icon;
+  margin-top: 0;
+}
+
+.workspace-trust__link-head {
+  grid-area: head;
+  min-width: 0;
+}
+
+.workspace-trust__link-head .workspace-route-row__description {
+  margin-top: 0.35rem;
+}
+
+.workspace-trust__profile-input {
+  grid-area: field;
+  max-width: 100%;
+}
+
+.workspace-trust__profile-input input {
+  width: 100%;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.7rem 2.85rem 0.7rem 0.75rem;
+  font-size: 0.875rem;
+  color: #111827;
 }
 
 .workspace-trust__body {
@@ -2717,15 +2816,34 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.625rem;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-top: auto;
   border-top: 1px solid #e6ebf2;
   padding-top: 1.15rem;
 }
 
+.workspace-trust__actions-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.workspace-trust__updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
 .workspace-trust__audit-log {
   display: inline-block;
-  margin-top: 1rem;
+  margin-top: auto;
+  padding-top: 0.35rem;
   font-size: 0.8125rem;
   font-weight: 600;
   color: #2563eb;
@@ -2740,6 +2858,34 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-height: 100%;
+}
+
+.workspace-auditor__invite-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 720px) {
+  .workspace-auditor__invite-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+  }
+
+  .workspace-auditor__invite-action {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .workspace-auditor__invite-action .access-primary-btn {
+    width: 100%;
+  }
+}
+
+.workspace-sharing-section .workspace-auditor__invite-grid .access-primary-btn {
+  height: 3rem;
+  padding-inline: 1.15rem;
+  font-size: 0.875rem;
 }
 
 .workspace-auditor__list {
@@ -2773,6 +2919,17 @@
   width: 100%;
   grid-template-columns: 1fr;
   gap: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .workspace-trust__framework-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workspace-trust__framework-row .workspace-route-row__control {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
 }
 
 .workspace-sharing-section .access-row {
@@ -2817,12 +2974,6 @@
 }
 
 /* ── External auditors (sharing panel) ───────────────────────────────────── */
-
-.workspace-auditor {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
 
 .workspace-auditor__invite-label {
   margin: 0 0 0.5rem;
@@ -3195,4 +3346,1225 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+/* ── Sharing v2 layout ─────────────────────────────────────────────────── */
+
+.workspace-sharing-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.workspace-sharing-v2 .workspace-section-intro {
+  border: 1px solid #dfe6ef;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  padding: 1.35rem 1.45rem;
+  box-shadow: 0 12px 28px -26px rgba(15, 23, 42, 0.42);
+}
+
+.workspace-sharing-v2__grid {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 1040px) {
+  .workspace-sharing-v2__grid {
+    grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 1fr);
+  }
+}
+
+.sharing-well {
+  display: inline-flex;
+  width: 3.25rem;
+  height: 3.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  border: 1px solid transparent;
+}
+
+.sharing-well svg {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.sharing-well--globe {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.sharing-well--lock {
+  border-color: #ddd6fe;
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.sharing-well--people {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.sharing-trust-card,
+.sharing-auditor-card {
+  border: 1px solid #dfe6ef;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 12px 28px -26px rgba(15, 23, 42, 0.42);
+}
+
+.sharing-trust-card__header,
+.sharing-auditor-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e8edf3;
+  padding: 1.4rem 1.5rem;
+}
+
+.sharing-trust-card__intro,
+.sharing-auditor-card__intro {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.sharing-trust-card__title,
+.sharing-auditor-card__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #0f172a;
+}
+
+.sharing-trust-card__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.sharing-trust-card__live {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.sharing-live-pill,
+.sharing-count-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.sharing-live-pill::before,
+.sharing-count-pill.is-on::before {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.sharing-live-pill.is-on,
+.sharing-count-pill.is-on {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.sharing-trust-card__body {
+  display: grid;
+  gap: 1.15rem;
+  padding: 1.15rem 1.25rem 0.25rem;
+}
+
+@media (min-width: 900px) {
+  .sharing-trust-card__body {
+    grid-template-columns: minmax(11rem, 0.82fr) minmax(0, 1.18fr);
+    align-items: start;
+  }
+}
+
+.sharing-trust-preview {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.sharing-trust-preview__chrome {
+  display: flex;
+  gap: 0.35rem;
+  border-bottom: 1px solid #e8edf3;
+  background: #f8fafc;
+  padding: 0.55rem 0.7rem;
+}
+
+.sharing-trust-preview__chrome span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #dbe2ea;
+}
+
+.sharing-trust-preview__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1rem 1rem 1.1rem;
+}
+
+.sharing-trust-preview__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sharing-trust-preview__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: #eef2f7;
+}
+
+.sharing-trust-preview__logo svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.sharing-trust-preview__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sharing-trust-preview__company {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.sharing-trust-preview__tagline {
+  margin: 0.1rem 0 0;
+  font-size: 0.6875rem;
+  color: #64748b;
+}
+
+.sharing-trust-preview__headline {
+  margin: 0.1rem 0;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.sharing-trust-preview__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.sharing-trust-preview__badges span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid #e8edf3;
+  background: #ffffff;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.sharing-trust-preview__badges span svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex-shrink: 0;
+}
+
+.sharing-trust-preview__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.sharing-trust-preview__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  border: 1px solid #eef2f6;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 0.65rem;
+}
+
+.sharing-trust-preview__section-title {
+  margin: 0;
+  font-size: 0.625rem;
+  font-weight: 800;
+  color: #334155;
+}
+
+.sharing-trust-preview__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.sharing-trust-preview__chips span {
+  border-radius: 0.35rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.16rem 0.4rem;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.sharing-trust-preview__lines {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.sharing-trust-preview__lines span {
+  display: block;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: #e8edf3;
+}
+
+.sharing-trust-preview__lines span.is-short {
+  width: 68%;
+}
+
+.sharing-trust-preview__pill {
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.sharing-trust-card__settings-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.sharing-trust-card__settings-copy {
+  margin: 0.35rem 0 0.9rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.sharing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sharing-field + .sharing-field {
+  margin-top: 0.95rem;
+}
+
+.sharing-field__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.sharing-field__hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* Framework chips render as individual outlined chips (mockup), not the grey
+   segmented filter bar. Overrides the shared ToggleChipBar styling. */
+.sharing-trust-card__framework-bar.findings-v2-filter-chip-bar {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sharing-trust-card__framework-bar .findings-v2-filter-chip {
+  border: 1px solid #d8dee8;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 0.45rem 0.9rem;
+  color: #334155;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.sharing-trust-card__framework-bar .findings-v2-filter-chip:not(.is-selected) {
+  border-style: dashed;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+.sharing-trust-card__framework-bar .findings-v2-filter-chip.is-selected {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: none;
+}
+
+.sharing-link-input {
+  position: relative;
+}
+
+.sharing-link-input input {
+  width: 100%;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.7rem 2.85rem 0.7rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #111827;
+}
+
+.sharing-link-input__copy {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  display: inline-flex;
+  min-width: 2rem;
+  height: 1.85rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.45rem;
+  background: #ffffff;
+  padding: 0 0.55rem;
+  color: #64748b;
+  transform: translateY(-50%);
+}
+
+.sharing-trust-card__configure {
+  margin: 0 1.25rem;
+  border-top: 1px solid #e6ebf2;
+  padding-top: 1rem;
+}
+
+.sharing-trust-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1rem 1.25rem 1.15rem;
+}
+
+.sharing-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  padding: 0 1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.sharing-btn--primary {
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.sharing-btn--primary:hover:not(:disabled) {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+}
+
+.sharing-btn--outline {
+  border: 1px solid #dbe2ea;
+  background: #ffffff;
+  color: #334155;
+}
+
+.sharing-btn--outline:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.sharing-btn--block {
+  width: 100%;
+}
+
+.sharing-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sharing-auditors-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sharing-auditor-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.25rem 0.35rem;
+}
+
+.sharing-input-shell {
+  position: relative;
+  display: block;
+}
+
+.sharing-input-shell > svg {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sharing-input-shell input {
+  width: 100%;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.68rem 0.75rem 0.68rem 2.35rem;
+  font-size: 0.8125rem;
+  color: #111827;
+}
+
+.sharing-input-shell--select .vigil-select {
+  display: block;
+  width: 100%;
+}
+
+.sharing-input-shell--select .sharing-select-btn {
+  width: 100%;
+  justify-content: space-between;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.68rem 0.75rem 0.68rem 2.35rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.sharing-auditor-card__error {
+  margin: 0 1.25rem;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
+.sharing-auditor-card__note {
+  margin: 0 1.25rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.sharing-auditor-card__footnote {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  border-top: 1px solid #e8edf3;
+  padding: 0.85rem 1.25rem 1rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.sharing-auditor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.35rem 1.1rem 0;
+}
+
+.sharing-auditor-list .access-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  border: 1px solid #e8edf3;
+  border-radius: 0.5rem;
+  background: #fafbfc;
+  padding: 0.75rem 0.85rem;
+}
+
+.sharing-auditor-card__empty {
+  margin: 0.35rem 1.25rem 0;
+  border: 1px dashed #dbe2ea;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+}
+
+.sharing-auditor-card__log {
+  display: inline-block;
+  margin: 0.85rem 1.25rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.sharing-auditor-card__log:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+
+/* Compact always-visible Trust Center profile editor. */
+.sharing-trust-card__configure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+  margin: 0 1.25rem;
+  border: 1px solid #dfe6ef;
+  border-radius: 0.5rem;
+  background: #fbfcfe;
+  padding: 1rem;
+}
+
+.workspace-trust__configure-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.workspace-trust__label {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.98rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.workspace-trust__hint {
+  margin: 0.38rem 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.sharing-trust-card__configure .workspace-form-grid {
+  gap: 0.75rem;
+}
+
+.sharing-trust-card__configure .workspace-field label {
+  font-size: 0.7rem;
+}
+
+.sharing-trust-card__configure .workspace-field input {
+  margin-top: 0.36rem;
+  padding: 0.62rem 0.7rem;
+}
+
+.sharing-trust-card__configure .workspace-trust__textarea {
+  padding: 0.62rem 0.7rem;
+}
+
+.workspace-trust__disclosure-note {
+  margin: -0.1rem 0 0;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .workspace-trust__configure-header {
+    flex-direction: column;
+  }
+
+  .workspace-trust__notice-check {
+    white-space: normal;
+  }
+}
+
+
+/* Sharing layout tuning: balanced Trust Center split and tighter auditor rail. */
+@media (min-width: 900px) {
+  .sharing-trust-card__body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.35rem;
+  }
+}
+
+@media (min-width: 1040px) {
+  .workspace-sharing-v2__grid {
+    grid-template-columns: minmax(0, 1.52fr) minmax(22rem, 0.88fr);
+    align-items: start;
+  }
+}
+
+.sharing-auditors-stack {
+  gap: 0.85rem;
+}
+
+.sharing-auditor-card__header {
+  padding: 1.1rem 1.2rem;
+}
+
+.sharing-auditor-card__intro {
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.sharing-auditor-card .sharing-well {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.78rem;
+}
+
+.sharing-auditor-card .sharing-well svg {
+  width: 1.28rem;
+  height: 1.28rem;
+}
+
+.sharing-auditor-card__title {
+  font-size: 1.05rem;
+}
+
+.sharing-auditor-card .sharing-trust-card__subtitle {
+  max-width: 22rem;
+  font-size: 0.8rem;
+}
+
+.sharing-auditor-card__form {
+  gap: 0.72rem;
+  padding: 0.95rem 1.1rem 0.25rem;
+}
+
+.sharing-auditor-card__form .sharing-field {
+  gap: 0.35rem;
+}
+
+.sharing-auditor-card__form .sharing-field + .sharing-field {
+  margin-top: 0;
+}
+
+.sharing-auditor-card__form .sharing-field__label {
+  font-size: 0.72rem;
+}
+
+.sharing-input-shell input,
+.sharing-input-shell--select .sharing-select-btn {
+  min-height: 2.75rem;
+  padding-top: 0.58rem;
+  padding-bottom: 0.58rem;
+}
+
+.sharing-auditor-card .sharing-btn--block {
+  height: 2.85rem;
+  margin-top: 0.2rem;
+}
+
+.sharing-auditor-card__footnote {
+  padding: 0.75rem 1.1rem 0.9rem;
+  line-height: 1.45;
+}
+
+.sharing-auditor-list {
+  padding: 0.25rem 1rem 0;
+}
+
+.sharing-auditor-list .access-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 0.72rem 0.8rem;
+}
+
+.sharing-auditor-list .access-row__actions {
+  grid-column: 3;
+}
+
+.sharing-auditor-card__log {
+  margin: 0.75rem 1.1rem 0.95rem;
+}
+
+/* Sharing reference layout: Trust Center actions and configure modal. */
+.sharing-trust-card__configure {
+  display: none;
+}
+
+.sharing-trust-card__footer {
+  padding-top: 1.15rem;
+}
+
+.sharing-config-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.sharing-config-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(4px);
+}
+
+.sharing-config-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(42rem, 100%);
+  max-height: min(46rem, calc(100vh - 3rem));
+  overflow: auto;
+  border: 1px solid #dfe6ef;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 28px 80px -32px rgba(15, 23, 42, 0.5);
+}
+
+.sharing-config-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e8edf3;
+  padding: 1.25rem 1.35rem;
+}
+
+.sharing-config-modal__header h3 {
+  margin: 0.25rem 0 0;
+  color: #0f172a;
+  font-size: 1.15rem;
+  font-weight: 850;
+}
+
+.sharing-config-modal__header p:not(.workspace-panel__eyebrow) {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.sharing-config-modal__close {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #64748b;
+}
+
+.sharing-config-modal__close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.sharing-config-modal__body {
+  display: grid;
+  gap: 1rem;
+  padding: 1.2rem 1.35rem;
+}
+
+.sharing-config-modal__notice {
+  border: 1px solid #fde68a;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+  padding: 0.85rem 0.95rem;
+}
+
+.sharing-config-modal__notice p {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.sharing-config-modal__notice > span {
+  display: block;
+  margin-top: 0.32rem;
+  color: #a16207;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.sharing-config-modal__notice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  color: #92400e;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.sharing-config-modal__notice input {
+  margin-top: 0.1rem;
+}
+
+.sharing-config-modal__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  border-top: 1px solid #e8edf3;
+  padding: 1rem 1.35rem;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-card__form {
+  padding-bottom: 0.95rem;
+}
+
+.sharing-auditor-card__divider {
+  height: 1px;
+  margin: 0.2rem 1.25rem 0;
+  background: #e8edf3;
+}
+
+.sharing-auditor-card__active {
+  padding-top: 0.95rem;
+}
+
+.sharing-auditor-card__active-header {
+  padding: 0 1.2rem 0.75rem;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-list {
+  padding-top: 0;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-card__log {
+  margin-top: 0.9rem;
+}
+
+.sharing-auditor-card--combined .sharing-input-shell input,
+.sharing-auditor-card--combined .sharing-input-shell--select .sharing-select-btn {
+  min-height: 2.9rem;
+}
+
+
+/* Trust Center actions belong with the preview column and stay neutral. */
+.sharing-trust-card__preview-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sharing-trust-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.sharing-trust-card__actions .sharing-btn {
+  min-width: 0;
+  height: 2.85rem;
+  padding-inline: 1.1rem;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 10px 22px -18px rgba(15, 23, 42, 0.35);
+}
+
+.sharing-trust-card__actions .sharing-btn:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.sharing-trust-card__actions .sharing-btn svg {
+  width: 1rem;
+  height: 1rem;
+  color: #475569;
+}
+
+.sharing-trust-card > .sharing-trust-card__footer {
+  display: none;
+}
+
+/* Sharing visual polish: taller preview, divider, and neutral invite button. */
+.sharing-trust-card__body {
+  align-items: stretch;
+  padding: 1.35rem 1.5rem 1.45rem;
+}
+
+@media (min-width: 900px) {
+  .sharing-trust-card__body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.55rem;
+  }
+
+  .sharing-trust-card__settings {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    border-left: 1px solid #e6ebf2;
+    padding-left: 1.55rem;
+  }
+}
+
+.sharing-trust-card__preview-column {
+  height: 100%;
+}
+
+.sharing-trust-card__preview-column .sharing-trust-preview {
+  display: flex;
+  min-height: 18.25rem;
+  flex: 1;
+  flex-direction: column;
+}
+
+.sharing-trust-card__preview-column .sharing-trust-preview__body {
+  flex: 1;
+  justify-content: space-between;
+  padding: 1.15rem 1.05rem 1.2rem;
+}
+
+.sharing-trust-card__actions {
+  padding-top: 0.1rem;
+}
+
+.sharing-trust-card__actions .sharing-btn {
+  min-width: 10.6rem;
+}
+
+.sharing-auditor-card--combined .sharing-btn--primary {
+  border-color: #dbe2ea;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 10px 22px -18px rgba(15, 23, 42, 0.35);
+}
+
+.sharing-auditor-card--combined .sharing-btn--primary:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.sharing-auditor-card--combined .sharing-btn--primary svg {
+  color: #475569;
+}
+
+@media (max-width: 899px) {
+  .sharing-trust-card__body {
+    padding: 1.15rem;
+  }
+
+  .sharing-trust-card__settings {
+    border-top: 1px solid #e6ebf2;
+    padding-top: 1.15rem;
+  }
+
+  .sharing-trust-card__preview-column .sharing-trust-preview {
+    min-height: 16rem;
+  }
+}
+
+/* Keep Sharing left/right panels equal height. */
+.workspace-sharing-v2__grid {
+  align-items: stretch;
+}
+
+.workspace-sharing-v2__trust,
+.workspace-sharing-v2__auditors,
+.workspace-sharing-v2__trust > .sharing-trust-card,
+.workspace-sharing-v2__auditors > .sharing-auditor-card,
+.sharing-auditor-card--combined {
+  height: 100%;
+}
+
+.sharing-trust-card,
+.sharing-auditor-card--combined {
+  display: flex;
+  flex-direction: column;
+}
+
+.sharing-trust-card__body {
+  flex: 1;
+}
+
+.sharing-auditor-card__active {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-card__log {
+  margin-top: auto;
+}
+
+/* Sharing refinement: better preview proportions and cleaner auditor panel. */
+.sharing-trust-card__body {
+  align-items: stretch;
+}
+
+.sharing-trust-card__preview-column {
+  justify-content: flex-start;
+}
+
+.sharing-trust-card__preview-column .sharing-trust-preview {
+  flex: 0 0 auto;
+  min-height: 0;
+  aspect-ratio: 1.48 / 1;
+}
+
+.sharing-trust-card__preview-column .sharing-trust-preview__body {
+  justify-content: space-around;
+  gap: 0.95rem;
+  padding: 1.25rem 1.1rem;
+}
+
+.sharing-trust-preview__headline {
+  margin-top: 0.45rem;
+}
+
+.sharing-trust-preview__badges {
+  margin-top: 0.15rem;
+}
+
+.sharing-trust-preview__cols {
+  margin-top: 0.2rem;
+}
+
+.sharing-trust-card__settings {
+  justify-content: flex-start;
+  padding-top: 2.3rem;
+}
+
+.sharing-auditor-card--combined {
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+}
+
+.sharing-auditor-card--combined .sharing-auditor-card__header {
+  border-bottom: 1px solid #eef2f6;
+  padding: 1.05rem 1.15rem;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-card__form {
+  margin: 1rem 1.1rem 0;
+  border: 1px solid #e6ebf2;
+  border-radius: 0.65rem;
+  background: #ffffff;
+  padding: 1rem;
+  box-shadow: 0 10px 24px -24px rgba(15, 23, 42, 0.45);
+}
+
+.sharing-auditor-card--combined .sharing-field__label {
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.sharing-auditor-card--combined .sharing-input-shell input,
+.sharing-auditor-card--combined .sharing-input-shell--select .sharing-select-btn {
+  min-height: 2.65rem;
+  border-color: #dfe6ef;
+  background: #fbfcfe;
+}
+
+.sharing-auditor-card--combined .sharing-btn--primary {
+  height: 2.65rem;
+  margin-top: 0.15rem;
+  border-color: #dfe6ef;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: none;
+}
+
+.sharing-auditor-card--combined .sharing-btn--primary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-card__footnote {
+  margin: 0.8rem 1.1rem 0;
+  border: 0;
+  border-radius: 0.55rem;
+  background: #f8fafc;
+  padding: 0.7rem 0.85rem;
+  color: #64748b;
+}
+
+.sharing-auditor-card__divider {
+  margin: 1rem 1.15rem 0;
+}
+
+.sharing-auditor-card__active {
+  padding-top: 1rem;
+}
+
+.sharing-auditor-card__active-header {
+  padding: 0 1.15rem 0.85rem;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-list {
+  padding: 0 1.1rem;
+}
+
+.sharing-auditor-card--combined .sharing-auditor-list .access-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  border-color: #e6ebf2;
+  background: #ffffff;
+  padding: 0.8rem 0.85rem;
+  box-shadow: 0 8px 20px -22px rgba(15, 23, 42, 0.5);
+}
+
+.sharing-auditor-card--combined .sharing-auditor-card__log {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin: auto 1.15rem 1rem;
+}
+
+@media (max-width: 899px) {
+  .sharing-trust-card__preview-column .sharing-trust-preview {
+    aspect-ratio: auto;
+  }
+
+  .sharing-trust-card__settings {
+    padding-top: 1.15rem;
+  }
 }

@@ -1318,66 +1318,34 @@ export default function Workspace() {
         )}
 
         {tab === "sharing" && (
-          <WorkspaceDetailSection
-            icon={<Icon d={ICONS.sharing} />}
-            eyebrow="Sharing"
-            title="Evidence sharing"
-            description="Manage customer-facing trust content and scoped auditor access from one calm review surface."
-            meta={
-              <>
-                <StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Trust Center live" : "Trust Center off"}</StatusBadge>
-                <StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors} auditor{activeAuditors === 1 ? "" : "s"}</StatusBadge>
-              </>
-            }
-          >
-            <section className="access-card workspace-sharing-card">
-              <div className="access-card__body workspace-sharing-card__body">
-                <WorkspaceSectionIntro
-                  icon={ICONS.sharing}
-                  title="Evidence sharing"
-                  description="Manage customer-facing trust content and scoped auditor access from one calm review surface."
-                  meta={
-                    <>
-                      <StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Trust Center live" : "Trust Center off"}</StatusBadge>
-                      <StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors} auditor{activeAuditors === 1 ? "" : "s"}</StatusBadge>
-                    </>
-                  }
-                />
-                <section className="access-members-section workspace-sharing-section">
-                  <div className="workspace-notifications-section__header">
-                    <div>
-                      <p className="workspace-panel__eyebrow">Public assurance</p>
-                      <h2 className="access-members-section__title">Trust Center</h2>
-                      <p className="workspace-notifications-section__description">A public security profile you control for prospects and customers.</p>
-                    </div>
-                    <StatusBadge tone={trustLive ? "ok" : "idle"}>{trustLive ? "Live" : "Off"}</StatusBadge>
-                  </div>
-                  <div className="workspace-sharing-body">
-                    {canEditWorkspace ? (
-                      <TrustCenterSettings />
-                    ) : (
-                      <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
-                    )}
-                  </div>
-                </section>
-
-                <section className="access-members-section workspace-sharing-section">
-                  <div className="workspace-notifications-section__header">
-                    <div>
-                      <p className="workspace-panel__eyebrow">Private evidence</p>
-                      <h2 className="access-members-section__title">External auditors</h2>
-                      <p className="workspace-notifications-section__description">Scoped, time-limited reviewer access to your evidence.</p>
-                    </div>
-                    <StatusBadge tone={activeAuditors ? "ok" : "idle"}>{activeAuditors ? `${activeAuditors} active` : "None"}</StatusBadge>
-                  </div>
-                  <div className="workspace-sharing-body">
-                    {canEditWorkspace ? (
-                      <AuditorManagement embedded />
-                    ) : (
-                      <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
-                    )}
-                  </div>
-                </section>
+          <WorkspaceDetailSection>
+            <section className="workspace-sharing-v2">
+              <WorkspaceSectionIntro
+                icon={ICONS.sharing}
+                title="Evidence sharing"
+                description="Manage customer-facing trust content and scoped reviewer access from one calm review surface."
+                meta={
+                  <>
+                    <StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Trust Center live" : "Trust Center off"}</StatusBadge>
+                    <StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors} auditor{activeAuditors === 1 ? "" : "s"}</StatusBadge>
+                  </>
+                }
+              />
+              <div className="workspace-sharing-v2__grid">
+                <div className="workspace-sharing-v2__trust">
+                  {canEditWorkspace ? (
+                    <TrustCenterSettings />
+                  ) : (
+                    <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
+                  )}
+                </div>
+                <div className="workspace-sharing-v2__auditors">
+                  {canEditWorkspace ? (
+                    <AuditorManagement embedded />
+                  ) : (
+                    <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
+                  )}
+                </div>
               </div>
             </section>
           </WorkspaceDetailSection>

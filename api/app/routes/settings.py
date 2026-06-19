@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -373,6 +374,7 @@ class TrustCenterSettingsOut(BaseModel):
     frameworks_to_show: list[str]
     custom_message: str | None
     configured: bool
+    last_updated_at: datetime | None = None
 
 
 @router.get("/trust-center", response_model=TrustCenterSettingsOut)
@@ -390,6 +392,7 @@ def get_trust_center_settings(p=Depends(current_principal), db: Session = Depend
             frameworks_to_show=["soc2", "cis_aws_l1"],
             custom_message=None,
             configured=False,
+            last_updated_at=None,
         )
     return TrustCenterSettingsOut(
         is_enabled=config.is_enabled,
@@ -399,6 +402,7 @@ def get_trust_center_settings(p=Depends(current_principal), db: Session = Depend
         frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
         custom_message=config.custom_message,
         configured=True,
+        last_updated_at=config.last_updated_at,
     )
 
 
@@ -431,4 +435,5 @@ def update_trust_center_settings(body: TrustCenterSettingsIn, _rbac: RequireAdmi
         frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
         custom_message=config.custom_message,
         configured=True,
+        last_updated_at=config.last_updated_at,
     )
