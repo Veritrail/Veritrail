@@ -1216,7 +1216,10 @@
   color: #64748b;
 }
 
-.workspace-notifications-card .access-card__body,
+.workspace-notifications-card .access-card__body {
+  padding: 2.2rem;
+}
+
 .workspace-sharing-card .access-card__body {
   padding: 2.2rem 1.35rem 1.35rem;
 }
@@ -1250,7 +1253,6 @@
   }
 }
 
-.workspace-notifications-card .workspace-notifications-card__body,
 .workspace-sharing-card .workspace-sharing-card__body {
   display: grid;
   gap: 1.35rem;
@@ -1258,7 +1260,6 @@
   min-width: 0;
 }
 
-.workspace-notifications-card .workspace-notifications-card__body > *,
 .workspace-sharing-card .workspace-sharing-card__body > * {
   min-width: 0;
 }
@@ -1269,12 +1270,10 @@
 }
 
 @media (min-width: 900px) {
-  .workspace-notifications-card .workspace-notifications-card__body,
   .workspace-sharing-card .workspace-sharing-card__body {
     grid-template-columns: minmax(0, 1.08fr) minmax(18rem, 0.42fr);
   }
 
-  .workspace-notifications-section,
   .workspace-sharing-section {
     display: flex;
     flex-direction: column;
@@ -1290,13 +1289,6 @@
     margin-top: auto;
   }
 
-  .workspace-notifications-section .workspace-destinations {
-    flex: 1;
-  }
-
-  .workspace-notifications-section .workspace-destinations__footer {
-    margin-top: auto;
-  }
 }
 
 .workspace-notifications-section__header {
@@ -2376,6 +2368,26 @@
 
 .workspace-grid--notifications .workspace-panel:last-child::before {
   background: #2563eb;
+}
+
+.workspace-grid--sharing {
+  align-items: stretch;
+}
+
+.workspace-grid--sharing .workspace-panel {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.workspace-grid--sharing .workspace-panel__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.workspace-grid--sharing .workspace-panel__body > * {
+  flex: 1;
 }
 
 @media (min-width: 1200px) {

@@ -71,7 +71,6 @@ export function TrustCenterSettings() {
   const [hydrated, setHydrated] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
-  const [configureOpen, setConfigureOpen] = useState(false);
   const [copyMsg, setCopyMsg] = useState("");
 
   useEffect(() => {
@@ -189,7 +188,7 @@ export function TrustCenterSettings() {
                 <input
                   type="text"
                   readOnly
-                  value={publicUrl || "Set a URL slug in Configure profile"}
+                  value={publicUrl || "Set a URL slug below"}
                 />
                 <button
                   type="button"
@@ -208,69 +207,67 @@ export function TrustCenterSettings() {
             </div>
           </div>
 
-          {configureOpen && (
-            <div className="workspace-trust__configure">
-              <div className="workspace-trust__notice">
-                <p className="workspace-trust__notice-title">Before you publish</p>
-                <p className="workspace-trust__notice-copy">
-                  The public page shows monitoring status, frameworks, and document availability only. It does not
-                  expose finding counts, pass/fail scores, or resource names.
-                </p>
-                <label className="workspace-trust__notice-check">
-                  <input
-                    type="checkbox"
-                    checked={acknowledged}
-                    onChange={(e) => setAcknowledged(e.target.checked)}
-                  />
-                  <span>I understand what is — and is not — shown publicly.</span>
-                </label>
-              </div>
+          <div className="workspace-trust__configure">
+            <div className="workspace-trust__notice">
+              <p className="workspace-trust__notice-title">Before you publish</p>
+              <p className="workspace-trust__notice-copy">
+                The public page shows monitoring status, frameworks, and document availability only. It does not
+                expose finding counts, pass/fail scores, or resource names.
+              </p>
+              <label className="workspace-trust__notice-check">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={(e) => setAcknowledged(e.target.checked)}
+                />
+                <span>I understand what is — and is not — shown publicly.</span>
+              </label>
+            </div>
 
-              <div className="workspace-form-grid">
-                <div className="workspace-field">
-                  <label htmlFor="trust-slug">Public URL slug</label>
-                  <input
-                    id="trust-slug"
-                    type="text"
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    placeholder="cloud-castles"
-                  />
-                </div>
-                <div className="workspace-field">
-                  <label htmlFor="trust-company">Company name</label>
-                  <input
-                    id="trust-company"
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Cloud Castles"
-                  />
-                </div>
-                <div className="workspace-field">
-                  <label htmlFor="trust-logo">Company logo URL (optional)</label>
-                  <input
-                    id="trust-logo"
-                    type="url"
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                    placeholder="https://example.com/logo.png"
-                  />
-                </div>
-                <div className="workspace-field" style={{ gridColumn: "1 / -1" }}>
-                  <label htmlFor="trust-message">Intro message (optional)</label>
-                  <textarea
-                    id="trust-message"
-                    value={customMessage}
-                    onChange={(e) => setCustomMessage(e.target.value)}
-                    placeholder="We take your security seriously…"
-                    rows={3}
-                    className="workspace-trust__textarea"
-                  />
-                </div>
+            <div className="workspace-form-grid">
+              <div className="workspace-field">
+                <label htmlFor="trust-slug">Public URL slug</label>
+                <input
+                  id="trust-slug"
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                  placeholder="cloud-castles"
+                />
+              </div>
+              <div className="workspace-field">
+                <label htmlFor="trust-company">Company name</label>
+                <input
+                  id="trust-company"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Cloud Castles"
+                />
+              </div>
+              <div className="workspace-field">
+                <label htmlFor="trust-logo">Company logo URL (optional)</label>
+                <input
+                  id="trust-logo"
+                  type="url"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
+              <div className="workspace-field" style={{ gridColumn: "1 / -1" }}>
+                <label htmlFor="trust-message">Intro message (optional)</label>
+                <textarea
+                  id="trust-message"
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  placeholder="We take your security seriously…"
+                  rows={3}
+                  className="workspace-trust__textarea"
+                />
               </div>
             </div>
-          )}
+          </div>
 
           <div className="workspace-trust__actions">
             {slug && (
@@ -286,22 +283,14 @@ export function TrustCenterSettings() {
             )}
             <button
               type="button"
-              onClick={() => {
-                if (!configureOpen) {
-                  setConfigureOpen(true);
-                  return;
-                }
-                mutation.mutate({});
-              }}
-              disabled={mutation.isPending || (configureOpen && !canSave)}
+              onClick={() => mutation.mutate({})}
+              disabled={mutation.isPending || !canSave}
               className="vigil-toolbar-btn"
             >
-              {mutation.isPending ? "Saving…" : configureOpen ? "Save profile" : "Configure profile"}
+              {mutation.isPending ? "Saving…" : "Save profile"}
             </button>
             {saveMsg && <span className="text-xs font-semibold text-emerald-600">{saveMsg}</span>}
-            {configureOpen && !canSave && (
-              <span className="text-xs text-amber-700">Confirm the disclosure to save.</span>
-            )}
+            {!canSave && <span className="text-xs text-amber-700">Confirm the disclosure to save.</span>}
           </div>
         </div>
       )}
