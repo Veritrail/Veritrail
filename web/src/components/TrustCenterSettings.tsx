@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api";
+import { api, apiUpload, formatApiError } from "../api";
 import { trustCenterPublicUrl } from "../lib/appOrigin";
 import { ToggleChipBar } from "./FilterChipBar";
+import { SafeExternalImage } from "./SafeExternalImage";
 import { TrustCenterPreviewMock } from "./TrustCenterPreviewMock";
 import { Toggle } from "./SettingsUi";
 
@@ -84,6 +85,9 @@ export function TrustCenterSettings() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [configureOpen, setConfigureOpen] = useState(false);
   const [copyMsg, setCopyMsg] = useState("");
+  const [logoUploadError, setLogoUploadError] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!data || hydrated) return;
@@ -146,6 +150,36 @@ export function TrustCenterSettings() {
       setCopyMsg("Copied");
       setTimeout(() => setCopyMsg(""), 2000);
     });
+  }
+
+  const isUploadedLogo = logoUrl.startsWith("/uploads/trust-logos/");
+
+  async function handleLogoUpload(file: File) {
+    setLogoUploadError("");
+    setLogoUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const result = await apiUpload<TrustCenterSettings>("/v1/settings/trust-center/logo", form);
+      setLogoUrl(result.company_logo_url || "");
+      qc.invalidateQueries({ queryKey: ["trust-center-settings"] });
+    } catch (error) {
+      setLogoUploadError(formatApiError(error));
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveLogo() {
+    setLogoUploadError("");
+    try {
+      const result = await api<TrustCenterSettings>("/v1/settings/trust-center/logo", { method: "DELETE" });
+      setLogoUrl(result.company_logo_url || "");
+      qc.invalidateQueries({ queryKey: ["trust-center-settings"] });
+    } catch (error) {
+      setLogoUploadError(formatApiError(error));
+    }
   }
 
   if (isLoading) {
@@ -305,15 +339,67 @@ export function TrustCenterSettings() {
                         placeholder="Cloud Castles"
                       />
                     </div>
-                    <div className="workspace-field">
-                      <label htmlFor="trust-logo">Company logo URL (optional)</label>
-                      <input
-                        id="trust-logo"
-                        type="url"
-                        value={logoUrl}
-                        onChange={(e) => setLogoUrl(e.target.value)}
-                        placeholder="https://example.com/logo.png"
-                      />
+                    <div className="workspace-field" style={{ gridColumn: "1 / -1" }}>
+                      <label>Company logo (optional)</label>
+                      <div className="sharing-trust-logo-upload">
+                        <div className="sharing-trust-logo-upload__thumb">
+                          <SafeExternalImage
+                            src={logoUrl}
+                            className="sharing-trust-logo-upload__image"
+                            fallback={<span className="sharing-trust-logo-upload__placeholder">Logo</span>}
+                          />
+                        </div>
+                        <div className="sharing-trust-logo-upload__actions">
+                          <input
+                            ref={logoInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
+                            className="sr-only"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) void handleLogoUpload(file);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="sharing-btn sharing-btn--outline"
+                            disabled={logoUploading}
+                            onClick={() => logoInputRef.current?.click()}
+                          >
+                            {logoUploading ? "Uploading…" : logoUrl ? "Replace logo" : "Upload logo"}
+                          </button>
+                          {logoUrl && (
+                            <button
+                              type="button"
+                              className="sharing-btn sharing-btn--outline"
+                              disabled={logoUploading}
+                              onClick={() => void handleRemoveLogo()}
+                            >
+                              Remove
+                            </button>
+                          )}
+                          <p className="mt-1 text-xs text-zinc-500">
+                            PNG, JPG, WEBP, or GIF up to 512 KB. Stored locally in dev.
+                          </p>
+                          {logoUploadError && <p className="mt-1 text-xs text-red-600">{logoUploadError}</p>}
+                        </div>
+                      </div>
+                      {!isUploadedLogo && (
+                        <>
+                          <label className="mt-3 block text-xs font-semibold text-zinc-600" htmlFor="trust-logo">
+                            Or paste HTTPS image URL
+                          </label>
+                          <input
+                            id="trust-logo"
+                            type="url"
+                            inputMode="url"
+                            value={logoUrl}
+                            onChange={(e) => setLogoUrl(e.target.value)}
+                            placeholder="https://example.com/logo.png"
+                          />
+                          <p className="mt-1 text-xs text-zinc-500">External URLs must be public HTTPS image links.</p>
+                        </>
+                      )}
                     </div>
                     <div className="workspace-field" style={{ gridColumn: "1 / -1" }}>
                       <label htmlFor="trust-message">Intro message (optional)</label>

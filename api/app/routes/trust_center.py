@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.public_url import resolve_public_asset_url
+from app.core.config import get_settings
 from app.models import AwsAccount
 from app.models.auditor import TrustCenterConfig
 from app.models.org import Org
@@ -148,7 +150,10 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
 
     return TrustCenterData(
         company_name=config.company_name or org_name,
-        company_logo_url=config.company_logo_url,
+        company_logo_url=resolve_public_asset_url(
+            config.company_logo_url,
+            api_public_url=get_settings().API_PUBLIC_URL,
+        ),
         custom_message=config.custom_message,
         monitoring_active=monitoring_active,
         refresh_cadence="daily",

@@ -1319,32 +1319,34 @@ export default function Workspace() {
 
         {tab === "sharing" && (
           <WorkspaceDetailSection>
-            <section className="workspace-sharing-v2">
-              <WorkspaceSectionIntro
-                icon={ICONS.sharing}
-                title="Evidence sharing"
-                description="Manage customer-facing trust content and scoped reviewer access from one calm review surface."
-                meta={
-                  <>
-                    <StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Trust Center live" : "Trust Center off"}</StatusBadge>
-                    <StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors} auditor{activeAuditors === 1 ? "" : "s"}</StatusBadge>
-                  </>
-                }
-              />
-              <div className="workspace-sharing-v2__grid">
-                <div className="workspace-sharing-v2__trust">
-                  {canEditWorkspace ? (
-                    <TrustCenterSettings />
-                  ) : (
-                    <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
-                  )}
-                </div>
-                <div className="workspace-sharing-v2__auditors">
-                  {canEditWorkspace ? (
-                    <AuditorManagement embedded />
-                  ) : (
-                    <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
-                  )}
+            <section className="access-card workspace-sharing-shell">
+              <div className="access-card__body">
+                <WorkspaceSectionIntro
+                  icon={ICONS.sharing}
+                  title="Evidence sharing"
+                  description="Manage customer-facing trust content and scoped reviewer access from one calm review surface."
+                  meta={
+                    <>
+                      <StatusBadge tone={trustLive ? "ok" : "idle"} plain>{trustLive ? "Trust Center live" : "Trust Center off"}</StatusBadge>
+                      <StatusBadge tone={activeAuditors ? "ok" : "idle"} plain>{activeAuditors} auditor{activeAuditors === 1 ? "" : "s"}</StatusBadge>
+                    </>
+                  }
+                />
+                <div className="workspace-sharing-v2__grid">
+                  <div className="workspace-sharing-v2__trust">
+                    {canEditWorkspace ? (
+                      <TrustCenterSettings />
+                    ) : (
+                      <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
+                    )}
+                  </div>
+                  <div className="workspace-sharing-v2__auditors">
+                    {canEditWorkspace ? (
+                      <AuditorManagement embedded />
+                    ) : (
+                      <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </section>

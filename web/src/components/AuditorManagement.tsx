@@ -56,10 +56,10 @@ function ShieldFootnoteIcon() {
 
 function KebabIcon() {
   return (
-    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-      <circle cx="12" cy="5" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="12" cy="19" r="1.5" />
+    <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="12" cy="19" r="2" />
     </svg>
   );
 }
@@ -189,83 +189,83 @@ export function AuditorManagement({ embedded = false }: { embedded?: boolean }) 
 
   if (embedded) {
     return (
-      <section className="sharing-auditor-card sharing-auditor-card--combined">
-        <header className="sharing-auditor-card__header">
-          <div className="sharing-auditor-card__intro">
-            <span className="sharing-well sharing-well--lock" aria-hidden>
-              <LockIcon />
-            </span>
-            <div>
-              <h3 className="sharing-auditor-card__title">External auditors</h3>
-              <p className="sharing-trust-card__subtitle">Grant secure, time-limited access to private evidence.</p>
+      <div className="sharing-auditors-stack sharing-auditors-stack--split">
+        <section className="sharing-auditor-card sharing-auditor-card--access">
+          <header className="sharing-auditor-card__header sharing-auditor-card__header--hero">
+            <div className="sharing-auditor-card__intro">
+              <span className="sharing-well sharing-well--lock" aria-hidden>
+                <LockIcon />
+              </span>
+              <div>
+                <h3 className="sharing-auditor-card__title">Reviewer access</h3>
+                <p className="sharing-trust-card__subtitle">Grant secure, time-limited access to private evidence.</p>
+              </div>
             </div>
+            <span className={`sharing-count-pill${activeCount ? " is-on" : ""}`}>
+              {activeCount ? `${activeCount} active` : "None"}
+            </span>
+          </header>
+
+          <div className="sharing-auditor-card__form sharing-auditor-card__form--inline">
+            <label className="sharing-field sharing-field--email">
+              <span className="sr-only">Reviewer email</span>
+              <span className="sharing-input-shell">
+                <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0-8.53 5.25a2.25 2.25 0 0 1-2.44 0L2.25 6.75" />
+                </svg>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="auditor@firm.com"
+                />
+              </span>
+            </label>
+
+            <label className="sharing-field sharing-field--expiry">
+              <span className="sr-only">Access expires</span>
+              <span className="sharing-input-shell sharing-input-shell--select">
+                <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                </svg>
+                <Select
+                  className="sharing-select-btn"
+                  value={String(expiryDays)}
+                  onChange={(v) => setExpiryDays(Number(v))}
+                  options={[
+                    { value: "7", label: "7 days" },
+                    { value: "14", label: "14 days" },
+                    { value: "30", label: "30 days" },
+                    { value: "90", label: "90 days" },
+                  ]}
+                />
+              </span>
+            </label>
+
+            <button
+              type="button"
+              onClick={() => inviteMutation.mutate()}
+              disabled={inviteMutation.isPending || !email.trim()}
+              className="sharing-btn sharing-btn--outline sharing-auditor-card__send"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L6 12Zm0 0h7.5" />
+              </svg>
+              {inviteMutation.isPending ? "Inviting…" : "Send invite"}
+            </button>
           </div>
-          <span className={`sharing-count-pill${activeCount ? " is-on" : ""}`}>
-            {activeCount ? `${activeCount} active` : "None"}
-          </span>
-        </header>
 
-        <div className="sharing-auditor-card__form sharing-auditor-card__form--compact">
-          <label className="sharing-field">
-            <span className="sharing-field__label">Invite reviewer</span>
-            <span className="sharing-input-shell">
-              <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0-8.53 5.25a2.25 2.25 0 0 1-2.44 0L2.25 6.75" />
-              </svg>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="auditor@firm.com"
-              />
-            </span>
-          </label>
+          {error && <p className="sharing-auditor-card__error">{error}</p>}
+          {inviteNote && <p className="sharing-auditor-card__note">{inviteNote}</p>}
 
-          <label className="sharing-field">
-            <span className="sharing-field__label">Access expires</span>
-            <span className="sharing-input-shell sharing-input-shell--select">
-              <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-              </svg>
-              <Select
-                className="sharing-select-btn"
-                value={String(expiryDays)}
-                onChange={(v) => setExpiryDays(Number(v))}
-                options={[
-                  { value: "7", label: "7 days" },
-                  { value: "14", label: "14 days" },
-                  { value: "30", label: "30 days" },
-                  { value: "90", label: "90 days" },
-                ]}
-              />
-            </span>
-          </label>
+          <p className="sharing-auditor-card__footnote sharing-auditor-card__footnote--soft">
+            <ShieldFootnoteIcon />
+            Reviewers never see API keys or internal workspace details.
+          </p>
+        </section>
 
-          <button
-            type="button"
-            onClick={() => inviteMutation.mutate()}
-            disabled={inviteMutation.isPending || !email.trim()}
-            className="sharing-btn sharing-btn--primary sharing-btn--block"
-          >
-            {inviteMutation.isPending ? "Inviting…" : "Invite reviewer"}
-            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L6 12Zm0 0h7.5" />
-            </svg>
-          </button>
-        </div>
-
-        {error && <p className="sharing-auditor-card__error">{error}</p>}
-        {inviteNote && <p className="sharing-auditor-card__note">{inviteNote}</p>}
-
-        <p className="sharing-auditor-card__footnote">
-          <ShieldFootnoteIcon />
-          Reviewers never see API keys or internal workspace details.
-        </p>
-
-        <div className="sharing-auditor-card__divider" />
-
-        <section className="sharing-auditor-card__active">
-          <header className="sharing-auditor-card__active-header">
+        <section className="sharing-auditor-card sharing-auditor-card--active-list">
+          <header className="sharing-auditor-card__active-header sharing-auditor-card__active-header--hero">
             <div className="sharing-auditor-card__intro">
               <span className="sharing-well sharing-well--people" aria-hidden>
                 <PeopleIcon />
@@ -312,7 +312,7 @@ export function AuditorManagement({ embedded = false }: { embedded?: boolean }) 
             View audit access log &rarr;
           </a>
         </section>
-      </section>
+      </div>
     );
   }
 

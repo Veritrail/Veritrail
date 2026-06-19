@@ -39,6 +39,7 @@ export default defineConfig({
     allowedHosts: ["vigil.cclab.cloud-castles.com"],
     proxy: {
       "/v1": devProxy,
+      "/uploads": devProxy,
       "/trust": { ...devProxy, bypass: apiProxyBypass },
       "/auditor": { ...devProxy, bypass: apiProxyBypass },
     },

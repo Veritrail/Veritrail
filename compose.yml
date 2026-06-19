@@ -49,6 +49,7 @@ services:
       - ./api:/app
       - ./web:/web:ro
       - ./infra:/infra:ro
+      - ./data/uploads:/app/data/uploads
       # Mounted for SSO token cache. Omit this volume if using static keys only.
       - ${HOME}/.aws:/root/.aws:rw
 

@@ -1,9 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, BASE, formatApiError, logout, storeTokens, token } from "../api";
-import { BrowserIcon } from "../components/BrowserIcon";
-import { deviceLabel, detectBrowser } from "../lib/browserDetect";
+import { api, BASE, formatApiError, storeTokens, token } from "../api";
 
 function nameParts(email: string): string[] {
   return (email.split("@")[0] || "")
@@ -37,38 +35,6 @@ interface Me {
   totp_enabled: boolean;
   has_password: boolean;
   mfa_backup_codes_remaining: number;
-}
-
-interface SessionInfo {
-  location: string | null;
-  signed_in_at: string | null;
-}
-
-interface SessionRow {
-  id: string;
-  user_agent: string | null;
-  location: string | null;
-  signed_in_at: string | null;
-  last_seen_at: string | null;
-  current: boolean;
-}
-
-function sessionDeviceLabel(ua: string | null): string {
-  if (!ua) return "Unknown device";
-  return deviceLabel(ua);
-}
-
-function formatSessionWhen(iso: string | null): string {
-  if (!iso) return "—";
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "—";
-  const sec = Math.round((Date.now() - t) / 1000);
-  if (sec < 60) return "just now";
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 48) return `${hr}h ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 interface MfaSetup {
@@ -295,34 +261,41 @@ function ProviderRow({
   lastMethod: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-5 py-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white">{icon}</span>
-        <div className="flex min-w-0 items-center gap-4">
-          <p className="text-sm font-semibold text-zinc-900">{name}</p>
-          {connected ? <StatusChip tone="on">Connected</StatusChip> : <StatusChip tone="off">Not connected</StatusChip>}
+    <div className="group rounded-xl border border-zinc-200 bg-white p-4 shadow-[0_10px_28px_-26px_rgba(15,23,42,0.55)] transition hover:border-slate-300 hover:shadow-[0_16px_34px_-28px_rgba(15,23,42,0.65)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-slate-50 shadow-sm">{icon}</span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-extrabold text-slate-900">{name}</p>
+              {connected ? <StatusChip tone="on">Connected</StatusChip> : <StatusChip tone="off">Available</StatusChip>}
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              {connected ? "Enabled for sign-in and account recovery." : "Add as another secure sign-in option."}
+            </p>
+          </div>
         </div>
+        {connected ? (
+          <button
+            type="button"
+            onClick={onDisconnect}
+            disabled={disconnecting || lastMethod}
+            title={lastMethod ? "Set a password or connect another sign-in method before disconnecting your last one." : undefined}
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {disconnecting ? "Disconnecting..." : "Disconnect"}
+          </button>
+        ) : connectUrl ? (
+          <a
+            href={connectUrl}
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3.5 text-xs font-bold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+          >
+            Connect
+          </a>
+        ) : (
+          <span className="shrink-0 rounded-lg bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-500">Sign in again</span>
+        )}
       </div>
-      {connected ? (
-        <button
-          type="button"
-          onClick={onDisconnect}
-          disabled={disconnecting || lastMethod}
-          title={lastMethod ? "Set a password or connect another sign-in method before disconnecting your last one." : undefined}
-          className="inline-flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60"
-        >
-          {disconnecting ? "Disconnecting…" : "Disconnect"}
-        </button>
-      ) : connectUrl ? (
-        <a
-          href={connectUrl}
-          className="inline-flex shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50"
-        >
-          Connect
-        </a>
-      ) : (
-        <span className="shrink-0 text-xs text-zinc-400">Sign in again to connect</span>
-      )}
     </div>
   );
 }
@@ -420,35 +393,6 @@ export default function Account() {
       window.location.reload();
     },
   });
-
-  const { data: session } = useQuery<SessionInfo>({
-    queryKey: ["me-session"],
-    queryFn: () => api("/v1/auth/me/session"),
-    enabled: !!me,
-  });
-
-  const { data: sessions = [] } = useQuery<SessionRow[]>({
-    queryKey: ["me-sessions"],
-    queryFn: () => api("/v1/auth/me/sessions"),
-    enabled: !!me,
-  });
-
-  const revokeSession = useMutation({
-    mutationFn: (sessionId: string) =>
-      api(`/v1/auth/me/sessions/${sessionId}`, { method: "DELETE" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["me-sessions"] });
-    },
-  });
-
-  const revokeOtherSessions = useMutation({
-    mutationFn: () => api("/v1/auth/me/sessions/revoke-others", { method: "POST" }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["me-sessions"] });
-    },
-  });
-
-  const otherSessionCount = sessions.filter((s) => !s.current).length;
 
   // change password
   const [current, setCurrent] = useState("");
@@ -663,14 +607,6 @@ export default function Account() {
   const displayEmail = me?.email ?? "";
   const initials = displayEmail ? initialsFromEmail(displayEmail) : "?";
 
-  async function signOut() {
-    try {
-      await logout();
-    } finally {
-      window.location.href = "/login?signed_out=1";
-    }
-  }
-
   return (
     <div className="w-full max-w-none space-y-6 pb-10">
       <header>
@@ -734,13 +670,6 @@ export default function Account() {
           <span className="text-zinc-400 [&_svg]:h-[18px] [&_svg]:w-[18px]"><ShieldIcon /></span>
           <span className="font-medium text-slate-700">2FA</span>
           <StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>
-        </div>
-        <div className="flex flex-1 items-center justify-center gap-2.5 px-6 py-5">
-          <span className="text-zinc-400 [&_svg]:h-[18px] [&_svg]:w-[18px]"><LinkIcon /></span>
-          <div className="leading-tight">
-            <p className="text-[11px] font-medium text-zinc-400">Providers</p>
-            <p className="text-sm font-semibold text-slate-700">{providerCount} connected</p>
-          </div>
         </div>
       </div>
 
@@ -836,122 +765,100 @@ export default function Account() {
               </div>
             </form>
 
-            {/* Two-factor authentication */}
-            <div className="border-t border-zinc-100 pt-7">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="text-slate-500 [&_svg]:h-[18px] [&_svg]:w-[18px]"><ShieldIcon /></span>
-                <h3 className="text-sm font-bold text-slate-900">Two-factor authentication</h3>
-                <StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>
+            </div>
+          </SimpleCard>
+
+          <SimpleCard icon={<ShieldIcon />} title="Two-factor authentication">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h3 className="text-lg font-extrabold text-slate-950">Protect sign-ins</h3>
+                  <StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>
+                </div>
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">
+                  Require a verification code from an authenticator app after password or provider sign-in.
+                </p>
               </div>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
-                Add an extra layer of security to your account by requiring a verification code in addition to your password when signing in.
-              </p>
-              {mfaMsg && (
-                <div className={`mt-3 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
-                  {mfaMsg.text}
+              {me?.totp_enabled ? (
+                <button
+                  type="button"
+                  onClick={() => { setShowDisableMfa(true); setMfaMsg(null); }}
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-zinc-50"
+                >
+                  Disable
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => startMfaSetup.mutate()}
+                  disabled={startMfaSetup.isPending}
+                  className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-5 text-sm font-bold text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
+                >
+                  {startMfaSetup.isPending ? "Preparing..." : "Set up 2FA"}
+                </button>
+              )}
+            </div>
+            {mfaMsg && (
+              <div className={`mt-4 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
+                {mfaMsg.text}
+              </div>
+            )}
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-zinc-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Current state</p>
+                <p className="mt-2 text-sm font-semibold text-slate-800">{mfaOn ? "Authenticator required" : "Password or provider only"}</p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-slate-50/70 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Recommended</p>
+                <p className="mt-2 text-sm font-semibold text-slate-800">Enable before sharing recovery codes</p>
+              </div>
+            </div>
+          </SimpleCard>
+
+          <SimpleCard icon={<KeyIcon />} title="Recovery codes">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-lg font-extrabold text-slate-950">Backup access</h3>
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">
+                  One-time codes let you sign in if your authenticator is unavailable.
+                </p>
+              </div>
+              {mfaOn && !recoveryCodes && (
+                <button type="button" onClick={() => generateCodes.mutate()} disabled={generateCodes.isPending} className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60">
+                  {generateCodes.isPending ? "Generating..." : (me?.mfa_backup_codes_remaining ?? 0) > 0 ? "Regenerate codes" : "Generate codes"}
+                </button>
+              )}
+            </div>
+            <div className="mt-5">
+              {!mfaOn ? (
+                <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 px-4 py-4 text-sm text-slate-500">
+                  <span className="text-zinc-400 [&_svg]:h-4 [&_svg]:w-4"><LockIcon /></span>
+                  Enable two-factor authentication to create recovery codes.
+                </div>
+              ) : recoveryCodes ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                  <p className="text-sm font-semibold text-amber-900">Save these now. They will not be shown again.</p>
+                  <p className="mt-0.5 text-xs text-amber-800/80">Each code works once. Store them somewhere safe.</p>
+                  <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-amber-200/70 bg-white p-4">
+                    {recoveryCodes.map((c) => (
+                      <code key={c} className="font-mono text-sm tracking-wide text-slate-800">{c}</code>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">Copy all</button>
+                    <button type="button" onClick={() => downloadRecoveryCodes(recoveryCodes)} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">Download .txt</button>
+                    <button type="button" onClick={() => setRecoveryCodes(null)} className="ml-auto rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50">Done</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-zinc-200 bg-slate-50/70 p-4">
+                  <p className="text-sm font-semibold text-slate-800">{me?.mfa_backup_codes_remaining ?? 0} of 10 codes remaining</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">Generate a fresh set after using or losing access to existing codes.</p>
                 </div>
               )}
-              <div className="mt-4 flex items-center justify-between gap-4">
-                <p className="text-sm text-slate-600">Status: <span className="font-semibold text-slate-800">{mfaOn ? "On" : "Off"}</span></p>
-                {me?.totp_enabled ? (
-                  <button
-                    type="button"
-                    onClick={() => { setShowDisableMfa(true); setMfaMsg(null); }}
-                    className="shrink-0 rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-zinc-50"
-                  >
-                    Disable
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => startMfaSetup.mutate()}
-                    disabled={startMfaSetup.isPending}
-                    className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60"
-                  >
-                    {startMfaSetup.isPending ? "Preparing..." : "Set up 2FA"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Recovery codes */}
-            <div className="border-t border-zinc-100 pt-7">
-              <div className="flex items-center gap-2.5">
-                <span className="text-slate-500 [&_svg]:h-[18px] [&_svg]:w-[18px]"><KeyIcon /></span>
-                <h3 className="text-sm font-bold text-slate-900">Recovery codes</h3>
-              </div>
-              <p className="mt-1.5 text-sm text-slate-500">Recovery codes allow you to sign in if you lose access to your authenticator.</p>
-              <div className="mt-4">
-                {!mfaOn ? (
-                  <div className="flex items-center gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/70 px-4 py-3.5 text-sm text-slate-500">
-                    <span className="text-zinc-400 [&_svg]:h-4 [&_svg]:w-4"><LockIcon /></span>
-                    Unavailable until two-factor authentication is enabled.
-                  </div>
-                ) : recoveryCodes ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
-                    <p className="text-sm font-semibold text-amber-900">Save these now — they won't be shown again.</p>
-                    <p className="mt-0.5 text-xs text-amber-800/80">Each code works once. Store them somewhere safe.</p>
-                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-amber-200/70 bg-white p-4">
-                      {recoveryCodes.map((c) => (
-                        <code key={c} className="font-mono text-sm tracking-wide text-slate-800">{c}</code>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">Copy all</button>
-                      <button type="button" onClick={() => downloadRecoveryCodes(recoveryCodes)} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">Download .txt</button>
-                      <button type="button" onClick={() => setRecoveryCodes(null)} className="ml-auto rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50">Done</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 px-5 py-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800">{me?.mfa_backup_codes_remaining ?? 0} of 10 codes remaining</p>
-                      <p className="mt-0.5 text-xs text-zinc-500">Each code signs you in once when your authenticator is unavailable.</p>
-                    </div>
-                    <button type="button" onClick={() => generateCodes.mutate()} disabled={generateCodes.isPending} className="shrink-0 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 disabled:opacity-60">
-                      {generateCodes.isPending ? "Generating…" : (me?.mfa_backup_codes_remaining ?? 0) > 0 ? "Regenerate codes" : "Generate codes"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
             </div>
           </SimpleCard>
 
-          {/* Connected providers */}
-          <SimpleCard icon={<LinkIcon />} title="Connected providers">
-            <div className="overflow-hidden rounded-lg border border-zinc-200">
-              <div className="divide-y divide-zinc-200">
-                <ProviderRow
-                  name="GitHub"
-                  icon={<ProviderLogo provider="github" />}
-                  connected={!!me?.github_id}
-                  connectUrl={ghConnectUrl ?? null}
-                  onDisconnect={() => disconnectGh.mutate()}
-                  disconnecting={disconnectGh.isPending}
-                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
-                />
-                <ProviderRow
-                  name="GitLab"
-                  icon={<ProviderLogo provider="gitlab" />}
-                  connected={!!me?.gitlab_id}
-                  connectUrl={glConnectUrl ?? null}
-                  onDisconnect={() => disconnectGl.mutate()}
-                  disconnecting={disconnectGl.isPending}
-                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
-                />
-                <ProviderRow
-                  name="Google"
-                  icon={<ProviderLogo provider="google" />}
-                  connected={!!me?.google_id}
-                  connectUrl={googleConnectUrl ?? null}
-                  onDisconnect={() => disconnectGoogle.mutate()}
-                  disconnecting={disconnectGoogle.isPending}
-                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) === 0}
-                />
-              </div>
-            </div>
-          </SimpleCard>
         </div>
 
         {/* ── Right column ── */}
@@ -964,84 +871,9 @@ export default function Account() {
               <StatusRow icon={<MailIcon />} label="Email" value="Verified" tone="ok" />
               <StatusRow icon={<LockIcon />} label="Password" value={hasPw ? "Set" : "Not set"} tone={hasPw ? "ok" : "muted"} />
               <StatusRow icon={<ShieldIcon />} label="Two-factor authentication" value={mfaOn ? "On" : "Off"} tone={mfaOn ? "ok" : "muted"} />
-              <StatusRow icon={<LinkIcon />} label="Connected providers" value={`${providerCount} connected`} tone={providerCount > 0 ? "good" : "muted"} />
             </div>
           </SimpleCard>
 
-          <SimpleCard
-            icon={<svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>}
-            title="Sessions"
-          >
-            <div className="space-y-2">
-              {(sessions.length ? sessions : [{ id: "current", user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null, location: session?.location ?? null, signed_in_at: session?.signed_in_at ?? null, last_seen_at: null, current: true }]).map((row) => {
-                const browser = detectBrowser(row.user_agent ?? "");
-                const subtitle = row.current
-                  ? row.location
-                    ? `This device · ${row.location}`
-                    : "This device · signed in"
-                  : [row.location, row.last_seen_at ? `Active ${formatSessionWhen(row.last_seen_at)}` : null]
-                      .filter(Boolean)
-                      .join(" · ") || "Other device";
-                return (
-                  <div
-                    key={row.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3.5"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white">
-                        <BrowserIcon browser={browser} className="h-6 w-6" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-800">
-                          {sessionDeviceLabel(row.user_agent)}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-zinc-400">{subtitle}</p>
-                      </div>
-                    </div>
-                    {row.current ? (
-                      <StatusChip tone="on">Current</StatusChip>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => revokeSession.mutate(row.id)}
-                        disabled={revokeSession.isPending}
-                        className="shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-zinc-50 disabled:opacity-50"
-                      >
-                        Revoke
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <button type="button" onClick={signOut} className="mt-4 w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-zinc-50">
-              Sign out
-            </button>
-          </SimpleCard>
-
-          <section className="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-2.5 text-red-600">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.2 3.37 1.93 3.37h14.74c1.73 0 2.81-1.87 1.94-3.37L13.95 3.38c-.87-1.5-3.04-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z" />
-              </svg>
-              <h2 className="text-base font-bold text-red-600">Danger zone</h2>
-            </div>
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">
-              Sign out of all other devices. They will need to sign in again. This device stays signed in.
-            </p>
-            <button
-              type="button"
-              onClick={() => revokeOtherSessions.mutate()}
-              disabled={revokeOtherSessions.isPending || otherSessionCount === 0}
-              className="mt-4 w-full rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {revokeOtherSessions.isPending
-                ? "Signing out other devices…"
-                : otherSessionCount > 0
-                  ? `Sign out ${otherSessionCount} other device${otherSessionCount === 1 ? "" : "s"}`
-                  : "No other active sessions"}
-            </button>
-          </section>
         </div>
       </div>
 

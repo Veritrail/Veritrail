@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
+import { SafeExternalImage } from "../components/SafeExternalImage";
 import { publicApi } from "../api";
 
 type TrustFrameworkRef = {
@@ -75,17 +76,16 @@ export default function TrustCenter() {
         <section className="rounded-2xl border border-zinc-200 bg-white p-7 shadow-sm">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
-              {data.company_logo_url ? (
-                <img
-                  src={data.company_logo_url}
-                  alt={data.company_name}
-                  className="h-14 w-14 shrink-0 rounded-xl border border-zinc-200 bg-white object-contain p-2"
-                />
-              ) : (
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-xl font-bold text-zinc-400">
-                  {data.company_name.slice(0, 1)}
-                </div>
-              )}
+              <SafeExternalImage
+                src={data.company_logo_url}
+                alt={data.company_name}
+                className="h-14 w-14 shrink-0 rounded-xl border border-zinc-200 bg-white object-contain p-2"
+                fallback={
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-xl font-bold text-zinc-400">
+                    {data.company_name.slice(0, 1)}
+                  </div>
+                }
+              />
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#439385]">Security profile</p>
                 <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900">{data.company_name}</h1>

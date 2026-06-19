@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     ENCRYPTION_KEY: str = ""
 
+    # Local filesystem uploads (Trust Center logos in dev).
+    LOCAL_UPLOAD_DIR: str = "data/uploads"
+
     # Public URL of the read-only CloudFormation template a customer launches
     # in their own AWS account. Must be fetchable by CloudFormation in the
     # customer's account (S3 object URL — GitHub raw URLs are not reliable).

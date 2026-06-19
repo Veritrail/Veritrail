@@ -160,6 +160,24 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   return res.json() as Promise<T>;
 }
 
+export async function apiUpload<T = unknown>(path: string, form: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  const t = token();
+  if (t) headers["Authorization"] = `Bearer ${t}`;
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    body: form,
+    headers,
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(parseApiError(res.status, body));
+  }
+  return res.json() as Promise<T>;
+}
+
 /** Unauthenticated public API routes (`/trust`, `/auditor`). */
 export async function publicApi<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, init);

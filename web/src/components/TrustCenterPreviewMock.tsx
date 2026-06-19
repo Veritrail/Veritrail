@@ -1,3 +1,5 @@
+import { SafeExternalImage } from "./SafeExternalImage";
+
 const FRAMEWORK_LABELS: Record<string, string> = {
   soc2: "SOC 2",
   iso27001: "ISO 27001",
@@ -47,7 +49,11 @@ export function TrustCenterPreviewMock({
       <div className="sharing-trust-preview__body">
         <div className="sharing-trust-preview__brand">
           <span className="sharing-trust-preview__logo">
-            {logoUrl ? <img src={logoUrl} alt="" /> : <ShieldMark />}
+            <SafeExternalImage
+              src={logoUrl}
+              className="sharing-trust-preview__logo-image"
+              fallback={<ShieldMark />}
+            />
           </span>
           <div>
             <p className="sharing-trust-preview__company">{displayName}</p>

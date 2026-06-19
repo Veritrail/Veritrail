@@ -5,12 +5,13 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.public_url import PublicUrlError, validate_trust_logo_reference
 from app.core.security import current_principal
 from app.models.org import Org, User
 from app.models import AwsAccount, Finding
@@ -29,6 +30,7 @@ from app.services.scan_schedule import (
     next_scan_at,
     validate_scanning,
 )
+from app.services.trust_logo_storage import TrustLogoError, delete_trust_logo, is_uploaded_trust_logo_path, save_trust_logo
 
 router = APIRouter()
 
@@ -363,6 +365,16 @@ class TrustCenterSettingsIn(BaseModel):
     frameworks_to_show: list[str] = ["soc2", "cis_aws_l1"]
     custom_message: str | None = None
 
+    @field_validator("company_logo_url")
+    @classmethod
+    def validate_company_logo_url(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        try:
+            return validate_trust_logo_reference(value, field="Logo URL")
+        except PublicUrlError as exc:
+            raise ValueError(str(exc)) from exc
+
 
 class TrustCenterSettingsOut(BaseModel):
     model_config = {"from_attributes": True}
@@ -418,12 +430,85 @@ def update_trust_center_settings(body: TrustCenterSettingsIn, _rbac: RequireAdmi
         config = TrustCenterConfig(org_id=org.id)
         db.add(config)
 
+    old_logo = config.company_logo_url
+    new_logo = body.company_logo_url
+    if old_logo and is_uploaded_trust_logo_path(old_logo) and old_logo != new_logo:
+        delete_trust_logo(org.id)
+
     config.is_enabled = body.is_enabled
     config.subdomain_slug = body.subdomain_slug
     config.company_name = body.company_name
     config.company_logo_url = body.company_logo_url
     config.frameworks_to_show = body.frameworks_to_show
     config.custom_message = body.custom_message
+    db.commit()
+    db.refresh(config)
+
+    return TrustCenterSettingsOut(
+        is_enabled=config.is_enabled,
+        subdomain_slug=config.subdomain_slug,
+        company_name=config.company_name,
+        company_logo_url=config.company_logo_url,
+        frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
+        custom_message=config.custom_message,
+        configured=True,
+        last_updated_at=config.last_updated_at,
+    )
+
+
+@router.post("/trust-center/logo", response_model=TrustCenterSettingsOut)
+def upload_trust_center_logo(
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+):
+    org = _get_org(p, db)
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Logo file is empty")
+
+    try:
+        logo_path = save_trust_logo(org.id, content)
+    except TrustLogoError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    config = db.scalar(
+        select(TrustCenterConfig).where(TrustCenterConfig.org_id == org.id)
+    )
+    if not config:
+        config = TrustCenterConfig(org_id=org.id)
+        db.add(config)
+
+    config.company_logo_url = logo_path
+    db.commit()
+    db.refresh(config)
+
+    return TrustCenterSettingsOut(
+        is_enabled=config.is_enabled,
+        subdomain_slug=config.subdomain_slug,
+        company_name=config.company_name,
+        company_logo_url=config.company_logo_url,
+        frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
+        custom_message=config.custom_message,
+        configured=True,
+        last_updated_at=config.last_updated_at,
+    )
+
+
+@router.delete("/trust-center/logo", response_model=TrustCenterSettingsOut)
+def remove_trust_center_logo(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
+    org = _get_org(p, db)
+    config = db.scalar(
+        select(TrustCenterConfig).where(TrustCenterConfig.org_id == org.id)
+    )
+    if not config:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Trust center not configured")
+
+    if is_uploaded_trust_logo_path(config.company_logo_url):
+        delete_trust_logo(org.id)
+
+    config.company_logo_url = None
     db.commit()
     db.refresh(config)
 
