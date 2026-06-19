@@ -33,6 +33,7 @@ import AuditorControls from "./pages/AuditorControls";
 import AuditorEvidence from "./pages/AuditorEvidence";
 import AuditorExport from "./pages/AuditorExport";
 import TrustCenter from "./pages/TrustCenter";
+import "./styles/workspace-sharing-redesign.css";
 
 const qc = new QueryClient();
 
