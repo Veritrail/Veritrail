@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { trustCenterPublicUrl } from "../lib/appOrigin";
+import { ToggleChipBar } from "./FilterChipBar";
 import { Toggle } from "./SettingsUi";
 
 type TrustCenterSettings = {
@@ -35,14 +36,6 @@ const TRUST_FRAMEWORK_KEYS = new Set(DEFAULT_FRAMEWORKS);
 function normalizeFrameworks(keys: string[] | undefined): string[] {
   const filtered = (keys ?? []).filter((key) => TRUST_FRAMEWORK_KEYS.has(key));
   return filtered.length ? filtered : DEFAULT_FRAMEWORKS;
-}
-
-function CheckIcon() {
-  return (
-    <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-    </svg>
-  );
 }
 
 function ExternalLinkIcon() {
@@ -166,30 +159,32 @@ export function TrustCenterSettings() {
 
       {enabled && (
         <div className="workspace-trust__body">
-          <div className="workspace-trust__block">
-            <p className="workspace-trust__section-label">Included frameworks</p>
-            <div className="findings-v2-filter-chip-bar workspace-trust__framework-bar">
-              {AVAILABLE_FRAMEWORKS.map((fw) => {
-                const checked = frameworks.includes(fw.key);
-                return (
-                  <button
-                    key={fw.key}
-                    type="button"
-                    onClick={() => toggleFramework(fw.key)}
-                    className={`findings-v2-filter-chip${checked ? " is-selected" : ""}`}
-                    aria-pressed={checked}
-                  >
-                    {checked && <CheckIcon />}
-                    {fw.label}
-                  </button>
-                );
-              })}
+          <div className="workspace-destination-row">
+            <span className="workspace-destination-row__icon" aria-hidden>
+              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </span>
+            <div className="workspace-field">
+              <label>Included frameworks</label>
+              <ToggleChipBar
+                className="workspace-trust__framework-bar"
+                ariaLabel="Included frameworks"
+                chips={AVAILABLE_FRAMEWORKS.map((fw) => ({ id: fw.key, label: fw.label }))}
+                selected={frameworks}
+                onChange={toggleFramework}
+              />
             </div>
           </div>
 
-          <div className="workspace-trust__block">
-            <p className="workspace-trust__section-label">Public profile link</p>
+          <div className="workspace-destination-row">
+            <span className="workspace-destination-row__icon" aria-hidden>
+              <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+              </svg>
+            </span>
             <div className="workspace-field">
+              <label>Public profile link</label>
               <div className="workspace-destination-input">
                 <input
                   type="text"

@@ -42,6 +42,25 @@
   color: #0d9488;
 }
 
+.workspace-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.workspace-page__org {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #dbe3ee;
+  background: #f1f5fb;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
 .workspace-page__title {
   margin: 0;
   font-size: 1.5rem;
@@ -1298,6 +1317,13 @@
 .workspace-notifications-routes {
   border-top: 1px solid #e6ebf2;
   padding-top: 0.25rem;
+}
+
+/* Sharing section content gets the same faint divider under its header as the
+   Notifications routes, so both tabs read with the same rhythm. */
+.workspace-sharing-section .workspace-sharing-body {
+  border-top: 1px solid #e6ebf2;
+  padding-top: 1.35rem;
 }
 
 @media (max-width: 720px) {
@@ -2560,7 +2586,8 @@
 .workspace-trust__body {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.6rem;
+  padding-top: 0.35rem;
 }
 
 .workspace-trust__block + .workspace-trust__block {
@@ -2579,10 +2606,6 @@
 .workspace-trust__framework-bar {
   width: fit-content;
   max-width: 100%;
-}
-
-.workspace-trust__framework-bar .findings-v2-filter-chip {
-  gap: 0.35rem;
 }
 
 .workspace-destination-input .workspace-trust__url-copy {

@@ -97,13 +97,19 @@
   flex-shrink: 0;
   align-items: center;
   gap: 0.25rem;
+  border: 0;
+  background: transparent;
   white-space: nowrap;
   border-radius: 9999px;
   padding: 0.375rem 0.875rem;
   font-size: 0.8125rem;
   font-weight: 500;
   color: #71717a;
-  transition: all 0.15s ease;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .findings-v2-filter-chip:hover:not(.is-selected) {
@@ -114,6 +120,7 @@
 .findings-v2-filter-chip.is-selected {
   background: #ffffff;
   color: #18181b;
+  font-weight: 600;
   box-shadow:
     0 1px 2px rgb(9 9 11 / 0.04),
     0 0 0 1px rgb(228 228 231 / 0.8);

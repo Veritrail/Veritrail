@@ -493,15 +493,15 @@ function ReadinessChecklistPanel({
   score,
   tone,
   label,
-  completed,
-  optional,
+  items,
 }: {
   score: number;
   tone: Tone;
   label: string;
-  completed: string[];
-  optional: { label: string; detail: string }[];
+  items: { label: string; done: boolean }[];
 }) {
+  const completed = items.filter((item) => item.done);
+  const remaining = items.filter((item) => !item.done);
   return (
     <aside className="workspace-readiness-panel">
       <div className="workspace-readiness-panel__header">
@@ -523,32 +523,31 @@ function ReadinessChecklistPanel({
           </p>
         </div>
       </div>
-      <div className="workspace-readiness-panel__section">
-        <p className="workspace-readiness-panel__section-title">Completed</p>
-        <div className="workspace-readiness-panel__items">
-          {completed.map((item) => (
-            <div className="workspace-readiness-panel__item" key={item}>
-              <span className="workspace-readiness-panel__check" aria-hidden>
-                <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
-                </svg>
-              </span>
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      {optional.length > 0 && (
+      {completed.length > 0 && (
         <div className="workspace-readiness-panel__section">
-          <p className="workspace-readiness-panel__section-title">Optional</p>
+          <p className="workspace-readiness-panel__section-title">Completed</p>
           <div className="workspace-readiness-panel__items">
-            {optional.map((item) => (
+            {completed.map((item) => (
+              <div className="workspace-readiness-panel__item" key={item.label}>
+                <span className="workspace-readiness-panel__check" aria-hidden>
+                  <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                  </svg>
+                </span>
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {remaining.length > 0 && (
+        <div className="workspace-readiness-panel__section">
+          <p className="workspace-readiness-panel__section-title">Remaining</p>
+          <div className="workspace-readiness-panel__items">
+            {remaining.map((item) => (
               <div className="workspace-readiness-panel__item workspace-readiness-panel__item--optional" key={item.label}>
                 <span className="workspace-readiness-panel__pending" aria-hidden />
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.detail}</small>
-                </span>
+                <span>{item.label}</span>
               </div>
             ))}
           </div>
@@ -753,7 +752,6 @@ function ScanSchedulePanel({
               </div>
 
               <div className="workspace-schedule__timeline">
-                <p className="workspace-schedule__timeline-title">Upcoming runs</p>
                 <div className="workspace-schedule__timeline-track">
                   {runs.length === 0 ? (
                     <p className="workspace-schedule__timeline-empty">No upcoming runs scheduled.</p>
@@ -1098,40 +1096,41 @@ export default function Workspace() {
   const sharingHealthy = trustLive || activeAuditors > 0;
   const notificationHealthy = alertsOn;
   const scopeHealthy = optionalTotal === 0 || enabledOptional > 0;
-  const readinessChecks = [scanHealthy, notificationHealthy, accessHealthy, sharingHealthy];
-  const readinessRawScore = Math.round((readinessChecks.filter(Boolean).length / readinessChecks.length) * 100);
-  const readinessScore = readinessRawScore === 100 ? 95 : readinessRawScore;
-
-  const readinessTone: Tone = readinessScore >= 90 ? "ok" : readinessScore >= 70 ? "warn" : "danger";
-  const readinessLabel = readinessScore >= 90 ? "Ready" : readinessScore >= 70 ? "Review" : "Setup";
-  const readinessMessage =
-    readinessScore >= 90 ? "Everything looks good. Keep it up." : readinessScore >= 70 ? "A few items need attention." : "Finish setup to harden this workspace.";
   const roleCount = useMemberFallback ? 2 : new Set(memberRows.map((member) => member.role)).size;
   const nextScanTime = data?.scan_status.next_scan_at
     ? new Date(data.scan_status.next_scan_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
     : null;
   const deliveryDestinationCount = (deliveryTarget ? 1 : 0) + (slackConnected ? 1 : 0);
   const alertRoutes = slackConnected ? "Email · Slack" : alertsOn ? "Email" : "Off";
-  const completedChecklist = [
-    "Workspace created",
-    memberCount > 0 ? "Team members added" : "Add team members",
-    roleCount > 0 ? "Roles configured" : "Configure roles",
-    trustLive ? "Trust Center enabled" : "Trust Center reviewed",
-    activeAuditors > 0 ? "External auditor added" : "Auditor access reviewed",
-    scanEnabled ? "Scan schedule configured" : "Scan schedule reviewed",
-    alertsOn ? "Alert routes connected" : "Alert routes reviewed",
-    deliveryDestinationCount > 0 ? "Delivery destinations set up" : "Delivery destinations reviewed",
+
+  // Single source of truth: the readiness % is derived from these checklist
+  // items, so finishing them all reads 100% (no hidden factors).
+  const readinessItems = [
+    { label: "Account connected", done: accountConnected },
+    { label: "Automated scanning enabled", done: scanEnabled },
+    { label: "Team members invited", done: memberCount > 1 },
+    { label: "Workspace roles assigned", done: roleCount > 1 },
+    { label: "Alert routes configured", done: alertsOn },
+    { label: "Delivery destination connected", done: deliveryDestinationCount > 0 },
+    { label: "Trust Center published", done: trustLive },
+    { label: "Auditor access granted", done: activeAuditors > 0 },
   ];
-  const optionalChecklist = trustLive
-    ? [{ label: "Review public profile", detail: "Keep customer-facing details current" }]
-    : [{ label: "Enable public profile", detail: "Showcase your security posture" }];
+  const readinessScore = Math.round((readinessItems.filter((item) => item.done).length / readinessItems.length) * 100);
+
+  const readinessTone: Tone = readinessScore >= 90 ? "ok" : readinessScore >= 70 ? "warn" : "danger";
+  const readinessLabel = readinessScore >= 90 ? "Ready" : readinessScore >= 70 ? "Review" : "Setup";
+  const readinessMessage =
+    readinessScore >= 100 ? "Everything looks good. Keep it up." : readinessScore >= 70 ? "A few items left to finish." : "Finish setup to harden this workspace.";
 
   return (
     <ProductShell>
       <div className="workspace-page">
         <header className="workspace-page__header">
           <div>
-            <h1 className="workspace-page__title">Workspace</h1>
+            <div className="workspace-page__title-row">
+              <h1 className="workspace-page__title">Workspace</h1>
+              {workspaceName !== "Workspace" && <span className="workspace-page__org">{workspaceName}</span>}
+            </div>
             <p className="workspace-page__description">
               Manage access, evidence sharing, scan schedule, and alert routing for this Vigil workspace.
             </p>
@@ -1159,8 +1158,8 @@ export default function Workspace() {
           <PostureMetricCell
             icon={ICONS.access}
             label="Access"
-            value={isOwner ? `${ownerCount} owner${ownerCount === 1 ? "" : "s"}` : "Team"}
-            detail={isOwner ? `${memberCount} total member${memberCount === 1 ? "" : "s"}` : "Owner managed"}
+            value={isOwner ? `${memberCount} member${memberCount === 1 ? "" : "s"}` : "Team"}
+            detail={isOwner ? "Members and roles" : "Owner managed"}
             pill={isOwner && roleCount > 0 ? <span className="workspace-summary__pill">{roleCount} role{roleCount === 1 ? "" : "s"}</span> : undefined}
           />
           <PostureMetricCell
@@ -1275,8 +1274,7 @@ export default function Workspace() {
               score={readinessScore}
               tone={readinessTone}
               label={readinessLabel}
-              completed={completedChecklist}
-              optional={optionalChecklist}
+              items={readinessItems}
             />
           </div>
         )}
@@ -1346,19 +1344,39 @@ export default function Workspace() {
                   }
                 />
                 <section className="access-members-section workspace-sharing-section">
-                  {canEditWorkspace ? (
-                    <TrustCenterSettings />
-                  ) : (
-                    <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
-                  )}
+                  <div className="workspace-notifications-section__header">
+                    <div>
+                      <p className="workspace-panel__eyebrow">Public assurance</p>
+                      <h2 className="access-members-section__title">Trust Center</h2>
+                      <p className="workspace-notifications-section__description">A public security profile you control for prospects and customers.</p>
+                    </div>
+                    <StatusBadge tone={trustLive ? "ok" : "idle"}>{trustLive ? "Live" : "Off"}</StatusBadge>
+                  </div>
+                  <div className="workspace-sharing-body">
+                    {canEditWorkspace ? (
+                      <TrustCenterSettings />
+                    ) : (
+                      <p className="text-sm text-zinc-500">Admins and owners can manage the Trust Center.</p>
+                    )}
+                  </div>
                 </section>
 
                 <section className="access-members-section workspace-sharing-section">
-                  {canEditWorkspace ? (
-                    <AuditorManagement embedded />
-                  ) : (
-                    <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
-                  )}
+                  <div className="workspace-notifications-section__header">
+                    <div>
+                      <p className="workspace-panel__eyebrow">Private evidence</p>
+                      <h2 className="access-members-section__title">External auditors</h2>
+                      <p className="workspace-notifications-section__description">Scoped, time-limited reviewer access to your evidence.</p>
+                    </div>
+                    <StatusBadge tone={activeAuditors ? "ok" : "idle"}>{activeAuditors ? `${activeAuditors} active` : "None"}</StatusBadge>
+                  </div>
+                  <div className="workspace-sharing-body">
+                    {canEditWorkspace ? (
+                      <AuditorManagement embedded />
+                    ) : (
+                      <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
+                    )}
+                  </div>
                 </section>
               </div>
             </section>
