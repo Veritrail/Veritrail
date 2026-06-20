@@ -8,7 +8,7 @@ type FindingLike = {
 };
 
 const PROVIDER_FAVICON: Record<string, string> = {
-  aws: AWS_LOGO_LIGHT,
+  aws: "/aws-account-icon.png",
   github: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
   gitlab: "/integrations/gitlab.png",
   gcp: "https://www.gstatic.com/images/branding/product/2x/google_cloud_48dp.png",

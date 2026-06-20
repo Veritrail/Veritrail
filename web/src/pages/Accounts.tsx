@@ -2567,6 +2567,23 @@ function AccountMenu({
   );
 }
 
+function AccountMetric({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <div className="accounts-metric">
+      <p className="accounts-metric__label">{label}</p>
+      <p className="accounts-metric__value">{value}</p>
+      <p className="accounts-metric__sub">{sub}</p>
+    </div>
+  );
+}
+
+function postureRiskLabel(stats: FindingStats | undefined, hasScanned: boolean): string {
+  if (!hasScanned || !stats?.open) return "No findings yet";
+  if (stats.critHigh >= 10) return "High risk";
+  if (stats.critHigh >= 1) return "Medium risk";
+  return "Low risk";
+}
+
 function ScanPhaseBlock({
   progress,
   elapsedMs,
@@ -2574,6 +2591,7 @@ function ScanPhaseBlock({
   progressTotal,
   progressPhase,
   indeterminate,
+  compact = false,
 }: {
   progress: number;
   elapsedMs: number | null;
@@ -2581,11 +2599,10 @@ function ScanPhaseBlock({
   progressTotal: number | null;
   progressPhase: number | null;
   indeterminate: boolean;
+  compact?: boolean;
 }) {
   const pct = Math.max(0, Math.min(100, Math.round(progress ?? 0)));
   const elapsed = formatElapsed(elapsedMs);
-  // Prefer the worker's real phase (section-aware); fall back to a proportional map
-  // for in-flight scans started before phase reporting shipped.
   const activeIdx = indeterminate
     ? 0
     : progressPhase != null
@@ -2593,54 +2610,55 @@ function ScanPhaseBlock({
       : progressStep != null && progressTotal
         ? mapWorkerStepToUiPhase(progressStep, progressTotal)
         : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
+
   return (
-    <div className="border-t border-zinc-100 bg-gradient-to-b from-sky-50/50 to-white px-6 py-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="accounts-scan-module accounts-scan-module--steps">
+      <div className="accounts-scan-module__head">
         <div className="flex min-w-0 items-center gap-2.5">
-          <svg className="h-5 w-5 shrink-0 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg className="h-5 w-5 shrink-0 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle className="opacity-20" cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" />
             <path className="opacity-90" d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
           </svg>
-          <p className="truncate text-sm font-semibold text-zinc-900">
-            Scanning account
-            <span className="ml-1.5 font-normal text-zinc-500">
-              {progressStep != null && progressTotal ? `— Step ${progressStep} of ${progressTotal}` : ""}
-              {elapsed ? ` · ${elapsed} elapsed` : ""}
-            </span>
+          <p className="accounts-scan-module__title">
+            Scan in progress
+            {!compact && progressStep != null && progressTotal ? (
+              <span className="ml-1.5 font-normal text-zinc-500">
+                — Step {progressStep} of {progressTotal}
+              </span>
+            ) : null}
+            {elapsed ? <span className="ml-1.5 font-normal text-zinc-500">· {elapsed}</span> : null}
           </p>
         </div>
-        {!indeterminate && <span className="shrink-0 text-sm font-bold tabular-nums text-indigo-600">{pct}%</span>}
-      </div>
-      <div className="relative mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70">
-        {indeterminate ? (
-          <div className="scan-bar-indeterminate bg-gradient-to-r from-sky-500 to-indigo-500" />
+        {!indeterminate ? (
+          <p className="accounts-scan-module__pct">{pct}%</p>
         ) : (
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-[width] duration-500"
-            style={{ width: `${pct}%` }}
-          />
+          <p className="accounts-scan-module__pct">Starting…</p>
         )}
       </div>
-      <div className="mt-4 flex items-start">
+      <div className="accounts-scan-module__bar">
+        {indeterminate ? (
+          <div className="accounts-scan-module__fill is-indeterminate" />
+        ) : (
+          <div className="accounts-scan-module__fill" style={{ width: `${pct}%` }} />
+        )}
+      </div>
+      <div className={`accounts-scan-steps ${compact ? "accounts-scan-steps--compact" : ""}`}>
         {SCAN_PHASES.map((label, i) => {
           const done = i < activeIdx;
           const active = i === activeIdx;
           const last = i === SCAN_PHASES.length - 1;
           return (
-            <div key={label} className="flex min-w-0 flex-1 flex-col items-center text-center">
-              {/* circle + connecting rails */}
-              <div className="flex w-full items-center">
+            <div key={label} className="accounts-scan-steps__item">
+              <div className="accounts-scan-steps__rail">
                 <div
-                  className={`h-0.5 flex-1 rounded-full ${i === 0 ? "opacity-0" : i <= activeIdx ? "bg-emerald-400/80" : "bg-zinc-200"}`}
+                  className={`accounts-scan-steps__line accounts-scan-steps__line--left ${
+                    i === 0 ? "is-hidden" : done || active ? "is-done" : ""
+                  }`}
                   aria-hidden
                 />
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
-                    done
-                      ? "bg-emerald-500 text-white"
-                      : active
-                        ? "bg-emerald-100 text-emerald-800 ring-4 ring-emerald-50"
-                        : "bg-zinc-200 text-zinc-500"
+                  className={`accounts-scan-steps__badge ${
+                    done ? "is-done" : active ? "is-active" : ""
                   }`}
                 >
                   {done ? (
@@ -2652,14 +2670,15 @@ function ScanPhaseBlock({
                   )}
                 </span>
                 <div
-                  className={`h-0.5 flex-1 rounded-full ${last ? "opacity-0" : i < activeIdx ? "bg-emerald-400/80" : "bg-zinc-200"}`}
+                  className={`accounts-scan-steps__line accounts-scan-steps__line--right ${
+                    last ? "is-hidden" : i < activeIdx ? "is-done" : ""
+                  }`}
                   aria-hidden
                 />
               </div>
-              <span className={`mt-1.5 px-1 text-[11px] leading-tight ${active ? "font-semibold text-indigo-700" : done ? "text-zinc-600" : "text-zinc-400"}`}>
+              <span className={`accounts-scan-steps__label ${active ? "is-active" : done ? "is-done" : ""}`}>
                 {label}
               </span>
-              <span className="text-[10px] text-zinc-400">{done ? "Completed" : active ? "In progress" : "Pending"}</span>
             </div>
           );
         })}
@@ -2711,16 +2730,15 @@ function AccountCardActionBar({
 function AccountsStatsCards({
   accs,
   statsMap,
+  scanStats,
 }: {
   accs: Account[];
   statsMap: Map<string, FindingStats>;
+  scanStats?: { scans_last_7_days: number; scans_prev_7_days: number };
 }) {
   const connected = accs.filter((a) => isAccountConnected(a)).length;
-  const scansLast7Days = accs.filter((a) => {
-    if (!a.last_scan_at) return false;
-    const days = (Date.now() - new Date(a.last_scan_at).getTime()) / (1000 * 60 * 60 * 24);
-    return days <= 7;
-  }).length;
+  const scansLast7Days = scanStats?.scans_last_7_days ?? 0;
+  const scansPrev7Days = scanStats?.scans_prev_7_days ?? 0;
   let openFindings = 0;
   let highSeverity = 0;
   for (const [, stats] of statsMap) {
@@ -2729,11 +2747,6 @@ function AccountsStatsCards({
   }
 
   const planPct = Math.min(100, Math.round((connected / ACCOUNT_PLAN_LIMIT) * 100));
-  const scansPrev7Days = accs.filter((a) => {
-    if (!a.last_scan_at) return false;
-    const days = (Date.now() - new Date(a.last_scan_at).getTime()) / (1000 * 60 * 60 * 24);
-    return days > 7 && days <= 14;
-  }).length;
   let scanTrendPct: number | null = null;
   if (scansPrev7Days > 0) {
     scanTrendPct = Math.round(((scansLast7Days - scansPrev7Days) / scansPrev7Days) * 100);
@@ -2889,6 +2902,7 @@ function AccountCard({
       qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
       qc.invalidateQueries({ queryKey: ["controls"] });
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-scan-stats"] });
     },
   });
 
@@ -3284,7 +3298,50 @@ function CredentialAlert({
   );
 }
 
-function AccountTableRow({
+function NeedsAttentionPanel({
+  message,
+  onReconnect,
+  onViewInstructions,
+  onDismiss,
+}: {
+  message: string;
+  onReconnect: () => void;
+  onViewInstructions: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="accounts-attention-panel">
+      <div className="accounts-attention-panel__inner">
+        <div className="accounts-attention-panel__copy">
+          <span className="accounts-attention-panel__icon" aria-hidden>
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </span>
+          <div>
+            <h4 className="accounts-attention-panel__title">AWS credentials need attention</h4>
+            <p className="accounts-attention-panel__body">
+              We couldn&apos;t complete the latest scan. {message}
+            </p>
+            <div className="accounts-attention-panel__actions">
+              <button type="button" className="accounts-attention-btn accounts-attention-btn--primary" onClick={onReconnect}>
+                Reconnect account
+              </button>
+              <button type="button" className="accounts-attention-btn accounts-attention-btn--secondary" onClick={onViewInstructions}>
+                AWS CLI help
+              </button>
+            </div>
+          </div>
+        </div>
+        <button type="button" className="accounts-attention-panel__dismiss" onClick={onDismiss}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AccountPremiumCard({
   acc,
   stats,
   expanded,
@@ -3311,6 +3368,8 @@ function AccountTableRow({
   const [verifyFeedback, setVerifyFeedback] = useState<CapabilityVerifyFeedback | null>(null);
   const [verificationMeta, setVerificationMeta] = useState<VerificationMeta | null>(null);
   const [patchError, setPatchError] = useState<string | null>(null);
+  const [dismissedAlert, setDismissedAlert] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setSetupConnectionOptions(accountConnectionOptions(acc));
@@ -3338,8 +3397,13 @@ function AccountTableRow({
       qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
       qc.invalidateQueries({ queryKey: ["controls"] });
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-scan-stats"] });
     },
   });
+
+  useEffect(() => {
+    setDismissedAlert(false);
+  }, [acc.id, scanRun.data?.error, acc.last_error]);
 
   const settings = useQuery<ScanScheduleData>({
     queryKey: ["settings"],
@@ -3350,10 +3414,6 @@ function AccountTableRow({
     ? formatShortScanDate(settings.data.scan_status.next_scan_at, { utc: true })
     : "—";
   const { freshness, detail: freshnessDetail } = resolveScanFreshness(acc.last_scan_at);
-  const freshnessScanLabel =
-    freshness === "fresh" ? "Fresh scan" : freshness === "stale" ? "Stale scan" : "No scans yet";
-  const freshnessScanClass =
-    freshness === "fresh" ? "text-emerald-700" : freshness === "stale" ? "text-amber-700" : "text-zinc-500";
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -3490,27 +3550,34 @@ function AccountTableRow({
   const credentialError = scanRun.data?.error ?? acc.last_error ?? null;
   const showCredentialAlert = connected && !isScanActive && !!credentialError;
 
-  const handleRowClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest("button") || target.closest("a") || target.closest("[role='menu']")) return;
-    onToggle();
-  };
+  const openFindings = stats?.open ?? 0;
+  const critHigh = stats?.critHigh ?? 0;
+  const medium = stats?.medium ?? 0;
+  const findingsSub = hasScanned
+    ? `${critHigh} critical/high · ${medium} medium`
+    : "Run a scan to populate";
 
   return (
     <>
-      <div className={`accounts-list-item ${!connected ? "is-pending" : ""}`}>
-        <div className="accounts-list-item__main" onClick={handleRowClick}>
-          <div className="accounts-account-cell">
-            <div className="accounts-account-cell__logo">
-              <AwsIcon />
+      <section className={`accounts-premium-card ${!connected ? "is-pending" : ""}`}>
+        <div className="accounts-premium-card__header">
+          <div className="accounts-premium-card__identity">
+            <div className="accounts-premium-card__logo">
+              <img src={AWS_LOGO_LIGHT} alt="" className="h-9 w-9 object-contain" aria-hidden />
             </div>
             <div className="min-w-0">
-              <div className="accounts-account-cell__name-row">
-                <p className="accounts-account-cell__name">{acc.label}</p>
-                {connected ? <VerifiedBadgeIcon /> : null}
+              <div className="accounts-premium-card__title-row">
+                <h3 className="accounts-premium-card__title">{acc.label}</h3>
+                {connected ? (
+                  <span className={`accounts-card-status accounts-card-status--${rowStatus.tone}`}>
+                    {rowStatus.label}
+                  </span>
+                ) : (
+                  <span className="accounts-card-status accounts-card-status--amber">Setup required</span>
+                )}
               </div>
               {acc.account_id ? (
-                <div className="accounts-account-cell__id">
+                <div className="accounts-premium-card__id">
                   <span>{acc.account_id}</span>
                   <CopyIdButton text={acc.account_id} />
                 </div>
@@ -3523,37 +3590,70 @@ function AccountTableRow({
               />
             </div>
           </div>
-          <div className="accounts-coverage">
-            <p className="accounts-coverage__ago">
-              <span
-                className={`accounts-coverage__dot ${
-                  !hasScanned ? "is-none" : freshness === "fresh" ? "" : "is-stale"
-                }`}
-                aria-hidden
-              />
-              {hasScanned ? scanAgo : "Not scanned"}
-            </p>
-            <p className="accounts-coverage__next">
-              Next scan: <span className="font-semibold text-slate-700">{nextScanShort}</span>
-            </p>
-          </div>
-          <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
-          <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
-          <span className={`accounts-status-pill accounts-status-pill--${rowStatus.tone}`}>
-            {rowStatus.label}
-          </span>
-          <div className="accounts-row-actions">
-            <button
-              type="button"
-              onClick={() => triggerScan(acc.id)}
-              disabled={isScanActive || !connected}
-              className="accounts-scan-now-btn"
-            >
-              {isScanActive ? "Scanning…" : "Scan now"}
-            </button>
-            <AccountMenu {...accountMenu} />
-          </div>
+
+          {connected ? (
+            <div className="accounts-premium-card__actions">
+              <button type="button" className="accounts-card-btn" onClick={onToggle}>
+                {expanded ? "Hide details" : "Details"}
+              </button>
+              <button
+                type="button"
+                className="accounts-card-btn"
+                onClick={() => navigate("/findings")}
+              >
+                Findings
+              </button>
+              <button
+                type="button"
+                className="accounts-card-btn accounts-card-btn--primary"
+                onClick={() => triggerScan(acc.id)}
+                disabled={isScanActive}
+              >
+                {isScanActive ? "Scanning…" : "Scan now"}
+              </button>
+              <AccountMenu {...accountMenu} />
+            </div>
+          ) : (
+            <div className="accounts-premium-card__actions">
+              <button type="button" className="accounts-card-btn" onClick={onToggle}>
+                {expanded ? "Hide setup" : "Continue setup"}
+              </button>
+              <button
+                type="button"
+                className="accounts-card-btn"
+                onClick={requestRemove}
+                disabled={remove.isPending}
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
+
+        {connected && (
+          <div className="accounts-metrics">
+            <AccountMetric
+              label="Last scan"
+              value={hasScanned ? scanAgo : "Never"}
+              sub={hasScanned ? freshnessDetail : "No scans completed yet"}
+            />
+            <AccountMetric
+              label="Next scan"
+              value={nextScanShort}
+              sub="Scheduled automatically"
+            />
+            <AccountMetric
+              label="Posture score"
+              value={hasScanned ? String(openFindings) : "—"}
+              sub={postureRiskLabel(stats, hasScanned)}
+            />
+            <AccountMetric
+              label="Open findings"
+              value={hasScanned ? String(openFindings) : "—"}
+              sub={findingsSub}
+            />
+          </div>
+        )}
 
         {connected && isScanActive && (
           <ScanPhaseBlock
@@ -3563,11 +3663,12 @@ function AccountTableRow({
             progressTotal={scanProgress.progressTotal}
             progressPhase={scanProgress.progressPhase}
             indeterminate={scanProgress.indeterminate}
+            compact
           />
         )}
 
-        {showCredentialAlert && (
-          <CredentialAlert
+        {showCredentialAlert && !dismissedAlert && (
+          <NeedsAttentionPanel
             message={friendlyScanFailureMessage(credentialError!)}
             onReconnect={() => {
               ensureExpanded();
@@ -3578,19 +3679,20 @@ function AccountTableRow({
               setShowManageCapabilities(false);
               setShowUpdateArn(true);
             }}
+            onDismiss={() => setDismissedAlert(true)}
           />
         )}
 
         {expanded && (
-          <div className="accounts-list-item__expand">
+          <div className="accounts-premium-card__expand">
             {connected && !hasScanned && !isScanActive && (
-              <div className="border-t border-zinc-100/80 bg-zinc-50/40 px-4 py-2 text-center text-xs text-zinc-500">
+              <div className="border-b border-zinc-100/80 bg-zinc-50/40 px-6 py-3 text-center text-sm text-zinc-500">
                 Run a scan to populate findings.
               </div>
             )}
 
             {connected && (
-              <div className="border-t border-zinc-200/60 bg-zinc-50/50">
+              <div className="bg-zinc-50/50">
                 <AccountDetailsPanel
                   acc={acc}
                   showManageCapabilities={showManageCapabilities}
@@ -3665,7 +3767,7 @@ function AccountTableRow({
           onCancel={() => !remove.isPending && setShowRemoveConfirm(false)}
           onConfirm={() => remove.mutate()}
         />
-      </div>
+      </section>
     </>
   );
 }
@@ -3724,6 +3826,14 @@ export default function Accounts() {
     enabled: (accounts.data?.length ?? 0) > 0,
   });
 
+  const scanStats = useQuery({
+    queryKey: ["accounts-scan-stats"],
+    queryFn: () =>
+      api<{ scans_last_7_days: number; scans_prev_7_days: number }>("/v1/accounts/scan-stats"),
+    enabled: (accounts.data?.length ?? 0) > 0,
+    staleTime: 60_000,
+  });
+
   const statsMap = useMemo(() => buildStatsMap(allFindings.data?.items), [allFindings.data?.items]);
 
   const accs = useMemo(() => {
@@ -3756,7 +3866,7 @@ export default function Accounts() {
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="accounts-page mx-auto w-full max-w-[84rem] space-y-6">
+    <div className="accounts-page mx-auto w-full max-w-[1500px] space-y-6 px-8 py-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-600">Cloud coverage</p>
@@ -3801,8 +3911,8 @@ export default function Accounts() {
       )}
 
       {accs.length > 0 && !showFirstAccountOnboarding && (
-        <div className="space-y-4">
-          <AccountsStatsCards accs={accs} statsMap={statsMap} />
+        <div className="space-y-6">
+          <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} />
 
           <div className="accounts-toolbar">
             <label className="accounts-toolbar__search">
@@ -3875,20 +3985,9 @@ export default function Accounts() {
               No accounts match your filters
             </p>
           ) : (
-            <div className="accounts-list-shell">
-              <div className="accounts-list-shell__header">
-                <h2 className="accounts-list-shell__title">Cloud accounts ({filteredAccs.length})</h2>
-              </div>
-              <div className="accounts-list-head" aria-hidden>
-                <span>Account</span>
-                <span>Coverage</span>
-                <span>Last scan</span>
-                <span>Open findings</span>
-                <span>Status</span>
-                <span>Actions</span>
-              </div>
+            <div className="accounts-cards">
               {paginatedAccs.map((acc) => (
-                <AccountTableRow
+                <AccountPremiumCard
                   key={acc.id}
                   acc={acc}
                   stats={statsMap.get(acc.id)}

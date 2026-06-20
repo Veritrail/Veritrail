@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -28,6 +28,45 @@ class ScanRunOut(BaseModel):
     progress_step: int | None = None  # worker step counter (from stats._progress_step)
     progress_total: int | None = None  # total steps (from stats._progress_total)
     progress_phase: int | None = None  # current UI phase index 0-5 (from stats._progress_phase)
+
+
+class ScanStatsOut(BaseModel):
+    scans_last_7_days: int
+    scans_prev_7_days: int
+
+
+@router.get("/scan-stats", response_model=ScanStatsOut)
+def scan_stats(p=Depends(current_principal), db: Session = Depends(get_db)):
+    """Count scan runs started in the last 7 / prior 7 days across the org."""
+    org_id = uuid.UUID(p["org_id"])
+    now = datetime.now(timezone.utc)
+    last_7_start = now - timedelta(days=7)
+    prev_7_start = now - timedelta(days=14)
+
+    account_ids = list(
+        db.scalars(select(AwsAccount.id).where(AwsAccount.org_id == org_id)).all()
+    )
+    if not account_ids:
+        return ScanStatsOut(scans_last_7_days=0, scans_prev_7_days=0)
+
+    def _count_between(start: datetime, end: datetime) -> int:
+        return (
+            db.scalar(
+                select(func.count())
+                .select_from(ScanRun)
+                .where(
+                    ScanRun.account_id.in_(account_ids),
+                    ScanRun.started_at >= start,
+                    ScanRun.started_at < end,
+                )
+            )
+            or 0
+        )
+
+    return ScanStatsOut(
+        scans_last_7_days=_count_between(last_7_start, now),
+        scans_prev_7_days=_count_between(prev_7_start, last_7_start),
+    )
 
 
 @router.post("/scan-all")

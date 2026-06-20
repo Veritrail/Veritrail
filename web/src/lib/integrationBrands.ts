@@ -22,7 +22,7 @@ type BrandAsset = {
 
 /** Official brand marks / favicons for integration UI. */
 export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
-  aws: { src: AWS_LOGO_LIGHT, fallback: "/aws.svg" },
+  aws: { src: "/aws-account-icon.png", fallback: AWS_LOGO_LIGHT },
   github: { src: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" },
   gitlab: { src: "/integrations/gitlab.png", tileScale: 1.32, tilePadding: 4 },
   "google-workspace": { src: "https://www.google.com/favicon.ico" },
