@@ -146,7 +146,7 @@ def collect_inspector(db: Session, account: AwsAccount) -> dict:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info(
         "collect_inspector.done",
         account_id=str(account.id),

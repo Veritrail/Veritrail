@@ -1,18 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, BASE, consumeSignedOut, formatApiError, restoreSession, storeTokens, token } from "../api";
+import { accessTokenSchema, loginResponseSchema, tokenPairSchema } from "../lib/apiSchemas";
 import { postAuthPath } from "../lib/postAuthRedirect";
 import "../styles/login-auth.css";
 
 type AuthMode = "login" | "signup" | "forgot" | "onboard";
-
-interface LoginResponse {
-  access_token?: string | null;
-  refresh_token?: string | null;
-  org_id?: string | null;
-  mfa_required?: boolean;
-  mfa_token?: string | null;
-}
 
 const MFA_STORAGE_KEY = "vigil_mfa_token";
 const PENDING_CREDENTIALS_KEY = "vigil_pending_credentials";
@@ -381,9 +374,10 @@ export default function Login() {
   async function acceptInviteAfterLogin(accessToken: string) {
     const pending = inviteToken ?? sessionStorage.getItem(PENDING_INVITE_KEY);
     if (!pending) return accessToken;
-    const res = await api<{ access_token: string }>("/v1/members/invites/accept", {
+    const res = await api("/v1/members/invites/accept", {
       method: "POST",
       body: JSON.stringify({ token: pending }),
+      schema: accessTokenSchema,
     });
     sessionStorage.removeItem(PENDING_INVITE_KEY);
     return res.access_token;
@@ -402,13 +396,14 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      const res = await api<{ access_token: string }>("/v1/auth/complete-signup", {
+      const res = await api("/v1/auth/complete-signup", {
         method: "POST",
         body: JSON.stringify({
           signup_token: signupToken,
           org_name: inviteToken ? "" : orgName,
           ...(inviteToken ? { invite_token: inviteToken } : {}),
         }),
+        schema: accessTokenSchema,
       });
       storeTokens(res.access_token);
       nav(await postAuthPath());
@@ -481,7 +476,7 @@ export default function Login() {
               org_name: inviteToken ? "" : orgName,
               ...(inviteToken ? { invite_token: inviteToken } : {}),
             };
-      const res = await api<LoginResponse>(path, { method: "POST", body: JSON.stringify(body) });
+      const res = await api(path, { method: "POST", body: JSON.stringify(body), schema: loginResponseSchema });
       if (res.mfa_required && res.mfa_token) {
         if (mode === "login") storePendingCredentials(emailValue, passwordValue);
         beginMfa(res.mfa_token);
@@ -526,9 +521,10 @@ export default function Login() {
     setErr(null);
     setLoading(true);
     try {
-      const res = await api<{ access_token: string; refresh_token: string }>("/v1/auth/mfa/verify", {
+      const res = await api("/v1/auth/mfa/verify", {
         method: "POST",
         body: JSON.stringify({ mfa_token: mfaToken, code: mfaCode }),
+        schema: tokenPairSchema,
       });
       clearMfaToken();
       storeTokens(res.access_token);

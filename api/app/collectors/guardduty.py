@@ -79,6 +79,6 @@ def collect_guardduty(db: Session, account: AwsAccount) -> int:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_guardduty.done", account_id=str(account.id), records=count)
     return count

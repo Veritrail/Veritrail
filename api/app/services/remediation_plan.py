@@ -88,6 +88,8 @@ def _supported_action(check_id: str, evidence: dict | None = None) -> str | None
         from app.services.remediation_iam_policy_plan import iam_supported_action_for_evidence
 
         return iam_supported_action_for_evidence(evidence or {})
+    if check_id == "kms.key.no_rotation":
+        return "enable_kms_key_rotation"
     return None
 
 
@@ -258,6 +260,11 @@ def _steps_for_check(finding: Finding) -> list[dict[str, str]]:
         return [
             {"action": "review", "detail": "Confirm no workload still uses this access key (check last-used service in evidence)"},
             {"action": "execute", "detail": "SSM Automation sets the key status to Inactive (deactivate)"},
+        ]
+    if cid == "kms.key.no_rotation":
+        return [
+            {"action": "review", "detail": "Confirm this is a customer-managed key (rotation does not apply to AWS-managed keys)"},
+            {"action": "execute", "detail": "SSM Automation enables annual key rotation — transparent to callers, no re-encryption of existing data required"},
         ]
     return [
         {"action": "review", "detail": "Follow Console/CLI remediation in Vigil finding drawer"},

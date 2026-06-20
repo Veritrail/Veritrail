@@ -97,7 +97,7 @@ def collect_identity_center(db: Session, account: AwsAccount) -> int:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_identity_center.done", account_id=str(account.id), users=count)
     return count
 

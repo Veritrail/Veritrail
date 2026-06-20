@@ -1,5 +1,17 @@
+import type { z } from "zod";
+
+import { accessTokenSchema, parseApiResponse, warnMissingSchema } from "./lib/apiSchemas";
+
 /** Empty VITE_API_URL uses same-origin `/v1` (Vite dev proxy → API). */
 export const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.trim() ?? "";
+
+export type { ApiValidationError } from "./lib/apiSchemas";
+export { parseApiResponse, warnMissingSchema } from "./lib/apiSchemas";
+
+export type ApiInit<T = unknown> = RequestInit & {
+  /** When set, response JSON is validated at the fetch boundary. */
+  schema?: z.ZodType<T>;
+};
 
 const ACCESS_KEY = "vigil_access_token";
 const AUDITOR_KEY = "vigil_auditor_token";
@@ -105,7 +117,7 @@ async function tryRefresh(): Promise<string | null> {
         body: JSON.stringify({ refresh_token: "" }),
       });
       if (!res.ok) return null;
-      const data = (await res.json()) as { access_token: string };
+      const data = parseApiResponse("/v1/auth/refresh", accessTokenSchema, await res.json());
       storeAccessToken(data.access_token);
       return data.access_token;
     } catch {
@@ -117,21 +129,29 @@ async function tryRefresh(): Promise<string | null> {
   return _refreshing;
 }
 
-export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+async function readJsonResponse<T>(path: string, res: Response, schema?: z.ZodType<T>): Promise<T> {
+  const data: unknown = await res.json();
+  if (schema) return parseApiResponse(path, schema, data);
+  return data as T;
+}
+
+export async function api<T = unknown>(path: string, init: ApiInit<T> = {}): Promise<T> {
+  const { schema, ...fetchInit } = init;
+  warnMissingSchema(path, init);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(init.headers as Record<string, string> | undefined),
+    ...(fetchInit.headers as Record<string, string> | undefined),
   };
   const t = token();
   if (t) headers["Authorization"] = `Bearer ${t}`;
-  const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
+  const res = await fetch(`${BASE}${path}`, { ...fetchInit, headers, credentials: "include" });
 
   if (res.status === 401 && t) {
     const newToken = await tryRefresh();
     if (newToken) {
       const retryHeaders = { ...headers, Authorization: `Bearer ${newToken}` };
       const retry = await fetch(`${BASE}${path}`, {
-        ...init,
+        ...fetchInit,
         headers: retryHeaders,
         credentials: "include",
       });
@@ -145,7 +165,7 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
         throw new Error(parseApiError(retry.status, body));
       }
       if (retry.status === 204) return undefined as T;
-      return retry.json() as Promise<T>;
+      return readJsonResponse(path, retry, schema);
     }
     clearTokens();
     window.location.href = "/login";
@@ -157,10 +177,14 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
     throw new Error(parseApiError(res.status, body));
   }
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return readJsonResponse(path, res, schema);
 }
 
-export async function apiUpload<T = unknown>(path: string, form: FormData): Promise<T> {
+export async function apiUpload<T = unknown>(
+  path: string,
+  form: FormData,
+  schema?: z.ZodType<T>,
+): Promise<T> {
   const headers: Record<string, string> = {};
   const t = token();
   if (t) headers["Authorization"] = `Bearer ${t}`;
@@ -175,17 +199,18 @@ export async function apiUpload<T = unknown>(path: string, form: FormData): Prom
     const body = await res.text();
     throw new Error(parseApiError(res.status, body));
   }
-  return res.json() as Promise<T>;
+  return readJsonResponse(path, res, schema);
 }
 
 /** Unauthenticated public API routes (`/trust`, `/auditor`). */
-export async function publicApi<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, init);
+export async function publicApi<T = unknown>(path: string, init: ApiInit<T> = {}): Promise<T> {
+  const { schema, ...fetchInit } = init;
+  const res = await fetch(`${BASE}${path}`, fetchInit);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(parseApiError(res.status, body));
   }
-  return res.json() as Promise<T>;
+  return readJsonResponse(path, res, schema);
 }
 
 export async function logout(): Promise<void> {
@@ -198,14 +223,15 @@ export async function logout(): Promise<void> {
 }
 
 /** Auditor-scoped API call using auditor JWT. Does not auto-refresh. */
-export async function auditorApi<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+export async function auditorApi<T = unknown>(path: string, init: ApiInit<T> = {}): Promise<T> {
+  const { schema, ...fetchInit } = init;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(init.headers as Record<string, string> | undefined),
+    ...(fetchInit.headers as Record<string, string> | undefined),
   };
   const t = auditorToken();
   if (t) headers["Authorization"] = `Bearer ${t}`;
-  const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" });
+  const res = await fetch(`${BASE}${path}`, { ...fetchInit, headers, credentials: "include" });
   if (res.status === 401) {
     clearAuditorToken();
     window.location.href = "/auditor/login";
@@ -216,5 +242,5 @@ export async function auditorApi<T = unknown>(path: string, init: RequestInit = 
     throw new Error(parseApiError(res.status, body));
   }
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return readJsonResponse(path, res, schema);
 }

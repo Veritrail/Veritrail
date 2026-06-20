@@ -1,15 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { meSchema, type Me } from "../lib/apiSchemas";
 
-export type OrgRole = "owner" | "admin" | "editor" | "viewer";
-
-export type Me = {
-  id: string;
-  email: string;
-  role: OrgRole;
-  org_id: string;
-  org_name: string;
-};
+export type OrgRole = Me["role"];
 
 const ROLE_RANK: Record<OrgRole, number> = {
   viewer: 0,
@@ -26,7 +19,7 @@ export function roleAtLeast(role: OrgRole | undefined, minimum: OrgRole): boolea
 export function useMe() {
   return useQuery<Me>({
     queryKey: ["me"],
-    queryFn: () => api<Me>("/v1/auth/me"),
+    queryFn: () => api("/v1/auth/me", { schema: meSchema }),
     staleTime: 60_000,
   });
 }

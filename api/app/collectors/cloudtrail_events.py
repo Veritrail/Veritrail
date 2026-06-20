@@ -264,7 +264,7 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
                 error=str(e),
             )
 
-    db.commit()
+
     log.info(
         "cloudtrail_events.done",
         account_id=str(account.id),

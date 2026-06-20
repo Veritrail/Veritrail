@@ -79,7 +79,7 @@ def collect_backup(db: Session, account: AwsAccount) -> dict[str, int]:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info(
         "collect_backup.done",
         account_id=str(account.id),

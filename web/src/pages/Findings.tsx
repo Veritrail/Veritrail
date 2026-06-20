@@ -11,6 +11,7 @@ import {
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
+import { accountListSchema } from "../lib/apiSchemas";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import NotificationsBell from "../components/NotificationsBell";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
@@ -596,7 +597,7 @@ export default function Findings() {
     queryFn: () => api<{ checks: Record<string, string[]> }>("/v1/controls/check-frameworks"),
     staleTime: 300_000,
   });
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
+  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api("/v1/accounts", { schema: accountListSchema }) });
   const connectedAccounts = useMemo(
     () => accounts.data?.filter((a) => isAccountConnected(a)) ?? [],
     [accounts.data],
@@ -672,6 +673,8 @@ export default function Findings() {
   });
 
   const findings = q.data?.items ?? [];
+  const findingsTruncated = q.data?.truncated ?? false;
+  const findingsTotal = q.data?.total ?? findings.length;
   const hasActiveFilters =
     searchTags.length > 0 ||
     !!searchText.trim() ||
@@ -1043,6 +1046,17 @@ export default function Findings() {
                 </div>
               </div>
 
+              {findingsTruncated && (
+                <div className="flex items-center gap-2 border-b border-amber-200/70 bg-amber-50/60 px-6 py-2.5 text-[12px] text-amber-800">
+                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                  <span>
+                    Showing the {findings.length.toLocaleString()} highest-risk of {findingsTotal.toLocaleString()} findings.
+                    Filter by check, severity, or account to see the rest.
+                  </span>
+                </div>
+              )}
               {rows.length === 0 ? (
                 <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>
                   {isPositiveEmpty ? (

@@ -38,6 +38,7 @@ AUTOMATION_CHECKS = frozenset(
         "s3.bucket.public_access_not_blocked",
         "cloudtrail.trail.not_enabled",
         "iam.role.least_privilege_policy",
+        "kms.key.no_rotation",
     }
 )
 
@@ -91,6 +92,7 @@ _ACTION_LABELS: dict[str, str] = {
     "migrate_ssm_string_to_secure_string": "Migrate parameter to SecureString",
     "detach_full_admin": "Detach full-admin managed policy",
     "replace_wildcard_inline": "Apply least-privilege inline policy",
+    "enable_kms_key_rotation": "Enable KMS key rotation",
 }
 
 
@@ -176,30 +178,46 @@ def _github_context(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
     }
 
 
-# Declarative-safe TF snippet checks — expanded for all new check types.
+# Checks that emit a declarative Terraform snippet (every key here must be a
+# real registry CHECK_ID and have a _BUILDERS entry that returns terraform).
+# Gates whether a repo PR is attempted; actual patching is further gated by
+# terraform_pr.PR_PATCH_CHECKS. Kept in sync with _BUILDERS by the guard test.
 _TERRAFORM_SNIPPET_CHECKS = frozenset(
     {
-        # Existing
+        # S3
         "s3.bucket.public_access_not_blocked",
         "s3.bucket.no_https_policy",
+        "s3.bucket.no_default_encryption",
+        # KMS
         "kms.key.no_rotation",
-        "kms.key.policy_wildcard_principal",
-        # Phase 1A — easy attribute toggles
-        "rds.instance.no_storage_encryption",
+        # EC2
+        "ec2.ebs.encryption_not_default",
+        "ec2.instance.imdsv2_not_required",
+        # RDS
+        "rds.instance.no_encryption",
         "rds.instance.publicly_accessible",
+        "rds.instance.no_deletion_protection",
+        # Messaging
         "sns.topic.no_encryption",
         "sqs.queue.no_encryption",
-        "guardduty.detector.disabled",
-        "ec2.ebs.encryption_not_default",
-        "iam.account.password_policy_weak",
-        "ecr.repository.image_scan_disabled",
-        # Phase 1B — block insertions
-        "s3.bucket.default_encryption_disabled",
+        # DynamoDB
+        "dynamodb.table.no_encryption",
+        "dynamodb.table.no_pitr",
+        # Detective / logging
+        "guardduty.detector.not_enabled",
         "cloudtrail.trail.not_enabled",
-        "elb.access_logs_disabled",
-        # Phase 2
-        "lambda.function.env_vars_unencrypted",
-        "ec2.vpc.no_flow_logs",
+        "cloudtrail.trail.no_log_validation",
+        "vpc.flow_logs.not_enabled",
+        "elb.load_balancer.no_access_logs",
+        # IAM
+        "iam.account.password_policy_weak",
+        # ECR
+        "ecr.repository.image_scan_disabled",
+        "ecr.registry.enhanced_scanning_disabled",
+        # EKS
+        "eks.cluster.control_plane_logging_disabled",
+        # Lambda
+        "lambda.function.public_url",
     }
 )
 
@@ -336,7 +354,7 @@ def _sg_ssh(finding: Finding, ev: dict) -> dict[str, Any]:
 
 
 def _rds_encryption(finding: Finding, ev: dict) -> dict[str, Any]:
-    inst_id = ev.get("db_instance_identifier") or _name_from_arn(finding.resource_arn)
+    inst_id = ev.get("db_instance_id") or _name_from_arn(finding.resource_arn)
     logical = _logical_name(inst_id)
     tf = f'''resource "aws_db_instance" "{logical}" {{
   # Add storage_encrypted = true to encrypt RDS at rest
@@ -357,7 +375,7 @@ def _rds_encryption(finding: Finding, ev: dict) -> dict[str, Any]:
 
 
 def _rds_public(finding: Finding, ev: dict) -> dict[str, Any]:
-    inst_id = ev.get("db_instance_identifier") or _name_from_arn(finding.resource_arn)
+    inst_id = ev.get("db_instance_id") or _name_from_arn(finding.resource_arn)
     logical = _logical_name(inst_id)
     tf = f'''resource "aws_db_instance" "{logical}" {{
   # Set publicly_accessible = false to remove the public endpoint
@@ -608,7 +626,7 @@ resource "aws_cloudtrail" "this" {
 
 
 def _elb_logs(finding: Finding, ev: dict) -> dict[str, Any]:
-    lb = ev.get("load_balancer_name") or _name_from_arn(finding.resource_arn)
+    lb = ev.get("name") or _name_from_arn(finding.resource_arn)
     logical = _logical_name(lb)
     tf = f'''resource "aws_lb" "{logical}" {{
   # ... existing configuration ...
@@ -628,7 +646,7 @@ def _elb_logs(finding: Finding, ev: dict) -> dict[str, Any]:
             "Key=access_logs.s3.bucket,Value=<log-bucket-name>",
         ],
         "hints": [
-            "Add an `access_logs {{ enabled = true; bucket = ... }}` block to your `aws_lb` or `aws_elb` resource.",
+            "Add an `access_logs { enabled = true; bucket = ... }` block to your `aws_lb` or `aws_elb` resource.",
             "The S3 bucket for access logs needs a policy granting the ELB service write access (s3:PutObject).",
             'Bucket ARN format: `arn:aws:s3:::bucket-name/prefix/AWSLogs/your-account-id/*`',
         ],
@@ -638,36 +656,28 @@ def _elb_logs(finding: Finding, ev: dict) -> dict[str, Any]:
 # ── Phase 2: Complex builders ────────────────────────────────────────────────
 
 
-def _lambda_env_encryption(finding: Finding, ev: dict) -> dict[str, Any]:
+def _lambda_public_url(finding: Finding, ev: dict) -> dict[str, Any]:
     func = ev.get("function_name") or _name_from_arn(finding.resource_arn)
     logical = _logical_name(func)
-    tf = f'''resource "aws_kms_key" "lambda_env" {{
-  description             = "KMS key for Lambda environment variable encryption"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-}}
-
-resource "aws_lambda_function" "{logical}" {{
-  # ... existing configuration ...
-
-  environment {{
-    # ... existing variables ...
-    variables = {{}}
-
-    kms_key_arn = aws_kms_key.lambda_env.arn
-  }}
+    tf = f'''resource "aws_lambda_function_url" "{logical}" {{
+  function_name = "{func}"
+  # Require SigV4-signed IAM auth instead of a public (NONE) endpoint.
+  authorization_type = "AWS_IAM"
 }}'''
     return {
         "iac_status": IAC_SNIPPETS,
         "terraform": tf,
         "cloudformation": None,
         "cli": [
-            f"aws lambda update-function-configuration --function-name {func} "
-            "--kms-key-arn <kms-key-arn>",
+            f"aws lambda update-function-url-config --function-name {func} "
+            "--auth-type AWS_IAM",
+            "# Or remove the public URL entirely if it is not needed:",
+            f"aws lambda delete-function-url-config --function-name {func}",
         ],
         "hints": [
-            "Create a KMS key with Lambda service principal access, then add `kms_key_arn` to the `environment` block.",
-            "The KMS key policy must grant `kms:Decrypt` to the Lambda execution role.",
+            'Set `authorization_type = "AWS_IAM"` on the `aws_lambda_function_url` so callers must sign requests.',
+            "If the function URL is unused, delete it instead of re-authorizing.",
+            "For browser callers behind IAM auth, configure the `cors` block as needed.",
         ],
     }
 
@@ -733,30 +743,224 @@ resource "aws_flow_log" "{logical}" {{
     }
 
 
+def _imdsv2_required(finding: Finding, ev: dict) -> dict[str, Any]:
+    inst_id = ev.get("instance_id") or _name_from_arn(finding.resource_arn)
+    region = ev.get("region", "us-east-1")
+    logical = _logical_name(inst_id)
+    tf = f'''resource "aws_instance" "{logical}" {{
+  # ... existing configuration ...
+
+  metadata_options {{
+    http_tokens   = "required"  # enforce IMDSv2
+    http_endpoint = "enabled"
+  }}
+}}'''
+    return {
+        "iac_status": IAC_SNIPPETS,
+        "terraform": tf,
+        "cloudformation": None,
+        "cli": [
+            f"aws ec2 modify-instance-metadata-options --instance-id {inst_id} "
+            f"--http-tokens required --http-endpoint enabled --region {region}",
+        ],
+        "hints": [
+            'Add a `metadata_options { http_tokens = "required" }` block to your `aws_instance`.',
+            "Confirm workloads/SDKs on the instance support IMDSv2 before enforcing — legacy SDKs using IMDSv1 will lose metadata access.",
+        ],
+    }
+
+
+def _rds_deletion_protection(finding: Finding, ev: dict) -> dict[str, Any]:
+    inst_id = ev.get("db_instance_id") or _name_from_arn(finding.resource_arn)
+    logical = _logical_name(inst_id)
+    tf = f'''resource "aws_db_instance" "{logical}" {{
+  # Add deletion_protection to block accidental DeleteDBInstance
+  deletion_protection = true
+}}'''
+    return {
+        "iac_status": IAC_SNIPPETS,
+        "terraform": tf,
+        "cloudformation": None,
+        "cli": [
+            f"aws rds modify-db-instance --db-instance-identifier {inst_id} "
+            "--deletion-protection --apply-immediately",
+        ],
+        "hints": [
+            "Set `deletion_protection = true` on the `aws_db_instance` (or `aws_rds_cluster`).",
+            "Deletion protection is a no-downtime change; it does not affect availability.",
+        ],
+    }
+
+
+def _dynamodb_encryption(finding: Finding, ev: dict) -> dict[str, Any]:
+    table = ev.get("table_name") or _name_from_arn(finding.resource_arn)
+    logical = _logical_name(table)
+    tf = f'''resource "aws_dynamodb_table" "{logical}" {{
+  name = "{table}"
+
+  server_side_encryption {{
+    enabled = true
+    # Omit kms_key_arn to use the AWS-owned key, or set it to a CMK alias/ARN.
+  }}
+}}'''
+    return {
+        "iac_status": IAC_SNIPPETS,
+        "terraform": tf,
+        "cloudformation": None,
+        "cli": [
+            f"aws dynamodb update-table --table-name {table} "
+            "--sse-specification Enabled=true,SSEType=KMS",
+        ],
+        "hints": [
+            "Add a `server_side_encryption { enabled = true }` block to your `aws_dynamodb_table`.",
+            "Set `kms_key_arn` to a customer-managed KMS key for tighter key control.",
+        ],
+    }
+
+
+def _dynamodb_pitr(finding: Finding, ev: dict) -> dict[str, Any]:
+    table = ev.get("table_name") or _name_from_arn(finding.resource_arn)
+    logical = _logical_name(table)
+    tf = f'''resource "aws_dynamodb_table" "{logical}" {{
+  name = "{table}"
+
+  point_in_time_recovery {{
+    enabled = true
+  }}
+}}'''
+    return {
+        "iac_status": IAC_SNIPPETS,
+        "terraform": tf,
+        "cloudformation": None,
+        "cli": [
+            f"aws dynamodb update-continuous-backups --table-name {table} "
+            "--point-in-time-recovery-specification PointInTimeRecoveryEnabled=true",
+        ],
+        "hints": [
+            "Add a `point_in_time_recovery { enabled = true }` block to your `aws_dynamodb_table`.",
+            "PITR enables restore to any second in the trailing 35 days.",
+        ],
+    }
+
+
+def _cloudtrail_log_validation(finding: Finding, ev: dict) -> dict[str, Any]:
+    trail = ev.get("trail_name") or _name_from_arn(finding.resource_arn)
+    logical = _logical_name(trail)
+    tf = f'''resource "aws_cloudtrail" "{logical}" {{
+  name = "{trail}"
+  # Enable digest files so log tampering is detectable.
+  enable_log_file_validation = true
+}}'''
+    return {
+        "iac_status": IAC_SNIPPETS,
+        "terraform": tf,
+        "cloudformation": None,
+        "cli": [
+            f"aws cloudtrail update-trail --name {trail} --enable-log-file-validation",
+        ],
+        "hints": [
+            "Set `enable_log_file_validation = true` on the `aws_cloudtrail` resource.",
+            "Validate later with `aws cloudtrail validate-logs`.",
+        ],
+    }
+
+
+def _eks_logging(finding: Finding, ev: dict) -> dict[str, Any]:
+    cluster = ev.get("cluster_name") or _name_from_arn(finding.resource_arn)
+    logical = _logical_name(cluster)
+    tf = f'''resource "aws_eks_cluster" "{logical}" {{
+  name = "{cluster}"
+
+  enabled_cluster_log_types = [
+    "api",
+    "audit",
+    "authenticator",
+    "controllerManager",
+    "scheduler",
+  ]
+}}'''
+    return {
+        "iac_status": IAC_SNIPPETS,
+        "terraform": tf,
+        "cloudformation": None,
+        "cli": [
+            f"aws eks update-cluster-config --name {cluster} "
+            f"--logging '{{\"clusterLogging\":[{{\"types\":[\"api\",\"audit\","
+            f"\"authenticator\",\"controllerManager\",\"scheduler\"],\"enabled\":true}}]}}'",
+        ],
+        "hints": [
+            "Set `enabled_cluster_log_types` on the `aws_eks_cluster` to ship control-plane logs to CloudWatch.",
+            "Control-plane logs incur CloudWatch Logs ingestion/storage cost.",
+        ],
+    }
+
+
+def _ecr_registry_scanning(finding: Finding, ev: dict) -> dict[str, Any]:
+    tf = '''resource "aws_ecr_registry_scanning_configuration" "this" {
+  scan_type = "ENHANCED"
+
+  rule {
+    scan_frequency = "CONTINUOUS_SCAN"
+    repository_filter {
+      filter      = "*"
+      filter_type = "WILDCARD"
+    }
+  }
+}'''
+    return {
+        "iac_status": IAC_SNIPPETS,
+        "terraform": tf,
+        "cloudformation": None,
+        "cli": [
+            "aws ecr put-registry-scanning-configuration --scan-type ENHANCED "
+            "--rules 'scanFrequency=CONTINUOUS_SCAN,repositoryFilters=[{filter=*,filterType=WILDCARD}]'",
+        ],
+        "hints": [
+            "Enhanced scanning is a per-account, per-region registry setting (Amazon Inspector).",
+            "Only one `aws_ecr_registry_scanning_configuration` exists per account+region.",
+            "Enhanced scanning bills through Amazon Inspector per image scanned.",
+        ],
+    }
+
+
 _BUILDERS = {
-    # Existing
+    # S3
     "s3.bucket.public_access_not_blocked": _s3_public_access,
     "s3.bucket.no_https_policy": _s3_https,
+    "s3.bucket.no_default_encryption": _s3_sse,
+    # KMS
     "kms.key.no_rotation": _kms_rotation,
     "kms.key.policy_wildcard_principal": _kms_wildcard,
+    # EC2 / SG
     "ec2.security_group.unrestricted_ssh": _sg_ssh,
     "ec2.security_group.unrestricted_rdp": _sg_rdp,
-    # Phase 1A — easy attribute toggles
-    "rds.instance.no_storage_encryption": _rds_encryption,
+    "ec2.ebs.encryption_not_default": _ebs_default_encryption,
+    "ec2.instance.imdsv2_not_required": _imdsv2_required,
+    # RDS
+    "rds.instance.no_encryption": _rds_encryption,
     "rds.instance.publicly_accessible": _rds_public,
+    "rds.instance.no_deletion_protection": _rds_deletion_protection,
+    # Messaging
     "sns.topic.no_encryption": _sns_encryption,
     "sqs.queue.no_encryption": _sqs_encryption,
-    "guardduty.detector.disabled": _guardduty_enable,
-    "ec2.ebs.encryption_not_default": _ebs_default_encryption,
-    "iam.account.password_policy_weak": _password_policy,
-    "ecr.repository.image_scan_disabled": _ecr_scanning,
-    # Phase 1B — block insertions
-    "s3.bucket.default_encryption_disabled": _s3_sse,
+    # DynamoDB
+    "dynamodb.table.no_encryption": _dynamodb_encryption,
+    "dynamodb.table.no_pitr": _dynamodb_pitr,
+    # Detective / logging
+    "guardduty.detector.not_enabled": _guardduty_enable,
     "cloudtrail.trail.not_enabled": _cloudtrail_enable,
-    "elb.access_logs_disabled": _elb_logs,
-    # Phase 2 — complex
-    "lambda.function.env_vars_unencrypted": _lambda_env_encryption,
-    "ec2.vpc.no_flow_logs": _vpc_flow_logs,
+    "cloudtrail.trail.no_log_validation": _cloudtrail_log_validation,
+    "vpc.flow_logs.not_enabled": _vpc_flow_logs,
+    "elb.load_balancer.no_access_logs": _elb_logs,
+    # IAM
+    "iam.account.password_policy_weak": _password_policy,
+    # ECR
+    "ecr.repository.image_scan_disabled": _ecr_scanning,
+    "ecr.registry.enhanced_scanning_disabled": _ecr_registry_scanning,
+    # EKS
+    "eks.cluster.control_plane_logging_disabled": _eks_logging,
+    # Lambda
+    "lambda.function.public_url": _lambda_public_url,
 }
 
 

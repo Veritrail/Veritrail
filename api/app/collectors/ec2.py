@@ -221,7 +221,7 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info(
         "collect_ec2.done",
         account_id=str(account.id),

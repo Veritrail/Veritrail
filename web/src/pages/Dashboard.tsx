@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { accountListSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 
@@ -83,7 +84,7 @@ function scoreLabel(s: number) {
 }
 
 export default function Dashboard() {
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
+  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api("/v1/accounts", { schema: accountListSchema }) });
   const findings = useQuery({
     queryKey: ["dashboard-findings"],
     queryFn: () => fetchAllFindings<Finding>({ status: "open" }),

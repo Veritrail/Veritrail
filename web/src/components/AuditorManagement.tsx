@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { auditorInviteSchema, auditorListSchema } from "../lib/apiSchemas";
 import { auditorVerifyUrl } from "../lib/appOrigin";
 import { Select } from "./Select";
 import { AccessCard, AccessRow, StatusPill, accessComposer, accessInput, accessPrimaryBtn } from "./accessUi";
@@ -136,14 +137,15 @@ export function AuditorManagement({ embedded = false }: { embedded?: boolean }) 
 
   const { data: auditors, isLoading } = useQuery<AuditorAccessEntry[]>({
     queryKey: ["auditor-list"],
-    queryFn: () => api("/v1/auditor/list"),
+    queryFn: () => api("/v1/auditor/list", { schema: auditorListSchema }),
   });
 
   const inviteMutation = useMutation({
     mutationFn: (): Promise<AuditorInviteResult> =>
-      api<AuditorInviteResult>("/v1/auditor/invite", {
+      api("/v1/auditor/invite", {
         method: "POST",
         body: JSON.stringify({ email, name: name || null, expiry_days: expiryDays }),
+        schema: auditorInviteSchema,
       }),
     onSuccess: (data: AuditorInviteResult) => {
       qc.invalidateQueries({ queryKey: ["auditor-list"] });
@@ -308,7 +310,7 @@ export function AuditorManagement({ embedded = false }: { embedded?: boolean }) 
             !isLoading && <div className="sharing-auditor-card__empty">No auditor invites yet.</div>
           )}
 
-          <a href="/compliance/history" className="sharing-auditor-card__log">
+          <a href="/history" className="sharing-auditor-card__log">
             View audit access log &rarr;
           </a>
         </section>

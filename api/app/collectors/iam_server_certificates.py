@@ -64,6 +64,6 @@ def collect_iam_server_certificates(db: Session, account: AwsAccount) -> int:
     except ClientError as e:
         log.warning("collect_iam_server_certs.failed", account_id=str(account.id), error=str(e))
 
-    db.commit()
+
     log.info("collect_iam_server_certs.done", account_id=str(account.id), count=count)
     return count

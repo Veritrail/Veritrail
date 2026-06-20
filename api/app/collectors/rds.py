@@ -109,6 +109,6 @@ def collect_rds(db: Session, account: AwsAccount) -> int:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_rds.done", account_id=str(account.id), instances=count)
     return count

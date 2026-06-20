@@ -1,12 +1,11 @@
 import { api } from "../api";
+import { accountListSchema } from "./apiSchemas";
 import { isAccountConnected } from "./accountConnection";
-
-type AccountRow = { status: string; account_id: string | null };
 
 /** Where to land after login when the user may have zero connected AWS accounts. */
 export async function postAuthPath(): Promise<"/accounts" | "/findings"> {
   try {
-    const accounts = await api<AccountRow[]>("/v1/accounts");
+    const accounts = await api("/v1/accounts", { schema: accountListSchema });
     if (accounts.some(isAccountConnected)) return "/findings";
   } catch {
     // If accounts cannot load, onboarding is still the safest default.

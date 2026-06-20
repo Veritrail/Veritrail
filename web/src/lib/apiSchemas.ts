@@ -1,0 +1,228 @@
+import { z } from "zod";
+import type { ApiInit } from "../api";
+
+/** Thrown when an API response does not match its Zod schema (dev only). */
+export class ApiValidationError extends Error {
+  readonly path: string;
+  readonly issues: z.ZodIssue[];
+
+  constructor(path: string, issues: z.ZodIssue[]) {
+    super(`API response validation failed for ${path}`);
+    this.name = "ApiValidationError";
+    this.path = path;
+    this.issues = issues;
+  }
+}
+
+/** Validate JSON at the fetch boundary; throw in dev, log and pass through in prod. */
+export function parseApiResponse<T>(path: string, schema: z.ZodType<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+  if (result.success) return result.data;
+  const err = new ApiValidationError(path, result.error.issues);
+  if (import.meta.env.DEV) throw err;
+  console.error("[api] response validation failed", path, result.error.issues);
+  return data as T;
+}
+
+/** In dev mode, warn when a GET call omits a schema. This surfaces untyped boundaries. */
+export function warnMissingSchema(path: string, init?: ApiInit): void {
+  if (import.meta.env.DEV && !init?.schema) {
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (method === "GET" && !path.includes("export") && !path.includes("download")) {
+      console.warn(`[api] missing schema for GET ${path}`);
+    }
+  }
+}
+
+const orgRole = z.enum(["owner", "admin", "editor", "viewer"]);
+
+export const accessTokenSchema = z.object({
+  access_token: z.string(),
+});
+
+export const tokenPairSchema = accessTokenSchema.extend({
+  refresh_token: z.string().optional(),
+});
+
+export const meSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  role: orgRole,
+  org_id: z.string(),
+  org_name: z.string(),
+  github_id: z.string().nullable().optional(),
+  gitlab_id: z.string().nullable().optional(),
+  google_id: z.string().nullable().optional(),
+  totp_enabled: z.boolean().optional(),
+  has_password: z.boolean().optional(),
+  mfa_backup_codes_remaining: z.number().optional(),
+});
+
+export type Me = z.infer<typeof meSchema>;
+
+// `.passthrough()` is required: the Accounts page shares this query cache
+// (queryKey ["accounts"]) but needs the richer fields (remediation_modules,
+// cfn_*, …). Without passthrough, Zod strips them, so when the Accounts page
+// renders from a cache entry the lean Layout query populated first, those
+// fields are undefined and CapabilityBadges crashes.
+export const accountSchema = z
+  .object({
+    id: z.string(),
+    label: z.string(),
+    account_id: z.string().nullable(),
+    status: z.string(),
+    external_id: z.string().optional(),
+    role_arn: z.string().nullable().optional(),
+    enable_advanced_policy_generation: z.boolean().optional(),
+    last_scan_at: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export const accountListSchema = z.array(accountSchema);
+
+export type Account = z.infer<typeof accountSchema>;
+
+export const findingSchema = z.object({
+  id: z.string(),
+  account_id: z.string(),
+  aws_account_id: z.string().nullable().optional(),
+  account_label: z.string().nullable().optional(),
+  account_name: z.string().nullable().optional(),
+  account_provider: z.string().optional(),
+  check_id: z.string(),
+  resource_arn: z.string(),
+  title: z.string(),
+  severity: z.string(),
+  risk_score: z.number(),
+  status: z.string(),
+  evidence: z.record(z.string(), z.unknown()),
+  first_seen: z.string(),
+  last_seen: z.string(),
+  exception_reason: z.string().nullable().optional(),
+  exception_approved_by: z.string().nullable().optional(),
+  exception_expires_at: z.string().nullable().optional(),
+});
+
+export const findingPageSchema = z.object({
+  items: z.array(findingSchema),
+  total: z.number(),
+  next_cursor: z.string().nullable(),
+});
+
+export type FindingPage = z.infer<typeof findingPageSchema>;
+
+export const trustCenterSettingsSchema = z.object({
+  is_enabled: z.boolean(),
+  subdomain_slug: z.string().nullable(),
+  company_name: z.string().nullable(),
+  company_logo_url: z.string().nullable(),
+  frameworks_to_show: z.array(z.string()),
+  custom_message: z.string().nullable(),
+  configured: z.boolean(),
+  last_updated_at: z.string().nullable(),
+});
+
+export type TrustCenterSettings = z.infer<typeof trustCenterSettingsSchema>;
+
+export const auditorAccessSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  name: z.string().nullable(),
+  access_token: z.string(),
+  expires_at: z.string(),
+  is_active: z.boolean(),
+  created_at: z.string(),
+  last_accessed_at: z.string().nullable(),
+});
+
+export const auditorListSchema = z.array(auditorAccessSchema);
+
+export const auditorInviteSchema = auditorAccessSchema.extend({
+  email_sent: z.boolean().optional(),
+  email_delivery_note: z.string().nullable().optional(),
+  verify_url: z.string().optional(),
+});
+
+export const loginResponseSchema = z.object({
+  access_token: z.string().nullable().optional(),
+  refresh_token: z.string().nullable().optional(),
+  org_id: z.string().nullable().optional(),
+  mfa_required: z.boolean().optional(),
+  mfa_token: z.string().nullable().optional(),
+});
+
+export const settingsSchema = z.object({
+  optional_checks: z.array(
+    z.object({
+      check_id: z.string(),
+      label: z.string(),
+      summary: z.string(),
+      description: z.string(),
+      enabled: z.boolean(),
+      default_enabled: z.boolean(),
+    }),
+  ),
+  features: z.object({
+    ai_finding_review_enabled: z.boolean(),
+  }),
+  scanning: z.object({
+    enabled: z.boolean(),
+    interval: z.enum(["daily", "weekly", "custom", "manual"]),
+    custom_hours: z.number().nullable(),
+  }),
+  notifications: z.object({
+    email_digest_enabled: z.boolean(),
+    digest_email: z.string().nullable(),
+    slack_webhook_url: z.string().nullable(),
+    scan_failure_email_enabled: z.boolean(),
+    critical_alert_enabled: z.boolean(),
+  }),
+  scan_status: z.object({
+    account_connected: z.boolean(),
+    last_scan_at: z.string().nullable(),
+    next_scan_at: z.string().nullable(),
+    max_interval: z.enum(["daily", "weekly"]),
+    min_custom_hours: z.number(),
+  }),
+  account_email: z.string().nullable(),
+});
+
+export type SettingsData = z.infer<typeof settingsSchema>;
+
+export const workspaceSchema = z.object({
+  // Backend WorkspaceOut returns org_id (used by the workspace switcher); not `id`.
+  org_id: z.string(),
+  org_name: z.string(),
+  role: orgRole,
+});
+
+export const workspaceListSchema = z.array(workspaceSchema);
+
+export const scanRunSchema = z.object({
+  id: z.string(),
+  account_id: z.string(),
+  status: z.string(),
+  started_at: z.string().nullable(),
+  finished_at: z.string().nullable(),
+  stats: z.record(z.string(), z.unknown()).nullable(),
+});
+
+export const scanRunListSchema = z.array(scanRunSchema);
+
+export const digestSnapshotSchema = z.object({
+  id: z.string(),
+  org_id: z.string(),
+  sent_at: z.string().nullable(),
+  stats: z.record(z.string(), z.unknown()).nullable(),
+});
+
+export const digestSnapshotListSchema = z.array(digestSnapshotSchema);
+
+export const memberSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  role: z.string(),
+  created_at: z.string(),
+});
+
+export const memberListSchema = z.array(memberSchema);

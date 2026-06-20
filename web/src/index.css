@@ -464,3 +464,21 @@
   background: #0f766e;
   color: #ffffff;
 }
+
+/* Account cards: footer button carries the card's accent tint (matches the
+   colored top border), darkening to solid on hover. Scoped to .account-module. */
+.account-module .vigil-toolbar-btn--primary-solid {
+  background: var(--card-accent-soft);
+  border-color: transparent;
+  color: var(--card-accent);
+  font-weight: 700;
+}
+
+.account-module .vigil-toolbar-btn--primary-solid:hover:not(:disabled) {
+  background: var(--card-accent);
+  color: #ffffff;
+}
+
+.account-module .vigil-toolbar-btn--primary-solid svg {
+  color: currentColor;
+}

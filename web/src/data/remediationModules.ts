@@ -6,7 +6,8 @@ export type RemediationModuleId =
   | "iam_access_keys"
   | "iam_policies"
   | "ssm_parameters"
-  | "cloudtrail_logging";
+  | "cloudtrail_logging"
+  | "kms_rotation";
 
 export type RemediationModules = Record<RemediationModuleId, boolean>;
 
@@ -17,6 +18,7 @@ export const DEFAULT_REMEDIATION_MODULES: RemediationModules = {
   iam_policies: false,
   ssm_parameters: false,
   cloudtrail_logging: false,
+  kms_rotation: false,
 };
 
 export type RemediationModuleSpec = {
@@ -106,6 +108,19 @@ export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
     summary: "Enable logging if disabled",
     bullets: ["Start logging on trails", "Update trail configuration when approved"],
     permissions: ["cloudtrail:UpdateTrail", "cloudtrail:StartLogging"],
+    runnerSupported: true,
+  },
+  {
+    id: "kms_rotation",
+    label: "KMS key rotation",
+    badgeLabel: "KMS remediation",
+    cfnParameter: "EnableKmsRotationRemediation",
+    summary: "Enable annual rotation on customer-managed keys",
+    bullets: [
+      "Turn on automatic yearly rotation after approval",
+      "AWS-owned runbook — transparent to callers, no re-encryption needed",
+    ],
+    permissions: ["kms:EnableKeyRotation", "kms:GetKeyRotationStatus"],
     runnerSupported: true,
   },
 ];

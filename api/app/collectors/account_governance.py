@@ -87,7 +87,7 @@ def collect_account_governance(db: Session, account: AwsAccount) -> dict:
         },
     )
     db.execute(stmt)
-    db.commit()
+
     log.info(
         "collect_account_governance.done",
         account_id=str(account.id),

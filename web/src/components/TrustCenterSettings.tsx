@@ -1,22 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, apiUpload, formatApiError } from "../api";
+import { trustCenterSettingsSchema, type TrustCenterSettings } from "../lib/apiSchemas";
 import { trustCenterPublicUrl } from "../lib/appOrigin";
 import { ToggleChipBar } from "./FilterChipBar";
 import { SafeExternalImage } from "./SafeExternalImage";
 import { TrustCenterPreviewMock } from "./TrustCenterPreviewMock";
 import { Toggle } from "./SettingsUi";
-
-type TrustCenterSettings = {
-  is_enabled: boolean;
-  subdomain_slug: string | null;
-  company_name: string | null;
-  company_logo_url: string | null;
-  frameworks_to_show: string[];
-  custom_message: string | null;
-  configured: boolean;
-  last_updated_at: string | null;
-};
 
 type SavePayload = {
   is_enabled: boolean;
@@ -71,7 +61,7 @@ export function TrustCenterSettings() {
 
   const { data, isLoading } = useQuery<TrustCenterSettings>({
     queryKey: ["trust-center-settings"],
-    queryFn: () => api("/v1/settings/trust-center"),
+    queryFn: () => api("/v1/settings/trust-center", { schema: trustCenterSettingsSchema }),
   });
 
   const [enabled, setEnabled] = useState(false);
@@ -114,9 +104,10 @@ export function TrustCenterSettings() {
 
   const mutation = useMutation({
     mutationFn: (override?: Partial<SavePayload>) =>
-      api<TrustCenterSettings>("/v1/settings/trust-center", {
+      api("/v1/settings/trust-center", {
         method: "PUT",
         body: JSON.stringify(buildPayload(override)),
+        schema: trustCenterSettingsSchema,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["trust-center-settings"] });
@@ -160,7 +151,7 @@ export function TrustCenterSettings() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const result = await apiUpload<TrustCenterSettings>("/v1/settings/trust-center/logo", form);
+      const result = await apiUpload("/v1/settings/trust-center/logo", form, trustCenterSettingsSchema);
       setLogoUrl(result.company_logo_url || "");
       qc.invalidateQueries({ queryKey: ["trust-center-settings"] });
     } catch (error) {
@@ -174,7 +165,10 @@ export function TrustCenterSettings() {
   async function handleRemoveLogo() {
     setLogoUploadError("");
     try {
-      const result = await api<TrustCenterSettings>("/v1/settings/trust-center/logo", { method: "DELETE" });
+      const result = await api("/v1/settings/trust-center/logo", {
+        method: "DELETE",
+        schema: trustCenterSettingsSchema,
+      });
       setLogoUrl(result.company_logo_url || "");
       qc.invalidateQueries({ queryKey: ["trust-center-settings"] });
     } catch (error) {

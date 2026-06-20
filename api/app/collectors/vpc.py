@@ -119,7 +119,7 @@ def collect_vpc(db: Session, account: AwsAccount) -> dict:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_vpc.done", account_id=str(account.id), vpcs=vpc_count, sgs=sg_count)
     return {"vpcs": vpc_count, "security_groups": sg_count}
 

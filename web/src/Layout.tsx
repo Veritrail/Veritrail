@@ -2,6 +2,7 @@ import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-route
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, logout, restoreSession, token } from "./api";
+import { accountListSchema } from "./lib/apiSchemas";
 import { roleAtLeast, useMe } from "./hooks/useMe";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
 import { isAccountConnected } from "./lib/accountConnection";
@@ -27,7 +28,7 @@ export default function Layout() {
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
-    queryFn: () => api<AccountRow[]>("/v1/accounts"),
+    queryFn: () => api("/v1/accounts", { schema: accountListSchema }),
     enabled: authReady,
     staleTime: 30_000,
   });

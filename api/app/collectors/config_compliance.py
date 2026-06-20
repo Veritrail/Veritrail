@@ -75,6 +75,6 @@ def collect_config_compliance(db: Session, account: AwsAccount) -> int:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_config_compliance.done", account_id=str(account.id), rules=count)
     return count

@@ -84,6 +84,7 @@ def test_ssm_document_ready(mock_assume):
     acc.enable_remediation_iam_policy = False
     acc.enable_remediation_ssm_parameters = False
     acc.enable_remediation_cloudtrail = False
+    acc.enable_remediation_kms = False
 
     ssm = MagicMock()
     sess = MagicMock()

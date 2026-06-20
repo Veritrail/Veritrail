@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock, patch
 
-from app.routes.accounts import _policy_generation_meta
+from app.routes.accounts_analysis import _policy_generation_meta
 from app.services.policy_generation_messages import POLICY_GEN_NO_JOB_NOTE
 
 
@@ -37,9 +37,9 @@ def test_policy_generation_meta_medium_note_without_cloudtrail_job():
     assert meta["cloudtrail_analysis"]["status"] == "no_trail"
 
 
-@patch("app.routes.accounts._resolve_advanced_policy_generation")
+@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
 def test_use_advanced_auto_enabled_when_deployed(mock_resolve):
-    from app.routes.accounts import generate_role_policy
+    from app.routes.accounts_analysis import generate_role_policy
 
     mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none yet"}
 

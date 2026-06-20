@@ -63,3 +63,27 @@ def mock_db():
     db.scalars.return_value.all.return_value = []
     db.scalars.return_value.first.return_value = None
     return db
+
+
+@pytest.fixture
+def db_session():
+    """Real transactional SQLAlchemy session for integration tests.
+
+    Binds a Session to a single connection wrapped in a transaction that is
+    rolled back at teardown — every test sees real SQLAlchemy/Postgres
+    behaviour (constraints, JSONB, joins) with zero persistence between tests.
+    Tables come from the migrations already applied to the container DB.
+    """
+    from sqlalchemy.orm import Session as SASession
+
+    from app.core.db import engine
+
+    connection = engine.connect()
+    trans = connection.begin()
+    session = SASession(bind=connection, autoflush=False, future=True)
+    try:
+        yield session
+    finally:
+        session.close()
+        trans.rollback()
+        connection.close()

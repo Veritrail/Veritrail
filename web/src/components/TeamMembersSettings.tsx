@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { memberListSchema } from "../lib/apiSchemas";
 import { Select } from "./Select";
 import {
   AccessCard,
@@ -46,7 +47,7 @@ export function TeamMembersSettings() {
 
   const { data: members, isLoading: membersLoading } = useQuery<MemberEntry[]>({
     queryKey: ["team-members"],
-    queryFn: () => api("/v1/members"),
+    queryFn: () => api("/v1/members", { schema: memberListSchema }),
   });
 
   const { data: invites, isLoading: invitesLoading } = useQuery<InviteEntry[]>({

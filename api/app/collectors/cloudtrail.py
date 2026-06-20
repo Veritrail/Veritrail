@@ -245,6 +245,6 @@ def collect_cloudtrail(db: Session, account: AwsAccount) -> int:
         db.execute(stmt)
         count += 1
 
-    db.commit()
+
     log.info("collect_cloudtrail.done", account_id=str(account.id), trails=count, org_covered=org_covered)
     return count

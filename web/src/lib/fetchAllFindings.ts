@@ -1,4 +1,5 @@
 import { api } from "../api";
+import { findingPageSchema } from "./apiSchemas";
 
 export type FindingPage<T> = {
   items: T[];
@@ -13,10 +14,17 @@ export type FetchAllFindingsParams = {
   severity?: string;
 };
 
-/** Cursor-walk /v1/findings until next_cursor is null (API max page size 500). */
+/** Hard ceiling on findings pulled into memory + rendered at once. Results are
+ * ordered by risk_score desc, so the cap keeps the highest-risk findings.
+ * Protects against pathological accounts (10k+ findings) OOM-ing or jank-ing the
+ * tab. Callers surface `truncated` so the cap is never silent. */
+export const FINDINGS_FETCH_CAP = 5000;
+
+/** Cursor-walk /v1/findings (API max page size 500), bounded by maxItems. */
 export async function fetchAllFindings<T>(
   params: FetchAllFindingsParams = {},
-): Promise<{ items: T[]; total: number }> {
+  { maxItems = FINDINGS_FETCH_CAP }: { maxItems?: number } = {},
+): Promise<{ items: T[]; total: number; truncated: boolean }> {
   const search = new URLSearchParams();
   search.set("limit", "500");
   if (params.status) search.set("status", params.status);
@@ -31,12 +39,16 @@ export async function fetchAllFindings<T>(
   for (;;) {
     const qs = new URLSearchParams(search);
     if (cursor) qs.set("cursor", cursor);
-    const page = await api<FindingPage<T>>(`/v1/findings?${qs.toString()}`);
-    items.push(...page.items);
+    const page = await api(`/v1/findings?${qs.toString()}`, { schema: findingPageSchema });
+    items.push(...(page.items as T[]));
     total = page.total;
+    if (items.length >= maxItems) {
+      items.length = maxItems; // keep the top-N highest-risk; drop the rest
+      break;
+    }
     if (!page.next_cursor) break;
     cursor = page.next_cursor;
   }
 
-  return { items, total };
+  return { items, total, truncated: total > items.length };
 }

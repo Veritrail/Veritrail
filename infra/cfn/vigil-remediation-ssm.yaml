@@ -40,6 +40,10 @@ Parameters:
     Type: String
     Default: "No"
     AllowedValues: ["Yes", "No"]
+  EnableKmsRotationRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
 
 Conditions:
   SecurityGroupModule: !Equals [!Ref EnableSecurityGroupRemediation, "Yes"]
@@ -47,12 +51,14 @@ Conditions:
   IamPolicyModule: !Equals [!Ref EnableIamPolicyRemediation, "Yes"]
   SsmParameterModule: !Equals [!Ref EnableSsmParameterRemediation, "Yes"]
   S3Module: !Equals [!Ref EnableS3Remediation, "Yes"]
+  KmsRotationModule: !Equals [!Ref EnableKmsRotationRemediation, "Yes"]
   AnyRemediationModule: !Or
     - !Condition SecurityGroupModule
     - !Condition IamAccessKeyModule
     - !Condition IamPolicyModule
     - !Condition SsmParameterModule
     - !Condition S3Module
+    - !Condition KmsRotationModule
 
 Mappings:
   SsmScriptChecksums:
@@ -139,6 +145,18 @@ Resources:
                     - iam:ListAttachedRolePolicies
                     - iam:DetachRolePolicy
                     - iam:GetPolicy
+                  Resource: "*"
+                - !Ref AWS::NoValue
+              - !If
+                - KmsRotationModule
+                # AWS-owned runbook AWSConfigRemediation-EnableKeyRotation; no
+                # custom SSM::Document needed — only the scoped key permissions.
+                - Sid: KmsKeyRotation
+                  Effect: Allow
+                  Action:
+                    - kms:EnableKeyRotation
+                    - kms:GetKeyRotationStatus
+                    - kms:DescribeKey
                   Resource: "*"
                 - !Ref AWS::NoValue
 

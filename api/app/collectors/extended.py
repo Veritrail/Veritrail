@@ -101,7 +101,7 @@ def collect_acm(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_acm.done", account_id=str(account.id), certificates=count)
     return count
 
@@ -153,7 +153,7 @@ def collect_lambda(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_lambda.done", account_id=str(account.id), functions=count)
     return count
 
@@ -193,7 +193,7 @@ def collect_ecr(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_ecr.done", account_id=str(account.id), repositories=count)
     return count
 
@@ -225,7 +225,7 @@ def collect_secrets(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_secrets.done", account_id=str(account.id), secrets=count)
     return count
 
@@ -256,7 +256,7 @@ def collect_ssm_parameters(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_ssm_parameters.done", account_id=str(account.id), parameters=count)
     return count
 
@@ -305,7 +305,7 @@ def collect_elb(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_elb.done", account_id=str(account.id), load_balancers=count)
     return count
 
@@ -356,7 +356,7 @@ def collect_dynamodb(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_dynamodb.done", account_id=str(account.id), tables=count)
     return count
 
@@ -391,7 +391,7 @@ def collect_sns(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_sns.done", account_id=str(account.id), topics=count)
     return count
 
@@ -430,7 +430,7 @@ def collect_sqs(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_sqs.done", account_id=str(account.id), queues=count)
     return count
 

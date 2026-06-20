@@ -31,6 +31,7 @@ import {
   SCANNER_ROLE_NAME,
   scannerRoleArnExample,
 } from "../lib/connectionPosture";
+import "../styles/accounts-page.css";
 
 type ConnectionOptions = {
   enable_advanced_policy_generation: boolean;
@@ -82,13 +83,14 @@ function roleArnFieldValidation(
 function accountConnectionOptions(acc: Account): ConnectionOptions {
   return {
     enable_advanced_policy_generation: acc.enable_advanced_policy_generation,
-    remediation_modules: { ...acc.remediation_modules },
+    remediation_modules: { ...DEFAULT_REMEDIATION_MODULES, ...acc.remediation_modules },
   };
 }
 
 function hasOptionalCapabilities(acc: Account): boolean {
   return (
-    acc.enable_advanced_policy_generation || anyRemediationEnabled(acc.remediation_modules)
+    acc.enable_advanced_policy_generation ||
+    anyRemediationEnabled(acc.remediation_modules ?? DEFAULT_REMEDIATION_MODULES)
   );
 }
 
@@ -591,6 +593,35 @@ function formatShortScanDate(iso: string | null | undefined, opts?: { utc?: bool
   });
 }
 
+function formatRelativeScanAgo(lastScanAt: string | null | undefined): string {
+  if (!lastScanAt) return "Never";
+  const t = new Date(lastScanAt).getTime();
+  if (Number.isNaN(t)) return "Never";
+  const sec = Math.floor((Date.now() - t) / 1000);
+  if (sec < 45) return "Just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 48) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const ACCOUNT_PLAN_LIMIT = 50;
+
+function matchesAccountStatusFilter(acc: Account, filter: string): boolean {
+  if (filter === "all") return true;
+  const connected = isAccountConnected(acc);
+  if (filter === "connected") return connected;
+  if (filter === "setup") return !connected;
+  if (filter === "action") return connected && !!acc.last_error;
+  return true;
+}
+
+function matchesAccountProviderFilter(_acc: Account, filter: string): boolean {
+  if (filter === "all") return true;
+  return filter === "aws";
+}
+
 function matchesAccountSearch(acc: Account, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
@@ -662,6 +693,50 @@ function FindingsMixDonutSvg({ segments, size = 72, stroke = 11 }: { segments: M
         );
       })}
     </svg>
+  );
+}
+
+function FindingsMixDonutCompact({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
+  const total = stats?.open ?? 0;
+  const segments = getMixSegments(stats);
+  const showChart = hasScanned && segments.length > 0;
+
+  return (
+    <div className="accounts-donut-compact">
+      {showChart ? (
+        <FindingsMixDonutSvg segments={segments} size={68} stroke={10} />
+      ) : (
+        <div className="absolute inset-0 rounded-full border-[10px] border-zinc-100" aria-hidden />
+      )}
+      <div className="accounts-donut-compact__center">
+        <span className="accounts-donut-compact__count">{hasScanned ? total : "—"}</span>
+        <span className="accounts-donut-compact__label">Open</span>
+      </div>
+    </div>
+  );
+}
+
+function FindingsSeverityLegend({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
+  const critHigh = stats?.critHigh ?? 0;
+  const medium = stats?.medium ?? 0;
+  const low = stats?.low ?? 0;
+
+  const rows = [
+    { label: "High", count: critHigh, color: "#ef4444" },
+    { label: "Medium", count: medium, color: "#f59e0b" },
+    { label: "Low", count: low, color: "#22c55e" },
+  ];
+
+  return (
+    <div className="accounts-findings-legend">
+      {rows.map((row) => (
+        <div className="accounts-findings-legend__row" key={row.label}>
+          <span className="accounts-findings-legend__dot" style={{ background: row.color }} aria-hidden />
+          <span className="accounts-findings-legend__count">{hasScanned ? row.count : "—"}</span>
+          <span>{row.label}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1018,18 +1093,21 @@ function remediationBadgesCollapsed(
     return true;
   }
   const enabled = REMEDIATION_MODULE_SPECS.filter((m) => modules[m.id]);
-  return enabled.every((m) => acc.remediation_modules_deployed[m.id]);
+  const deployed = acc.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
+  return enabled.every((m) => deployed[m.id]);
 }
 
 function CapabilityBadges({
   acc,
   connectionOptions,
   capabilityVerify,
+  variant = "default",
 }: {
   acc: Account;
   /** During pending setup, derive posture from local selection (avoids badge flicker on save). */
   connectionOptions?: ConnectionOptions;
   capabilityVerify?: CapabilityVerifyResults | null;
+  variant?: "default" | "table";
 }) {
   const connected = isAccountConnected(acc);
   const opts = connectionOptions ?? accountConnectionOptions(acc);
@@ -1037,12 +1115,40 @@ function CapabilityBadges({
   const policyGenSelected =
     (connected && acc.enable_advanced_policy_generation) ||
     (!connected && opts.enable_advanced_policy_generation);
-  const remediationModules = connected ? acc.remediation_modules : opts.remediation_modules;
+  const remediationModules =
+    (connected ? acc.remediation_modules : opts.remediation_modules) ?? DEFAULT_REMEDIATION_MODULES;
+  const modulesDeployed = acc.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
   const remediationEnabled = REMEDIATION_MODULE_SPECS.filter((m) => remediationModules[m.id]);
   const ssmCollapsed = remediationBadgesCollapsed(acc, remediationModules, capabilityVerify);
+  const wrapClass =
+    variant === "table"
+      ? "accounts-capability-badges"
+      : "mt-1.5 flex min-w-0 flex-nowrap items-center gap-x-1.5";
+
+  if (variant === "table") {
+    return (
+      <div className={wrapClass}>
+        <span className="cap-badge-core">Core scanner</span>
+        {(policyGenDeployed || policyGenSelected) && (
+          <span className="cap-badge-policy">Policy generation</span>
+        )}
+        {ssmCollapsed ? (
+          <span className="cap-badge-ssm" title={remediationEnabled.map((m) => m.label).join(" · ")}>
+            SSM remediation
+          </span>
+        ) : (
+          remediationEnabled.map((m) => (
+            <span key={m.id} className="cap-badge-ssm">
+              {m.badgeLabel}
+            </span>
+          ))
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-1.5 flex min-w-0 flex-nowrap items-center gap-x-1.5">
+    <div className={wrapClass}>
       <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
         Core scanner
       </span>
@@ -1066,7 +1172,7 @@ function CapabilityBadges({
         </span>
       ) : (
         remediationEnabled.map((m) => {
-          const deployed = connected && acc.remediation_modules_deployed[m.id];
+          const deployed = connected && modulesDeployed[m.id];
           return (
             <span
               key={m.id}
@@ -1607,7 +1713,6 @@ function RemediationAutomationSection({
 
 function AccountDetailsPanel({
   acc,
-  scanError,
   showManageCapabilities,
   showUpdateArn,
   roleArn,
@@ -1617,7 +1722,6 @@ function AccountDetailsPanel({
   manageCapabilitiesPanel,
 }: {
   acc: Account;
-  scanError: string | null;
   showManageCapabilities: boolean;
   showUpdateArn: boolean;
   roleArn: string;
@@ -1669,13 +1773,6 @@ function AccountDetailsPanel({
 
   return (
     <div className="divide-y divide-zinc-200/60">
-      {scanError && (
-        <div className="bg-red-50/80 px-4 py-2.5 text-xs text-red-700">
-          <span className="font-medium">Scan could not complete</span>
-          <div className="mt-0.5 break-words leading-relaxed">{friendlyScanFailureMessage(scanError)}</div>
-        </div>
-      )}
-
       <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:gap-x-6 sm:gap-y-3">
         <DetailCell label="External ID">
           <CompactTokenField value={acc.external_id} maxWidth="max-w-[18rem]" />
@@ -2611,6 +2708,133 @@ function AccountCardActionBar({
   );
 }
 
+function AccountsStatsCards({
+  accs,
+  statsMap,
+}: {
+  accs: Account[];
+  statsMap: Map<string, FindingStats>;
+}) {
+  const connected = accs.filter((a) => isAccountConnected(a)).length;
+  const scansLast7Days = accs.filter((a) => {
+    if (!a.last_scan_at) return false;
+    const days = (Date.now() - new Date(a.last_scan_at).getTime()) / (1000 * 60 * 60 * 24);
+    return days <= 7;
+  }).length;
+  let openFindings = 0;
+  let highSeverity = 0;
+  for (const [, stats] of statsMap) {
+    openFindings += stats.open;
+    highSeverity += stats.critHigh;
+  }
+
+  const planPct = Math.min(100, Math.round((connected / ACCOUNT_PLAN_LIMIT) * 100));
+  const scansPrev7Days = accs.filter((a) => {
+    if (!a.last_scan_at) return false;
+    const days = (Date.now() - new Date(a.last_scan_at).getTime()) / (1000 * 60 * 60 * 24);
+    return days > 7 && days <= 14;
+  }).length;
+  let scanTrendPct: number | null = null;
+  if (scansPrev7Days > 0) {
+    scanTrendPct = Math.round(((scansLast7Days - scansPrev7Days) / scansPrev7Days) * 100);
+  }
+
+  const cards: Array<{
+    label: string;
+    value: string;
+    sub: string;
+    icon: "cloud" | "scan" | "alert" | "shield";
+    tone: "violet" | "teal" | "amber" | "rose";
+    progress?: number;
+    trend?: { text: string; tone: "up" | "down" };
+  }> = [
+    {
+      label: "Connected accounts",
+      value: `${connected} of ${ACCOUNT_PLAN_LIMIT}`,
+      sub: `${planPct}% of plan limit`,
+      icon: "cloud",
+      tone: "violet",
+      progress: planPct,
+    },
+    {
+      label: "Scans (last 7 days)",
+      value: String(scansLast7Days),
+      sub: "vs previous 7 days",
+      icon: "scan",
+      tone: "teal",
+      trend:
+        scanTrendPct != null && scanTrendPct !== 0
+          ? {
+              text: `${scanTrendPct > 0 ? "+" : ""}${scanTrendPct}%`,
+              tone: scanTrendPct > 0 ? "up" : "down",
+            }
+          : undefined,
+    },
+    {
+      label: "Open findings",
+      value: String(openFindings),
+      sub: "total active",
+      icon: "alert",
+      tone: "amber",
+    },
+    {
+      label: "High severity",
+      value: String(highSeverity),
+      sub: "critical + high",
+      icon: "shield",
+      tone: "rose",
+    },
+  ];
+
+  return (
+    <div className="accounts-page__stats">
+      {cards.map((card) => (
+        <div className="accounts-stat-card" key={card.label}>
+          <span className={`accounts-stat-card__icon accounts-stat-card__icon--${card.tone}`}>
+            {card.icon === "cloud" && (
+              <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5h11.25a3.75 3.75 0 1 0 0-7.5 4.5 4.5 0 0 0-8.65-1.5A3.375 3.375 0 0 0 2.25 15Z" />
+              </svg>
+            )}
+            {card.icon === "scan" && (
+              <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+            )}
+            {card.icon === "alert" && (
+              <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+            )}
+            {card.icon === "shield" && (
+              <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+              </svg>
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="accounts-stat-card__label">{card.label}</p>
+            <p className="accounts-stat-card__value">{card.value}</p>
+            {card.trend ? (
+              <p className={`accounts-stat-card__trend accounts-stat-card__trend--${card.trend.tone}`}>
+                {card.trend.text}{" "}
+                <span className="font-normal text-slate-500">{card.sub}</span>
+              </p>
+            ) : (
+              <p className="accounts-stat-card__sub">{card.sub}</p>
+            )}
+            {card.progress != null ? (
+              <div className="accounts-stat-card__progress" aria-hidden>
+                <span className="accounts-stat-card__progress-fill" style={{ width: `${card.progress}%` }} />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AccountCard({
   acc,
   stats,
@@ -2815,12 +3039,8 @@ function AccountCard({
           <div className="flex min-w-0 items-start gap-3">
             <AwsIconTile compact />
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <h2 className="truncate text-base font-bold leading-tight text-zinc-900">{acc.label}</h2>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-                  Connected
-                </span>
               </div>
               {acc.account_id ? (
                 <div className="mt-0.5 flex items-center gap-1">
@@ -2925,11 +3145,6 @@ function AccountCard({
             <div className="border-t border-zinc-200/60 bg-zinc-50/50">
               <AccountDetailsPanel
                 acc={acc}
-                scanError={
-                  scanStatus === "error" && scanRun.data?.error
-                    ? `${scanRun.data.error_type ? `(${scanRun.data.error_type}) ` : ""}${scanRun.data.error}`
-                    : null
-                }
                 showManageCapabilities={showManageCapabilities}
                 showUpdateArn={showUpdateArn}
                 roleArn={roleArn}
@@ -3006,14 +3221,468 @@ function AccountCard({
   );
 }
 
+function resolveAccountRowStatus(
+  connected: boolean,
+  isScanActive: boolean,
+  scanStatus: string | null | undefined,
+  lastError: string | null | undefined,
+): { label: string; tone: "rose" | "amber" | "emerald" | "blue" } {
+  if (!connected) return { label: "Setup required", tone: "amber" };
+  if (isScanActive) return { label: "Scanning", tone: "blue" };
+  if (scanStatus === "error" || lastError) return { label: "Action required", tone: "rose" };
+  return { label: "Connected", tone: "emerald" };
+}
+
+function VerifiedBadgeIcon() {
+  return (
+    <span className="accounts-account-cell__verified" title="Connected">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="12" r="10" fill="#2563eb" />
+        <path d="m8.5 12.2 2.2 2.2L15.8 9.4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
+function CredentialAlert({
+  message,
+  onReconnect,
+  onViewInstructions,
+}: {
+  message: string;
+  onReconnect: () => void;
+  onViewInstructions: () => void;
+}) {
+  return (
+    <div className="accounts-credential-alert">
+      <div className="accounts-credential-alert__copy">
+        <span className="accounts-credential-alert__icon" aria-hidden>
+          <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+        </span>
+        <div>
+          <p className="accounts-credential-alert__title">AWS credentials need attention</p>
+          <p className="accounts-credential-alert__body">{message}</p>
+        </div>
+      </div>
+      <div className="accounts-credential-alert__actions">
+        <button type="button" className="accounts-outline-btn" onClick={onReconnect}>
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+          </svg>
+          Reconnect
+        </button>
+        <button type="button" className="accounts-outline-btn" onClick={onViewInstructions}>
+          View instructions
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AccountTableRow({
+  acc,
+  stats,
+  expanded,
+  onToggle,
+  setupInitialStep = 1,
+}: {
+  acc: Account;
+  stats: FindingStats | undefined;
+  expanded: boolean;
+  onToggle: () => void;
+  setupInitialStep?: number;
+}) {
+  const qc = useQueryClient();
+  const [roleArn, setRoleArn] = useState("");
+  const [showUpdateArn, setShowUpdateArn] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showManageCapabilities, setShowManageCapabilities] = useState(false);
+  const [showConnectorUpdate, setShowConnectorUpdate] = useState(false);
+  const [setupConnectionOptions, setSetupConnectionOptions] = useState(() =>
+    accountConnectionOptions(acc),
+  );
+  const [draftCapabilities, setDraftCapabilities] = useState(() => accountConnectionOptions(acc));
+  const [capabilityVerify, setCapabilityVerify] = useState<CapabilityVerifyResults | null>(null);
+  const [verifyFeedback, setVerifyFeedback] = useState<CapabilityVerifyFeedback | null>(null);
+  const [verificationMeta, setVerificationMeta] = useState<VerificationMeta | null>(null);
+  const [patchError, setPatchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSetupConnectionOptions(accountConnectionOptions(acc));
+    setDraftCapabilities(accountConnectionOptions(acc));
+  }, [
+    acc.id,
+    acc.enable_advanced_policy_generation,
+    acc.remediation_modules,
+    acc.status,
+  ]);
+
+  const connected = isAccountConnected(acc);
+  const hasScanned = connected && !!acc.last_scan_at;
+  const showSetup = !connected && expanded;
+
+  const {
+    scanRun,
+    scanStatus,
+    isScanActive,
+    scanProgress,
+    triggerScan,
+  } = useTriggeredScan(connected ? acc.id : undefined, {
+    backgroundPollMs: 5000,
+    onScanComplete: () => {
+      qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+      qc.invalidateQueries({ queryKey: ["controls"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
+  const settings = useQuery<ScanScheduleData>({
+    queryKey: ["settings"],
+    queryFn: () => api("/v1/settings"),
+    enabled: connected,
+  });
+  const nextScanShort = settings.data
+    ? formatShortScanDate(settings.data.scan_status.next_scan_at, { utc: true })
+    : "—";
+  const { freshness, detail: freshnessDetail } = resolveScanFreshness(acc.last_scan_at);
+  const freshnessScanLabel =
+    freshness === "fresh" ? "Fresh scan" : freshness === "stale" ? "Stale scan" : "No scans yet";
+  const freshnessScanClass =
+    freshness === "fresh" ? "text-emerald-700" : freshness === "stale" ? "text-amber-700" : "text-zinc-500";
+
+  const patchConnection = useMutation({
+    mutationFn: (opts: ConnectionOptions) =>
+      api<Account>(`/v1/accounts/${acc.id}/connection-options`, {
+        method: "PATCH",
+        body: JSON.stringify(opts),
+      }),
+    onSuccess: (updated) => {
+      setPatchError(null);
+      qc.setQueryData<Account[]>(["accounts"], (rows) =>
+        rows ? rows.map((row) => (row.id === updated.id ? updated : row)) : [updated],
+      );
+    },
+    onError: (e) => setPatchError(formatApiError(e)),
+  });
+
+  const debouncedPatchConnection = useDebouncedCallback((opts: ConnectionOptions) => {
+    patchConnection.mutate(opts);
+  }, 450);
+
+  const applyConnectionOptions = (next: ConnectionOptions) => {
+    const locked = enforceDeployedCapabilityLocks(acc, capabilityVerify, next);
+    setSetupConnectionOptions(locked);
+    setDraftCapabilities(locked);
+    debouncedPatchConnection(locked);
+  };
+
+  const verifyCapabilities = useMutation({
+    mutationFn: () =>
+      api<VerifyCapabilitiesResponse>(`/v1/accounts/${acc.id}/verify-capabilities`, {
+        method: "POST",
+      }),
+    onSuccess: (data) => {
+      setCapabilityVerify(data.capabilities);
+      setVerificationMeta(data.verification ?? null);
+      setVerifyFeedback(capabilityVerifyFeedback(data));
+      qc.setQueryData<Account[]>(["accounts"], (rows) =>
+        rows ? rows.map((row) => (row.id === data.account.id ? data.account : row)) : [data.account],
+      );
+      const opts = accountConnectionOptions(data.account);
+      setDraftCapabilities(opts);
+      setSetupConnectionOptions(opts);
+    },
+    onError: (e) => setVerifyFeedback({ tone: "error", message: formatApiError(e) }),
+  });
+
+  const verify = useMutation({
+    mutationFn: () =>
+      api<Account>(`/v1/accounts/${acc.id}/verify`, {
+        method: "POST",
+        body: JSON.stringify({ role_arn: sanitizeIamRoleArnInput(roleArn) }),
+      }),
+    onSuccess: (updated) => {
+      qc.setQueryData<Account[]>(["accounts"], (rows) =>
+        rows ? rows.map((row) => (row.id === updated.id ? updated : row)) : [updated],
+      );
+      const opts = accountConnectionOptions(updated);
+      setSetupConnectionOptions(opts);
+      setDraftCapabilities(opts);
+      setShowUpdateArn(false);
+      setRoleArn("");
+    },
+    onError: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
+  const connectionOptionsDirty = () => {
+    const saved = accountConnectionOptions(acc);
+    return (
+      setupConnectionOptions.enable_advanced_policy_generation !==
+        saved.enable_advanced_policy_generation ||
+      REMEDIATION_MODULE_SPECS.some(
+        (m) =>
+          setupConnectionOptions.remediation_modules[m.id] !== saved.remediation_modules[m.id],
+      )
+    );
+  };
+
+  const handleVerifyConnection = () => {
+    const runVerify = () => verify.mutate();
+    if (connectionOptionsDirty()) {
+      patchConnection.mutate(setupConnectionOptions, { onSuccess: runVerify });
+      return;
+    }
+    runVerify();
+  };
+
+  const remove = useMutation({
+    mutationFn: () => api(`/v1/accounts/${acc.id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setShowRemoveConfirm(false);
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
+  const requestRemove = () => {
+    if (!connected) {
+      remove.mutate();
+      return;
+    }
+    setShowRemoveConfirm(true);
+  };
+
+  const ensureExpanded = () => {
+    if (!expanded) onToggle();
+  };
+
+  const accountMenu: AccountMenuProps = {
+    onUpdateConnector: () => {
+      ensureExpanded();
+      setShowConnectorUpdate(true);
+    },
+    onManageCapabilities: () => {
+      ensureExpanded();
+      setShowManageCapabilities((v) => !v);
+    },
+    onUpdateRole: () => {
+      ensureExpanded();
+      setShowUpdateArn(true);
+    },
+    onDisconnect: requestRemove,
+    scanDisabled: isScanActive,
+    disconnectPending: remove.isPending,
+  };
+
+  const rowStatus = resolveAccountRowStatus(
+    connected,
+    isScanActive,
+    scanStatus,
+    acc.last_error ?? (scanStatus === "error" ? scanRun.data?.error : null),
+  );
+  const scanAgo = hasScanned ? formatRelativeScanAgo(acc.last_scan_at) : "Never";
+  const credentialError = scanRun.data?.error ?? acc.last_error ?? null;
+  const showCredentialAlert = connected && !isScanActive && !!credentialError;
+
+  const handleRowClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("a") || target.closest("[role='menu']")) return;
+    onToggle();
+  };
+
+  return (
+    <>
+      <div className={`accounts-list-item ${!connected ? "is-pending" : ""}`}>
+        <div className="accounts-list-item__main" onClick={handleRowClick}>
+          <div className="accounts-account-cell">
+            <div className="accounts-account-cell__logo">
+              <AwsIcon />
+            </div>
+            <div className="min-w-0">
+              <div className="accounts-account-cell__name-row">
+                <p className="accounts-account-cell__name">{acc.label}</p>
+                {connected ? <VerifiedBadgeIcon /> : null}
+              </div>
+              {acc.account_id ? (
+                <div className="accounts-account-cell__id">
+                  <span>{acc.account_id}</span>
+                  <CopyIdButton text={acc.account_id} />
+                </div>
+              ) : null}
+              <CapabilityBadges
+                acc={acc}
+                variant="table"
+                connectionOptions={connected ? undefined : setupConnectionOptions}
+                capabilityVerify={capabilityVerify}
+              />
+            </div>
+          </div>
+          <div className="accounts-coverage">
+            <p className="accounts-coverage__ago">
+              <span
+                className={`accounts-coverage__dot ${
+                  !hasScanned ? "is-none" : freshness === "fresh" ? "" : "is-stale"
+                }`}
+                aria-hidden
+              />
+              {hasScanned ? scanAgo : "Not scanned"}
+            </p>
+            <p className="accounts-coverage__next">
+              Next scan: <span className="font-semibold text-slate-700">{nextScanShort}</span>
+            </p>
+          </div>
+          <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
+          <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
+          <span className={`accounts-status-pill accounts-status-pill--${rowStatus.tone}`}>
+            {rowStatus.label}
+          </span>
+          <div className="accounts-row-actions">
+            <button
+              type="button"
+              onClick={() => triggerScan(acc.id)}
+              disabled={isScanActive || !connected}
+              className="accounts-scan-now-btn"
+            >
+              {isScanActive ? "Scanning…" : "Scan now"}
+            </button>
+            <AccountMenu {...accountMenu} />
+          </div>
+        </div>
+
+        {connected && isScanActive && (
+          <ScanPhaseBlock
+            progress={scanProgress.progress}
+            elapsedMs={scanProgress.elapsedMs}
+            progressStep={scanProgress.progressStep}
+            progressTotal={scanProgress.progressTotal}
+            progressPhase={scanProgress.progressPhase}
+            indeterminate={scanProgress.indeterminate}
+          />
+        )}
+
+        {showCredentialAlert && (
+          <CredentialAlert
+            message={friendlyScanFailureMessage(credentialError!)}
+            onReconnect={() => {
+              ensureExpanded();
+              setShowUpdateArn(true);
+            }}
+            onViewInstructions={() => {
+              ensureExpanded();
+              setShowManageCapabilities(false);
+              setShowUpdateArn(true);
+            }}
+          />
+        )}
+
+        {expanded && (
+          <div className="accounts-list-item__expand">
+            {connected && !hasScanned && !isScanActive && (
+              <div className="border-t border-zinc-100/80 bg-zinc-50/40 px-4 py-2 text-center text-xs text-zinc-500">
+                Run a scan to populate findings.
+              </div>
+            )}
+
+            {connected && (
+              <div className="border-t border-zinc-200/60 bg-zinc-50/50">
+                <AccountDetailsPanel
+                  acc={acc}
+                  showManageCapabilities={showManageCapabilities}
+                  showUpdateArn={showUpdateArn}
+                  roleArn={roleArn}
+                  setRoleArn={setRoleArn}
+                  verify={verify}
+                  onCancelUpdate={() => {
+                    setShowUpdateArn(false);
+                    setRoleArn("");
+                    verify.reset();
+                  }}
+                  manageCapabilitiesPanel={
+                    showManageCapabilities ? (
+                      <ManageCapabilitiesPanel
+                        acc={acc}
+                        draft={draftCapabilities}
+                        onDraftChange={(next) => {
+                          const locked = enforceDeployedCapabilityLocks(acc, capabilityVerify, next);
+                          setDraftCapabilities(locked);
+                          debouncedPatchConnection(locked);
+                        }}
+                        onClose={() => setShowManageCapabilities(false)}
+                        saveError={patchError}
+                        onVerifyCapabilities={() => verifyCapabilities.mutate()}
+                        verifyingCapabilities={verifyCapabilities.isPending}
+                        verifyFeedback={verifyFeedback}
+                        capabilityVerify={capabilityVerify}
+                        verificationMeta={verificationMeta}
+                      />
+                    ) : null
+                  }
+                />
+              </div>
+            )}
+
+            {showSetup && (
+              <InCardAccountSetupWizard
+                acc={acc}
+                connectionOptions={setupConnectionOptions}
+                onConnectionOptionsChange={applyConnectionOptions}
+                connectionOptionsSaving={patchConnection.isPending}
+                roleArn={roleArn}
+                setRoleArn={setRoleArn}
+                verify={verify}
+                onVerifyConnection={handleVerifyConnection}
+                initialStep={setupInitialStep}
+              />
+            )}
+          </div>
+        )}
+
+        <ConnectorUpdateModal
+          acc={acc}
+          open={showConnectorUpdate}
+          onClose={() => setShowConnectorUpdate(false)}
+        />
+
+        <ConfirmDialog
+          open={showRemoveConfirm}
+          title="Remove this account?"
+          description={
+            connected
+              ? hasScanned
+                ? `${acc.label} and all associated findings, scan history, and evidence will be permanently deleted. This cannot be undone.`
+                : `${acc.label} will be disconnected and removed. No findings or evidence have been collected yet. This cannot be undone.`
+              : `${acc.label} setup will be discarded. This account was never connected — no findings, scans, or evidence exist. This cannot be undone.`
+          }
+          confirmLabel="Disconnect account"
+          variant="danger"
+          loading={remove.isPending}
+          onCancel={() => !remove.isPending && setShowRemoveConfirm(false)}
+          onConfirm={() => remove.mutate()}
+        />
+      </div>
+    </>
+  );
+}
+
 export default function Accounts() {
   const qc = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [setupInitialStep, setSetupInitialStep] = useState(1);
   const [accountSearch, setAccountSearch] = useState("");
+  const [providerFilter, setProviderFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showAllAccounts, setShowAllAccounts] = useState(false);
   const [pendingConnectionOptions, setPendingConnectionOptions] = useState<ConnectionOptions>(
     DEFAULT_CONNECTION_OPTIONS,
   );
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const accounts = useQuery({
     queryKey: ["accounts"],
@@ -3069,9 +3738,19 @@ export default function Accounts() {
   }, [accounts.data]);
   const hasPending = accs.some((a) => !isAccountConnected(a));
   const filteredAccs = useMemo(
-    () => accs.filter((acc) => matchesAccountSearch(acc, accountSearch)),
-    [accs, accountSearch],
+    () =>
+      accs.filter(
+        (acc) =>
+          matchesAccountSearch(acc, accountSearch) &&
+          matchesAccountProviderFilter(acc, providerFilter) &&
+          matchesAccountStatusFilter(acc, statusFilter),
+      ),
+    [accs, accountSearch, providerFilter, statusFilter],
   );
+
+  const effectivePageSize = showAllAccounts ? Math.max(filteredAccs.length, 1) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(filteredAccs.length / effectivePageSize));
+  const paginatedAccs = filteredAccs.slice((page - 1) * effectivePageSize, page * effectivePageSize);
 
   const showFirstAccountOnboarding =
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
@@ -3085,7 +3764,7 @@ export default function Accounts() {
           <p className="mt-1.5 text-sm text-zinc-500">
             {showFirstAccountOnboarding
               ? "Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and generate evidence for your auditor."
-              : "Connected cloud accounts and scan freshness at a glance."}
+              : "Connect cloud accounts and scan for misconfigurations and risks."}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -3123,51 +3802,93 @@ export default function Accounts() {
 
       {accs.length > 0 && !showFirstAccountOnboarding && (
         <div className="space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-end">
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <label className="relative block min-w-[16rem] flex-1 sm:min-w-[18rem]">
-                <span className="sr-only">Search accounts</span>
-                <svg
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
-                </svg>
-                <input
-                  type="search"
-                  value={accountSearch}
-                  onChange={(e) => setAccountSearch(e.target.value)}
-                  placeholder="Search account, ID, provider…"
-                  className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => create.mutate(pendingConnectionOptions)}
-                disabled={create.isPending || hasPending}
-                title={hasPending ? "Finish setting up the pending account first" : undefined}
-                className={`${neutralToolbarBtn} w-full justify-center gap-1.5 sm:w-auto`}
-              >
-                <svg className="h-3.5 w-3.5 shrink-0 opacity-55" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                {create.isPending ? "Adding…" : "Add account"}
-              </button>
-            </div>
+          <AccountsStatsCards accs={accs} statsMap={statsMap} />
+
+          <div className="accounts-toolbar">
+            <label className="accounts-toolbar__search">
+              <span className="sr-only">Search accounts</span>
+              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
+              </svg>
+              <input
+                type="search"
+                value={accountSearch}
+                onChange={(e) => {
+                  setAccountSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search by account name, ID, or provider…"
+              />
+            </label>
+            <select
+              className="accounts-toolbar__select"
+              value={providerFilter}
+              onChange={(e) => {
+                setProviderFilter(e.target.value);
+                setPage(1);
+              }}
+              aria-label="Filter by provider"
+            >
+              <option value="all">All providers</option>
+              <option value="aws">AWS</option>
+            </select>
+            <select
+              className="accounts-toolbar__select"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              aria-label="Filter by status"
+            >
+              <option value="all">All statuses</option>
+              <option value="connected">Connected</option>
+              <option value="setup">Setup required</option>
+              <option value="action">Action required</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => create.mutate(pendingConnectionOptions)}
+              disabled={create.isPending || hasPending}
+              title={hasPending ? "Finish setting up the pending account first" : undefined}
+              className="accounts-toolbar__add"
+            >
+              <svg className="h-3.5 w-3.5 shrink-0 opacity-70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {create.isPending ? "Adding…" : "Add account"}
+            </button>
+            <button
+              type="button"
+              className="accounts-toolbar__view-toggle"
+              aria-label="List view"
+              title="List view"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V8.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+              </svg>
+            </button>
           </div>
 
           {filteredAccs.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-8 text-center text-sm text-zinc-500">
-              No accounts match &ldquo;{accountSearch.trim()}&rdquo;
+              No accounts match your filters
             </p>
           ) : (
-            <div className="space-y-3">
-              {filteredAccs.map((acc) => (
-                <AccountCard
+            <div className="accounts-list-shell">
+              <div className="accounts-list-shell__header">
+                <h2 className="accounts-list-shell__title">Cloud accounts ({filteredAccs.length})</h2>
+              </div>
+              <div className="accounts-list-head" aria-hidden>
+                <span>Account</span>
+                <span>Coverage</span>
+                <span>Last scan</span>
+                <span>Open findings</span>
+                <span>Status</span>
+                <span>Actions</span>
+              </div>
+              {paginatedAccs.map((acc) => (
+                <AccountTableRow
                   key={acc.id}
                   acc={acc}
                   stats={statsMap.get(acc.id)}
@@ -3176,6 +3897,36 @@ export default function Accounts() {
                   onToggle={() => setExpandedId((id) => (id === acc.id ? null : acc.id))}
                 />
               ))}
+
+              {filteredAccs.length > pageSize && (
+              <div className="accounts-list-footer">
+                {!showAllAccounts ? (
+                  <>
+                    <p className="accounts-list-footer__meta">
+                      Showing {paginatedAccs.length} of {filteredAccs.length} accounts
+                    </p>
+                    <button
+                      type="button"
+                      className="accounts-list-footer__view-all"
+                      onClick={() => {
+                        setShowAllAccounts(true);
+                        setPage(1);
+                      }}
+                    >
+                      View all accounts
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="accounts-list-footer__view-all"
+                    onClick={() => setShowAllAccounts(false)}
+                  >
+                    Show paginated
+                  </button>
+                )}
+              </div>
+              )}
             </div>
           )}
 

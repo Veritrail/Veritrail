@@ -57,7 +57,7 @@ def collect_perm_usage(db: Session, account: AwsAccount) -> int:
         except ClientError as e:
             log.warning("perm_usage.collect_skip", arn=role_arn, error=str(e))
 
-    db.commit()
+
     log.info("perm_usage.done", roles=len(jobs), upserted=upserted)
     return upserted
 

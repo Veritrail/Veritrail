@@ -12,7 +12,6 @@ Continuous cloud compliance evidence SaaS for startup engineering teams. Read-on
 
 - AWS only (no GCP/Azure/k8s in MVP)
 - Read-only — CFN role has exact actions enumerated (no SecurityAudit/ViewOnlyAccess)
-- One AWS account per org in MVP (schema is multi-account ready)
 - Solo founder, Docker Compose, no microservices, no k8s
 - FastAPI + Postgres + Celery + React + Tailwind + TanStack Query
 - Production: your VPS/cloud + TLS reverse proxy (not prescribed in-repo)
@@ -119,9 +118,7 @@ docker compose up
 ## Known gaps / shortcuts
 
 - CORS `*` in dev, locked in prod via APP_ENV
-- One account per org enforced in route (schema is fine)
 - CFN URL pinned to repo `main` — pin to release tag once stable
-- No request-id / structured access logging
 - `RESEND_API_KEY` in `.env` — rotate before prod; `onboarding@resend.dev` sender only delivers to verified Resend account email
 - Digest unsubscribe links to `/settings` — no token-based one-click unsubscribe yet
 

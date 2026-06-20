@@ -97,6 +97,6 @@ def collect_guardduty_findings(db: Session, account: AwsAccount, max_per_region:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_guardduty_findings.done", account_id=str(account.id), findings=count)
     return count

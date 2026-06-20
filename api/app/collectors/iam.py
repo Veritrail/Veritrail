@@ -67,16 +67,16 @@ def collect_iam(db: Session, account: AwsAccount) -> dict:
                 )
 
     log.info("collect_iam.users_done", users=user_count, access_keys=key_count)
-    db.commit()
+
 
     role_count = _collect_roles(db, sess, account)
-    db.commit()
+
 
     _collect_password_policy(db, iam, account)
-    db.commit()
+
 
     policy_count = _collect_managed_policies(db, iam, account)
-    db.commit()
+
 
     log.info("collect_iam.done", users=user_count, access_keys=key_count, roles=role_count, policies=policy_count)
     return {"iam_users": user_count, "iam_access_keys": key_count, "iam_roles": role_count}

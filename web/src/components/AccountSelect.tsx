@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
+import { AWS_LOGO_DARK, AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { AzureMark, GcpMark } from "./IntegrationsUi";
 
 export type CloudProvider = "aws" | "gcp" | "azure";
@@ -18,13 +18,13 @@ const CONTEXT_PILL =
 function AwsMark({ className }: { className?: string }) {
   return (
     <img
-      src="/aws-account-icon.png"
+      src={AWS_LOGO_LIGHT}
       alt=""
       className={`${className ?? "h-[1.125rem] w-[2.25rem]"} shrink-0 object-contain object-left`}
       aria-hidden
       onError={(e) => {
         e.currentTarget.onerror = null;
-        e.currentTarget.src = AWS_LOGO_LIGHT;
+        e.currentTarget.src = AWS_LOGO_DARK;
       }}
     />
   );

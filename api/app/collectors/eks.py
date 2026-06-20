@@ -96,6 +96,6 @@ def collect_eks(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_eks.done", account_id=str(account.id), clusters=count)
     return count

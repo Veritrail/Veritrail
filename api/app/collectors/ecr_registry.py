@@ -65,6 +65,6 @@ def collect_ecr_registry_settings(db: Session, account: AwsAccount) -> int:
             count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_ecr_registry_settings.done", account_id=str(account.id), regions=count)
     return count

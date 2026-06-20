@@ -108,6 +108,20 @@ REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
         ),
         runner_supported=True,
     ),
+    RemediationModuleSpec(
+        id="kms_rotation",
+        label="KMS key rotation",
+        badge_label="KMS remediation",
+        enable_column="enable_remediation_kms",
+        deployed_column="remediation_kms_deployed",
+        cfn_parameter="EnableKmsRotationRemediation",
+        iam_policy_name=SSM_EXECUTOR_POLICY_NAME,
+        permissions=(
+            "kms:EnableKeyRotation",
+            "kms:GetKeyRotationStatus",
+        ),
+        runner_supported=True,
+    ),
 )
 
 REMEDIATION_MODULE_BY_ID = {m.id: m for m in REMEDIATION_MODULES}
@@ -121,6 +135,7 @@ MODULE_SAMPLE_CHECK_ID: dict[str, str] = {
     "iam_policies": "iam.role.least_privilege_policy",
     "ssm_parameters": "ssm.parameter.plaintext_secret",
     "cloudtrail_logging": "cloudtrail.trail.not_enabled",
+    "kms_rotation": "kms.key.no_rotation",
 }
 
 # Finding check_id → remediation module (SSM automation).
@@ -133,7 +148,7 @@ CHECK_TO_REMEDIATION_MODULE: dict[str, str] = {
     "ssm.parameter.plaintext_secret": "ssm_parameters",
     "cloudtrail.trail.not_enabled": "cloudtrail_logging",
     "iam.role.least_privilege_policy": "iam_policies",
-    # kms.key.no_rotation — no dedicated KMS remediation module; covered by IaC PR auto-patching
+    "kms.key.no_rotation": "kms_rotation",
 }
 
 

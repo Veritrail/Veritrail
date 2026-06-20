@@ -32,15 +32,25 @@ import AuditorFindings from "./pages/AuditorFindings";
 import AuditorControls from "./pages/AuditorControls";
 import AuditorEvidence from "./pages/AuditorEvidence";
 import AuditorExport from "./pages/AuditorExport";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import TrustCenter from "./pages/TrustCenter";
 
-const qc = new QueryClient();
+const qc = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,          // 1 minute default — prevents refetch spam on every mount
+      refetchOnWindowFocus: false, // Don't refetch when user alt-tabs back
+      retry: 1,                   // One retry on network failure
+    },
+  },
+});
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <QueryClientProvider client={qc}>
-      <BrowserRouter>
-        <Routes>
+    <ErrorBoundary>
+      <QueryClientProvider client={qc}>
+        <BrowserRouter>
+          <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/login" element={<Login />} />
@@ -88,5 +98,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

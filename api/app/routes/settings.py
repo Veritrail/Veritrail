@@ -21,6 +21,7 @@ from app.checks.optional_checks import OPTIONAL_LINKED
 from app.services.check_settings import hidden_check_ids, optional_checks_for_ui
 from app.services.cis_benchmark_coverage import cis_benchmark_coverage
 from app.services.digest_tokens import ensure_digest_unsubscribe_token
+from app.services.org_activity import log_org_activity
 from app.core.route_deps import RequireAdmin
 from app.services.scan_schedule import (
     DEFAULT_SCANNING,
@@ -211,8 +212,27 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
         features["ai_finding_review_enabled"] = body.features.ai_finding_review_enabled
         current["features"] = features
 
+    changed_sections = [
+        name
+        for name, val in (
+            ("checks", body.checks),
+            ("scanning", body.scanning),
+            ("notifications", body.notifications),
+            ("features", body.features),
+        )
+        if val is not None
+    ]
     org.settings = current
     db.add(org)
+    log_org_activity(
+        db,
+        org_id=org.id,
+        actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
+        action="org.settings_updated",
+        target_type="org",
+        target_id=str(org.id),
+        detail={"sections": changed_sections},
+    )
     db.commit()
     db.refresh(org)
     user = db.get(User, uuid.UUID(p["sub"]))

@@ -26,6 +26,7 @@ VIGIL_SSM_PARAMETER_DOCUMENT = "Vigil-MigrateSsmParameterToSecureString"
 VIGIL_IAM_POLICY_DOCUMENT = "Vigil-RemediateIamExcessPermissions"
 
 AWS_S3_BUCKET_PAB_DOCUMENT = "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
+AWS_KMS_ENABLE_ROTATION_DOCUMENT = "AWSConfigRemediation-EnableKeyRotation"
 
 RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     "ec2.security_group.unrestricted_ssh": SsmRemediationRunbook(
@@ -87,6 +88,13 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
         parameter_mode="aws_cloudtrail_enable_guided",
         note="AWS-owned runbook — requires user-supplied S3BucketName and TrailName. Not auto-execed without user input.",
     ),
+    "kms.key.no_rotation": SsmRemediationRunbook(
+        check_id="kms.key.no_rotation",
+        document_name=AWS_KMS_ENABLE_ROTATION_DOCUMENT,
+        owner="aws",
+        parameter_mode="aws_kms_enable_rotation",
+        note="AWS-owned runbook enables annual rotation on the reviewed key. Idempotent and transparent to callers.",
+    ),
 }
 
 
@@ -136,6 +144,21 @@ def _bucket_name(plan: dict[str, Any]) -> str:
     raise ValueError("missing S3 bucket name")
 
 
+def _kms_key_id(plan: dict[str, Any]) -> str:
+    """Resolve a KMS KeyId from reviewed evidence or the key ARN."""
+    evidence = plan.get("evidence") or {}
+    if evidence.get("key_id"):
+        return str(evidence["key_id"])
+
+    arn = plan.get("resource_arn") or ""
+    # arn:aws:kms:<region>:<account>:key/<key-id>
+    if ":key/" in arn:
+        return arn.split(":key/", 1)[1]
+    if arn and ":" not in arn:
+        return arn
+    raise ValueError("missing KMS key id")
+
+
 def _require_automation_role(automation_assume_role_arn: str | None) -> str:
     if not automation_assume_role_arn:
         raise ValueError("missing AutomationAssumeRole ARN for AWS-owned runbook")
@@ -163,6 +186,13 @@ def automation_parameters_for_plan(
             "BlockPublicPolicy": ["true"],
             "IgnorePublicAcls": ["true"],
             "RestrictPublicBuckets": ["true"],
+        }
+
+    if runbook.parameter_mode == "aws_kms_enable_rotation":
+        automation_role = _require_automation_role(automation_assume_role_arn)
+        return {
+            "AutomationAssumeRole": [automation_role],
+            "KeyId": [_kms_key_id(plan)],
         }
 
     if runbook.parameter_mode == "aws_cloudtrail_enable_guided":

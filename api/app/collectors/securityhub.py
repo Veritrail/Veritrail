@@ -62,6 +62,6 @@ def collect_securityhub(db: Session, account: AwsAccount) -> int:
         db.execute(stmt)
         count += 1
 
-    db.commit()
+
     log.info("collect_securityhub.done", account_id=str(account.id), regions=count)
     return count

@@ -105,7 +105,7 @@ def collect_s3(db: Session, account: AwsAccount) -> int:
         db.execute(stmt)
         count += 1
 
-    db.commit()
+
     log.info("collect_s3.done", account_id=str(account.id), buckets=count)
     return count
 
@@ -149,7 +149,7 @@ def collect_s3_account_public_access_block(db: Session, account: AwsAccount) -> 
         },
     )
     db.execute(stmt)
-    db.commit()
+
     log.info("collect_s3_account_public_access_block.done", account_id=str(account.id), all_blocked=all_blocked)
     return 1
 
@@ -218,6 +218,6 @@ def collect_kms(db: Session, account: AwsAccount) -> int:
             db.execute(stmt)
             count += 1
 
-    db.commit()
+
     log.info("collect_kms.done", account_id=str(account.id), keys=count)
     return count

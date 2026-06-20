@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
+import { settingsSchema, trustCenterSettingsSchema, auditorListSchema, memberListSchema } from "../lib/apiSchemas";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { ProductShell } from "../components/ProductShell";
 import NotificationsBell from "../components/NotificationsBell";
@@ -314,13 +315,11 @@ function PostureReadinessCell({
   tone,
   label,
   message,
-  onViewDetails,
 }: {
   score: number;
   tone: Tone;
   label: string;
   message: string;
-  onViewDetails: () => void;
 }) {
   return (
     <div className="workspace-summary__cell workspace-summary__cell--readiness">
@@ -331,12 +330,6 @@ function PostureReadinessCell({
         <div className="workspace-summary__detail">{message}</div>
         <div className={`workspace-summary__progress workspace-summary__progress--${tone}`} aria-hidden>
           <span className="workspace-summary__progress-fill" style={{ width: `${score}%` }} />
-        </div>
-        <div className="workspace-summary__meta">
-          <span>Last updated just now</span>
-          <button type="button" className="workspace-summary__link" onClick={onViewDetails}>
-            View details &rarr;
-          </button>
         </div>
       </div>
     </div>
@@ -553,9 +546,6 @@ function ReadinessChecklistPanel({
           </div>
         </div>
       )}
-      <button type="button" className="workspace-readiness-panel__link">
-        View all checklist items <span aria-hidden>&rarr;</span>
-      </button>
     </aside>
   );
 }
@@ -887,7 +877,10 @@ export default function Workspace() {
   const location = useLocation();
   const canEditWorkspace = roleAtLeast(meQ.data?.role, "admin");
   const isOwner = meQ.data?.role === "owner";
-  const { data, isLoading } = useQuery<SettingsData>({ queryKey: ["settings"], queryFn: () => api("/v1/settings") });
+  const { data, isLoading } = useQuery<SettingsData>({
+    queryKey: ["settings"],
+    queryFn: () => api("/v1/settings", { schema: settingsSchema }),
+  });
 
   const [tab, setTab] = useState<TabId>(() => tabFromHash(location.hash));
   useEffect(() => {
@@ -901,16 +894,16 @@ export default function Workspace() {
 
   const trustCenter = useQuery<{ is_enabled: boolean }>({
     queryKey: ["trust-center-settings"],
-    queryFn: () => api("/v1/settings/trust-center"),
+    queryFn: () => api("/v1/settings/trust-center", { schema: trustCenterSettingsSchema }),
   });
   const auditorList = useQuery<{ is_active: boolean; expires_at: string }[]>({
     queryKey: ["auditor-list"],
-    queryFn: () => api("/v1/auditor/list"),
+    queryFn: () => api("/v1/auditor/list", { schema: auditorListSchema }),
     enabled: canEditWorkspace,
   });
   const members = useQuery<MemberRow[]>({
     queryKey: ["team-members"],
-    queryFn: () => api("/v1/members"),
+    queryFn: () => api("/v1/members", { schema: memberListSchema }),
     enabled: isOwner,
   });
 
@@ -1097,9 +1090,6 @@ export default function Workspace() {
   const notificationHealthy = alertsOn;
   const scopeHealthy = optionalTotal === 0 || enabledOptional > 0;
   const roleCount = useMemberFallback ? 2 : new Set(memberRows.map((member) => member.role)).size;
-  const nextScanTime = data?.scan_status.next_scan_at
-    ? new Date(data.scan_status.next_scan_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-    : null;
   const deliveryDestinationCount = (deliveryTarget ? 1 : 0) + (slackConnected ? 1 : 0);
   const alertRoutes = slackConnected ? "Email · Slack" : alertsOn ? "Email" : "Off";
 
@@ -1108,8 +1098,11 @@ export default function Workspace() {
   const readinessItems = [
     { label: "Account connected", done: accountConnected },
     { label: "Automated scanning enabled", done: scanEnabled },
-    { label: "Team members invited", done: memberCount > 1 },
-    { label: "Workspace roles assigned", done: roleCount > 1 },
+    // Non-owners can't fetch the member list (owner-managed), so memberCount is
+    // 0 for them. Their very presence proves both items are satisfied — treat as
+    // done so readiness is identical for everyone in the same workspace.
+    { label: "Team members invited", done: isOwner ? memberCount > 1 : true },
+    { label: "Workspace roles assigned", done: isOwner ? roleCount > 1 : true },
     { label: "Alert routes configured", done: alertsOn },
     { label: "Delivery destination connected", done: deliveryDestinationCount > 0 },
     { label: "Trust Center published", done: trustLive },
@@ -1153,14 +1146,12 @@ export default function Workspace() {
             tone={readinessTone}
             label={readinessLabel}
             message={readinessMessage}
-            onViewDetails={() => selectTab("overview")}
           />
           <PostureMetricCell
             icon={ICONS.access}
             label="Access"
             value={isOwner ? `${memberCount} member${memberCount === 1 ? "" : "s"}` : "Team"}
             detail={isOwner ? "Members and roles" : "Owner managed"}
-            pill={isOwner && roleCount > 0 ? <span className="workspace-summary__pill">{roleCount} role{roleCount === 1 ? "" : "s"}</span> : undefined}
           />
           <PostureMetricCell
             icon={ICONS.sharing}
@@ -1168,7 +1159,6 @@ export default function Workspace() {
             value={activeAuditors ? "Auditor" : trustLive ? "Live" : "Private"}
             detail={`${activeAuditors} active auditor${activeAuditors === 1 ? "" : "s"}`}
             valueTone={trustLive || activeAuditors > 0 ? "ok" : "default"}
-            pill={trustLive ? <span className="workspace-summary__pill workspace-summary__pill--ok">Public profile on</span> : undefined}
           />
           <PostureMetricCell
             iconSlot={<ScanningKpiIcon />}
@@ -1176,7 +1166,6 @@ export default function Workspace() {
             value={scanBadge}
             detail={`Next: ${nextScan}`}
             valueTone="info"
-            pill={scanEnabled && nextScanTime ? <span className="workspace-summary__pill">{nextScanTime}</span> : undefined}
           />
           <PostureMetricCell
             icon={ICONS.notifications}
@@ -1218,7 +1207,7 @@ export default function Workspace() {
                 onAction={() => selectTab("access")}
               >
                 <OverviewFactRow icon={ICONS.access} label="Members" value={`${memberCount} total`} />
-                <OverviewFactRow icon={ICONS.sharing} label="Roles" value={isOwner ? "Owner, Admin, Viewer" : "Owner managed"} />
+                <OverviewFactRow icon={ICONS.sharing} label="Roles" value="Admin, Editor, Viewer" />
                 <OverviewFactRow icon={ICONS.evidence} label="Invite settings" value="Domain restricted" />
               </OverviewActionCard>
 
@@ -1245,15 +1234,7 @@ export default function Workspace() {
               >
                 <OverviewFactRow icon={ICONS.clock} label="Next scan" value={nextScan} />
                 <OverviewFactRow icon={ICONS.calendar} label="Schedule" value={scanBadge} />
-                <OverviewFactRow
-                  icon={ICONS.clock}
-                  label="Last scan"
-                  value={
-                    <>
-                      {lastScan} <StatusBadge tone={scanHealthy ? "ok" : "idle"} plain>{scanHealthy ? "Completed" : "Manual"}</StatusBadge>
-                    </>
-                  }
-                />
+                <OverviewFactRow icon={ICONS.clock} label="Last scan" value={lastScan} />
               </OverviewActionCard>
 
               <OverviewActionCard
