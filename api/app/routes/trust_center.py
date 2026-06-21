@@ -1,19 +1,21 @@
 """Public Trust Center — unauthenticated security profile (no live posture scores)."""
-from __future__ import annotations
-
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.public_url import resolve_public_asset_url
 from app.core.config import get_settings
-from app.models import AwsAccount
+from app.core.ratelimit import limiter
+from app.models import AwsAccount, User
 from app.models.auditor import TrustCenterConfig
 from app.models.org import Org
+from app.models.org_team import OrgMembership
+from app.services.mail import send_mail
+from app.services.org_activity import log_org_activity
 
 router = APIRouter()
 
@@ -164,3 +166,60 @@ def get_trust_center(subdomain_slug: str, db: Session = Depends(get_db)):
         monitoring_areas=list(MONITORING_AREAS),
         documents=_build_documents(framework_keys),
     )
+
+
+class TrustAccessRequestIn(BaseModel):
+    email: EmailStr
+    company: str = ""
+    message: str = ""
+
+
+@router.post("/{subdomain_slug}/request-access", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/minute")
+def request_trust_access(
+    subdomain_slug: str,
+    body: TrustAccessRequestIn,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Public: a prospect requests the org's compliance report. We notify the
+    owner, who shares it under NDA via the private auditor portal. Returns a
+    generic response so it can't enumerate orgs."""
+    config = db.scalar(
+        select(TrustCenterConfig).where(
+            TrustCenterConfig.subdomain_slug == subdomain_slug,
+            TrustCenterConfig.is_enabled == True,  # noqa: E712
+        )
+    )
+    if config:
+        org = db.get(Org, config.org_id)
+        owner_email = db.scalar(
+            select(User.email)
+            .join(OrgMembership, OrgMembership.user_id == User.id)
+            .where(OrgMembership.org_id == config.org_id, OrgMembership.role == "owner")
+            .limit(1)
+        )
+        if owner_email:
+            company = (body.company or "").strip() or "an unspecified company"
+            note = (body.message or "").strip()
+            text = (
+                f"{body.email} from {company} requested access to your compliance "
+                f"report via your Trust Center.\n\n"
+                + (f"Their message:\n{note}\n\n" if note else "")
+                + "Share the report under NDA through the private auditor portal in Vigil."
+            )
+            send_mail(
+                to=owner_email,
+                subject=f"Compliance report request — {org.name if org else 'your workspace'}",
+                text=text,
+            )
+        log_org_activity(
+            db,
+            org_id=config.org_id,
+            actor_user_id=None,
+            action="trust.access_requested",
+            target_type="trust_center",
+            detail={"requester": str(body.email), "company": body.company[:120]},
+        )
+        db.commit()
+    return {"ok": True, "message": "Thanks — the team has been notified and will follow up."}

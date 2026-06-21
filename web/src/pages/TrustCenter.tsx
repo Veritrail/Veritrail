@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { SafeExternalImage } from "../components/SafeExternalImage";
 import { publicApi } from "../api";
@@ -40,6 +41,79 @@ function documentAvailabilityLabel(code: string): string {
   if (code === "on_request") return "Available on request";
   if (code === "not_published") return "Not published";
   return code.replace(/_/g, " ");
+}
+
+function RequestReportCard({ slug, companyName }: { slug?: string; companyName: string }) {
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [message, setMessage] = useState("");
+  const submit = useMutation({
+    mutationFn: () =>
+      publicApi(`/trust/${slug}/request-access`, {
+        method: "POST",
+        body: JSON.stringify({ email, company, message }),
+      }),
+  });
+
+  if (submit.isSuccess) {
+    return (
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-6 text-center">
+        <p className="text-sm font-semibold text-emerald-800">Request sent</p>
+        <p className="mt-1 text-sm text-emerald-700">
+          {companyName} has been notified and will follow up with the report under NDA.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (email) submit.mutate();
+      }}
+      className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+    >
+      <h2 className="text-base font-bold text-zinc-900">Request the report</h2>
+      <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">
+        SOC&nbsp;2 and other compliance reports are shared under NDA. Tell us where to send it.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Work email"
+          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-400"
+        />
+        <input
+          type="text"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="Company (optional)"
+          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-400"
+        />
+      </div>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Anything we should know? (optional)"
+        rows={2}
+        className="mt-3 w-full resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-400"
+      />
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={!email || submit.isPending}
+          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submit.isPending ? "Sending…" : "Request access"}
+        </button>
+        {submit.isError && <span className="text-sm text-red-600">Could not send — try again.</span>}
+      </div>
+    </form>
+  );
 }
 
 export default function TrustCenter() {
@@ -157,6 +231,8 @@ export default function TrustCenter() {
             </ul>
           </div>
         </section>
+
+        <RequestReportCard slug={slug} companyName={data.company_name} />
 
         <p className="border-t border-zinc-200 pt-4 text-center text-xs leading-relaxed text-zinc-400">
           This page is a high-level security profile only. It does not list findings, control gaps, resource names, or

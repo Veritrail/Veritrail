@@ -12,6 +12,7 @@ import { TeamMembersSettings } from "../components/TeamMembersSettings";
 import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
 import { AccessCard } from "../components/accessUi";
+import { WorkspaceActivity } from "../components/WorkspaceActivity";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import "../styles/findings-v2.css";
@@ -21,7 +22,7 @@ import "../styles/workspace-page.css";
 type ScanInterval = "daily" | "weekly" | "custom" | "manual";
 type FreqMode = "daily" | "weekly" | "custom";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type TabId = "overview" | "access" | "sharing" | "scanning" | "notifications";
+type TabId = "overview" | "access" | "sharing" | "scanning" | "notifications" | "activity";
 type Tone = "ok" | "warn" | "danger" | "idle" | "info";
 
 type OptionalCheck = {
@@ -82,6 +83,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "sharing", label: "Sharing" },
   { id: "scanning", label: "Scanning" },
   { id: "notifications", label: "Notifications" },
+  { id: "activity", label: "Activity" },
 ];
 
 function tabFromHash(hash: string): TabId {
@@ -1508,6 +1510,17 @@ export default function Workspace() {
                 </section>
               </div>
             </section>
+          </WorkspaceDetailSection>
+        )}
+
+        {tab === "activity" && (
+          <WorkspaceDetailSection
+            icon={<Icon d={ICONS.clock} />}
+            eyebrow="Activity"
+            title="Audit log"
+            description="Who changed what, and when — connected accounts, settings, members, and roles. Change-management evidence for your own SOC 2."
+          >
+            <WorkspaceActivity />
           </WorkspaceDetailSection>
         )}
           </div>

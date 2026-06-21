@@ -198,6 +198,21 @@ export const workspaceSchema = z.object({
 
 export const workspaceListSchema = z.array(workspaceSchema);
 
+export const auditLogEntrySchema = z.object({
+  id: z.string(),
+  action: z.string(),
+  actor_email: z.string().nullable().optional(),
+  target_type: z.string().nullable().optional(),
+  target_id: z.string().nullable().optional(),
+  target_label: z.string().nullable().optional(),
+  detail: z.record(z.string(), z.unknown()).default({}),
+  created_at: z.string().nullable().optional(),
+});
+
+export const auditLogSchema = z.array(auditLogEntrySchema);
+
+export type AuditLogEntry = z.infer<typeof auditLogEntrySchema>;
+
 export const scanRunSchema = z.object({
   id: z.string(),
   account_id: z.string(),
