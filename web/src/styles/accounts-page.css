@@ -7,90 +7,115 @@
   --accounts-radius: 1rem;
 }
 
-/* Top metrics */
+/* Top metrics — one segmented strip, matching the Workspace health strip. */
 .accounts-page__stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: 1fr;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -6px rgba(15, 23, 42, 0.08);
 }
 
-@media (max-width: 1100px) {
+@media (min-width: 720px) {
   .accounts-page__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 640px) {
+@media (min-width: 1080px) {
   .accounts-page__stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 .accounts-stat-card {
   display: flex;
-  align-items: flex-start;
-  gap: 1.1rem;
-  min-height: 8.5rem;
-  border: 1px solid var(--accounts-border);
-  border-radius: 1rem;
-  background: var(--accounts-surface);
-  padding: 1.35rem 1.5rem;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  min-width: 0;
+  min-height: 7.5rem;
+  align-items: center;
+  gap: 1.125rem;
+  padding: 1.5rem 1.625rem;
+  border-bottom: 1px solid #eef2f6;
+  border-right: 1px solid #eef2f6;
+}
+
+/* Drop the dangling right/bottom borders depending on the column count. */
+.accounts-stat-card:last-child { border-right: 0; border-bottom: 0; }
+@media (min-width: 720px) and (max-width: 1079px) {
+  .accounts-stat-card:nth-child(2n) { border-right: 0; }
+  .accounts-stat-card:nth-last-child(-n + 2) { border-bottom: 0; }
+}
+@media (min-width: 1080px) {
+  .accounts-stat-card { border-bottom: 0; }
+  .accounts-stat-card:last-child { border-right: 0; }
 }
 
 .accounts-stat-card__icon {
-  display: flex;
-  width: 3.5rem;
-  height: 3.5rem;
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 .accounts-stat-card__icon svg {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
-.accounts-stat-card__icon--violet { background: #f3e8ff; color: #9333ea; }
-.accounts-stat-card__icon--teal { background: #d1faf5; color: #0f766e; }
-.accounts-stat-card__icon--amber { background: #ffedd5; color: #ea580c; }
-.accounts-stat-card__icon--rose { background: #ffe4e6; color: #e11d48; }
+.accounts-stat-card__content {
+  min-width: 0;
+  flex: 1;
+}
 
 .accounts-stat-card__label {
   margin: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #52525b;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #64748b;
 }
 
 .accounts-stat-card__value {
-  margin: 0.35rem 0 0;
-  font-size: 2.125rem;
-  font-weight: 800;
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 600;
   line-height: 1;
-  letter-spacing: -0.03em;
-  color: #09090b;
+  letter-spacing: -0.025em;
+  color: #0f172a;
 }
 
-.accounts-stat-card__sub,
-.accounts-stat-card__trend {
-  margin: 0.55rem 0 0;
+.accounts-stat-card__value--rose { color: #e11d48; }
+
+.accounts-stat-card__sub {
+  margin: 0.3rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.8125rem;
-  line-height: 1.4;
-  color: var(--accounts-muted);
+  line-height: 1.25;
+  color: #64748b;
 }
 
-.accounts-stat-card__trend--up { color: #059669; font-weight: 600; }
+.accounts-stat-card__trend--up { color: #16a34a; font-weight: 600; }
 .accounts-stat-card__trend--down { color: #dc2626; font-weight: 600; }
 
 .accounts-stat-card__progress {
-  margin-top: 0.85rem;
-  height: 0.45rem;
+  margin-top: 0.6rem;
+  height: 0.375rem;
   overflow: hidden;
   border-radius: 999px;
-  background: #e8edf3;
+  background: #eef2f6;
 }
 
 .accounts-stat-card__progress-fill {
@@ -143,17 +168,20 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
-.accounts-toolbar__select {
+/* Custom Select trigger in the toolbar — match the search/add control family. */
+.vigil-select__btn.accounts-toolbar__select {
   height: 2.75rem;
-  border: 1px solid var(--accounts-border);
+  padding: 0 0.95rem;
   border-radius: 0.75rem;
-  background: var(--accounts-surface);
-  padding: 0 2rem 0 0.85rem;
+  border-color: var(--accounts-border);
   font-size: 0.875rem;
-  font-weight: 600;
-  color: #3f3f46;
-  outline: none;
+  font-weight: 500;
+  color: #334155;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.vigil-select__btn.accounts-toolbar__select .vigil-select__chev {
+  color: #94a3b8;
 }
 
 .accounts-toolbar__add {
@@ -187,7 +215,10 @@
 
 /* List shell — mock-aligned account card */
 .accounts-page {
-  --accounts-row-grid: 2rem minmax(240px, 1.55fr) minmax(108px, 0.72fr) minmax(220px, 1.1fr) minmax(108px, 0.52fr) max-content;
+  /* Last track is a FIXED width (not max-content): the header and each row are
+     separate grids, so max-content would size the header's "Actions" track to the
+     word while each row sized to its buttons — drifting every middle column. */
+  --accounts-row-grid: 2rem minmax(240px, 1.55fr) minmax(120px, 0.8fr) minmax(220px, 1.1fr) minmax(110px, 0.55fr) 9.5rem;
 }
 
 .accounts-list-shell {
@@ -229,10 +260,12 @@
   color: #a1a1aa;
 }
 
+/* Actions header + buttons both left-align at the track start, so the "Actions"
+   title sits directly above the "Scan now" button — like every other column. */
 .accounts-list-head__actions,
-.accounts-col--actions {
-  justify-self: end;
-  text-align: right;
+.accounts-col.accounts-col--actions {
+  justify-self: start;
+  text-align: left;
 }
 
 .accounts-col {
@@ -349,14 +382,17 @@
 
 .accounts-row-chevron {
   display: inline-flex;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-self: flex-start;
+  margin-top: 0.65rem; /* line up with the logo center, not the tall row's vertical center */
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: 9999px;
   background: transparent;
-  color: #71717a;
+  color: #a1a1aa;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .accounts-row-chevron:hover {
@@ -378,10 +414,17 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e4e4e7;
-  border-radius: 0.65rem;
+  border: 1px solid #eef2f6;
+  border-radius: 0.7rem;
   background: #fff;
-  padding: 0.28rem;
+  padding: 0.2rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.accounts-account-cell__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .accounts-account-cell__name-row {
@@ -501,8 +544,8 @@
 .accounts-row-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  justify-self: end;
+  justify-content: flex-start;
+  justify-self: start;
   gap: 0.4rem;
 }
 

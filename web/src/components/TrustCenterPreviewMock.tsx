@@ -61,7 +61,7 @@ export function TrustCenterPreviewMock({
           </div>
         </div>
 
-        <p className="sharing-trust-preview__headline">Continuous compliance, independently verified.</p>
+        <p className="sharing-trust-preview__headline">Continuous compliance evidence, refreshed daily.</p>
 
         <div className="sharing-trust-preview__badges">
           <span>

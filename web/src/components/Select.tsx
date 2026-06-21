@@ -90,13 +90,13 @@ export function Select({
         <span className="vigil-select__value">{selected?.label ?? "Select"}</span>
         <svg
           className={`vigil-select__chev${open ? " vigil-select__chev--open" : ""}`}
-          width="14"
-          height="14"
-          viewBox="0 0 20 20"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
           fill="none"
           aria-hidden
         >
-          <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 

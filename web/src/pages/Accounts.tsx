@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
@@ -19,6 +20,7 @@ import {
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
+import { Select } from "../components/Select";
 import NotificationsBell from "../components/NotificationsBell";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
@@ -605,8 +607,6 @@ function formatRelativeScanAgo(lastScanAt: string | null | undefined): string {
   if (hrs < 48) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 }
-
-const ACCOUNT_PLAN_LIMIT = 50;
 
 function matchesAccountStatusFilter(acc: Account, filter: string): boolean {
   if (filter === "all") return true;
@@ -2487,11 +2487,47 @@ function AccountMenu({
   disconnectPending = false,
 }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
   const itemClass =
     "block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50";
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setCoords({ top: r.bottom + 6, right: window.innerWidth - r.right });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onScrollResize() {
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScrollResize, true);
+    window.addEventListener("resize", onScrollResize);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScrollResize, true);
+      window.removeEventListener("resize", onScrollResize);
+    };
+  }, [open]);
+
   return (
     <div className="relative">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
@@ -2505,10 +2541,15 @@ function AccountMenu({
           <circle cx="19" cy="12" r="2.25" />
         </svg>
       </button>
-      {open && (
-        <>
-          <button type="button" aria-hidden className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-          <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10">
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ position: "fixed", top: coords.top, right: coords.right }}
+            className="z-[60] w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
+          >
             <button
               role="menuitem"
               disabled={scanDisabled}
@@ -2553,9 +2594,9 @@ function AccountMenu({
             >
               Disconnect account
             </button>
-          </div>
-        </>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -2707,10 +2748,12 @@ function AccountsStatsCards({
   accs,
   statsMap,
   scanStats,
+  planUsage,
 }: {
   accs: Account[];
   statsMap: Map<string, FindingStats>;
   scanStats?: { scans_last_7_days: number; scans_prev_7_days: number };
+  planUsage?: { plan_label: string; max_accounts: number | null; used: number };
 }) {
   const connected = accs.filter((a) => isAccountConnected(a)).length;
   const scansLast7Days = scanStats?.scans_last_7_days ?? 0;
@@ -2722,7 +2765,9 @@ function AccountsStatsCards({
     highSeverity += stats.critHigh;
   }
 
-  const planPct = Math.min(100, Math.round((connected / ACCOUNT_PLAN_LIMIT) * 100));
+  const maxAccounts = planUsage?.max_accounts ?? null;
+  const planLabel = planUsage?.plan_label ?? "Plan";
+  const planPct = maxAccounts ? Math.min(100, Math.round((connected / maxAccounts) * 100)) : 0;
   let scanTrendPct: number | null = null;
   if (scansPrev7Days > 0) {
     scanTrendPct = Math.round(((scansLast7Days - scansPrev7Days) / scansPrev7Days) * 100);
@@ -2732,18 +2777,18 @@ function AccountsStatsCards({
     label: string;
     value: string;
     sub: string;
-    icon: "cloud" | "scan" | "alert" | "shield";
+    icon: "cloud" | "scan" | "flag" | "warning";
     tone: "violet" | "teal" | "amber" | "rose";
     progress?: number;
     trend?: { text: string; tone: "up" | "down" };
   }> = [
     {
       label: "Connected accounts",
-      value: `${connected} of ${ACCOUNT_PLAN_LIMIT}`,
-      sub: `${planPct}% of plan limit`,
+      value: maxAccounts != null ? `${connected} of ${maxAccounts}` : String(connected),
+      sub: maxAccounts != null ? `${planPct}% of ${planLabel} plan` : `${planLabel} · unlimited`,
       icon: "cloud",
       tone: "violet",
-      progress: planPct,
+      progress: maxAccounts != null ? planPct : undefined,
     },
     {
       label: "Scans (last 7 days)",
@@ -2763,14 +2808,14 @@ function AccountsStatsCards({
       label: "Open findings",
       value: String(openFindings),
       sub: "total active",
-      icon: "alert",
+      icon: "flag",
       tone: "amber",
     },
     {
       label: "High severity",
       value: String(highSeverity),
       sub: "critical + high",
-      icon: "shield",
+      icon: "warning",
       tone: "rose",
     },
   ];
@@ -2779,56 +2824,37 @@ function AccountsStatsCards({
     <div className="accounts-page__stats">
       {cards.map((card) => (
         <div className="accounts-stat-card" key={card.label}>
-          <span className={`accounts-stat-card__icon accounts-stat-card__icon--${card.tone}`}>
+          <span className="accounts-stat-card__icon">
             {card.icon === "cloud" && (
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5h11.25a3.75 3.75 0 1 0 0-7.5 4.5 4.5 0 0 0-8.65-1.5A3.375 3.375 0 0 0 2.25 15Z"
-                />
-              </svg>
-            )}
-            {card.icon === "scan" && (
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M14.121 14.121 16.5 16.5M14.25 11.25a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                />
-              </svg>
-            )}
-            {card.icon === "alert" && (
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-                />
-              </svg>
-            )}
-            {card.icon === "shield" && (
-              <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-                />
-              </svg>
-            )}
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                </svg>
+              )}
+              {card.icon === "scan" && (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+              )}
+              {card.icon === "flag" && (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+                </svg>
+              )}
+              {card.icon === "warning" && (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+              )}
           </span>
-          <div className="min-w-0 flex-1">
+          <div className="accounts-stat-card__content">
             <p className="accounts-stat-card__label">{card.label}</p>
-            <p className="accounts-stat-card__value">{card.value}</p>
+            <p className={`accounts-stat-card__value${card.tone === "rose" ? " accounts-stat-card__value--rose" : ""}`}>
+              {card.value}
+            </p>
             {card.trend ? (
-              <p className={`accounts-stat-card__trend accounts-stat-card__trend--${card.trend.tone}`}>
-                {card.trend.text}{" "}
-                <span className="font-normal text-slate-500">{card.sub}</span>
+              <p className="accounts-stat-card__sub">
+                <span className={`accounts-stat-card__trend--${card.trend.tone}`}>{card.trend.text}</span>{" "}
+                {card.sub}
               </p>
             ) : (
               <p className="accounts-stat-card__sub">{card.sub}</p>
@@ -3010,6 +3036,7 @@ function AccountCard({
     onSuccess: () => {
       setShowRemoveConfirm(false);
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
     },
   });
 
@@ -3469,6 +3496,7 @@ function AccountPremiumCard({
     onSuccess: () => {
       setShowRemoveConfirm(false);
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
     },
   });
 
@@ -3542,7 +3570,7 @@ function AccountPremiumCard({
 
           <div className="accounts-account-cell">
             <div className="accounts-account-cell__logo">
-              <img src="/aws-account-icon.png" alt="" className="h-full w-full object-contain" aria-hidden />
+              <img src="/aws.png" alt="AWS" className="h-full w-full object-contain" aria-hidden />
             </div>
             <div className="min-w-0">
               <div className="accounts-account-cell__name-row">
@@ -3766,6 +3794,7 @@ export default function Accounts() {
       }),
     onSuccess: (acc) => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
       setSetupInitialStep(1);
       setExpandedId(acc.id);
       setPendingConnectionOptions(accountConnectionOptions(acc));
@@ -3797,6 +3826,15 @@ export default function Accounts() {
     staleTime: 60_000,
   });
 
+  const planUsage = useQuery({
+    queryKey: ["accounts-plan-usage"],
+    queryFn: () =>
+      api<{ plan: string; plan_label: string; max_accounts: number | null; used: number; can_add: boolean }>(
+        "/v1/accounts/plan-usage",
+      ),
+    staleTime: 60_000,
+  });
+
   const statsMap = useMemo(() => buildStatsMap(allFindings.data?.items), [allFindings.data?.items]);
 
   const accs = useMemo(() => {
@@ -3810,6 +3848,10 @@ export default function Accounts() {
     return [...pending, ...connected];
   }, [accounts.data]);
   const hasPending = accs.some((a) => !isAccountConnected(a));
+  const atPlanCap = planUsage.data ? !planUsage.data.can_add : false;
+  const planCapMsg = planUsage.data
+    ? `Your ${planUsage.data.plan_label} plan includes ${planUsage.data.max_accounts} account${planUsage.data.max_accounts === 1 ? "" : "s"}. Upgrade to connect more.`
+    : "";
   const filteredAccs = useMemo(
     () =>
       accs.filter(
@@ -3829,7 +3871,7 @@ export default function Accounts() {
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="accounts-page mx-auto w-full max-w-[1500px] space-y-6 px-8 py-7">
+    <div className="accounts-page w-full space-y-6 px-8 py-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-600">Cloud coverage</p>
@@ -3875,7 +3917,7 @@ export default function Accounts() {
 
       {accs.length > 0 && !showFirstAccountOnboarding && (
         <div className="space-y-6">
-          <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} />
+          <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} planUsage={planUsage.data} />
 
           <div className="accounts-toolbar">
             <label className="accounts-toolbar__search">
@@ -3893,37 +3935,43 @@ export default function Accounts() {
                 placeholder="Search by account name, ID, or provider…"
               />
             </label>
-            <select
+            <Select
               className="accounts-toolbar__select"
               value={providerFilter}
-              onChange={(e) => {
-                setProviderFilter(e.target.value);
+              onChange={(v) => {
+                setProviderFilter(v);
                 setPage(1);
               }}
-              aria-label="Filter by provider"
-            >
-              <option value="all">All providers</option>
-              <option value="aws">AWS</option>
-            </select>
-            <select
+              options={[
+                { value: "all", label: "All providers" },
+                { value: "aws", label: "AWS" },
+              ]}
+            />
+            <Select
               className="accounts-toolbar__select"
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+              onChange={(v) => {
+                setStatusFilter(v);
                 setPage(1);
               }}
-              aria-label="Filter by status"
-            >
-              <option value="all">All statuses</option>
-              <option value="connected">Connected</option>
-              <option value="setup">Setup required</option>
-              <option value="action">Action required</option>
-            </select>
+              options={[
+                { value: "all", label: "All statuses" },
+                { value: "connected", label: "Connected" },
+                { value: "setup", label: "Setup required" },
+                { value: "action", label: "Action required" },
+              ]}
+            />
             <button
               type="button"
               onClick={() => create.mutate(pendingConnectionOptions)}
-              disabled={create.isPending || hasPending}
-              title={hasPending ? "Finish setting up the pending account first" : undefined}
+              disabled={create.isPending || hasPending || atPlanCap}
+              title={
+                atPlanCap
+                  ? planCapMsg
+                  : hasPending
+                    ? "Finish setting up the pending account first"
+                    : undefined
+              }
               className="accounts-toolbar__add"
             >
               <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>

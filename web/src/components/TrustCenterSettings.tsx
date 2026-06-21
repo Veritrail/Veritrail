@@ -231,7 +231,7 @@ export function TrustCenterSettings() {
             <div className="sharing-trust-card__settings">
               <h4 className="sharing-trust-card__settings-title">Make your profile public</h4>
               <p className="sharing-trust-card__settings-copy">
-                Share your security posture, certifications, and policies with anyone — no login required.
+                Share your security posture, compliance reports, and policies with anyone — no login required.
               </p>
 
               <div className="sharing-field">

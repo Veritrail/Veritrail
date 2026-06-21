@@ -28,8 +28,9 @@ MIN_CUSTOM_HOURS_FREE = 24 * 7
 
 
 def min_custom_hours_for_plan(plan: str) -> int:
-    if plan == "free":
-        return MIN_CUSTOM_HOURS_FREE
+    # Cadence is no longer plan-gated — continuous/daily scanning is the core
+    # value prop; plans gate accounts + features instead. Kept for call-site
+    # compatibility; the floor is the same for every plan.
     return MIN_CUSTOM_HOURS_PAID
 
 
@@ -54,8 +55,7 @@ def get_scanning_settings(org_settings: dict | None) -> dict:
 
 
 def max_interval_for_plan(plan: str) -> Literal["daily", "weekly"]:
-    if plan == "free":
-        return "weekly"
+    # Every plan may scan daily — cadence is not a paywall.
     return "daily"
 
 

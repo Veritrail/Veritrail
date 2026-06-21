@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, model_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -22,6 +22,7 @@ from app.data.remediation_modules import (
 from app.models.org import Org
 from app.core.route_deps import RequireAdmin
 from app.services.org_activity import log_org_activity
+from app.data.plans import get_plan, plan_account_limit
 
 router = APIRouter()
 settings = get_settings()
@@ -329,8 +330,22 @@ def _heal_established_account_after_failed_reverify(acc: AwsAccount) -> bool:
 
 @router.post("", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
 def create_account(body: AccountIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
-    if not db.get(Org, uuid.UUID(p["org_id"])):
+    org_id = uuid.UUID(p["org_id"])
+    org = db.get(Org, org_id)
+    if not org:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session expired — please sign in again")
+    limit = plan_account_limit(org.plan)
+    if limit is not None:
+        used = db.scalar(select(func.count()).select_from(AwsAccount).where(AwsAccount.org_id == org_id)) or 0
+        if used >= limit:
+            tier = get_plan(org.plan)
+            raise HTTPException(
+                status.HTTP_402_PAYMENT_REQUIRED,
+                detail=(
+                    f"Your {tier.label} plan includes {limit} connected "
+                    f"account{'s' if limit != 1 else ''}. Upgrade to connect more."
+                ),
+            )
     ext = secrets.token_urlsafe(24)
     acc = AwsAccount(
         id=uuid.uuid4(),
@@ -419,6 +434,30 @@ def list_accounts(p=Depends(current_principal), db: Session = Depends(get_db)):
     if any(_heal_established_account_after_failed_reverify(a) for a in rows):
         db.commit()
     return [_account_out(a) for a in rows]
+
+
+class PlanUsageOut(BaseModel):
+    plan: str
+    plan_label: str
+    max_accounts: int | None  # null = unlimited
+    used: int
+    can_add: bool
+
+
+@router.get("/plan-usage", response_model=PlanUsageOut)
+def plan_usage(p=Depends(current_principal), db: Session = Depends(get_db)):
+    org_id = uuid.UUID(p["org_id"])
+    org = db.get(Org, org_id)
+    tier = get_plan(org.plan if org else None)
+    used = db.scalar(select(func.count()).select_from(AwsAccount).where(AwsAccount.org_id == org_id)) or 0
+    limit = plan_account_limit(org.plan if org else None)
+    return PlanUsageOut(
+        plan=tier.slug,
+        plan_label=tier.label,
+        max_accounts=limit,
+        used=used,
+        can_add=limit is None or used < limit,
+    )
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -104,11 +104,13 @@
   color: #0f172a;
 }
 .vigil-select__opt--active {
-  color: #4f46e5;
+  background: #f1f5f9;
+  color: #0f172a;
   font-weight: 600;
 }
 .vigil-select__opt--active:hover {
-  color: #4f46e5;
+  background: #e9eef4;
+  color: #0f172a;
 }
 .vigil-select__opt:disabled {
   opacity: 0.45;

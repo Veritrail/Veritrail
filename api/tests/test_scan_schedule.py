@@ -76,25 +76,28 @@ def test_next_scan_at_manual():
     assert next_scan_at(None, {"enabled": False, "interval": "daily", "custom_hours": None}) is None
 
 
-def test_plan_gating():
-    assert max_interval_for_plan("free") == "weekly"
+def test_cadence_not_plan_gated():
+    # Cadence is no longer a paywall — every plan may scan daily, same custom floor.
+    assert max_interval_for_plan("free") == "daily"
     assert max_interval_for_plan("trial") == "daily"
-    assert min_custom_hours_for_plan("free") == 168
+    assert min_custom_hours_for_plan("free") == 6
     assert min_custom_hours_for_plan("trial") == 6
 
 
-def test_validate_daily_on_free_raises():
-    with pytest.raises(ValueError, match="paid plan"):
-        validate_scanning({"enabled": True, "interval": "daily", "custom_hours": None}, "free")
+def test_validate_daily_on_free_ok():
+    # Daily on any plan no longer raises.
+    validate_scanning({"enabled": True, "interval": "daily", "custom_hours": None}, "free")
 
 
 def test_validate_weekly_on_free_ok():
     validate_scanning({"enabled": True, "interval": "weekly", "custom_hours": None}, "free")
 
 
-def test_validate_custom_too_short_on_free():
+def test_validate_custom_floor_is_six_hours():
+    # 24h is fine for every plan now; below the 6h floor still raises.
+    validate_scanning({"enabled": True, "interval": "custom", "custom_hours": 24}, "free")
     with pytest.raises(ValueError, match="custom_hours"):
-        validate_scanning({"enabled": True, "interval": "custom", "custom_hours": 24}, "free")
+        validate_scanning({"enabled": True, "interval": "custom", "custom_hours": 3}, "free")
 
 
 def test_validate_custom_ok_on_trial():
