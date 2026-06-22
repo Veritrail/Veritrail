@@ -3871,7 +3871,7 @@ export default function Accounts() {
     accs.length === 0 && !accounts.isLoading && !accounts.isError;
 
   return (
-    <div className="accounts-page w-full space-y-6 px-8 py-7">
+    <div className="accounts-page w-full space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-600">Cloud coverage</p>

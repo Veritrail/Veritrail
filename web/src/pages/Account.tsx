@@ -200,10 +200,10 @@ const CARD_ACCENT_VARS: Record<"blue" | "green" | "violet" | "amber", { accent: 
 function SecurityModule({ icon, tone, title, description, badge, children }: { icon: string; tone: "blue" | "green" | "violet" | "amber"; title: string; description: string; badge?: ReactNode; children: ReactNode }) {
   return (
     <section
-      className={`account-module flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-t-[3px] border-slate-200 ${CARD_ACCENT[tone]} bg-white shadow-[0_14px_40px_-32px_rgba(15,23,42,0.75)]`}
+      className={`account-module flex min-h-[280px] flex-col overflow-hidden rounded-2xl border border-t-[3px] border-slate-200 ${CARD_ACCENT[tone]} bg-white shadow-[0_14px_40px_-32px_rgba(15,23,42,0.75)]`}
       style={{ ["--card-accent" as string]: CARD_ACCENT_VARS[tone].accent, ["--card-accent-soft" as string]: CARD_ACCENT_VARS[tone].soft } as React.CSSProperties}
     >
-      <header className="flex items-start justify-between gap-5 px-6 py-6">
+      <header className="flex items-start justify-between gap-5 px-6 py-5">
         <div className="flex min-w-0 gap-5">
           <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconTileClass(tone)}`}>
             <Icon name={icon} className="h-7 w-7" />
@@ -215,7 +215,7 @@ function SecurityModule({ icon, tone, title, description, badge, children }: { i
         </div>
         {badge}
       </header>
-      <div className="flex flex-1 flex-col px-6 pb-6">{children}</div>
+      <div className="flex flex-1 flex-col px-6 pb-5">{children}</div>
     </section>
   );
 }
@@ -298,7 +298,11 @@ export default function Account() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [recoveryDialog, setRecoveryDialog] = useState<{ type: "email" | "phone"; value: string } | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [postureOpen, setPostureOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpCopied, setHelpCopied] = useState(false);
   const [toast, setToast] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const SUPPORT_EMAIL = "elazar.chodjayev@cloud-castles.com";
 
   const { data: me } = useQuery<Me>({ queryKey: ["me"], queryFn: () => api("/v1/auth/me", { schema: meSchema }) });
   const { data: workspaces = [] } = useQuery<WorkspaceEntry[]>({ queryKey: ["workspaces"], queryFn: () => api("/v1/auth/workspaces", { schema: workspaceListSchema }), enabled: !!me });
@@ -416,16 +420,23 @@ export default function Account() {
           <h1 className="text-2xl font-extrabold leading-[1.15] tracking-[-0.025em] text-slate-950">Account</h1>
           <p className="mt-1.5 text-sm leading-[1.45] text-slate-500">Manage your sign-in and personal security settings.</p>
         </div>
-        <button type="button" className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 0 1 15 0m-15 0v3a2.25 2.25 0 0 0 2.25 2.25h.75v-6h-3Zm15 0v3a2.25 2.25 0 0 1-2.25 2.25h-.75v-6h3Z" />
+        <button
+          type="button"
+          onClick={() => {
+            setHelpCopied(false);
+            setHelpOpen(true);
+          }}
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-semibold tracking-tight text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <svg className="h-[18px] w-[18px] text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
           </svg>
           Get help
         </button>
       </header>
 
-      <section className="mb-7 grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_-42px_rgba(15,23,42,0.75)] lg:grid-cols-[1.28fr_1.05fr_0.85fr_1fr]">
-        <div className="flex items-center gap-7 border-b border-slate-200/90 px-8 py-8 lg:border-b-0 lg:border-r">
+      <section className="mb-5 grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_-42px_rgba(15,23,42,0.75)] lg:grid-cols-[1.28fr_1.05fr_0.85fr_1fr]">
+        <div className="flex items-center gap-7 border-b border-slate-200/90 px-8 py-6 lg:border-b-0 lg:border-r">
           <span className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_25%,#eef0ff_0%,#dfe3ff_54%,#f6f7ff_100%)] text-[30px] font-black text-indigo-700 shadow-[0_22px_48px_-26px_rgba(79,70,229,0.85),inset_0_1px_0_rgba(255,255,255,0.85)] ring-1 ring-indigo-100/90">
             <span className="drop-shadow-[0_1px_0_rgba(255,255,255,0.8)]">{initials}</span>
             <span className="absolute bottom-2 right-1.5 h-4 w-4 rounded-full border-[3px] border-white bg-emerald-500 shadow-[0_4px_12px_rgba(16,185,129,0.45)]" />
@@ -437,14 +448,14 @@ export default function Account() {
               </div>
           </div>
         </div>
-        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-8 lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-6 lg:border-b-0 lg:border-r">
           <span className="text-slate-500"><Icon name="mail" className="h-6 w-6" /></span>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold text-slate-900">{email || "-"}</p>
             <p className="mt-2 text-sm font-extrabold text-emerald-700">Verified</p>
           </div>
         </div>
-        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-8 lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-6 lg:border-b-0 lg:border-r">
           <span className="text-slate-500"><Icon name="building" className="h-6 w-6" /></span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-500">Workspace</p>
@@ -452,7 +463,7 @@ export default function Account() {
             <a href="/workspace" className="mt-2 inline-flex text-sm font-bold text-blue-700 hover:text-blue-900">Manage workspace</a>
           </div>
         </div>
-        <button type="button" onClick={() => setPasswordDialogOpen(true)} className="flex items-center justify-between gap-4 px-8 py-8 text-left transition hover:bg-slate-50/70">
+        <button type="button" onClick={() => setPostureOpen(true)} className="flex items-center justify-between gap-4 px-8 py-6 text-left transition hover:bg-slate-50/70">
           <div className="min-w-0">
             <div className="mb-2.5 flex items-center gap-2">
               <span className="text-slate-500"><Icon name="shield" className="h-5 w-5" /></span>
@@ -577,6 +588,110 @@ export default function Account() {
           </button>
         </SecurityModule>
       </div>
+
+      {postureOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPostureOpen(false)}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-extrabold tracking-tight text-slate-950">Security posture</h3>
+                <p className="mt-1 text-sm leading-snug text-slate-500">
+                  {healthStrong
+                    ? "Your account security is strong — every check is complete."
+                    : "Complete these to strengthen your account."}
+                </p>
+              </div>
+              <StatusChip strong={healthStrong} />
+            </div>
+            <ul className="mt-5 space-y-2.5">
+              {[
+                { label: "Set a password", done: hasPw, hint: "Lets you sign in without a provider." },
+                { label: "Enable two-factor authentication", done: mfaOn, hint: "Require an authenticator code at sign-in." },
+                {
+                  label: "Generate recovery codes",
+                  done: (me?.mfa_backup_codes_remaining ?? 0) > 0,
+                  hint: "Back-up codes for if you lose your device (after 2FA).",
+                },
+              ].map((item) => (
+                <li key={item.label} className="flex items-start gap-3 rounded-xl border border-slate-200 px-4 py-3">
+                  <span
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                      item.done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    {item.done ? <Icon name="check" className="h-3.5 w-3.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-bold ${item.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{item.label}</p>
+                    {!item.done ? <p className="mt-0.5 text-xs text-slate-500">{item.hint}</p> : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex justify-end gap-2">
+              {!hasPw ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPostureOpen(false);
+                    setPasswordDialogOpen(true);
+                  }}
+                  className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid"
+                >
+                  Set password
+                </button>
+              ) : null}
+              <button type="button" onClick={() => setPostureOpen(false)} className="vigil-toolbar-btn vigil-toolbar-btn--neutral">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {helpOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setHelpOpen(false)}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-extrabold tracking-tight text-slate-950">Get help</h3>
+            <p className="mt-1 text-sm leading-snug text-slate-500">Email our team and we&apos;ll get back to you.</p>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <span className="truncate font-mono text-sm text-slate-800">{SUPPORT_EMAIL}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(SUPPORT_EMAIL);
+                  setHelpCopied(true);
+                }}
+                className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                {helpCopied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <a
+                href={`mailto:${SUPPORT_EMAIL}?subject=Vigil%20support%20request`}
+                onClick={() => setHelpOpen(false)}
+                className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid no-underline"
+              >
+                Open email app
+              </a>
+              <button type="button" onClick={() => setHelpOpen(false)} className="vigil-toolbar-btn vigil-toolbar-btn--neutral">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {passwordDialogOpen ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]" role="dialog" aria-modal="true">
