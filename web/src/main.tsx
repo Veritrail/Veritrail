@@ -34,6 +34,8 @@ import AuditorEvidence from "./pages/AuditorEvidence";
 import AuditorExport from "./pages/AuditorExport";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import TrustCenter from "./pages/TrustCenter";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -52,6 +54,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
