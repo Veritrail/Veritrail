@@ -200,13 +200,13 @@ const CARD_ACCENT_VARS: Record<"blue" | "green" | "violet" | "amber", { accent: 
 function SecurityModule({ icon, tone, title, description, badge, children }: { icon: string; tone: "blue" | "green" | "violet" | "amber"; title: string; description: string; badge?: ReactNode; children: ReactNode }) {
   return (
     <section
-      className={`account-module flex min-h-[280px] flex-col overflow-hidden rounded-2xl border border-t-[3px] border-slate-200 ${CARD_ACCENT[tone]} bg-white shadow-[0_14px_40px_-32px_rgba(15,23,42,0.75)]`}
+      className={`account-module flex min-h-[232px] flex-col overflow-hidden rounded-2xl border border-t-[3px] border-slate-200 ${CARD_ACCENT[tone]} bg-white shadow-[0_14px_40px_-32px_rgba(15,23,42,0.75)]`}
       style={{ ["--card-accent" as string]: CARD_ACCENT_VARS[tone].accent, ["--card-accent-soft" as string]: CARD_ACCENT_VARS[tone].soft } as React.CSSProperties}
     >
-      <header className="flex items-start justify-between gap-5 px-6 py-5">
+      <header className="flex items-start justify-between gap-5 px-6 py-3.5">
         <div className="flex min-w-0 gap-5">
-          <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${iconTileClass(tone)}`}>
-            <Icon name={icon} className="h-7 w-7" />
+          <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconTileClass(tone)}`}>
+            <Icon name={icon} className="h-6 w-6" />
           </span>
           <div className="min-w-0">
             <h2 className="text-lg font-extrabold tracking-tight text-slate-950">{title}</h2>
@@ -215,14 +215,14 @@ function SecurityModule({ icon, tone, title, description, badge, children }: { i
         </div>
         {badge}
       </header>
-      <div className="flex flex-1 flex-col px-6 pb-5">{children}</div>
+      <div className="flex flex-1 flex-col px-6 pb-3">{children}</div>
     </section>
   );
 }
 
 function ModuleRow({ label, value, muted = false }: { label: string; value: ReactNode; muted?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-t border-slate-100 py-3 first:border-t-0">
+    <div className="flex items-center justify-between gap-4 border-t border-slate-100 py-2 first:border-t-0">
       <span className="text-[13px] font-semibold text-slate-500">{label}</span>
       <span className={`text-[13px] font-semibold ${muted ? "text-slate-400" : "text-slate-700"}`}>{value}</span>
     </div>
@@ -256,7 +256,7 @@ function SummaryItem({ icon, label, value, tone }: { icon: string; label: string
   const iconClass = tone === "green" ? "text-emerald-600" : tone === "amber" ? "text-amber-500" : "text-slate-400";
   const valueClass = tone === "green" ? "text-emerald-700" : tone === "amber" ? "text-amber-700" : "text-slate-800";
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-4 border-r border-slate-200 px-8 py-5 last:border-r-0">
+    <div className="flex min-w-0 flex-1 items-center gap-4 border-r border-slate-200 px-8 py-4 last:border-r-0">
       <span className={iconClass}>
         <Icon name={icon} className="h-6 w-6" />
       </span>
@@ -270,7 +270,7 @@ function SummaryItem({ icon, label, value, tone }: { icon: string; label: string
 
 function WorkspaceSummaryItem({ value }: { value: string }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-4 border-r border-slate-200 px-8 py-5 last:border-r-0">
+    <div className="flex min-w-0 flex-1 items-center gap-4 border-r border-slate-200 px-8 py-4 last:border-r-0">
       <span className="text-slate-500">
         <Icon name="building" className="h-6 w-6" />
       </span>
@@ -415,7 +415,7 @@ export default function Account() {
 
   return (
     <div className="flex w-full max-w-none flex-col pb-0" style={{ minHeight: "calc(100vh - 2rem)" }}>
-      <header className="mb-6 flex items-start justify-between gap-4">
+      <header className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold leading-[1.15] tracking-[-0.025em] text-slate-950">Account</h1>
           <p className="mt-1.5 text-sm leading-[1.45] text-slate-500">Manage your sign-in and personal security settings.</p>
@@ -436,8 +436,8 @@ export default function Account() {
       </header>
 
       <section className="mb-5 grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_-42px_rgba(15,23,42,0.75)] lg:grid-cols-[1.28fr_1.05fr_0.85fr_1fr]">
-        <div className="flex items-center gap-7 border-b border-slate-200/90 px-8 py-6 lg:border-b-0 lg:border-r">
-          <span className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_25%,#eef0ff_0%,#dfe3ff_54%,#f6f7ff_100%)] text-[30px] font-black text-indigo-700 shadow-[0_22px_48px_-26px_rgba(79,70,229,0.85),inset_0_1px_0_rgba(255,255,255,0.85)] ring-1 ring-indigo-100/90">
+        <div className="flex items-center gap-7 border-b border-slate-200/90 px-8 py-4 lg:border-b-0 lg:border-r">
+          <span className="relative flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_25%,#eef0ff_0%,#dfe3ff_54%,#f6f7ff_100%)] text-[30px] font-black text-indigo-700 shadow-[0_22px_48px_-26px_rgba(79,70,229,0.85),inset_0_1px_0_rgba(255,255,255,0.85)] ring-1 ring-indigo-100/90">
             <span className="drop-shadow-[0_1px_0_rgba(255,255,255,0.8)]">{initials}</span>
             <span className="absolute bottom-2 right-1.5 h-4 w-4 rounded-full border-[3px] border-white bg-emerald-500 shadow-[0_4px_12px_rgba(16,185,129,0.45)]" />
           </span>
@@ -448,14 +448,14 @@ export default function Account() {
               </div>
           </div>
         </div>
-        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-6 lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-4 lg:border-b-0 lg:border-r">
           <span className="text-slate-500"><Icon name="mail" className="h-6 w-6" /></span>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold text-slate-900">{email || "-"}</p>
             <p className="mt-2 text-sm font-extrabold text-emerald-700">Verified</p>
           </div>
         </div>
-        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-6 lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-4 lg:border-b-0 lg:border-r">
           <span className="text-slate-500"><Icon name="building" className="h-6 w-6" /></span>
           <div className="min-w-0">
             <p className="text-sm font-bold text-slate-500">Workspace</p>
@@ -463,7 +463,7 @@ export default function Account() {
             <a href="/workspace" className="mt-2 inline-flex text-sm font-bold text-blue-700 hover:text-blue-900">Manage workspace</a>
           </div>
         </div>
-        <button type="button" onClick={() => setPostureOpen(true)} className="flex items-center justify-between gap-4 px-8 py-6 text-left transition hover:bg-slate-50/70">
+        <button type="button" onClick={() => setPostureOpen(true)} className="flex items-center justify-between gap-4 px-8 py-4 text-left transition hover:bg-slate-50/70">
           <div className="min-w-0">
             <div className="mb-2.5 flex items-center gap-2">
               <span className="text-slate-500"><Icon name="shield" className="h-5 w-5" /></span>
@@ -476,7 +476,7 @@ export default function Account() {
         </button>
       </section>
 
-      <div className="grid flex-1 auto-rows-fr items-stretch gap-6 xl:grid-cols-3">
+      <div className="grid flex-1 auto-rows-fr items-stretch gap-4 xl:grid-cols-3">
         <SecurityModule icon="lock" tone="blue" title="Password" description="Keep your password strong and update it regularly.">
           <div className="mt-1">
             <ModuleRow label="Last updated" value={hasPw ? "Recently" : "Not set"} />
