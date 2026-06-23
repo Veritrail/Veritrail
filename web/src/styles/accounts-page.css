@@ -872,3 +872,210 @@
 .accounts-list-footer__view-all:hover {
   background: #fafafa;
 }
+
+/* Connect account — capability picker (no connected accounts) */
+.accounts-connect-shell {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 72rem;
+  overflow: hidden;
+  border: 1px solid var(--accounts-border);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.accounts-connect-shell__header {
+  padding: 2.5rem 2rem 0;
+  text-align: center;
+}
+
+.accounts-connect-shell__title {
+  margin: 0;
+  font-size: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #09090b;
+}
+
+.accounts-connect-shell__subtitle {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: #71717a;
+}
+
+.accounts-cap-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  padding: 2rem 2rem 0;
+}
+
+@media (min-width: 900px) {
+  .accounts-cap-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+    padding: 2.5rem 2.5rem 0;
+  }
+}
+
+.accounts-cap-card {
+  display: flex;
+  min-height: 15.5rem;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1.75rem 1.25rem 1.5rem;
+  text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.accounts-cap-card:not(.is-required) {
+  cursor: pointer;
+}
+
+.accounts-cap-card:not(.is-required):hover {
+  border-color: #d4d4d8;
+  box-shadow: 0 8px 24px -18px rgba(15, 23, 42, 0.35);
+}
+
+.accounts-cap-card.is-selected {
+  border-color: #c4b5fd;
+  background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+  box-shadow: 0 12px 32px -20px rgba(124, 58, 237, 0.45);
+}
+
+.accounts-cap-card__icon-ring {
+  display: flex;
+  width: 4.5rem;
+  height: 4.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+}
+
+.accounts-cap-card__icon-ring--violet { color: #8b5cf6; background: #f5f3ff; }
+.accounts-cap-card__icon-ring--blue { color: #3b82f6; background: #eff6ff; }
+.accounts-cap-card__icon-ring--emerald { color: #10b981; background: #ecfdf5; }
+
+.accounts-cap-card__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.accounts-cap-card__title {
+  margin: 1.1rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #09090b;
+}
+
+.accounts-cap-card__badge {
+  display: inline-flex;
+  margin-top: 0.45rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.accounts-cap-card__badge--violet { background: #ede9fe; color: #6d28d9; }
+.accounts-cap-card__badge--slate { background: #f4f4f5; color: #52525b; }
+.accounts-cap-card__badge--amber { background: #ffedd5; color: #c2410c; }
+
+.accounts-cap-card__blurb {
+  margin: 0.85rem 0 0;
+  max-width: 14rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #71717a;
+}
+
+.accounts-cap-card__selector {
+  margin-top: auto;
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2px solid #d4d4d8;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.accounts-cap-card__selector.is-on {
+  border-color: #7c3aed;
+  background: #7c3aed;
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.accounts-connect-shell__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  border-top: 1px solid #f4f4f5;
+  background: #fafafa;
+  padding: 1.35rem 2rem;
+}
+
+.accounts-connect-shell__selection {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.accounts-connect-shell__selection-icon {
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.accounts-connect-shell__selection-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.accounts-connect-shell__selection-label {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.accounts-connect-shell__selection-value {
+  margin: 0.1rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #09090b;
+}
+
+.accounts-connect-shell__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #7c3aed;
+  padding: 0.8rem 1.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transition: background 0.15s ease;
+}
+
+.accounts-connect-shell__cta:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.accounts-connect-shell__cta:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

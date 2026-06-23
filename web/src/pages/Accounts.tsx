@@ -313,11 +313,11 @@ function PermissionVerificationPanel({
           disabled={verifying}
           className={neutralToolbarBtn}
         >
-          {verifying ? VERIFY_PROGRESS_STEPS[progressStep] : "Verify permissions in AWS"}
+          {verifying ? VERIFY_PROGRESS_STEPS[progressStep] : "Verify permissions"}
         </button>
       )}
       {verifying && (
-        <p className="mt-2 text-[11px] text-zinc-500">One AWS round-trip — usually a few seconds.</p>
+        <p className="mt-2 text-[11px] text-zinc-500">One round-trip — usually a few seconds.</p>
       )}
       {feedback?.tone === "error" && (
         <p className="mt-2 text-xs leading-relaxed text-red-600">{feedback.message}</p>
@@ -864,8 +864,8 @@ function CopyInputField({
       : validation === "error" || validation === "invalid-format"
         ? "ring-red-500/30 focus-within:ring-red-500/40"
         : validation === "pending"
-          ? "ring-indigo-500/30 focus-within:ring-indigo-500/40"
-          : "ring-zinc-200/80 focus-within:ring-indigo-500/30";
+          ? "ring-teal-500/30 focus-within:ring-teal-500/40"
+          : "ring-zinc-200/80 focus-within:ring-teal-500/30";
 
   return (
     <div>
@@ -926,7 +926,7 @@ function CopyInputField({
         <p className="mt-1.5 text-xs text-red-600">Could not assume role — check stack Outputs and try again</p>
       )}
       {validation === "pending" && (
-        <p className="mt-1.5 text-xs text-indigo-600">Verifying connection…</p>
+        <p className="mt-1.5 text-xs text-teal-600">Verifying connection…</p>
       )}
     </div>
   );
@@ -1152,8 +1152,8 @@ function CapabilityBadges({
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
             policyGenDeployed
-              ? "bg-indigo-50 text-indigo-800 ring-indigo-200/60"
-              : "bg-indigo-50/50 text-indigo-700 ring-indigo-200/40"
+              ? "bg-sky-50 text-sky-800 ring-sky-200/60"
+              : "bg-sky-50/50 text-sky-700 ring-sky-200/40"
           }`}
         >
           Policy generation
@@ -1231,7 +1231,7 @@ function ManageCapabilitiesPanel({
               Core Scanner
             </span>
             {draft.enable_advanced_policy_generation && (
-              <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-800 ring-1 ring-indigo-200/60">
+              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/60">
                 Policy Generation
               </span>
             )}
@@ -1262,7 +1262,7 @@ function ManageCapabilitiesPanel({
             <CapabilityAccessBadge kind="read-only" />
           </div>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-            Read-only cloud evidence for SOC 2 / CIS / ISO mappings. Cannot modify AWS resources.
+            Read-only cloud evidence for SOC 2 / CIS / ISO mappings. Cannot modify your resources.
           </p>
         </div>
 
@@ -1344,7 +1344,7 @@ function ConnectionCapabilitiesPicker({
               <CapabilityAccessBadge kind="read-only" />
             </div>
             <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-              Read-only cloud evidence · cannot modify AWS resources
+              Read-only cloud evidence · cannot modify your resources
             </p>
           </div>
         </div>
@@ -1395,7 +1395,7 @@ function AdvancedPolicyGenerationCard({
       ) : (
         <input
           type="checkbox"
-          className="mt-0.5 shrink-0 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500/30"
+          className="mt-0.5 shrink-0 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
           checked={checked}
           disabled={inputDisabled}
           aria-label="Enable Advanced IAM policy generation"
@@ -1450,7 +1450,7 @@ function AdvancedPolicyGenerationCard({
         locked
           ? "border-l-emerald-500 border-emerald-200/60 bg-emerald-50/30 shadow-sm shadow-zinc-950/[0.02]"
           : checked
-            ? "border-l-indigo-500 border-indigo-200/60 bg-indigo-50/40 shadow-sm shadow-zinc-950/[0.03]"
+            ? "border-l-teal-500 border-teal-200/60 bg-teal-50/30 shadow-sm shadow-zinc-950/[0.03]"
             : "border-l-transparent border-zinc-200/60 bg-zinc-50/30"
       } ${inputDisabled && !locked ? "opacity-60" : ""}`}
     >
@@ -1514,7 +1514,7 @@ function RemediationAutomationSection({
         <label className={`flex items-start gap-3 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
           <input
             type="checkbox"
-            className="mt-0.5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500/30"
+            className="mt-0.5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
             checked={sectionOpen}
             disabled={disabled}
             onChange={(e) => handleMasterToggle(e.target.checked)}
@@ -1525,7 +1525,7 @@ function RemediationAutomationSection({
               {anyEnabled && <CapabilityAccessBadge kind="scoped-write" />}
             </span>
             <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-              Use AWS Systems Manager Automation for approved fixes. Enable only the modules you need.
+              Run approved fixes through scoped automation. Enable only the modules you need.
             </p>
           </span>
         </label>
@@ -1544,7 +1544,7 @@ function RemediationAutomationSection({
                 >
                   <input
                     type="checkbox"
-                    className="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500/30"
+                    className="rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
                     checked={checked}
                     disabled={disabled || analysisOnly}
                     onChange={(e) => onChange({ ...modules, [spec.id]: e.target.checked })}
@@ -1575,7 +1575,7 @@ function RemediationAutomationSection({
       <label className={`flex items-start gap-3 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
         <input
           type="checkbox"
-          className="mt-0.5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500/30"
+          className="mt-0.5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
           checked={sectionOpen}
           disabled={disabled}
           onChange={(e) => handleMasterToggle(e.target.checked)}
@@ -1608,7 +1608,7 @@ function RemediationAutomationSection({
                   locked
                     ? "border-l-emerald-500 border-emerald-200/60 bg-emerald-50/30 shadow-sm shadow-zinc-950/[0.02]"
                     : moduleChecked
-                      ? "border-l-indigo-500 border-indigo-200/60 bg-indigo-50/45 shadow-sm shadow-zinc-950/[0.04]"
+                      ? "border-l-teal-500 border-teal-200/60 bg-teal-50/30 shadow-sm shadow-zinc-950/[0.04]"
                       : "border-l-transparent border-zinc-200/50 bg-zinc-50/25 opacity-80"
                 }`}
               >
@@ -1618,7 +1618,7 @@ function RemediationAutomationSection({
                   ) : (
                     <input
                       type="checkbox"
-                      className="mt-0.5 shrink-0 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500/30"
+                      className="mt-0.5 shrink-0 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
                       checked={moduleChecked}
                       disabled={moduleDisabled}
                       aria-label={`Enable ${spec.label}`}
@@ -1859,9 +1859,9 @@ function CliCodeBlock({
 type DeployTab = "console" | "cli" | "terraform";
 
 const ONBOARDING_FLOW_STEPS = [
-  { n: 1, label: "Choose capabilities" },
-  { n: 2, label: "Deploy connector" },
-  { n: 3, label: "Verify connection" },
+  { n: 1, label: "Capabilities" },
+  { n: 2, label: "Deploy" },
+  { n: 3, label: "Verify" },
 ] as const;
 
 /** Map in-card wizard step → top stepper (Choose capabilities / Deploy / Verify). */
@@ -1903,7 +1903,7 @@ function DisclosureLink({
         type="button"
         disabled={disabled}
         onClick={onToggle}
-        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+        className="text-xs font-semibold text-teal-700 hover:text-teal-800 disabled:opacity-50"
         aria-expanded={open}
       >
         {open ? closeLabel : openLabel}
@@ -1915,28 +1915,22 @@ function DisclosureLink({
 
 function OnboardingFlowProgress({ activeStep }: { activeStep: 1 | 2 | 3 }) {
   return (
-    <ol className="flex flex-wrap items-center gap-2 sm:gap-0">
-      {ONBOARDING_FLOW_STEPS.map((step, i) => (
-        <li key={step.n} className="flex items-center">
-          <span
-            className={`flex items-center gap-2 rounded-lg px-2 py-1 sm:px-2.5 ${
-              activeStep === step.n
-                ? "bg-zinc-900 text-white"
-                : activeStep > step.n
-                  ? "text-emerald-700"
-                  : "text-zinc-400"
-            }`}
-          >
+    <ol className="flex items-center gap-3">
+      {ONBOARDING_FLOW_STEPS.map((step, i) => {
+        const active = activeStep === step.n;
+        const done = activeStep > step.n;
+        return (
+          <li key={step.n} className="flex flex-1 items-center gap-3 last:flex-none">
             <span
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                activeStep === step.n
-                  ? "bg-white/15 text-white"
-                  : activeStep > step.n
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                active
+                  ? "bg-teal-600 text-white"
+                  : done
                     ? "bg-emerald-100 text-emerald-700"
-                    : "bg-zinc-100 text-zinc-500"
+                    : "bg-zinc-100 text-zinc-400"
               }`}
             >
-              {activeStep > step.n ? (
+              {done ? (
                 <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
@@ -1944,22 +1938,107 @@ function OnboardingFlowProgress({ activeStep }: { activeStep: 1 | 2 | 3 }) {
                 step.n
               )}
             </span>
-            <span className="hidden text-xs font-semibold sm:inline">{step.label}</span>
-          </span>
-          {i < ONBOARDING_FLOW_STEPS.length - 1 && (
-            <svg
-              className="mx-1 hidden h-4 w-4 shrink-0 text-zinc-300 sm:block"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden
+            <span
+              className={`hidden text-sm font-medium sm:inline ${
+                active ? "text-zinc-900" : done ? "text-zinc-600" : "text-zinc-400"
+              }`}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          )}
-        </li>
-      ))}
+              {step.label}
+            </span>
+            {i < ONBOARDING_FLOW_STEPS.length - 1 && <span className="h-px flex-1 bg-zinc-200" />}
+          </li>
+        );
+      })}
     </ol>
+  );
+}
+
+const ONBOARDING_CAPS = [
+  {
+    id: "core" as const,
+    title: "Core scan",
+    blurb: "Read-only scan for security and compliance.",
+    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z",
+    tone: "violet" as const,
+    badge: { label: "Required", tone: "violet" as const },
+    required: true,
+  },
+  {
+    id: "iam" as const,
+    title: "IAM analysis",
+    blurb: "Generate least-privilege recommendations.",
+    icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125Z",
+    tone: "blue" as const,
+    badge: { label: "Optional", tone: "slate" as const },
+    required: false,
+  },
+  {
+    id: "ssm" as const,
+    title: "Remediation",
+    blurb: "Automate fixes with scoped permissions.",
+    icon: "M11.42 15.17L6.34 20.25a2.121 2.121 0 01-2.83-2.83l5.08-5.08m2.83 2.83l4.24-4.24m-4.24 4.24a4 4 0 015.5-5.46l-2.3 2.3 1.83 1.83 2.3-2.3a4 4 0 01-5.46 5.5",
+    tone: "emerald" as const,
+    badge: { label: "Scoped write", tone: "amber" as const },
+    required: false,
+  },
+] as const;
+
+/** Onboarding step 1 — three capability cards (icon tile + circle selector + badge),
+ *  wired to the live ConnectionOptions. Capabilities are additive: Core is required
+ *  + on; IAM and Remediation are optional add-ons. */
+function OnboardingCapabilityCards({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: ConnectionOptions;
+  onChange: (next: ConnectionOptions) => void;
+  disabled?: boolean;
+}) {
+  const ssmOn = anyRemediationEnabled(value.remediation_modules);
+  const allModulesOn = Object.fromEntries(
+    Object.keys(DEFAULT_REMEDIATION_MODULES).map((k) => [k, true]),
+  ) as RemediationModules;
+
+  const isOn = (id: (typeof ONBOARDING_CAPS)[number]["id"]) =>
+    id === "core" ? true : id === "iam" ? value.enable_advanced_policy_generation : ssmOn;
+
+  const toggle = (id: (typeof ONBOARDING_CAPS)[number]["id"]) => {
+    if (id === "iam") {
+      onChange({ ...value, enable_advanced_policy_generation: !value.enable_advanced_policy_generation });
+    } else if (id === "ssm") {
+      onChange({ ...value, remediation_modules: ssmOn ? { ...DEFAULT_REMEDIATION_MODULES } : allModulesOn });
+    }
+  };
+
+  return (
+    <div className="accounts-cap-grid">
+      {ONBOARDING_CAPS.map((c) => {
+        const on = isOn(c.id);
+        return (
+          <button
+            key={c.id}
+            type="button"
+            onClick={c.required ? undefined : () => toggle(c.id)}
+            disabled={disabled || c.required}
+            aria-pressed={on}
+            className={`accounts-cap-card accounts-cap-card--${c.tone}${on ? " is-selected" : ""}${c.required ? " is-required" : ""}`}
+          >
+            <span className={`accounts-cap-card__icon-ring accounts-cap-card__icon-ring--${c.tone}`}>
+              <svg className="accounts-cap-card__icon" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d={c.icon} />
+              </svg>
+            </span>
+            <span className="accounts-cap-card__title">{c.title}</span>
+            <span className={`accounts-cap-card__badge accounts-cap-card__badge--${c.badge.tone}`}>
+              {c.badge.label}
+            </span>
+            <p className="accounts-cap-card__blurb">{c.blurb}</p>
+            <span className={`accounts-cap-card__selector${on ? " is-on" : ""}`} aria-hidden />
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1976,34 +2055,47 @@ function FirstAccountOnboarding({
   onContinue: () => void;
   continuing: boolean;
 }) {
-  return (
-    <div className={`${cardClass} w-full overflow-hidden`}>
-      <div className="px-6 py-6 sm:px-8 sm:py-7">
-        <OnboardingFlowProgress activeStep={1} />
+  const selectedNames = [
+    "Core scan",
+    value.enable_advanced_policy_generation ? "IAM analysis" : null,
+    anyRemediationEnabled(value.remediation_modules) ? "Remediation" : null,
+  ].filter((x): x is string => Boolean(x));
 
-        <div className="mt-6 flex items-start gap-4">
-          <AwsIconTile className="h-11 w-11 p-2" />
-          <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">
-              Connect your AWS account
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-zinc-600">
-              Choose what Veritrail can do, then deploy one CloudFormation stack in your account.
+  return (
+    <div className="accounts-connect-shell">
+      <div className="accounts-connect-shell__header">
+        <h2 className="accounts-connect-shell__title">Connect a cloud account</h2>
+        <p className="accounts-connect-shell__subtitle">
+          Choose the capabilities to enable for this connection.
+        </p>
+      </div>
+
+      <OnboardingCapabilityCards value={value} onChange={onChange} disabled={disabled} />
+
+      <div className="accounts-connect-shell__footer">
+        <div className="accounts-connect-shell__selection">
+          <span className="accounts-connect-shell__selection-icon" aria-hidden>
+            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+          </span>
+          <div>
+            <p className="accounts-connect-shell__selection-label">
+              {selectedNames.length === 1 ? "Selected capability" : "Selected capabilities"}
             </p>
+            <p className="accounts-connect-shell__selection-value">{selectedNames.join(" · ")}</p>
           </div>
         </div>
-
-        <div className="mt-6">
-          <ConnectionCapabilitiesPicker value={value} onChange={onChange} disabled={disabled} />
-        </div>
-
         <button
           type="button"
           onClick={onContinue}
           disabled={disabled || continuing}
-          className={`mt-8 ${neutralToolbarBtnLg}`}
+          className="accounts-connect-shell__cta"
         >
           {continuing ? "Setting up…" : "Continue to deploy"}
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
         </button>
       </div>
     </div>
@@ -2250,7 +2342,7 @@ function InCardAccountSetupWizard({
   return (
     <div className="bg-zinc-50/60 px-5 py-5 sm:px-6">
       <div className="mb-5">
-        <h3 className="text-base font-semibold tracking-tight text-zinc-900">AWS Account Setup</h3>
+        <h3 className="text-base font-semibold tracking-tight text-zinc-900">Cloud account setup</h3>
         <p className="mt-0.5 text-sm text-zinc-500">
           Choose capabilities, deploy the connector, then verify the scanner role.
         </p>
@@ -2276,7 +2368,7 @@ function InCardAccountSetupWizard({
             <button
               type="button"
               onClick={() => setActiveStep(2)}
-              className="text-sm font-semibold text-indigo-600 hover:text-indigo-800"
+              className="text-sm font-semibold text-teal-700 hover:text-teal-800"
             >
               I&apos;ve deployed the stack →
             </button>
@@ -2303,7 +2395,7 @@ function InCardAccountSetupWizard({
               type="button"
               onClick={() => setActiveStep(3)}
               disabled={!roleArnValid}
-              className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 disabled:cursor-not-allowed disabled:opacity-40"
+              className="text-sm font-semibold text-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Continue to verify →
             </button>
@@ -3305,7 +3397,7 @@ function CredentialAlert({
           </svg>
         </span>
         <div>
-          <p className="accounts-credential-alert__title">AWS credentials need attention</p>
+          <p className="accounts-credential-alert__title">Cloud credentials need attention</p>
           <p className="accounts-credential-alert__body">{message}</p>
         </div>
       </div>
@@ -3885,30 +3977,47 @@ export default function Accounts() {
   const totalPages = Math.max(1, Math.ceil(filteredAccs.length / effectivePageSize));
   const paginatedAccs = filteredAccs.slice((page - 1) * effectivePageSize, page * effectivePageSize);
 
-  const showFirstAccountOnboarding =
-    accs.length === 0 && !accounts.isLoading && !accounts.isError;
+  const hasConnectedAccount = accs.some((a) => isAccountConnected(a));
+  const pendingAcc = accs.find((a) => !isAccountConnected(a));
+  const showCapabilityOnboarding =
+    !hasConnectedAccount && !accounts.isLoading && !accounts.isError && expandedId === null;
+
+  const handleOnboardingContinue = () => {
+    if (pendingAcc) {
+      patchConnection.mutate(
+        { accountId: pendingAcc.id, opts: pendingConnectionOptions },
+        {
+          onSuccess: () => {
+            setSetupInitialStep(1);
+            setExpandedId(pendingAcc.id);
+          },
+        },
+      );
+      return;
+    }
+    create.mutate(pendingConnectionOptions);
+  };
+
+  const continuingOnboarding = create.isPending || patchConnection.isPending;
+
+  useEffect(() => {
+    if (pendingAcc && expandedId === null) {
+      setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
+    }
+  }, [
+    pendingAcc?.id,
+    pendingAcc?.enable_advanced_policy_generation,
+    pendingAcc?.remediation_modules,
+    expandedId,
+  ]);
 
   return (
     <div className="accounts-page w-full space-y-6">
-      <HeaderSlot>
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          currentOrgId={meQ.data?.org_id ?? ""}
-          onSwitch={(id) => switchWorkspace.mutate(id)}
-          pending={switchWorkspace.isPending}
-        />
-      </HeaderSlot>
 
-      {showFirstAccountOnboarding && (
-        <p className="max-w-3xl text-sm text-zinc-500">
-          Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and
-          generate evidence for your auditor.
-        </p>
-      )}
 
       {accounts.isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          <p className="font-medium">Could not load AWS accounts</p>
+          <p className="font-medium">Could not load accounts</p>
           <p className="mt-1 text-red-700">{formatApiError(accounts.error)}</p>
           <button
             type="button"
@@ -3924,19 +4033,21 @@ export default function Accounts() {
         <p className="text-sm text-zinc-500">Loading accounts…</p>
       )}
 
-      {showFirstAccountOnboarding && (
+      {showCapabilityOnboarding && (
         <FirstAccountOnboarding
           value={pendingConnectionOptions}
           onChange={setPendingConnectionOptions}
-          disabled={create.isPending}
-          continuing={create.isPending}
-          onContinue={() => create.mutate(pendingConnectionOptions)}
+          disabled={continuingOnboarding}
+          continuing={continuingOnboarding}
+          onContinue={handleOnboardingContinue}
         />
       )}
 
-      {accs.length > 0 && !showFirstAccountOnboarding && (
+      {!showCapabilityOnboarding && accs.length > 0 && (
         <div className="space-y-6">
-          <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} planUsage={planUsage.data} />
+          {hasConnectedAccount ? (
+            <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} planUsage={planUsage.data} />
+          ) : null}
 
           <div className="accounts-toolbar">
             <label className="accounts-toolbar__search">
