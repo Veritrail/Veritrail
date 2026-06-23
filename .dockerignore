@@ -1,0 +1,17 @@
+# Keep host node_modules out of the build context — COPY web/ . would otherwise
+# overwrite npm ci output and break node_modules/.bin (exit 126 on EC2).
+web/node_modules
+web/dist
+
+# Dev artifacts and local env
+.git
+.env
+.env.*
+!.env.example
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+node_modules
+dist
