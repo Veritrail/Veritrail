@@ -28,9 +28,9 @@ CONFIDENCE_LOW = "low"
 
 _ROLE_ARN_RE = re.compile(r"^(arn:aws:iam::\d+:role/)(.+)$")
 _LEGACY_ADVANCED_SUFFIX = "AdvancedPolicyGen"
-_POLICY_GEN_ROLE_NAME = "VigilPolicyGenerationRole"
-_SCANNER_ROLE_NAME = "VigilScannerRole"
-_LEGACY_SCANNER_ROLE_NAME = "VigilReadOnlyScannerRole"
+_POLICY_GEN_ROLE_NAME = "VeritrailPolicyGenerationRole"
+_SCANNER_ROLE_NAME = "VeritrailScannerRole"
+_LEGACY_SCANNER_ROLE_NAME = "VeritrailReadOnlyScannerRole"
 _ACCESS_ANALYZER_MONITOR_SUFFIX = "AccessAnalyzerMonitor"
 _IAM_ACTION_RE = re.compile(r"^[a-z0-9-]+:[A-Za-z0-9*?]+$")
 # Align with IAM last-accessed / unused-role finding windows.
@@ -127,7 +127,7 @@ def cloudtrail_monitor_role_exists(session, connector_role_arn: str | None) -> b
         return False
     iam = session.client("iam")
     try:
-        # Connector has iam:ListRoles, not iam:GetRole (see vigil-core-scanner.yaml).
+        # Connector has iam:ListRoles, not iam:GetRole (see veritrail-core-scanner.yaml).
         for page in iam.get_paginator("list_roles").paginate():
             for role in page.get("Roles") or []:
                 if role.get("RoleName") == name:
@@ -138,7 +138,7 @@ def cloudtrail_monitor_role_exists(session, connector_role_arn: str | None) -> b
 
 
 def derive_cloudtrail_access_role_arn(base_role_arn: str | None) -> str | None:
-    """IAM role Access Analyzer assumes to read CloudTrail logs (not the Vigil connector role)."""
+    """IAM role Access Analyzer assumes to read CloudTrail logs (not the Veritrail connector role)."""
     if not base_role_arn:
         return None
     arn = base_role_arn.strip()

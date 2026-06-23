@@ -1,6 +1,9 @@
 /** Synthetic finding list groups — resources keep per-check type pills when expanded. */
 
+export const ACTIVITY_DETECTIONS_GROUP = "activity_detections";
+
 export const ENCRYPTION_AT_REST_GROUP = "encryption";
+export const ENCRYPTION_IN_TRANSIT_GROUP = "encryption_in_transit";
 export const REMOTE_ACCESS_GROUP = "remote_access";
 export const LEAST_PRIVILEGE_GROUP = "least_privilege";
 
@@ -8,6 +11,11 @@ export type FindingGroupMeta = {
   title: string;
   searchTerms?: string[];
 };
+
+export const ENCRYPTION_IN_TRANSIT_CHECK_IDS = new Set([
+  "s3.bucket.no_https_policy",
+  "elb.load_balancer.weak_tls_policy",
+]);
 
 export const ENCRYPTION_AT_REST_CHECK_IDS = new Set([
   "s3.bucket.no_kms",
@@ -36,14 +44,23 @@ export const LEAST_PRIVILEGE_CHECK_IDS = new Set([
 ]);
 
 const CHECK_ID_TO_GROUP = new Map<string, string>();
+for (const id of ENCRYPTION_IN_TRANSIT_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, ENCRYPTION_IN_TRANSIT_GROUP);
 for (const id of ENCRYPTION_AT_REST_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, ENCRYPTION_AT_REST_GROUP);
 for (const id of REMOTE_ACCESS_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, REMOTE_ACCESS_GROUP);
 for (const id of LEAST_PRIVILEGE_CHECK_IDS) CHECK_ID_TO_GROUP.set(id, LEAST_PRIVILEGE_GROUP);
 
 export const FINDING_GROUP_META: Record<string, FindingGroupMeta> = {
+  [ACTIVITY_DETECTIONS_GROUP]: {
+    title: "Activity detections",
+    searchTerms: ["cloudtrail", "activity", "detection", "api event", "tampering"],
+  },
   [ENCRYPTION_AT_REST_GROUP]: {
     title: "Data encryption at rest not enforced",
     searchTerms: ["encryption", "sse-kms", "kms", "at rest"],
+  },
+  [ENCRYPTION_IN_TRANSIT_GROUP]: {
+    title: "Data encryption in transit not enforced",
+    searchTerms: ["https", "tls", "ssl", "secure transport", "in transit", "encryption"],
   },
   [REMOTE_ACCESS_GROUP]: {
     title: "Unrestricted remote access",
@@ -102,7 +119,7 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
   },
   {
     key: "s3_public_access",
-    title: "S3 public access not blocked",
+    title: "Bucket public access not blocked",
     checkIds: ["s3.account.public_access_not_blocked", "s3.bucket.public_access_not_blocked"],
     searchTerms: ["s3", "public access", "block public access", "bucket", "account"],
   },
@@ -132,7 +149,6 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
     key: "inactive_identity",
     title: "Inactive or dormant identity",
     checkIds: [
-      "iam.user.inactive_90d",
       "google_workspace.user.inactive_90d",
       "entra.user.inactive_90d",
       "identity_center.user.inactive_90d",
@@ -179,9 +195,9 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
   },
   {
     key: "acm_expiring",
-    title: "ACM certificate expiring",
-    checkIds: ["acm.certificate.expiring", "acm.certificate.expiring_soon"],
-    searchTerms: ["certificate", "acm", "expiring", "expiry", "tls"],
+    title: "Certificate expired or expiring",
+    checkIds: ["acm.certificate.expiring", "acm.certificate.expiring_soon", "iam.server_certificate.expired"],
+    searchTerms: ["certificate", "acm", "expiring", "expired", "expiry", "tls", "server certificate"],
   },
   {
     key: "cloudtrail_bucket_private",
@@ -190,10 +206,18 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
     searchTerms: ["cloudtrail", "bucket", "private", "public", "s3"],
   },
   {
-    key: "unused_access_key",
-    title: "Unused access key",
-    checkIds: ["iam.access_key.unused_90d", "iam.access_key.unused_45d"],
-    searchTerms: ["access key", "unused", "stale", "iam", "90 days", "45 days"],
+    // Same vuln class (a stale/unused IAM credential) across credential types —
+    // programmatic access keys and human console passwords. Remediation differs
+    // per resource type, mirroring the encryption-at-rest group.
+    key: "unused_credentials",
+    title: "Unused IAM credentials",
+    checkIds: [
+      "iam.access_key.unused_45d",
+      "iam.access_key.unused_90d",
+      "iam.user.credentials_unused_45d",
+      "iam.user.inactive_90d",
+    ],
+    searchTerms: ["access key", "console", "password", "credential", "credentials", "unused", "stale", "dormant", "iam", "45 days", "90 days"],
   },
   {
     key: "ssm_secret",
@@ -201,11 +225,81 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
     checkIds: ["ssm.parameter.plaintext_secret", "ssm.parameter.unencrypted"],
     searchTerms: ["ssm", "parameter", "secret", "plaintext", "unencrypted", "securestring"],
   },
+  {
+    key: "root_account",
+    title: "Root account not hardened",
+    checkIds: ["iam.root.no_mfa", "iam.root.has_access_keys", "iam.root.usage"],
+    searchTerms: ["root", "root account", "mfa", "access key", "root usage", "hardening"],
+  },
+  {
+    key: "rotation_disabled",
+    title: "Key or secret rotation disabled",
+    checkIds: ["kms.key.no_rotation", "secretsmanager.secret.no_rotation", "iam.access_key.no_rotation_90d"],
+    searchTerms: ["rotation", "rotate", "kms", "secret", "secrets manager", "access key", "90 days"],
+  },
+  {
+    key: "backup_recovery",
+    title: "Backup or recovery not configured",
+    checkIds: ["backup.plan.missing", "rds.instance.no_automated_backup", "dynamodb.table.no_pitr"],
+    searchTerms: ["backup", "recovery", "pitr", "point in time", "snapshot", "rds", "dynamodb", "aws backup"],
+  },
+  {
+    key: "role_trust",
+    title: "IAM role trust policy too permissive",
+    checkIds: ["iam.role.external_account_trust", "iam.role.trust_wildcard"],
+    searchTerms: ["trust", "trust policy", "assume role", "external account", "wildcard", "iam role"],
+  },
+  {
+    key: "admin_unreviewed",
+    title: "Admin access not reviewed",
+    checkIds: ["entra.admin.unreviewed", "github.org.admin_unreviewed", "google_workspace.admin.unreviewed"],
+    searchTerms: ["admin", "administrator", "privileged", "unreviewed", "review", "entra", "github", "google"],
+  },
+  {
+    key: "image_scanning",
+    title: "Container image scanning disabled",
+    checkIds: ["ecr.registry.enhanced_scanning_disabled", "ecr.repository.image_scan_disabled"],
+    searchTerms: ["ecr", "image scan", "container", "scanning", "vulnerability", "registry", "repository"],
+  },
+  {
+    key: "account_contact",
+    title: "Account contact information incomplete",
+    checkIds: ["aws.account.contact_incomplete", "aws.account.security_contact_missing"],
+    searchTerms: ["account", "contact", "security contact", "alternate contact", "billing"],
+  },
+  {
+    key: "security_checks_required",
+    title: "Security checks not required before merge",
+    checkIds: ["github.repo.security_status_checks_missing", "gitlab.repo.security_ci_not_required"],
+    searchTerms: ["status checks", "required", "security ci", "merge", "github", "gitlab", "gate"],
+  },
+  {
+    key: "audit_logging",
+    title: "Audit logging disabled",
+    checkIds: ["vpc.flow_logs.not_enabled", "eks.cluster.control_plane_logging_disabled", "cloudtrail.trail.no_cloudwatch_logs"],
+    searchTerms: ["audit log", "flow logs", "vpc", "control plane", "eks", "cloudwatch", "cloudtrail logging"],
+  },
+  {
+    key: "underused_role",
+    title: "Underused IAM role",
+    checkIds: ["iam.role.unassumed_90d", "iam.role.unused_services_90d"],
+    searchTerms: ["role", "unassumed", "unused", "granted services", "least privilege", "90 days", "iam role"],
+  },
+  {
+    key: "unresolved_security_findings",
+    title: "Unresolved security-service findings",
+    checkIds: ["guardduty.open_findings", "aws.inspector.active_critical_finding"],
+    searchTerms: ["guardduty", "inspector", "finding", "critical", "threat", "unresolved", "open findings"],
+  },
 ];
 
 for (const g of ADDITIONAL_GROUPS) {
   for (const id of g.checkIds) CHECK_ID_TO_GROUP.set(id, g.key);
   FINDING_GROUP_META[g.key] = { title: g.title, searchTerms: g.searchTerms };
+}
+
+export function isActivityCheck(checkId: string): boolean {
+  return checkId.startsWith("cloudtrail.event.");
 }
 
 export function findingDisplayGroupKey(checkId: string): string {

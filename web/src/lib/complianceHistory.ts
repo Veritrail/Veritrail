@@ -34,6 +34,8 @@ export interface SnapshotSummary {
   controls_no_data: number;
   findings_opened: number;
   findings_resolved: number;
+  /** Open benchmark findings at this point in time (compare drawer). */
+  open_findings_count?: number;
 }
 
 export interface HistoryEvent {
@@ -83,6 +85,11 @@ export interface ScanCadenceDay {
   posture_change_count: number;
 }
 
+export interface PostureTrendPoint {
+  timestamp: string;
+  posture_score: number;
+}
+
 export interface PersistentGap {
   control_id: string;
   title: string;
@@ -100,6 +107,7 @@ export interface ComplianceHistoryResponse {
   total_failing: number;
   scan_count?: number;
   scan_cadence?: ScanCadenceDay[];
+  posture_trend?: PostureTrendPoint[];
 }
 
 export function scanDateLabel(iso: string) {
@@ -143,7 +151,7 @@ export async function downloadEvidenceForScan(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `vigil-evidence-${framework}-${scanAsOfDate(scanIso)}.zip`;
+  a.download = `veritrail-evidence-${framework}-${scanAsOfDate(scanIso)}.zip`;
   a.click();
   URL.revokeObjectURL(url);
 }

@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-from app.services.check_evidence import CLASS_BENCHMARK, CLASS_SUPPORTING
+from app.services.check_evidence import CLASS_ACTIVITY, CLASS_BENCHMARK, CLASS_SUPPORTING
 from app.services.finding_history import (
     finding_open_for_control,
     finding_state_at,
@@ -66,3 +66,17 @@ def test_benchmark_check_fails_control():
 
 def test_wildcard_resource_is_supporting_only():
     assert evidence_class_for_check("iam.policy.wildcard_resource") == CLASS_SUPPORTING
+
+
+def test_activity_check_does_not_fail_control():
+    f = MagicMock()
+    f.check_id = "cloudtrail.event.root_activity"
+    assert evidence_class_for_check(f.check_id) == CLASS_ACTIVITY
+    assert finding_open_for_control(f, "open") is False
+
+
+def test_info_mfa_delete_open_does_not_fail_control():
+    f = MagicMock()
+    f.check_id = "s3.bucket.no_mfa_delete"
+    assert evidence_class_for_check(f.check_id) == CLASS_SUPPORTING
+    assert finding_open_for_control(f, "open") is False

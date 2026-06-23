@@ -1,8 +1,12 @@
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, logout, restoreSession, token } from "./api";
+import { accountListSchema } from "./lib/apiSchemas";
+import { roleAtLeast, useMe } from "./hooks/useMe";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
+import { HeaderSlotContext } from "./context/HeaderSlot";
+import NotificationsBell from "./components/NotificationsBell";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
 
@@ -15,15 +19,24 @@ const navItem = ({ isActive }: { isActive: boolean }) =>
 
 type AccountRow = { status: string; account_id: string | null };
 
+const DEFAULT_HISTORY_FRAMEWORK = "soc2";
+const DEFAULT_HISTORY_DAYS = 90;
+const HISTORY_PREFETCH_STALE_MS = 120_000;
+
 export default function Layout() {
   const nav = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [authReady, setAuthReady] = useState(false);
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   const requiresAccount = pathRequiresConnectedAccount(location.pathname);
+
+  const meQ = useMe();
+  const canManageAccounts = roleAtLeast(meQ.data?.role, "admin");
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
-    queryFn: () => api<AccountRow[]>("/v1/accounts"),
+    queryFn: () => api("/v1/accounts", { schema: accountListSchema }),
     enabled: authReady,
     staleTime: 30_000,
   });
@@ -47,6 +60,21 @@ export default function Layout() {
       cancelled = true;
     };
   }, [nav]);
+
+  useEffect(() => {
+    if (!accountsQ.isSuccess) return;
+    const account = accountsQ.data.find((a) => isAccountConnected(a));
+    if (!account?.id) return;
+
+    void queryClient.prefetchQuery({
+      queryKey: ["history", account.id, DEFAULT_HISTORY_FRAMEWORK, DEFAULT_HISTORY_DAYS],
+      queryFn: () =>
+        api(
+          `/v1/accounts/${account.id}/compliance-timeline?framework=${DEFAULT_HISTORY_FRAMEWORK}&days=${DEFAULT_HISTORY_DAYS}&limit=100`,
+        ),
+      staleTime: HISTORY_PREFETCH_STALE_MS,
+    });
+  }, [accountsQ.data, accountsQ.isSuccess, queryClient]);
 
   if (!authReady) {
     return (
@@ -89,20 +117,22 @@ export default function Layout() {
                 border: "1px solid rgba(99,102,241,0.3)",
               }}
             >
-              <img src="/favicon.png" alt="Vigil" className="h-7 w-7 object-contain drop-shadow" />
+              <img src="/favicon.png" alt="Veritrail" className="h-7 w-7 object-contain drop-shadow" />
             </div>
-            <span className="text-2xl font-semibold leading-none tracking-tight text-white">Vigil</span>
+            <span className="text-2xl font-semibold leading-none tracking-tight text-white">Veritrail</span>
           </div>
         </div>
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-7 space-y-1">
-          <NavLink to="/accounts" className={navItem}>
-            <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-            </svg>
-            Accounts
-          </NavLink>
+          {canManageAccounts && (
+            <NavLink to="/accounts" className={navItem}>
+              <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </svg>
+              Accounts
+            </NavLink>
+          )}
 
           <NavLink to="/findings" className={navItem}>
             <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
@@ -129,19 +159,24 @@ export default function Layout() {
             History
           </NavLink>
 
-          <NavLink to="/integrations" className={navItem}>
-            <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7a2 2 0 012-2h2.5a2 2 0 011.6.8l.8 1.067a2 2 0 001.6.8H18a2 2 0 012 2V17a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" />
-            </svg>
-            Integrations
-          </NavLink>
+          {canManageAccounts && (
+            <NavLink to="/integrations" className={navItem}>
+              <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7a2 2 0 012-2h2.5a2 2 0 011.6.8l.8 1.067a2 2 0 001.6.8H18a2 2 0 012 2V17a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" />
+              </svg>
+              Integrations
+            </NavLink>
+          )}
 
-          <NavLink to="/settings" className={navItem}>
+          {/* Workspace: admin/config surfaces, separated from daily workflow */}
+          <div className="my-3 mx-4 border-t border-white/[0.06]" />
+
+          <NavLink to="/workspace" className={navItem}>
             <svg className="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Settings
+            Workspace
           </NavLink>
 
         </nav>
@@ -156,9 +191,9 @@ export default function Layout() {
           </NavLink>
           <button
             onClick={() => {
-              void logout().finally(() =>
-                nav("/login", { replace: true, state: { signedOut: true } }),
-              );
+              void logout().finally(() => {
+                window.location.href = "/login?signed_out=1";
+              });
             }}
             className="flex w-full items-center gap-3.5 rounded-xl px-4 py-3.5 text-[17px] leading-snug font-medium text-slate-500 transition-all hover:bg-white/6 hover:text-slate-100"
           >
@@ -172,10 +207,23 @@ export default function Layout() {
 
       <main className="ml-64 flex min-h-screen min-w-0 flex-col">
         <RecheckNotificationsProvider>
-          <div data-app-scroll className="flex-1 overflow-auto px-8 py-8">
-            <div className="w-full min-w-0">
-              <Outlet />
+          <div data-app-scroll className="flex flex-1 flex-col overflow-auto">
+            {/* App-wide header bar: a single bell (fixed top-right so it never
+                shifts between pages) plus a left slot that pages fill via
+                <HeaderSlot> so their top controls share this row — no dead
+                space above the page. */}
+            <div className="sticky top-0 z-30 flex items-center gap-3 bg-[#F6F8FB]/95 px-8 pt-5 pb-3 backdrop-blur-sm">
+              <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
+              <NotificationsBell />
             </div>
+            <HeaderSlotContext.Provider value={headerSlot}>
+              {/* flex-1 so short pages fill the viewport — lets pages pin
+                  bottom content (e.g. Integrations "Explore") to the bottom
+                  without leaving a scroll. */}
+              <div className="flex w-full min-w-0 flex-1 flex-col px-8 pb-8">
+                <Outlet />
+              </div>
+            </HeaderSlotContext.Provider>
           </div>
         </RecheckNotificationsProvider>
       </main>

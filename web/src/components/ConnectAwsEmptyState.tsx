@@ -1,5 +1,5 @@
 const SETUP_STEPS = [
-  { step: "1", text: "Go to AWS Accounts and add your account" },
+  { step: "1", text: "Go to Accounts and add your account" },
   { step: "2", text: "Launch the CloudFormation stack" },
   { step: "3", text: "Paste the role ARN and verify — scan starts automatically" },
 ] as const;

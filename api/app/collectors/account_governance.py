@@ -44,7 +44,7 @@ def collect_account_governance(db: Session, account: AwsAccount) -> dict:
         sess = assume_role(
             account.role_arn,
             account.external_id,
-            session_name="vigil-account-gov",
+            session_name="veritrail-account-gov",
             aws_account=account,
             purpose="collect_account_governance",
         )
@@ -87,7 +87,7 @@ def collect_account_governance(db: Session, account: AwsAccount) -> dict:
         },
     )
     db.execute(stmt)
-    db.commit()
+
     log.info(
         "collect_account_governance.done",
         account_id=str(account.id),

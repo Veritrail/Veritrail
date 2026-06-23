@@ -24,7 +24,7 @@ def collect_iam_server_certificates(db: Session, account: AwsAccount) -> int:
         sess = assume_role(
             account.role_arn,
             account.external_id,
-            session_name="vigil-iam-certs",
+            session_name="veritrail-iam-certs",
             aws_account=account,
             purpose="collect_iam_server_certificates",
         )
@@ -64,6 +64,6 @@ def collect_iam_server_certificates(db: Session, account: AwsAccount) -> int:
     except ClientError as e:
         log.warning("collect_iam_server_certs.failed", account_id=str(account.id), error=str(e))
 
-    db.commit()
+
     log.info("collect_iam_server_certs.done", account_id=str(account.id), count=count)
     return count

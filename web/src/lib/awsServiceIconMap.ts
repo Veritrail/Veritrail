@@ -52,6 +52,9 @@ const SERVICE_LABEL_TO_ICON_KEY: Record<string, string> = {
   LOGS: "CLOUDWATCHLOGS",
   EVENTS: "EVENTBRIDGE",
   EVENTBRIDGE: "EVENTBRIDGE",
+  ELASTICLOADBALANCING: "ELB",
+  ELASTICLOADBALANCINGV2: "ELB",
+  MONITORING: "CLOUDWATCH",
   CLOUDFRONT: "CLOUDFRONT",
   ELASTICACHE: "ELASTICACHE",
   ES: "ES",
@@ -112,7 +115,7 @@ export const AWS_ICON_CDN_PATHS: Record<string, string> = {
   STS: "SecurityIdentityCompliance/IdentityAccessManagementAWSSTS.png",
 };
 
-/** Longest-prefix wins — maps every Vigil check_id family to an Architecture Icon key. */
+/** Longest-prefix wins — maps every Veritrail check_id family to an Architecture Icon key. */
 const CHECK_PREFIX_TO_ICON_KEY: [string, string][] = [
   ["cloudtrail.bucket", "S3"],
   ["aws.account", "ORGANIZATIONS"],

@@ -11,10 +11,10 @@ from app.services.evidence_vault import (
 
 
 def test_parse_s3_uri():
-    loc = parse_s3_uri("s3://my-bucket/vigil-evidence/prod")
+    loc = parse_s3_uri("s3://my-bucket/veritrail-evidence/prod")
     assert loc.bucket == "my-bucket"
-    assert loc.prefix == "vigil-evidence/prod"
-    assert loc.base_uri == "s3://my-bucket/vigil-evidence/prod"
+    assert loc.prefix == "veritrail-evidence/prod"
+    assert loc.base_uri == "s3://my-bucket/veritrail-evidence/prod"
 
 
 def test_parse_s3_uri_bucket_only():
@@ -31,14 +31,14 @@ def test_parse_s3_uri_invalid():
 def test_object_key_is_immutable_per_report():
     ts = __import__("datetime").datetime(2026, 5, 1, tzinfo=__import__("datetime").timezone.utc)
     k1 = object_key_for_pack(
-        prefix="vigil-worm-storage",
+        prefix="veritrail-worm-storage",
         app_env="dev",
         aws_account_id="946796614687",
         report_id="REPORT001",
         generated_at=ts,
     )
     k2 = object_key_for_pack(
-        prefix="vigil-worm-storage",
+        prefix="veritrail-worm-storage",
         app_env="dev",
         aws_account_id="946796614687",
         report_id="REPORT002",
@@ -68,7 +68,7 @@ def test_plan_returns_none_when_disabled(monkeypatch):
 
 def test_plan_when_enabled(monkeypatch):
     monkeypatch.setenv("EVIDENCE_VAULT_ENABLED", "true")
-    monkeypatch.setenv("EVIDENCE_VAULT_S3_URI", "s3://audit-vault/vigil")
+    monkeypatch.setenv("EVIDENCE_VAULT_S3_URI", "s3://audit-vault/veritrail")
     from app.core.config import get_settings
 
     get_settings.cache_clear()

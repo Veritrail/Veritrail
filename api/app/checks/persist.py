@@ -82,7 +82,7 @@ def persist_findings(
         if key not in by_key and f.status == "open":
             f.status = "resolved"
             f.resolved_at = now
-            db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="resolved", actor="system", note="not present in latest scan"))
+            db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="resolved", actor="system", note="no longer detected"))
             resolved += 1
 
     resolved += resolve_retired_superseded(

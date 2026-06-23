@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  VeritrailAccountConnector - parent stack for Veritrail in your AWS account. Core scanner (read-only role),
+  optional policy generation, optional remediation modules (scoped write). Stack name is not the IAM role name.
+
+Parameters:
+  VeritrailAccountPrincipal:
+    Type: String
+    Default: "arn:aws:iam::016266969060:role/VeritrailControlPlane"
+  ExternalId:
+    Type: String
+    NoEcho: true
+  RoleName:
+    Type: String
+    Default: VeritrailScannerRole
+    Description: Veritrail connector IAM role name. Single RoleArn output for onboarding.
+  EnableAdvancedPolicyGeneration:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableSecurityGroupRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableS3Remediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableIamAccessKeyRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableIamPolicyRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableSsmParameterRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableCloudTrailRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  CoreScannerTemplateURL:
+    Type: String
+    Default: "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-core-scanner.yaml"
+  RemediationTemplateURL:
+    Type: String
+    Default: "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-remediation-ssm.yaml"
+
+Conditions:
+  RemediationSg: !Equals [!Ref EnableSecurityGroupRemediation, "Yes"]
+  RemediationS3: !Equals [!Ref EnableS3Remediation, "Yes"]
+  RemediationIamKeys: !Equals [!Ref EnableIamAccessKeyRemediation, "Yes"]
+  RemediationIamPolicy: !Equals [!Ref EnableIamPolicyRemediation, "Yes"]
+  RemediationSsmParameters: !Equals [!Ref EnableSsmParameterRemediation, "Yes"]
+  RemediationCloudTrail: !Equals [!Ref EnableCloudTrailRemediation, "Yes"]
+  CreateRemediation:
+    Fn::Or:
+      - !Condition RemediationSg
+      - !Condition RemediationS3
+      - !Condition RemediationIamKeys
+      - !Condition RemediationIamPolicy
+      - !Condition RemediationSsmParameters
+      - !Condition RemediationCloudTrail
+
+Resources:
+  CoreScannerStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Ref CoreScannerTemplateURL
+      Tags:
+        - Key: veritrail-template
+          Value: veritrail-core-scanner
+        - Key: veritrail-version
+          Value: "2026.06"
+      Parameters:
+        VeritrailAccountPrincipal: !Ref VeritrailAccountPrincipal
+        ExternalId: !Ref ExternalId
+        RoleName: !Ref RoleName
+        EnableAdvancedPolicyGeneration: !Ref EnableAdvancedPolicyGeneration
+        EnableSecurityGroupRemediation: !Ref EnableSecurityGroupRemediation
+        EnableS3Remediation: !Ref EnableS3Remediation
+        EnableIamAccessKeyRemediation: !Ref EnableIamAccessKeyRemediation
+        EnableIamPolicyRemediation: !Ref EnableIamPolicyRemediation
+        EnableSsmParameterRemediation: !Ref EnableSsmParameterRemediation
+        EnableCloudTrailRemediation: !Ref EnableCloudTrailRemediation
+
+  RemediationStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: CreateRemediation
+    Properties:
+      TemplateURL: !Ref RemediationTemplateURL
+      Tags:
+        - Key: veritrail-template
+          Value: veritrail-remediation-ssm
+        - Key: veritrail-version
+          Value: "2026.06"
+      Parameters:
+        EnableSecurityGroupRemediation: !Ref EnableSecurityGroupRemediation
+        EnableS3Remediation: !Ref EnableS3Remediation
+        EnableIamAccessKeyRemediation: !Ref EnableIamAccessKeyRemediation
+        EnableIamPolicyRemediation: !Ref EnableIamPolicyRemediation
+        EnableSsmParameterRemediation: !Ref EnableSsmParameterRemediation
+        EnableCloudTrailRemediation: !Ref EnableCloudTrailRemediation
+
+Outputs:
+  RoleArn:
+    Value: !GetAtt CoreScannerStack.Outputs.RoleArn
+  ExternalId:
+    Value: !Ref ExternalId
+  RemediationRoleArn:
+    Condition: CreateRemediation
+    Value: !GetAtt RemediationStack.Outputs.RemediationRoleArn

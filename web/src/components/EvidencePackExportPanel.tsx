@@ -70,7 +70,6 @@ function getFrameworkExportCopy(frameworkId: string) {
     return {
       eyebrow: "SOC 2 Type II",
       subtitle: "Build a reviewer-ready package around the Type II sampling window.",
-      contextLabel: "90-day evidence window",
     };
   }
 
@@ -78,7 +77,6 @@ function getFrameworkExportCopy(frameworkId: string) {
     return {
       eyebrow: "CIS AWS Foundations",
       subtitle: "Package benchmark posture with optional evidence history.",
-      contextLabel: "Benchmark snapshot",
     };
   }
 
@@ -86,25 +84,32 @@ function getFrameworkExportCopy(frameworkId: string) {
     return {
       eyebrow: "ISO 27001",
       subtitle: "Export control evidence and historical posture.",
-      contextLabel: "Evidence history",
     };
   }
 
   return {
     eyebrow: "Evidence export",
     subtitle: "Create an evidence package for this framework.",
-    contextLabel: "Audit package",
   };
+}
+
+function ExportPackageMark({ className }: { className?: string }) {
+  return (
+    <img
+      src="/icons/export-package.png"
+      alt=""
+      className={className ?? "h-full w-full object-contain object-left"}
+      aria-hidden
+    />
+  );
 }
 
 function EvidenceCoverageSection({
   ui,
   loading,
-  stats,
 }: {
   ui: FrameworkEvidenceUi;
   loading?: boolean;
-  stats: { label: string; value: string }[];
 }) {
   const styles = readinessStyles[ui.tone];
   return (
@@ -112,61 +117,48 @@ function EvidenceCoverageSection({
       className={`rounded-2xl border border-zinc-200/80 bg-gradient-to-br ${styles.surface} p-4 shadow-sm`}
       aria-label="Evidence coverage"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${styles.badge}`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${styles.dot}`} aria-hidden />
-              {ui.badgeLabel}
-            </span>
-            {loading && <span className="text-[11px] font-medium text-zinc-400">Updating…</span>}
-          </div>
-
-          {ui.headline && (
-            <p className={`mt-2 text-sm font-semibold tabular-nums ${styles.headline}`}>{ui.headline}</p>
-          )}
-
-          {ui.showProgressBar && (
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/80">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${ui.progressPct > 0 ? styles.bar : "bg-transparent"}`}
-                style={{ width: `${Math.min(100, Math.max(0, ui.progressPct))}%` }}
-                role="progressbar"
-                aria-valuenow={ui.progressPct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={ui.progressAriaLabel ?? "Days with scan evidence"}
-              />
-            </div>
-          )}
-
-          {ui.guidanceLine ? (
-            <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-200/70 bg-amber-50/90 px-3 py-2 text-xs font-medium text-amber-950">
-              <span
-                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold leading-none text-amber-800 ring-1 ring-amber-200/80"
-                aria-hidden
-              >
-                i
-              </span>
-              <span>{ui.guidanceLine}</span>
-            </div>
-          ) : ui.detailLine ? (
-            <p className="mt-2 text-xs leading-relaxed text-zinc-500">{ui.detailLine}</p>
-          ) : null}
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${styles.badge}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${styles.dot}`} aria-hidden />
+            {ui.badgeLabel}
+          </span>
+          {loading && <span className="text-[11px] font-medium text-zinc-400">Updating…</span>}
         </div>
 
-        <dl className="grid min-w-[11rem] grid-cols-3 gap-3 rounded-xl border border-zinc-200/70 bg-white/70 px-3 py-2 sm:grid-cols-1 sm:gap-1.5">
-          {stats.map((item) => (
-            <div key={item.label} className="min-w-0 sm:flex sm:items-center sm:justify-between sm:gap-4">
-              <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-zinc-400 sm:text-[11px] sm:normal-case sm:tracking-normal">
-                {item.label}
-              </dt>
-              <dd className="mt-1 text-sm font-bold tabular-nums text-zinc-950 sm:mt-0">{item.value}</dd>
-            </div>
-          ))}
-        </dl>
+        {ui.headline && (
+          <p className={`mt-2 text-sm font-semibold tabular-nums ${styles.headline}`}>{ui.headline}</p>
+        )}
+
+        {ui.showProgressBar && (
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/80">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${ui.progressPct > 0 ? styles.bar : "bg-transparent"}`}
+              style={{ width: `${Math.min(100, Math.max(0, ui.progressPct))}%` }}
+              role="progressbar"
+              aria-valuenow={ui.progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={ui.progressAriaLabel ?? "Days with scan evidence"}
+            />
+          </div>
+        )}
+
+        {ui.guidanceLine ? (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-200/70 bg-amber-50/90 px-3 py-2 text-xs font-medium text-amber-950">
+            <span
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold leading-none text-amber-800 ring-1 ring-amber-200/80"
+              aria-hidden
+            >
+              i
+            </span>
+            <span>{ui.guidanceLine}</span>
+          </div>
+        ) : ui.detailLine ? (
+          <p className="mt-2 text-xs leading-relaxed text-zinc-500">{ui.detailLine}</p>
+        ) : null}
       </div>
     </section>
   );
@@ -182,34 +174,47 @@ function PeriodWindowPicker({
   onPeriodChange: (key: string | number) => void;
 }) {
   const selected = WINDOW_OPTIONS.find((opt) => opt.value === periodKey) ?? WINDOW_OPTIONS[0];
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <div>
+    <div ref={rootRef} className="relative">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{scopeLabel}</p>
 
-      <label className="relative mt-2 block">
-        <span className="pointer-events-none absolute left-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg bg-white text-indigo-700 ring-1 ring-indigo-100">
-          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
-          </svg>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="group mt-2 inline-flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-50 px-3.5 text-left text-sm font-semibold text-zinc-900 shadow-sm outline-none transition hover:border-zinc-300 hover:shadow-md focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={scopeLabel}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-700 ring-1 ring-indigo-100">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </span>
+          <span className="truncate">{selected.label}</span>
         </span>
-        <select
-          value={String(selected.value)}
-          onChange={(event) => {
-            const next = event.target.value;
-            onPeriodChange(next === "last_scan" ? next : Number(next));
-          }}
-          className="h-11 w-full appearance-none rounded-xl border border-zinc-200/90 bg-gradient-to-b from-white to-zinc-50 pl-12 pr-10 text-sm font-semibold text-zinc-900 shadow-sm outline-none transition hover:border-zinc-300 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-          aria-label={scopeLabel}
-        >
-          {WINDOW_OPTIONS.map((opt) => (
-            <option key={String(opt.value)} value={String(opt.value)}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
         <svg
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+          className={`h-4 w-4 shrink-0 text-zinc-400 transition group-hover:text-zinc-600 ${open ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
@@ -218,7 +223,44 @@ function PeriodWindowPicker({
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
         </svg>
-      </label>
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          aria-label={scopeLabel}
+          className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-zinc-200/90 bg-white p-1 shadow-xl shadow-zinc-950/10 ring-1 ring-zinc-950/[0.04]"
+        >
+          {WINDOW_OPTIONS.map((opt) => {
+            const isSelected = opt.value === selected.value;
+            return (
+              <li key={String(opt.value)} role="presentation">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => {
+                    onPeriodChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+                    isSelected
+                      ? "bg-indigo-50 text-indigo-900"
+                      : "text-zinc-800 hover:bg-zinc-50"
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {isSelected && (
+                    <svg className="h-4 w-4 shrink-0 text-indigo-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -365,7 +407,7 @@ function AuditAsOfPicker({
         <div
           role="dialog"
           aria-label="Choose as-of date"
-          className="absolute bottom-full right-0 z-20 mb-2 w-[18rem] rounded-2xl border border-zinc-200/90 bg-white p-3 shadow-xl shadow-zinc-950/15 ring-1 ring-zinc-950/[0.04]"
+          className="absolute left-0 right-0 top-full z-30 mt-2 w-full min-w-[18rem] rounded-2xl border border-zinc-200/90 bg-white p-3 shadow-xl shadow-zinc-950/15 ring-1 ring-zinc-950/[0.04]"
         >
           <div className="mb-3 flex items-center justify-between rounded-xl bg-zinc-50 px-1.5 py-1">
             <button
@@ -532,8 +574,6 @@ export type EvidencePackExportPanelProps = {
   coverage?: EvidenceCoverage;
   coverageLoading?: boolean;
   controlsEvaluated: number;
-  openFindings: number;
-  passingCount: number;
   lastScanLabel?: string | null;
   downloading: boolean;
   onDownload: () => void;
@@ -549,8 +589,6 @@ export function EvidencePackExportPanel({
   coverage,
   coverageLoading,
   controlsEvaluated,
-  openFindings,
-  passingCount,
   lastScanLabel,
   downloading,
   onDownload,
@@ -568,41 +606,31 @@ export function EvidencePackExportPanel({
   return (
     <div className="w-[min(100vw-2rem,38rem)]">
       <header className="rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75 5.25 6v5.25c0 4.2 2.84 8.12 6.75 9.25 3.91-1.13 6.75-5.05 6.75-9.25V6L12 3.75Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 15h4.5M9 9h6" />
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-700">{copy.eyebrow}</p>
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 ring-1 ring-zinc-200/80">
-                {copy.contextLabel}
-              </span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="grid min-w-0 flex-1 grid-cols-[5rem_minmax(0,1fr)] grid-rows-[auto_auto_auto] gap-x-2.5">
+            <div className="row-span-3 flex min-h-0 items-stretch self-stretch">
+              <ExportPackageMark className="h-full w-full object-contain object-left" />
             </div>
-            <h2 className="mt-1 text-lg font-bold tracking-tight text-zinc-950">Generate audit package</h2>
-            <p className="mt-1 max-w-[30rem] text-sm leading-relaxed text-zinc-600">{copy.subtitle}</p>
+            <p className="col-start-2 row-start-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#439385]">
+              {copy.eyebrow}
+            </p>
+            <h2 className="col-start-2 row-start-2 mt-1 text-lg font-bold tracking-tight text-zinc-950">
+              Generate audit package
+            </h2>
+            <p className="col-start-2 row-start-3 mt-1 max-w-[30rem] text-sm leading-relaxed text-zinc-600">
+              {copy.subtitle}
+            </p>
           </div>
-          <span className="hidden rounded-full border border-zinc-200/80 px-2.5 py-1 text-xs font-semibold text-zinc-700 sm:inline-flex">
+          <span className="hidden shrink-0 rounded-full border border-zinc-200/80 px-2.5 py-1 text-xs font-semibold text-zinc-700 sm:inline-flex">
             {frameworkLabel}
           </span>
         </div>
       </header>
 
       <div className="mt-3 space-y-3">
-        <EvidenceCoverageSection
-          ui={evidenceUi}
-          loading={coverageLoading}
-          stats={[
-            { label: "Controls", value: String(controlsEvaluated) },
-            { label: "Findings", value: String(openFindings) },
-            { label: "Passing", value: String(passingCount) },
-          ]}
-        />
+        <EvidenceCoverageSection ui={evidenceUi} loading={coverageLoading} />
 
-        <section className="rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm">
+        <section className="overflow-visible rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm">
           <PeriodWindowPicker
             scopeLabel={scopeLabel}
             periodKey={periodKey}
@@ -629,7 +657,7 @@ export function EvidencePackExportPanel({
         type="button"
         onClick={onDownload}
         disabled={downloading}
-        className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 hover:shadow-indigo-600/30 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#439385] px-4 text-sm font-bold text-white shadow-lg shadow-[#439385]/20 transition hover:bg-[#367a6f] hover:shadow-[#439385]/30 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {downloading ? (
           <>

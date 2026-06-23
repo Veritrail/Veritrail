@@ -1,0 +1,334 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Veritrail remediation SSM Automation runbooks. Python handlers live in S3
+  (infra/<release>/ssm-scripts/*.py); publish with ./scripts/upload-cfn.sh
+  before updating this stack.
+
+Parameters:
+  AutomationRoleName:
+    Type: String
+    Default: VeritrailRemediationAutomationRole
+  SsmScriptsBucket:
+    Type: String
+    Default: amzn-s3-veritrail
+    Description: S3 bucket hosting Veritrail SSM handler scripts (public-read).
+  SsmScriptsRelease:
+    Type: String
+    Default: "2026.06"
+    Description: Release folder under infra/ (must match upload-cfn.sh RELEASE).
+  EnableSecurityGroupRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableS3Remediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableIamAccessKeyRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableIamPolicyRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableSsmParameterRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableCloudTrailRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableKmsRotationRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+
+Conditions:
+  SecurityGroupModule: !Equals [!Ref EnableSecurityGroupRemediation, "Yes"]
+  IamAccessKeyModule: !Equals [!Ref EnableIamAccessKeyRemediation, "Yes"]
+  IamPolicyModule: !Equals [!Ref EnableIamPolicyRemediation, "Yes"]
+  SsmParameterModule: !Equals [!Ref EnableSsmParameterRemediation, "Yes"]
+  S3Module: !Equals [!Ref EnableS3Remediation, "Yes"]
+  KmsRotationModule: !Equals [!Ref EnableKmsRotationRemediation, "Yes"]
+  AnyRemediationModule: !Or
+    - !Condition SecurityGroupModule
+    - !Condition IamAccessKeyModule
+    - !Condition IamPolicyModule
+    - !Condition SsmParameterModule
+    - !Condition S3Module
+    - !Condition KmsRotationModule
+
+Mappings:
+  SsmScriptChecksums:
+    RevokeSgIngress:
+      sha256: b84751cd19bb7b503bb2f8d5e1b306fd127737c074046e1b556f67d2dce60ad4
+    DeactivateAccessKey:
+      sha256: 4ba38af54ef082050c5d837a613dcb1f8f2f6480532da127919d4cb46801ef34
+    MigrateSecureString:
+      sha256: b9bf16bcb71a91d8e7c4dbb1106dbf2c53db214339027caad99507ef572eee0d
+    RemediateExcessPermissions:
+      sha256: 88be3542c322ef671dd7e95750a9cb3fc3f57695843a5971eaa17aca5ec6b311
+
+Resources:
+  RemediationAutomationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref AutomationRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ssm.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: VeritrailRemediationAutomation
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - !If
+                - AnyRemediationModule
+                - Sid: SsmHandlerScriptsFromS3
+                  Effect: Allow
+                  Action:
+                    - s3:GetObject
+                  Resource: !Sub
+                    - arn:aws:s3:::${Bucket}/infra/${Release}/ssm-scripts/*
+                    - Bucket: !Ref SsmScriptsBucket
+                      Release: !Ref SsmScriptsRelease
+                - !Ref AWS::NoValue
+              # Always on this role — AWS-owned S3 PAB runbook; avoids nested-stack !If not updating.
+              - Sid: S3BucketPublicAccessBlock
+                Effect: Allow
+                Action:
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:PutBucketPublicAccessBlock
+                Resource: arn:aws:s3:::*
+              - !If
+                - SecurityGroupModule
+                - Sid: Ec2SecurityGroupIngress
+                  Effect: Allow
+                  Action:
+                    - ec2:DescribeSecurityGroups
+                    - ec2:DescribeSecurityGroupRules
+                    - ec2:RevokeSecurityGroupIngress
+                  Resource: "*"
+                - !Ref AWS::NoValue
+              - !If
+                - SsmParameterModule
+                - Sid: SsmParameterSecureStringMigration
+                  Effect: Allow
+                  Action:
+                    - ssm:GetParameter
+                    - ssm:PutParameter
+                  Resource: "*"
+                - !Ref AWS::NoValue
+              - !If
+                - IamAccessKeyModule
+                - Sid: IamAccessKeyRemediation
+                  Effect: Allow
+                  Action:
+                    - iam:UpdateAccessKey
+                    - iam:GetAccessKeyLastUsed
+                  Resource: "*"
+                - !Ref AWS::NoValue
+              - !If
+                - IamPolicyModule
+                - Sid: IamPolicyRemediation
+                  Effect: Allow
+                  Action:
+                    - iam:GetRole
+                    - iam:GetRolePolicy
+                    - iam:PutRolePolicy
+                    - iam:ListAttachedRolePolicies
+                    - iam:DetachRolePolicy
+                    - iam:GetPolicy
+                  Resource: "*"
+                - !Ref AWS::NoValue
+              - !If
+                - KmsRotationModule
+                # AWS-owned runbook AWSConfigRemediation-EnableKeyRotation; no
+                # custom SSM::Document needed — only the scoped key permissions.
+                - Sid: KmsKeyRotation
+                  Effect: Allow
+                  Action:
+                    - kms:EnableKeyRotation
+                    - kms:GetKeyRotationStatus
+                    - kms:DescribeKey
+                  Resource: "*"
+                - !Ref AWS::NoValue
+
+  RevokeSecurityGroupIngressDocument:
+    Type: AWS::SSM::Document
+    Condition: SecurityGroupModule
+    Properties:
+      Name: Veritrail-RevokeSecurityGroupIngressExact
+      DocumentType: Automation
+      DocumentFormat: YAML
+      UpdateMethod: NewVersion
+      Attachments:
+        - Key: S3FileUrl
+          Name: revoke_sg_ingress.py
+          Values:
+            - !Sub
+              - s3://${Bucket}/infra/${Release}/ssm-scripts/revoke_sg_ingress.py
+              - Bucket: !Ref SsmScriptsBucket
+                Release: !Ref SsmScriptsRelease
+      Content:
+        schemaVersion: "0.3"
+        description: Revoke only the exact public ingress rule from a signed Veritrail plan.
+        assumeRole: !GetAtt RemediationAutomationRole.Arn
+        parameters:
+          PlanJson:
+            type: String
+            description: Signed Veritrail remediation plan JSON.
+        files:
+          revoke_sg_ingress.py:
+            checksums:
+              sha256: !FindInMap [SsmScriptChecksums, RevokeSgIngress, sha256]
+        mainSteps:
+          - name: RevokeExactIngress
+            action: aws:executeScript
+            timeoutSeconds: 300
+            inputs:
+              Runtime: python3.11
+              Handler: revoke_sg_ingress.handler
+              Attachment: revoke_sg_ingress.py
+              InputPayload:
+                PlanJson: "{{ PlanJson }}"
+
+  DeactivateIamAccessKeyDocument:
+    Type: AWS::SSM::Document
+    Condition: IamAccessKeyModule
+    Properties:
+      Name: Veritrail-DeactivateIamAccessKey
+      DocumentType: Automation
+      DocumentFormat: YAML
+      UpdateMethod: NewVersion
+      Attachments:
+        - Key: S3FileUrl
+          Name: deactivate_access_key.py
+          Values:
+            - !Sub
+              - s3://${Bucket}/infra/${Release}/ssm-scripts/deactivate_access_key.py
+              - Bucket: !Ref SsmScriptsBucket
+                Release: !Ref SsmScriptsRelease
+      Content:
+        schemaVersion: "0.3"
+        description: Deactivate a reviewed IAM access key (never delete).
+        assumeRole: !GetAtt RemediationAutomationRole.Arn
+        parameters:
+          PlanJson:
+            type: String
+            description: Signed Veritrail remediation plan JSON.
+        files:
+          deactivate_access_key.py:
+            checksums:
+              sha256: !FindInMap [SsmScriptChecksums, DeactivateAccessKey, sha256]
+        mainSteps:
+          - name: DeactivateAccessKey
+            action: aws:executeScript
+            timeoutSeconds: 300
+            inputs:
+              Runtime: python3.11
+              Handler: deactivate_access_key.handler
+              Attachment: deactivate_access_key.py
+              InputPayload:
+                PlanJson: "{{ PlanJson }}"
+
+  MigrateSsmParameterDocument:
+    Type: AWS::SSM::Document
+    Condition: SsmParameterModule
+    Properties:
+      Name: Veritrail-MigrateSsmParameterToSecureString
+      DocumentType: Automation
+      DocumentFormat: YAML
+      UpdateMethod: NewVersion
+      Attachments:
+        - Key: S3FileUrl
+          Name: migrate_to_secure_string.py
+          Values:
+            - !Sub
+              - s3://${Bucket}/infra/${Release}/ssm-scripts/migrate_to_secure_string.py
+              - Bucket: !Ref SsmScriptsBucket
+                Release: !Ref SsmScriptsRelease
+      Content:
+        schemaVersion: "0.3"
+        description: Migrate a reviewed SSM String parameter to SecureString.
+        assumeRole: !GetAtt RemediationAutomationRole.Arn
+        parameters:
+          PlanJson:
+            type: String
+            description: Signed Veritrail remediation plan JSON.
+        files:
+          migrate_to_secure_string.py:
+            checksums:
+              sha256: !FindInMap [SsmScriptChecksums, MigrateSecureString, sha256]
+        mainSteps:
+          - name: MigrateParameter
+            action: aws:executeScript
+            timeoutSeconds: 300
+            inputs:
+              Runtime: python3.11
+              Handler: migrate_to_secure_string.handler
+              Attachment: migrate_to_secure_string.py
+              InputPayload:
+                PlanJson: "{{ PlanJson }}"
+
+  RemediateIamExcessPermissionsDocument:
+    Type: AWS::SSM::Document
+    Condition: IamPolicyModule
+    Properties:
+      Name: Veritrail-RemediateIamExcessPermissions
+      DocumentType: Automation
+      DocumentFormat: YAML
+      UpdateMethod: NewVersion
+      Attachments:
+        - Key: S3FileUrl
+          Name: remediate_excess_permissions.py
+          Values:
+            - !Sub
+              - s3://${Bucket}/infra/${Release}/ssm-scripts/remediate_excess_permissions.py
+              - Bucket: !Ref SsmScriptsBucket
+                Release: !Ref SsmScriptsRelease
+      Content:
+        schemaVersion: "0.3"
+        description: Narrow IAM role policies per a signed Veritrail remediation plan.
+        assumeRole: !GetAtt RemediationAutomationRole.Arn
+        parameters:
+          PlanJson:
+            type: String
+            description: Signed Veritrail remediation plan JSON.
+        files:
+          remediate_excess_permissions.py:
+            checksums:
+              sha256: !FindInMap [SsmScriptChecksums, RemediateExcessPermissions, sha256]
+        mainSteps:
+          - name: RemediateIamPolicy
+            action: aws:executeScript
+            timeoutSeconds: 300
+            inputs:
+              Runtime: python3.11
+              Handler: remediate_excess_permissions.handler
+              Attachment: remediate_excess_permissions.py
+              InputPayload:
+                PlanJson: "{{ PlanJson }}"
+
+Outputs:
+  AutomationRoleArn:
+    Value: !GetAtt RemediationAutomationRole.Arn
+  RemediationRoleArn:
+    Value: !GetAtt RemediationAutomationRole.Arn
+  SsmScriptsPrefix:
+    Description: S3 prefix for handler scripts (upload before stack update).
+    Value: !Sub infra/${SsmScriptsRelease}/ssm-scripts/
+  SecurityGroupDocumentName:
+    Value: Veritrail-RevokeSecurityGroupIngressExact
+  IamAccessKeyDocumentName:
+    Value: Veritrail-DeactivateIamAccessKey
+  SsmParameterDocumentName:
+    Value: Veritrail-MigrateSsmParameterToSecureString
+  IamPolicyDocumentName:
+    Value: Veritrail-RemediateIamExcessPermissions

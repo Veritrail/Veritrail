@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
+import { accountListSchema } from "../lib/apiSchemas";
 import {
   dedupeResources,
   dedupeTimelineEvents,
@@ -462,7 +463,7 @@ export default function Timeline() {
 
   const { data: accounts } = useQuery<Account[]>({
     queryKey: ["accounts"],
-    queryFn: () => api("/v1/accounts"),
+    queryFn: () => api("/v1/accounts", { schema: accountListSchema }),
   });
 
   const connected = (accounts || []).filter((a) => a.status === "connected");

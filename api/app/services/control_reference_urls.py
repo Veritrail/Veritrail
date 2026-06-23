@@ -13,7 +13,7 @@ SOC2_OVERVIEW = (
 # ISO/IEC 27002:2022 — control text (Annex A in 27001:2013 maps here; 27001:2022 body clause 9 ≠ A.9.x).
 ISO27002_OBP_BASE = "https://www.iso.org/obp/ui/en/#iso:std:iso-iec:27002:ed-2:v1:en:sec:"
 
-# Vigil ISO mappings use 27001:2013 Annex A IDs → 27002:2022 control numbers (ISO migration).
+# Veritrail ISO mappings use 27001:2013 Annex A IDs → 27002:2022 control numbers (ISO migration).
 ISO_2013_ANNEX_A_TO_27002_2022: dict[str, tuple[str, str]] = {
     "A.9.2.1": ("5.16", "Identity management"),
     "A.9.2.2": ("5.18", "Access rights"),

@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -14,8 +16,8 @@ from app.core.ratelimit import limiter
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
-from app.routes import accounts, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, iac, settings as settings_router
-from app.routes import controls, exports, meta, public
+from app.routes import accounts, accounts_onboard, accounts_scan, accounts_remediate, accounts_analysis, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, slack_integration, jira_integration, iac, settings as settings_router, members
+from app.routes import controls, exports, meta, public, domains, join_requests, audit_log
 from app.routes import auditor, auditor_portal, trust_center
 
 log = structlog.get_logger()
@@ -41,7 +43,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Vigil API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Veritrail API", version="0.1.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -53,8 +55,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
 
@@ -138,6 +140,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
+_upload_root = Path(settings.LOCAL_UPLOAD_DIR)
+_upload_root.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_upload_root)), name="uploads")
+
 
 @app.get("/healthz")
 def healthz():
@@ -148,17 +154,27 @@ app.include_router(auth.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(auth_oauth.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(auth_saml.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(accounts.router, prefix="/v1/accounts", tags=["accounts"])
+app.include_router(accounts_onboard.router, prefix="/v1/accounts", tags=["accounts"])
+app.include_router(accounts_scan.router, prefix="/v1/accounts", tags=["accounts"])
+app.include_router(accounts_remediate.router, prefix="/v1/accounts", tags=["accounts"])
+app.include_router(accounts_analysis.router, prefix="/v1/accounts", tags=["accounts"])
 app.include_router(findings.router, prefix="/v1/findings", tags=["findings"])
 app.include_router(iac.router, prefix="/v1/iac", tags=["iac"])
 app.include_router(settings_router.router, prefix="/v1/settings", tags=["settings"])
+app.include_router(domains.router, prefix="/v1/domains", tags=["domains"])
+app.include_router(join_requests.router, prefix="/v1/join-requests", tags=["join-requests"])
 app.include_router(controls.router, prefix="/v1/controls", tags=["controls"])
 app.include_router(exports.router, prefix="/v1/exports", tags=["exports"])
 app.include_router(meta.router, prefix="/v1/meta", tags=["meta"])
 app.include_router(public.router, prefix="/v1/public", tags=["public"])
 app.include_router(auditor.router, prefix="/v1/auditor", tags=["auditor"])
+app.include_router(members.router, prefix="/v1/members", tags=["members"])
+app.include_router(audit_log.router, prefix="/v1/audit-log", tags=["audit-log"])
 app.include_router(auditor_portal.router, prefix="/auditor", tags=["auditor-portal"])
 app.include_router(trust_center.router, prefix="/trust", tags=["trust-center"])
 app.include_router(github_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(gitlab_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(google_workspace_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(entra_integration.router, prefix="/v1/integrations", tags=["integrations"])
+app.include_router(slack_integration.router, prefix="/v1/integrations", tags=["integrations"])
+app.include_router(jira_integration.router, prefix="/v1/integrations", tags=["integrations"])

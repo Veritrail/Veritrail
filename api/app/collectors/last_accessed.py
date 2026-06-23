@@ -25,7 +25,7 @@ _ROLE_LIMIT = 100    # process up to 100 non-service roles per scan
 
 
 def collect_perm_usage(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-perm-usage", aws_account=account, purpose="collect_perm_usage")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-perm-usage", aws_account=account, purpose="collect_perm_usage")
     iam = sess.client("iam")
 
     roles = db.scalars(select(IamRole).where(IamRole.account_id == account.id)).all()
@@ -57,7 +57,7 @@ def collect_perm_usage(db: Session, account: AwsAccount) -> int:
         except ClientError as e:
             log.warning("perm_usage.collect_skip", arn=role_arn, error=str(e))
 
-    db.commit()
+
     log.info("perm_usage.done", roles=len(jobs), upserted=upserted)
     return upserted
 

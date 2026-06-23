@@ -2,7 +2,7 @@
 # deploy-ssm-docs.sh — Debug-only direct SSM document deployment.
 #
 # Customer installs must deploy SSM documents through CloudFormation via
-# infra/cfn/vigil-remediation-ssm.yaml. This script is kept only for manual
+# infra/cfn/veritrail-remediation-ssm.yaml. This script is kept only for manual
 # comparison/debugging during development.
 #
 # Usage:
@@ -11,15 +11,15 @@
 
 set -euo pipefail
 
-if [ "${VIGIL_ALLOW_DIRECT_SSM_DOC_DEPLOY:-}" != "1" ]; then
+if [ "${VERITRAIL_ALLOW_DIRECT_SSM_DOC_DEPLOY:-}" != "1" ]; then
   cat >&2 <<'EOF'
 ERROR: Direct SSM document deployment is disabled.
 
-Vigil's supported customer path is CloudFormation:
+Veritrail's supported customer path is CloudFormation:
   1. ./scripts/upload-cfn.sh
-  2. Update/recreate the VigilAccountConnector stack with remediation modules enabled.
+  2. Update/recreate the VeritrailAccountConnector stack with remediation modules enabled.
 
-For development-only debugging, set VIGIL_ALLOW_DIRECT_SSM_DOC_DEPLOY=1.
+For development-only debugging, set VERITRAIL_ALLOW_DIRECT_SSM_DOC_DEPLOY=1.
 EOF
   exit 1
 fi
@@ -31,7 +31,7 @@ source "${SCRIPT_DIR}/lib/aws-session.sh"
 SCRIPTS_SRC="${REPO_DIR}/infra/cfn/ssm-scripts"
 
 REGION="${AWS_REGION:-us-east-1}"
-BUCKET="${VIGIL_CFN_BUCKET:-amzn-s3-vigil}"
+BUCKET="${VERITRAIL_CFN_BUCKET:-amzn-s3-veritrail}"
 RELEASE="${RELEASE:-2026.06}"
 SSM_KEY="infra/${RELEASE}/ssm-scripts"
 S3_PREFIX="s3://${BUCKET}/${SSM_KEY}"
@@ -42,7 +42,7 @@ export AWS_REGION="${AWS_REGION:-${REGION}}"
 require_aws_session
 
 # ── Role ARN (used by assumeRole in each document) ────────────────────────
-ROLE_NAME="${VIGIL_ROLE_NAME:-VigilRemediationAutomationRole}"
+ROLE_NAME="${VERITRAIL_ROLE_NAME:-VeritrailRemediationAutomationRole}"
 ROLE_ARN="arn:aws:iam::$(aws_cli sts get-caller-identity --query Account --output text):role/${ROLE_NAME}"
 
 # ── Step 1: Upload Python handlers to S3 (incremental) ─────────────────────
@@ -87,9 +87,9 @@ deploy_doc() {
       assumeRole: $roleArn,
       parameters: (
         if ($extraParams | length > 0) then
-          { PlanJson: { type: "String", description: "Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)" } } * $extraParams
+          { PlanJson: { type: "String", description: "Signed Veritrail remediation plan JSON (veritrail_remediation_plan/v2)" } } * $extraParams
         else
-          { PlanJson: { type: "String", description: "Signed Vigil remediation plan JSON (vigil_remediation_plan/v2)" } }
+          { PlanJson: { type: "String", description: "Signed Veritrail remediation plan JSON (veritrail_remediation_plan/v2)" } }
         end
       ),
       mainSteps: []
@@ -152,46 +152,46 @@ deploy_doc() {
 echo "── SSM Automation Documents ──"
 echo ""
 
-# 1. Vigil-RevokeSecurityGroupIngressExact
+# 1. Veritrail-RevokeSecurityGroupIngressExact
 deploy_doc \
-  "Vigil-RevokeSecurityGroupIngressExact" \
-  "Vigil: Remove only the public security-group ingress rules authorized in a signed remediation plan. Revokes specific 0.0.0.0/0 or ::/0 ingress rules that match the approved plan." \
+  "Veritrail-RevokeSecurityGroupIngressExact" \
+  "Veritrail: Remove only the public security-group ingress rules authorized in a signed remediation plan. Revokes specific 0.0.0.0/0 or ::/0 ingress rules that match the approved plan." \
   "revoke_sg_ingress.py" \
   '{}'
 
 echo ""
 
-# 2. Vigil-DeactivateIamAccessKey
+# 2. Veritrail-DeactivateIamAccessKey
 deploy_doc \
-  "Vigil-DeactivateIamAccessKey" \
-  "Vigil: Deactivate only the IAM access key approved in a signed remediation plan. Validates plan integrity and expiry before setting the key status to Inactive." \
+  "Veritrail-DeactivateIamAccessKey" \
+  "Veritrail: Deactivate only the IAM access key approved in a signed remediation plan. Validates plan integrity and expiry before setting the key status to Inactive." \
   "deactivate_access_key.py" \
   '{}'
 
 echo ""
 
-# 3. Vigil-MigrateSsmParameterToSecureString
+# 3. Veritrail-MigrateSsmParameterToSecureString
 deploy_doc \
-  "Vigil-MigrateSsmParameterToSecureString" \
-  "Vigil: Rewrite a reviewed plaintext SSM String parameter as SecureString. Verifies plan integrity and expiry, reads current value, and performs the migration only when the parameter is still a plaintext String." \
+  "Veritrail-MigrateSsmParameterToSecureString" \
+  "Veritrail: Rewrite a reviewed plaintext SSM String parameter as SecureString. Verifies plan integrity and expiry, reads current value, and performs the migration only when the parameter is still a plaintext String." \
   "migrate_to_secure_string.py" \
   '{}'
 
 echo ""
 
-# 4. Vigil-ConfigureS3BucketPublicAccessBlock
+# 4. Veritrail-ConfigureS3BucketPublicAccessBlock
 deploy_doc \
-  "Vigil-ConfigureS3BucketPublicAccessBlock" \
-  "Vigil: Enable all four Block Public Access settings on a specific S3 bucket approved in a signed remediation plan. Verifies plan integrity, extracts the bucket name, and applies the full PublicAccessBlockConfiguration." \
+  "Veritrail-ConfigureS3BucketPublicAccessBlock" \
+  "Veritrail: Enable all four Block Public Access settings on a specific S3 bucket approved in a signed remediation plan. Verifies plan integrity, extracts the bucket name, and applies the full PublicAccessBlockConfiguration." \
   "configure_s3_pab.py" \
   '{}'
 
 echo ""
 
-# 5. Vigil-RemediateIamExcessPermissions
+# 5. Veritrail-RemediateIamExcessPermissions
 deploy_doc \
-  "Vigil-RemediateIamExcessPermissions" \
-  "Vigil: Detach full-admin managed policies or replace wildcard inline policies per a signed remediation plan. Supports two actions — detach_full_admin and replace_wildcard_inline — both scoped to the specific role and policies in the plan." \
+  "Veritrail-RemediateIamExcessPermissions" \
+  "Veritrail: Detach full-admin managed policies or replace wildcard inline policies per a signed remediation plan. Supports two actions — detach_full_admin and replace_wildcard_inline — both scoped to the specific role and policies in the plan." \
   "remediate_excess_permissions.py" \
   '{}'
 

@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Vigil control plane on ECS Fargate (cluster, IAM, ECR, logs, optional RDS + Redis).
+Description: Veritrail control plane on ECS Fargate (cluster, IAM, ECR, logs, optional RDS + Redis).
 
 Parameters:
   EnvironmentName:
     Type: String
-    Default: vigil-prod
+    Default: veritrail-prod
   VpcId:
     Type: AWS::EC2::VPC::Id
   PrivateSubnetIds:
@@ -19,10 +19,10 @@ Parameters:
     Description: ACM cert ARN for HTTPS (optional on first deploy).
   ApiHostname:
     Type: String
-    Description: e.g. api.vigil.example.com
+    Description: e.g. api.veritrail.example.com
   WebHostname:
     Type: String
-    Description: e.g. vigil.example.com
+    Description: e.g. veritrail.example.com
   DbPassword:
     Type: String
     NoEcho: true
@@ -63,31 +63,31 @@ Resources:
   ApiLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/vigil-api
+      LogGroupName: /ecs/veritrail-api
       RetentionInDays: 30
 
   WorkerLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/vigil-worker
+      LogGroupName: /ecs/veritrail-worker
       RetentionInDays: 30
 
   BeatLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/vigil-beat
+      LogGroupName: /ecs/veritrail-beat
       RetentionInDays: 30
 
   WebLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: /ecs/vigil-web
+      LogGroupName: /ecs/veritrail-web
       RetentionInDays: 30
 
   TaskSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Vigil ECS tasks
+      GroupDescription: Veritrail ECS tasks
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -102,7 +102,7 @@ Resources:
   AlbSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Vigil ALB
+      GroupDescription: Veritrail ALB
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -118,7 +118,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Condition: CreateDataStores
     Properties:
-      GroupDescription: Vigil RDS
+      GroupDescription: Veritrail RDS
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -130,7 +130,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Condition: CreateDataStores
     Properties:
-      GroupDescription: Vigil Redis
+      GroupDescription: Veritrail Redis
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -162,14 +162,14 @@ Resources:
     Type: AWS::RDS::DBSubnetGroup
     Condition: CreateDataStores
     Properties:
-      DBSubnetGroupDescription: Vigil RDS subnets
+      DBSubnetGroupDescription: Veritrail RDS subnets
       SubnetIds: !Ref PrivateSubnetIds
 
   RedisSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Condition: CreateDataStores
     Properties:
-      Description: Vigil Redis subnets
+      Description: Veritrail Redis subnets
       SubnetIds: !Ref PrivateSubnetIds
 
   Redis:
@@ -224,7 +224,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: sts:AssumeRole
-                Resource: "arn:aws:iam::*:role/*Vigil*"
+                Resource: "arn:aws:iam::*:role/*Veritrail*"
         - PolicyName: EvidenceVaultAndCfn
           PolicyDocument:
             Version: "2012-10-17"
@@ -240,7 +240,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub "${EnvironmentName}/app"
-      Description: Vigil app config JSON (see infra/ecs/README.md)
+      Description: Veritrail app config JSON (see infra/ecs/README.md)
       SecretString: !Sub |
         {
           "APP_ENV": "production",
@@ -252,7 +252,7 @@ Resources:
           "FRONTEND_URL": "https://${WebHostname}",
           "DATABASE_URL": "postgresql+psycopg://hygiene:${DbPassword}@${Database.Endpoint.Address}:5432/hygiene",
           "REDIS_URL": "redis://${Redis.RedisEndpoint.Address}:6379/0",
-          "CFN_TEMPLATE_URL": "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-stack.yaml"
+          "CFN_TEMPLATE_URL": "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/veritrail-stack.yaml"
         }
 
   LoadBalancer:

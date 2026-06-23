@@ -18,8 +18,8 @@ from app.core.config import get_settings
 
 ALGORITHM = "ed25519"
 SIGNED_ARTIFACT = "checksum_manifest.json"
-KEY_ID = "vigil-evidence-v1"
-REMEDIATION_KEY_ID = "vigil-remediation-v1"
+KEY_ID = "veritrail-evidence-v1"
+REMEDIATION_KEY_ID = "veritrail-remediation-v1"
 
 
 @lru_cache(maxsize=1)

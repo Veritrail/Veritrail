@@ -11,9 +11,9 @@ export function friendlyScanFailureMessage(raw: string): string {
     lower.includes("sso") && (lower.includes("profile") || lower.includes("token") || lower.includes("session"))
   ) {
     return (
-      "Vigil could not reach AWS using the credentials configured for this scan. " +
+      "Veritrail could not reach AWS using the credentials configured for this scan. " +
       "If you use AWS SSO on your computer, sign in with the AWS CLI (`aws sso login`) for the profile tied to this account, " +
-      "or reconnect the account from Accounts with a role Vigil can assume."
+      "or reconnect the account from Accounts with a role Veritrail can assume."
     );
   }
 
@@ -32,20 +32,20 @@ export function friendlyScanFailureMessage(raw: string): string {
     lower.includes("is not authorized to perform")
   ) {
     return (
-      "Vigil could not read your AWS account because the connector role is missing permissions or trust. " +
+      "Veritrail could not read your AWS account because the connector role is missing permissions or trust. " +
       "Open Accounts, verify the connector, and update CloudFormation if prompted."
     );
   }
 
   if (lower.includes("assumerole") || lower.includes("externalid") || lower.includes("trust")) {
     return (
-      "Vigil could not assume the read-only role in your AWS account. " +
+      "Veritrail could not assume the read-only role in your AWS account. " +
       "Check that the CloudFormation stack is still deployed and that the role ARN on Accounts matches your account."
     );
   }
 
   if (lower.includes("throttl") || lower.includes("rate exceeded") || lower.includes("too many requests")) {
-    return "AWS temporarily limited how fast Vigil could scan. Wait a few minutes and run a scan from Findings.";
+    return "AWS temporarily limited how fast Veritrail could scan. Wait a few minutes and run a scan from Findings.";
   }
 
   if (lower.includes("timeout") || lower.includes("timed out")) {
@@ -65,11 +65,11 @@ export function friendlyScanFailureMessage(raw: string): string {
     lower.includes("could not connect") ||
     lower.includes("name or service not known")
   ) {
-    return "Vigil could not reach AWS. Check that your network is up and try running a scan again.";
+    return "Veritrail could not reach AWS. Check that your network is up and try running a scan again.";
   }
 
   if (lower.includes("region") && lower.includes("invalid")) {
-    return "The scan ran in a region Vigil does not support for this account. Check the account region on Accounts and try again.";
+    return "The scan ran in a region Veritrail does not support for this account. Check the account region on Accounts and try again.";
   }
 
   // Long stack traces / Python tracebacks — never show verbatim.
@@ -81,9 +81,9 @@ export function friendlyScanFailureMessage(raw: string): string {
     lower.includes("clienterror")
   ) {
     return (
-      "Something went wrong while Vigil was collecting evidence from AWS. " +
+      "Something went wrong while Veritrail was collecting evidence from AWS. " +
       "Open Accounts to verify your connector, then run a scan from Findings. " +
-      "If this keeps happening, contact your Vigil administrator."
+      "If this keeps happening, contact your Veritrail administrator."
     );
   }
 

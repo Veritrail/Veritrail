@@ -18,7 +18,7 @@ from app.services.remediation_plan import (
     resolve_automation_region,
 )
 
-DOCUMENT_NAME = "Vigil-RemediationPlanExecutor"  # legacy; new stacks use per-module runbooks
+DOCUMENT_NAME = "Veritrail-RemediationPlanExecutor"  # legacy; new stacks use per-module runbooks
 
 CONNECTOR_SSM_START_ACTIONS = (
     "ssm:DescribeDocument",
@@ -36,16 +36,16 @@ def connector_ssm_start_blockers(scanner_policy_documents: list[dict]) -> list[s
     """Blockers when the connector role cannot describe/start SSM from the API."""
     if not scanner_policy_documents:
         return [
-            "Cannot read VigilScannerRole policies — update VigilAccountConnector with SSM remediation enabled"
+            "Cannot read VeritrailScannerRole policies — update VeritrailAccountConnector with SSM remediation enabled"
         ]
     granted = check_actions_on_documents(scanner_policy_documents, CONNECTOR_SSM_START_ACTIONS)
     missing = [action for action, ok in granted.items() if not ok]
     if not missing:
         return []
     return [
-        "VigilScannerRole cannot start SSM Automation "
+        "VeritrailScannerRole cannot start SSM Automation "
         f"(missing {', '.join(missing)}). "
-        "Update the VigilAccountConnector stack with remediation modules enabled "
+        "Update the VeritrailAccountConnector stack with remediation modules enabled "
         "(e.g. EnableIamAccessKeyRemediation=Yes), then Verify capabilities on Accounts."
     ]
 
@@ -76,24 +76,24 @@ def _remediation_role_s3_blockers(session: Any, check_id: str | None) -> list[st
         granted = check_actions_on_documents(docs, S3_PAB_AUTOMATION_ACTIONS)
     except Exception as exc:  # noqa: BLE001
         return [
-            "Cannot read VigilRemediationAutomationRole IAM policies "
+            "Cannot read VeritrailRemediationAutomationRole IAM policies "
             f"({exc}). Update the connector stack, then Verify capabilities."
         ]
     missing = [action for action, ok in granted.items() if not ok]
     if missing:
         return [
-            "VigilRemediationAutomationRole is missing: "
+            "VeritrailRemediationAutomationRole is missing: "
             + ", ".join(missing)
             + ". Update the connector (EnableS3Remediation=Yes), wait for the nested "
-            "vigil-remediation-ssm stack UPDATE_COMPLETE, then Verify capabilities on Accounts."
+            "veritrail-remediation-ssm stack UPDATE_COMPLETE, then Verify capabilities on Accounts."
         ]
     return []
 
 
-def _is_vigil_document(document_name: str, runbook_owner: str | None) -> bool:
-    if runbook_owner == "vigil":
+def _is_veritrail_document(document_name: str, runbook_owner: str | None) -> bool:
+    if runbook_owner == "veritrail":
         return True
-    return document_name.startswith("Vigil-")
+    return document_name.startswith("Veritrail-")
 
 
 def _check_single_runbook(
@@ -138,14 +138,14 @@ def _check_single_runbook(
     except ClientError as e:
         code = e.response.get("Error", {}).get("Code")
         if code in ("InvalidDocument", "InvalidDocumentOperation"):
-            if _is_vigil_document(document_name, runbook_owner):
+            if _is_veritrail_document(document_name, runbook_owner):
                 home = automation_home_region()
                 out["blockers"].append(
                     f"SSM runbook {document_name} is not in {automation_region} "
-                    f"(automation home region is {home}). This is not the VigilScannerRole — "
-                    "redeploy VigilAccountConnector with the matching Enable*Remediation=Yes "
+                    f"(automation home region is {home}). This is not the VeritrailScannerRole — "
+                    "redeploy VeritrailAccountConnector with the matching Enable*Remediation=Yes "
                     "(e.g. EnableIamPolicyRemediation for IAM policy fixes) and wait for the nested "
-                    "vigil-remediation-ssm stack to reach UPDATE_COMPLETE."
+                    "veritrail-remediation-ssm stack to reach UPDATE_COMPLETE."
                 )
             else:
                 out["blockers"].append(
@@ -155,20 +155,20 @@ def _check_single_runbook(
         elif code == "AccessDeniedException":
             out["blockers"].append(
                 f"Connector role cannot access ssm:DescribeDocument in {automation_region}. "
-                "Update VigilAccountConnector (vigil-core-scanner.yaml) with remediation modules enabled."
+                "Update VeritrailAccountConnector (veritrail-core-scanner.yaml) with remediation modules enabled."
             )
         else:
             out["blockers"].append(f"Cannot describe SSM document {document_name}: {e}")
 
     if scanner_policy_documents is not None:
         if (
-            _is_vigil_document(document_name, runbook_owner)
+            _is_veritrail_document(document_name, runbook_owner)
             and out["document"].get("exists")
             and not connector_can_start_document_automation(scanner_policy_documents, document_name)
         ):
             out["blockers"].append(
                 f"Connector IAM must allow ssm:StartAutomationExecution on document/{document_name} "
-                f"in {automation_region} (update vigil-core-scanner.yaml)."
+                f"in {automation_region} (update veritrail-core-scanner.yaml)."
             )
 
     if out["document"].get("exists"):
@@ -218,7 +218,7 @@ def check_remediation_runner(
             sess = assume_role(
                 acc.role_arn,
                 acc.external_id,
-                session_name="vigil-remediation-check",
+                session_name="veritrail-remediation-check",
                 aws_account=acc,
                 purpose="remediation_runner_status",
             )
@@ -276,7 +276,7 @@ def check_remediation_runner(
         ]
     else:
         out["hints"] = [
-            "Deploy vigil-remediation-ssm.yaml in the automation home region with Enable*Remediation=Yes.",
+            "Deploy veritrail-remediation-ssm.yaml in the automation home region with Enable*Remediation=Yes.",
             f"Automation home region: {home} (REMEDIATION_AUTOMATION_REGION).",
             "Connector needs ssm:DescribeDocument and ssm:StartAutomationExecution.",
         ]

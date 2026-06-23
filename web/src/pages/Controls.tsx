@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, token } from "../api";
+import { roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import { FilterChipBar } from "../components/FilterChipBar";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
-import { CompliancePostureLine } from "../components/CompliancePostureLine";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
@@ -19,8 +19,10 @@ import {
   showControlEvidenceSection,
 } from "../lib/frameworkEvidenceCoverage";
 import { isAccountConnected } from "../lib/accountConnection";
-import { AccountSelect } from "../components/AccountSelect";
-import NotificationsBell from "../components/NotificationsBell";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { openFindingFailsControl } from "../lib/evidenceClass";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { HeaderSlot } from "../context/HeaderSlot";
 import "../styles/findings-v2.css";
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
@@ -66,6 +68,8 @@ type ControlRow = {
   status: "pass" | "fail" | "no_data";
   finding_count: number;
   open_finding_ids: string[];
+  kind?: "auto" | "manual";
+  attestation_status?: "met" | "not_met" | "not_applicable" | "pending" | null;
 };
 
 type ControlHistory = {
@@ -139,42 +143,14 @@ function controlDisplayStatus(
 }
 
 function ComplianceRowSummary({
-  expanded,
   displayStatus,
-  count,
   href,
   onNavigate,
 }: {
-  expanded: boolean;
   displayStatus: ComplianceDisplayStatus;
-  count: number;
   href: string | null;
   onNavigate: (href: string) => void;
 }) {
-  if (expanded) {
-    if (count === 0) {
-      return <span className="shrink-0 text-sm font-medium text-zinc-400">No findings</span>;
-    }
-    if (href) {
-      return (
-        <button
-          type="button"
-          title="View open findings"
-          onClick={(e) => {
-            e.stopPropagation();
-            onNavigate(href);
-          }}
-          className="shrink-0 text-sm font-medium tabular-nums text-zinc-600 transition hover:text-indigo-700"
-        >
-          {count} findings
-        </button>
-      );
-    }
-    return (
-      <span className="shrink-0 text-sm font-medium tabular-nums text-zinc-600">{count} findings</span>
-    );
-  }
-
   const label: Record<ComplianceDisplayStatus, string> = {
     passing: "Passing",
     failing: "Failing",
@@ -188,26 +164,6 @@ function ComplianceRowSummary({
     at_risk: "bg-amber-500",
     unevaluated: "bg-zinc-400",
   };
-  const countClass: Record<ComplianceDisplayStatus, string> = {
-    passing: "text-emerald-700",
-    failing: "text-rose-600",
-    at_risk: "text-amber-700",
-    unevaluated: "text-zinc-500",
-  };
-
-  const chip = (
-    <>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass[displayStatus]}`} aria-hidden />
-      {displayStatus === "passing" && count === 0 ? (
-        label.passing
-      ) : (
-        <>
-          {label[displayStatus]}
-          <span className={`font-semibold tabular-nums ${countClass[displayStatus]}`}>{count}</span>
-        </>
-      )}
-    </>
-  );
 
   const chipToneClass: Record<ComplianceDisplayStatus, string> = {
     passing: "bg-emerald-50 text-emerald-800 ring-emerald-200/80",
@@ -216,8 +172,14 @@ function ComplianceRowSummary({
     unevaluated: "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
   };
   const chipClass = `inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ${chipToneClass[displayStatus]}`;
+  const content = (
+    <>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass[displayStatus]}`} aria-hidden />
+      {label[displayStatus]}
+    </>
+  );
 
-  if (count > 0 && href) {
+  if (href) {
     return (
       <button
         type="button"
@@ -226,28 +188,14 @@ function ComplianceRowSummary({
           e.stopPropagation();
           onNavigate(href);
         }}
-        className={`${chipClass} transition hover:bg-zinc-200/50`}
+        className={`${chipClass} transition hover:opacity-90`}
       >
-        {chip}
+        {content}
       </button>
     );
   }
 
-  return <span className={chipClass}>{chip}</span>;
-}
-
-function ComplianceRowChevron({ expanded, className = "" }: { expanded: boolean; className?: string }) {
-  return (
-    <svg
-      className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-90" : ""} ${className}`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  );
+  return <span className={chipClass}>{content}</span>;
 }
 
 function CompliancePanelShell({
@@ -305,11 +253,58 @@ type ControlGroup = {
   noData: number;
 };
 
+const MANUAL_STATUS = [
+  { value: "pending", label: "Pending" },
+  { value: "met", label: "Met" },
+  { value: "not_met", label: "Not met" },
+  { value: "not_applicable", label: "N/A" },
+];
+
+function ManualAttestation({
+  status,
+  canEdit,
+  saving,
+  onChange,
+}: {
+  status: string;
+  canEdit: boolean;
+  saving: boolean;
+  onChange: (status: string) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-zinc-800">Manual control</p>
+        <p className="text-meta leading-relaxed text-zinc-500">
+          No automated check maps here — attest its status with your own evidence.
+        </p>
+      </div>
+      {canEdit ? (
+        <select
+          value={status}
+          disabled={saving}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 shrink-0 cursor-pointer rounded-lg border border-zinc-200 bg-white px-2.5 text-sm font-semibold text-zinc-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+        >
+          {MANUAL_STATUS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+      ) : (
+        <span className="shrink-0 text-sm font-semibold text-zinc-600">
+          {MANUAL_STATUS.find((s) => s.value === status)?.label ?? status}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function controlFamily(framework: string, controlId: string) {
   if (framework === "soc2") {
-    if (controlId.startsWith("CC6")) return { key: "cc6", label: "CC6 Logical Access" };
-    if (controlId.startsWith("CC7")) return { key: "cc7", label: "CC7 System Operations" };
-    if (controlId.startsWith("CC8")) return { key: "cc8", label: "CC8 Change Management" };
+    if (controlId.startsWith("CC6")) return { key: "cc6", label: "CC6 Cloud Access" };
+    if (controlId.startsWith("CC7")) return { key: "cc7", label: "CC7 Cloud Operations" };
+    if (controlId.startsWith("CC8")) return { key: "cc8", label: "CC8 Change Evidence" };
+    return { key: "manual-evidence", label: "Manual Evidence" };
   }
 
   if (framework === "cis_aws_l1") {
@@ -327,7 +322,7 @@ function controlFamily(framework: string, controlId: string) {
     if (controlId.startsWith("A.13")) return { key: "iso-a13", label: "A.13 Communications Security" };
   }
 
-  return { key: "other", label: "Other Controls" };
+  return { key: "other", label: "Other" };
 }
 
 function controlIdSortKey(controlId: string): (string | number)[] {
@@ -389,7 +384,15 @@ function groupControls(rows: ControlRow[], framework: string): ControlGroup[] {
     });
   }
 
-  return Array.from(groups.values());
+  // Keep named families in their natural order, but always park manual/catch-all
+  // evidence on the far right (stable sort preserves the rest).
+  return Array.from(groups.values()).sort(
+    (a, b) => (
+      a.key === "manual-evidence" || a.key === "other" ? 1 : 0
+    ) - (
+      b.key === "manual-evidence" || b.key === "other" ? 1 : 0
+    ),
+  );
 }
 
 function shortControlTitle(title: string) {
@@ -413,7 +416,7 @@ function controlTheme(control: ControlRow) {
 
 function controlSummary(control: ControlRow): string {
   if (control.check_ids.length === 0) {
-    return "Not automated in Vigil yet — CIS expects this control; map manually or wait for a future check.";
+    return "Not automated in Veritrail yet — CIS expects this control; map manually or wait for a future check.";
   }
   if (control.status === "pass") {
     return "Passing — no open findings. Keep in the evidence pack for audit review.";
@@ -477,6 +480,7 @@ const NESTED_COMPOSITE_DISPLAY: Record<string, { title: string; hint: string }> 
 type CompositeGroupVisual = {
   bg: string;
   text: string;
+  ring: string;
   Icon: ({ className }: { className?: string }) => JSX.Element;
 };
 
@@ -565,32 +569,30 @@ function CompositeGroupFallbackIcon({ className = "h-4 w-4" }: { className?: str
   );
 }
 
-const COMPOSITE_GROUP_ICON_BG = "bg-zinc-100";
-const COMPOSITE_GROUP_ICON_TEXT = "text-zinc-600";
-
 const COMPOSITE_GROUP_VISUALS: Record<string, CompositeGroupVisual> = {
-  identity_governance: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: IdentityGovernanceIcon },
-  asset_inventory: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: AssetInventoryIcon },
-  secure_sdlc: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: SecureSdlcIcon },
-  change_management: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: ChangeManagementIcon },
-  data_protection: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: DataProtectionIcon },
-  vulnerability_management: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: VulnerabilityManagementIcon },
-  logging_monitoring: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: LoggingMonitoringIcon },
-  backup_resilience: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: BackupResilienceIcon },
-  container_vulnerability_monitoring: { bg: COMPOSITE_GROUP_ICON_BG, text: COMPOSITE_GROUP_ICON_TEXT, Icon: VulnerabilityManagementIcon },
+  identity_governance: { bg: "bg-violet-50", text: "text-violet-600", ring: "ring-violet-200/80", Icon: IdentityGovernanceIcon },
+  asset_inventory: { bg: "bg-sky-50", text: "text-sky-600", ring: "ring-sky-200/80", Icon: AssetInventoryIcon },
+  secure_sdlc: { bg: "bg-indigo-50", text: "text-indigo-600", ring: "ring-indigo-200/80", Icon: SecureSdlcIcon },
+  change_management: { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-200/80", Icon: ChangeManagementIcon },
+  data_protection: { bg: "bg-emerald-50", text: "text-emerald-600", ring: "ring-emerald-200/80", Icon: DataProtectionIcon },
+  vulnerability_management: { bg: "bg-rose-50", text: "text-rose-600", ring: "ring-rose-200/80", Icon: VulnerabilityManagementIcon },
+  logging_monitoring: { bg: "bg-blue-50", text: "text-blue-600", ring: "ring-blue-200/80", Icon: LoggingMonitoringIcon },
+  backup_resilience: { bg: "bg-teal-50", text: "text-teal-600", ring: "ring-teal-200/80", Icon: BackupResilienceIcon },
+  container_vulnerability_monitoring: { bg: "bg-orange-50", text: "text-orange-600", ring: "ring-orange-200/80", Icon: VulnerabilityManagementIcon },
 };
 
 function CompositeGroupIcon({ id }: { id: string }) {
   const visual = COMPOSITE_GROUP_VISUALS[id] ?? {
-    bg: COMPOSITE_GROUP_ICON_BG,
-    text: COMPOSITE_GROUP_ICON_TEXT,
+    bg: "bg-zinc-100",
+    text: "text-zinc-600",
+    ring: "ring-zinc-200/70",
     Icon: CompositeGroupFallbackIcon,
   };
-  const { bg, text, Icon } = visual;
+  const { bg, text, ring, Icon } = visual;
 
   return (
     <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 ring-zinc-200/70 ${bg} ${text}`}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${bg} ${text} ${ring}`}
       aria-hidden
     >
       <Icon className="h-[18px] w-[18px]" />
@@ -686,7 +688,7 @@ function ComplianceStatusFilterBar({
     <FilterChipBar
       ariaLabel="Control status"
       selected={statusFilter}
-      onChange={onChange}
+      onChange={(id) => onChange(id as StatusFilter)}
       chips={[
         { id: "all", label: "All", count: total },
         { id: "fail", label: "Failing", count: failed, urgent: true },
@@ -880,10 +882,37 @@ function findingsHrefForChecks(checkIds: string[], findingCountByCheck: Map<stri
   return `/findings?checks=${encodeURIComponent(active.join(","))}`;
 }
 
+function sortedTopFailingChecks(
+  checkIds: string[],
+  findingCountByCheck: Map<string, number>,
+  max = 6,
+): string[] {
+  return [...checkIds]
+    .filter((id) => (findingCountByCheck.get(id) ?? 0) > 0)
+    .sort((a, b) => (findingCountByCheck.get(b) ?? 0) - (findingCountByCheck.get(a) ?? 0))
+    .slice(0, max);
+}
+
+const COMPOSITE_RISK_SUMMARY: Record<string, string> = {
+  identity_governance: "High impact from over-provisioned access",
+  asset_inventory: "Untracked or dormant assets weaken access reviews",
+  secure_sdlc: "Missing CI security controls increase supply-chain risk",
+  change_management: "Unprotected branches allow unaudited production changes",
+  data_protection: "Encryption gaps expose data at rest and in transit",
+  vulnerability_management: "Unpatched or unscanned workloads increase breach risk",
+  logging_monitoring: "Monitoring blind spots hide unauthorized activity",
+  backup_resilience: "Missing backups threaten recovery objectives",
+  container_vulnerability_monitoring: "Container images may ship without vulnerability coverage",
+};
+
+function compositeRiskSummary(ctrl: CompositeControlRow): string {
+  return COMPOSITE_RISK_SUMMARY[ctrl.id] ?? ctrl.guidance ?? "Review mapped checks and remediate open findings.";
+}
+
 function TopFailingChecksTable({
   checkIds,
   findingCountByCheck,
-  max = 5,
+  max = 6,
 }: {
   checkIds: string[];
   findingCountByCheck: Map<string, number>;
@@ -891,53 +920,148 @@ function TopFailingChecksTable({
 }) {
   const navigate = useNavigate();
   const top = useMemo(
-    () =>
-      [...checkIds]
-        .filter((id) => (findingCountByCheck.get(id) ?? 0) > 0)
-        .sort((a, b) => (findingCountByCheck.get(b) ?? 0) - (findingCountByCheck.get(a) ?? 0))
-        .slice(0, max),
+    () => sortedTopFailingChecks(checkIds, findingCountByCheck, max),
     [checkIds, findingCountByCheck, max],
   );
 
   if (top.length === 0) return null;
 
   const maxCount = findingCountByCheck.get(top[0]) ?? 1;
-  const segments = 5;
 
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200/80">
-      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 border-b border-zinc-100 bg-zinc-50/60 px-4 py-2.5 vigil-kicker">
-        <span>Check</span>
-        <span className="text-right">Findings</span>
-        <span className="text-right">Density</span>
-      </div>
-      <ul>
-        {top.map((checkId) => {
+    <ul className="compliance-top-checks-table">
+      {top.map((checkId, index) => {
           const count = findingCountByCheck.get(checkId) ?? 0;
-          const filled =
-            maxCount > 0 ? Math.max(count > 0 ? 1 : 0, Math.round((count / maxCount) * segments)) : 0;
+          const pct = maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 0;
           return (
             <li key={checkId} className="border-b border-zinc-100 last:border-b-0">
               <button
                 type="button"
                 onClick={() => navigate(`/findings?checks=${encodeURIComponent(checkId)}`)}
-                className="grid w-full grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 px-4 py-3 text-left transition hover:bg-zinc-50/80"
+                className="compliance-top-checks-table__row group grid w-full grid-cols-[auto_minmax(0,1fr)_4.5rem_6.5rem] items-center gap-3 py-3 text-left transition hover:bg-zinc-50/80"
               >
-                <span className="truncate text-sm text-zinc-900">{labelForCheck(checkId)}</span>
-                <span className="text-right text-sm font-medium tabular-nums text-zinc-700">{count}</span>
-                <span className="flex justify-end gap-0.5" aria-hidden>
-                  {Array.from({ length: segments }, (_, i) => (
+                <span className="w-5 shrink-0 text-center text-xs font-semibold tabular-nums text-zinc-400">
+                  {index + 1}
+                </span>
+                <span className="truncate text-sm font-medium text-zinc-900">{labelForCheck(checkId)}</span>
+                <span className="text-right text-sm font-semibold tabular-nums text-zinc-900">{count}</span>
+                <span className="flex justify-end" aria-hidden>
+                  <span className="compliance-density-bar">
                     <span
-                      key={i}
-                      className={`h-2 w-3 rounded-[2px] ${i < filled ? "bg-indigo-400" : "bg-zinc-200"}`}
+                      className={`compliance-density-bar__fill${count <= 1 ? " compliance-density-bar__fill--muted" : ""}`}
+                      style={{ width: `${pct}%` }}
                     />
-                  ))}
+                  </span>
                 </span>
               </button>
             </li>
           );
         })}
+    </ul>
+  );
+}
+
+function InsightIcon({ tone, children }: { tone: "emerald" | "sky" | "rose"; children: ReactNode }) {
+  return (
+    <span className={`compliance-group-insight__icon compliance-group-insight__icon--${tone}`} aria-hidden>
+      {children}
+    </span>
+  );
+}
+
+function CompositeGroupInsights({
+  ctrl,
+  findingCountByCheck,
+}: {
+  ctrl: CompositeControlRow;
+  findingCountByCheck: Map<string, number>;
+}) {
+  const topCheckId = sortedTopFailingChecks(ctrl.check_ids, findingCountByCheck, 1)[0];
+  const topIssueCount = topCheckId ? (findingCountByCheck.get(topCheckId) ?? 0) : 0;
+
+  return (
+    <div className="compliance-group-insights-card">
+      <p className="compliance-group-card-title">Group insights</p>
+      <ul className="compliance-group-insight-rows">
+        <li className="compliance-group-insight-row">
+          <div className="compliance-group-insight-row__lead">
+            <InsightIcon tone="emerald">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </InsightIcon>
+            <span className="compliance-group-insight-row__label">Total findings</span>
+          </div>
+          <span className="compliance-group-insight-row__value tabular-nums">{ctrl.finding_count}</span>
+        </li>
+        {topCheckId ? (
+          <li className="compliance-group-insight-row">
+            <div className="compliance-group-insight-row__lead">
+              <InsightIcon tone="sky">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+              </InsightIcon>
+              <span className="compliance-group-insight-row__label">Top issue</span>
+            </div>
+            <span className="compliance-group-insight-row__value compliance-group-insight-row__value--wrap">
+              {labelForCheck(topCheckId)}{" "}
+              <span className="tabular-nums text-rose-700">({topIssueCount} findings)</span>
+            </span>
+          </li>
+        ) : null}
+        <li className="compliance-group-insight-row">
+          <div className="compliance-group-insight-row__lead">
+            <InsightIcon tone="rose">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </InsightIcon>
+            <span className="compliance-group-insight-row__label">Risk summary</span>
+          </div>
+          <span className="compliance-group-insight-row__value compliance-group-insight-row__value--wrap">
+            {compositeRiskSummary(ctrl)}
+            {ctrl.finding_count > 0 ? <span className="compliance-group-insight-row__dot" aria-hidden /> : null}
+          </span>
+        </li>
       </ul>
+    </div>
+  );
+}
+
+function CompositeGroupExplore({
+  groupId,
+  findingsHref,
+  framework,
+  accountId,
+}: {
+  groupId: string;
+  findingsHref: string | null;
+  framework: string;
+  accountId?: string | null;
+}) {
+  const navigate = useNavigate();
+  const historyParams = new URLSearchParams({ framework, composite: groupId });
+  if (accountId) historyParams.set("account_id", accountId);
+
+  return (
+    <div className="compliance-group-explore-card">
+      <div className="compliance-group-explore-card__copy">
+        <p className="compliance-group-card-title">Explore this group</p>
+        <p className="compliance-group-explore-card__hint">Dive deeper into findings and historical activity.</p>
+      </div>
+      <div className="compliance-group-explore-card__actions">
+        {findingsHref ? (
+          <button type="button" onClick={() => navigate(findingsHref)} className="compliance-group-explore-btn compliance-group-explore-btn--primary">
+            View findings
+          </button>
+        ) : (
+          <span className="text-sm text-zinc-500">No open findings</span>
+        )}
+        <Link to={`/history?${historyParams.toString()}`} className="compliance-group-explore-btn" onClick={(e) => e.stopPropagation()}>
+          View history
+        </Link>
+      </div>
     </div>
   );
 }
@@ -945,7 +1069,7 @@ function TopFailingChecksTable({
 function TopFailingChecksList({
   checkIds,
   findingCountByCheck,
-  max = 5,
+  max = 6,
   variant = "default",
 }: {
   checkIds: string[];
@@ -955,11 +1079,7 @@ function TopFailingChecksList({
 }) {
   const navigate = useNavigate();
   const top = useMemo(
-    () =>
-      [...checkIds]
-        .filter((id) => (findingCountByCheck.get(id) ?? 0) > 0)
-        .sort((a, b) => (findingCountByCheck.get(b) ?? 0) - (findingCountByCheck.get(a) ?? 0))
-        .slice(0, max),
+    () => sortedTopFailingChecks(checkIds, findingCountByCheck, max),
     [checkIds, findingCountByCheck, max],
   );
 
@@ -1047,19 +1167,26 @@ function CompositeExpandedDetails({
 
   if (variant === "card") {
     return (
-      <div className="space-y-4">
-        <div>
-          <p className="text-sm font-semibold text-zinc-900">Top failing checks</p>
-          <TopFailingChecksTable checkIds={ctrl.check_ids} findingCountByCheck={findingCountByCheck} />
-          {findingsHref ? (
-            <button
-              type="button"
-              onClick={() => navigate(findingsHref)}
-              className="mt-4 text-sm font-medium text-indigo-600 transition hover:text-indigo-800"
-            >
-              View all {ctrl.finding_count} findings →
-            </button>
-          ) : null}
+      <div className="compliance-group-expanded">
+        <div className="compliance-group-checks-card">
+          {ctrl.finding_count > 0 ? (
+            <div className="compliance-top-checks__header grid grid-cols-[auto_minmax(0,1fr)_4.5rem_6.5rem] items-end gap-3">
+              <p className="col-span-2 compliance-group-card-title">Top failing checks</p>
+              <span className="compliance-top-checks__col-head">Findings</span>
+              <span className="compliance-top-checks__col-head">Density</span>
+            </div>
+          ) : (
+            <p className="compliance-group-card-title">Top failing checks</p>
+          )}
+          {ctrl.finding_count > 0 ? (
+            <TopFailingChecksTable checkIds={ctrl.check_ids} findingCountByCheck={findingCountByCheck} />
+          ) : (
+            <p className="mt-2 text-sm text-zinc-500">No open findings on mapped checks.</p>
+          )}
+        </div>
+        <div className="compliance-group-expanded__side">
+          <CompositeGroupInsights ctrl={ctrl} findingCountByCheck={findingCountByCheck} />
+          <CompositeGroupExplore groupId={ctrl.id} findingsHref={findingsHref} framework={framework} accountId={accountId} />
         </div>
       </div>
     );
@@ -1068,10 +1195,10 @@ function CompositeExpandedDetails({
   const underlying = underlyingCriteriaForComposite(ctrl, frameworkRows);
 
   return (
-    <div className={`space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
+    <div className={`veritrail-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
       {underlying.length > 0 && (
         <div>
-          <p className="vigil-kicker">Underlying criteria</p>
+          <p className="veritrail-kicker">Underlying criteria</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {underlying.slice(0, 10).map((c) => {
               const params = new URLSearchParams({ framework, control: c.control_id });
@@ -1094,7 +1221,7 @@ function CompositeExpandedDetails({
       )}
       <div>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="vigil-kicker">Top failing checks</p>
+          <p className="veritrail-kicker">Top failing checks</p>
           {findingsHref && (
             <button
               type="button"
@@ -1157,9 +1284,7 @@ function QuietNestedCompositeRow({
           ) : null}
         </div>
         <ComplianceRowSummary
-          expanded={isExpanded}
           displayStatus={compositeDisplayStatus(child, findingCountByCheck)}
-          count={child.finding_count}
           href={href}
           onNavigate={(h) => navigate(h)}
         />
@@ -1213,36 +1338,34 @@ function CompositeControlsPanel({
               type="button"
               onClick={() => onToggle(ctrl.id)}
               aria-expanded={isExpanded}
-              className={`flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors ${
+              className={`flex w-full items-start gap-3.5 px-5 py-4 text-left transition-colors ${
                 displayStatus === "passing" && !isExpanded
                   ? "bg-emerald-50/30 hover:bg-emerald-50/50"
                   : "hover:bg-zinc-50/60"
-              }`}
+              } ${isExpanded ? "bg-white" : ""}`}
             >
-              <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
               <CompositeGroupIcon id={ctrl.id} />
               <div className="min-w-0 flex-1 py-0.5">
-                <p className="text-body font-semibold leading-snug text-zinc-900">{ctrl.title}</p>
+                <p className="text-[15px] font-semibold leading-snug tracking-[-0.01em] text-zinc-900">{ctrl.title}</p>
                 <p
-                  className={`mt-0.5 text-meta leading-relaxed text-zinc-500 ${isExpanded ? "" : "line-clamp-1"}`}
+                  className={`mt-1 text-[13px] leading-relaxed text-zinc-500 ${isExpanded ? "" : "line-clamp-1"}`}
                 >
                   {ctrl.description}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3 self-center">
                 <ComplianceRowSummary
-                  expanded={isExpanded}
                   displayStatus={displayStatus}
-                  count={ctrl.finding_count}
                   href={findingsHref}
                   onNavigate={(href) => navigate(href)}
                 />
+                <ComplianceExpandChevron expanded={isExpanded} />
               </div>
             </button>
 
-            <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
-              <div className="vigil-accordion-panel__inner">
-                <div className="border-t border-zinc-100 px-5 pb-5 pt-4">
+            <div className={`veritrail-accordion-panel ${isExpanded ? "is-open" : ""}`}>
+              <div className="veritrail-accordion-panel__inner">
+                <div className="border-t border-zinc-100 bg-white px-5 pb-5 pt-5">
                   <CompositeExpandedDetails
                     ctrl={ctrl}
                     findingCountByCheck={findingCountByCheck}
@@ -1437,7 +1560,7 @@ function MappedChecksList({
 
   return (
     <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-3.5">
-      <p className="vigil-kicker">Findings</p>
+      <p className="veritrail-kicker">Findings</p>
       <p className="mt-0.5 text-xs text-zinc-500">Open findings by mapped check · click to filter in Findings</p>
       {inner}
     </div>
@@ -1811,6 +1934,7 @@ export default function Controls() {
   const urlComposite = searchParams.get("composite");
   const urlAccountId = searchParams.get("account_id");
   const urlView = searchParams.get("view");
+  const urlStatus = searchParams.get("status");
   const [framework, setFramework] = useState(
     () => (urlFramework && FRAMEWORKS.some((f) => f.id === urlFramework) ? urlFramework : "soc2"),
   );
@@ -1878,6 +2002,15 @@ export default function Controls() {
     enabled: !accounts.isLoading,
   });
 
+  const qc = useQueryClient();
+  const meQ = useMe();
+  const canAttest = roleAtLeast(meQ.data?.role, "admin");
+  const attest = useMutation({
+    mutationFn: (v: { id: string; status: string }) =>
+      api(`/v1/controls/${v.id}/attestation`, { method: "PUT", body: JSON.stringify({ status: v.status }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["controls"] }),
+  });
+
   const compositeControls = useQuery({
     queryKey: ["controls", "composites", activeAccount?.id],
     queryFn: () =>
@@ -1893,6 +2026,12 @@ export default function Controls() {
   }, [framework, urlControl]);
 
   useEffect(() => {
+    if (urlStatus === "pass" || urlStatus === "fail" || urlStatus === "no_data") {
+      setStatusFilter(urlStatus);
+    }
+  }, [urlStatus]);
+
+  useEffect(() => {
     if (!urlControl || !controls.data?.length || deepLinkDone.current) return;
     const match = controls.data.find((r) => r.control_id === urlControl);
     if (match) {
@@ -1900,14 +2039,18 @@ export default function Controls() {
       setSelectedFamilyKey(controlFamily(framework, match.control_id).key);
       setExpanded(match.id);
       setComplianceView("detailed");
+      if (urlStatus === "pass" || urlStatus === "fail" || urlStatus === "no_data") {
+        setStatusFilter(urlStatus);
+      }
     }
-  }, [controls.data, urlControl, framework]);
+  }, [controls.data, urlControl, framework, urlStatus]);
 
   useEffect(() => {
+    if (urlControl) return;
     setComplianceView("composite");
     setExpandedComposite(null);
     setStatusFilter("all");
-  }, [framework]);
+  }, [framework, urlControl]);
 
   useEffect(() => {
     if (!urlComposite || !compositeControls.data?.length) return;
@@ -1918,23 +2061,32 @@ export default function Controls() {
     }
   }, [compositeControls.data, urlComposite]);
 
-  const openFindingsMeta = useQuery({
-    queryKey: ["findings", "open", activeAccount?.id, "controls-meta"],
+  const checkFrameworksQ = useQuery({
+    queryKey: ["check-frameworks"],
     queryFn: () =>
-      api<{ items: OpenFindingMeta[] }>(`/v1/findings?status=open&limit=500`),
-    enabled: !!activeAccount && hasScanned,
-    select: (data) => {
-      const byId = new Map<string, OpenFindingMeta>();
-      const countByCheck = new Map<string, number>();
-      for (const f of data.items) {
-        byId.set(f.id, f);
-        countByCheck.set(f.check_id, (countByCheck.get(f.check_id) ?? 0) + 1);
-      }
-      return { byId, countByCheck };
-    },
+      api<{ evidence_classes: Record<string, string> }>("/v1/controls/check-frameworks"),
+    staleTime: 300_000,
   });
 
-  const findingCountByCheck = openFindingsMeta.data?.countByCheck ?? new Map<string, number>();
+  const openFindingsRaw = useQuery({
+    queryKey: ["findings", "open", activeAccount?.id, "controls-meta"],
+    queryFn: () => fetchAllFindings<OpenFindingMeta>({ status: "open" }),
+    enabled: !!activeAccount && hasScanned,
+  });
+
+  const openFindingsMeta = useMemo(() => {
+    const evidenceClasses = checkFrameworksQ.data?.evidence_classes;
+    const byId = new Map<string, OpenFindingMeta>();
+    const countByCheck = new Map<string, number>();
+    for (const f of openFindingsRaw.data?.items ?? []) {
+      if (!openFindingFailsControl(f.check_id, evidenceClasses)) continue;
+      byId.set(f.id, f);
+      countByCheck.set(f.check_id, (countByCheck.get(f.check_id) ?? 0) + 1);
+    }
+    return { byId, countByCheck };
+  }, [checkFrameworksQ.data?.evidence_classes, openFindingsRaw.data?.items]);
+
+  const findingCountByCheck = openFindingsMeta.countByCheck;
 
   const exportWindow = useMemo(() => {
     if (periodKey === "last_scan" && activeAccount?.last_scan_at) {
@@ -2050,12 +2202,6 @@ export default function Controls() {
     setExpanded(ctrl.id);
   }
 
-  const topBlockerDetailed = useMemo(() => {
-    const failing = rows.filter((row) => row.status === "fail");
-    if (failing.length === 0) return null;
-    return failing.reduce((worst, row) => (row.finding_count > worst.finding_count ? row : worst));
-  }, [rows]);
-
   const compositePanelRows = useMemo(() => {
     const all = compositeControls.data ?? [];
     const nestedChildIds = new Set(Object.values(NESTED_COMPOSITE_IDS));
@@ -2088,91 +2234,6 @@ export default function Controls() {
     setExpandedComposite(null);
   }
 
-  const topBlockerComposite = useMemo(() => {
-    const failing = primaryComposites.filter((c) => c.status === "fail" && c.finding_count > 0);
-    if (failing.length === 0) return null;
-    return failing.reduce((worst, row) => (row.finding_count > worst.finding_count ? row : worst));
-  }, [primaryComposites]);
-
-  const heroStats = useMemo(() => {
-    if (complianceView === "composite") {
-      return {
-        passRate: compositeTotal > 0 ? Math.round((compositePassed / compositeTotal) * 100) : null,
-        passed: compositePassed,
-        total: compositeTotal,
-        failed: compositeFailed,
-        openFindings: primaryComposites.reduce((sum, row) => sum + row.finding_count, 0),
-      };
-    }
-    const activeStats = frameworkStatsById[framework];
-    return {
-      passRate: activeStats?.passRate ?? (total > 0 ? Math.round((passed / total) * 100) : null),
-      passed: activeStats?.passed ?? passed,
-      total: activeStats?.total ?? total,
-      failed: activeStats?.failed ?? failed,
-      openFindings: activeStats?.openFindings ?? rows.reduce((sum, r) => sum + r.finding_count, 0),
-    };
-  }, [
-    complianceView,
-    compositeTotal,
-    compositePassed,
-    compositeFailed,
-    primaryComposites,
-    frameworkStatsById,
-    framework,
-    passed,
-    total,
-    failed,
-    rows,
-  ]);
-
-  const activeTopBlocker =
-    complianceView === "composite" ? topBlockerComposite : topBlockerDetailed;
-
-  const controlToCompositeId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const composite of primaryComposites) {
-      for (const row of underlyingCriteriaForComposite(composite, rows)) {
-        map.set(row.control_id, composite.id);
-      }
-    }
-    return map;
-  }, [primaryComposites, rows]);
-
-  const viewTrend = useMemo(() => {
-    if (complianceView === "composite") {
-      const improved = new Set<string>();
-      const regressed = new Set<string>();
-      for (const event of complianceTimeline.data?.events ?? []) {
-        for (const passedCtrl of event.diff?.newly_passed ?? []) {
-          const compositeId = controlToCompositeId.get(passedCtrl.control_id);
-          if (compositeId) improved.add(compositeId);
-        }
-        for (const failedCtrl of event.diff?.newly_failed ?? []) {
-          const compositeId = controlToCompositeId.get(failedCtrl.control_id);
-          if (compositeId) regressed.add(compositeId);
-        }
-      }
-      return { improved: improved.size, regressed: regressed.size };
-    }
-    const summary = complianceTimeline.data?.period_summary;
-    return {
-      improved: summary?.controls_improved ?? 0,
-      regressed: summary?.controls_regressed ?? 0,
-    };
-  }, [complianceView, complianceTimeline.data, controlToCompositeId]);
-
-  function jumpToTopBlocker() {
-    if (!activeTopBlocker) return;
-    if (complianceView === "composite") {
-      setExpandedComposite(activeTopBlocker.id);
-      return;
-    }
-    setComplianceViewWithUrl("detailed");
-    setStatusFilter("fail");
-    openControl(activeTopBlocker as ControlRow);
-  }
-
   async function downloadPack(opts?: { framework?: string; period?: number; asOf?: string }) {
     if (!activeAccount) return;
     setDownloading(true);
@@ -2193,7 +2254,7 @@ export default function Controls() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `vigil-evidence-${opts?.framework ?? framework}-${(asOfVal ?? new Date().toISOString().slice(0, 10))}.zip`;
+      a.download = `veritrail-evidence-${opts?.framework ?? framework}-${(asOfVal ?? new Date().toISOString().slice(0, 10))}.zip`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -2245,7 +2306,7 @@ export default function Controls() {
               ref={exportPanelRef}
               role="dialog"
               aria-label="Generate Audit Package"
-              className="fixed z-[201] rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-lg shadow-zinc-950/10"
+              className="fixed z-[201] overflow-visible rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-lg shadow-zinc-950/10"
               style={{ top: exportAnchor.top, right: exportAnchor.right }}
             >
               <EvidencePackExportPanel
@@ -2258,8 +2319,6 @@ export default function Controls() {
                 coverage={evidenceCoverage.data}
                 coverageLoading={evidenceCoverage.isFetching}
                 controlsEvaluated={total}
-                openFindings={rows.reduce((sum, r) => sum + r.finding_count, 0)}
-                passingCount={passed}
                 lastScanLabel={
                   activeAccount?.last_scan_at ? lastScanLabel(activeAccount.last_scan_at) : null
                 }
@@ -2275,43 +2334,11 @@ export default function Controls() {
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-      <div className="mb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
-            {hasScanned && connectedAccount && !controls.isLoading ? (
-              <CompliancePostureLine
-                unitLabel={complianceView === "composite" ? "groups" : "criteria"}
-                passed={heroStats.passed}
-                total={heroStats.total}
-                failed={heroStats.failed}
-                openFindings={heroStats.openFindings}
-                passRate={heroStats.passRate}
-                trendImproved={viewTrend.improved}
-                trendRegressed={viewTrend.regressed}
-                findingsResolved={complianceTimeline.data?.period_summary?.findings_resolved ?? 0}
-                loading={complianceTimeline.isLoading}
-                topBlocker={
-                  activeTopBlocker
-                    ? complianceView === "composite"
-                      ? activeTopBlocker.title
-                      : `${activeTopBlocker.control_id} ${shortControlTitle(activeTopBlocker.title)}`
-                    : null
-                }
-                onTopBlockerClick={activeTopBlocker ? jumpToTopBlocker : undefined}
-              />
-            ) : (
-              <p className="mt-1 text-sm text-zinc-500">Control status against selected frameworks.</p>
-            )}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {connectedAccounts.length > 0 && activeAccount && (
-                <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
-              )}
-            </div>
-          </div>
-          <NotificationsBell />
-        </div>
-      </div>
+      {connectedAccounts.length > 0 && activeAccount && (
+        <HeaderSlot>
+          <AccountFilterDropdown accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
+        </HeaderSlot>
+      )}
 
       {!hasScanned && connectedAccount && !controls.isLoading && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 text-sm text-amber-900">
@@ -2334,6 +2361,7 @@ export default function Controls() {
                   setFramework(id);
                   setSelectedFamilyKey(null);
                   setExpanded(null);
+                  setStatusFilter("all");
                 }}
                 statusFilter={statusFilter}
                 onStatusFilterChange={handleStatusFilterChange}
@@ -2445,7 +2473,6 @@ export default function Controls() {
                         : "hover:bg-zinc-50/60"
                     }`}
                   >
-                    <ComplianceRowChevron expanded={isExpanded} className="mt-2 shrink-0" />
                     <div className="min-w-0 flex-1 py-0.5">
                       <p className="text-body font-semibold leading-snug text-zinc-900">
                         <span className="font-mono text-meta font-semibold text-zinc-500">{ctrl.control_id}</span>{" "}
@@ -2464,18 +2491,17 @@ export default function Controls() {
                     </div>
                     <div className="flex shrink-0 items-center gap-3 self-center">
                       <ComplianceRowSummary
-                        expanded={isExpanded}
                         displayStatus={displayStatus}
-                        count={ctrl.finding_count}
                         href={findingsHref}
                         onNavigate={(href) => navigate(href)}
                       />
+                      <ComplianceExpandChevron expanded={isExpanded} />
                     </div>
                   </button>
 
-                  <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
-                    <div className="vigil-accordion-panel__inner">
-                      <div className="space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
+                  <div className={`veritrail-accordion-panel ${isExpanded ? "is-open" : ""}`}>
+                    <div className="veritrail-accordion-panel__inner">
+                      <div className="veritrail-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
                         <ControlStatusBlock
                           control={ctrl}
                           periodDays={exportWindow.period}
@@ -2485,9 +2511,16 @@ export default function Controls() {
                           accountId={activeAccount?.id ?? ""}
                         />
 
-                        {ctrl.check_ids.length === 0 ? (
+                        {ctrl.kind === "manual" ? (
+                          <ManualAttestation
+                            status={ctrl.attestation_status ?? "pending"}
+                            canEdit={canAttest}
+                            saving={attest.isPending}
+                            onChange={(status) => attest.mutate({ id: ctrl.id, status })}
+                          />
+                        ) : ctrl.check_ids.length === 0 ? (
                           <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
-                            No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
+                            No automated Veritrail checks map to this control yet — attest manually (e.g. IAM users only
                             inherit access via groups or roles).
                           </p>
                         ) : (

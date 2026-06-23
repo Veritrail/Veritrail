@@ -17,9 +17,10 @@ from app.collectors.last_accessed import collect_perm_usage
 from app.collectors.account import collect_s3, collect_s3_account_public_access_block, collect_kms
 from app.collectors.cloudtrail import collect_cloudtrail
 from app.collectors.cloudtrail_events import collect_cloudtrail_events
+from app.collectors.backup import collect_backup
 from app.collectors.guardduty import collect_guardduty
 from app.collectors.guardduty_findings import collect_guardduty_findings
-from app.collectors.identity_center import collect_identity_center, list_permission_set_snapshots
+from app.collectors.identity_center import collect_identity_center
 from app.collectors.config_compliance import collect_config_compliance
 from app.collectors.vpc import collect_vpc
 from app.collectors.rds import collect_rds
@@ -42,50 +43,9 @@ from app.collectors.extended import (
 from app.collectors.access_analyzer import collect_access_analyzer
 from app.collectors.config_service import collect_config_service
 from app.collectors.securityhub import collect_securityhub
-from app.core.aws import assume_role
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.models import AssumeRoleAudit, AwsAccount, ScanRun, EvidenceSnapshot, Finding
-from app.models.iam import IamUser, IamAccessKey, IamRole
-from app.models.resources import (
-    AccessAnalyzer,
-    AcmCertificate,
-    CloudTrailTrail,
-    ConfigRecorder,
-    DynamoDbTable,
-    EcrRepository,
-    EcrRegistrySettings,
-    EbsEncryptionDefault,
-    EbsSnapshot,
-    EbsVolume,
-    Ec2Ami,
-    Ec2Instance,
-    EcsCluster,
-    EcsService,
-    EcsTaskDefinition,
-    EksCluster,
-    ElbLoadBalancer,
-    GuardDutyDetector,
-    GuardDutyFinding,
-    InspectorAccountStatus,
-    InspectorFinding,
-    IdentityCenterUser,
-    ConfigRuleCompliance,
-    IamPasswordPolicy,
-    KmsKey,
-    LambdaFunction,
-    RdsInstance,
-    RdsSnapshot,
-    S3AccountPublicAccessBlock,
-    S3Bucket,
-    SecretsManagerSecret,
-    SecurityGroup,
-    SecurityHubStatus,
-    SnsTopic,
-    SqsQueue,
-    SsmParameter,
-    Vpc,
-)
 from app.models.org import Org, User
 from app.worker.celery_app import celery_app
 
@@ -138,6 +98,11 @@ def _enqueue_post_scan_tasks(account_id: str) -> None:
     except Exception:  # noqa: BLE001
         log.exception("scan.followup_enqueue_failed", account_id=account_id, task="collect_perm_usage")
 
+    try:
+        check_integration_health_task.delay(account_id)
+    except Exception:  # noqa: BLE001
+        log.exception("scan.followup_enqueue_failed", account_id=account_id, task="check_integration_health")
+
     settings = get_settings()
     if not settings.AI_TRIAGE_ENABLED:
         return
@@ -146,696 +111,15 @@ def _enqueue_post_scan_tasks(account_id: str) -> None:
     except Exception:  # noqa: BLE001
         log.exception("scan.followup_enqueue_failed", account_id=account_id, task="ai_triage")
 
-def _write_evidence_snapshots(db, acc: AwsAccount, run: ScanRun) -> int:
-    """Snapshot all collected entities for this scan run into evidence_snapshots."""
-    snaps = []
-
-    if acc.role_arn and acc.external_id:
-        try:
-            sess = assume_role(
-                acc.role_arn,
-                acc.external_id,
-                session_name="vigil-account-summary",
-                aws_account=acc,
-                purpose="evidence_snapshot_account_summary",
-            )
-            summary_map = sess.client("iam").get_account_summary()["SummaryMap"]
-            snaps.append(
-                EvidenceSnapshot(
-                    id=uuid.uuid4(),
-                    scan_run_id=run.id,
-                    account_id=acc.id,
-                    org_id=acc.org_id,
-                    entity_type="account_summary",
-                    entity_id=f"arn:aws:iam::{acc.account_id}:root",
-                    payload_json={
-                        "account_id": acc.account_id,
-                        "account_mfa_enabled": bool(summary_map.get("AccountMFAEnabled")),
-                        "account_access_keys_present": int(summary_map.get("AccountAccessKeysPresent", 0)),
-                        "summary_map": {k: int(v) for k, v in summary_map.items()},
-                    },
-                )
-            )
-        except Exception:  # noqa: BLE001
-            log.warning("snapshot.account_summary_failed", account_id=str(acc.id))
-
-    # IAM users
-    for u in db.scalars(select(IamUser).where(IamUser.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="iam_user",
-            entity_id=u.arn,
-            payload_json={
-                "username": u.name,
-                "arn": u.arn,
-                "has_console_password": u.has_console_password,
-                "mfa_active": u.mfa_enabled,
-                "attached_policies": u.attached_policies or [],
-                "inline_policy_names": list((u.inline_policies or {}).keys()),
-                "last_used_at": u.password_last_used.isoformat() if u.password_last_used else None,
-                "created_at": u.created.isoformat() if u.created else None,
-            },
-        ))
-
-    # IAM access keys
-    for k in db.scalars(select(IamAccessKey).where(IamAccessKey.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="iam_access_key",
-            entity_id=k.key_id,
-            payload_json={
-                "access_key_id": k.key_id,
-                "user_arn": k.user_arn,
-                "status": k.status,
-                "created_at": k.created.isoformat() if k.created else None,
-                "last_used_at": k.last_used.isoformat() if k.last_used else None,
-            },
-        ))
-
-    # IAM roles
-    for r in db.scalars(select(IamRole).where(IamRole.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="iam_role",
-            entity_id=r.arn,
-            payload_json={
-                "role_name": r.name,
-                "arn": r.arn,
-                "last_used_at": r.last_assumed.isoformat() if r.last_assumed else None,
-                "created_at": r.created.isoformat() if r.created else None,
-                "trust_policy": r.trust_policy,
-            },
-        ))
-
-    # S3 buckets
-    for b in db.scalars(select(S3Bucket).where(S3Bucket.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="s3_bucket",
-            entity_id=b.arn,
-            payload_json={
-                "name": b.name,
-                "arn": b.arn,
-                "logging_enabled": b.logging_enabled,
-                "encrypted": b.encrypted,
-                "kms_encrypted": b.kms_encrypted,
-                "versioning_enabled": b.versioning_enabled,
-                "public_access_blocked": b.public_access_blocked,
-                "https_only": b.https_only,
-            },
-        ))
-
-    for pab in db.scalars(select(S3AccountPublicAccessBlock).where(S3AccountPublicAccessBlock.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="s3_account_public_access_block",
-            entity_id=str(acc.account_id or acc.id),
-            payload_json={
-                "block_public_acls": pab.block_public_acls,
-                "ignore_public_acls": pab.ignore_public_acls,
-                "block_public_policy": pab.block_public_policy,
-                "restrict_public_buckets": pab.restrict_public_buckets,
-                "all_blocked": pab.all_blocked,
-            },
-        ))
-
-    # KMS keys
-    for k in db.scalars(select(KmsKey).where(KmsKey.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="kms_key",
-            entity_id=k.arn,
-            payload_json={
-                "key_id": k.key_id,
-                "arn": k.arn,
-                "alias": k.alias,
-                "rotation_enabled": k.rotation_enabled,
-                "key_state": k.key_state,
-                "has_wildcard_principal": k.has_wildcard_principal,
-            },
-        ))
-
-    for p in db.scalars(select(IamPasswordPolicy).where(IamPasswordPolicy.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="iam_password_policy",
-            entity_id=str(acc.account_id or acc.id),
-            payload_json={
-                "exists": p.exists,
-                "min_length": p.min_length,
-                "require_uppercase": p.require_uppercase,
-                "require_lowercase": p.require_lowercase,
-                "require_numbers": p.require_numbers,
-                "require_symbols": p.require_symbols,
-                "max_age": p.max_age,
-                "password_reuse_prevention": p.password_reuse_prevention,
-            },
-        ))
-
-    for t in db.scalars(select(CloudTrailTrail).where(CloudTrailTrail.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="cloudtrail_trail",
-            entity_id=t.arn,
-            payload_json={
-                "name": t.name,
-                "arn": t.arn,
-                "home_region": t.home_region,
-                "is_multi_region": t.is_multi_region,
-                "is_logging": t.is_logging,
-                "log_validation_enabled": t.log_validation_enabled,
-                "kms_key_id": t.kms_key_id,
-            },
-        ))
-
-    for d in db.scalars(select(GuardDutyDetector).where(GuardDutyDetector.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="guardduty_detector",
-            entity_id=f"{d.region}:{d.detector_id}",
-            payload_json={"detector_id": d.detector_id, "region": d.region, "status": d.status},
-        ))
-
-    for a in db.scalars(select(AccessAnalyzer).where(AccessAnalyzer.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="access_analyzer",
-            entity_id=f"{a.region}:{a.analyzer_name or 'none'}",
-            payload_json={"region": a.region, "analyzer_name": a.analyzer_name, "status": a.status},
-        ))
-
-    for c in db.scalars(select(ConfigRecorder).where(ConfigRecorder.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="config_recorder",
-            entity_id=f"{c.region}:{c.recorder_name or 'none'}",
-            payload_json={
-                "region": c.region,
-                "recorder_name": c.recorder_name,
-                "recording": c.recording,
-                "delivery_channel_exists": c.delivery_channel_exists,
-            },
-        ))
-
-    for s in db.scalars(select(SecurityHubStatus).where(SecurityHubStatus.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="security_hub",
-            entity_id=f"{s.region}:{s.hub_arn or 'disabled'}",
-            payload_json={"region": s.region, "hub_arn": s.hub_arn, "enabled": s.enabled},
-        ))
-
-    for v in db.scalars(select(Vpc).where(Vpc.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="vpc",
-            entity_id=f"{v.region}:{v.vpc_id}",
-            payload_json={"vpc_id": v.vpc_id, "region": v.region, "flow_logs_enabled": v.flow_logs_enabled},
-        ))
-
-    for sg in db.scalars(select(SecurityGroup).where(SecurityGroup.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="security_group",
-            entity_id=f"{sg.region}:{sg.group_id}",
-            payload_json={
-                "group_id": sg.group_id,
-                "group_name": sg.group_name,
-                "region": sg.region,
-                "vpc_id": sg.vpc_id,
-                "is_default": sg.is_default,
-                "unrestricted_ssh": sg.unrestricted_ssh,
-                "unrestricted_rdp": sg.unrestricted_rdp,
-                "has_any_inbound_rules": sg.has_any_inbound_rules,
-                "has_any_outbound_rules": sg.has_any_outbound_rules,
-            },
-        ))
-
-    for i in db.scalars(select(Ec2Instance).where(Ec2Instance.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ec2_instance",
-            entity_id=f"{i.region}:{i.instance_id}",
-            payload_json={
-                "instance_id": i.instance_id,
-                "region": i.region,
-                "instance_type": i.instance_type,
-                "state": i.state,
-                "imdsv2_required": i.imdsv2_required,
-                "vpc_id": i.vpc_id,
-                "subnet_id": i.subnet_id,
-                "security_group_ids": i.security_group_ids,
-                "tags": i.tags,
-            },
-        ))
-
-    for v in db.scalars(select(EbsVolume).where(EbsVolume.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ebs_volume",
-            entity_id=v.arn,
-            payload_json={
-                "volume_id": v.volume_id,
-                "arn": v.arn,
-                "region": v.region,
-                "encrypted": v.encrypted,
-                "state": v.state,
-                "size_gib": v.size_gib,
-                "volume_type": v.volume_type,
-                "attached_instance_ids": v.attached_instance_ids,
-            },
-        ))
-
-    for e in db.scalars(select(EbsEncryptionDefault).where(EbsEncryptionDefault.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ebs_encryption_default",
-            entity_id=e.region,
-            payload_json={"region": e.region, "enabled": e.enabled},
-        ))
-
-    for r in db.scalars(select(RdsInstance).where(RdsInstance.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="rds_instance",
-            entity_id=r.arn,
-            payload_json={
-                "db_instance_id": r.db_instance_id,
-                "arn": r.arn,
-                "region": r.region,
-                "publicly_accessible": r.publicly_accessible,
-                "storage_encrypted": r.storage_encrypted,
-                "backup_retention_period": r.backup_retention_period,
-                "engine": r.engine,
-                "multi_az": r.multi_az,
-                "deletion_protection": r.deletion_protection,
-            },
-        ))
-
-    for snap in db.scalars(select(RdsSnapshot).where(RdsSnapshot.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="rds_snapshot",
-            entity_id=snap.arn,
-            payload_json={
-                "snapshot_id": snap.snapshot_id,
-                "arn": snap.arn,
-                "region": snap.region,
-                "engine": snap.engine,
-                "encrypted": snap.encrypted,
-                "is_public": snap.is_public,
-            },
-        ))
-
-    for snap in db.scalars(select(EbsSnapshot).where(EbsSnapshot.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ebs_snapshot",
-            entity_id=snap.arn,
-            payload_json={
-                "snapshot_id": snap.snapshot_id,
-                "arn": snap.arn,
-                "region": snap.region,
-                "encrypted": snap.encrypted,
-                "is_public": snap.is_public,
-            },
-        ))
-
-    for ami in db.scalars(select(Ec2Ami).where(Ec2Ami.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ec2_ami",
-            entity_id=ami.arn,
-            payload_json={
-                "image_id": ami.image_id,
-                "arn": ami.arn,
-                "region": ami.region,
-                "name": ami.name,
-                "is_public": ami.is_public,
-                "created_at": ami.created_at.isoformat() if ami.created_at else None,
-            },
-        ))
-
-    for cluster in db.scalars(select(EksCluster).where(EksCluster.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="eks_cluster",
-            entity_id=cluster.arn,
-            payload_json={
-                "name": cluster.name,
-                "arn": cluster.arn,
-                "region": cluster.region,
-                "endpoint_public_access": cluster.endpoint_public_access,
-                "endpoint_private_access": cluster.endpoint_private_access,
-                "public_access_cidrs": cluster.public_access_cidrs or [],
-                "version": cluster.version,
-                "status": cluster.status,
-            },
-        ))
-
-    for gf in db.scalars(select(GuardDutyFinding).where(GuardDutyFinding.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="guardduty_finding",
-            entity_id=f"{gf.region}:{gf.finding_id}",
-            payload_json={
-                "region": gf.region,
-                "finding_id": gf.finding_id,
-                "severity": gf.severity,
-                "title": gf.title,
-                "finding_type": gf.finding_type,
-                "archived": gf.archived,
-            },
-        ))
-
-    for ic in db.scalars(select(IdentityCenterUser).where(IdentityCenterUser.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="identity_center_user",
-            entity_id=f"{ic.identity_store_id}:{ic.user_id}",
-            payload_json={
-                "user_id": ic.user_id,
-                "user_name": ic.user_name,
-                "display_name": ic.display_name,
-                "email": ic.email,
-                "active": ic.active,
-            },
-        ))
-
-    try:
-        for ps in list_permission_set_snapshots(acc):
-            arn = ps.get("permission_set_arn")
-            if not arn:
-                continue
-            snaps.append(
-                EvidenceSnapshot(
-                    id=uuid.uuid4(),
-                    scan_run_id=run.id,
-                    account_id=acc.id,
-                    org_id=acc.org_id,
-                    entity_type="identity_center_permission_set",
-                    entity_id=arn,
-                    payload_json=ps,
-                )
-            )
-    except Exception:  # noqa: BLE001
-        log.warning("snapshot.identity_center_permission_sets_failed", account_id=str(acc.id))
-
-    for rule in db.scalars(select(ConfigRuleCompliance).where(ConfigRuleCompliance.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="config_rule_compliance",
-            entity_id=f"{rule.region}:{rule.rule_name}",
-            payload_json={
-                "region": rule.region,
-                "rule_name": rule.rule_name,
-                "compliance_type": rule.compliance_type,
-            },
-        ))
-
-    for cert in db.scalars(select(AcmCertificate).where(AcmCertificate.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="acm_certificate",
-            entity_id=cert.certificate_arn,
-            payload_json={
-                "certificate_arn": cert.certificate_arn,
-                "region": cert.region,
-                "domain_name": cert.domain_name,
-                "expires_at": cert.expires_at.isoformat() if cert.expires_at else None,
-                "status": cert.status,
-            },
-        ))
-
-    for fn in db.scalars(select(LambdaFunction).where(LambdaFunction.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="lambda_function",
-            entity_id=fn.arn,
-            payload_json={
-                "function_name": fn.function_name,
-                "arn": fn.arn,
-                "region": fn.region,
-                "runtime": fn.runtime,
-                "has_dlq": fn.has_dlq,
-                "function_url": fn.function_url,
-                "function_url_auth_type": fn.function_url_auth_type,
-            },
-        ))
-
-    for repo in db.scalars(select(EcrRepository).where(EcrRepository.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ecr_repository",
-            entity_id=repo.repository_arn,
-            payload_json={
-                "repository_name": repo.repository_name,
-                "repository_arn": repo.repository_arn,
-                "region": repo.region,
-                "scan_on_push": repo.scan_on_push,
-                "encryption_type": repo.encryption_type,
-            },
-        ))
-
-    for cluster in db.scalars(select(EcsCluster).where(EcsCluster.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ecs_cluster",
-            entity_id=cluster.arn,
-            payload_json={
-                "cluster_name": cluster.name,
-                "region": cluster.region,
-                "container_insights_enabled": cluster.container_insights_enabled,
-                "status": cluster.status,
-            },
-        ))
-
-    for service in db.scalars(select(EcsService).where(EcsService.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ecs_service",
-            entity_id=service.service_arn,
-            payload_json={
-                "service_name": service.service_name,
-                "cluster_name": service.cluster_name,
-                "region": service.region,
-                "assign_public_ip": service.assign_public_ip,
-                "launch_type": service.launch_type,
-                "status": service.status,
-                "task_definition_arn": service.task_definition_arn,
-            },
-        ))
-
-    for secret in db.scalars(select(SecretsManagerSecret).where(SecretsManagerSecret.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="secrets_manager_secret",
-            entity_id=secret.secret_arn,
-            payload_json={
-                "name": secret.name,
-                "secret_arn": secret.secret_arn,
-                "region": secret.region,
-                "rotation_enabled": secret.rotation_enabled,
-            },
-        ))
-
-    for param in db.scalars(select(SsmParameter).where(SsmParameter.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="ssm_parameter",
-            entity_id=f"{param.region}:{param.parameter_name}",
-            payload_json={
-                "parameter_name": param.parameter_name,
-                "region": param.region,
-                "parameter_type": param.parameter_type,
-            },
-        ))
-
-    for lb in db.scalars(select(ElbLoadBalancer).where(ElbLoadBalancer.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="elb_load_balancer",
-            entity_id=lb.load_balancer_arn,
-            payload_json={
-                "name": lb.name,
-                "load_balancer_arn": lb.load_balancer_arn,
-                "region": lb.region,
-                "lb_type": lb.lb_type,
-                "access_logs_enabled": lb.access_logs_enabled,
-                "ssl_policy": lb.ssl_policy,
-            },
-        ))
-
-    for table in db.scalars(select(DynamoDbTable).where(DynamoDbTable.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="dynamodb_table",
-            entity_id=table.arn,
-            payload_json={
-                "table_name": table.table_name,
-                "arn": table.arn,
-                "region": table.region,
-                "pitr_enabled": table.pitr_enabled,
-                "kms_encrypted": table.kms_encrypted,
-            },
-        ))
-
-    for topic in db.scalars(select(SnsTopic).where(SnsTopic.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="sns_topic",
-            entity_id=topic.topic_arn,
-            payload_json={
-                "topic_arn": topic.topic_arn,
-                "region": topic.region,
-                "kms_encrypted": topic.kms_encrypted,
-            },
-        ))
-
-    for queue in db.scalars(select(SqsQueue).where(SqsQueue.account_id == acc.id)).all():
-        snaps.append(EvidenceSnapshot(
-            id=uuid.uuid4(),
-            scan_run_id=run.id,
-            account_id=acc.id,
-            org_id=acc.org_id,
-            entity_type="sqs_queue",
-            entity_id=queue.queue_arn,
-            payload_json={
-                "queue_arn": queue.queue_arn,
-                "queue_url": queue.queue_url,
-                "region": queue.region,
-                "kms_encrypted": queue.kms_encrypted,
-            },
-        ))
-
-    from app.services.snapshot_provenance import attach_provenance
-
-    for snap in snaps:
-        snap.payload_json = attach_provenance(snap.payload_json, snap.entity_type, run.id)
-
-    db.add_all(snaps)
-    return len(snaps)
 
 
 @celery_app.task(
     name="app.worker.tasks.run_scan",
-    soft_time_limit=900,  # 15 min — worker gets a SoftTimeLimitExceeded signal
-    time_limit=1200,      # 20 min — hard kill if still running after this
+    soft_time_limit=900,  # 15 min
+    time_limit=1200,      # 20 min hard kill
 )
 def run_scan(account_id: str) -> dict:
-    """Run a full scan for the given AwsAccount.
-
-    Step-by-step error capture: each collector and check phase is tagged
-    with a `step` name. If anything raises, the failing step + truncated
-    traceback are stored in `scan_runs.error` + `scan_runs.stats.failed_at`.
-    Per-check failures don't fail the whole scan — they're recorded in
-    `stats.check_errors` and the remaining checks still run.
-    """
+    """Run a full scan for the given AwsAccount using the ScanPipeline."""
     db = SessionLocal()
     step = "bootstrap"
     run: ScanRun | None = None
@@ -858,198 +142,72 @@ def run_scan(account_id: str) -> dict:
         db.add(run)
         db.commit()
     except Exception:
-        # Bootstrap (DB connect, ScanRun insert) blew up — log and propagate.
-        # No scan_run row exists yet so Celery just marks the task failed.
         log.exception("scan.bootstrap_failed", account_id=account_id, step=step)
         db.close()
         raise
 
     try:
-        from app.core.aws import ensure_vigil_role_trust
-        from app.core.config import get_settings as _scan_settings
+        from app.worker.scan_pipeline import ScanPipeline
 
-        if _scan_settings().APP_ENV == "dev" and acc.role_arn and acc.external_id:
-            ensure_vigil_role_trust(acc.role_arn, acc.external_id)
+        pipeline = ScanPipeline(db, acc, run)
+        collectors = [
+            ("collect_iam", collect_iam),
+            ("collect_account_governance", collect_account_governance),
+            ("collect_iam_server_certificates", collect_iam_server_certificates),
+            ("collect_s3_public_access_block", collect_s3_account_public_access_block),
+            ("collect_s3", collect_s3),
+            ("collect_kms", collect_kms),
+            ("collect_cloudtrail", collect_cloudtrail),
+            ("collect_cloudtrail_events", collect_cloudtrail_events),
+            ("collect_vpc", collect_vpc),
+            ("collect_backup", collect_backup),
+            ("collect_guardduty", collect_guardduty),
+            ("collect_guardduty_findings", collect_guardduty_findings),
+            ("collect_identity_center", collect_identity_center),
+            ("collect_rds", collect_rds),
+            ("collect_ec2", collect_ec2),
+            ("collect_acm", collect_acm),
+            ("collect_lambda", collect_lambda),
+            ("collect_secrets", collect_secrets),
+            ("collect_ssm_parameters", collect_ssm_parameters),
+            ("collect_elb", collect_elb),
+            ("collect_dynamodb", collect_dynamodb),
+            ("collect_ecr", collect_ecr),
+            ("collect_ecr_registry_settings", collect_ecr_registry_settings),
+            ("collect_eks", collect_eks),
+            ("collect_ecs", collect_ecs),
+            ("collect_inspector", collect_inspector),
+            ("collect_sns", collect_sns),
+            ("collect_sqs", collect_sqs),
+            ("collect_access_analyzer", collect_access_analyzer),
+            ("collect_config_service", collect_config_service),
+            ("collect_config_compliance", collect_config_compliance),
+            ("collect_securityhub", collect_securityhub),
+        ]
 
-        stats: dict = {}
+        result = pipeline.execute(collectors)
 
-        from app.services.check_settings import is_check_enabled
-
-        org_obj = db.get(Org, acc.org_id)
-        org_settings = org_obj.settings if org_obj else {}
-        enabled_checks = [mod for mod in ALL_CHECKS if is_check_enabled(org_settings, mod.CHECK_ID)]
-
-        # Collectors are fast; checks + finalize dominate wall time — weight progress accordingly.
-        # Keep in sync with the collector _step(...) calls below + WORKER_COLLECTOR_STEPS (web).
-        _COLLECTOR_STEPS = 31
-        _FINALIZE_STEPS = 2
-        _TOTAL_STEPS = _COLLECTOR_STEPS + len(enabled_checks) + _FINALIZE_STEPS
-        _step_counter = 0
-        _PROGRESS_COMMIT_EVERY = 4
-
-        def _phase_for(s: int) -> int:
-            """Map the step counter to a real UI phase by section, not a flat ratio.
-            0 Initializing · 1 Collecting · 2 Analyzing · 3 Policy eval · 4 Risk · 5 Reporting."""
-            if s <= 0:
-                return 0
-            if s <= _COLLECTOR_STEPS:
-                return 1 if s <= int(_COLLECTOR_STEPS * 0.6) else 2
-            cs = s - _COLLECTOR_STEPS
-            nchecks = len(enabled_checks)
-            if cs <= nchecks:
-                return 3 if cs <= int(nchecks * 0.8) else 4
-            return 5
-
-        def _publish_progress() -> None:
-            run.stats = {
-                **stats,
-                "_progress_step": _step_counter,
-                "_progress_total": _TOTAL_STEPS,
-                "_progress_phase": _phase_for(_step_counter),
-            }
-            db.commit()
-
-        def _step(name: str, fn):
-            nonlocal step, _step_counter
-            step = name
-            result = fn()
-            _step_counter += 1
-            _publish_progress()
-            return result
-
-        stats.update(_step("collect_iam", lambda: collect_iam(db, acc)))
-        stats.update(_step("collect_account_governance", lambda: collect_account_governance(db, acc)))
-        stats["iam_server_certificates"] = _step(
-            "collect_iam_server_certificates", lambda: collect_iam_server_certificates(db, acc)
-        )
-        stats["s3_account_public_access_block"] = _step(
-            "collect_s3_public_access_block",
-            lambda: collect_s3_account_public_access_block(db, acc),
-        )
-        stats["s3_buckets"] = _step("collect_s3", lambda: collect_s3(db, acc))
-        stats["kms_keys"] = _step("collect_kms", lambda: collect_kms(db, acc))
-        stats["cloudtrail_trails"] = _step("collect_cloudtrail", lambda: collect_cloudtrail(db, acc))
-        stats["cloudtrail_events"] = _step("collect_cloudtrail_events", lambda: collect_cloudtrail_events(db, acc))
-        vpc_stats = _step("collect_vpc", lambda: collect_vpc(db, acc))
-        stats["vpcs"] = vpc_stats.get("vpcs", 0)
-        stats["security_groups"] = vpc_stats.get("security_groups", 0)
-        stats["guardduty_detectors"] = _step("collect_guardduty", lambda: collect_guardduty(db, acc))
-        stats["guardduty_findings"] = _step("collect_guardduty_findings", lambda: collect_guardduty_findings(db, acc))
-        stats["identity_center_users"] = _step("collect_identity_center", lambda: collect_identity_center(db, acc))
-        stats["rds_instances"] = _step("collect_rds", lambda: collect_rds(db, acc))
-        ec2_stats = _step("collect_ec2", lambda: collect_ec2(db, acc))
-        stats["ec2_instances"] = ec2_stats.get("instances", 0)
-        stats["ebs_volumes"] = ec2_stats.get("volumes", 0)
-        stats["ebs_snapshots"] = ec2_stats.get("snapshots", 0)
-        stats["ec2_amis"] = ec2_stats.get("amis", 0)
-        stats["ebs_regions"] = ec2_stats.get("ebs_regions", 0)
-        stats["acm_certificates"] = _step("collect_acm", lambda: collect_acm(db, acc))
-        stats["lambda_functions"] = _step("collect_lambda", lambda: collect_lambda(db, acc))
-        stats["secrets_manager_secrets"] = _step("collect_secrets", lambda: collect_secrets(db, acc))
-        stats["ssm_parameters"] = _step("collect_ssm_parameters", lambda: collect_ssm_parameters(db, acc))
-        stats["elb_load_balancers"] = _step("collect_elb", lambda: collect_elb(db, acc))
-        stats["dynamodb_tables"] = _step("collect_dynamodb", lambda: collect_dynamodb(db, acc))
-        stats["ecr_repositories"] = _step("collect_ecr", lambda: collect_ecr(db, acc))
-        stats["ecr_registry_settings"] = _step("collect_ecr_registry_settings", lambda: collect_ecr_registry_settings(db, acc))
-        stats["eks_clusters"] = _step("collect_eks", lambda: collect_eks(db, acc))
-        ecs_stats = _step("collect_ecs", lambda: collect_ecs(db, acc))
-        stats["ecs_clusters"] = ecs_stats.get("clusters", 0)
-        stats["ecs_services"] = ecs_stats.get("services", 0)
-        stats["ecs_task_definitions"] = ecs_stats.get("task_definitions", 0)
-        inspector_stats = _step("collect_inspector", lambda: collect_inspector(db, acc))
-        stats["inspector_regions"] = inspector_stats.get("regions", 0)
-        stats["inspector_findings"] = inspector_stats.get("findings", 0)
-        stats["sns_topics"] = _step("collect_sns", lambda: collect_sns(db, acc))
-        stats["sqs_queues"] = _step("collect_sqs", lambda: collect_sqs(db, acc))
-        stats["access_analyzers"] = _step("collect_access_analyzer", lambda: collect_access_analyzer(db, acc))
-        stats["config_regions"] = _step("collect_config_service", lambda: collect_config_service(db, acc))
-        stats["config_rule_compliance"] = _step("collect_config_compliance", lambda: collect_config_compliance(db, acc))
-        stats["securityhub_regions"] = _step("collect_securityhub", lambda: collect_securityhub(db, acc))
-
-        step = "run_checks"
-        drafts = []
-        check_ids_run: set[str] = set()
-        check_errors: list[dict] = []
-
-        for idx, mod in enumerate(enabled_checks):
-            step = f"check:{mod.CHECK_ID}"
-            check_ids_run.add(mod.CHECK_ID)
+        if result.ok:
+            _enqueue_post_scan_tasks(account_id)
             try:
-                drafts.extend(mod.run(db, acc.id))
-            except Exception as inner:  # noqa: BLE001
-                # One bad check shouldn't kill the whole scan. Record and continue.
-                log.exception(
-                    "scan.check_failed",
-                    check_id=mod.CHECK_ID,
-                    account_id=str(acc.id),
-                )
-                check_errors.append({
-                    "check_id": mod.CHECK_ID,
-                    "error_type": type(inner).__name__,
-                    "error": str(inner)[:300],
-                })
-            _step_counter += 1
-            if (idx + 1) % _PROGRESS_COMMIT_EVERY == 0 or idx == len(enabled_checks) - 1:
-                _publish_progress()
-
-        def _persist() -> dict:
-            o, r = persist_findings(
-                db,
-                org_id=acc.org_id,
-                account_id=acc.id,
-                drafts=drafts,
-                check_ids_run=check_ids_run,
-            )
-            return {"opened": o, "resolved": r}
-
-        persist_stats = _step("persist_findings", _persist)
-        opened = persist_stats["opened"]
-        resolved = persist_stats["resolved"]
-
-        snap_count = _step("write_evidence_snapshots", lambda: _write_evidence_snapshots(db, acc, run))
-
-        run.status = "degraded" if check_errors else "ok"
-        run.finished_at = datetime.now(timezone.utc)
-        final_stats = stats | {
-            "checks_run": list(check_ids_run),
-            "drafts": len(drafts),
-            "snapshots": snap_count,
-            "checks_total": len(ALL_CHECKS),
-        }
-        if check_errors:
-            final_stats["check_errors"] = check_errors
-            final_stats["checks_failed"] = len(check_errors)
-        run.stats = final_stats
-        run.findings_opened = opened
-        run.findings_resolved = resolved
-        acc.last_scan_at = run.finished_at
-        db.commit()
-        log.info(
-            "scan.complete",
-            account_id=str(acc.id),
-            opened=opened,
-            resolved=resolved,
-            snapshots=snap_count,
-            check_errors=len(check_errors),
-        )
-
-        _enqueue_post_scan_tasks(account_id)
-
-        try:
-            from app.services.scan_alert import notify_new_findings
-
-            notify_new_findings(db, acc.id, run.id)
-        except Exception:  # noqa: BLE001
-            log.exception("scan.new_findings_notify_failed", account_id=str(acc.id))
-
-        return {"ok": True, "opened": opened, "resolved": resolved, "snapshots": snap_count}
-    except Exception as e:  # noqa: BLE001
+                from app.services.scan_alert import notify_new_findings
+                notify_new_findings(db, acc.id, run.id)
+            except Exception:
+                log.exception("scan.new_findings_notify_failed", account_id=str(acc.id))
+            return {
+                "ok": True,
+                "opened": result.opened,
+                "resolved": result.resolved,
+                "snapshots": result.snapshots,
+            }
+        else:
+            return {"ok": False, "error": result.error or "unknown", "step": result.step}
+    except Exception as e:
         db.rollback()
         tb = traceback.format_exc()
-        # Re-fetch the run row (rollback may have detached it from the session)
         try:
             run = db.get(ScanRun, run.id) if run is not None else None
-        except Exception:  # noqa: BLE001
+        except Exception:
             run = None
         error_persisted = False
         if run is not None:
@@ -1064,7 +222,7 @@ def run_scan(account_id: str) -> dict:
             try:
                 db.commit()
                 error_persisted = True
-            except Exception:  # noqa: BLE001
+            except Exception:
                 db.rollback()
                 log.exception("scan.error_persist_failed", account_id=str(acc.id) if acc else None)
         log.exception(
@@ -1076,14 +234,12 @@ def run_scan(account_id: str) -> dict:
         if error_persisted and run is not None and acc is not None:
             try:
                 from app.services.scan_alert import notify_scan_failure
-
                 notify_scan_failure(db, acc.id, run.id)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("scan.failure_notify_failed", account_id=str(acc.id))
         return {"ok": False, "error": str(e), "step": step}
     finally:
         db.close()
-
 
 @celery_app.task(name="app.worker.tasks.collect_perm_usage_task")
 def collect_perm_usage_task(account_id: str) -> dict:
@@ -1111,6 +267,26 @@ def collect_perm_usage_task(account_id: str) -> dict:
     except Exception as e:  # noqa: BLE001
         db.rollback()
         log.exception("perm_usage.failed", account_id=account_id)
+        return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.worker.tasks.check_integration_health_task")
+def check_integration_health_task(account_id: str) -> dict:
+    """Background task: refresh OAuth/API connection status for org integrations."""
+    from app.services.integration_health import check_org_integration_health_for_account
+
+    db = SessionLocal()
+    try:
+        results = check_org_integration_health_for_account(db, uuid.UUID(account_id))
+        if results is None:
+            return {"error": "account not found"}
+        log.info("integration.health.complete", account_id=account_id, results=results)
+        return {"ok": True, "results": results}
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        log.exception("integration.health.failed", account_id=account_id)
         return {"ok": False, "error": str(e)}
     finally:
         db.close()
@@ -1252,7 +428,11 @@ def send_weekly_digests() -> dict:
 
         for org in orgs:
             org_settings = org.settings or {}
-            if not org_settings.get("notifications", {}).get("email_digest_enabled", False):
+            notifications = org_settings.get("notifications", {})
+            email_digest = notifications.get("email_digest_enabled", False)
+            slack_digest = notifications.get("slack_digest_enabled", False)
+            slack_url = notifications.get("slack_webhook_url")
+            if not email_digest and not (slack_digest and slack_url):
                 skipped += 1
                 continue
 
@@ -1317,6 +497,14 @@ def send_weekly_digests() -> dict:
 
             unsubscribe_token = persist_digest_unsubscribe_token(db, org)
 
+            # ── Rich-digest extras: per-day trend, coverage, last-week deltas ──
+            from app.models.digest_snapshot import DigestSnapshot
+            from app.services.digest_data import gather_digest_extras
+
+            per_day, coverage, prev = gather_digest_extras(
+                db, org_id=org.id, account_id=acc.id, since=since
+            )
+
             digest_email = org_settings.get("notifications", {}).get("digest_email")
             if digest_email:
                 recipients = [digest_email]
@@ -1328,6 +516,8 @@ def send_weekly_digests() -> dict:
                 ]
 
             for email in recipients:
+                if not email_digest:
+                    break
                 ok = send_digest(
                     to=email,
                     org_name=org.name if hasattr(org, "name") else str(org.id),
@@ -1336,24 +526,50 @@ def send_weekly_digests() -> dict:
                     new_this_week=new_dicts,
                     resolved_this_week=resolved_count,
                     unsubscribe_token=unsubscribe_token,
+                    per_day=per_day,
+                    coverage=coverage,
+                    prev=prev,
                 )
                 if ok:
                     sent += 1
 
             slack_url = org_settings.get("notifications", {}).get("slack_webhook_url")
-            if slack_url:
+            if slack_digest and slack_url:
                 try:
                     import httpx as _httpx
-                    critical_count = sum(1 for f in open_findings if f.severity in ("critical", "high"))
-                    _httpx.post(slack_url, json={
-                        "text": (
-                            f":shield: *Vigil weekly digest — {acc.label}*\n"
-                            f"Open findings: {len(open_findings)} ({critical_count} critical/high) · "
-                            f"New this week: {len(new_this_week)} · Resolved: {resolved_count}"
-                        )
-                    }, timeout=10)
+                    from app.services.digest import build_digest_slack_blocks
+                    fallback, blocks = build_digest_slack_blocks(
+                        account_label=acc.label,
+                        open_findings=findings_dicts,
+                        new_this_week=new_dicts,
+                        resolved_this_week=resolved_count,
+                    )
+                    _httpx.post(slack_url, json={"text": fallback, "blocks": blocks}, timeout=10)
                 except Exception:  # noqa: BLE001
                     pass
+
+            # Snapshot this week's headline numbers so next week can show deltas.
+            try:
+                from app.services.digest import _posture_score, _severity_counts
+
+                snap_counts = _severity_counts(findings_dicts)
+                db.add(
+                    DigestSnapshot(
+                        org_id=org.id,
+                        open_count=len(findings_dicts),
+                        new_count=len(new_dicts),
+                        resolved_count=resolved_count,
+                        posture_score=_posture_score(snap_counts),
+                        critical_count=snap_counts["critical"],
+                        high_count=snap_counts["high"],
+                        medium_count=snap_counts["medium"],
+                        low_count=snap_counts["low"],
+                    )
+                )
+                db.commit()
+            except Exception:  # noqa: BLE001
+                db.rollback()
+                log.warning("digest.snapshot_failed", org_id=str(org.id), exc_info=True)
 
         log.info("digests.complete", sent=sent, skipped=skipped)
         return {"sent": sent, "skipped": skipped}
@@ -1639,5 +855,19 @@ def ai_triage_single_finding(finding_id: str) -> dict:
         db.rollback()
         log.exception("ai_triage.single_failed", finding_id=finding_id)
         return {"ok": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.worker.tasks.alert_stale_scans")
+def alert_stale_scans() -> dict:
+    """Hourly evidence-gap guard: alert when a connected account has not
+    scanned within its configured interval (+ grace). See scan_alert."""
+    from app.services.scan_alert import notify_stale_scans
+
+    db = SessionLocal()
+    try:
+        sent = notify_stale_scans(db)
+        return {"alerts_sent": sent}
     finally:
         db.close()

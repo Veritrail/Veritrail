@@ -16,6 +16,7 @@ import {
 } from "./PolicyProposalReview";
 import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import { DrawerDateField } from "./DrawerDateField";
+import { JiraFindingAction } from "./JiraFindingAction";
 import { todayIso } from "../lib/isoDate";
 import {
   drawerBody,
@@ -35,10 +36,6 @@ import {
   drawerSectionTitle,
   drawerTitle,
 } from "./drawerStyles";
-import {
-  credentialUnusedFrameworkImpact,
-  type CredentialFrameworkImpactItem,
-} from "../data/credentialFrameworkImpact";
 import { frameworkLabel } from "../data/frameworks";
 import { FrameworkMark } from "./FrameworkMark";
 import { showWhatIfTab, whatIfUnavailableReason } from "../data/blastRadiusChecks";
@@ -62,7 +59,9 @@ import {
   severityLabel,
   severityPillClassName,
   formatIamServiceDisplayName,
+  displayFindingTitle,
 } from "../lib/findingDisplay";
+import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
 import { ResourcesIcon } from "./ResourcesIcon";
 import { fetchClientIpForRemediation } from "../lib/cliRemediation";
@@ -78,11 +77,16 @@ import {
   ImpactAnalysisShell,
   ImpactReportEmpty,
   ImpactReportTabs,
+  ImpactAccessComparison,
   ImpactUsageStats,
   ImpactVerdictCard,
+  ImpactMetaPanel,
+  ImpactMetaRow,
+  ImpactMetaGrid,
+  ImpactMetaCell,
   type ImpactReportTab,
 } from "./ImpactAnalysisPanel";
-import { bucketServicesByUsage } from "../lib/blastRadiusDisplay";
+import { bucketServicesByUsage, servicesForDependencyReview } from "../lib/blastRadiusDisplay";
 import {
   impactConfidencePill,
   impactVerdictCopy,
@@ -115,7 +119,7 @@ const drawerFooterCardBase =
 const drawerFooterReopen = `${drawerFooterCardBase} w-full justify-center border-zinc-200 bg-zinc-50/80 ${drawerBtnText} text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50`;
 const drawerFooterActionBase =
   `inline-flex h-[42px] items-center justify-center gap-2 rounded-[10px] px-4 ${drawerBtnText} transition-all duration-150 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60`;
-const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#059669] text-white shadow-[0_6px_16px_rgba(5,150,105,0.16)] hover:bg-[#047857] hover:shadow-[0_8px_18px_rgba(4,120,87,0.18)]`;
+const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#439385] text-white shadow-[0_6px_16px_rgba(67,147,133,0.18)] hover:bg-[#367a6f] hover:shadow-[0_8px_18px_rgba(54,122,111,0.22)]`;
 const drawerFooterVerifySoft = `${drawerFooterActionBase} flex-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70`;
 const drawerFooterExceptionGhost = `${drawerFooterActionBase} flex-[0.8] border border-zinc-200 bg-white text-zinc-600 shadow-sm shadow-zinc-900/[0.02] hover:border-amber-200 hover:bg-amber-50/60 hover:text-amber-700`;
 
@@ -495,214 +499,6 @@ type Remediation = {
   risk: string;
 };
 
-function frameworkCompact(framework: string): string {
-  if (framework === "soc2") return "SOC2";
-  if (framework === "cis_aws_l1") return "CIS AWS";
-  if (framework === "iso27001") return "ISO 27001";
-  return frameworkLabel(framework);
-}
-
-type OverviewSummaryTone = "risk" | "info";
-
-function OverviewSummaryIcon({
-  tone,
-  children,
-}: {
-  tone: OverviewSummaryTone;
-  children: ReactNode;
-}) {
-  const toneClass =
-    tone === "risk" ? "bg-rose-50 text-rose-600" : "bg-sky-50 text-blue-600";
-  return (
-    <div
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${toneClass}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function OverviewSummaryRow({
-  title,
-  description,
-  icon,
-  tone,
-}: {
-  title: string;
-  description: string;
-  icon: ReactNode;
-  tone: OverviewSummaryTone;
-}) {
-  return (
-    <div className="flex items-stretch border-b border-[#eef2f6] last:border-b-0">
-      <div className="flex w-[11.75rem] shrink-0 items-center gap-3 border-r border-[#e5e7eb] px-4 py-3.5">
-        <OverviewSummaryIcon tone={tone}>{icon}</OverviewSummaryIcon>
-        <span className="text-[13px] font-semibold leading-snug text-zinc-900">{title}</span>
-      </div>
-      <div className="flex min-w-0 flex-1 items-center px-4 py-3.5">
-        <p className="text-[12px] leading-relaxed text-zinc-600">{description}</p>
-      </div>
-    </div>
-  );
-}
-
-const overviewSummaryIcons = {
-  risk: (
-    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-    </svg>
-  ),
-  businessImpact: (
-    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 16l4-4 4 4 5-6" />
-    </svg>
-  ),
-  recommendedAction: (
-    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="m9 12 2 2 4-4" />
-    </svg>
-  ),
-  whyItMatters: (
-    <svg className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" d="M12 11v5" />
-      <path strokeLinecap="round" d="M12 8h.01" />
-    </svg>
-  ),
-} as const;
-
-function FrameworkThresholdCard({ item }: { item: CredentialFrameworkImpactItem }) {
-  const isCis = item.isActive;
-  return (
-    <div
-      className={`flex flex-col rounded-xl px-3 py-2.5 ring-1 ${
-        isCis
-          ? "bg-gradient-to-b from-amber-50/95 to-amber-50/40 ring-amber-200/80"
-          : "bg-white ring-zinc-200/80"
-      }`}
-    >
-      <p className={`text-[13px] font-semibold leading-tight ${isCis ? "text-amber-950" : "text-zinc-900"}`}>
-        {item.framework}
-        {item.control ? <span className="font-medium text-zinc-500"> {item.control}</span> : null}
-      </p>
-      <p className="mt-1.5 text-[12px] font-medium text-zinc-700">Fails at {item.thresholdDays}+ days</p>
-      <p
-        className={`mt-1 text-[11px] font-medium uppercase tracking-wide ${
-          isCis ? "text-amber-800/90" : "text-zinc-400"
-        }`}
-      >
-        {item.statusLabel}
-      </p>
-    </div>
-  );
-}
-
-function FrameworkImpactCard({ items }: { items: readonly CredentialFrameworkImpactItem[] }) {
-  return (
-    <div className={drawerPanel}>
-      <div className={drawerSectionHead}>
-        <h3 className={drawerSectionTitle}>Framework impact</h3>
-      </div>
-      <div className={`${drawerSectionBody} grid grid-cols-1 gap-2 sm:grid-cols-2`}>
-        {items.map((item) => (
-          <FrameworkThresholdCard key={item.id} item={item} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const COMPOSITE_COVERAGE_HINTS: Record<string, string> = {
-  identity_governance:
-    "This finding maps to privileged access, MFA, and credential review requirements.",
-  secure_sdlc:
-    "This finding maps to code review, branch protection, and CI/CD safeguard requirements.",
-  change_management:
-    "This finding maps to production change approval and traceability requirements.",
-  vulnerability_management:
-    "This finding maps to vulnerability monitoring and patch evidence requirements.",
-  container_vulnerability_monitoring:
-    "This finding maps to container image scanning and runtime vulnerability evidence.",
-  logging_monitoring:
-    "This finding maps to audit logging, monitoring, and threat detection requirements.",
-  backup_resilience:
-    "This finding maps to backup, retention, and data recovery requirements.",
-  data_protection:
-    "This finding maps to encryption, public exposure, and data-at-rest safeguard requirements.",
-};
-
-function OverviewTabContent({
-  impact,
-  risk,
-  fix,
-  whyItMatters,
-  finding,
-  hasException,
-  documentation,
-  accountId,
-}: {
-  impact: string;
-  risk: string;
-  fix: string;
-  whyItMatters: string;
-  finding: Finding;
-  hasException: boolean;
-  documentation?: ReturnType<typeof documentationForCheck>;
-  accountId?: string | null;
-}) {
-  const riskLine = documentation?.overview?.context ?? impact;
-  const businessImpact = documentation?.overview?.exposure ?? risk;
-  const recommendedAction = documentation?.overview?.fix ?? fix;
-  const whyThisMatters = documentation?.whyShown ?? whyItMatters;
-  const frameworkImpact = credentialUnusedFrameworkImpact(finding.check_id);
-
-  return (
-    <div className="space-y-3.5">
-      <div className={drawerPanel}>
-        <div className="border-b border-[#eef2f6] px-4 py-3">
-          <h3 className={drawerSectionTitle}>Overview summary</h3>
-        </div>
-        <div>
-          <OverviewSummaryRow
-            title="Risk"
-            description={riskLine}
-            icon={overviewSummaryIcons.risk}
-            tone="risk"
-          />
-          <OverviewSummaryRow
-            title="Business impact"
-            description={businessImpact}
-            icon={overviewSummaryIcons.businessImpact}
-            tone="info"
-          />
-          <OverviewSummaryRow
-            title="Recommended action"
-            description={recommendedAction}
-            icon={overviewSummaryIcons.recommendedAction}
-            tone="info"
-          />
-          <OverviewSummaryRow
-            title="Why this matters"
-            description={whyThisMatters}
-            icon={overviewSummaryIcons.whyItMatters}
-            tone="info"
-          />
-        </div>
-      </div>
-
-      {frameworkImpact && <FrameworkImpactCard items={frameworkImpact} />}
-
-      {hasException && (
-        <ExceptionFlowPanel
-          reason={finding.exception_reason}
-          approvedBy={finding.exception_approved_by}
-          expiresAt={finding.exception_expires_at}
-        />
-      )}
-    </div>
-  );
-}
 
 const remediations: Record<string, Remediation> = {
   "iam.user.no_mfa": {
@@ -904,7 +700,7 @@ aws iam update-assume-role-policy --role-name <role-name> --policy-document file
       "Review Principal.AWS entries — note each external 12-digit account ID",
       "Confirm with the owning team that each account is still required",
       "Remove stale principals, or add ExternalId / aws:PrincipalArn conditions to narrow who can assume",
-      "Save an approved exception in Vigil if the trust is intentional (vendor, security tool, shared services)",
+      "Save an approved exception in Veritrail if the trust is intentional (vendor, security tool, shared services)",
     ],
     cli: `# Read trust policy
 aws iam get-role --role-name <role-name> --query 'Role.AssumeRolePolicyDocument'
@@ -1043,13 +839,13 @@ aws kms get-key-rotation-status --key-id <key-id>`,
     console: ["Open CloudTrail → Trails → Create trail", "Set a name, enable logging in all regions (multi-region trail)", "Select or create an S3 bucket for log delivery", 'Enable "Log file validation" and save'],
     cli: `# Create a multi-region trail
 aws cloudtrail create-trail \\
-  --name vigil-audit \\
+  --name veritrail-audit \\
   --s3-bucket-name <your-log-bucket> \\
   --is-multi-region-trail \\
   --enable-log-file-validation
 
 # Start logging
-aws cloudtrail start-logging --name vigil-audit`,
+aws cloudtrail start-logging --name veritrail-audit`,
     risk: "Without audit logs, compromise may go undetected and incident response is severely hampered.",
   },
   "cloudtrail.trail.no_log_validation": {
@@ -1707,7 +1503,7 @@ aws iam attach-role-policy --role-name AWSSupportRole \\
     cli: `# Enable in each region
 for region in $(aws ec2 describe-regions --query 'Regions[].RegionName' --output text); do
   aws accessanalyzer create-analyzer \\
-    --analyzer-name vigil-analyzer \\
+    --analyzer-name veritrail-analyzer \\
     --type ACCOUNT \\
     --region $region 2>/dev/null || true
 done`,
@@ -1921,11 +1717,11 @@ aws configservice start-configuration-recorder --configuration-recorder-name def
     risk: "High-volume API activity can indicate credential compromise or destructive automation.",
   },
   "iam.access_inventory_gap": {
-    why: "Vigil could not reconcile IAM users, roles, and access keys against a complete inventory (missing collectors or partial scan).",
+    why: "Veritrail could not reconcile IAM users, roles, and access keys against a complete inventory (missing collectors or partial scan).",
     console: [
       "Confirm the scan role can list IAM (users, roles, keys)",
-      "Re-run a full account scan from Vigil",
-      "Compare IAM console user count to Vigil collected count",
+      "Re-run a full account scan from Veritrail",
+      "Compare IAM console user count to Veritrail collected count",
     ],
     cli: `aws iam get-account-summary`,
     risk: "Access reviews and evidence packs may omit principals until inventory is complete.",
@@ -2309,7 +2105,7 @@ function generatePolicyIntro(cloudTrailLogging: boolean) {
 }
 
 const SUGGESTED_POLICY_CONNECTOR_ERROR =
-  "Could not build the suggested policy because Vigil could not verify the AWS connector permissions. Verify the connector role, then try again.";
+  "Could not build the suggested policy because Veritrail could not verify the AWS connector permissions. Verify the connector role, then try again.";
 
 function formatSuggestedPolicyError(error: unknown): string {
   const message = formatApiError(error);
@@ -2338,7 +2134,7 @@ function KeyActivityCard({ keyData }: { keyData: { key_id: string; last_used: st
 
   return (
     <div className={`rounded-lg border px-3 py-2.5 text-xs ${keyData.active ? "border-red-100 bg-red-50" : "border-zinc-200 bg-zinc-50"}`}>
-      <div className="font-mono font-semibold text-zinc-700">{keyData.key_id}</div>
+      <div className="font-mono font-semibold text-zinc-700">{maskAccessKeyId(keyData.key_id)}</div>
       {keyData.last_used ? (
         <>
           <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Last API activity</div>
@@ -3028,7 +2824,7 @@ function BlastRadiusSection({
           <p className="text-red-400">
             Check that the API is running and <code className="font-mono">VITE_API_URL</code> matches your setup
             (e.g. <code className="font-mono">http://localhost:8000</code> locally, or{" "}
-            <code className="font-mono">https://api.vigil.cclab.cloud-castles.com</code> on the remote host).
+            <code className="font-mono">https://api.veritrail.io</code> on the remote host).
           </p>
         )}
       </div>
@@ -3106,20 +2902,45 @@ function BlastRadiusSection({
   const hasTrust = Boolean(data.trust_principals && data.trust_principals.length > 0);
   const rolePolicies = data.attached_policies?.filter((pol): pol is AttachedPolicyAnalysis => "action" in pol) ?? [];
   const hasPolicies = rolePolicies.length > 0;
+  const dependencyReviewServices =
+    data.services && data.services.length > 0 ? servicesForDependencyReview(data.services) : [];
+  const dependencyPolicies = rolePolicies.filter((pol) => pol.active_services.length > 0);
+  const hasDependencyReview =
+    hasTrust || dependencyPolicies.length > 0 || dependencyReviewServices.length > 0;
+
+  const accessComparison =
+    iamRoleReport && serviceStats
+      ? {
+          grantedActions: (() => {
+            const fromPolicies = new Set(rolePolicies.flatMap((pol) => pol.granted_services));
+            return fromPolicies.size > 0 ? fromPolicies.size : serviceStats.granted;
+          })(),
+          recentServices: serviceStats.recent,
+          hasWildcard: rolePolicies.some((pol) => pol.has_wildcard_action),
+          preservedServices: serviceStats.recent,
+          cleanupEligible: (() => {
+            const fromPolicies = new Set(rolePolicies.flatMap((pol) => pol.unused_services));
+            return fromPolicies.size > 0 ? fromPolicies.size : serviceStats.safe;
+          })(),
+        }
+      : null;
 
   return (
     <ImpactAnalysisShell>
-      <ImpactVerdictCard
-        tone={visualTone}
-        title={verdictCopy.title}
-        subtitle={verdictCopy.subtitle}
-        detail={verdictCopy.detail}
-        pill={visualTone === "safe" ? undefined : impactPill}
-      />
+      {accessComparison ? (
+        <ImpactAccessComparison {...accessComparison} />
+      ) : (
+        <ImpactVerdictCard
+          tone={visualTone}
+          title={verdictCopy.title}
+          subtitle={verdictCopy.subtitle}
+          detail={verdictCopy.detail}
+          pill={visualTone === "safe" ? undefined : impactPill}
+        />
+      )}
 
       {iamRoleReport ? (
         <>
-          {serviceStats ? <ImpactUsageStats {...serviceStats} /> : null}
           <ImpactReportTabs active={reportTab} onChange={setReportTab} />
           <div className="impact-report-panel">
             {reportTab === "usage" ? (
@@ -3131,31 +2952,29 @@ function BlastRadiusSection({
                   showStats={false}
                 />
               ) : (
-                <ImpactReportEmpty message="No service usage recorded for this role." />
+                <ImpactReportEmpty
+                  title="No service usage recorded"
+                  subtitle="This role has no recorded AWS API activity in your account."
+                />
               )
             ) : null}
 
             {reportTab === "dependencies" ? (
-              hasTrust || hasPolicies || (data.services?.length ?? 0) > 0 ? (
+              hasDependencyReview ? (
                 <div className="space-y-4">
-                  <FindingDependencyGraph
-                    resourceLabel={resourceDisplayName(finding)}
-                    trustPrincipals={data.trust_principals}
-                    services={
-                      data.services?.map((service) => service.name) ??
-                      [
-                        ...new Set(
-                          (data.keys ?? [])
-                            .map((key) => key.last_used_service)
-                            .filter((service): service is string => Boolean(service)),
-                        ),
-                      ]
-                    }
-                  />
+                  {dependencyReviewServices.length > 0 ? (
+                    <FindingDependencyGraph
+                      resourceLabel={resourceDisplayName(finding)}
+                      trustPrincipals={data.trust_principals}
+                      services={dependencyReviewServices.map((service) => service.name)}
+                    />
+                  ) : null}
                   {hasTrust ? <RoleTrustPrincipals principals={data.trust_principals!} /> : null}
-                  {hasPolicies ? (
+                  {dependencyPolicies.length > 0 ? (
                     <RolePoliciesAnalysis
-                      policies={rolePolicies}
+                      policies={dependencyPolicies}
+                      showRemovable={false}
+                      inUseLabel="Keep + verify"
                       renderConsoleLink={(pol) => (
                         <ConsoleLink
                           href={
@@ -3176,7 +2995,10 @@ function BlastRadiusSection({
                   ) : null}
                 </div>
               ) : (
-                <ImpactReportEmpty message="No trust principals or attached policies to review." />
+                <ImpactReportEmpty
+                  title="No dependencies to review"
+                  subtitle="Only unused services on record — nothing to keep or verify."
+                />
               )
             ) : null}
 
@@ -3184,14 +3006,23 @@ function BlastRadiusSection({
               <>
                 {infoRows.length > 0 ? <BlastRadiusConsiderations items={infoRows} tone="info" /> : null}
                 {warningRows.length > 0 ? <BlastRadiusConsiderations items={warningRows} tone="warning" /> : null}
-                <p className="text-[11px] text-zinc-500 px-0.5">
-                  {data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
-                    ? `Role last assumed ${data.days_since_last_assumed} days ago`
-                    : "Role has never been assumed"}
-                </p>
                 {infoRows.length === 0 && warningRows.length === 0 ? (
-                  <ImpactReportEmpty message="No breakage warnings identified for this remediation." />
-                ) : null}
+                  <ImpactReportEmpty
+                    variant="safe"
+                    title="No breakage warnings identified"
+                    subtitle={
+                      data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
+                        ? `Role last assumed ${data.days_since_last_assumed} days ago — remediation looks low risk.`
+                        : "Role has never been assumed — remediation looks low risk."
+                    }
+                  />
+                ) : (
+                  <p className="text-[11px] text-zinc-500 px-0.5">
+                    {data.days_since_last_assumed !== null && data.days_since_last_assumed !== undefined
+                      ? `Role last assumed ${data.days_since_last_assumed} days ago`
+                      : "Role has never been assumed"}
+                  </p>
+                )}
               </>
             ) : null}
           </div>
@@ -3223,16 +3054,16 @@ function BlastRadiusSection({
         {/* User: summary (hidden for MFA-only — keys/password are not part of remediation) */}
         {data.resource_type === "iam_user" && !mfaOnlyUserCheck && (
           <div className="space-y-2">
-            <div className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
-              <div className="px-3 py-2 text-xs text-zinc-600">
-                {data.active_key_count} active access key{data.active_key_count !== 1 ? "s" : ""}
-              </div>
-              {data.has_console_password && (
-                <div className="border-t border-zinc-200 px-3 py-2 text-xs text-zinc-600">
-                  Has console password
-                </div>
-              )}
-            </div>
+            <ImpactMetaPanel>
+              <ImpactMetaRow
+                label="Active access keys"
+                value={data.active_key_count ?? 0}
+                mono
+              />
+              {data.has_console_password ? (
+                <ImpactMetaRow label="Console password" value="Set" tone="warn" />
+              ) : null}
+            </ImpactMetaPanel>
             {((data.attached_policies?.length ?? 0) > 0 || (data.inline_policy_names?.length ?? 0) > 0) && (
               <div>
                 <div className="mb-2 text-sm font-semibold text-zinc-700">Direct policy attachments</div>
@@ -3255,75 +3086,77 @@ function BlastRadiusSection({
 
         {/* RDS instance: metadata grid */}
         {data.resource_type === "rds_instance" && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            {([
-              ["Instance", data.db_instance_id ?? "—", null],
-              ["Engine", data.engine ?? "—", null],
-              ["Region", data.region ?? "—", null],
-              ["Encrypted", data.storage_encrypted ? "Yes" : "No", data.storage_encrypted],
-              ["Public access", data.publicly_accessible ? "Enabled" : "Disabled", !data.publicly_accessible],
-              ["Backup retention", data.backup_retention_period != null ? `${data.backup_retention_period}d` : "—", (data.backup_retention_period ?? 0) > 0],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium truncate ${ok === true ? "text-emerald-700" : ok === false ? "text-red-600" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={3}>
+            <ImpactMetaCell label="Instance" value={data.db_instance_id ?? "—"} mono />
+            <ImpactMetaCell label="Engine" value={data.engine ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Encrypted"
+              value={data.storage_encrypted ? "Yes" : "No"}
+              mono
+              tone={data.storage_encrypted ? "ok" : "bad"}
+            />
+            <ImpactMetaCell
+              label="Public access"
+              value={data.publicly_accessible ? "Enabled" : "Disabled"}
+              mono
+              tone={data.publicly_accessible ? "bad" : "ok"}
+            />
+            <ImpactMetaCell
+              label="Backup retention"
+              value={data.backup_retention_period != null ? `${data.backup_retention_period}d` : "—"}
+              mono
+              tone={(data.backup_retention_period ?? 0) > 0 ? "ok" : "bad"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* DynamoDB table: metadata grid */}
         {data.resource_type === "dynamodb_table" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([
-              ["Table", data.table_name ?? "—", null],
-              ["Region", data.region ?? "—", null],
-              ["Encrypted", data.kms_encrypted ? "Yes" : "No", data.kms_encrypted],
-              ["PITR", data.pitr_enabled ? "Enabled" : "Disabled", data.pitr_enabled],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium truncate ${ok === true ? "text-emerald-700" : ok === false ? "text-red-600" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Table" value={data.table_name ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Encrypted"
+              value={data.kms_encrypted ? "Yes" : "No"}
+              mono
+              tone={data.kms_encrypted ? "ok" : "bad"}
+            />
+            <ImpactMetaCell
+              label="PITR"
+              value={data.pitr_enabled ? "Enabled" : "Disabled"}
+              mono
+              tone={data.pitr_enabled ? "ok" : "bad"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* EC2 instance: metadata grid */}
         {data.resource_type === "ec2_instance" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([
-              ["Instance", data.instance_id ?? "—", null],
-              ["Type", data.instance_type ?? "—", null],
-              ["State", data.state ?? "—", data.state === "running"],
-              ["Region", data.region ?? "—", null],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium ${ok === true ? "text-emerald-700" : ok === false ? "text-zinc-500" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Instance" value={data.instance_id ?? "—"} mono />
+            <ImpactMetaCell label="Type" value={data.instance_type ?? "—"} mono />
+            <ImpactMetaCell
+              label="State"
+              value={data.state ?? "—"}
+              mono
+              tone={data.state === "running" ? "ok" : "muted"}
+            />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+          </ImpactMetaGrid>
         )}
 
         {/* EBS volume: metadata + attached instances */}
         {data.resource_type === "ebs_volume" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              {([
-                ["Volume", data.volume_id ?? "—", null],
-                ["Size", data.size_gib != null ? `${data.size_gib} GiB` : "—", null],
-                ["Type", data.volume_type ?? "—", null],
-                ["State", data.state ?? "—", null],
-                ["Region", data.region ?? "—", null],
-                ["Attached", `${(data.attached_instances ?? []).length}`, null],
-              ] as [string, string, null][]).map(([label, val]) => (
-                <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                  <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                  <div className="font-mono font-medium text-zinc-700 truncate">{val}</div>
-                </div>
-              ))}
-            </div>
+            <ImpactMetaGrid cols={3}>
+              <ImpactMetaCell label="Volume" value={data.volume_id ?? "—"} mono />
+              <ImpactMetaCell label="Size" value={data.size_gib != null ? `${data.size_gib} GiB` : "—"} mono />
+              <ImpactMetaCell label="Type" value={data.volume_type ?? "—"} mono />
+              <ImpactMetaCell label="State" value={data.state ?? "—"} mono />
+              <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+              <ImpactMetaCell label="Attached" value={`${(data.attached_instances ?? []).length}`} mono />
+            </ImpactMetaGrid>
             {data.attached_instances && data.attached_instances.length > 0 && (
               <div>
                 <div className="text-sm font-semibold text-zinc-700 mb-2">
@@ -3398,57 +3231,62 @@ function BlastRadiusSection({
 
         {/* CloudTrail trail: metadata grid */}
         {data.resource_type === "cloudtrail_trail" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([
-              ["Trail", data.trail_name ?? "—", null],
-              ["Region", data.home_region ?? "—", null],
-              ["Logging", data.is_logging ? "Active" : "Stopped", data.is_logging],
-              ["Multi-region", data.is_multi_region ? "Yes" : "No", data.is_multi_region],
-              ["Log validation", data.log_validation_enabled ? "Enabled" : "Off", data.log_validation_enabled],
-              ["KMS encrypted", data.kms_key_id ? "Yes" : "No", !!data.kms_key_id],
-            ] as [string, string, boolean | null][]).map(([label, val, ok]) => (
-              <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                <div className={`font-mono font-medium ${ok === true ? "text-emerald-700" : ok === false ? "text-zinc-500" : "text-zinc-700"}`}>{val}</div>
-              </div>
-            ))}
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Trail" value={data.trail_name ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.home_region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Logging"
+              value={data.is_logging ? "Active" : "Stopped"}
+              mono
+              tone={data.is_logging ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Multi-region"
+              value={data.is_multi_region ? "Yes" : "No"}
+              mono
+              tone={data.is_multi_region ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Log validation"
+              value={data.log_validation_enabled ? "Enabled" : "Off"}
+              mono
+              tone={data.log_validation_enabled ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="KMS encrypted"
+              value={data.kms_key_id ? "Yes" : "No"}
+              mono
+              tone={data.kms_key_id ? "ok" : "muted"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* VPC: metadata */}
         {data.resource_type === "vpc" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">VPC</div>
-              <div className="font-mono font-medium text-zinc-700">{data.vpc_id ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Region</div>
-              <div className="font-mono font-medium text-zinc-700">{data.region ?? "—"}</div>
-            </div>
-            <div className="col-span-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Instances in VPC</div>
-              <div className="text-2xl font-bold tabular-nums text-zinc-700">{data.instance_count ?? 0}</div>
-            </div>
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="VPC" value={data.vpc_id ?? "—"} mono />
+            <ImpactMetaCell label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaCell
+              label="Instances in VPC"
+              value={data.instance_count ?? 0}
+              span={2}
+              emphasis
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* IAM password policy: current settings */}
         {data.resource_type === "iam_password_policy" && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Min length</div>
-              <div className="font-mono font-medium text-zinc-700">{data.min_length ?? "none"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Max age</div>
-              <div className={`font-mono font-medium ${data.max_age ? "text-amber-700" : "text-zinc-400"}`}>{data.max_age ? `${data.max_age}d` : "none"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Reuse prevention</div>
-              <div className="font-mono font-medium text-zinc-700">{data.password_reuse_prevention ?? "none"}</div>
-            </div>
-          </div>
+          <ImpactMetaGrid cols={3}>
+            <ImpactMetaCell label="Min length" value={data.min_length ?? "none"} mono />
+            <ImpactMetaCell
+              label="Max age"
+              value={data.max_age ? `${data.max_age}d` : "none"}
+              mono
+              tone={data.max_age ? "warn" : "muted"}
+            />
+            <ImpactMetaCell label="Reuse prevention" value={data.password_reuse_prevention ?? "none"} mono />
+          </ImpactMetaGrid>
         )}
 
         {/* S3 account-level block: affected buckets */}
@@ -3469,40 +3307,58 @@ function BlastRadiusSection({
 
         {/* S3 bucket: posture grid */}
         {data.resource_type === "s3_bucket" && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              {([
-                ["Encryption", data.encrypted ? "Enabled" : "None", data.encrypted],
-                ["KMS", data.kms_encrypted ? "Enabled" : "SSE-S3 / None", data.kms_encrypted],
-                ["Public access", data.public_access_blocked ? "Blocked" : "Open", data.public_access_blocked],
-                ["HTTPS-only", data.https_only ? "Enforced" : "Not enforced", data.https_only],
-                ["Versioning", data.versioning_enabled ? "Enabled" : "Off", data.versioning_enabled],
-                ["Logging", data.logging_enabled ? "Enabled" : "Off", data.logging_enabled],
-              ] as [string, string, boolean | undefined][]).map(([label, val, ok]) => (
-                <div key={label} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                  <div className="font-medium text-zinc-400 mb-0.5">{label}</div>
-                  <div className={`font-mono font-medium ${ok ? "text-emerald-700" : "text-zinc-500"}`}>{val}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ImpactMetaGrid cols={3}>
+            <ImpactMetaCell
+              label="Encryption"
+              value={data.encrypted ? "Enabled" : "None"}
+              mono
+              tone={data.encrypted ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="KMS"
+              value={data.kms_encrypted ? "Enabled" : "SSE-S3 / None"}
+              mono
+              tone={data.kms_encrypted ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Public access"
+              value={data.public_access_blocked ? "Blocked" : "Open"}
+              mono
+              tone={data.public_access_blocked ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="HTTPS-only"
+              value={data.https_only ? "Enforced" : "Not enforced"}
+              mono
+              tone={data.https_only ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Versioning"
+              value={data.versioning_enabled ? "Enabled" : "Off"}
+              mono
+              tone={data.versioning_enabled ? "ok" : "muted"}
+            />
+            <ImpactMetaCell
+              label="Logging"
+              value={data.logging_enabled ? "Enabled" : "Off"}
+              mono
+              tone={data.logging_enabled ? "ok" : "muted"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {/* KMS key: metadata + dependent trails */}
         {data.resource_type === "kms_key" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">Alias</div>
-                <div className="font-mono text-zinc-700 truncate">{data.alias ?? "no alias"}</div>
-              </div>
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">Key state</div>
-                <div className={`font-mono font-medium ${data.key_state === "Enabled" ? "text-emerald-700" : "text-amber-700"}`}>
-                  {data.key_state ?? "unknown"}
-                </div>
-              </div>
-            </div>
+            <ImpactMetaGrid cols={2}>
+              <ImpactMetaCell label="Alias" value={data.alias ?? "no alias"} mono />
+              <ImpactMetaCell
+                label="Key state"
+                value={data.key_state ?? "unknown"}
+                mono
+                tone={data.key_state === "Enabled" ? "ok" : "warn"}
+              />
+            </ImpactMetaGrid>
 
             {data.dependent_trails && data.dependent_trails.length > 0 ? (
               <div>
@@ -3522,7 +3378,7 @@ function BlastRadiusSection({
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-zinc-400">No CloudTrail trails reference this key. Note: S3, RDS, and EBS key associations are not yet tracked per-key in Vigil.</p>
+              <p className="text-xs text-zinc-400">No CloudTrail trails reference this key. Note: S3, RDS, and EBS key associations are not yet tracked per-key in Veritrail.</p>
             )}
           </div>
         )}
@@ -3530,30 +3386,36 @@ function BlastRadiusSection({
         {/* Security group: metadata + affected instances */}
         {data.resource_type === "security_group" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 min-w-0">
-                <div className="font-medium text-zinc-400 mb-0.5">Security group</div>
-                <div className="font-mono text-zinc-700 truncate" title={data.group_id}>{data.group_id}</div>
-                {data.is_default && (
-                  <div className="mt-1">
-                    <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700">
-                      Default
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 min-w-0">
-                <div className="font-medium text-zinc-400 mb-0.5">VPC</div>
-                <div className="font-mono text-zinc-700 truncate" title={data.vpc_id ?? undefined}>{data.vpc_id ?? "—"}</div>
-              </div>
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 min-w-0">
-                <div className="font-medium text-zinc-400 mb-0.5">Region</div>
-                <div className="text-zinc-700 truncate" title={data.region}>{AWS_REGION_LABELS[data.region ?? ""] ?? data.region}</div>
-                {data.region && AWS_REGION_LABELS[data.region] && (
-                  <div className="mt-0.5 font-mono text-[11px] text-zinc-400 truncate">{data.region}</div>
-                )}
-              </div>
-            </div>
+            <ImpactMetaGrid cols={3}>
+              <ImpactMetaCell
+                label="Security group"
+                value={
+                  <>
+                    <span className="block truncate">{data.group_id}</span>
+                    {data.is_default ? (
+                      <span className="mt-1 inline-flex rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                        Default
+                      </span>
+                    ) : null}
+                  </>
+                }
+                mono
+                title={data.group_id}
+              />
+              <ImpactMetaCell label="VPC" value={data.vpc_id ?? "—"} mono title={data.vpc_id ?? undefined} />
+              <ImpactMetaCell
+                label="Region"
+                value={
+                  <>
+                    <span className="block truncate">{AWS_REGION_LABELS[data.region ?? ""] ?? data.region ?? "—"}</span>
+                    {data.region && AWS_REGION_LABELS[data.region] ? (
+                      <span className="mt-0.5 block truncate text-[10px] font-normal text-zinc-400">{data.region}</span>
+                    ) : null}
+                  </>
+                }
+                title={data.region}
+              />
+            </ImpactMetaGrid>
 
             {data.affected_instances && data.affected_instances.length > 0 ? (
               <div>
@@ -3597,121 +3459,108 @@ function BlastRadiusSection({
         )}
 
         {data.resource_type === "ebs_snapshot" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Snapshot</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.snapshot_id ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Encrypted</div>
-              <div className={`font-mono font-medium ${data.encrypted ? "text-emerald-700" : "text-red-600"}`}>{data.encrypted ? "Yes" : "No"}</div>
-            </div>
-          </div>
+          <ImpactMetaGrid cols={2}>
+            <ImpactMetaCell label="Snapshot" value={data.snapshot_id ?? "—"} mono />
+            <ImpactMetaCell
+              label="Encrypted"
+              value={data.encrypted ? "Yes" : "No"}
+              mono
+              tone={data.encrypted ? "ok" : "bad"}
+            />
+          </ImpactMetaGrid>
         )}
 
         {data.resource_type === "ec2_ami" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">AMI</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.image_id ?? data.name ?? "—"}</div>
-            </div>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="AMI" value={data.image_id ?? data.name ?? "—"} mono />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "acm_certificate" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Domain</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.domain_name ?? "—"}</div>
-            </div>
-            {data.days_until_expiry != null && (
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">Expires in</div>
-                <div className={`font-mono font-medium ${data.days_until_expiry <= 7 ? "text-red-600" : "text-amber-700"}`}>{data.days_until_expiry}d</div>
-              </div>
-            )}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Domain" value={data.domain_name ?? "—"} mono />
+            {data.days_until_expiry != null ? (
+              <ImpactMetaRow
+                label="Expires in"
+                value={`${data.days_until_expiry}d`}
+                mono
+                tone={data.days_until_expiry <= 7 ? "bad" : "warn"}
+              />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "lambda_function" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Function</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.function_name ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Runtime</div>
-              <div className="font-mono font-medium text-zinc-700">{data.runtime ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">DLQ</div>
-              <div className={`font-mono font-medium ${data.has_dlq ? "text-emerald-700" : "text-zinc-500"}`}>{data.has_dlq ? "Yes" : "No"}</div>
-            </div>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Function" value={data.function_name ?? "—"} mono />
+            <ImpactMetaRow label="Runtime" value={data.runtime ?? "—"} mono />
+            <ImpactMetaRow
+              label="DLQ"
+              value={data.has_dlq ? "Yes" : "No"}
+              mono
+              tone={data.has_dlq ? "ok" : "muted"}
+            />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "elb_load_balancer" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Load balancer</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.name ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Access logs</div>
-              <div className={`font-mono font-medium ${data.access_logs_enabled ? "text-emerald-700" : "text-zinc-500"}`}>{data.access_logs_enabled ? "On" : "Off"}</div>
-            </div>
-            {data.ssl_policy && (
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                <div className="font-medium text-zinc-400 mb-0.5">TLS policy</div>
-                <div className="font-mono text-[11px] text-zinc-700 truncate">{data.ssl_policy}</div>
-              </div>
-            )}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Load balancer" value={data.name ?? "—"} mono />
+            <ImpactMetaRow
+              label="Access logs"
+              value={data.access_logs_enabled ? "On" : "Off"}
+              mono
+              tone={data.access_logs_enabled ? "ok" : "muted"}
+            />
+            {data.ssl_policy ? (
+              <ImpactMetaRow label="TLS policy" value={data.ssl_policy} mono title={data.ssl_policy} />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
         {(data.resource_type === "sns_topic" || data.resource_type === "sqs_queue") && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600">
-            Region <span className="font-mono font-medium text-zinc-800">{data.region ?? "—"}</span>
-            {" · "}
-            KMS <span className={`font-mono font-medium ${data.kms_encrypted ? "text-emerald-700" : "text-zinc-500"}`}>{data.kms_encrypted ? "enabled" : "not enabled"}</span>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Region" value={data.region ?? "—"} mono />
+            <ImpactMetaRow
+              label="KMS"
+              value={data.kms_encrypted ? "enabled" : "not enabled"}
+              mono
+              tone={data.kms_encrypted ? "ok" : "muted"}
+            />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "identity_repo" && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2 col-span-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Repository</div>
-              <div className="font-mono font-medium text-zinc-700 truncate">{data.repo ?? "—"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Default branch</div>
-              <div className="font-mono font-medium text-zinc-700">{data.default_branch ?? "main"}</div>
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-              <div className="font-medium text-zinc-400 mb-0.5">Protection</div>
-              <div className={`font-mono font-medium ${data.has_branch_protection ? "text-emerald-700" : "text-zinc-500"}`}>
-                {data.has_branch_protection ? `${data.required_reviews ?? 0} reviews` : "None"}
-              </div>
-            </div>
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Repository" value={data.repo ?? "—"} mono title={data.repo} />
+            <ImpactMetaRow label="Default branch" value={data.default_branch ?? "main"} mono />
+            <ImpactMetaRow
+              label="Protection"
+              value={data.has_branch_protection ? `${data.required_reviews ?? 0} reviews` : "None"}
+              mono
+              tone={data.has_branch_protection ? "ok" : "muted"}
+            />
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "identity_user" && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600">
-            <span className="font-mono font-medium text-zinc-800">{data.username}</span>
-            {data.source && <> @ {data.source}</>}
-            {data.days_inactive != null && <> · inactive {data.days_inactive}d</>}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="User" value={data.username ?? "—"} mono />
+            {data.source ? <ImpactMetaRow label="Source" value={data.source} /> : null}
+            {data.days_inactive != null ? (
+              <ImpactMetaRow label="Inactive" value={`${data.days_inactive}d`} mono tone="warn" />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
         {data.resource_type === "identity_org" && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600">
-            {data.provider_type === "github" ? "GitHub" : "GitLab"} org{" "}
-            <span className="font-mono font-medium text-zinc-800">{data.org}</span>
-            {(data.outside_collaborator_count ?? 0) > 0 && (
-              <> · {data.outside_collaborator_count} outside collaborator(s)</>
-            )}
-          </div>
+          <ImpactMetaPanel>
+            <ImpactMetaRow label="Provider" value={data.provider_type === "github" ? "GitHub" : "GitLab"} />
+            <ImpactMetaRow label="Organization" value={data.org ?? "—"} mono />
+            {(data.outside_collaborator_count ?? 0) > 0 ? (
+              <ImpactMetaRow label="Outside collaborators" value={data.outside_collaborator_count!} />
+            ) : null}
+          </ImpactMetaPanel>
         )}
 
       </div>
@@ -3920,7 +3769,7 @@ function ComplianceTabContent({
       <FlowCallout tone="neutral" title="Framework mapping">
         {isError
           ? "Could not load compliance mapping for this check."
-          : "This check is not yet mapped to a composite control in Vigil."}
+          : "This check is not yet mapped to a composite control in Veritrail."}
       </FlowCallout>
     );
   }
@@ -4796,7 +4645,7 @@ function PolicyScopedActionList({ actions, servicePrefix }: { actions: string[];
 
 type PolicyReviewTab = "summary" | "services";
 
-const POLICY_REVIEW_TAB_KEY = "vigil-policy-review-tab";
+const POLICY_REVIEW_TAB_KEY = "veritrail-policy-review-tab";
 
 function loadPreferredPolicyReviewTab(): PolicyReviewTab {
   try {
@@ -5588,7 +5437,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Vigil can detect it, then start analysis."}
+              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
           </p>
           <Link
             to="/accounts"
@@ -5602,7 +5451,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "Enable Advanced IAM policy generation on the AWS connector so Vigil can start CloudTrail-based analysis."}
+              "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
           </p>
           <Link
             to="/accounts"
@@ -5754,7 +5603,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Vigil can detect it, then start analysis."}
+              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
           </p>
           <Link
             to="/accounts"
@@ -5768,7 +5617,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "Enable Advanced IAM policy generation on the AWS connector so Vigil can start CloudTrail-based analysis."}
+              "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
           </p>
           <Link
             to="/accounts"
@@ -6564,6 +6413,20 @@ export function FindingDrawer({
   const [remDetailMode, setRemDetailMode] = useState<FindingRemediationMode | null>(null);
   const [policyChangePaneVisible, setPolicyChangePaneVisible] = useState(false);
   const [policyReviewAcknowledged, setPolicyReviewAcknowledged] = useState(false);
+  const [jiraIssue, setJiraIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
+
+  useEffect(() => {
+    if (!finding) {
+      setJiraIssue(null);
+      return;
+    }
+    const stored = (finding.evidence as { jira?: { issue_key?: string; issue_url?: string } } | undefined)?.jira;
+    if (stored?.issue_key && stored.issue_url) {
+      setJiraIssue({ issue_key: stored.issue_key, issue_url: stored.issue_url });
+    } else {
+      setJiraIssue(null);
+    }
+  }, [finding?.id, finding?.evidence]);
 
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
@@ -6811,7 +6674,7 @@ export function FindingDrawer({
         </span>
       </div>
       <h2 id="finding-drawer-title" className={`mt-1.5 pr-8 ${drawerTitle}`}>
-        {checkLabels[finding.check_id] ?? finding.title}
+        {checkLabels[finding.check_id] ?? displayFindingTitle(finding.title)}
       </h2>
       <div className="mt-3 border-b border-zinc-200/90" role="tablist" aria-label="Finding details">
         <div className="-mb-px flex gap-3">
@@ -6824,9 +6687,9 @@ export function FindingDrawer({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onTabChange(t.id)}
-                className={`relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-t-md border-b-2 px-1 pb-2.5 pt-1 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${
+                className={`relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-t-md border-b-2 px-1 pb-2.5 pt-1 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#439385]/40 ${
                   active
-                    ? "border-emerald-500 font-semibold text-zinc-900"
+                    ? "border-[#439385] font-semibold text-zinc-900"
                     : "border-transparent font-medium text-zinc-500 hover:border-zinc-200 hover:text-zinc-700"
                 }`}
               >
@@ -6866,14 +6729,19 @@ export function FindingDrawer({
           <FindingResourcesTab
             selectedFinding={finding}
             groupFindings={groupFindings?.length ? groupFindings : [finding]}
-            onSelectFinding={onFocusFinding}
+            onSelectFinding={
+              onFocusFinding
+                ? (f) => {
+                    const source = groupFindings?.length ? groupFindings : [finding];
+                    const match = source.find((g) => g.id === f.id);
+                    if (match) onFocusFinding(match);
+                  }
+                : undefined
+            }
             summaryRisk={checkDoc?.overview?.exposure ?? checkDoc?.overview?.context ?? ops.impact}
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}
           />
-          {credentialUnusedFrameworkImpact(finding.check_id) && (
-            <FrameworkImpactCard items={credentialUnusedFrameworkImpact(finding.check_id)!} />
-          )}
           {hasException && (
             <ExceptionFlowPanel
               reason={finding.exception_reason}
@@ -7006,7 +6874,6 @@ export function FindingDrawer({
                     resourceArn={finding.resource_arn}
                     resourceRegion={resourceRegionForFinding(finding)}
                     resourceLabel={resourceDisplayName(finding)}
-                    severity={finding.severity}
                     onShowPolicy={showSuggestedPolicy ? openPolicyReview : undefined}
                     policyReviewAcknowledged={policyReviewAcknowledged}
                   />
@@ -7053,6 +6920,7 @@ export function FindingDrawer({
             className={drawerFooterExceptionGhost}
             sheetContainerRef={drawerSheetRef}
           />
+          <JiraFindingAction findingId={finding.id} existing={jiraIssue} onCreated={setJiraIssue} />
           <button
             type="button"
             disabled={verifying || verified}

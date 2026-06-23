@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.public_url import PublicUrlError, validate_trust_logo_reference
 from app.core.security import current_principal
 from app.models.org import Org, User
 from app.models import AwsAccount, Finding
@@ -19,6 +21,8 @@ from app.checks.optional_checks import OPTIONAL_LINKED
 from app.services.check_settings import hidden_check_ids, optional_checks_for_ui
 from app.services.cis_benchmark_coverage import cis_benchmark_coverage
 from app.services.digest_tokens import ensure_digest_unsubscribe_token
+from app.services.org_activity import log_org_activity
+from app.core.route_deps import RequireAdmin
 from app.services.scan_schedule import (
     DEFAULT_SCANNING,
     get_scanning_settings,
@@ -27,6 +31,7 @@ from app.services.scan_schedule import (
     next_scan_at,
     validate_scanning,
 )
+from app.services.trust_logo_storage import TrustLogoError, delete_trust_logo, is_uploaded_trust_logo_path, save_trust_logo
 
 router = APIRouter()
 
@@ -38,6 +43,9 @@ DEFAULT_SETTINGS: dict = {
         "digest_email": None,
         "digest_unsubscribe_token": None,
         "slack_webhook_url": None,
+        "slack_digest_enabled": False,
+        "slack_scan_failure_enabled": True,
+        "slack_critical_alerts_enabled": True,
         "scan_failure_email_enabled": True,
         "critical_alert_enabled": True,
     },
@@ -64,6 +72,9 @@ class NotificationsIn(BaseModel):
     email_digest_enabled: bool = False
     digest_email: str | None = None
     slack_webhook_url: str | None = None
+    slack_digest_enabled: bool = False
+    slack_scan_failure_enabled: bool = True
+    slack_critical_alerts_enabled: bool = True
     scan_failure_email_enabled: bool = True
     critical_alert_enabled: bool = True
 
@@ -164,7 +175,7 @@ def get_settings(p=Depends(current_principal), db: Session = Depends(get_db)):
 
 
 @router.patch("", response_model=SettingsOut)
-def patch_settings(body: SettingsPatch, p=Depends(current_principal), db: Session = Depends(get_db)):
+def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
     current = dict(org.settings or {})
 
@@ -201,8 +212,27 @@ def patch_settings(body: SettingsPatch, p=Depends(current_principal), db: Sessio
         features["ai_finding_review_enabled"] = body.features.ai_finding_review_enabled
         current["features"] = features
 
+    changed_sections = [
+        name
+        for name, val in (
+            ("checks", body.checks),
+            ("scanning", body.scanning),
+            ("notifications", body.notifications),
+            ("features", body.features),
+        )
+        if val is not None
+    ]
     org.settings = current
     db.add(org)
+    log_org_activity(
+        db,
+        org_id=org.id,
+        actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
+        action="org.settings_updated",
+        target_type="org",
+        target_id=str(org.id),
+        detail={"sections": changed_sections},
+    )
     db.commit()
     db.refresh(org)
     user = db.get(User, uuid.UUID(p["sub"]))
@@ -218,7 +248,7 @@ def patch_settings(body: SettingsPatch, p=Depends(current_principal), db: Sessio
 
 
 @router.post("/test-digest", status_code=200)
-def test_digest(p=Depends(current_principal), db: Session = Depends(get_db)):
+def test_digest(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Fire a digest email immediately to the configured address (or current user)."""
     from app.services.digest import send_digest
     from datetime import datetime, timedelta, timezone
@@ -274,8 +304,10 @@ def test_digest(p=Depends(current_principal), db: Session = Depends(get_db)):
     ) or 0
 
     from app.services.digest_tokens import persist_digest_unsubscribe_token
+    from app.services.digest_data import gather_digest_extras
 
     unsubscribe_token = persist_digest_unsubscribe_token(db, org)
+    per_day, coverage, prev = gather_digest_extras(db, org_id=org.id, account_id=acc.id, since=since)
 
     ok = send_digest(
         to=digest_email,
@@ -288,10 +320,13 @@ def test_digest(p=Depends(current_principal), db: Session = Depends(get_db)):
         new_this_week=[{"title": f.title, "severity": f.severity} for f in new_this_week],
         resolved_this_week=resolved_count,
         unsubscribe_token=unsubscribe_token,
+        per_day=per_day,
+        coverage=coverage,
+        prev=prev,
     )
 
     if not ok:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to send email — check RESEND_API_KEY")
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Failed to send email — check SMTP settings in .env")
 
     return {"sent_to": digest_email}
 
@@ -316,7 +351,7 @@ def _validate_slack_webhook(url: str) -> str:
 
 
 @router.post("/test-slack", status_code=200)
-def test_slack(body: SlackTestBody = SlackTestBody(), p=Depends(current_principal), db: Session = Depends(get_db)):
+def test_slack(_rbac: RequireAdmin, body: SlackTestBody = SlackTestBody(), p=Depends(current_principal), db: Session = Depends(get_db)):
     """POST a test message to the configured Slack webhook URL."""
     import httpx
 
@@ -329,7 +364,7 @@ def test_slack(body: SlackTestBody = SlackTestBody(), p=Depends(current_principa
     try:
         resp = httpx.post(
             webhook_url,
-            json={"text": ":white_check_mark: *Vigil* — Slack notifications are working."},
+            json={"text": ":white_check_mark: *Veritrail* — Slack notifications are working."},
             timeout=10,
         )
         if resp.status_code != 200:
@@ -350,6 +385,16 @@ class TrustCenterSettingsIn(BaseModel):
     frameworks_to_show: list[str] = ["soc2", "cis_aws_l1"]
     custom_message: str | None = None
 
+    @field_validator("company_logo_url")
+    @classmethod
+    def validate_company_logo_url(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        try:
+            return validate_trust_logo_reference(value, field="Logo URL")
+        except PublicUrlError as exc:
+            raise ValueError(str(exc)) from exc
+
 
 class TrustCenterSettingsOut(BaseModel):
     model_config = {"from_attributes": True}
@@ -361,6 +406,7 @@ class TrustCenterSettingsOut(BaseModel):
     frameworks_to_show: list[str]
     custom_message: str | None
     configured: bool
+    last_updated_at: datetime | None = None
 
 
 @router.get("/trust-center", response_model=TrustCenterSettingsOut)
@@ -378,6 +424,7 @@ def get_trust_center_settings(p=Depends(current_principal), db: Session = Depend
             frameworks_to_show=["soc2", "cis_aws_l1"],
             custom_message=None,
             configured=False,
+            last_updated_at=None,
         )
     return TrustCenterSettingsOut(
         is_enabled=config.is_enabled,
@@ -387,11 +434,12 @@ def get_trust_center_settings(p=Depends(current_principal), db: Session = Depend
         frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
         custom_message=config.custom_message,
         configured=True,
+        last_updated_at=config.last_updated_at,
     )
 
 
 @router.put("/trust-center", response_model=TrustCenterSettingsOut)
-def update_trust_center_settings(body: TrustCenterSettingsIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def update_trust_center_settings(body: TrustCenterSettingsIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
 
     config = db.scalar(
@@ -401,6 +449,11 @@ def update_trust_center_settings(body: TrustCenterSettingsIn, p=Depends(current_
     if not config:
         config = TrustCenterConfig(org_id=org.id)
         db.add(config)
+
+    old_logo = config.company_logo_url
+    new_logo = body.company_logo_url
+    if old_logo and is_uploaded_trust_logo_path(old_logo) and old_logo != new_logo:
+        delete_trust_logo(org.id)
 
     config.is_enabled = body.is_enabled
     config.subdomain_slug = body.subdomain_slug
@@ -419,4 +472,73 @@ def update_trust_center_settings(body: TrustCenterSettingsIn, p=Depends(current_
         frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
         custom_message=config.custom_message,
         configured=True,
+        last_updated_at=config.last_updated_at,
+    )
+
+
+@router.post("/trust-center/logo", response_model=TrustCenterSettingsOut)
+def upload_trust_center_logo(
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+):
+    org = _get_org(p, db)
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Logo file is empty")
+
+    try:
+        logo_path = save_trust_logo(org.id, content)
+    except TrustLogoError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    config = db.scalar(
+        select(TrustCenterConfig).where(TrustCenterConfig.org_id == org.id)
+    )
+    if not config:
+        config = TrustCenterConfig(org_id=org.id)
+        db.add(config)
+
+    config.company_logo_url = logo_path
+    db.commit()
+    db.refresh(config)
+
+    return TrustCenterSettingsOut(
+        is_enabled=config.is_enabled,
+        subdomain_slug=config.subdomain_slug,
+        company_name=config.company_name,
+        company_logo_url=config.company_logo_url,
+        frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
+        custom_message=config.custom_message,
+        configured=True,
+        last_updated_at=config.last_updated_at,
+    )
+
+
+@router.delete("/trust-center/logo", response_model=TrustCenterSettingsOut)
+def remove_trust_center_logo(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
+    org = _get_org(p, db)
+    config = db.scalar(
+        select(TrustCenterConfig).where(TrustCenterConfig.org_id == org.id)
+    )
+    if not config:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Trust center not configured")
+
+    if is_uploaded_trust_logo_path(config.company_logo_url):
+        delete_trust_logo(org.id)
+
+    config.company_logo_url = None
+    db.commit()
+    db.refresh(config)
+
+    return TrustCenterSettingsOut(
+        is_enabled=config.is_enabled,
+        subdomain_slug=config.subdomain_slug,
+        company_name=config.company_name,
+        company_logo_url=config.company_logo_url,
+        frameworks_to_show=config.frameworks_to_show if config.frameworks_to_show else ["soc2", "cis_aws_l1"],
+        custom_message=config.custom_message,
+        configured=True,
+        last_updated_at=config.last_updated_at,
     )

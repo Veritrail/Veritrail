@@ -21,7 +21,7 @@ def _now() -> datetime:
 
 
 def collect_s3(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-s3", aws_account=account, purpose="collect_s3")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-s3", aws_account=account, purpose="collect_s3")
     s3 = sess.client("s3", region_name="us-east-1")
     count = 0
 
@@ -105,7 +105,7 @@ def collect_s3(db: Session, account: AwsAccount) -> int:
         db.execute(stmt)
         count += 1
 
-    db.commit()
+
     log.info("collect_s3.done", account_id=str(account.id), buckets=count)
     return count
 
@@ -114,7 +114,7 @@ def collect_s3_account_public_access_block(db: Session, account: AwsAccount) -> 
     if not account.account_id:
         return 0
 
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-s3-account-pab", aws_account=account, purpose="collect_s3_account_pab")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-s3-account-pab", aws_account=account, purpose="collect_s3_account_pab")
     s3control = sess.client("s3control", region_name="us-east-1")
 
     try:
@@ -149,13 +149,13 @@ def collect_s3_account_public_access_block(db: Session, account: AwsAccount) -> 
         },
     )
     db.execute(stmt)
-    db.commit()
+
     log.info("collect_s3_account_public_access_block.done", account_id=str(account.id), all_blocked=all_blocked)
     return 1
 
 
 def collect_kms(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-kms", aws_account=account, purpose="collect_kms")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-kms", aws_account=account, purpose="collect_kms")
     kms = sess.client("kms", region_name="us-east-1")
     count = 0
 
@@ -218,6 +218,6 @@ def collect_kms(db: Session, account: AwsAccount) -> int:
             db.execute(stmt)
             count += 1
 
-    db.commit()
+
     log.info("collect_kms.done", account_id=str(account.id), keys=count)
     return count

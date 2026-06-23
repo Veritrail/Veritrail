@@ -32,7 +32,7 @@ def _get_regions(sess) -> list[str]:
 
 
 def collect_vpc(db: Session, account: AwsAccount) -> dict:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-vpc", aws_account=account, purpose="collect_vpc")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-vpc", aws_account=account, purpose="collect_vpc")
     regions = _get_regions(sess)
     vpc_count = sg_count = 0
 
@@ -119,7 +119,7 @@ def collect_vpc(db: Session, account: AwsAccount) -> dict:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_vpc.done", account_id=str(account.id), vpcs=vpc_count, sgs=sg_count)
     return {"vpcs": vpc_count, "security_groups": sg_count}
 

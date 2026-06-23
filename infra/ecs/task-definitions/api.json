@@ -1,5 +1,5 @@
 {
-  "family": "vigil-api",
+  "family": "veritrail-api",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
@@ -20,7 +20,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/vigil-api",
+          "awslogs-group": "/ecs/veritrail-api",
           "awslogs-region": "__AWS_REGION__",
           "awslogs-stream-prefix": "api"
         }

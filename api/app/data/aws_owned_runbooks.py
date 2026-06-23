@@ -49,6 +49,14 @@ AWS_OWNED_RUNBOOKS: dict[str, AwsOwnedRunbookCandidate] = {
             "exact-match findings unless exact rule targeting is verified."
         ),
     ),
+    "kms.key.no_rotation": AwsOwnedRunbookCandidate(
+        check_id="kms.key.no_rotation",
+        document_name="AWSConfigRemediation-EnableKeyRotation",
+        preferred="true",
+        confidence="high",
+        required_inputs=("key_id",),
+        note="AWS Config remediation runbook enables annual rotation on the named customer-managed key. Idempotent.",
+    ),
 }
 
 
@@ -134,7 +142,7 @@ def remediation_automation_metadata(
     if candidate:
         note = candidate.note
     return {
-        "automation_provider": "vigil",
+        "automation_provider": "veritrail",
         "aws_document_name": None,
         "automation_confidence": None,
         "automation_note": note,

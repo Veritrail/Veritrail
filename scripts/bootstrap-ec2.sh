@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One-shot EC2 production bootstrap for Vigil.
+# One-shot EC2 production bootstrap for Veritrail.
 # Usage: sudo EMAIL=you@example.com ./scripts/bootstrap-ec2.sh [--force-cert]
 
-DOMAIN="${DOMAIN:-vigil.cclab.cloud-castles.com}"
-API_DOMAIN="${API_DOMAIN:-api.vigil.cclab.cloud-castles.com}"
+DOMAIN="${DOMAIN:-app.veritrail.io}"
+API_DOMAIN="${API_DOMAIN:-api.veritrail.io}"
 EMAIL="${EMAIL:-}"
 FORCE_CERT=0
+DEPLOY_ONLY=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -21,20 +22,23 @@ usage() {
   cat <<EOF
 Usage: sudo EMAIL=you@example.com $0 [OPTIONS]
 
-Bootstrap Vigil on Ubuntu EC2: Docker, Let's Encrypt, nginx, .env.prod, compose prod profile.
+Bootstrap Veritrail on Ubuntu EC2: base packages, Docker, Let's Encrypt, nginx, .env.prod, compose prod profile.
 
 Environment variables:
-  DOMAIN       UI hostname (default: vigil.cclab.cloud-castles.com)
-  API_DOMAIN   API hostname (default: api.vigil.cclab.cloud-castles.com)
-  EMAIL        Let's Encrypt contact (required)
+  DOMAIN       UI hostname (default: app.veritrail.io)
+  API_DOMAIN   API hostname (default: api.veritrail.io)
+  EMAIL        Let's Encrypt contact (required on first bootstrap)
   REPO_DIR     Repository root (auto-detected from script location)
-  ENV_FILE     Env file name relative to REPO_DIR (default: .env.prod)
+  ENV_FILE     Canonical prod env file relative to REPO_DIR (default: .env.prod)
 
 Options:
+  --deploy-only  Skip Docker/TLS/cron install; sync env + migrate + compose up (for redeploys)
   --force-cert   Re-obtain certificates even if valid certs already exist
   -h, --help     Show this help
 
 Prerequisites:
+  - Ubuntu 22.04/24.04 EC2 (or Debian with apt)
+  - Place secrets in $ENV_FILE before first run (or let the script seed from .env.example)
   - DNS A records for DOMAIN and API_DOMAIN pointing at this host
   - Security group allows inbound TCP 80 and 443
   - EC2 instance profile IAM role (for TRUST_PRINCIPAL_ARN auto-detect)
@@ -48,6 +52,7 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --deploy-only) DEPLOY_ONLY=1; shift ;;
       --force-cert) FORCE_CERT=1; shift ;;
       -h|--help) usage; exit 0 ;;
       *) die "Unknown argument: $1 (see --help)" ;;
@@ -80,11 +85,39 @@ compose_iap_args() {
 compose() {
   local -a iap_args=()
   while IFS= read -r -d '' arg; do iap_args+=("$arg"); done < <(compose_iap_args)
-  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
+  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
 }
 
 compose_no_profile() {
-  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
+  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
+}
+
+install_system_packages() {
+  if ! command -v apt-get >/dev/null 2>&1; then
+    warn "Non-Debian host — skipping apt base package install"
+    return 0
+  fi
+
+  log "Installing base packages for Ubuntu EC2..."
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y -qq \
+    ca-certificates \
+    curl \
+    git \
+    gnupg \
+    lsb-release \
+    openssl \
+    python3 \
+    psmisc \
+    sed
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    die "python3 is required but could not be installed"
+  fi
+  if ! command -v openssl >/dev/null 2>&1; then
+    die "openssl is required but could not be installed"
+  fi
 }
 
 install_docker() {
@@ -195,9 +228,9 @@ render_iap_nginx() {
 install_fail2ban() {
   local log_dir="$REPO_DIR/var/log/nginx"
   local access_log="$log_dir/access.log"
-  local jail_dest="/etc/fail2ban/jail.d/vigil-nginx.local.conf"
-  local filter_src="$REPO_DIR/infra/fail2ban/filter.d/vigil-nginx-scan.conf"
-  local jail_tpl="$REPO_DIR/infra/fail2ban/jail.d/vigil-nginx.local.conf.template"
+  local jail_dest="/etc/fail2ban/jail.d/veritrail-nginx.local.conf"
+  local filter_src="$REPO_DIR/infra/fail2ban/filter.d/veritrail-nginx-scan.conf"
+  local jail_tpl="$REPO_DIR/infra/fail2ban/jail.d/veritrail-nginx.local.conf.template"
 
   [[ -f "$filter_src" && -f "$jail_tpl" ]] || die "Missing fail2ban config under infra/fail2ban/"
 
@@ -206,7 +239,7 @@ install_fail2ban() {
   chmod 644 "$access_log"
 
   if command -v fail2ban-client >/dev/null 2>&1; then
-    log "fail2ban already installed — configuring vigil-nginx-scan jail"
+    log "fail2ban already installed — configuring veritrail-nginx-scan jail"
   else
     log "Installing fail2ban..."
     if command -v apt-get >/dev/null 2>&1; then
@@ -218,13 +251,13 @@ install_fail2ban() {
     fi
   fi
 
-  install -m 644 "$filter_src" /etc/fail2ban/filter.d/vigil-nginx-scan.conf
-  sed "s|__VIGIL_NGINX_ACCESS_LOG__|$access_log|g" "$jail_tpl" > "$jail_dest"
+  install -m 644 "$filter_src" /etc/fail2ban/filter.d/veritrail-nginx-scan.conf
+  sed "s|__VERITRAIL_NGINX_ACCESS_LOG__|$access_log|g" "$jail_tpl" > "$jail_dest"
   chmod 644 "$jail_dest"
 
   systemctl enable fail2ban >/dev/null 2>&1 || true
   systemctl restart fail2ban
-  log "fail2ban jail vigil-nginx-scan enabled (30x 404/301 in 60s → 1h ban; log: $access_log)"
+  log "fail2ban jail veritrail-nginx-scan enabled (30x 404/301 in 60s → 1h ban; log: $access_log)"
 }
 
 install_renewal_cron() {
@@ -299,6 +332,8 @@ ensure_env_prod() {
     [[ -f "$example_path" ]] || die "Missing $ENV_FILE and .env.example — cannot seed env"
     log "Seeding $ENV_FILE from .env.example..."
     cp "$example_path" "$env_path"
+  else
+    log "Using existing $ENV_FILE"
   fi
 
   local frontend_url="https://${DOMAIN}"
@@ -413,6 +448,35 @@ ensure_env_prod() {
   fi
 }
 
+sync_dotenv_from_prod() {
+  local env_path="$REPO_DIR/$ENV_FILE"
+  local dot_env="$REPO_DIR/.env"
+  local compose_env="$REPO_DIR/.compose.prod.env"
+
+  [[ -f "$env_path" ]] || die "Missing $ENV_FILE — cannot activate production env"
+
+  if [[ -f "$dot_env" ]] && ! cmp -s "$env_path" "$dot_env"; then
+    local backup="$REPO_DIR/.env.pre-prod.$(date +%Y%m%d%H%M%S).bak"
+    log "Backing up existing .env to $(basename "$backup")"
+    cp "$dot_env" "$backup"
+  fi
+
+  log "Activating $ENV_FILE for compose (copying to .env)"
+  cp "$env_path" "$dot_env"
+  chmod 600 "$env_path" "$dot_env" 2>/dev/null || true
+
+  cat >"$compose_env" <<EOF
+# Generated by scripts/bootstrap-ec2.sh — source before manual compose commands.
+export REPO_DIR=$REPO_DIR
+export ENV_FILE=$ENV_FILE
+export APP_ENV=production
+export DOMAIN=$DOMAIN
+export API_DOMAIN=$API_DOMAIN
+EOF
+  chmod 644 "$compose_env"
+  log "Wrote $(basename "$compose_env") — source it for manual docker compose commands"
+}
+
 wait_for_db() {
   local user
   user="$(get_env_value POSTGRES_USER "$REPO_DIR/$ENV_FILE")"
@@ -473,11 +537,11 @@ health_check() {
 }
 
 print_checklist() {
-  local compose_hint="cd $REPO_DIR && ENV_FILE=$ENV_FILE docker compose -f compose.yml -f compose.prod.yml --env-file $ENV_FILE --profile prod"
+  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml --env-file $ENV_FILE --profile prod"
   cat <<EOF
 
 ================================================================================
-Vigil production bootstrap complete.
+Veritrail production bootstrap complete.
 
 Post-deploy checklist:
   1. Open https://${DOMAIN} and confirm the UI loads.
@@ -507,11 +571,25 @@ EOF
 main() {
   parse_args "$@"
 
-  [[ -f "$REPO_DIR/compose.yml" ]] || die "REPO_DIR does not look like Vigil root: $REPO_DIR"
+  [[ -f "$REPO_DIR/compose.yml" ]] || die "REPO_DIR does not look like Veritrail root: $REPO_DIR"
 
+  if [[ "$DEPLOY_ONLY" -eq 1 ]]; then
+    log "Deploy-only mode — skipping Docker/TLS/cron bootstrap"
+    ensure_env_prod
+    sync_dotenv_from_prod
+    render_nginx_conf
+    render_iap_nginx
+    deploy_compose
+    health_check || true
+    print_checklist
+    return 0
+  fi
+
+  install_system_packages
   install_docker
   install_certbot
   ensure_env_prod
+  sync_dotenv_from_prod
   obtain_certs
   render_nginx_conf
   render_iap_nginx

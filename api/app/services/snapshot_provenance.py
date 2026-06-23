@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-SCHEMA = "vigil_snapshot_provenance/v1"
+SCHEMA = "veritrail_snapshot_provenance/v1"
 
 # entity_type -> (collector module, primary AWS API)
 ENTITY_PROVENANCE: dict[str, tuple[str, str]] = {
@@ -33,7 +33,7 @@ def provenance_block(
     *,
     region: str | None = None,
 ) -> dict[str, Any]:
-    collector, source_api = ENTITY_PROVENANCE.get(entity_type, ("run_scan", "vigil:aggregate"))
+    collector, source_api = ENTITY_PROVENANCE.get(entity_type, ("run_scan", "veritrail:aggregate"))
     block: dict[str, Any] = {
         "schema": SCHEMA,
         "collector": collector,

@@ -18,6 +18,7 @@ from app.core.security import (
     decode_mfa_challenge_token,
     decode_password_reset_token,
     decode_refresh_token,
+    decode_signup_pending_token,
     issue_mfa_challenge_token,
     issue_password_reset_token,
     issue_refresh_token,
@@ -31,8 +32,21 @@ from app.core.auth_cookies import (
 )
 from app.core.totp import new_secret, provisioning_uri, qr_png_data_url, verify_totp
 from app.models import Org, User
+from app.models.user_session import UserSession
 from app.core.config import get_settings
 from app.services.password_reset_email import send_password_reset_email
+from app.services.user_session import (
+    ensure_session_for_refresh,
+    refresh_session_geolocation,
+    get_session_for_refresh,
+    list_user_sessions,
+    record_user_session,
+    revoke_other_sessions,
+    revoke_session_by_id,
+    revoke_session_for_refresh,
+    rotate_user_session,
+    session_location_label,
+)
 
 router = APIRouter()
 settings = get_settings()
@@ -53,7 +67,8 @@ def _generate_backup_codes(n: int = 10) -> list[str]:
 class SignupIn(BaseModel):
     email: EmailStr
     password: str
-    org_name: str
+    org_name: str = ""
+    invite_token: str | None = None
 
     @field_validator("password")
     @classmethod
@@ -69,7 +84,7 @@ class SignupIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
-    remember_me: bool = False
+    remember_me: bool = True
 
 
 class TokenOut(BaseModel):
@@ -94,6 +109,21 @@ def _token_json_response(
     resp = JSONResponse(content=payload)
     attach_refresh_cookie(resp, refresh_token, remember_me=remember_me)
     return resp
+
+
+def _issue_login_tokens(
+    request: Request,
+    db: Session,
+    user: User,
+    *,
+    remember_me: bool = False,
+) -> JSONResponse:
+    uid, oid = str(user.id), str(user.org_id)
+    access = issue_token(uid, oid)
+    refresh = issue_refresh_token(uid, oid, remember_me=remember_me)
+    record_user_session(db, user.id, refresh, request)
+    db.commit()
+    return _token_json_response(access, refresh, oid, remember_me=remember_me)
 
 
 class LoginOut(BaseModel):
@@ -122,27 +152,207 @@ class RefreshIn(BaseModel):
     refresh_token: str = ""
 
 
+class CompleteSignupIn(BaseModel):
+    signup_token: str
+    org_name: str = ""
+    invite_token: str | None = None
+
+
+class WorkspaceOut(BaseModel):
+    org_id: str
+    org_name: str
+    role: str
+
+
+class WorkspaceSwitchIn(BaseModel):
+    org_id: str
+
+
 @router.post("/signup")
 @limiter.limit("5/minute")
 def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
+    from app.services.org_invites import block_signup_without_invite_when_pending, consume_invite_for_signup
+    from app.services.org_activity import log_org_activity
+    from app.services.org_membership import add_membership
+
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
-    org = Org(id=uuid.uuid4(), name=body.org_name)
-    user = User(
-        id=uuid.uuid4(),
-        org_id=org.id,
-        email=body.email,
-        password_hash=hash_password(body.password),
-    )
-    db.add_all([org, user])
+
+    if body.invite_token:
+        org, role = consume_invite_for_signup(db, body.invite_token, str(body.email))
+        user = User(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            email=str(body.email).lower(),
+            password_hash=hash_password(body.password),
+            role=role,
+        )
+        db.add(user)
+        add_membership(db, user.id, org.id, role)
+        log_org_activity(
+            db,
+            org_id=org.id,
+            actor_user_id=user.id,
+            action="member.invite_accepted",
+            target_type="user",
+            target_id=str(user.id),
+            detail={"email": user.email, "role": role},
+        )
+    else:
+        from app.services.org_domain import (
+            assert_domain_available_for_new_workspace,
+            auto_join_target_for_email,
+            email_domain,
+        )
+
+        block_signup_without_invite_when_pending(db, str(body.email))
+        auto = auto_join_target_for_email(db, str(body.email))
+        if auto:
+            # Email is on a DNS-verified, auto-join-enabled org domain — join it
+            # at the admin-configured role (never owner) instead of a new workspace.
+            org, role = auto
+            user = User(
+                id=uuid.uuid4(),
+                org_id=org.id,
+                email=str(body.email).lower(),
+                password_hash=hash_password(body.password),
+                role=role,
+            )
+            db.add(user)
+            add_membership(db, user.id, org.id, role)
+            log_org_activity(
+                db,
+                org_id=org.id,
+                actor_user_id=user.id,
+                action="member.domain_auto_join",
+                target_type="user",
+                target_id=str(user.id),
+                detail={"email": user.email, "role": role, "domain": email_domain(user.email)},
+            )
+        else:
+            from app.services.org_provision import unique_org_slug
+
+            assert_domain_available_for_new_workspace(db, str(body.email))
+            if not body.org_name.strip():
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "org_name is required")
+            org_name = body.org_name.strip()
+            org = Org(id=uuid.uuid4(), name=org_name, slug=unique_org_slug(db, org_name))
+            user = User(
+                id=uuid.uuid4(),
+                org_id=org.id,
+                email=str(body.email).lower(),
+                password_hash=hash_password(body.password),
+                role="owner",
+            )
+            db.add_all([org, user])
+            add_membership(db, user.id, org.id, "owner")
+
     db.commit()
-    uid, oid = str(user.id), str(org.id)
-    return _token_json_response(
-        issue_token(uid, oid),
-        issue_refresh_token(uid, oid, remember_me=True),
-        oid,
-        remember_me=True,
-    )
+    return _issue_login_tokens(request, db, user, remember_me=True)
+
+
+@router.post("/complete-signup")
+@limiter.limit("10/minute")
+def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depends(get_db)):
+    from app.services.org_domain import assert_domain_available_for_new_workspace
+    from app.services.org_invites import consume_invite_for_signup
+    from app.services.org_activity import log_org_activity
+    from app.services.org_membership import add_membership
+    from app.services.org_provision import unique_org_slug
+
+    payload = decode_signup_pending_token(body.signup_token)
+    email = payload["email"]
+    if db.scalar(select(User).where(User.email == email)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
+
+    identity_fields: dict[str, str] = {}
+    for field in ("google_id", "github_id", "gitlab_id"):
+        if payload.get(field):
+            identity_fields[field] = payload[field]
+
+    if body.invite_token:
+        org, role = consume_invite_for_signup(db, body.invite_token, email)
+        user = User(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            email=email,
+            password_hash="",
+            role=role,
+            **identity_fields,
+        )
+        db.add(user)
+        add_membership(db, user.id, org.id, role)
+        log_org_activity(
+            db,
+            org_id=org.id,
+            actor_user_id=user.id,
+            action="member.invite_accepted",
+            target_type="user",
+            target_id=str(user.id),
+            detail={"email": user.email, "role": role, "via": "sso_complete_signup"},
+        )
+    else:
+        if not body.org_name.strip():
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "org_name is required")
+        assert_domain_available_for_new_workspace(db, email)
+        org_name = body.org_name.strip()
+        org = Org(id=uuid.uuid4(), name=org_name, slug=unique_org_slug(db, org_name))
+        user = User(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            email=email,
+            password_hash="",
+            role="owner",
+            **identity_fields,
+        )
+        db.add_all([org, user])
+        add_membership(db, user.id, org.id, "owner")
+
+    db.commit()
+    return _issue_login_tokens(request, db, user, remember_me=True)
+
+
+@router.get("/workspaces", response_model=list[WorkspaceOut])
+def list_workspaces(
+    principal: dict = Depends(current_user_principal),
+    db: Session = Depends(get_db),
+):
+    from app.core.rbac import normalize_role
+    from app.services.org_membership import list_memberships
+
+    user = db.get(User, uuid.UUID(principal["sub"]))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    return [
+        WorkspaceOut(
+            org_id=str(org.id),
+            org_name=org.name or "Workspace",
+            role=normalize_role(membership.role),
+        )
+        for membership, org in list_memberships(db, user.id)
+    ]
+
+
+@router.post("/workspaces/switch")
+@limiter.limit("30/minute")
+def switch_workspace(
+    request: Request,
+    body: WorkspaceSwitchIn,
+    principal: dict = Depends(current_user_principal),
+    db: Session = Depends(get_db),
+):
+    from app.services.org_membership import set_active_workspace
+
+    user = db.get(User, uuid.UUID(principal["sub"]))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    try:
+        org_uuid = uuid.UUID(body.org_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid org_id") from exc
+    set_active_workspace(db, user, org_uuid)
+    db.commit()
+    return _issue_login_tokens(request, db, user, remember_me=True)
 
 
 @router.post("/login", response_model=LoginOut)
@@ -154,12 +364,7 @@ def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
     out = _login_response(user, remember_me=body.remember_me)
     if out.mfa_required:
         return out
-    return _token_json_response(
-        out.access_token or "",
-        out.refresh_token or "",
-        out.org_id or "",
-        remember_me=body.remember_me,
-    )
+    return _issue_login_tokens(request, db, user, remember_me=body.remember_me)
 
 
 class MfaVerifyIn(BaseModel):
@@ -189,13 +394,7 @@ def mfa_verify(request: Request, body: MfaVerifyIn, db: Session = Depends(get_db
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid code")
     clear_mfa_lockout(user_id)
     remember_me = bool(payload.get("remember_me"))
-    uid, oid = str(user.id), str(user.org_id)
-    return _token_json_response(
-        issue_token(uid, oid),
-        issue_refresh_token(uid, oid, remember_me=remember_me),
-        oid,
-        remember_me=remember_me,
-    )
+    return _issue_login_tokens(request, db, user, remember_me=remember_me)
 
 
 class MfaCodeIn(BaseModel):
@@ -302,18 +501,27 @@ def refresh(request: Request, body: RefreshIn, db: Session = Depends(get_db)):
     user = db.get(User, uuid.UUID(payload["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
+    if not get_session_for_refresh(db, user.id, raw):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session ended — sign in again")
     uid, oid = str(user.id), str(user.org_id)
     remember_me = bool(payload.get("remember_me"))
+    new_refresh = issue_refresh_token(uid, oid, remember_me=remember_me)
+    rotate_user_session(db, user.id, raw, new_refresh, request)
+    db.commit()
     return _token_json_response(
         issue_token(uid, oid),
-        issue_refresh_token(uid, oid, remember_me=remember_me),
+        new_refresh,
         oid,
         remember_me=remember_me,
     )
 
 
 @router.post("/logout", status_code=204)
-def logout():
+def logout(request: Request, db: Session = Depends(get_db)):
+    raw = refresh_token_from_request(request, None)
+    if raw:
+        revoke_session_for_refresh(db, raw)
+        db.commit()
     resp = Response(status_code=204)
     clear_refresh_cookie(resp)
     return resp
@@ -322,12 +530,49 @@ def logout():
 class MeOut(BaseModel):
     id: str
     email: str
+    role: str
+    org_id: str
+    org_name: str
     github_id: str | None
     gitlab_id: str | None
     google_id: str | None
     totp_enabled: bool
     has_password: bool
     mfa_backup_codes_remaining: int = 0
+
+
+class SessionOut(BaseModel):
+    location: str | None = None
+    signed_in_at: str | None = None
+
+
+class SessionListItemOut(BaseModel):
+    id: str
+    user_agent: str | None = None
+    location: str | None = None
+    signed_in_at: str | None = None
+    last_seen_at: str | None = None
+    current: bool = False
+
+
+def _session_list_item(row: UserSession, *, current: bool) -> SessionListItemOut:
+    return SessionListItemOut(
+        id=str(row.id),
+        user_agent=row.user_agent,
+        location=session_location_label(row),
+        signed_in_at=row.created_at.isoformat() if row.created_at else None,
+        last_seen_at=row.last_seen_at.isoformat() if row.last_seen_at else None,
+        current=current,
+    )
+
+
+def _current_refresh_hash(request: Request) -> str | None:
+    from app.services.user_session import hash_refresh_token
+
+    raw = refresh_token_from_request(request, None)
+    if not raw:
+        return None
+    return hash_refresh_token(raw)
 
 
 def get_current_user(
@@ -343,12 +588,18 @@ def get_current_user(
 
 @router.get("/me", response_model=MeOut)
 def get_me(principal: dict = Depends(current_principal), db: Session = Depends(get_db)):
+    from app.core.rbac import normalize_role
+
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    org = db.get(Org, user.org_id)
     return MeOut(
         id=str(user.id),
         email=user.email,
+        role=normalize_role(user.role),
+        org_id=str(user.org_id),
+        org_name=(org.name if org else None) or "Workspace",
         github_id=user.github_id,
         gitlab_id=user.gitlab_id,
         google_id=user.google_id,
@@ -356,6 +607,78 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
         has_password=bool(user.password_hash),
         mfa_backup_codes_remaining=len(user.mfa_backup_codes or []),
     )
+
+
+@router.get("/me/session", response_model=SessionOut)
+def get_my_session(
+    request: Request,
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user_id = uuid.UUID(principal["sub"])
+    raw = refresh_token_from_request(request, None)
+    if not raw:
+        return SessionOut()
+    row = get_session_for_refresh(db, user_id, raw)
+    if not row:
+        row = ensure_session_for_refresh(db, user_id, raw, request)
+        db.commit()
+    elif refresh_session_geolocation(row):
+        db.commit()
+    return SessionOut(
+        location=session_location_label(row),
+        signed_in_at=row.created_at.isoformat() if row.created_at else None,
+    )
+
+
+@router.get("/me/sessions", response_model=list[SessionListItemOut])
+def list_my_sessions(
+    request: Request,
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user_id = uuid.UUID(principal["sub"])
+    current_hash = _current_refresh_hash(request)
+    rows = list_user_sessions(db, user_id)
+    return [
+        _session_list_item(row, current=bool(current_hash and row.token_hash == current_hash))
+        for row in rows
+    ]
+
+
+@router.delete("/me/sessions/{session_id}", status_code=204)
+def revoke_my_session(
+    session_id: uuid.UUID,
+    request: Request,
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user_id = uuid.UUID(principal["sub"])
+    current_hash = _current_refresh_hash(request)
+    target = db.scalar(
+        select(UserSession).where(UserSession.id == session_id, UserSession.user_id == user_id)
+    )
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found")
+    if current_hash and target.token_hash == current_hash:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "use sign out for this device")
+    if not revoke_session_by_id(db, user_id, session_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found")
+    db.commit()
+
+
+@router.post("/me/sessions/revoke-others", status_code=204)
+def revoke_other_my_sessions(
+    request: Request,
+    principal: dict = Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user_id = uuid.UUID(principal["sub"])
+    raw = refresh_token_from_request(request, None)
+    if not raw:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "no active session on this device")
+    revoke_other_sessions(db, user_id, raw)
+    db.commit()
 
 
 class ChangePasswordIn(BaseModel):

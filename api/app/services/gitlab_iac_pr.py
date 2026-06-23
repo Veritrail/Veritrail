@@ -48,8 +48,8 @@ def create_terraform_mr(
     api = _api_base(provider)
 
     project_path = quote(repo_full_name, safe="")
-    branch = f"vigil/remediation-{uuid.uuid4().hex[:8]}"
-    safe_path = _BRANCH_SAFE.sub("-", file_path.lstrip("/")) or "vigil-remediation.tf"
+    branch = f"veritrail/remediation-{uuid.uuid4().hex[:8]}"
+    safe_path = _BRANCH_SAFE.sub("-", file_path.lstrip("/")) or "veritrail-remediation.tf"
 
     with httpx.Client(headers=_headers(token), timeout=30) as client:
         # Get project metadata

@@ -7,7 +7,7 @@ from app.core.config import get_settings
 settings = get_settings()
 
 celery_app = Celery(
-    "vigil",
+    "veritrail",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=["app.worker.tasks"],
@@ -32,6 +32,10 @@ celery_app.conf.update(
         "weekly-digest-monday": {
             "task": "app.worker.tasks.send_weekly_digests",
             "schedule": crontab(hour=9, minute=0, day_of_week=1),  # Monday 9am UTC
+        },
+        "alert-stale-scans": {
+            "task": "app.worker.tasks.alert_stale_scans",
+            "schedule": crontab(minute=20),  # hourly, offset from scan kickoff
         },
         "prune-assume-role-audit": {
             "task": "app.worker.tasks.prune_assume_role_audit",

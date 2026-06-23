@@ -1,5 +1,5 @@
 {
-  "family": "vigil-beat",
+  "family": "veritrail-beat",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
@@ -19,7 +19,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/vigil-beat",
+          "awslogs-group": "/ecs/veritrail-beat",
           "awslogs-region": "__AWS_REGION__",
           "awslogs-stream-prefix": "beat"
         }

@@ -12,9 +12,9 @@
 #   Parameters are passed through as --parameters ParameterKey=X,ParameterValue=Y
 #
 # Examples:
-#   ./scripts/update-stack-safe.sh vigil-remediation infra/cfn/vigil-remediation-ssm.yaml
+#   ./scripts/update-stack-safe.sh veritrail-remediation infra/cfn/veritrail-remediation-ssm.yaml
 #
-#   ./scripts/update-stack-safe.sh vigil-remediation infra/cfn/vigil-remediation-ssm.yaml \
+#   ./scripts/update-stack-safe.sh veritrail-remediation infra/cfn/veritrail-remediation-ssm.yaml \
 #     EnableSecurityGroupRemediation=Yes \
 #     EnableS3Remediation=No
 
@@ -31,8 +31,8 @@ if [ $# -lt 2 ]; then
   echo "Usage: $(basename "$0") <stack-name> <template-file> [ParameterKey=Value …]" >&2
   echo "" >&2
   echo "Examples:" >&2
-  echo "  $(basename "$0") vigil-remediation infra/cfn/vigil-remediation-ssm.yaml" >&2
-  echo "  $(basename "$0") vigil-remediation infra/cfn/vigil-remediation-ssm.yaml \\" >&2
+  echo "  $(basename "$0") veritrail-remediation infra/cfn/veritrail-remediation-ssm.yaml" >&2
+  echo "  $(basename "$0") veritrail-remediation infra/cfn/veritrail-remediation-ssm.yaml \\" >&2
   echo "    EnableSecurityGroupRemediation=Yes EnableS3Remediation=No" >&2
   exit 1
 fi

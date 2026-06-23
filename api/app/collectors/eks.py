@@ -48,7 +48,7 @@ def _get_regions(sess) -> list[str]:
 
 
 def collect_eks(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-eks", aws_account=account, purpose="collect_eks")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-eks", aws_account=account, purpose="collect_eks")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -96,6 +96,6 @@ def collect_eks(db: Session, account: AwsAccount) -> int:
                     count += 1
         except ClientError:
             continue
-    db.commit()
+
     log.info("collect_eks.done", account_id=str(account.id), clusters=count)
     return count

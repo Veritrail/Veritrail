@@ -111,7 +111,7 @@ export default function NotificationsBell() {
     function onDocClick(e: MouseEvent) {
       const target = e.target as Node;
       if (rootRef.current?.contains(target)) return;
-      const panel = document.getElementById("vigil-notifications-panel");
+      const panel = document.getElementById("veritrail-notifications-panel");
       if (panel?.contains(target)) return;
       setOpen(false);
     }
@@ -134,12 +134,15 @@ export default function NotificationsBell() {
   );
 
   const hasItems = pendingRecheck || pendingCloudTrail || historyVisible.length > 0;
+  // Badge is red only for genuine failures; otherwise calm brand teal, since
+  // notifications also carry positive/in-progress messages (scan passed, etc.).
+  const hasFailure = notificationHistory.some((h) => h.kind === "scan_failure");
 
   const panel =
     open && panelPos
       ? createPortal(
           <div
-            id="vigil-notifications-panel"
+            id="veritrail-notifications-panel"
             className="fixed z-[200] w-[min(38rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200/90 bg-white shadow-xl shadow-zinc-900/15"
             style={{ top: panelPos.top, right: panelPos.right }}
           >
@@ -238,7 +241,7 @@ export default function NotificationsBell() {
           />
         </svg>
         {notificationCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white ring-2 ring-zinc-50">
+          <span className={`absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-medium leading-none text-white ring-2 ring-white ${hasFailure ? "bg-[#d93025]" : "bg-teal-600"}`}>
             {notificationCount > 9 ? "9+" : notificationCount}
           </span>
         )}

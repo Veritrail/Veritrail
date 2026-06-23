@@ -2,7 +2,7 @@
 
 **Search terms:** SAML, SSO, Okta, Azure AD, `auth_saml.py`, `OrgSamlConfig`, ACS, IdP, `python3-saml`, xmlsec, migration 0045
 
-SAML is backend-capable but intentionally hidden from the product UI. Vigil's current product boundary is AWS-native SOC 2 CC6/CC7 evidence and evidence packs, not enterprise identity administration.
+SAML is backend-capable but intentionally hidden from the product UI. Veritrail's current product boundary is AWS-native SOC 2 CC6/CC7 evidence and evidence packs, not enterprise identity administration.
 
 > **Status:** dark/internal. Code-complete, **not yet tested against a live IdP**, and not part of the current launch surface. Do one real round-trip (Okta or Azure AD) in staging before exposing this to users. See [Limitations](#limitations).
 
@@ -45,7 +45,7 @@ Required env (already in config defaults — confirm for prod in `api/app/core/c
 
 | Var | Meaning |
 |-----|---------|
-| `API_PUBLIC_URL` | Public **https** base of the API, e.g. `https://api.vigil.example.com`. Used to build SP entity ID / ACS URLs and the SAML audience — must match what the IdP is told. |
+| `API_PUBLIC_URL` | Public **https** base of the API, e.g. `https://api.veritrail.example.com`. Used to build SP entity ID / ACS URLs and the SAML audience — must match what the IdP is told. |
 | `FRONTEND_URL` | Where ACS redirects after login (`{FRONTEND_URL}/auth/callback?token=…`). |
 | `ALLOW_SSO_SIGNUP` | `true` = provision unknown emails on first SAML login. `false` = only pre-existing users may log in. |
 

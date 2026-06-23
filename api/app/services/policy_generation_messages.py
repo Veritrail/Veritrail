@@ -11,30 +11,30 @@ IAM_POLICY_GEN_CONSOLE_PATH = (
 
 POLICY_GEN_NO_JOB_NOTE = (
     "No completed policy analysis exists for this role yet. "
-    "Start analysis in Vigil, or start the same AWS IAM policy-generation job from the IAM role page. "
+    "Start analysis in Veritrail, or start the same AWS IAM policy-generation job from the IAM role page. "
     "This only reads CloudTrail and IAM last-accessed data; permissions are not changed until you apply a policy."
 )
 
 POLICY_GEN_ASSUME_FAILED_NOTE = (
-    "Vigil cannot start policy analysis with the connector role. "
+    "Veritrail cannot start policy analysis with the connector role. "
     "Update the AWS connector with Advanced IAM policy generation enabled, then verify capabilities again."
 )
 
 POLICY_GEN_PASS_ROLE_HINT = (
-    "The connector must pass the Vigil Access Analyzer monitor role to access-analyzer.amazonaws.com. "
+    "The connector must pass the Veritrail Access Analyzer monitor role to access-analyzer.amazonaws.com. "
     "That monitor role is used by AWS to read CloudTrail logs for policy generation; it is not a remediation role."
 )
 
-POLICY_GEN_NO_CONNECTOR_NOTE = "Connect the Vigil connector role first."
+POLICY_GEN_NO_CONNECTOR_NOTE = "Connect the Veritrail connector role first."
 
 POLICY_GEN_MONITOR_ROLE_MISSING = (
     "The Access Analyzer monitor role is missing from this account. "
-    "Update the Vigil connector with Advanced IAM policy generation enabled, then verify capabilities again."
+    "Update the Veritrail connector with Advanced IAM policy generation enabled, then verify capabilities again."
 )
 
 POLICY_GEN_WRONG_REGION_HINT = (
     "AWS could not start policy analysis in the available regions. "
-    "Run a scan so Vigil can refresh CloudTrail and Access Analyzer regions, then try again."
+    "Run a scan so Veritrail can refresh CloudTrail and Access Analyzer regions, then try again."
 )
 
 POLICY_GEN_NO_TRAIL_NOTE = (
@@ -50,7 +50,7 @@ POLICY_GEN_MONITOR_LOG_ACCESS_NOTE = (
 
 POLICY_GEN_MONITOR_CLOUDTRAIL_API_NOTE = (
     "The Access Analyzer monitor role cannot call CloudTrail APIs needed for policy generation "
-    "(for example cloudtrail:GetTrail). Update the Vigil connector stack with Advanced IAM policy "
+    "(for example cloudtrail:GetTrail). Update the Veritrail connector stack with Advanced IAM policy "
     "generation enabled so the monitor role is refreshed, then try again."
 )
 
@@ -80,7 +80,7 @@ def user_friendly_policy_generation_error(exc: BaseException) -> str:
     if "nosuchentity" in compact and "accessanalyzermonitor" in compact:
         return POLICY_GEN_MONITOR_ROLE_MISSING
     if "passrole" in compact:
-        return f"Vigil can start analysis, but AWS blocked the monitor role handoff. {POLICY_GEN_PASS_ROLE_HINT}"
+        return f"Veritrail can start analysis, but AWS blocked the monitor role handoff. {POLICY_GEN_PASS_ROLE_HINT}"
     if "accessanalyzermonitor" in compact and (
         "accessdenied" in lower or "not authorized" in lower or code == "AccessDeniedException"
     ):

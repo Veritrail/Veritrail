@@ -9,7 +9,7 @@ from app.models.iam import IamRole
 
 CHECK_ID = "iam.policy.wildcard_resource"
 
-# Vigil collector + IAM credential report APIs — read-only, require Resource: *
+# Veritrail collector + IAM credential report APIs — read-only, require Resource: *
 _SAFE_ACTIONS_ON_ANY_RESOURCE = {
     "iam:generateservicelastaccesseddetails",
     "iam:getservicelastaccesseddetails",
@@ -70,15 +70,15 @@ def _wildcard_resource_statements(doc: dict) -> list[dict]:
 
 def run(db: Session, account_id) -> list[FindingDraft]:
     acc = db.get(AwsAccount, account_id)
-    vigil_role_arn = (acc.role_arn or "").lower() if acc else ""
+    veritrail_role_arn = (acc.role_arn or "").lower() if acc else ""
 
     roles = db.scalars(select(IamRole).where(IamRole.account_id == account_id)).all()
     out: list[FindingDraft] = []
     for r in roles:
         if "/aws-service-role/" in r.arn:
             continue
-        if vigil_role_arn and r.arn.lower() == vigil_role_arn:
-            continue  # Vigil CFN scan role — intentionally broad read-only
+        if veritrail_role_arn and r.arn.lower() == veritrail_role_arn:
+            continue  # Veritrail CFN scan role — intentionally broad read-only
 
         hits: list[dict] = []
 

@@ -23,7 +23,7 @@ const STARTING_TIMEOUT_MS = 5 * 60 * 1000;
 const pendingScanAtMs = new Map<string, number>();
 
 function pendingScanKey(accountId: string) {
-  return `vigil:scan-pending:${accountId}`;
+  return `veritrail:scan-pending:${accountId}`;
 }
 
 export function readPendingScan(accountId: string): Date | null {

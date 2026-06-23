@@ -1,4 +1,4 @@
-# Vigil — Handoff
+# Veritrail — Handoff
 
 _Last updated: 2026-05-30 (session 30 — deepsearch v6 map + UX polish)_
 
@@ -14,7 +14,7 @@ _Last updated: 2026-05-30 (session 30 — deepsearch v6 map + UX polish)_
 
 **Clarifications (v6):**
 
-- **CFN policy-gen actions are deployed** on `VigilScannerRole` when `EnableAdvancedPolicyGeneration=Yes` (inline `VigilAdvancedPolicyGeneration`). Scan already calls `GenerateServiceLastAccessedDetails`.
+- **CFN policy-gen actions are deployed** on `VeritrailScannerRole` when `EnableAdvancedPolicyGeneration=Yes` (inline `VeritrailAdvancedPolicyGeneration`). Scan already calls `GenerateServiceLastAccessedDetails`.
 - **API does not call `StartPolicyGeneration`** — `GET …/roles/generated-policy?advanced=true` only merges the latest **SUCCEEDED** Access Analyzer job (`fetch_latest_generated_policy`). Console job or future API work still needed for resource ARNs / high confidence per role.
 - **CIS 1.11 automated (detection)** — dedicated 45-day checks (`iam.user.credentials_unused_45d`, `iam.access_key.unused_45d`); 90-day checks remain for SOC2/ISO. Remediation is manual (read-only).
 
@@ -72,8 +72,8 @@ _Last updated: 2026-05-30 (session 30 — deepsearch v6 map + UX polish)_
 - **Release readiness:** `evidence_class` (benchmark / supporting / hygiene), `account_summary` snapshots for `iam.root.*`, CIS coverage matrix in packs/PDF, `checksum_manifest.json`, GitHub Actions CI (`.github/workflows/ci.yml`).
 - **Optional check:** `github.repo.no_codeowners` (off by default, not framework-mapped).
 - **Audit Q2/Q3:** Identity Center, GuardDuty findings, Config rule compliance, AMI age, external trust, `iam.role.full_admin_policy`; migration `0030`.
-- **Drawer docs:** `web/src/data/checkDocumentation.ts` — per-check “what Vigil checks” + “why flagged” on Overview/Remediation (default SG, external trust, MFA so far).
-- **External trust:** skip `VigilReadOnly` + trust-only to `TRUST_PRINCIPAL_ARN`; extended tier; trust policy JSON in Resources tab.
+- **Drawer docs:** `web/src/data/checkDocumentation.ts` — per-check “what Veritrail checks” + “why flagged” on Overview/Remediation (default SG, external trust, MFA so far).
+- **External trust:** skip `VeritrailReadOnly` + trust-only to `TRUST_PRINCIPAL_ARN`; extended tier; trust policy JSON in Resources tab.
 - **MFA What If:** no “disable user” / key-deactivation noise; remediation tab shows full `rem.why` + role-aware CLI fallbacks.
 - **Docs:** no Hetzner/Caddy as prescribed stack; `web/public/llms.txt`, `robots.txt`, `sitemap.xml`.
 
@@ -97,7 +97,7 @@ sessions wasted turns suggesting these.
 - **No visible SAML / enterprise SSO work** unless a real design partner asks
   for it. Google/GitHub/GitLab login is enough for now; identity work should
   mean evidence ingestion, not more app-login options.
-- **No multi-cloud roadmap in the product UI.** Vigil must feel ready on AWS
+- **No multi-cloud roadmap in the product UI.** Veritrail must feel ready on AWS
   for SOC 2 CC6/CC7 before GCP/Azure enter the conversation.
 
 If you find yourself wanting to add one of the above to a TODO, gap list,
@@ -119,8 +119,8 @@ only, and only to say it's out of scope.
 - OAuth link flow re-issues session tokens on success so connecting a provider never drops the active session
 
 ### AWS account onboarding
-- Create account → parent CFN `vigil-stack.yaml` launch URL (stack **`VigilAccountConnector`**; IAM scanner role **`VigilReadOnlyScannerRole`**)
-- Existing accounts keep **`VigilReadOnly`** stack name in DB for update URLs; new accounts use **`VigilAccountConnector`**
+- Create account → parent CFN `veritrail-stack.yaml` launch URL (stack **`VeritrailAccountConnector`**; IAM scanner role **`VeritrailReadOnlyScannerRole`**)
+- Existing accounts keep **`VeritrailReadOnly`** stack name in DB for update URLs; new accounts use **`VeritrailAccountConnector`**
 - Verify role via `sts:AssumeRole`
 - Trigger scan → Celery task
 
@@ -228,7 +228,7 @@ only, and only to say it's out of scope.
 - Settings page (check enable/disable per group, weekly digest toggle + recipient email)
 - Account settings page (password + GitHub)
 - Reference page (`/reference`) — searchable table of all supported search keys, resource types, check IDs, ARN patterns
-- Sidebar: Vigil logo, AWS Accounts, Findings, Compliance, Activity log (`/timeline`), Integrations, Settings, Account, Sign out
+- Sidebar: Veritrail logo, AWS Accounts, Findings, Compliance, Activity log (`/timeline`), Integrations, Settings, Account, Sign out
 
 ### Security
 - Rate limiting: signup 5/min, login 10/min (slowapi); MFA verify locks the account after 5 failures (10 min, escalating to 30 min)
@@ -255,7 +255,7 @@ only, and only to say it's out of scope.
 ## Architecture reminder
 
 ```
-Vigil worker (control plane)
+Veritrail worker (control plane)
   → sts.amazonaws.com  →  AssumeRole (customer's CFN role)
   → iam.amazonaws.com  →  read-only scan
 
@@ -336,7 +336,7 @@ Multi-account via AWS Orgs StackSet · S3/cert/secret/Trail/Config checks · Ter
 
 ## Repo
 
-https://github.com/awakzdev/Vigil
+https://github.com/awakzdev/Veritrail
 
 ---
 
@@ -371,18 +371,18 @@ decision.
 **Old:** "AWS IAM hygiene tool for small teams."
 **New:** **"Continuous cloud compliance evidence for startup engineering teams."**
 
-**Secondary positioning lane (broader TAM):** *"Vigil shows you who
+**Secondary positioning lane (broader TAM):** *"Veritrail shows you who
 changed what in your AWS, when, and whether it was approved.
 Compliance evidence is the side effect."* — attracts engineering-
 accountability buyers who don't care about SOC2 today but will later.
 
-Vigil is explicitly **not**:
+Veritrail is explicitly **not**:
 - A CSPM (Wiz, Prisma, Orca). Coverage parity unwinnable solo.
 - A compliance suite (Vanta, Drata, Secureframe, Sprinto). They're evidence
   aggregators with HR/MDM/policy/vendor breadth. We will never go there.
 - A SIEM, an agent, or a remediation tool.
 
-Vigil **is**:
+Veritrail **is**:
 - The technical evidence layer Vanta and Drata are shallow on
 - Auditor-ready raw artifacts (timestamped, source-verifiable, traceable)
 - Engineer-first, self-serve, no sales calls
@@ -408,7 +408,7 @@ depth over checkbox theater.
 | **Oneleet, Delve** | Quote-based, $10–30k/yr | Software + human advisory |
 
 **Critical price reality:** LowerPlane at $416/mo for a *full* compliance
-platform means Vigil at $200–500/mo AWS-only is in the wrong band. Either
+platform means Veritrail at $200–500/mo AWS-only is in the wrong band. Either
 go cheaper (below $200) or be radically better at evidence quality.
 
 ## Pricing (locked in this iteration)
@@ -487,7 +487,7 @@ Before applying a fix, show a diff of the "before" vs "after" policy state:
 
 The insight the cybersecurity advisor surfaced: **the gap is not more checks, it's
 remediation confidence**. The reason IAM debt compounds is that engineers are
-correct to be afraid — removing the wrong thing breaks prod. Vigil solves this by
+correct to be afraid — removing the wrong thing breaks prod. Veritrail solves this by
 answering "what actually uses this?" before you touch it.
 
 ### Data already available to build this
@@ -506,7 +506,7 @@ Phase 2.5 — after CIS L1 checks, before GitHub integration:
 3. Policy diff view — before/after for "generate least-privilege" (already scaffolded in drawer)
 4. Confidence scoring on generated policies
 
-This can be shipped incrementally: start with the data Vigil already collects
+This can be shipped incrementally: start with the data Veritrail already collects
 (step 1 + 2), before building anything new. Step 3 reuses the existing
 "Generate" button output. Step 4 is a one-liner on top of step 3.
 
@@ -712,7 +712,7 @@ policy analysis, onboarding empty state.
 - **Exception in evidence packs**: excepted findings included alongside open findings in evidence pack ZIP; per-control `exceptions.json` file lists approved exceptions with reason/approver/expiry; `finding_count` = open only, `exception_count` tracked separately; evidence pack query now fetches `status IN ('open', 'excepted')`
 - **Sample evidence pack**: `GET /v1/exports/sample-evidence-pack?framework=soc2|cis_aws_l1` — no auth required; returns synthetic ZIP with realistic SOC2/CIS sample data including one excepted finding with approver; designed for landing page "Download sample" CTA
 - **README rewrite**: full rewrite with current positioning ("Continuous SOC2 CC6/CC7 and CIS evidence automation"), current check count (53), all three integrations (AWS/GitHub/GitLab), exception workflow, sample pack endpoint, pricing table, architecture layout
-- **Product repositioning (note for next sessions)**: Vigil is NOT a CSPM. Primary surface = Controls/Evidence, not Findings. The buyer problem is "prove CC6/CC7 controls operated continuously across the audit period." Evidence pack + exceptions + timeline are the moat.
+- **Product repositioning (note for next sessions)**: Veritrail is NOT a CSPM. Primary surface = Controls/Evidence, not Findings. The buyer problem is "prove CC6/CC7 controls operated continuously across the audit period." Evidence pack + exceptions + timeline are the moat.
 
 **Remaining gaps after session 11:**
 
@@ -841,7 +841,7 @@ scope and intentionally absent from that list.
 - **`collectors/extended.py`**: ACM, Lambda, Secrets Manager, SSM, ELBv2,
   DynamoDB, SNS, SQS collectors. EC2 collector extended for snapshots + AMIs.
   S3/CloudTrail/RDS collectors extended for new fields.
-- **CFN role** (`infra/cfn/vigil-readonly-role.yaml`): new read-only actions
+- **CFN role** (`infra/cfn/veritrail-readonly-role.yaml`): new read-only actions
   for all new collectors. **Existing connected accounts must update their
   CloudFormation stack** to pick up these permissions or new collectors will
   silently skip (ClientError → empty).
@@ -874,7 +874,7 @@ scope and intentionally absent from that list.
 **Session 20 additions (2026-05-27)** — merged to `staging`:
 - **Compliance polish** (`feat/compliance-polish` → `staging`): framework pass-rate cards, status filters, questionnaire template (pass/fail/no_data), evidence preview, mapped checks grouping, duplicate summary line removed; Re-scan + Refresh removed from Compliance header
 - **Scan progress** (`useTriggeredScan`): cross-page persistence via sessionStorage; no longer clears pending state on stale `ok` scan row; `refetchOnMount: always` on scan-runs query
-- **Findings drawer**: collapsible granted/unused services, Action vs Resource wildcard notes, CloudTrail-aware copy, `iam.policy.wildcard_resource` skips Vigil scan role + IAM last-accessed APIs
+- **Findings drawer**: collapsible granted/unused services, Action vs Resource wildcard notes, CloudTrail-aware copy, `iam.policy.wildcard_resource` skips Veritrail scan role + IAM last-accessed APIs
 - **Accounts UX**: compact header layout, `ConfirmDialog` for remove, AWS wordmark asset (`web/public/aws.png`), separate findings vs compliance metric strips
 - **Settings**: alert email placeholder → `Email Address`
 - **Nav**: Findings 2nd in sidebar (after Accounts)
@@ -1086,7 +1086,7 @@ evidence ingestion, not another app-login or enterprise SSO project.
 - Multi-account via AWS Organizations StackSet
 - Custom controls (customer-defined checks)
 - Vanta / Drata webhook integration (push findings as evidence)
-- TOTP MFA on Vigil user accounts
+- TOTP MFA on Veritrail user accounts
 - Refresh tokens
 
 ### Out of scope for the foreseeable roadmap
@@ -1147,7 +1147,7 @@ Three multipliers, each bigger than any single feature:
    platform engineers + technical founders. 5k+ followers = +20% on every
    probability above.
 2. **Auditor partnerships**: get 1–2 small SOC2 firms (Prescient Assurance,
-   Strike Graph, Sensiba, Insight Assurance) to recommend Vigil to their
+   Strike Graph, Sensiba, Insight Assurance) to recommend Veritrail to their
    AWS-heavy clients. +30%.
 3. **Content moat**: write "AWS SOC2 evidence guide" / "How auditors actually
    sample CC6.6 MFA" / "From Prowler scan to audit-ready evidence" SEO posts.

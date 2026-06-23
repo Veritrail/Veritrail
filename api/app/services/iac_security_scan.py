@@ -130,7 +130,7 @@ def _rule_iam_wildcard_action(b: _Block) -> IacFinding | None:
                 "is the broadest grant possible and almost never required."
             ),
             remediation=(
-                "Replace \"*\" with the exact actions the principal uses. Run Vigil's least-privilege "
+                "Replace \"*\" with the exact actions the principal uses. Run Veritrail's least-privilege "
                 "generator (Last Accessed + IAM Access Analyzer) to derive the real action set, then "
                 "scope to specific resource ARNs."
             ),
@@ -150,7 +150,7 @@ def _rule_iam_wildcard_action(b: _Block) -> IacFinding | None:
                 "the principal's recorded usage in most cases."
             ),
             remediation=(
-                "Narrow service:* to the specific operations in use. Use Vigil's least-privilege "
+                "Narrow service:* to the specific operations in use. Use Veritrail's least-privilege "
                 "generator to list the actions actually called, then enumerate them explicitly."
             ),
             resource_type=b.type,
@@ -187,7 +187,7 @@ def _rule_iam_wildcard_resource(b: _Block) -> IacFinding | None:
         ),
         remediation=(
             "Constrain Resource to specific ARNs. For iam:PassRole, list only the exact role ARNs the "
-            "workload must pass. Vigil's generator emits resource-scoped ARNs when Access Analyzer "
+            "workload must pass. Veritrail's generator emits resource-scoped ARNs when Access Analyzer "
             "CloudTrail data is available."
         ),
         resource_type=b.type,

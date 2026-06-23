@@ -102,6 +102,8 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "cloudtrail.event.s3_bucket_policy_change": "data_protection",
     "cloudtrail.event.s3_public_access_block_disabled": "data_protection",
     "cloudtrail.event.security_group_open_to_world": "data_protection",
+    "ec2.instance.no_instance_profile": "identity_governance",
+    "backup.plan.missing": "backup_resilience",
 }
 
 

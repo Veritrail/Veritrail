@@ -1,13 +1,13 @@
-# Vigil compliance expansion checklist
+# Veritrail compliance expansion checklist
 
 _Mapped from deepsearch (CC6/CC7, EKS, containers, Inspector, SDLC) + session Q&A + architecture review (2026-06-06)._  
 _Last updated: 2026-06-07 (Workspace/Entra identity, admin review, SDLC status checks, mapping audit, backup runbook)_
 
-Use this as the single backlog for **what Vigil should verify**, **what is already shipped**, and **what is explicitly out of scope for v1**.
+Use this as the single backlog for **what Veritrail should verify**, **what is already shipped**, and **what is explicitly out of scope for v1**.
 
 Legend: `[x]` done · `[~]` partial · `[ ]` not started · **P0** ship next · **P1** soon · **P2** later · **P3/P4** future / rabbit hole
 
-**Strategic shift:** Vigil is moving from “scanner” (individual findings) to **compliance platform** (control-level evidence aggregation). Drata/Vanta win on *“show me evidence this control is operating”* — not on finding more CVEs. Composite controls are the product.
+**Strategic shift:** Veritrail is moving from “scanner” (individual findings) to **compliance platform** (control-level evidence aggregation). Drata/Vanta win on *“show me evidence this control is operating”* — not on finding more CVEs. Composite controls are the product.
 
 ---
 
@@ -16,19 +16,19 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started · **P0** ship next · 
 | Decision | Rationale |
 |----------|-----------|
 | **Agentless AWS API scanning is the default** | No DaemonSet / pod agent unless customer opts into future “Runtime Monitoring” add-on. |
-| **Private EKS API endpoints are fine** | Vigil uses `eks:DescribeCluster` (AWS control plane), not the Kubernetes API. |
+| **Private EKS API endpoints are fine** | Veritrail uses `eks:DescribeCluster` (AWS control plane), not the Kubernetes API. |
 | **Do not require customer source-code access** | Verify SDLC *controls* and *evidence*, not file contents. |
 | **Dockerfile scanning is not compliance evidence** | **P3/P4** engineering quality. Auditors care about image vulns tracked/remediated. |
 | **Do not name vendor products as the control** | “Container vulnerability monitoring not detected” — not “AWS Inspector disabled.” |
 | **Runtime claims require runtime agents** | Falco/eBPF/DaemonSet only if product claims malware/runtime/threat detection. |
 | **CFN stack update required for new IAM actions** | Customer must update connector stack, then re-scan. |
 | **Run migrations automatically** | Apply `alembic upgrade head` when adding revisions. |
-| **Do not auto-deploy CloudTrail silently** | Onboarding: **Use existing trail** OR **Deploy Vigil-managed trail** — org trails are common. |
+| **Do not auto-deploy CloudTrail silently** | Onboarding: **Use existing trail** OR **Deploy Veritrail-managed trail** — org trails are common. |
 | **Customer Terraform repo scanning is a rabbit hole** | **P4** — competes with Checkov/Wiz/Prisma/Snyk; differentiator is **deployed state**. |
 
 **Sharp positioning:**
 
-> Vigil verifies compliance controls and evidence continuously without requiring access to customer source code. Runtime agents and code scanning are optional extensions, not baseline requirements.
+> Veritrail verifies compliance controls and evidence continuously without requiring access to customer source code. Runtime agents and code scanning are optional extensions, not baseline requirements.
 
 ---
 
@@ -166,7 +166,7 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 | Trail enabled / validation / KMS / CW / S3 hardening | [x] | — | Individual checks exist |
 | Event-based detections | [x] | — | |
 | **Onboarding: Use existing trail OR deploy new** | [x] | **P1** | Accounts UI + `PATCH /v1/accounts/{id}/cloudtrail-onboarding` |
-| Optional “Deploy Vigil-managed trail” module | [ ] | P1 | Named, documented, customer opt-in |
+| Optional “Deploy Veritrail-managed trail” module | [ ] | P1 | Named, documented, customer opt-in |
 | Central log account + MFA Delete on log bucket | [ ] | P2 | Detect + document pattern |
 
 ---
@@ -184,9 +184,9 @@ SOC2 does **not** mandate SAST by name. Verify **process evidence**.
 
 ---
 
-## 7. Vigil platform operations — **highest internal risk**
+## 7. Veritrail platform operations — **highest internal risk**
 
-If Vigil loses findings, evidence, history, or compliance snapshots, the product is dead. This section was **underweighted in v1**.
+If Veritrail loses findings, evidence, history, or compliance snapshots, the product is dead. This section was **underweighted in v1**.
 
 | Item | Status | Priority | Notes |
 |------|--------|----------|-------|
@@ -236,7 +236,7 @@ Source files: `api/data/control_mappings.json`, `web/src/data/checkComplianceCop
 3. [ ] **EKS logging + encryption checks**
 4. [x] **Secure SDLC composite** + GitLab protected environments
 5. [x] **Identity governance composite** (extend existing IAM/GitHub signals + admin review)
-6. [~] **Backup hardening** (schedule, restore test, RPO/RTO) — **Top 5 internal risk**; AWS snapshot/backup composite shipped; Vigil platform restore test still open
+6. [~] **Backup hardening** (schedule, restore test, RPO/RTO) — **Top 5 internal risk**; AWS snapshot/backup composite shipped; Veritrail platform restore test still open
 7. [~] **GitLab connector stability** (token refresh on 401)
 8. [x] **Google Workspace / Entra ID** integration
 9. [x] **CloudTrail onboarding flow** (use existing vs deploy new)

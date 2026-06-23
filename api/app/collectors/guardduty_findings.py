@@ -34,7 +34,7 @@ def collect_guardduty_findings(db: Session, account: AwsAccount, max_per_region:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-gd-findings",
+        session_name="veritrail-gd-findings",
         aws_account=account,
         purpose="collect_guardduty_findings",
     )
@@ -97,6 +97,6 @@ def collect_guardduty_findings(db: Session, account: AwsAccount, max_per_region:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_guardduty_findings.done", account_id=str(account.id), findings=count)
     return count

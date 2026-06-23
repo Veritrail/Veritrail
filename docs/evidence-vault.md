@@ -12,16 +12,16 @@ Scan → findings DB → build ZIP (+ checksum + optional signature)
          S3 object (Object Lock) + auditor read reference
 ```
 
-### Option A — Vigil-operated vault (default env target)
+### Option A — Veritrail-operated vault (default env target)
 
-- **Bucket:** your account, `EVIDENCE_VAULT_S3_URI=s3://vigil-evidence-vault/prod/`
+- **Bucket:** your account, `EVIDENCE_VAULT_S3_URI=s3://veritrail-evidence-vault/prod/`
 - **WORM:** S3 Object Lock (Compliance or Governance mode) + retention days
 - **Pros:** One-click for customers; auditors get a stable **object key** per export (`report_id`), not a mutable file.
 - **Cons:** You operate retention, cost, and legal hold; data leaves customer AWS.
 
 ### Option B — Customer-owned bucket (enterprise)
 
-- Customer creates a bucket with Object Lock; scan role gets **write-only** `PutObject` to `s3://customer-bucket/vigil/{org_id}/…`
+- Customer creates a bucket with Object Lock; scan role gets **write-only** `PutObject` to `s3://customer-bucket/veritrail/{org_id}/…`
 - **Pros:** Data residency; customer owns immutability.
 - **Cons:** CFN + policy work per account; harder onboarding.
 
@@ -36,15 +36,15 @@ Scan → findings DB → build ZIP (+ checksum + optional signature)
 
 **Recommended auditor flow (product UI still open):**
 
-1. Customer exports pack → Vigil writes **immutable** object to vault S3 (`upload_pack_to_vault` from `build_evidence_pack`).
-2. Customer **approves** an auditor (email/domain) in Settings → Vigil mints a **time-limited** read token or presigned URL pointing at that **fixed** `s3_key` / `report_id` *(not built in UI yet; presign helper exists)*.
+1. Customer exports pack → Veritrail writes **immutable** object to vault S3 (`upload_pack_to_vault` from `build_evidence_pack`).
+2. Customer **approves** an auditor (email/domain) in Settings → Veritrail mints a **time-limited** read token or presigned URL pointing at that **fixed** `s3_key` / `report_id` *(not built in UI yet; presign helper exists)*.
 3. Auditor opens link → read-only GET; object behind it does not change.
 
 The “constant link” is constant **per export** (per `report_id`), not one URL that always shows “latest”.
 
-## S3 bucket policy (vigil-worm-storage)
+## S3 bucket policy (veritrail-worm-storage)
 
-Object Lock must be enabled **when the bucket is created** (cannot add later). Then attach a bucket policy so only your Vigil API principal can write immutable packs.
+Object Lock must be enabled **when the bucket is created** (cannot add later). Then attach a bucket policy so only your Veritrail API principal can write immutable packs.
 
 Example: [`infra/s3/evidence-vault-bucket-policy.json`](../infra/s3/evidence-vault-bucket-policy.json)
 
@@ -55,7 +55,7 @@ Replace `Principal.AWS` with your deploy role (not `root` in production). Requir
 See `api/app/services/evidence_vault.py` and `.env.example`:
 
 - `EVIDENCE_VAULT_ENABLED` — master switch (default off)
-- `EVIDENCE_VAULT_S3_URI` — base location for vault writes, e.g. `s3://my-bucket/vigil-evidence/`
+- `EVIDENCE_VAULT_S3_URI` — base location for vault writes, e.g. `s3://my-bucket/veritrail-evidence/`
 - `EVIDENCE_VAULT_S3_REGION` — optional region override
 - `EVIDENCE_VAULT_OBJECT_LOCK_MODE` — `GOVERNANCE` | `COMPLIANCE` (for future PutObject retention)
 - `EVIDENCE_VAULT_RETENTION_DAYS` — retention hint for Object Lock

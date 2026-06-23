@@ -18,6 +18,7 @@ from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser
 from app.services.entra_sync import provider_config, set_provider_config, sync_entra_provider
 from app.services.entra_tokens import EntraReconnectRequired, apply_oauth_tokens
+from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
 settings = get_settings()
@@ -227,7 +228,7 @@ def get_entra_provider(p=Depends(current_principal), db: Session = Depends(get_d
 
 
 @router.put("/entra/scope", response_model=EntraScopeOut)
-def update_entra_scope(body: EntraScopeIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def update_entra_scope(body: EntraScopeIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if not provider:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Microsoft Entra ID is not connected")
@@ -242,7 +243,7 @@ def update_entra_scope(body: EntraScopeIn, p=Depends(current_principal), db: Ses
 
 
 @router.post("/entra/sync", response_model=EntraSyncOut)
-def sync_entra(body: EntraSyncIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def sync_entra(body: EntraSyncIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if not provider:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Microsoft Entra ID is not connected")
@@ -263,7 +264,7 @@ def sync_entra(body: EntraSyncIn, p=Depends(current_principal), db: Session = De
 
 
 @router.delete("/entra", status_code=status.HTTP_204_NO_CONTENT)
-def disconnect_entra(p=Depends(current_principal), db: Session = Depends(get_db)):
+def disconnect_entra(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
         db.delete(provider)

@@ -136,6 +136,7 @@ class Ec2Instance(Base):
     instance_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     state: Mapped[str] = mapped_column(String(20))
     imdsv2_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    iam_instance_profile_arn: Mapped[str | None] = mapped_column(String(512), nullable=True)
     vpc_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     subnet_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     security_group_ids: Mapped[list] = mapped_column(JSON, default=list)
@@ -587,4 +588,17 @@ class SqsQueue(Base):
     queue_url: Mapped[str] = mapped_column(String(512))
     queue_arn: Mapped[str] = mapped_column(String(512))
     kms_encrypted: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BackupPlan(Base):
+    __tablename__ = "backup_plans"
+    __table_args__ = (UniqueConstraint("account_id", "region", "plan_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    region: Mapped[str] = mapped_column(String(40))
+    plan_id: Mapped[str] = mapped_column(String(64))
+    plan_arn: Mapped[str] = mapped_column(String(512))
+    plan_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -25,11 +25,11 @@ class RemediationExecutionIn(BaseModel):
 @router.post("/remediation-execution")
 def remediation_execution_webhook(
     body: RemediationExecutionIn,
-    x_vigil_content_sha256: str | None = Header(default=None, alias="X-Vigil-Content-Sha256"),
+    x_veritrail_content_sha256: str | None = Header(default=None, alias="X-Veritrail-Content-Sha256"),
     db: Session = Depends(get_db),
 ):
     """Execution callback: record outcome keyed by plan_id (verified via content_sha256)."""
-    if not x_vigil_content_sha256 or x_vigil_content_sha256 != body.content_sha256:
+    if not x_veritrail_content_sha256 or x_veritrail_content_sha256 != body.content_sha256:
         raise HTTPException(status_code=401, detail="content_sha256 header mismatch")
     row = record_execution_result(
         db,
@@ -73,12 +73,12 @@ def unsubscribe_digest(
     return HTMLResponse(
         """<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Unsubscribed — Vigil</title>
+<head><meta charset="utf-8"><title>Unsubscribed — Veritrail</title>
 <style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1.5rem;color:#18181b}
 h1{font-size:1.25rem}p{color:#52525b;line-height:1.5}</style></head>
 <body>
 <h1>Weekly digest turned off</h1>
-<p>You will no longer receive Vigil weekly security digests for this organization.
+<p>You will no longer receive Veritrail weekly security digests for this organization.
 Re-enable anytime under Settings → Notifications.</p>
 </body></html>"""
     )

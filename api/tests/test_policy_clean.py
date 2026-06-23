@@ -1,4 +1,4 @@
-from app.routes.accounts import _clean_policy_doc
+from app.routes.accounts_analysis import _clean_policy_doc
 
 
 def test_wildcard_narrowed_to_used_services():

@@ -49,20 +49,19 @@ def _run_acs(monkeypatch, *, db, auth, slug="acme"):
 
 
 def test_acs_provisions_new_user_and_redirects_with_token(monkeypatch):
+    monkeypatch.setattr(auth_saml.settings, "ALLOW_SSO_SIGNUP", True)
     org_id = uuid.uuid4()
     db = MagicMock()
-    # 1st scalar: enabled config lookup. 2nd: user-by-email (none -> JIT provision).
-    db.scalar.side_effect = [_config(org_id), None]
+    db.scalar.side_effect = [_config(org_id), None, None]
 
     resp = _run_acs(monkeypatch, db=db, auth=_fake_auth(nameid="new@acme.com"))
 
-    # provisioned into the config's org and a session was issued
-    db.add.assert_called_once()
-    created = db.add.call_args[0][0]
+    assert db.add.call_count >= 2
+    created = db.add.call_args_list[0][0][0]
     assert created.email == "new@acme.com"
     assert created.org_id == org_id
-    assert created.role == "member"
-    db.commit.assert_called_once()
+    assert created.role == "viewer"
+    assert db.commit.call_count == 2
 
     assert resp.status_code in (302, 303, 307)
     assert "/auth/callback?token=" in resp.headers["location"]
@@ -74,25 +73,36 @@ def test_acs_existing_user_logs_in(monkeypatch):
     existing.id = uuid.uuid4()
     existing.org_id = org_id
     existing.email = "user@acme.com"
+    membership = MagicMock()
+    membership.role = "viewer"
     db = MagicMock()
-    db.scalar.side_effect = [_config(org_id), existing]
+    db.scalar.side_effect = [_config(org_id), existing, membership, membership]
 
     resp = _run_acs(monkeypatch, db=db, auth=_fake_auth())
 
-    db.add.assert_not_called()
+    from app.models.user_session import UserSession
+
+    db.add.assert_called_once()
+    assert isinstance(db.add.call_args[0][0], UserSession)
     assert "/auth/callback?token=" in resp.headers["location"]
 
 
-def test_acs_rejects_email_owned_by_another_org(monkeypatch):
-    other = MagicMock()
-    other.org_id = uuid.uuid4()  # different org than the config
+def test_acs_adds_membership_for_user_in_other_org(monkeypatch):
+    monkeypatch.setattr(auth_saml.settings, "ALLOW_SSO_SIGNUP", True)
+    org_id = uuid.uuid4()
+    existing = MagicMock()
+    existing.id = uuid.uuid4()
+    existing.org_id = uuid.uuid4()
+    existing.email = "user@acme.com"
+    membership = MagicMock()
+    membership.role = "viewer"
     db = MagicMock()
-    db.scalar.side_effect = [_config(uuid.uuid4()), other]
+    db.scalar.side_effect = [_config(org_id), existing, None, None, membership]
 
     resp = _run_acs(monkeypatch, db=db, auth=_fake_auth())
 
-    db.add.assert_not_called()
-    assert "error=saml_email_other_org" in resp.headers["location"]
+    assert db.add.call_count >= 1
+    assert "/auth/callback?token=" in resp.headers["location"]
 
 
 def test_acs_invalid_response_redirects_to_login_error(monkeypatch):
@@ -119,7 +129,6 @@ def test_acs_no_email_redirects(monkeypatch):
     db = MagicMock()
     db.scalar.side_effect = [_config(uuid.uuid4())]
 
-    # NameID is not an email and no email attribute present
     resp = _run_acs(monkeypatch, db=db, auth=_fake_auth(nameid="not-an-email", attrs={}))
 
     assert "error=saml_no_email" in resp.headers["location"]
@@ -153,5 +162,5 @@ def test_put_config_rejects_bad_slug(monkeypatch, slug):
     body = auth_saml.SamlConfigIn(slug=slug)
     db = MagicMock()
     with pytest.raises(HTTPException) as exc:
-        auth_saml.put_saml_config(body, p={"org_id": str(uuid.uuid4())}, db=db)
+        auth_saml.put_saml_config(body, _rbac=MagicMock(), p={"org_id": str(uuid.uuid4())}, db=db)
     assert exc.value.status_code == 400

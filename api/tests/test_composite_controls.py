@@ -152,3 +152,37 @@ def test_composite_json_valid():
     path = Path(__file__).resolve().parents[1] / "data" / "composite_controls.json"
     data = json.loads(path.read_text())
     assert isinstance(data, list)
+
+
+def test_hygiene_findings_do_not_fail_controls():
+    """Only benchmark-class findings carry pass/fail weight — hygiene checks
+    (optional cleanup signal) must never flip a control to failing."""
+    f = MagicMock()
+    f.check_id = "iam.policy.unattached"  # optional -> hygiene class
+    f.status = "open"
+    status, hits, count = compute_control_status(
+        ["iam.policy.unattached"],
+        {"iam.policy.unattached": [f]},
+        {"iam.policy.unattached"},
+        set(),
+        has_scanned_account=True,
+    )
+    assert status == "pass"
+    assert hits == []
+    assert count == 0
+
+
+def test_supporting_findings_do_not_fail_controls():
+    f = MagicMock()
+    f.check_id = "iam.policy.wildcard_resource"  # supporting-only class
+    f.status = "open"
+    status, hits, count = compute_control_status(
+        ["iam.policy.wildcard_resource"],
+        {"iam.policy.wildcard_resource": [f]},
+        {"iam.policy.wildcard_resource"},
+        set(),
+        has_scanned_account=True,
+    )
+    assert status == "pass"
+    assert hits == []
+    assert count == 0

@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock
 
-from app.routes.accounts import blast_radius
+from app.routes.accounts_analysis import blast_radius
 
 
 def _access_key(

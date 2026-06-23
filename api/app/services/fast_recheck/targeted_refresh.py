@@ -56,7 +56,7 @@ def _session(account: AwsAccount, purpose: str):
     return assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-fast-recheck",
+        session_name="veritrail-fast-recheck",
         aws_account=account,
         purpose=purpose,
     )

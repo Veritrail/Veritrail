@@ -27,7 +27,7 @@ def _ctx(*, runner_ready=False, session_error=None, remediation_documents=None):
 @patch("app.services.account_capabilities.cloudtrail_monitor_role_exists", return_value=False)
 @patch(
     "app.services.account_capabilities.cloudtrail_monitor_role_name",
-    return_value="VigilScannerRoleAccessAnalyzerMonitor",
+    return_value="VeritrailScannerRoleAccessAnalyzerMonitor",
 )
 @patch("app.services.account_capabilities.check_actions_on_documents")
 @patch("app.services.account_capabilities.build_capability_verification_context")
@@ -49,7 +49,7 @@ def test_verify_advanced_inspects_role_even_when_not_enabled(
     }
     acc = MagicMock(
         enable_advanced_policy_generation=False,
-        role_arn="arn:aws:iam::123456789012:role/VigilScannerRole",
+        role_arn="arn:aws:iam::123456789012:role/VeritrailScannerRole",
         external_id="ext",
     )
     out = verify_advanced_policy_generation(acc)
@@ -61,7 +61,7 @@ def test_verify_advanced_inspects_role_even_when_not_enabled(
 @patch("app.services.account_capabilities.cloudtrail_monitor_role_exists", return_value=True)
 @patch(
     "app.services.account_capabilities.cloudtrail_monitor_role_name",
-    return_value="VigilScannerRoleAccessAnalyzerMonitor",
+    return_value="VeritrailScannerRoleAccessAnalyzerMonitor",
 )
 @patch("app.services.account_capabilities.check_actions_on_documents")
 @patch("app.services.account_capabilities.build_capability_verification_context")
@@ -81,7 +81,7 @@ def test_verify_advanced_all_granted(mock_ctx_build, mock_check, _mock_name, _mo
     )}
     acc = MagicMock(
         enable_advanced_policy_generation=True,
-        role_arn="arn:aws:iam::123456789012:role/VigilScannerRole",
+        role_arn="arn:aws:iam::123456789012:role/VeritrailScannerRole",
         external_id="ext",
     )
     out = verify_advanced_policy_generation(acc)
@@ -147,7 +147,7 @@ def test_apply_assumes_role_once(mock_assume, mock_load_docs, mock_load_names, m
     mock_runner.return_value = {"ready": True, "blockers": []}
 
     acc = MagicMock(
-        role_arn="arn:aws:iam::123456789012:role/VigilScannerRole",
+        role_arn="arn:aws:iam::123456789012:role/VeritrailScannerRole",
         external_id="ext",
         enable_advanced_policy_generation=True,
         advanced_policy_generation_deployed=False,
@@ -177,7 +177,7 @@ def test_build_context_single_runner_check(mock_assume, mock_load_docs, mock_loa
     mock_runner.return_value = {"ready": False, "blockers": ["missing doc"]}
 
     acc = MagicMock(
-        role_arn="arn:aws:iam::123456789012:role/VigilScannerRole",
+        role_arn="arn:aws:iam::123456789012:role/VeritrailScannerRole",
         external_id="ext",
     )
     ctx = build_capability_verification_context(acc)

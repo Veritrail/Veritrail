@@ -1,459 +1,214 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, BASE, formatApiError, token } from "../api";
+import { api, formatApiError, storeTokens } from "../api";
+import { meSchema, workspaceListSchema, type Me } from "../lib/apiSchemas";
+import {
+  OverviewActionCard,
+  OverviewFactRow,
+  PostureMetricCell,
+  PostureReadinessCell,
+  ReadinessChecklistPanel,
+  type Tone,
+} from "./Workspace";
+import { HeaderSlot } from "../context/HeaderSlot";
+import { WorkspaceSwitcher, type WorkspaceEntry } from "../components/WorkspaceSwitcher";
 
-interface Me {
-  id: string;
-  email: string;
-  github_id: string | null;
-  gitlab_id: string | null;
-  google_id: string | null;
-  totp_enabled: boolean;
-  has_password: boolean;
-  mfa_backup_codes_remaining: number;
-}
+// d-path icons for the Workspace-style KPI strip + overview cards (Workspace's
+// Icon component renders a single <path d>). Kept local so the Account page
+// reuses the exact same visual primitives without importing the named Icon.
+const KPI_ICON = {
+  mail: "M21.75 7.5v9a2.25 2.25 0 0 1-2.25 2.25h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0-8.7 5.8a2.25 2.25 0 0 1-2.5 0L2.25 7.5",
+  building: "M4.5 21V5.25A2.25 2.25 0 0 1 6.75 3h6a2.25 2.25 0 0 1 2.25 2.25V21m-10.5 0h15m-15 0H3m12 0h6m-10.5 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.75c-.621 0-1.125.504-1.125 1.125V21m1.5-13.5h.008v.008H9V7.5Zm0 3h.008v.008H9V10.5Zm0 3h.008v.008H9V13.5Zm3-6h.008v.008H12V7.5Zm0 3h.008v.008H12V10.5Zm0 3h.008v.008H12V13.5Z",
+  fingerprint: "M7.5 12.75a4.5 4.5 0 0 1 9 0M9.75 12.75a2.25 2.25 0 0 1 4.5 0m-8.1 2.75c.58 1.63 1.72 2.82 3.35 3.5m5-15.25A8.25 8.25 0 0 0 3.75 11.6m16.5 0A8.25 8.25 0 0 0 11.4 3.35m5.95 12.15c-.58 1.63-1.72 2.82-3.35 3.5m-2-6.25c0 3.25-1.05 5.6-3.15 7.05m6.3 0c-2.1-1.45-3.15-3.8-3.15-7.05",
+  shield: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z",
+  lock: "M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z",
+  key: "M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.03 5.91c-.56-.1-1.16.03-1.56.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.82c0-.6.24-1.17.66-1.59l6.5-6.5c.4-.4.52-1 .43-1.56A6 6 0 1 1 21.75 8.25Z",
+  refresh: "M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05",
+  user: "M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0",
+} as const;
 
-interface MfaSetup {
+type MfaSetup = {
   secret: string;
   provisioning_uri: string;
   qr_data_url: string | null;
+};
+
+type PasswordStrength = {
+  label: "Waiting" | "Weak" | "Fair" | "Good" | "Strong";
+  tone: "empty" | "weak" | "fair" | "good" | "strong";
+  score: number;
+  width: string;
+  message: string;
+};
+
+function getPasswordStrength(value: string): PasswordStrength {
+  if (!value) {
+    return { label: "Waiting", tone: "empty", score: 0, width: "w-1/4", message: "Use 12+ characters with a mix of character types." };
+  }
+
+  const lower = /[a-z]/.test(value);
+  const upper = /[A-Z]/.test(value);
+  const digit = /\d/.test(value);
+  const symbol = /[^A-Za-z0-9]/.test(value);
+  const uniqueRatio = new Set(value).size / value.length;
+  const onlyDigits = /^\d+$/.test(value);
+  const onlyLetters = /^[A-Za-z]+$/.test(value);
+  const repeated = /(.)\1{2,}/.test(value);
+  const sequential = /(0123|1234|2345|3456|4567|5678|6789|abcd|bcde|cdef|qwer|asdf|zxcv)/i.test(value);
+
+  let score = 0;
+  if (value.length >= 12) score += 1;
+  if (value.length >= 16) score += 1;
+  if ([lower, upper, digit, symbol].filter(Boolean).length >= 3) score += 1;
+  if ([lower, upper, digit, symbol].filter(Boolean).length === 4) score += 1;
+  if (uniqueRatio > 0.65) score += 1;
+  if (onlyDigits || onlyLetters) score -= 2;
+  if (repeated) score -= 1;
+  if (sequential) score -= 1;
+
+  score = Math.max(0, Math.min(4, score));
+  if (score >= 4) return { label: "Strong", tone: "strong", score, width: "w-full", message: "Good mix of length, variety, and uniqueness." };
+  if (score === 3) return { label: "Good", tone: "good", score, width: "w-3/4", message: "This is usable, but more variety would help." };
+  if (score === 2) return { label: "Fair", tone: "fair", score, width: "w-1/2", message: "Add more character variety or length." };
+  return { label: "Weak", tone: "weak", score, width: "w-1/4", message: onlyDigits ? "Numbers alone are easy to guess." : "Use more length and variety." };
 }
 
-function ShieldIcon() {
+function strengthTextClass(tone: PasswordStrength["tone"]): string {
+  if (tone === "strong" || tone === "good") return "text-emerald-600";
+  if (tone === "fair") return "text-amber-600";
+  if (tone === "weak") return "text-red-600";
+  return "text-slate-400";
+}
+
+function strengthBarClass(tone: PasswordStrength["tone"]): string {
+  if (tone === "strong" || tone === "good") return "bg-emerald-500";
+  if (tone === "fair") return "bg-amber-500";
+  if (tone === "weak") return "bg-red-500";
+  return "bg-slate-300";
+}
+
+function Icon({ name, className = "h-5 w-5" }: { name: string; className?: string }) {
+  const common = { className, fill: "none", stroke: "currentColor", strokeWidth: 1.8, viewBox: "0 0 24 24", "aria-hidden": true };
+  switch (name) {
+    case "check":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.2 4.2L19 7" /></svg>;
+    case "mail":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 7.5v9a2.25 2.25 0 0 1-2.25 2.25h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0-8.7 5.8a2.25 2.25 0 0 1-2.5 0L2.25 7.5" /></svg>;
+    case "globe":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m-9 9h18" /></svg>;
+    case "building":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V5.25A2.25 2.25 0 0 1 6.75 3h6a2.25 2.25 0 0 1 2.25 2.25V21m-10.5 0h15m-15 0H3m12 0h6m-10.5 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.75c-.621 0-1.125.504-1.125 1.125V21m1.5-13.5h.008v.008H9V7.5Zm0 3h.008v.008H9V10.5Zm0 3h.008v.008H9V13.5Zm3-6h.008v.008H12V7.5Zm0 3h.008v.008H12V10.5Zm0 3h.008v.008H12V13.5Z" /></svg>;
+    case "wrench":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a4.5 4.5 0 0 0-5.72 5.72l-5.49 5.49a2.1 2.1 0 0 0 2.97 2.97l5.49-5.49a4.5 4.5 0 0 0 5.72-5.72l-2.8 2.8-2.17-2.17 2.8-2.8Z" /></svg>;
+    case "shield":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" /></svg>;
+    case "crown":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 8.25 4.5 3.5L12 6l3 5.75 4.5-3.5-1.5 8.25h-12L4.5 8.25Zm2.25 11.25h10.5" /></svg>;
+    case "lock":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>;
+    case "key":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.03 5.91c-.56-.1-1.16.03-1.56.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.82c0-.6.24-1.17.66-1.59l6.5-6.5c.4-.4.52-1 .43-1.56A6 6 0 1 1 21.75 8.25Z" /></svg>;
+    case "phone":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.28 6.72 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.37c0-.52-.35-.98-.85-1.1l-4.42-1.1c-.44-.11-.9.05-1.18.41l-.97 1.24a1.13 1.13 0 0 1-1.46.3 12.04 12.04 0 0 1-5.36-5.36 1.13 1.13 0 0 1 .3-1.46l1.24-.97c.36-.28.52-.74.41-1.18L8.36 4.5a1.13 1.13 0 0 0-1.1-.85H5.9A3.65 3.65 0 0 0 2.25 7.3v-.55Z" /></svg>;
+    case "user":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0" /></svg>;
+    case "refresh":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05" /></svg>;
+    case "clock":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3.5 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>;
+    case "fingerprint":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12.75a4.5 4.5 0 0 1 9 0M9.75 12.75a2.25 2.25 0 0 1 4.5 0m-8.1 2.75c.58 1.63 1.72 2.82 3.35 3.5m5-15.25A8.25 8.25 0 0 0 3.75 11.6m16.5 0A8.25 8.25 0 0 0 11.4 3.35m5.95 12.15c-.58 1.63-1.72 2.82-3.35 3.5m-2-6.25c0 3.25-1.05 5.6-3.15 7.05m6.3 0c-2.1-1.45-3.15-3.8-3.15-7.05" /></svg>;
+    case "monitor":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5A1.5 1.5 0 0 1 21.75 6.75v9a1.5 1.5 0 0 1-1.5 1.5H3.75a1.5 1.5 0 0 1-1.5-1.5v-9a1.5 1.5 0 0 1 1.5-1.5ZM9 20.25h6m-3-3v3" /></svg>;
+    case "smartphone":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 2.75h7.5A1.75 1.75 0 0 1 17.5 4.5v15a1.75 1.75 0 0 1-1.75 1.75h-7.5A1.75 1.75 0 0 1 6.5 19.5v-15a1.75 1.75 0 0 1 1.75-1.75ZM11 18.25h2" /></svg>;
+    case "edit":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="m16.86 4.49 2.65 2.65m-1.32-3.98a1.87 1.87 0 0 1 2.65 2.65L8.25 18.4 3.75 20.25l1.85-4.5L18.19 3.16Z" /></svg>;
+    case "eye":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 14.75a2.75 2.75 0 1 0 0-5.5 2.75 2.75 0 0 0 0 5.5Z" /></svg>;
+    case "chevron":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" /></svg>;
+    case "help":
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M9.88 9a3 3 0 1 1 4.24 2.72c-.72.42-1.12.98-1.12 1.78v.25M12 17.25h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>;
+    default:
+      return <svg {...common}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18M3 12h18" /></svg>;
+  }
+}
+
+function TextInput({ value, onChange, placeholder, invalid }: { value: string; onChange: (value: string) => void; placeholder: string; invalid?: boolean }) {
+  const [visible, setVisible] = useState(false);
   return (
-    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
-    </svg>
-  );
-}
-
-function KeyIcon() {
-  return (
-    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.03 5.91c-.56-.1-1.16.03-1.56.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.82c0-.6.24-1.17.66-1.59l6.5-6.5c.4-.4.52-1 .43-1.56A6 6 0 1 1 21.75 8.25Z" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-    </svg>
-  );
-}
-
-function LinkIcon() {
-  return (
-    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.69a4.5 4.5 0 0 1 1.24 7.24l-4.5 4.5a4.5 4.5 0 0 1-6.36-6.36l1.76-1.76m13.35-.62 1.76-1.76a4.5 4.5 0 0 0-6.36-6.36l-4.5 4.5a4.5 4.5 0 0 0 1.24 7.24" />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 7.5v9a2.25 2.25 0 0 1-2.25 2.25h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0-8.7 5.8a2.25 2.25 0 0 1-2.5 0L2.25 7.5" />
-    </svg>
-  );
-}
-
-function BulbIcon() {
-  return (
-    <svg className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-1.5m0-12a6 6 0 0 0-3.5 10.87c.64.46 1 1.2 1 1.99V18h5v-.64c0-.79.36-1.53 1-1.99A6 6 0 0 0 12 4.5ZM9.75 21h4.5" />
-    </svg>
-  );
-}
-
-function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.2 4.2L19 7" />
-    </svg>
-  );
-}
-
-function EyeIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.75a2.75 2.75 0 1 0 0-5.5 2.75 2.75 0 0 0 0 5.5Z" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
-    </svg>
-  );
-}
-
-function StatusChip({ tone, children }: { tone: "on" | "off" | "warn"; children: ReactNode }) {
-  const cls =
-    tone === "on"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200/60"
-      : tone === "warn"
-        ? "bg-amber-50 text-amber-700 ring-amber-200/70"
-        : "bg-zinc-100 text-zinc-500 ring-zinc-200";
-  const dot = tone === "on" ? "bg-emerald-500" : tone === "warn" ? "bg-amber-500" : "bg-zinc-300";
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${cls}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden />
-      {children}
-    </span>
-  );
-}
-
-function SoftIcon({ icon, tint }: { icon: ReactNode; tint: string }) {
-  return <span className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${tint}`}>{icon}</span>;
-}
-
-function PostureCard({
-  icon,
-  tint,
-  label,
-  value,
-  sub,
-  valueClass,
-}: {
-  icon: ReactNode;
-  tint: string;
-  label: string;
-  value: ReactNode;
-  sub: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="flex min-h-[118px] items-center gap-5 rounded-lg border border-zinc-200 bg-white px-6 py-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)]">
-      <SoftIcon icon={icon} tint={tint} />
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-600">{label}</p>
-        <p className={`mt-1 text-2xl font-extrabold leading-none tracking-tight ${valueClass ?? "text-slate-950"}`}>{value}</p>
-        <p className="mt-1.5 truncate text-sm text-slate-500">{sub}</p>
-      </div>
-    </div>
-  );
-}
-
-function Panel({
-  icon,
-  tint,
-  title,
-  description,
-  status,
-  children,
-  flush,
-  className = "",
-}: {
-  icon: ReactNode;
-  tint: string;
-  title: string;
-  description: string;
-  status?: ReactNode;
-  children: ReactNode;
-  flush?: boolean;
-  className?: string;
-}) {
-  return (
-    <section className={`overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-[0_2px_12px_rgba(15,23,42,0.04)] ${className}`}>
-      <div className="flex items-start gap-5 px-6 py-6">
-        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tint}`}>{icon}</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h2 className="text-lg font-extrabold text-slate-950">{title}</h2>
-            {status}
-          </div>
-          <p className="mt-1 text-sm leading-relaxed text-slate-500">{description}</p>
-        </div>
-      </div>
-      <div className={flush ? "border-t border-zinc-200" : "border-t border-zinc-200 px-6 py-5"}>{children}</div>
-    </section>
-  );
-}
-
-function ProviderRow({
-  name,
-  icon,
-  connected,
-  connectUrl,
-  onDisconnect,
-  disconnecting,
-  lastMethod,
-}: {
-  name: string;
-  icon: ReactNode;
-  connected: boolean;
-  connectUrl: string | null;
-  onDisconnect: () => void;
-  disconnecting: boolean;
-  lastMethod: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-5 py-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white">{icon}</span>
-        <div className="flex min-w-0 items-center gap-4">
-          <p className="text-sm font-semibold text-zinc-900">{name}</p>
-          {connected ? <StatusChip tone="on">Connected</StatusChip> : <StatusChip tone="off">Not connected</StatusChip>}
-        </div>
-      </div>
-      {connected ? (
-        <button
-          type="button"
-          onClick={onDisconnect}
-          disabled={disconnecting || lastMethod}
-          title={lastMethod ? "Set a password or connect another sign-in method before disconnecting your last one." : undefined}
-          className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-700 transition-colors hover:text-blue-900 disabled:opacity-60 disabled:hover:text-blue-700"
-        >
-          {disconnecting ? "Saving…" : "Manage"}
-          <ChevronRightIcon />
-        </button>
-      ) : connectUrl ? (
-        <a
-          href={connectUrl}
-          className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-700 transition-colors hover:text-blue-900"
-        >
-          Connect
-          <ChevronRightIcon />
-        </a>
-      ) : (
-        <span className="shrink-0 text-xs text-zinc-400">Sign in again to connect</span>
-      )}
-    </div>
-  );
-}
-
-function FieldShell({ children }: { children: ReactNode }) {
-  return <div className="relative flex-1">{children}</div>;
-}
-
-function PasswordInput({
-  value,
-  onChange,
-  placeholder,
-  invalid,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  invalid?: boolean;
-}) {
-  return (
-    <FieldShell>
+    <div className="relative">
       <input
-        type="password"
-        placeholder={placeholder}
-        className={`w-full rounded-lg border bg-white px-4 py-2.5 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-2 ${
-          invalid ? "border-red-300 focus:ring-red-100" : "border-zinc-200 focus:border-blue-500 focus:ring-blue-100"
-        }`}
+        type={visible ? "text" : "password"}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`h-11 w-full rounded-lg border bg-white px-4 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-2 ${invalid ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"}`}
       />
-      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">
-        <EyeIcon />
-      </span>
-    </FieldShell>
-  );
-}
-
-function ProviderLogo({ provider }: { provider: "github" | "gitlab" | "google" }) {
-  if (provider === "github") {
-    return (
-      <svg className="h-5 w-5 text-zinc-900" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z" />
-      </svg>
-    );
-  }
-  if (provider === "gitlab") {
-    return (
-      <svg className="h-5 w-5 text-[#e24329]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51a.42.42 0 0 1 .11-.18.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z" />
-      </svg>
-    );
-  }
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-      <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" />
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-    </svg>
+      <button
+        type="button"
+        aria-label={visible ? "Hide password" : "Show password"}
+        onClick={() => setVisible((v) => !v)}
+        className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+      >
+        <Icon name="eye" className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
 
 export default function Account() {
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
-
-  const { data: me } = useQuery<Me>({
-    queryKey: ["me"],
-    queryFn: () => api("/v1/auth/me"),
-  });
-
-  // change password
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [nextError, setNextError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
-
+  const [mfaSetup, setMfaSetup] = useState<MfaSetup | null>(null);
+  const [mfaEnableCode, setMfaEnableCode] = useState("");
+  const [mfaMsg, setMfaMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
-  const generateCodes = useMutation({
-    mutationFn: () => api<{ codes: string[] }>("/v1/auth/me/mfa/backup-codes", { method: "POST" }),
+  const [recoveryDialog, setRecoveryDialog] = useState<{ type: "email" | "phone"; value: string } | null>(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [toast, setToast] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const SUPPORT_EMAIL = "elazar.chodjayev@cloud-castles.com";
+
+  const { data: me } = useQuery<Me>({ queryKey: ["me"], queryFn: () => api("/v1/auth/me", { schema: meSchema }) });
+  const { data: workspaces = [] } = useQuery<WorkspaceEntry[]>({ queryKey: ["workspaces"], queryFn: () => api("/v1/auth/workspaces", { schema: workspaceListSchema }), enabled: !!me });
+
+  const switchWorkspace = useMutation({
+    mutationFn: (orgId: string) => api<{ access_token: string }>("/v1/auth/workspaces/switch", { method: "POST", body: JSON.stringify({ org_id: orgId }) }),
     onSuccess: (data) => {
-      setRecoveryCodes(data.codes);
+      storeTokens(data.access_token);
       qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: ["workspaces"] });
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      window.location.reload();
     },
   });
-  const downloadRecoveryCodes = (codes: string[]) => {
-    const blob = new Blob([`Vigil recovery codes\n\n${codes.join("\n")}\n`], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "vigil-recovery-codes.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const forgotPassword = useMutation({
-    mutationFn: () =>
-      api("/v1/auth/password-reset/request", { method: "POST", body: JSON.stringify({ email: me?.email }) }),
-    onSuccess: () =>
-      setPwMsg({ ok: true, text: "Reset link sent — check your email. The link expires in 30 minutes." }),
+    mutationFn: () => api("/v1/auth/password-reset/request", { method: "POST", body: JSON.stringify({ email: me?.email }) }),
+    onSuccess: () => setPwMsg({ ok: true, text: "Reset link sent. Check your email." }),
     onError: (e: Error) => setPwMsg({ ok: false, text: formatApiError(e) }),
   });
 
   const changePw = useMutation({
-    mutationFn: () =>
-      api("/v1/auth/me/password", {
-        method: "PUT",
-        body: JSON.stringify(
-          me?.has_password
-            ? { current_password: current, new_password: next }
-            : { new_password: next }
-        ),
-      }),
+    mutationFn: () => api("/v1/auth/me/password", { method: "PUT", body: JSON.stringify(me?.has_password ? { current_password: current, new_password: next } : { new_password: next }) }),
     onSuccess: () => {
-      setPwMsg({ ok: true, text: me?.has_password ? "Password updated." : "Password set. You can now sign in with credentials." });
+      setPwMsg({ ok: true, text: me?.has_password ? "Password updated." : "Password set." });
       qc.invalidateQueries({ queryKey: ["me"] });
-      setCurrent(""); setNext(""); setConfirm("");
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setPasswordDialogOpen(false);
     },
     onError: (e: Error) => setPwMsg({ ok: false, text: formatApiError(e) }),
   });
-
-  function submitPassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPwMsg(null);
-    setNextError(null);
-    setConfirmError(null);
-    if (me?.has_password && !current.trim()) {
-      setPwMsg({ ok: false, text: "Enter your current password." });
-      return;
-    }
-    if (!next) {
-      setNextError("Enter a password.");
-      return;
-    }
-    if (next.length < 12) {
-      setNextError("Password must be at least 12 characters.");
-      return;
-    }
-    if (!confirm) {
-      setConfirmError("Confirm your password.");
-      return;
-    }
-    if (next !== confirm) {
-      setConfirmError("Passwords don't match.");
-      return;
-    }
-    changePw.mutate();
-  }
-
-  // GitHub / GitLab / Google connect/disconnect — feedback as a single bottom toast.
-  const [toast, setToast] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-
-  useEffect(() => {
-    const gh = params.get("github");
-    const gl = params.get("gitlab");
-    const go = params.get("google");
-    const err = params.get("error");
-    if (!gh && !gl && !go && !err) return;
-
-    if (gh === "linked") setToast({ kind: "success", text: "GitHub connected" });
-    else if (gl === "linked") setToast({ kind: "success", text: "GitLab connected" });
-    else if (go === "linked") setToast({ kind: "success", text: "Google connected" });
-    else if (err) {
-      const friendly =
-        err === "github_already_linked" ? "That GitHub account is already linked to another user." :
-        err === "gitlab_already_linked" ? "That GitLab account is already linked to another user." :
-        err === "google_already_linked" ? "That Google account is already linked to another user." :
-        err === "bad_link_token" ? "Session expired. Try again." :
-        err === "oauth_denied" ? "Connection cancelled." :
-        err === "no_email" ? "Couldn't read your email from the provider." :
-        err === "not_found" ? "Account not found. Try again." :
-        "Couldn't connect. Try again.";
-      setToast({ kind: "error", text: friendly });
-    }
-
-    const cleaned = new URLSearchParams(params);
-    cleaned.delete("github");
-    cleaned.delete("gitlab");
-    cleaned.delete("google");
-    cleaned.delete("error");
-    cleaned.delete("provider");
-    setParams(cleaned, { replace: true });
-  }, [params, setParams]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), toast.kind === "error" ? 6000 : 4000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const disconnectGh = useMutation({
-    mutationFn: () => api("/v1/auth/me/github", { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
-    onError: (e: Error) => setToast({ kind: "error", text: formatApiError(e) }),
-  });
-
-  const sessionToken = token();
-  const ghConnectUrl = sessionToken
-    ? `${BASE}/v1/auth/github?link_token=${encodeURIComponent(sessionToken)}`
-    : null;
-
-  const disconnectGl = useMutation({
-    mutationFn: () => api("/v1/auth/me/gitlab", { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
-    onError: (e: Error) => setToast({ kind: "error", text: formatApiError(e) }),
-  });
-
-  const glConnectUrl = sessionToken
-    ? `${BASE}/v1/auth/gitlab?link_token=${encodeURIComponent(sessionToken)}`
-    : null;
-
-  const disconnectGoogle = useMutation({
-    mutationFn: () => api("/v1/auth/me/google", { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
-    onError: (e: Error) => setToast({ kind: "error", text: formatApiError(e) }),
-  });
-
-  const googleConnectUrl = sessionToken
-    ? `${BASE}/v1/auth/google?link_token=${encodeURIComponent(sessionToken)}`
-    : null;
-
-  // MFA
-  const [mfaSetup, setMfaSetup] = useState<MfaSetup | null>(null);
-  const [mfaEnableCode, setMfaEnableCode] = useState("");
-  const [mfaDisableCode, setMfaDisableCode] = useState("");
-  const [mfaDisablePassword, setMfaDisablePassword] = useState("");
-  const [showDisableMfa, setShowDisableMfa] = useState(false);
-  const [mfaMsg, setMfaMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const startMfaSetup = useMutation({
     mutationFn: () => api<MfaSetup>("/v1/auth/me/mfa/setup", { method: "POST" }),
@@ -462,15 +217,15 @@ export default function Account() {
       setMfaEnableCode("");
       setMfaMsg(null);
     },
-    onError: (e: Error) => setMfaMsg({ ok: false, text: formatApiError(e) }),
+    onError: (e: Error) => {
+      const text = formatApiError(e);
+      setMfaMsg({ ok: false, text });
+      setToast({ kind: "error", text });
+    },
   });
 
   const enableMfa = useMutation({
-    mutationFn: () =>
-      api("/v1/auth/me/mfa/enable", {
-        method: "POST",
-        body: JSON.stringify({ code: mfaEnableCode }),
-      }),
+    mutationFn: () => api("/v1/auth/me/mfa/enable", { method: "POST", body: JSON.stringify({ code: mfaEnableCode }) }),
     onSuccess: () => {
       setMfaMsg({ ok: true, text: "Two-factor authentication enabled." });
       setMfaSetup(null);
@@ -480,799 +235,336 @@ export default function Account() {
     onError: (e: Error) => setMfaMsg({ ok: false, text: formatApiError(e) }),
   });
 
-  const disableMfa = useMutation({
-    mutationFn: () =>
-      api("/v1/auth/me/mfa/disable", {
-        method: "POST",
-        body: JSON.stringify({
-          code: mfaDisableCode,
-          ...(me?.has_password ? { password: mfaDisablePassword } : {}),
-        }),
-      }),
-    onSuccess: () => {
-      setMfaMsg({ ok: true, text: "Two-factor authentication disabled." });
-      setMfaDisableCode("");
-      setMfaDisablePassword("");
-      setShowDisableMfa(false);
+  const generateCodes = useMutation({
+    mutationFn: () => api<{ codes: string[] }>("/v1/auth/me/mfa/backup-codes", { method: "POST" }),
+    onSuccess: (data) => {
+      setRecoveryCodes(data.codes);
       qc.invalidateQueries({ queryKey: ["me"] });
     },
-    onError: (e: Error) => setMfaMsg({ ok: false, text: formatApiError(e) }),
   });
 
-  const providerCount = me ? (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) : 0;
-  const signinMethodCount = providerCount;
-  const onlyOneMethod = me ? signinMethodCount === 1 : false;
+  useEffect(() => {
+    const err = params.get("error");
+    if (!err) return;
+    setToast({ kind: "error", text: "Could not update account. Try again." });
+    const cleaned = new URLSearchParams(params);
+    cleaned.delete("error");
+    setParams(cleaned, { replace: true });
+  }, [params, setParams]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function submitPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwMsg(null);
+    setNextError(null);
+    setConfirmError(null);
+    if (me?.has_password && !current.trim()) return setPwMsg({ ok: false, text: "Enter your current password." });
+    if (!next) return setNextError("Enter a password.");
+    if (next.length < 12) return setNextError("Password must be at least 12 characters.");
+    if (getPasswordStrength(next).score < 3) return setNextError("Use a stronger password with more variety.");
+    if (!confirm) return setConfirmError("Confirm your password.");
+    if (next !== confirm) return setConfirmError("Passwords do not match.");
+    changePw.mutate();
+  }
+
+  function downloadRecoveryCodes(codes: string[]) {
+    const blob = new Blob([`Veritrail recovery codes\n\n${codes.join("\n")}\n`], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "veritrail-recovery-codes.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const email = me?.email ?? "";
   const mfaOn = !!me?.totp_enabled;
   const hasPw = !!me?.has_password;
+  const healthStrong = hasPw && mfaOn;
+  const passwordStrength = getPasswordStrength(next);
+
+  const providerCount = (me?.github_id ? 1 : 0) + (me?.google_id ? 1 : 0);
+  const codesRemaining = me?.mfa_backup_codes_remaining ?? 0;
+
+  // Single source of truth for the posture ring + checklist panel: finishing
+  // every item reads 100% (no hidden factors), mirroring Workspace readiness.
+  const postureItems = [
+    { label: "Email verified", done: true },
+    { label: "Password set", done: hasPw },
+    { label: "Two-factor authentication enabled", done: mfaOn },
+    { label: "Recovery codes generated", done: codesRemaining > 0 },
+    { label: "Backup sign-in connected", done: providerCount > 0 },
+  ];
+  const postureScore = Math.round((postureItems.filter((i) => i.done).length / postureItems.length) * 100);
+  const postureTone: Tone = postureScore >= 90 ? "ok" : postureScore >= 70 ? "warn" : "danger";
+  const postureLabel = postureScore >= 90 ? "Ready" : postureScore >= 70 ? "Review" : "Setup";
+  const postureMessage =
+    postureScore >= 100 ? "Everything looks good. Keep it up." : postureScore >= 70 ? "A few items left to finish." : "Finish setup to secure your account.";
 
   return (
-    <div className="w-full max-w-none space-y-6 pb-10">
-      <header>
-        <h1 className="text-[32px] font-extrabold leading-tight tracking-tight text-slate-950">Account</h1>
-        <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-          {me ? (
-            <>
-              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-              Signed in as <span className="font-semibold text-slate-700">{me.email}</span>
-            </>
-          ) : (
-            "Manage how you sign in and keep your account secure."
-          )}
-        </p>
-      </header>
+    <div className="flex w-full max-w-none flex-col gap-5 pb-2">
+      <HeaderSlot>
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          currentOrgId={me?.org_id ?? ""}
+          onSwitch={(id) => switchWorkspace.mutate(id)}
+          pending={switchWorkspace.isPending}
+        />
+        <a
+          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Veritrail support request")}`}
+          className="ml-auto inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-semibold tracking-tight text-slate-700 no-underline shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <svg className="h-[18px] w-[18px] text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+          </svg>
+          Get help
+        </a>
+      </HeaderSlot>
 
-      {/* Security posture at a glance — mirrors the Accounts KPI row. */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <PostureCard
-          icon={<ShieldIcon />}
-          tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500"}
-          label="Two-factor authentication"
+      <div className="workspace-summary">
+        <PostureReadinessCell
+          title="Account security posture"
+          score={postureScore}
+          tone={postureTone}
+          label={postureLabel}
+          message={postureMessage}
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.mail}
+          label="Email"
+          value="Verified"
+          detail={email || "—"}
+          valueTone="ok"
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.building}
+          label="Workspace"
+          value={me?.org_name ?? "—"}
+          detail={`Role: ${me?.role ?? "member"}`}
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.key}
+          label="Sign-in"
+          value={hasPw ? "Password" : providerCount ? "SSO" : "—"}
+          detail={providerCount ? `+ ${providerCount} provider${providerCount === 1 ? "" : "s"}` : "No linked providers"}
+          valueTone="info"
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.shield}
+          label="Two-factor"
           value={mfaOn ? "On" : "Off"}
-          valueClass={mfaOn ? "text-emerald-700" : "text-slate-950"}
-          sub={mfaOn ? "Authenticator app" : "Not configured"}
-        />
-        <PostureCard
-          icon={<KeyIcon />}
-          tint="bg-sky-50 text-sky-600"
-          label="Sign-in methods"
-          value={signinMethodCount}
-          valueClass={onlyOneMethod ? "text-amber-600" : "text-slate-950"}
-          sub={onlyOneMethod ? "Only one — add a backup" : "Ways you can sign in"}
-        />
-        <PostureCard
-          icon={<LockIcon />}
-          tint="bg-indigo-50 text-indigo-600"
-          label="Password status"
-          value={hasPw ? "Set" : "SSO only"}
-          valueClass={hasPw ? "text-slate-950" : "text-slate-500"}
-          sub={hasPw ? "Email + password" : "No password set"}
-        />
-        <PostureCard
-          icon={<LinkIcon />}
-          tint="bg-amber-50 text-amber-600"
-          label="Connected SSO"
-          value={`${providerCount} of 3`}
-          sub="GitHub · GitLab · Google"
+          detail={mfaOn ? "Authenticator app" : "Not enabled"}
+          valueTone={mfaOn ? "ok" : "default"}
         />
       </div>
 
-      {me && onlyOneMethod && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.3 3.38c-.87 1.5.2 3.37 1.93 3.37h14.74c1.73 0 2.81-1.87 1.94-3.37L13.95 3.38c-.87-1.5-3.04-1.5-3.9 0L2.7 16.13ZM12 15.75h.01v.01H12v-.01Z" />
-          </svg>
-          <p>
-            <strong className="font-semibold">Only one sign-in method.</strong>{" "}
-            Set a password or connect another provider so you don't get locked out if{" "}
-            {me.has_password ? "you forget it" : me.github_id ? "GitHub access changes" : me.gitlab_id ? "GitLab access changes" : "Google access changes"}.
-          </p>
+      <div className="workspace-overview">
+        <div className="workspace-overview__cards">
+          <OverviewActionCard
+            tone="blue"
+            icon={KPI_ICON.lock}
+            title="Password"
+            description="Keep your password strong and up to date."
+            actionLabel={hasPw ? "Change password" : "Set password"}
+            onAction={() => { setPwMsg(null); setPasswordDialogOpen(true); }}
+          >
+            <OverviewFactRow icon={KPI_ICON.lock} label="Status" value={hasPw ? "Set" : "Not set"} />
+            <OverviewFactRow icon={KPI_ICON.shield} label="Strength" value={hasPw ? "Strong" : "—"} />
+            <OverviewFactRow icon={KPI_ICON.refresh} label="Last updated" value={hasPw ? "Recently" : "—"} />
+          </OverviewActionCard>
+
+          <OverviewActionCard
+            tone="green"
+            icon={KPI_ICON.shield}
+            title="Two-factor authentication"
+            description="Require an authenticator code, with recovery codes as backup."
+            actionLabel={mfaOn ? "Manage 2FA" : startMfaSetup.isPending ? "Preparing…" : "Set up 2FA"}
+            onAction={() => startMfaSetup.mutate()}
+          >
+            <OverviewFactRow icon={KPI_ICON.shield} label="Status" value={mfaOn ? "Enabled" : "Disabled"} />
+            <OverviewFactRow icon={KPI_ICON.fingerprint} label="Method" value={mfaOn ? "Authenticator app" : "None"} />
+            <OverviewFactRow icon={KPI_ICON.key} label="Recovery codes" value={`${codesRemaining} unused`} />
+          </OverviewActionCard>
+
+          <OverviewActionCard
+            tone="violet"
+            icon={KPI_ICON.key}
+            title="Recovery codes"
+            description="One-time codes to sign in if you lose your device."
+            actionLabel={mfaOn ? (codesRemaining ? "View / refresh codes" : "Generate codes") : "Enable 2FA first"}
+            onAction={() => (mfaOn ? generateCodes.mutate() : startMfaSetup.mutate())}
+          >
+            <OverviewFactRow icon={KPI_ICON.key} label="Available" value={`${codesRemaining} unused`} />
+            <OverviewFactRow icon={KPI_ICON.shield} label="Status" value={mfaOn ? "Active" : "Locked"} />
+            <OverviewFactRow icon={KPI_ICON.refresh} label="Requires" value="2FA enabled" />
+          </OverviewActionCard>
+
+          <OverviewActionCard
+            tone="amber"
+            icon={KPI_ICON.refresh}
+            title="Recovery methods"
+            description="Keep recovery contacts current so you can always get back in."
+            actionLabel="Manage recovery"
+            onAction={() => setRecoveryDialog({ type: "email", value: email })}
+          >
+            <OverviewFactRow icon={KPI_ICON.mail} label="Recovery email" value={email || "—"} />
+            <OverviewFactRow icon={KPI_ICON.user} label="Recovery phone" value="Not available" />
+            <OverviewFactRow icon={KPI_ICON.shield} label="Primary" value="Email" />
+          </OverviewActionCard>
         </div>
-      )}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_1.05fr]">
-        <Panel
-          icon={<ShieldIcon />}
-          tint="bg-blue-50 text-blue-600"
-          title="Profile & Security"
-          description="Manage your account identity and password."
-        >
-          <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-bold text-slate-800">Email address</label>
-              <div className="mt-2 flex min-h-12 items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-slate-700">
-                <span className="truncate">{me?.email ?? "Loading..."}</span>
-                <StatusChip tone="on">Verified</StatusChip>
+        <ReadinessChecklistPanel
+          title="Account security posture"
+          readyCopy="Your account is fully hardened. Keep it that way."
+          score={postureScore}
+          tone={postureTone}
+          label={postureLabel}
+          items={postureItems}
+        />
+      </div>
+
+      {passwordDialogOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]" role="dialog" aria-modal="true">
+          <div className="w-full max-w-2xl rounded-2xl border border-white/70 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500"><Icon name="lock" /></p>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Change password</h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Use a strong password that you do not use elsewhere.</p>
               </div>
+              <button type="button" aria-label="Close" onClick={() => setPasswordDialogOpen(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>
             </div>
-
             <form noValidate onSubmit={submitPassword} className="space-y-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-lg font-extrabold text-slate-950">Password</h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {me?.has_password ? "Keep your password strong and secure." : "Set a password to also sign in with email + password."}
-                  </p>
+              {hasPw ? (
+                <div className="grid gap-3 md:grid-cols-[170px_1fr] md:items-center">
+                  <label className="text-sm font-bold text-slate-700">Current password</label>
+                  <TextInput value={current} onChange={setCurrent} placeholder="Enter current password" />
                 </div>
-                {me?.has_password && (
-                  <button
-                    type="button"
-                    onClick={() => forgotPassword.mutate()}
-                    disabled={forgotPassword.isPending}
-                    className="shrink-0 text-sm font-semibold text-blue-700 transition hover:text-blue-900 disabled:opacity-60"
-                  >
-                    {forgotPassword.isPending ? "Sending…" : "Forgot current password?"}
+              ) : null}
+              <div className="grid gap-3 md:grid-cols-[170px_1fr] md:items-center">
+                <label className="text-sm font-bold text-slate-700">New password</label>
+                <div>
+                  <TextInput value={next} onChange={(v) => { setNext(v); setNextError(null); }} placeholder="Enter new password" invalid={!!nextError} />
+                  <div className="mt-2 flex items-center gap-3 text-xs font-semibold">
+                    <span className={strengthTextClass(passwordStrength.tone)}>Password strength: {passwordStrength.label}</span>
+                    <span className="h-1 flex-1 rounded-full bg-slate-100"><span className={`block h-full rounded-full ${passwordStrength.width} ${strengthBarClass(passwordStrength.tone)}`} /></span>
+                  </div>
+                  {next ? <p className={`mt-1 text-xs ${strengthTextClass(passwordStrength.tone)}`}>{passwordStrength.message}</p> : null}
+                  {nextError ? <p className="mt-1 text-xs text-red-600">{nextError}</p> : null}
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[170px_1fr] md:items-center">
+                <label className="text-sm font-bold text-slate-700">Confirm new password</label>
+                <div>
+                  <TextInput value={confirm} onChange={(v) => { setConfirm(v); setConfirmError(null); }} placeholder="Confirm new password" invalid={!!confirmError} />
+                  {confirmError ? <p className="mt-1 text-xs text-red-600">{confirmError}</p> : null}
+                </div>
+              </div>
+              {pwMsg ? <div className={`rounded-lg px-3 py-2.5 text-sm ${pwMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>{pwMsg.text}</div> : null}
+              <div className="flex justify-between gap-3 pt-1">
+                {hasPw ? <button type="button" onClick={() => forgotPassword.mutate()} className="text-sm font-bold text-blue-700 hover:text-blue-900">Forgot current password?</button> : <span />}
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setPasswordDialogOpen(false)} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral veritrail-toolbar-btn--lg">Cancel</button>
+                  <button type="submit" disabled={changePw.isPending} className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid veritrail-toolbar-btn--lg">
+                    {changePw.isPending ? "Saving..." : hasPw ? "Update password" : "Set password"}
                   </button>
-                )}
-              </div>
-
-              {me?.has_password && (
-                <div className="grid gap-2 md:grid-cols-[170px_1fr] md:items-center">
-                  <label className="text-sm font-bold text-slate-800">Current password</label>
-                  <PasswordInput value={current} onChange={setCurrent} placeholder="Enter current password" />
                 </div>
-              )}
-
-              <div className="grid gap-2 md:grid-cols-[170px_1fr] md:items-center">
-                <label className="text-sm font-bold text-slate-800">New password</label>
-                <div>
-                  <PasswordInput
-                    value={next}
-                    onChange={(value) => { setNext(value); setNextError(null); }}
-                    placeholder="Enter new password"
-                    invalid={!!nextError}
-                  />
-                  {nextError ? (
-                    <p className="mt-1 text-xs text-red-600">{nextError}</p>
-                  ) : (
-                    <p className="mt-1 text-xs text-slate-400">At least 12 characters.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-2 md:grid-cols-[170px_1fr] md:items-center">
-                <label className="text-sm font-bold text-slate-800">Confirm new password</label>
-                <div>
-                  <PasswordInput
-                    value={confirm}
-                    onChange={(value) => { setConfirm(value); setConfirmError(null); }}
-                    placeholder="Confirm new password"
-                    invalid={!!confirmError}
-                  />
-                  {confirmError && <p className="mt-1 text-xs text-red-600">{confirmError}</p>}
-                </div>
-              </div>
-
-              {pwMsg && (
-                <div className={`rounded-lg px-3 py-2.5 text-sm ${pwMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
-                  {pwMsg.text}
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={changePw.isPending}
-                  className="rounded-lg bg-blue-700 px-8 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
-                >
-                  {changePw.isPending ? "Saving..." : me?.has_password ? "Update password" : "Set password"}
-                </button>
               </div>
             </form>
           </div>
-        </Panel>
-
-        <div className="space-y-5">
-          <Panel
-            icon={<LinkIcon />}
-            tint="bg-blue-50 text-blue-600"
-            title="Connected providers"
-            description="Manage external identity providers used to sign in."
-            flush
-          >
-            <div className="mx-6 my-5 overflow-hidden rounded-lg border border-zinc-200">
-              <div className="divide-y divide-zinc-200">
-                <ProviderRow
-                  name="GitHub"
-                  icon={<ProviderLogo provider="github" />}
-                  connected={!!me?.github_id}
-                  connectUrl={ghConnectUrl ?? null}
-                  onDisconnect={() => setToast({ kind: "success", text: "GitHub management will open here soon." })}
-                  disconnecting={disconnectGh.isPending}
-                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
-                />
-                <ProviderRow
-                  name="GitLab"
-                  icon={<ProviderLogo provider="gitlab" />}
-                  connected={!!me?.gitlab_id}
-                  connectUrl={glConnectUrl ?? null}
-                  onDisconnect={() => setToast({ kind: "success", text: "GitLab management will open here soon." })}
-                  disconnecting={disconnectGl.isPending}
-                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
-                />
-                <ProviderRow
-                  name="Google"
-                  icon={<ProviderLogo provider="google" />}
-                  connected={!!me?.google_id}
-                  connectUrl={googleConnectUrl ?? null}
-                  onDisconnect={() => setToast({ kind: "success", text: "Google management will open here soon." })}
-                  disconnecting={disconnectGoogle.isPending}
-                  lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) === 0}
-                />
-              </div>
-            </div>
-          </Panel>
-
-          <Panel
-            icon={<ShieldIcon />}
-            tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}
-            title="Two-factor authentication"
-            description="Add an extra layer of security to your account."
-            status={<StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "On" : "Off"}</StatusChip>}
-          >
-            {mfaMsg && (
-              <div className={`mb-3 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "border border-green-200 bg-green-50 text-green-700" : "border border-red-200 bg-red-50 text-red-600"}`}>
-                {mfaMsg.text}
-              </div>
-            )}
-
-            {me?.totp_enabled ? (
-              <div className="flex items-center justify-between gap-5">
-                <p className="max-w-xl text-sm leading-relaxed text-slate-600">
-                  Two-factor authentication is enabled for this account.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setShowDisableMfa(true); setMfaMsg(null); }}
-                  className="shrink-0 rounded-lg border border-zinc-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-zinc-50"
-                >
-                  Disable
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-6">
-                <p className="max-w-xl text-sm leading-relaxed text-slate-600">
-                  Two-factor authentication helps protect your account by requiring a verification code in addition to your password when signing in.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => startMfaSetup.mutate()}
-                  disabled={startMfaSetup.isPending}
-                  className="shrink-0 rounded-lg bg-blue-700 px-8 py-3 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
-                >
-                  {startMfaSetup.isPending ? "Preparing..." : "Set up 2FA"}
-                </button>
-              </div>
-            )}
-          </Panel>
         </div>
-      </div>
+      ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_1.05fr]">
-        <Panel
-          icon={<KeyIcon />}
-          tint="bg-emerald-50 text-emerald-600"
-          title="Recovery codes"
-          description="One-time codes to sign in if you lose your authenticator."
-        >
-          {!me?.totp_enabled ? (
-            <div className="rounded-lg border border-dashed border-zinc-200 px-5 py-4 text-sm text-zinc-500">
-              Enable two-factor authentication above to generate recovery codes.
-            </div>
-          ) : recoveryCodes ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
-              <p className="text-sm font-semibold text-amber-900">Save these now — they won't be shown again.</p>
-              <p className="mt-0.5 text-xs text-amber-800/80">Each code works once. Store them somewhere safe.</p>
-              <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-amber-200/70 bg-white p-4">
-                {recoveryCodes.map((c) => (
-                  <code key={c} className="font-mono text-sm tracking-wide text-slate-800">{c}</code>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})}
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
-                >
-                  Copy all
-                </button>
-                <button
-                  type="button"
-                  onClick={() => downloadRecoveryCodes(recoveryCodes)}
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
-                >
-                  Download .txt
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecoveryCodes(null)}
-                  className="ml-auto rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-800">{me.mfa_backup_codes_remaining} of 10 codes remaining</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Each code signs you in once when your authenticator is unavailable.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => generateCodes.mutate()}
-                disabled={generateCodes.isPending}
-                className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-              >
-                {generateCodes.isPending ? "Generating…" : me.mfa_backup_codes_remaining > 0 ? "Regenerate codes" : "Generate codes"}
-              </button>
-            </div>
-          )}
-        </Panel>
-
-        <Panel
-          icon={<BulbIcon />}
-          tint="bg-amber-50 text-amber-600"
-          title="Security tips"
-          description="Simple actions to keep your account secure."
-        >
-          <div className="flex items-center justify-between gap-8">
-            <ul className="space-y-4 text-sm text-slate-600">
-              {["Use a unique, strong password", "Enable two-factor authentication", "Review connected apps regularly"].map((tip) => (
-                <li key={tip} className="flex items-center gap-3">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-300 text-emerald-600">
-                    <CheckIcon className="h-3.5 w-3.5" />
-                  </span>
-                  {tip}
-                </li>
-              ))}
-            </ul>
-            <div className="hidden h-32 w-48 shrink-0 items-center justify-center md:flex">
-              <svg className="h-32 w-48" viewBox="0 0 192 128" fill="none" aria-hidden="true">
-                <circle cx="104" cy="64" r="50" fill="#EEF1FF" />
-                <circle cx="104" cy="64" r="38" fill="#E5EAFF" />
-                <circle cx="50" cy="61" r="5" fill="#3B6FF6" />
-                <circle cx="151" cy="19" r="4" fill="#3B6FF6" />
-                <circle cx="172" cy="35" r="2.5" fill="#2F5FE6" />
-                <circle cx="69" cy="99" r="2.5" fill="#EAB308" />
-                <circle cx="126" cy="14" r="2" fill="#7FA1FF" />
-                <g filter="url(#securityShieldShadow)">
-                  <path d="M81 31H127a6 6 0 0 1 6 6V64c0 21-12 35-29 42-17-7-29-21-29-42V37a6 6 0 0 1 6-6Z" fill="#DDE5FF" />
-                  <path d="M87 38H121a5 5 0 0 1 5 5V64c0 18-10 30-22 36-12-6-22-18-22-36V43a5 5 0 0 1 5-5Z" fill="url(#securityShield)" />
-                  <path d="M104 38H121a5 5 0 0 1 5 5V64c0 18-10 30-22 36V38Z" fill="white" opacity=".08" />
-                  <path d="m92 68 8 8L118 58" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-                </g>
-                <defs>
-                  <filter id="securityShieldShadow" x="45" y="12" width="118" height="120" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                    <feFlood floodOpacity="0" result="BackgroundImageFix" />
-                    <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
-                    <feOffset dy="8" />
-                    <feGaussianBlur stdDeviation="10" />
-                    <feColorMatrix type="matrix" values="0 0 0 0 0.145 0 0 0 0 0.278 0 0 0 0 0.706 0 0 0 0.18 0" />
-                    <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow" />
-                    <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape" />
-                  </filter>
-                  <linearGradient id="securityShield" x1="83" x2="126" y1="42" y2="100" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#5B7CFF" />
-                    <stop offset="1" stopColor="#1D4ED8" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-          </div>
-        </Panel>
-      </div>
-
-      <div className="hidden">
-
-        <Panel
-          icon={<LockIcon />}
-          tint="bg-indigo-50 text-indigo-600"
-          title={me?.has_password ? "Password" : "Set a password"}
-          description={me?.has_password ? "Change the password you use for email sign-in." : "Your account uses SSO. Set a password to also sign in with email + password."}
-          status={<StatusChip tone={hasPw ? "on" : "off"}>{hasPw ? "Set" : "Not set"}</StatusChip>}
-        >
-        <form noValidate onSubmit={submitPassword} className="space-y-4">
-          {me?.has_password && (
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1.5">Current password</label>
-              <input
-                type="password"
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
-                value={current}
-                onChange={e => setCurrent(e.target.value)}
-              />
-            </div>
-          )}
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1.5">New password</label>
-            <input
-              type="password"
-              className={`w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
-                nextError
-                  ? "border-red-300 focus:ring-red-500"
-                  : "border-zinc-200 focus:ring-zinc-900"
-              }`}
-              value={next}
-              onChange={e => { setNext(e.target.value); setNextError(null); }}
-            />
-            {nextError ? (
-              <p className="mt-1.5 text-xs text-red-600">{nextError}</p>
-            ) : (
-              <p className="mt-1.5 text-xs text-zinc-400">At least 12 characters.</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1.5">Confirm new password</label>
-            <input
-              type="password"
-              className={`w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition ${
-                confirmError
-                  ? "border-red-300 focus:ring-red-500"
-                  : "border-zinc-200 focus:ring-zinc-900"
-              }`}
-              value={confirm}
-              onChange={e => { setConfirm(e.target.value); setConfirmError(null); }}
-            />
-            {confirmError && (
-              <p className="mt-1.5 text-xs text-red-600">{confirmError}</p>
-            )}
-          </div>
-          {pwMsg && (
-            <div className={`rounded-lg px-3 py-2.5 text-sm ${pwMsg.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
-              {pwMsg.text}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={changePw.isPending}
-            className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 transition-colors disabled:opacity-60"
-          >
-            {changePw.isPending ? "Saving…" : me?.has_password ? "Update password" : "Set password"}
-          </button>
-        </form>
-        </Panel>
-
-        {/* Single sign-on */}
-        <Panel
-          icon={<LinkIcon />}
-          tint="bg-sky-50 text-sky-600"
-          title="Single sign-on"
-          description="Connect a provider to sign in without a password."
-          status={<StatusChip tone={providerCount ? "on" : "off"}>{providerCount} connected</StatusChip>}
-          flush
-        >
-        <div className="divide-y divide-zinc-100">
-          <ProviderRow
-            name="GitHub"
-            icon={
-              <svg className="h-5 w-5 text-zinc-700" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-              </svg>
-            }
-            connected={!!me?.github_id}
-            connectUrl={ghConnectUrl ?? null}
-            onDisconnect={() => disconnectGh.mutate()}
-            disconnecting={disconnectGh.isPending}
-            lastMethod={!!me && (me.has_password ? 1 : 0) + (me.gitlab_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
-          />
-
-          <ProviderRow
-            name="GitLab"
-            icon={
-              <svg className="h-5 w-5 text-[#e24329]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51a.42.42 0 0 1 .11-.18.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z" />
-              </svg>
-            }
-            connected={!!me?.gitlab_id}
-            connectUrl={glConnectUrl ?? null}
-            onDisconnect={() => disconnectGl.mutate()}
-            disconnecting={disconnectGl.isPending}
-            lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.google_id ? 1 : 0) === 0}
-          />
-
-          <ProviderRow
-            name="Google"
-            icon={
-              <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.83z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-            }
-            connected={!!me?.google_id}
-            connectUrl={googleConnectUrl ?? null}
-            onDisconnect={() => disconnectGoogle.mutate()}
-            disconnecting={disconnectGoogle.isPending}
-            lastMethod={!!me && (me.has_password ? 1 : 0) + (me.github_id ? 1 : 0) + (me.gitlab_id ? 1 : 0) === 0}
-          />
-        </div>
-        </Panel>
-
-        {/* Two-factor authentication */}
-        <Panel
-          icon={<ShieldIcon />}
-          tint={mfaOn ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500"}
-          title="Two-factor authentication"
-          description="Require a code from your authenticator app when signing in with email, Google, GitHub, or GitLab."
-          status={<StatusChip tone={mfaOn ? "on" : "off"}>{mfaOn ? "Enabled" : "Disabled"}</StatusChip>}
-        >
-          {mfaMsg && (
-            <div className={`mb-3 rounded-lg px-3 py-2.5 text-sm ${mfaMsg.ok ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
-              {mfaMsg.text}
-            </div>
-          )}
-
-          {me?.totp_enabled ? (
-            <>
-              {!showDisableMfa && (
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 text-sm text-emerald-700">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                    Enabled
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setShowDisableMfa(true); setMfaMsg(null); }}
-                    className="shrink-0 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
-                  >
-                    Disable
-                  </button>
-                </div>
-              )}
-              {showDisableMfa && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setMfaMsg(null);
-                    disableMfa.mutate();
-                  }}
-                  className="space-y-4 rounded-lg border border-zinc-200 bg-zinc-50/50 p-4"
-                >
-                  <p className="text-xs leading-relaxed text-zinc-500">Enter your current authenticator code to disable MFA.</p>
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1.5">Authentication code</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      autoFocus
-                      className="w-full border border-zinc-200 rounded-lg bg-white px-3 py-2.5 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
-                      value={mfaDisableCode}
-                      onChange={e => setMfaDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      required
-                    />
-                  </div>
-                  {me.has_password && (
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-700 mb-1.5">Password</label>
-                      <input
-                        type="password"
-                        className="w-full border border-zinc-200 rounded-lg bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
-                        value={mfaDisablePassword}
-                        onChange={e => setMfaDisablePassword(e.target.value)}
-                        required
-                      />
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      type="submit"
-                      disabled={disableMfa.isPending || mfaDisableCode.length !== 6}
-                      className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-60"
-                    >
-                      {disableMfa.isPending ? "Disabling…" : "Confirm disable"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowDisableMfa(false);
-                        setMfaDisableCode("");
-                        setMfaDisablePassword("");
-                        setMfaMsg(null);
-                      }}
-                      className="rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
-            </>
-          ) : mfaSetup ? (
-            <div className="space-y-5">
-              <p className="text-sm leading-relaxed text-zinc-600">
-                Scan this QR code with Google Authenticator, 1Password, or another TOTP app, then enter the 6-digit code to confirm.
-              </p>
-              {mfaSetup.qr_data_url ? (
-                <img
-                  src={mfaSetup.qr_data_url}
-                  alt="Authenticator QR code"
-                  className="mx-auto h-44 w-44 rounded-lg border border-zinc-200 bg-white p-3"
-                />
-              ) : null}
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 mb-1.5">Manual entry key</p>
-                <code className="text-xs text-zinc-800 break-all">{mfaSetup.secret}</code>
-              </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setMfaMsg(null);
-                  enableMfa.mutate();
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1.5">Verification code</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    className="w-full border border-zinc-200 rounded-lg px-3 py-2.5 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent transition"
-                    value={mfaEnableCode}
-                    onChange={e => setMfaEnableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    required
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    disabled={enableMfa.isPending || mfaEnableCode.length !== 6}
-                    className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 transition-colors disabled:opacity-60"
-                  >
-                    {enableMfa.isPending ? "Enabling…" : "Enable MFA"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setMfaSetup(null); setMfaEnableCode(""); }}
-                    className="rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => startMfaSetup.mutate()}
-              disabled={startMfaSetup.isPending}
-              className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 transition-colors disabled:opacity-60"
-            >
-              {startMfaSetup.isPending ? "Preparing…" : "Set up authenticator app"}
-            </button>
-          )}
-        </Panel>
-      </div>
-
-      {mfaSetup && !me?.totp_enabled && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="mfa-setup-title"
-        >
+      {mfaSetup && !mfaOn ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-2xl border border-white/70 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                  <ShieldIcon />
-                </p>
-                <h2 id="mfa-setup-title" className="text-xl font-extrabold tracking-tight text-slate-950">
-                  Set up two-factor authentication
-                </h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
-                  Scan the QR code, then enter the 6-digit code from your authenticator app.
-                </p>
+                <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-600"><Icon name="shield" /></p>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Set up two-factor authentication</h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Scan the QR code, then enter the 6-digit code from your authenticator app.</p>
               </div>
-              <button
-                type="button"
-                aria-label="Close two-factor setup"
-                onClick={() => {
-                  setMfaSetup(null);
-                  setMfaEnableCode("");
-                  setMfaMsg(null);
-                }}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 transition-colors hover:bg-zinc-50 hover:text-slate-900"
-              >
-                &times;
-              </button>
+              <button type="button" aria-label="Close" onClick={() => { setMfaSetup(null); setMfaEnableCode(""); setMfaMsg(null); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>
             </div>
-
-            {mfaMsg && !mfaMsg.ok && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
-                {mfaMsg.text}
-              </div>
-            )}
-
-            {mfaSetup.qr_data_url ? (
-              <img
-                src={mfaSetup.qr_data_url}
-                alt="Authenticator QR code"
-                className="mx-auto h-56 w-56 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"
-              />
-            ) : (
-              <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 text-center text-sm font-medium text-slate-500">
-                QR code unavailable. Use the manual key below.
-              </div>
-            )}
-
+            {mfaSetup.qr_data_url ? <img src={mfaSetup.qr_data_url} alt="Authenticator QR code" className="mx-auto h-56 w-56 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm" /> : null}
             <div className="mt-5 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3">
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Manual entry key</p>
               <code className="break-all text-xs text-zinc-800">{mfaSetup.secret}</code>
             </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setMfaMsg(null);
-                enableMfa.mutate();
-              }}
-              className="mt-5 space-y-4"
-            >
+            <form onSubmit={(e) => { e.preventDefault(); setMfaMsg(null); enableMfa.mutate(); }} className="mt-5 space-y-4">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">Verification code</label>
+                <input type="tel" inputMode="numeric" autoComplete="one-time-code" value={mfaEnableCode} onChange={(e) => setMfaEnableCode(e.target.value.replace(/\D/g, "").slice(0, 6))} className="h-12 w-full rounded-lg border border-zinc-200 px-3 text-center font-mono text-lg tracking-[0.35em] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+              </div>
+              {mfaMsg && !mfaMsg.ok ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{mfaMsg.text}</p> : null}
+              <button type="submit" disabled={enableMfa.isPending || mfaEnableCode.length !== 6} className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid veritrail-toolbar-btn--lg w-full">{enableMfa.isPending ? "Enabling..." : "Enable 2FA"}</button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {recoveryDialog ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl border border-white/70 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
+                  <Icon name={recoveryDialog.type === "email" ? "mail" : "phone"} />
+                </p>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">
+                  {recoveryDialog.type === "email" ? "Recovery email" : "Recovery phone"}
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Update the recovery method used to regain account access.</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setRecoveryDialog(null)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); setRecoveryDialog(null); setToast({ kind: "success", text: "Recovery method updated." }); }} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">{recoveryDialog.type === "email" ? "Email address" : "Phone number"}</label>
                 <input
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  autoFocus
-                  className="w-full rounded-lg border border-zinc-200 px-3 py-3 text-center font-mono text-lg text-slate-900 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  value={mfaEnableCode}
-                  onChange={e => setMfaEnableCode(e.currentTarget.value.replace(/\D/g, "").slice(0, 6))}
-                  onPaste={e => {
-                    e.preventDefault();
-                    setMfaEnableCode(e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6));
-                  }}
-                  required
+                  type={recoveryDialog.type === "email" ? "email" : "tel"}
+                  defaultValue={recoveryDialog.value}
+                  className="h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMfaSetup(null);
-                    setMfaEnableCode("");
-                    setMfaMsg(null);
-                  }}
-                  className="flex-1 rounded-lg border border-zinc-200 px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-zinc-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={enableMfa.isPending || mfaEnableCode.length !== 6}
-                  className="flex-1 rounded-lg bg-blue-700 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 disabled:opacity-60"
-                >
-                  {enableMfa.isPending ? "Enabling..." : "Enable 2FA"}
-                </button>
+              <div className="flex justify-end gap-3 pt-1">
+                <button type="button" onClick={() => setRecoveryDialog(null)} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral veritrail-toolbar-btn--lg">Cancel</button>
+                <button type="submit" className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid veritrail-toolbar-btn--lg">Save changes</button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-zinc-900 px-4 py-2 shadow-lg shadow-black/10 ring-1 ring-white/5 animate-toast-in"
-        >
-          {toast.kind === "success" ? (
-            <svg className="h-3.5 w-3.5 shrink-0 text-emerald-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="m5 10.5 3.5 3.5L15 7" />
-            </svg>
-          ) : (
-            <svg className="h-3.5 w-3.5 shrink-0 text-red-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M6 6l8 8M14 6l-8 8" />
-            </svg>
-          )}
-          <span className="text-sm font-medium text-white">{toast.text}</span>
+      {recoveryCodes ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]" role="dialog" aria-modal="true" onClick={() => setRecoveryCodes(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-white/70 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)]" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700"><Icon name="key" /></p>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Recovery codes</h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Save these now. They will not be shown again.</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setRecoveryCodes(null)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              {recoveryCodes.map((code) => <code key={code} className="font-mono text-sm text-slate-800">{code}</code>)}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral">Copy all</button>
+              <button type="button" onClick={() => downloadRecoveryCodes(recoveryCodes)} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral">Download .txt</button>
+              <button type="button" onClick={() => setRecoveryCodes(null)} className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid">Done</button>
+            </div>
+          </div>
         </div>
-      )}
+      ) : null}
+
+      {toast ? <div className={`fixed bottom-5 right-5 z-[70] rounded-lg px-4 py-3 text-sm font-semibold shadow-lg ${toast.kind === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"}`}>{toast.text}</div> : null}
     </div>
   );
 }

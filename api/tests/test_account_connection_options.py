@@ -86,7 +86,7 @@ def test_update_cli_uses_update_stack():
 
 def test_remediation_launch_url_legacy_helper():
     url = _remediation_launch_url()
-    assert "VigilRemediationSSM" in url
+    assert "VeritrailRemediationSSM" in url
 
 
 def _mock_account(*, status: str, cfn_stack_name: str) -> MagicMock:

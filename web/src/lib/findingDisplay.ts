@@ -1,3 +1,5 @@
+import { maskAccessKeyId, maskSensitiveText } from "./sensitiveDisplay";
+
 export type FindingLike = {
   check_id: string;
   resource_arn: string;
@@ -121,7 +123,7 @@ export function findingScopeProvider(f: {
   return "aws";
 }
 
-/** 12-digit AWS account id from API or resource ARN (not Vigil's internal account uuid). */
+/** 12-digit AWS account id from API or resource ARN (not Veritrail's internal account uuid). */
 export function awsAccountIdFromFinding(f: {
   aws_account_id?: string | null;
   resource_arn?: string;
@@ -198,6 +200,10 @@ export type ResourceDetailRow = {
   mono?: boolean;
 };
 
+export function displayFindingTitle(title: string | null | undefined): string {
+  return maskSensitiveText(title ?? "");
+}
+
 export function resourceDetailRowsFromFinding(f: FindingLike): ResourceDetailRow[] {
   const e = f.evidence;
   const rows: ResourceDetailRow[] = [];
@@ -223,7 +229,8 @@ export function resourceDetailRowsFromFinding(f: FindingLike): ResourceDetailRow
   }
 
   if (cid.startsWith("iam.access_key")) {
-    push("Access key", evidenceString(e, "key_id"), true);
+    const keyId = evidenceString(e, "key_id");
+    push("Access key", keyId ? maskAccessKeyId(keyId) : null, true);
     push("IAM user", evidenceString(e, "user_name", "user_arn"));
     return rows;
   }
@@ -606,7 +613,7 @@ const IAM_SERVICE_DISPLAY_NAMES: Record<string, string> = {
   CLOUDFORMATION: "CloudFormation",
   CLOUDFRONT: "CloudFront",
   CLOUDTRAIL: "CloudTrail",
-  CLOUDWATCH: "CloudWatch",
+  CLOUDWATCH: "AWS CloudWatch",
   CLOUDWATCHLOGS: "CloudWatch Logs",
   CONFIG: "AWS Config",
   DYNAMODB: "DynamoDB",
@@ -618,11 +625,11 @@ const IAM_SERVICE_DISPLAY_NAMES: Record<string, string> = {
   ELASTICBEANSTALK: "Elastic Beanstalk",
   ELB: "Elastic Load Balancing",
   ES: "OpenSearch",
-  EVENTBRIDGE: "EventBridge",
-  EVENTS: "EventBridge",
+  EVENTBRIDGE: "Amazon EventBridge",
+  EVENTS: "Amazon EventBridge",
   FIREHOSE: "Kinesis Data Firehose",
   GUARDDUTY: "GuardDuty",
-  IAM: "IAM",
+  IAM: "AWS IAM",
   KINESIS: "Kinesis",
   KMS: "KMS",
   LAMBDA: "Lambda",
@@ -631,7 +638,7 @@ const IAM_SERVICE_DISPLAY_NAMES: Record<string, string> = {
   RDS: "RDS",
   ROUTE53: "Route 53",
   ROUTE53DOMAINS: "Route 53 Domains",
-  S3: "S3",
+  S3: "Amazon S3",
   SECRETSMANAGER: "Secrets Manager",
   SECURITYHUB: "Security Hub",
   SNS: "SNS",

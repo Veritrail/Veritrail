@@ -42,8 +42,8 @@ def create_terraform_pr(
         raise ValueError("repo must be owner/name")
     owner, repo = repo_full_name.split("/", 1)
 
-    branch = f"vigil/remediation-{uuid.uuid4().hex[:8]}"
-    safe_path = _BRANCH_SAFE.sub("-", file_path.lstrip("/")) or "vigil-remediation.tf"
+    branch = f"veritrail/remediation-{uuid.uuid4().hex[:8]}"
+    safe_path = _BRANCH_SAFE.sub("-", file_path.lstrip("/")) or "veritrail-remediation.tf"
 
     with httpx.Client(headers=_headers(token), timeout=30) as client:
         repo_resp = client.get(f"{GITHUB_API}/repos/{owner}/{repo}")

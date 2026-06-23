@@ -1,4 +1,4 @@
-"""IAM trust helpers for local SSO + VigilReadOnly."""
+"""IAM trust helpers for local SSO + VeritrailReadOnly."""
 from __future__ import annotations
 
 import copy

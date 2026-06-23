@@ -50,43 +50,54 @@ class Settings(BaseSettings):
     ENTRA_CLIENT_SECRET: str = ""
     ENTRA_INTEGRATION_CALLBACK_PATH: str = "/v1/integrations/entra/callback"
 
-    RESEND_API_KEY: str = ""
+    # Outbound email (SMTP). Gmail: smtp.gmail.com:587 + app password.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    MAIL_FROM: str = ""
+    # Legacy alias — falls back when MAIL_FROM is empty.
     DIGEST_FROM: str = "hygiene@example.com"
+    RESEND_API_KEY: str = ""  # unused; kept so old .env files do not break load
 
     # Fernet key for encrypting role_arn + external_id at rest.
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     ENCRYPTION_KEY: str = ""
+
+    # Local filesystem uploads (Trust Center logos in dev).
+    LOCAL_UPLOAD_DIR: str = "data/uploads"
 
     # Public URL of the read-only CloudFormation template a customer launches
     # in their own AWS account. Must be fetchable by CloudFormation in the
     # customer's account (S3 object URL — GitHub raw URLs are not reliable).
     # Override in prod to pin a versioned object when the template changes.
     CFN_TEMPLATE_URL: str = (
-        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/vigil-stack.yaml"
+        "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/veritrail-stack.yaml"
     )
-    # Current version of the Vigil connector template (bumped with each release).
+    # Current version of the Veritrail connector template (bumped with each release).
     # Used by the UI to label CloudFormation update actions.
     CFN_TEMPLATE_VERSION: str = "2026.06"
     # Parent connector stack + IAM role names (nested child templates).
-    CFN_STACK_NAME: str = "VigilAccountConnector"
-    CFN_STACK_NAME_LEGACY: str = "VigilReadOnly"
-    CFN_SCANNER_ROLE_NAME: str = "VigilScannerRole"
+    CFN_STACK_NAME: str = "VeritrailAccountConnector"
+    CFN_STACK_NAME_LEGACY: str = "VeritrailReadOnly"
+    CFN_SCANNER_ROLE_NAME: str = "VeritrailScannerRole"
     # Legacy split-stack policy-gen role (pre-unified connector); derive_advanced_role_arn maps these.
-    CFN_POLICY_GENERATION_ROLE_NAME: str = "VigilPolicyGenerationRole"
-    CFN_SCANNER_ROLE_NAME_LEGACY: str = "VigilReadOnlyScannerRole"
-    CFN_REMEDIATION_AUTOMATION_ROLE_NAME: str = "VigilRemediationAutomationRole"
+    CFN_POLICY_GENERATION_ROLE_NAME: str = "VeritrailPolicyGenerationRole"
+    CFN_SCANNER_ROLE_NAME_LEGACY: str = "VeritrailReadOnlyScannerRole"
+    CFN_REMEDIATION_AUTOMATION_ROLE_NAME: str = "VeritrailRemediationAutomationRole"
     CFN_REMEDIATION_TEMPLATE_URL: str = (
-        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
+        "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-remediation-ssm.yaml"
     )
     CFN_REMEDIATION_SSM_TEMPLATE_URL: str = (
-        "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
+        "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-remediation-ssm.yaml"
     )
 
     # CloudFormation console deep links (customer deploys connector stack).
     CFN_CONSOLE_REGION: str = "us-east-1"
     # Customer remediation automation home region.
     REMEDIATION_AUTOMATION_REGION: str = "us-east-1"
-    REMEDIATION_SSM_DOCUMENT_NAME: str = "Vigil-RemediationPlanExecutor"
+    REMEDIATION_SSM_DOCUMENT_NAME: str = "Veritrail-RemediationPlanExecutor"
     REMEDIATION_PLAN_TTL_MINUTES: int = 60
 
     # When True (default) hitting /v1/auth/{github,gitlab,google} *without*
@@ -101,7 +112,7 @@ class Settings(BaseSettings):
     EVIDENCE_PACK_SIGNING_KEY: str = ""
 
     # Immutable evidence vault (WORM) — uploads on evidence-pack export when enabled.
-    # Base S3 location for archived packs, e.g. s3://vigil-worm-storage/vigil
+    # Base S3 location for archived packs, e.g. s3://veritrail-worm-storage/veritrail
     EVIDENCE_VAULT_ENABLED: bool = False
     EVIDENCE_VAULT_S3_URI: str = ""
     EVIDENCE_VAULT_S3_REGION: str = ""

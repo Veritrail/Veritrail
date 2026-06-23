@@ -101,7 +101,7 @@ def _scanner_session(acc: AwsAccount) -> tuple[Any | None, str | None, str | Non
         sess = assume_role(
             acc.role_arn,
             acc.external_id,
-            session_name="vigil-capability-verify",
+            session_name="veritrail-capability-verify",
             aws_account=acc,
             purpose="capability_verify",
         )
@@ -116,7 +116,7 @@ def _scanner_session(acc: AwsAccount) -> tuple[Any | None, str | None, str | Non
 def build_capability_verification_context(acc: AwsAccount) -> CapabilityVerificationContext:
     """Single AWS session + policy/SSM snapshot for all capability checks."""
     if not acc.role_arn:
-        return CapabilityVerificationContext(session_error="Connect the Vigil connector role first")
+        return CapabilityVerificationContext(session_error="Connect the Veritrail connector role first")
 
     sess, account_id, sess_err = _scanner_session(acc)
     if not sess:
@@ -174,13 +174,13 @@ def _verify_advanced_with_ctx(acc: AwsAccount, ctx: CapabilityVerificationContex
         if monitor_name and not monitor_ok and not missing:
             result["error"] = (
                 "Advanced policy generation stack is incomplete. "
-                "Update the Vigil connector (Advanced IAM policy generation), then verify again."
+                "Update the Veritrail connector (Advanced IAM policy generation), then verify again."
             )
         elif monitor_name and not monitor_ok:
             result["error"] = (
                 "Advanced policy generation stack is incomplete. "
                 f"Missing: {', '.join(missing)}. "
-                "Update the Vigil connector, then verify again."
+                "Update the Veritrail connector, then verify again."
             )
         else:
             result["error"] = f"Missing permissions: {', '.join(missing)}"
@@ -279,7 +279,7 @@ def _verify_remediation_module_with_ctx(
         result["runner_ready"] = bool(ctx.runner_status.get("ready"))
 
     if wanted and ssm_ready:
-        # SSM-first: execution role permissions are enforced by vigil-remediation-ssm.yaml at runtime.
+        # SSM-first: execution role permissions are enforced by veritrail-remediation-ssm.yaml at runtime.
         result["deployed"] = True
         result["via_ssm"] = True
         result["error"] = None

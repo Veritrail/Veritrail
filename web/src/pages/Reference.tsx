@@ -80,7 +80,7 @@ export default function Reference() {
       <div className="mb-7 flex items-start justify-between gap-6 pt-1">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Reference</h1>
-          <p className="mt-1 text-sm text-zinc-500">Search keys, AWS identifiers, and finding terms supported by Vigil.</p>
+          <p className="mt-1 text-sm text-zinc-500">Search keys, AWS identifiers, and finding terms supported by Veritrail.</p>
         </div>
         <div className="flex h-10 w-80 items-center rounded-xl border border-zinc-200 bg-white px-3 shadow-sm focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-950/[0.06]">
           <svg className="mr-2 h-4 w-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

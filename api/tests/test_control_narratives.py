@@ -22,11 +22,11 @@ def test_physical_scope_limitation_is_pack_level_not_cc61():
     assert not any("physical" in g.lower() for g in detail["known_gaps"])
 
 
-def test_read_only_posture_is_first_scope_limitation_every_framework():
+def test_detection_only_posture_is_first_scope_limitation_every_framework():
     for fw in ("soc2", "cis_aws_l1", "iso27001"):
         limits = scope_limitations_for(fw)
         assert limits, f"{fw} has no scope limitations"
-        assert "read-only" in limits[0].lower()
+        assert "detection only" in limits[0].lower()
         assert "never disables" in limits[0] and "modifies any resource" in limits[0]
 
 
@@ -42,6 +42,10 @@ def test_every_mapped_control_has_narrative():
     for entry in raw:
         fw = entry["framework"]
         cid = entry["control_id"]
+        # Manual controls (no automated checks) carry their own description +
+        # guidance for attestation; check-evidence narratives don't apply.
+        if not entry.get("checks"):
+            continue
         if not narrative_for(fw, cid):
             missing.append(f"{fw}:{cid}")
     assert not missing, f"missing narratives: {missing[:10]}"

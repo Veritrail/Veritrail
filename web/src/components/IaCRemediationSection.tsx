@@ -49,8 +49,8 @@ type SsmRemediationMeta = {
   resource_region: string;
   automation_region: string;
   runbook?: { document_name: string; owner: string; note?: string; source_url?: string } | null;
-  requires_vigil_document: boolean;
-  automation_provider?: "aws-owned" | "vigil";
+  requires_veritrail_document: boolean;
+  automation_provider?: "aws-owned" | "veritrail";
   aws_document_name?: string | null;
   automation_confidence?: string | null;
   automation_note?: string | null;
@@ -86,38 +86,38 @@ function formatAutomationStartError(message: string): string {
   if (
     message.includes("AccessDenied") &&
     message.includes("ssm:StartAutomationExecution") &&
-    message.includes("VigilScannerRole")
+    message.includes("VeritrailScannerRole")
   ) {
     if (message.includes(":document/")) {
       return (
-        "VigilScannerRole has VigilSsmRemediationStart but it does not allow StartAutomationExecution on this " +
-        "document ARN. Update VigilAccountConnector to the latest connector template (document resource in IAM), " +
+        "VeritrailScannerRole has VeritrailSsmRemediationStart but it does not allow StartAutomationExecution on this " +
+        "document ARN. Update VeritrailAccountConnector to the latest connector template (document resource in IAM), " +
         "wait for UPDATE_COMPLETE, then Accounts → Verify capabilities and Retry."
       );
     }
     return (
-      "VigilScannerRole is missing ssm:StartAutomationExecution. " +
-      "Update your VigilAccountConnector CloudFormation stack with SSM remediation modules enabled " +
+      "VeritrailScannerRole is missing ssm:StartAutomationExecution. " +
+      "Update your VeritrailAccountConnector CloudFormation stack with SSM remediation modules enabled " +
       "(EnableIamAccessKeyRemediation=Yes, etc.), then Accounts → Verify capabilities."
     );
   }
   if (message.includes("AutomationAssumeRole") && message.includes("Unknown parameter")) {
     return (
       "The API sent an invalid StartAutomationExecution parameter (AutomationAssumeRole). " +
-      "Restart the Vigil API to pick up the latest build, then Retry."
+      "Restart the Veritrail API to pick up the latest build, then Retry."
     );
   }
   if (/cross-account pass role/i.test(message)) {
     return (
       "SSM could not use the remediation role in your AWS account (cross-account PassRole). " +
-      "Restart the Vigil API to pick up the latest fix, then Retry. If it persists, confirm " +
-      "VigilRemediationAutomationRole exists and the connector stack allows iam:PassRole to it."
+      "Restart the Veritrail API to pick up the latest fix, then Retry. If it persists, confirm " +
+      "VeritrailRemediationAutomationRole exists and the connector stack allows iam:PassRole to it."
     );
   }
-  if (/PutPublicAccessBlock/i.test(message) && /VigilRemediationAutomationRole/i.test(message)) {
+  if (/PutPublicAccessBlock/i.test(message) && /VeritrailRemediationAutomationRole/i.test(message)) {
     return (
-      "The AWS runbook started, but VigilRemediationAutomationRole cannot change bucket public access settings. " +
-      "Update your connector with EnableS3Remediation=Yes (this updates the nested vigil-remediation-ssm stack), " +
+      "The AWS runbook started, but VeritrailRemediationAutomationRole cannot change bucket public access settings. " +
+      "Update your connector with EnableS3Remediation=Yes (this updates the nested veritrail-remediation-ssm stack), " +
       "wait for UPDATE_COMPLETE, then Start again."
     );
   }
@@ -155,38 +155,25 @@ function versionControlPrLabel(providers: string[]): string {
   return "Git PR";
 }
 
-function ssmImpactDisplay(
-  severity: string,
-  actionLabel: string,
-  checkId: string,
-): { actionText: string } | null {
-  if (severity !== "critical" && severity !== "high") return null;
-  const actionText =
-    checkId === "iam.role.least_privilege_policy"
-      ? "Review least-privilege replacement"
-      : actionLabel.replace(/\bfull admin\b/gi, "full-admin");
-  return { actionText };
-}
-
 function ssmHumanPlanLabels(
   checkId: string,
-  provider: "aws-owned" | "vigil",
+  provider: "aws-owned" | "veritrail",
 ): { documentTitle: string; roleTitle: string } {
   if (checkId === "iam.role.least_privilege_policy" || checkId.startsWith("iam.")) {
     return {
       documentTitle: provider === "aws-owned" ? "AWS IAM remediation runbook" : "Least-privilege IAM remediation",
-      roleTitle: "Vigil managed automation role",
+      roleTitle: "Veritrail managed automation role",
     };
   }
   if (checkId.startsWith("ec2.security_group.")) {
     return {
       documentTitle: provider === "aws-owned" ? "AWS security group runbook" : "Revoke public ingress",
-      roleTitle: "Vigil managed automation role",
+      roleTitle: "Veritrail managed automation role",
     };
   }
   return {
-    documentTitle: provider === "aws-owned" ? "AWS remediation runbook" : "Vigil automation document",
-    roleTitle: "Vigil managed automation role",
+    documentTitle: provider === "aws-owned" ? "AWS remediation runbook" : "Veritrail automation document",
+    roleTitle: "Veritrail managed automation role",
   };
 }
 
@@ -197,10 +184,6 @@ function iamRoleConsoleUrl(roleName: string, region: string): string {
 }
 
 const IAM_LEAST_PRIVILEGE_CHECK = "iam.role.least_privilege_policy";
-
-function SsmImpactBadge() {
-  return <span className={SSM_REVIEW_PILL}>High impact</span>;
-}
 
 function SsmInlineStatusPill({
   tone,
@@ -281,7 +264,6 @@ function SsmChecklistStep({
 
 function SsmAutomationWorkflowCard({
   isIamLeastPriv,
-  impact,
   policyLoading,
   policyReady,
   inlineStatusTone,
@@ -309,7 +291,6 @@ function SsmAutomationWorkflowCard({
   connectorFixNeeded,
 }: {
   isIamLeastPriv: boolean;
-  impact: { actionText: string } | null;
   policyLoading: boolean;
   policyReady: boolean;
   inlineStatusTone: "checking" | "blocked" | "ready" | "not_ready";
@@ -443,7 +424,6 @@ function SsmAutomationWorkflowCard({
               </p>
               <p className="mt-1 text-[12px] leading-[17px] text-zinc-600">{reviewBody}</p>
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                {impact ? <SsmImpactBadge /> : null}
                 <SsmInlineStatusPill tone={inlineStatusTone}>{inlineStatusLabel}</SsmInlineStatusPill>
               </div>
             </div>
@@ -658,7 +638,6 @@ function SsmRemediationPanel({
   resourceArn,
   resourceRegion,
   resourceLabel,
-  severity,
   ssm,
   onShowPolicy,
   policyReviewAcknowledged,
@@ -669,14 +648,13 @@ function SsmRemediationPanel({
   resourceArn?: string | null;
   resourceRegion: string;
   resourceLabel: string;
-  severity: string;
   ssm: SsmRemediationMeta;
   onShowPolicy?: () => void;
   policyReviewAcknowledged?: boolean;
 }) {
   const [dispatch, setDispatch] = useState<DispatchResponse | null>(null);
   const [cloudTrailBucketName, setCloudTrailBucketName] = useState("");
-  const [cloudTrailName, setCloudTrailName] = useState("VigilCloudTrail");
+  const [cloudTrailName, setCloudTrailName] = useState("VeritrailCloudTrail");
   const [approvalConfirmed, setApprovalConfirmed] = useState(false);
   /** True after user clicks Run remediation this drawer session (avoids stale DB failures on Ready). */
   const [attemptedStart, setAttemptedStart] = useState(false);
@@ -734,7 +712,7 @@ function SsmRemediationPanel({
           ...(isCloudTrailCreate
             ? {
                 parameter_overrides: {
-                  TrailName: cloudTrailName.trim() || "VigilCloudTrail",
+                  TrailName: cloudTrailName.trim() || "VeritrailCloudTrail",
                   S3BucketName: cloudTrailBucketName.trim(),
                 },
               }
@@ -753,7 +731,7 @@ function SsmRemediationPanel({
     setAttemptedStart(false);
     setApprovalConfirmed(false);
     setCloudTrailBucketName("");
-    setCloudTrailName("VigilCloudTrail");
+    setCloudTrailName("VeritrailCloudTrail");
   }, [findingId]);
 
   useEffect(() => {
@@ -836,18 +814,17 @@ function SsmRemediationPanel({
   const started =
     Boolean(automationExecutionId) || execInProgress || execSuccess;
   const showFailedState = executionStartFailed || executionRunFailed;
-  const provider: "aws-owned" | "vigil" =
+  const provider: "aws-owned" | "veritrail" =
     ssm.automation_provider ??
-    (ssm.runbook?.owner === "aws" ? "aws-owned" : "vigil");
+    (ssm.runbook?.owner === "aws" ? "aws-owned" : "veritrail");
   const runbookLabel =
     provider === "aws-owned"
       ? ssm.aws_document_name ?? ssm.runbook?.document_name ?? "AWS runbook"
-      : ssm.runbook?.document_name ?? "Vigil exact-match runbook";
+      : ssm.runbook?.document_name ?? "Veritrail exact-match runbook";
   const runbookSourceUrl =
     provider === "aws-owned"
       ? ssm.aws_runbook_docs_url ?? ssm.runbook?.source_url
       : ssm.runbook?.source_url;
-  const impact = ssmImpactDisplay(severity, ssm.action_label, checkId);
   const planLabels = ssmHumanPlanLabels(checkId, provider);
   const cloudTrailInputsReady = !isCloudTrailCreate || cloudTrailBucketName.trim().length > 2;
 
@@ -923,7 +900,6 @@ function SsmRemediationPanel({
             <div className="space-y-4">
               <SsmAutomationWorkflowCard
                 isIamLeastPriv={isIamLeastPriv}
-                impact={impact}
                 policyLoading={policyLoading}
                 policyReady={policyReady}
                 inlineStatusTone={inlineStatusTone}
@@ -983,7 +959,7 @@ function SsmRemediationPanel({
                       <input
                         value={cloudTrailName}
                         onChange={(e) => setCloudTrailName(e.target.value)}
-                        placeholder="VigilCloudTrail"
+                        placeholder="VeritrailCloudTrail"
                         className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[13px] text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                       />
                     </label>
@@ -1022,7 +998,6 @@ export function IaCRemediationSection({
   resourceRegion,
   resourceArn,
   resourceLabel,
-  severity,
   onShowPolicy,
   policyReviewAcknowledged,
 }: {
@@ -1034,7 +1009,6 @@ export function IaCRemediationSection({
   resourceRegion?: string | null;
   resourceArn?: string | null;
   resourceLabel?: string;
-  severity?: string;
   onShowPolicy?: () => void;
   policyReviewAcknowledged?: boolean;
 }) {
@@ -1135,7 +1109,6 @@ export function IaCRemediationSection({
       resourceArn={resourceArn ?? null}
       resourceRegion={region}
       resourceLabel={resourceLabel ?? "this resource"}
-      severity={severity ?? "medium"}
       ssm={data.ssm_remediation}
       onShowPolicy={onShowPolicy}
       policyReviewAcknowledged={policyReviewAcknowledged}

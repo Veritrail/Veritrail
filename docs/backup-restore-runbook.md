@@ -1,10 +1,10 @@
-# Vigil platform backup and restore runbook
+# Veritrail platform backup and restore runbook
 
 _Last updated: 2026-06-07_
 
 ## Scope
 
-This runbook covers the **Vigil control plane** (Postgres findings, evidence history, org settings). Customer AWS data is not stored beyond scan snapshots in Postgres.
+This runbook covers the **Veritrail control plane** (Postgres findings, evidence history, org settings). Customer AWS data is not stored beyond scan snapshots in Postgres.
 
 ## Targets
 
@@ -17,7 +17,7 @@ This runbook covers the **Vigil control plane** (Postgres findings, evidence his
 
 1. Run nightly `pg_dump` from the production host (or sidecar cron):
    ```bash
-   pg_dump -Fc -h localhost -U hygiene hygiene > vigil-$(date +%F).dump
+   pg_dump -Fc -h localhost -U hygiene hygiene > veritrail-$(date +%F).dump
    ```
 2. Copy dump to off-site storage (S3/B2) with versioning enabled.
 3. Encrypt at rest (SSE-KMS or provider-native encryption).
@@ -28,7 +28,7 @@ This runbook covers the **Vigil control plane** (Postgres findings, evidence his
 Run after every backup (automated or manual):
 
 ```bash
-./scripts/verify-backup.sh vigil-YYYY-MM-DD.dump
+./scripts/verify-backup.sh veritrail-YYYY-MM-DD.dump
 ```
 
 The script validates archive integrity via `pg_restore --list` without applying data.
@@ -45,7 +45,7 @@ The script validates archive integrity via `pg_restore --list` without applying 
 
 1. Stop API + worker to prevent writes during restore
 2. Drop/recreate empty `hygiene` database (or new instance)
-3. `pg_restore -d hygiene --no-owner --role=hygiene vigil-YYYY-MM-DD.dump`
+3. `pg_restore -d hygiene --no-owner --role=hygiene veritrail-YYYY-MM-DD.dump`
 4. Verify row counts: `orgs`, `findings`, `aws_accounts`
 5. Start API/worker; confirm `/healthz` and one authenticated scan read
 6. Post-incident: rotate `JWT_SECRET` / `ENCRYPTION_KEY` only if dump may have leaked

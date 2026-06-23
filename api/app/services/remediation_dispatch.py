@@ -85,14 +85,14 @@ def _dispatch_instructions(
     resource_region: str,
 ) -> list[str]:
     base = [
-        "Update the Vigil connector stack with the SSM remediation module for this finding family.",
-        "When execute=true, Vigil calls ssm:StartAutomationExecution using the connector role.",
+        "Update the Veritrail connector stack with the SSM remediation module for this finding family.",
+        "When execute=true, Veritrail calls ssm:StartAutomationExecution using the connector role.",
         "Plan expires — prepare again after re-scan if the resource changed.",
     ]
-    if runbook and runbook.owner == "vigil":
+    if runbook and runbook.owner == "veritrail":
         base.insert(
             1,
-            f"Vigil guarded runbook runs in {automation_region}; PlanJson targets resource_region {resource_region}.",
+            f"Veritrail guarded runbook runs in {automation_region}; PlanJson targets resource_region {resource_region}.",
         )
     elif runbook and runbook.owner == "aws":
         base.insert(
@@ -166,7 +166,7 @@ def build_remediation_dispatch(
                 sess = assume_role(
                     acc.role_arn,
                     acc.external_id,
-                    session_name="vigil-remediation-ssm",
+                    session_name="veritrail-remediation-ssm",
                     aws_account=acc,
                     purpose="start_remediation_automation",
                 )

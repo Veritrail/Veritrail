@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.checks.base import FindingDraft, score
+from app.core.sensitive_display import mask_access_key_id
 from app.models import IamAccessKey
 
 CHECK_ID = "iam.access_key.no_rotation_90d"
@@ -31,7 +32,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
             FindingDraft(
                 check_id=CHECK_ID,
                 resource_arn=k.user_arn,
-                title=f"Access key `{k.key_id}` for `{username}` is {age_days} days old",
+                title=f"Access key `{mask_access_key_id(k.key_id)}` for `{username}` is {age_days} days old",
                 severity="medium",
                 risk_score=score("medium", age_days=age_days),
                 evidence={

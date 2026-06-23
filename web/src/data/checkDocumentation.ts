@@ -24,7 +24,7 @@ export type CheckDocumentation = {
 const checkDocumentationOverrides: Record<string, CheckDocumentation> = {
   "ec2.security_group.default_allows_traffic": {
     whatWeCheck:
-      "In each VPC, AWS creates a security group named default. Vigil flags that group when it has any inbound or outbound rules. An empty default SG (no custom rules) is what we treat as passing.",
+      "In each VPC, AWS creates a security group named default. Veritrail flags that group when it has any inbound or outbound rules. An empty default SG (no custom rules) is what we treat as passing.",
     whyShown:
       "This is not saying your instances are wide open right now. It means: if someone launches a resource without choosing a security group, AWS attaches the default SG — and any rules on it become that resource's firewall. CIS and SOC 2 expect the default SG to stay empty so accidental launches do not inherit permissive rules.",
     overview: {
@@ -38,7 +38,7 @@ const checkDocumentationOverrides: Record<string, CheckDocumentation> = {
   },
   "iam.role.external_account_trust": {
     whatWeCheck:
-      "We read each IAM role's trust policy (AssumeRolePolicyDocument). If an Allow statement grants sts:AssumeRole to a principal in another AWS account (12-digit account ID ≠ yours), we open a finding. VigilReadOnly and trust limited to your Vigil scan principal are excluded.",
+      "We read each IAM role's trust policy (AssumeRolePolicyDocument). If an Allow statement grants sts:AssumeRole to a principal in another AWS account (12-digit account ID ≠ yours), we open a finding. VeritrailReadOnly and trust limited to your Veritrail scan principal are excluded.",
     whyShown:
       "Cross-account role trust is how vendors, partners, or compromised third parties access your account. It is mapped to SOC 2 external-access controls — not a CIS line item. Expected integrations (e.g. your read-only scan role) should not appear after a re-scan.",
     overview: {

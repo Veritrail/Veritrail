@@ -226,7 +226,7 @@ export function AiTriageSection({
   if (triageState?.enabled === false) return null;
 
   const result = triageState?.result ?? null;
-  const isLocalReview = result?.model_version === "vigil-local-review-v1";
+  const isLocalReview = result?.model_version === "veritrail-local-review-v1";
   const busy = loadingResult || triggerTriage.isPending || viewState === "loading";
   const verdict = result ? verdictForScore(result.confidence_score) : null;
   const action = result ? actionBadge(result.suggested_action) : null;

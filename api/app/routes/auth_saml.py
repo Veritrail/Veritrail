@@ -16,16 +16,17 @@ from urllib.parse import quote
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth_cookies import attach_refresh_cookie
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal, issue_refresh_token, issue_token
-from app.models import User
-from app.models.saml import OrgSamlConfig
+from app.models import OrgSamlConfig, User
+from app.services.user_session import record_user_session
 
 router = APIRouter()
 settings = get_settings()
@@ -55,6 +56,40 @@ def _sp_acs_url(slug: str) -> str:
 
 def _login_url(slug: str) -> str:
     return f"{settings.API_PUBLIC_URL}/v1/auth/saml/{slug}/login"
+
+
+class SsoDiscoverIn(BaseModel):
+    email: EmailStr
+
+
+class SsoDiscoverOut(BaseModel):
+    sso_enabled: bool
+    login_url: str | None = None
+
+
+@router.post("/sso/discover", response_model=SsoDiscoverOut)
+def sso_discover(body: SsoDiscoverIn, db: Session = Depends(get_db)):
+    """Domain routing for SSO login: if the email's domain maps to a verified
+    workspace with SAML enabled, return that org's IdP login URL so the frontend
+    can redirect. Public email domains never route to SSO."""
+    from app.models.org_team import OrgDomain
+    from app.services.org_domain import email_domain, is_public_email_domain
+
+    domain = email_domain(str(body.email))
+    if not domain or is_public_email_domain(domain):
+        return SsoDiscoverOut(sso_enabled=False)
+
+    d = db.scalar(select(OrgDomain).where(OrgDomain.domain == domain, OrgDomain.verified.is_(True)))
+    if not d:
+        return SsoDiscoverOut(sso_enabled=False)
+
+    cfg = db.scalar(
+        select(OrgSamlConfig).where(OrgSamlConfig.org_id == d.org_id, OrgSamlConfig.enabled.is_(True))
+    )
+    if not cfg:
+        return SsoDiscoverOut(sso_enabled=False)
+
+    return SsoDiscoverOut(sso_enabled=True, login_url=_login_url(cfg.slug))
 
 
 def _saml_settings(cfg: OrgSamlConfig) -> dict:
@@ -122,10 +157,12 @@ def _get_enabled_config(db: Session, slug: str) -> OrgSamlConfig:
     return cfg
 
 
-def _login_redirect(user: User) -> RedirectResponse:
+def _login_redirect(user: User, *, request: Request, db: Session) -> RedirectResponse:
     uid, oid = str(user.id), str(user.org_id)
     access = issue_token(uid, oid)
     refresh = issue_refresh_token(uid, oid, remember_me=True)
+    record_user_session(db, user.id, refresh, request)
+    db.commit()
     resp = RedirectResponse(f"{settings.FRONTEND_URL}/auth/callback?token={quote(access, safe='')}")
     attach_refresh_cookie(resp, refresh, remember_me=True)
     return resp
@@ -197,12 +234,21 @@ async def saml_acs(slug: str, request: Request, db: Session = Depends(get_db)):
     if not email:
         return _error_redirect("saml_no_email")
 
+    from app.services.org_membership import add_membership, get_membership, set_active_workspace
+
     user = db.scalar(select(User).where(User.email == email))
-    if user and user.org_id != cfg.org_id:
-        # Global email uniqueness: this identity already belongs to another org.
-        log.warning("saml.email_other_org", slug=slug, email=email)
-        return _error_redirect("saml_email_other_org")
-    if not user:
+    if user:
+        membership = get_membership(db, user.id, cfg.org_id)
+        if membership:
+            set_active_workspace(db, user, cfg.org_id)
+        else:
+            if not settings.ALLOW_SSO_SIGNUP:
+                log.warning("saml.signup_blocked", slug=slug, email=email)
+                return _error_redirect("no_account_for_idp")
+            add_membership(db, user.id, cfg.org_id, "viewer")
+            set_active_workspace(db, user, cfg.org_id)
+            log.info("saml.jit_membership", slug=slug, email=email, org_id=str(cfg.org_id))
+    else:
         if not settings.ALLOW_SSO_SIGNUP:
             log.warning("saml.signup_blocked", slug=slug, email=email)
             return _error_redirect("no_account_for_idp")
@@ -211,14 +257,15 @@ async def saml_acs(slug: str, request: Request, db: Session = Depends(get_db)):
             org_id=cfg.org_id,
             email=email,
             password_hash="",
-            role="member",
+            role="viewer",
         )
         db.add(user)
+        add_membership(db, user.id, cfg.org_id, "viewer")
         log.info("saml.jit_provisioned", slug=slug, email=email, org_id=str(cfg.org_id))
 
     db.commit()
     log.info("saml.login", slug=slug, user_id=str(user.id), org_id=str(cfg.org_id))
-    return _login_redirect(user)
+    return _login_redirect(user, request=request, db=db)
 
 
 # ── Admin configuration (authenticated, org-scoped) ─────────────────────────
@@ -266,7 +313,7 @@ def get_saml_config(p=Depends(current_principal), db: Session = Depends(get_db))
 
 
 @router.put("/saml/config", response_model=SamlConfigOut)
-def put_saml_config(body: SamlConfigIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def put_saml_config(body: SamlConfigIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org_id = uuid.UUID(p["org_id"])
     slug = body.slug.strip().lower()
     if not _SLUG_RE.match(slug):

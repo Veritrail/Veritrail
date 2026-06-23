@@ -1,4 +1,4 @@
-module github.com/awakzdev/vigil/tools/hclpatch
+module github.com/awakzdev/veritrail/tools/hclpatch
 
 go 1.22
 

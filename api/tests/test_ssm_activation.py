@@ -12,7 +12,7 @@ from app.data.remediation_modules import (
 )
 from app.models import Finding
 from app.services.remediation_plan import (
-    VIGIL_CUSTOM_SSM_CHECKS,
+    VERITRAIL_CUSTOM_SSM_CHECKS,
     build_remediation_plan,
     resolve_automation_region,
 )
@@ -62,15 +62,15 @@ def test_cloudtrail_logging_runner_supported():
     assert spec.runner_supported is True
 
 
-# ── VIGIL_CUSTOM_SSM_CHECKS ──────────────────────────────────────────
+# ── VERITRAIL_CUSTOM_SSM_CHECKS ──────────────────────────────────────────
 
-def test_vigil_custom_ssm_checks_includes_activated_modules():
-    assert "s3.bucket.public_access_not_blocked" not in VIGIL_CUSTOM_SSM_CHECKS
-    assert "iam.role.least_privilege_policy" in VIGIL_CUSTOM_SSM_CHECKS
-    assert "iam.policy.wildcard_resource" not in VIGIL_CUSTOM_SSM_CHECKS
+def test_veritrail_custom_ssm_checks_includes_activated_modules():
+    assert "s3.bucket.public_access_not_blocked" not in VERITRAIL_CUSTOM_SSM_CHECKS
+    assert "iam.role.least_privilege_policy" in VERITRAIL_CUSTOM_SSM_CHECKS
+    assert "iam.policy.wildcard_resource" not in VERITRAIL_CUSTOM_SSM_CHECKS
     # Existing checks still there
-    assert "ec2.security_group.unrestricted_ssh" in VIGIL_CUSTOM_SSM_CHECKS
-    assert "iam.access_key.unused_45d" in VIGIL_CUSTOM_SSM_CHECKS
+    assert "ec2.security_group.unrestricted_ssh" in VERITRAIL_CUSTOM_SSM_CHECKS
+    assert "iam.access_key.unused_45d" in VERITRAIL_CUSTOM_SSM_CHECKS
 
 
 # ── S3 Module: AWS-owned runbook ─────────────────────────────────────
@@ -89,7 +89,7 @@ def test_runbook_payload_includes_ssm_console_source_url():
     payload = runbook_payload(rb, automation_region="us-east-1")
     assert payload["source_url"] == runbook_source_url(rb, automation_region="us-east-1")
     assert "console.aws.amazon.com/systems-manager/documents" in payload["source_url"]
-    assert "Vigil-RevokeSecurityGroupIngressExact" in payload["source_url"]
+    assert "Veritrail-RevokeSecurityGroupIngressExact" in payload["source_url"]
 
 
 def test_aws_runbook_source_url_is_docs():
@@ -114,11 +114,11 @@ def test_s3_automation_parameters_bucket_pab():
     params = automation_parameters_for_plan(
         plan_json,
         rb,
-        automation_assume_role_arn="arn:aws:iam::123456789012:role/VigilRemediationAutomationRole",
+        automation_assume_role_arn="arn:aws:iam::123456789012:role/VeritrailRemediationAutomationRole",
     )
     assert params["BucketName"] == ["my-bucket"]
     assert params["AutomationAssumeRole"] == [
-        "arn:aws:iam::123456789012:role/VigilRemediationAutomationRole"
+        "arn:aws:iam::123456789012:role/VeritrailRemediationAutomationRole"
     ]
     assert params["BlockPublicAcls"] == ["true"]
 
@@ -137,8 +137,8 @@ def test_s3_uses_resource_automation_region(monkeypatch):
 def test_iam_full_admin_runbook_wired():
     rb = runbook_for_check("iam.role.least_privilege_policy")
     assert rb is not None
-    assert rb.document_name == "Vigil-RemediateIamExcessPermissions"
-    assert rb.owner == "vigil"
+    assert rb.document_name == "Veritrail-RemediateIamExcessPermissions"
+    assert rb.owner == "veritrail"
 
 
 def test_iam_wildcard_runbook_paused():
@@ -200,18 +200,18 @@ def test_cloudtrail_automation_parameters_guided(monkeypatch):
         "check_id": "cloudtrail.trail.not_enabled",
         "parameters": {
             "S3BucketName": "",
-            "TrailName": "VigilCloudTrail",
+            "TrailName": "VeritrailCloudTrail",
             "EnableLogFileValidation": True,
             "IsMultiRegionTrail": True,
         },
     }
     plan_json = json.dumps(plan)
     params = automation_parameters_for_plan(
-        plan_json, rb, automation_assume_role_arn="arn:aws:iam::123456789012:role/VigilRemediationAutomationRole"
+        plan_json, rb, automation_assume_role_arn="arn:aws:iam::123456789012:role/VeritrailRemediationAutomationRole"
     )
     assert "AutomationAssumeRole" in params
     assert "TrailName" in params
-    assert params["TrailName"] == ["VigilCloudTrail"]
+    assert params["TrailName"] == ["VeritrailCloudTrail"]
     assert "S3BucketName" in params
     assert "EnableLogFileValidation" in params
 
@@ -224,7 +224,7 @@ def test_cloudtrail_parameter_overrides():
     plan = {
         "plan_id": "ct-test",
         "check_id": "cloudtrail.trail.not_enabled",
-        "parameters": {"S3BucketName": "", "TrailName": "VigilCloudTrail"},
+        "parameters": {"S3BucketName": "", "TrailName": "VeritrailCloudTrail"},
     }
     plan_json = json.dumps(plan)
     params = automation_parameters_for_plan(
@@ -238,7 +238,7 @@ def test_cloudtrail_parameter_overrides():
 
 
 def test_cloudtrail_uses_resource_region():
-    """AWS-owned CloudTrail runbook still uses resource region (not in VIGIL_CUSTOM_SSM_CHECKS)."""
+    """AWS-owned CloudTrail runbook still uses resource region (not in VERITRAIL_CUSTOM_SSM_CHECKS)."""
     region = resolve_automation_region("cloudtrail.trail.not_enabled", "eu-west-2")
     assert region == "eu-west-2"
 
@@ -263,7 +263,7 @@ def test_cloudtrail_plan_has_parameters_and_requires_user_input():
     )
     plan = build_remediation_plan(f)
     assert "parameters" in plan
-    assert plan["parameters"]["TrailName"] == "VigilCloudTrail"
+    assert plan["parameters"]["TrailName"] == "VeritrailCloudTrail"
     assert "requires_user_input" in plan
     assert "S3BucketName" in plan["requires_user_input"]
 
@@ -368,7 +368,7 @@ def test_dispatch_accepts_parameter_overrides(monkeypatch):
     )
     acc = MagicMock()
     acc.account_id = "123456789012"
-    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailScannerRole"
     db = MagicMock()
     db.get.return_value = acc
     out = build_remediation_dispatch(
@@ -438,22 +438,22 @@ def test_s3_plan_steps_mention_specific_bucket():
 def test_sg_runbook_unchanged():
     rb = runbook_for_check("ec2.security_group.unrestricted_ssh")
     assert rb is not None
-    assert rb.owner == "vigil"
+    assert rb.owner == "veritrail"
     assert rb.parameter_mode == "plan_json"
 
 
 def test_iam_key_runbook_unchanged():
     rb = runbook_for_check("iam.access_key.unused_90d")
     assert rb is not None
-    assert rb.owner == "vigil"
-    assert rb.document_name == "Vigil-DeactivateIamAccessKey"
+    assert rb.owner == "veritrail"
+    assert rb.document_name == "Veritrail-DeactivateIamAccessKey"
 
 
 def test_ssm_parameter_runbook_unchanged():
     rb = runbook_for_check("ssm.parameter.plaintext_secret")
     assert rb is not None
-    assert rb.owner == "vigil"
-    assert rb.document_name == "Vigil-MigrateSsmParameterToSecureString"
+    assert rb.owner == "veritrail"
+    assert rb.document_name == "Veritrail-MigrateSsmParameterToSecureString"
 
 
 def test_unknown_check_no_runbook():

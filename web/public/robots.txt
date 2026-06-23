@@ -1,4 +1,4 @@
-# Vigil — https://github.com/awakzdev/Vigil
+# Veritrail — https://github.com/awakzdev/Veritrail
 # Update Sitemap URL if production hostname changes.
 
 User-agent: *
@@ -20,4 +20,4 @@ Disallow: /timeline
 Disallow: /history/infrastructure
 Disallow: /auth/
 
-Sitemap: https://vigil.cclab.cloud-castles.com/sitemap.xml
+Sitemap: https://app.veritrail.io/sitemap.xml

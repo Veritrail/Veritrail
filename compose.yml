@@ -49,6 +49,7 @@ services:
       - ./api:/app
       - ./web:/web:ro
       - ./infra:/infra:ro
+      - ./data/uploads:/app/data/uploads
       # Mounted for SSO token cache. Omit this volume if using static keys only.
       - ${HOME}/.aws:/root/.aws:rw
 
@@ -98,7 +99,7 @@ services:
       VITE_DEV_API_PROXY: http://api:8000
     ports:
       - "127.0.0.1:5173:5173"
-    command: npm run dev -- --host 0.0.0.0
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     volumes:
       - ./web:/app
       - /app/node_modules
@@ -159,7 +160,7 @@ services:
     command: >
       -c "
         set -e
-        DUMP_FILE=/tmp/vigil_$$(date +%Y%m%d_%H%M%S).dump
+        DUMP_FILE=/tmp/veritrail_$$(date +%Y%m%d_%H%M%S).dump
         pg_dump -h db -U $$POSTGRES_USER -Fc $$POSTGRES_DB > $$DUMP_FILE
         echo \"Dump written: $$DUMP_FILE ($$(du -sh $$DUMP_FILE | cut -f1))\"
         if [ -n \"$$B2_KEY_ID\" ]; then

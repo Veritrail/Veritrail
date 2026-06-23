@@ -1,4 +1,4 @@
-import { api } from "../api";
+import { fetchAllFindings } from "./fetchAllFindings";
 
 export const RECHECK_POLL_MS = 1500;
 /** Slow-path Celery recheck (full IAM/S3 collect) can take several minutes. */
@@ -10,19 +10,13 @@ export type FindingSnapshot = {
   last_seen: string;
 };
 
-type FindingPage = {
-  items: FindingSnapshot[];
-};
-
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function fetchCheckFindings(checkId: string): Promise<FindingSnapshot[]> {
-  const page = await api<FindingPage>(
-    `/v1/findings?status=all&check_id=${encodeURIComponent(checkId)}&limit=500`,
-  );
-  return page.items;
+  const { items } = await fetchAllFindings<FindingSnapshot>({ status: "all", check_id: checkId });
+  return items;
 }
 
 export function snapshotFindings(

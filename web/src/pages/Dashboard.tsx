@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { accountListSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 
 type Account = { id: string; label: string; account_id: string | null; status: string };
 type Finding = {
@@ -8,13 +10,12 @@ type Finding = {
   check_id: string; title: string; resource_arn: string; first_seen: string;
 };
 
-type FindingPage = { items: Finding[]; total: number; next_cursor: string | null };
 type ScanRun = { id: string; status: string; started_at: string; finished_at: string | null; error: string | null };
 
 const checkLabels: Record<string, string> = {
   "iam.user.no_mfa": "MFA not enabled",
   "iam.user.inactive_90d": "Inactive user",
-  "iam.user.credentials_unused_45d": "Unused credentials",
+  "iam.user.credentials_unused_45d": "Unused console password",
   "iam.access_key.unused_90d": "Unused access key",
   "iam.access_key.unused_45d": "Unused access key",
   "iam.access_key.no_rotation_90d": "Long-lived access key",
@@ -83,8 +84,11 @@ function scoreLabel(s: number) {
 }
 
 export default function Dashboard() {
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
-  const findings = useQuery({ queryKey: ["dashboard-findings"], queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500") });
+  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api("/v1/accounts", { schema: accountListSchema }) });
+  const findings = useQuery({
+    queryKey: ["dashboard-findings"],
+    queryFn: () => fetchAllFindings<Finding>({ status: "open" }),
+  });
 
   const connectedAccount = accounts.data?.find((a) => isAccountConnected(a));
 

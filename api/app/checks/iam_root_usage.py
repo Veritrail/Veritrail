@@ -17,7 +17,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
         return []
 
     try:
-        sess = assume_role(acc.role_arn, acc.external_id, session_name="vigil-root-usage", aws_account=acc, purpose="check_iam_root_usage")
+        sess = assume_role(acc.role_arn, acc.external_id, session_name="veritrail-root-usage", aws_account=acc, purpose="check_iam_root_usage")
         ct = sess.client("cloudtrail", region_name="us-east-1")
         now = datetime.now(timezone.utc)
         resp = ct.lookup_events(

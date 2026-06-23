@@ -117,6 +117,32 @@ def decode_password_reset_token(token: str) -> dict:
     return payload
 
 
+def issue_signup_pending_token(email: str, **idp_fields: str) -> str:
+    """Short-lived token for SSO users who must create or join a workspace."""
+    now = datetime.now(timezone.utc)
+    payload: dict = {
+        "type": "signup_pending",
+        "email": email.strip().lower(),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=15)).timestamp()),
+    }
+    for key in ("google_id", "github_id", "gitlab_id"):
+        value = idp_fields.get(key)
+        if value:
+            payload[key] = value
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
+
+
+def decode_signup_pending_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
+    except JWTError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "signup session expired — sign in again")
+    if payload.get("type") != "signup_pending":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "not a signup pending token")
+    return payload
+
+
 def current_principal(creds: HTTPAuthorizationCredentials = Depends(bearer)) -> dict:
     if not creds:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing token")

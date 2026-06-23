@@ -12,7 +12,6 @@ Continuous cloud compliance evidence SaaS for startup engineering teams. Read-on
 
 - AWS only (no GCP/Azure/k8s in MVP)
 - Read-only — CFN role has exact actions enumerated (no SecurityAudit/ViewOnlyAccess)
-- One AWS account per org in MVP (schema is multi-account ready)
 - Solo founder, Docker Compose, no microservices, no k8s
 - FastAPI + Postgres + Celery + React + Tailwind + TanStack Query
 - Production: your VPS/cloud + TLS reverse proxy (not prescribed in-repo)
@@ -73,7 +72,7 @@ HANDOFF.md      detailed status + roadmap (read this for scope)
 
 ## Primary differentiator: "What If" blast radius analysis
 
-**This is the key feature that separates Vigil from Orca, Wiz, Checkmarx, Prisma, and every CSPM/CNAPP tool.** They flag findings. Nobody shows what breaks if you actually remediate. Engineers don't fix IAM debt because they're afraid of breaking prod — Vigil removes that fear.
+**This is the key feature that separates Veritrail from Orca, Wiz, Checkmarx, Prisma, and every CSPM/CNAPP tool.** They flag findings. Nobody shows what breaks if you actually remediate. Engineers don't fix IAM debt because they're afraid of breaking prod — Veritrail removes that fear.
 
 Feature: "What If I fix this?" drawer tab per finding:
 - Blast radius — what principals/services depend on this resource right now
@@ -119,14 +118,12 @@ docker compose up
 ## Known gaps / shortcuts
 
 - CORS `*` in dev, locked in prod via APP_ENV
-- One account per org enforced in route (schema is fine)
 - CFN URL pinned to repo `main` — pin to release tag once stable
-- No request-id / structured access logging
 - `RESEND_API_KEY` in `.env` — rotate before prod; `onboarding@resend.dev` sender only delivers to verified Resend account email
 - Digest unsubscribe links to `/settings` — no token-based one-click unsubscribe yet
 
 ## Repo
 
-https://github.com/awakzdev/Vigil
+https://github.com/awakzdev/Veritrail
 
 Read `HANDOFF.md` for full status + 2-week roadmap. Read `README.md` for onboarding flow.

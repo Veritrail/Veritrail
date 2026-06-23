@@ -5,6 +5,49 @@ export type FilterChip = {
   urgent?: boolean;
 };
 
+export type ToggleChip = {
+  id: string;
+  label: string;
+};
+
+/** Multi-select chip bar — same segmented style as Findings/Compliance filters. */
+export function ToggleChipBar({
+  chips,
+  selected,
+  onChange,
+  ariaLabel,
+  className,
+}: {
+  chips: readonly ToggleChip[];
+  selected: readonly string[];
+  onChange: (id: string) => void;
+  ariaLabel: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={["findings-v2-filter-chip-bar", className].filter(Boolean).join(" ")}
+      role="group"
+      aria-label={ariaLabel}
+    >
+      {chips.map((chip) => {
+        const isSelected = selected.includes(chip.id);
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            aria-pressed={isSelected}
+            onClick={() => onChange(chip.id)}
+            className={`findings-v2-filter-chip ${isSelected ? "is-selected" : ""}`}
+          >
+            {chip.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FilterChipBar({
   chips,
   selected,

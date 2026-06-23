@@ -16,8 +16,11 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser, PullRequest, Repo, RepoProtection
+from app.services.integration_health import check_gitlab_health
 from app.services.gitlab_sync import provider_config, set_provider_config, sync_gitlab_provider
+from app.services.integration_repos import RepoInScopeOut, count_protected_repos, list_repos_in_scope
 from app.services.gitlab_tokens import GitLabReconnectRequired, apply_oauth_tokens, ensure_gitlab_token
+from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
 settings = get_settings()
@@ -77,6 +80,11 @@ class ConnectUrlOut(BaseModel):
     url: str
 
 
+class GitLabVerifyOut(BaseModel):
+    status: str
+    username: str | None = None
+
+
 def _frontend_url() -> str:
     return settings.FRONTEND_URL
 
@@ -124,15 +132,7 @@ def _provider_out(db: Session, provider: IdentityProvider) -> GitLabProviderOut:
     group_ids = config.get("group_ids") or ([config["group_id"]] if config.get("group_id") else [])
     identity_users = db.scalar(select(func.count()).select_from(IdentityUser).where(IdentityUser.provider_id == provider.id)) or 0
     repos = db.scalar(select(func.count()).select_from(Repo).where(Repo.provider_id == provider.id)) or 0
-    protected = (
-        db.scalar(
-            select(func.count())
-            .select_from(RepoProtection)
-            .join(Repo, Repo.id == RepoProtection.repo_id)
-            .where(Repo.provider_id == provider.id)
-        )
-        or 0
-    )
+    protected = count_protected_repos(db, provider.id)
     prs = (
         db.scalar(
             select(func.count())
@@ -261,6 +261,14 @@ def gitlab_callback(
         return RedirectResponse(f"{_frontend_url()}/integrations/gitlab?error=server_error")
 
 
+@router.get("/gitlab/scope-repos", response_model=list[RepoInScopeOut])
+def list_gitlab_scope_repos(p=Depends(current_principal), db: Session = Depends(get_db)):
+    provider = _provider_for_org(db, p["org_id"])
+    if not provider:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GitLab is not connected")
+    return list_repos_in_scope(db, provider.id)
+
+
 @router.get("/gitlab", response_model=GitLabProviderOut | None)
 def get_gitlab_provider(p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
@@ -320,7 +328,7 @@ def list_gitlab_repos(namespace: str, p=Depends(current_principal), db: Session 
 
 
 @router.put("/gitlab/scope", response_model=GitLabScopeOut)
-def update_gitlab_scope(body: GitLabScopeIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def update_gitlab_scope(body: GitLabScopeIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if not provider:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "GitLab is not connected")
@@ -342,8 +350,23 @@ def update_gitlab_scope(body: GitLabScopeIn, p=Depends(current_principal), db: S
     return GitLabScopeOut(group_id=group_ids[0], group_ids=group_ids, selected_repos=selected_repos)
 
 
+@router.post("/gitlab/verify", response_model=GitLabVerifyOut)
+def verify_gitlab(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
+    provider = _provider_for_org(db, p["org_id"])
+    if not provider:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "GitLab is not connected")
+    status_value = check_gitlab_health(db, provider)
+    if status_value == "error":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            str(GitLabReconnectRequired()),
+        )
+    config = provider_config(provider)
+    return GitLabVerifyOut(status=status_value, username=config.get("username"))
+
+
 @router.post("/gitlab/sync", response_model=GitLabSyncOut)
-def sync_gitlab(body: GitLabSyncIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def sync_gitlab(body: GitLabSyncIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if not provider:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "GitLab is not connected")
@@ -368,7 +391,7 @@ def sync_gitlab(body: GitLabSyncIn, p=Depends(current_principal), db: Session = 
 
 
 @router.delete("/gitlab", status_code=status.HTTP_204_NO_CONTENT)
-def disconnect_gitlab(p=Depends(current_principal), db: Session = Depends(get_db)):
+def disconnect_gitlab(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
         db.delete(provider)

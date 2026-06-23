@@ -2,19 +2,32 @@ import {
   anyRemediationEnabled,
   type RemediationModules,
 } from "../data/remediationModules";
+import { extractAccountIdFromIamRoleArn } from "./awsArn";
 
 /** How the connector behaves after deploy (core is always read-only scan). */
 export type ConnectionPosture = "read-only" | "read-only-analysis" | "scoped-write";
 
-export const SCANNER_ROLE_NAME = "VigilScannerRole";
-/** Legacy split-stack policy-gen role; new deploys use one connector role only. */
-export const POLICY_GENERATION_ROLE_NAME = "VigilPolicyGenerationRole";
-export const SCANNER_ROLE_NAME_LEGACY = "VigilReadOnlyScannerRole";
-export const REMEDIATION_AUTOMATION_ROLE_NAME = "VigilRemediationAutomationRole";
-export const CONNECTOR_STACK_NAME = "VigilAccountConnector";
-export const CONNECTOR_STACK_LEGACY = "VigilReadOnly";
+export const SCANNER_ROLE_NAME = "VeritrailScannerRole";
+/** Placeholder account id when the real AWS account id is not known yet. */
+export const UNKNOWN_AWS_ACCOUNT_ID = "000000000000";
 
-/** UI label: pending legacy rows show current name; connected legacy keeps VigilReadOnly. */
+/** Example / placeholder Role ARN for onboarding inputs. */
+export function scannerRoleArnExample(
+  accountId?: string | null,
+  typedRoleArn?: string,
+): string {
+  const fromTyped = typedRoleArn ? extractAccountIdFromIamRoleArn(typedRoleArn) : null;
+  const id = fromTyped ?? accountId ?? UNKNOWN_AWS_ACCOUNT_ID;
+  return `arn:aws:iam::${id}:role/${SCANNER_ROLE_NAME}`;
+}
+/** Legacy split-stack policy-gen role; new deploys use one connector role only. */
+export const POLICY_GENERATION_ROLE_NAME = "VeritrailPolicyGenerationRole";
+export const SCANNER_ROLE_NAME_LEGACY = "VeritrailReadOnlyScannerRole";
+export const REMEDIATION_AUTOMATION_ROLE_NAME = "VeritrailRemediationAutomationRole";
+export const CONNECTOR_STACK_NAME = "VeritrailAccountConnector";
+export const CONNECTOR_STACK_LEGACY = "VeritrailReadOnly";
+
+/** UI label: pending legacy rows show current name; connected legacy keeps VeritrailReadOnly. */
 export function displayConnectorStackName(acc: {
   cfn_stack_name: string;
   status: string;

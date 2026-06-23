@@ -1,0 +1,118 @@
+/* App-styled dropdown (Select.tsx) — matches Veritrail's light web design, replaces
+   the OS-native <select> popup. */
+.veritrail-select {
+  position: relative;
+  display: inline-block;
+}
+
+.veritrail-select__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  border: 1px solid #d8dee8;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+}
+.veritrail-select--md .veritrail-select__btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+.veritrail-select--sm .veritrail-select__btn {
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.75rem;
+}
+.veritrail-select__btn:hover:not(:disabled) {
+  border-color: #c2cad6;
+  background: #fafbfc;
+}
+.veritrail-select__btn:focus-visible {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.28);
+}
+.veritrail-select__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.veritrail-select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.veritrail-select__chev {
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: transform 0.15s;
+}
+.veritrail-select__chev--open {
+  transform: rotate(180deg);
+}
+
+.veritrail-select__menu {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  left: 0;
+  z-index: 50;
+  min-width: 100%;
+  padding: 0.3125rem;
+  background: #fff;
+  border: 1px solid #e8edf3;
+  border-radius: 0.625rem;
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.02);
+  animation: veritrail-select-in 0.1s ease-out;
+}
+.veritrail-select__menu--right {
+  left: auto;
+  right: 0;
+}
+
+@keyframes veritrail-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.veritrail-select__opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.4375rem 0.625rem;
+  border-radius: 0.4375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #334155;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+}
+.veritrail-select__opt:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.veritrail-select__opt--active {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 600;
+}
+.veritrail-select__opt--active:hover {
+  background: #e9eef4;
+  color: #0f172a;
+}
+.veritrail-select__opt:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -16,7 +16,7 @@ def terraform_fmt_validate(files: list[dict[str, str]]) -> dict:
     if not shutil.which("terraform"):
         return {"ok": False, "error": "terraform CLI not installed on API host"}
 
-    with tempfile.TemporaryDirectory(prefix="vigil-tf-") as td:
+    with tempfile.TemporaryDirectory(prefix="veritrail-tf-") as td:
         root = Path(td).resolve()
         for f in files:
             rel = (f.get("path") or "main.tf").lstrip("/")

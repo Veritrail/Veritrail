@@ -12,6 +12,7 @@ from app.core.security import current_principal
 from app.models import Finding, FindingEvent, AwsAccount
 from app.models.org import Org
 from app.services.check_settings import hidden_check_ids
+from app.core.route_deps import RequireEditor
 from app.services.finding_supersession import (
     RETIRED_FINDING_CHECKS,
     resolve_retired_for_resource,
@@ -281,7 +282,7 @@ def finding_activity(
 
 
 @router.post("/{finding_id}/snooze", response_model=FindingOut)
-def snooze(finding_id: str, body: SnoozeIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def snooze(finding_id: str, body: SnoozeIn, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     f = _get_owned(db, p, finding_id)
     f.status = "snoozed"
     f.snooze_until = datetime.now(timezone.utc) + timedelta(days=body.days)
@@ -292,7 +293,7 @@ def snooze(finding_id: str, body: SnoozeIn, p=Depends(current_principal), db: Se
 
 
 @router.post("/{finding_id}/resolve", response_model=FindingOut)
-def resolve(finding_id: str, body: ResolveIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def resolve(finding_id: str, body: ResolveIn, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     if not body.verified:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -310,7 +311,7 @@ def resolve(finding_id: str, body: ResolveIn, p=Depends(current_principal), db: 
 
 
 @router.post("/{finding_id}/reopen", response_model=FindingOut)
-def reopen(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def reopen(finding_id: str, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     f = _get_owned(db, p, finding_id)
     if f.status not in ("resolved", "ignored"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "only resolved or ignored findings can be reopened")
@@ -324,7 +325,7 @@ def reopen(finding_id: str, p=Depends(current_principal), db: Session = Depends(
 
 
 @router.post("/{finding_id}/ignore", response_model=FindingOut)
-def ignore(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def ignore(finding_id: str, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     f = _get_owned(db, p, finding_id)
     f.status = "ignored"
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="ignored", actor=p["sub"]))
@@ -334,7 +335,7 @@ def ignore(finding_id: str, p=Depends(current_principal), db: Session = Depends(
 
 
 @router.post("/{finding_id}/exception", response_model=FindingOut)
-def create_exception(finding_id: str, body: ExceptionIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def create_exception(finding_id: str, body: ExceptionIn, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     f = _get_owned(db, p, finding_id)
     f.status = "excepted"
     f.exception_reason = body.reason
@@ -372,7 +373,7 @@ def iac_snippets(finding_id: str, p=Depends(current_principal), db: Session = De
 
 class TerraformPrIn(BaseModel):
     repo_full_name: str
-    file_path: str = "vigil/remediation.tf"
+    file_path: str = "veritrail/remediation.tf"
     base_branch: str | None = None
 
 
@@ -380,7 +381,7 @@ class TerraformPrIn(BaseModel):
 def create_terraform_pr_route(
     finding_id: str,
     body: TerraformPrIn,
-    p=Depends(current_principal),
+    _rbac: RequireEditor, p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
     """Open a GitHub PR with repo-aware HCL patch + terraform validate."""
@@ -409,7 +410,7 @@ class TerraformRepoScanIn(BaseModel):
 def terraform_repo_scan(
     finding_id: str,
     body: TerraformRepoScanIn,
-    p=Depends(current_principal),
+    _rbac: RequireEditor, p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
     """Scan connected repo .tf/.hcl for resources matching this finding."""
@@ -473,6 +474,7 @@ class RemediationDispatchIn(BaseModel):
 @router.post("/{finding_id}/remediation/dispatch")
 def remediation_dispatch(
     finding_id: str,
+    _rbac: RequireEditor,
     body: RemediationDispatchIn = RemediationDispatchIn(),
     p=Depends(current_principal),
     db: Session = Depends(get_db),
@@ -561,7 +563,7 @@ def get_triage(finding_id: str, p=Depends(current_principal), db: Session = Depe
 
 
 @router.post("/{finding_id}/triage", response_model=TriageTriggerResponse)
-def trigger_triage(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def trigger_triage(finding_id: str, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     """Manually trigger AI triage for a single finding."""
     from app.models.org import Org
     from app.services.ai_finding_review import (
@@ -605,6 +607,7 @@ def trigger_triage(finding_id: str, p=Depends(current_principal), db: Session = 
 
 @router.post("/bulk-triage", response_model=TriageTriggerResponse)
 def bulk_triage(
+    _rbac: RequireEditor,
     account_id: str | None = Query(default=None),
     p=Depends(current_principal),
     db: Session = Depends(get_db),
@@ -656,7 +659,7 @@ class RecheckBatchIn(BaseModel):
 
 
 @router.post("/recheck-batch")
-def recheck_batch(body: RecheckBatchIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def recheck_batch(body: RecheckBatchIn, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.services.fast_recheck import try_fast_findings_recheck_batch
     from app.worker.tasks import recheck_finding
 
@@ -690,7 +693,7 @@ def recheck_batch(body: RecheckBatchIn, p=Depends(current_principal), db: Sessio
 
 
 @router.post("/{finding_id}/recheck")
-def recheck(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def recheck(finding_id: str, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.services.fast_finding_recheck import try_fast_finding_recheck
     from app.worker.tasks import recheck_finding
 

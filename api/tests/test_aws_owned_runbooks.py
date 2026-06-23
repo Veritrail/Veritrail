@@ -13,23 +13,23 @@ def test_s3_aws_owned_preferred():
     assert meta["automation_confidence"] == "high"
 
 
-def test_sg_ssh_stays_vigil_metadata():
+def test_sg_ssh_stays_veritrail_metadata():
     meta = remediation_automation_metadata("ec2.security_group.unrestricted_ssh")
-    assert meta["automation_provider"] == "vigil"
+    assert meta["automation_provider"] == "veritrail"
     assert meta["aws_document_name"] is None
     assert not is_aws_owned_preferred("ec2.security_group.unrestricted_ssh")
 
 
-def test_iam_key_stays_vigil_metadata():
+def test_iam_key_stays_veritrail_metadata():
     meta = remediation_automation_metadata("iam.access_key.unused_90d")
-    assert meta["automation_provider"] == "vigil"
+    assert meta["automation_provider"] == "veritrail"
     assert meta["aws_document_name"] is None
 
 
 def test_cloudtrail_conditional_without_evidence():
     assert not is_aws_owned_preferred("cloudtrail.trail.not_enabled")
     meta = remediation_automation_metadata("cloudtrail.trail.not_enabled")
-    assert meta["automation_provider"] == "vigil"
+    assert meta["automation_provider"] == "veritrail"
 
 
 def test_cloudtrail_preferred_with_trail_and_bucket():

@@ -77,7 +77,7 @@ function buildWhatChangedRows(
     rows.push({
       label: "Configuration sync",
       detail:
-        "Same connector version — updated configuration required to sync IAM permissions and SSM documents with your Vigil settings.",
+        "Same connector version — updated configuration required to sync IAM permissions and SSM documents with your Veritrail settings.",
     });
   } else if (deployed && selected && deployed !== selected) {
     rows.push({
@@ -93,7 +93,7 @@ function buildWhatChangedRows(
 
   rows.push({
     label: "Remediation modules",
-    detail: "Updated to match your current Vigil settings.",
+    detail: "Updated to match your current Veritrail settings.",
   });
 
   const anyRemediation = REMEDIATION_MODULE_SPECS.some((m) => opts.remediation_modules[m.id]);

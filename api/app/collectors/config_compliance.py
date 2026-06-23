@@ -36,7 +36,7 @@ def collect_config_compliance(db: Session, account: AwsAccount) -> int:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-config-compliance",
+        session_name="veritrail-config-compliance",
         aws_account=account,
         purpose="collect_config_compliance",
     )
@@ -75,6 +75,6 @@ def collect_config_compliance(db: Session, account: AwsAccount) -> int:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info("collect_config_compliance.done", account_id=str(account.id), rules=count)
     return count

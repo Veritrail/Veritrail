@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { AccountSelect } from "../components/AccountSelect";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { HeaderSlot } from "../context/HeaderSlot";
 import { FilterChipBar } from "../components/FilterChipBar";
 import {
   BenchmarkFrameworkSelect,
@@ -11,11 +12,17 @@ import {
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
+import { accountListSchema } from "../lib/apiSchemas";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
-import NotificationsBell from "../components/NotificationsBell";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
-import { findingDisplayGroupKey, findingGroupMeta, findingGroupSearchText } from "../data/findingGroups";
+import {
+  findingDisplayGroupKey,
+  findingGroupMeta,
+  findingGroupSearchText,
+  isActivityCheck,
+} from "../data/findingGroups";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
@@ -47,7 +54,6 @@ type Finding = {
   exception_expires_at?: string | null;
 };
 
-type FindingPage = { items: Finding[]; total: number; next_cursor: string | null };
 type Account = {
   id: string;
   label?: string | null;
@@ -307,7 +313,7 @@ function AffectedResourceRow({
         <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold text-sky-700">{assetType}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="vigil-kicker">Account</p>
+        <p className="veritrail-kicker">Account</p>
         <p className="mt-1 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
           <span className="truncate">{account}</span>
           <button
@@ -326,7 +332,7 @@ function AffectedResourceRow({
         </p>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="vigil-kicker">Last seen</p>
+        <p className="veritrail-kicker">Last seen</p>
         <p className="mt-1 flex items-center gap-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">
           {formatResourceDate(finding.last_seen)}
           <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
@@ -335,7 +341,7 @@ function AffectedResourceRow({
         </p>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="vigil-kicker">First seen</p>
+        <p className="veritrail-kicker">First seen</p>
         <p className="mt-1 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
       </div>
       {externalUrl ? (
@@ -440,7 +446,7 @@ function FindingRow({
   items: Finding[];
   expanded: boolean;
   onToggleExpanded: () => void;
-  onReview: (items: Finding[]) => void;
+  onReview: (items: Finding[], focus?: Finding, tab?: FindingDrawerTab) => void;
 }) {
   const sev =
     items.reduce<string | null>((worst, f) => {
@@ -534,8 +540,8 @@ function FindingRow({
         </div>
       </div>
       {canExpand ? (
-        <div className={`vigil-accordion-panel ${expanded ? "is-open" : ""}`}>
-          <div className="vigil-accordion-panel__inner">
+        <div className={`veritrail-accordion-panel ${expanded ? "is-open" : ""}`}>
+          <div className="veritrail-accordion-panel__inner">
             <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
               <span className="hidden sm:block" aria-hidden />
               <span className="hidden w-[5.5rem] sm:block" aria-hidden />
@@ -591,7 +597,7 @@ export default function Findings() {
     queryFn: () => api<{ checks: Record<string, string[]> }>("/v1/controls/check-frameworks"),
     staleTime: 300_000,
   });
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
+  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api("/v1/accounts", { schema: accountListSchema }) });
   const connectedAccounts = useMemo(
     () => accounts.data?.filter((a) => isAccountConnected(a)) ?? [],
     [accounts.data],
@@ -605,9 +611,10 @@ export default function Findings() {
   const q = useQuery({
     queryKey: ["findings", status, effectiveAccountId],
     queryFn: () =>
-      api<FindingPage>(
-        `/v1/findings?status=${status}&limit=500${effectiveAccountId ? `&account_id=${effectiveAccountId}` : ""}`,
-      ),
+      fetchAllFindings<Finding>({
+        status,
+        account_id: effectiveAccountId || undefined,
+      }),
     refetchInterval: pendingRecheck ? 3000 : false,
   });
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
@@ -666,6 +673,13 @@ export default function Findings() {
   });
 
   const findings = q.data?.items ?? [];
+  const findingsTruncated = q.data?.truncated ?? false;
+  const findingsTotal = q.data?.total ?? findings.length;
+  const hasActiveFilters =
+    searchTags.length > 0 ||
+    !!searchText.trim() ||
+    severityFilter !== "all" ||
+    selectedFrameworks.length > 0;
   const checkFrameworksApi = frameworkMapQ.data?.checks;
 
   // Keep drawer + resource list in sync when findings refetch (e.g. after Resources refresh).
@@ -760,28 +774,37 @@ export default function Findings() {
     return arr;
   }, [benchmarkScopedFindings, searchText, searchTags, severityFilter, sortKey, sortDir, status]);
 
-  const displayGroups = useMemo(() => {
-    const map = new Map<string, Finding[]>();
-    for (const f of rows) {
-      const key = findingDisplayGroupKey(f.check_id);
-      map.set(key, [...(map.get(key) ?? []), f]);
-    }
-    const entries = [...map.entries()];
-    entries.sort(([, a], [, b]) => {
-      let cmp = 0;
-      if (sortKey === "severity")
-        cmp =
-          (sevWeight[a[0].severity] ?? 9) - (sevWeight[b[0].severity] ?? 9) ||
-          Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
-      else if (sortKey === "score") cmp = Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
-      else
-        cmp =
-          Math.min(...b.map((f) => new Date(f.first_seen).getTime())) -
-          Math.min(...a.map((f) => new Date(f.first_seen).getTime()));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return entries;
-  }, [rows, sortKey, sortDir]);
+  const buildDisplayGroups = useCallback(
+    (source: Finding[]) => {
+      const map = new Map<string, Finding[]>();
+      for (const f of source) {
+        const key = findingDisplayGroupKey(f.check_id);
+        map.set(key, [...(map.get(key) ?? []), f]);
+      }
+      const entries = [...map.entries()];
+      entries.sort(([, a], [, b]) => {
+        let cmp = 0;
+        if (sortKey === "severity")
+          cmp =
+            (sevWeight[a[0].severity] ?? 9) - (sevWeight[b[0].severity] ?? 9) ||
+            Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
+        else if (sortKey === "score") cmp = Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score));
+        else
+          cmp =
+            Math.min(...b.map((f) => new Date(f.first_seen).getTime())) -
+            Math.min(...a.map((f) => new Date(f.first_seen).getTime()));
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+      return entries;
+    },
+    [sortDir, sortKey],
+  );
+
+  const postureRows = useMemo(() => rows.filter((f) => !isActivityCheck(f.check_id)), [rows]);
+  const activityRows = useMemo(() => rows.filter((f) => isActivityCheck(f.check_id)), [rows]);
+  const postureDisplayGroups = useMemo(() => buildDisplayGroups(postureRows), [buildDisplayGroups, postureRows]);
+  const activityDisplayGroups = useMemo(() => buildDisplayGroups(activityRows), [activityRows, buildDisplayGroups]);
+  const isPositiveEmpty = status === "open" && !hasActiveFilters && rows.length === 0;
 
   const severityCounts = useMemo(() => {
     const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
@@ -894,7 +917,7 @@ export default function Findings() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "vigil-findings.csv";
+    a.download = "veritrail-findings.csv";
     a.click();
     URL.revokeObjectURL(url);
   }, [status]);
@@ -903,19 +926,11 @@ export default function Findings() {
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-        <header className="mb-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {connectedAccounts.length > 0 && (
-                  <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
-                )}
-              </div>
-            </div>
-            <NotificationsBell />
-          </div>
-        </header>
+        {connectedAccounts.length > 0 && (
+          <HeaderSlot>
+            <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
+          </HeaderSlot>
+        )}
 
         {searchTags.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -957,7 +972,7 @@ export default function Findings() {
                       urgent: tab.urgent,
                     }))}
                     selected={severityFilter}
-                    onChange={setSeverityFilter}
+                    onChange={(id) => setSeverityFilter(id as SeverityFilter)}
                     ariaLabel="Severity"
                   />
 
@@ -1023,18 +1038,43 @@ export default function Findings() {
                 </div>
               </div>
 
+              {findingsTruncated && (
+                <div className="flex items-center gap-2 border-b border-amber-200/70 bg-amber-50/60 px-6 py-2.5 text-[12px] text-amber-800">
+                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                  <span>
+                    Showing the {findings.length.toLocaleString()} highest-risk of {findingsTotal.toLocaleString()} findings.
+                    Filter by check, severity, or account to see the rest.
+                  </span>
+                </div>
+              )}
               {rows.length === 0 ? (
-                <div className="px-6 py-16 text-center">
-                  <p className="text-sm font-semibold text-zinc-700">
-                    {searchTags.length > 0
-                      ? "No findings match the selected checks"
-                      : selectedFrameworks.length > 0
-                        ? `No findings for ${benchmarkSelectionLabel(selectedFrameworks)}`
-                        : emptyFindingsLabel(status)}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-400">
-                    {status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}
-                  </p>
+                <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>
+                  {isPositiveEmpty ? (
+                    <>
+                      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-emerald-200/80">
+                        <svg className="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-semibold text-emerald-800">All clear</p>
+                      <p className="mt-1 text-xs text-emerald-700/80">No open findings. Run a scan to refresh posture.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-zinc-700">
+                        {searchTags.length > 0
+                          ? "No findings match the selected checks"
+                          : selectedFrameworks.length > 0
+                            ? `No findings for ${benchmarkSelectionLabel(selectedFrameworks)}`
+                            : emptyFindingsLabel(status)}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        {status === "open" ? "Run a scan or adjust filters." : "Nothing to show here."}
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
@@ -1048,18 +1088,39 @@ export default function Findings() {
                     <span className="w-16 text-center">Risk</span>
                   </div>
 
-                  <div>
-                    {displayGroups.map(([groupKey, items]) => (
-                      <FindingRow
-                        key={groupKey}
-                        groupKey={groupKey}
-                        items={items}
-                        expanded={expandedCheckIds.has(groupKey)}
-                        onToggleExpanded={() => toggleExpandedCheck(groupKey)}
-                        onReview={openReview}
-                      />
-                    ))}
-                  </div>
+                  {postureDisplayGroups.length > 0 ? (
+                    <div>
+                      {postureDisplayGroups.map(([groupKey, items]) => (
+                        <FindingRow
+                          key={groupKey}
+                          groupKey={groupKey}
+                          items={items}
+                          expanded={expandedCheckIds.has(groupKey)}
+                          onToggleExpanded={() => toggleExpandedCheck(groupKey)}
+                          onReview={openReview}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {activityDisplayGroups.length > 0 ? (
+                    <div className={postureDisplayGroups.length > 0 ? "mt-8 border-t border-zinc-100 pt-6" : ""}>
+                      <div className="mb-3 px-1">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Activity detections</p>
+                        <p className="mt-0.5 text-xs text-zinc-500">CloudTrail events — informational; they do not fail compliance controls.</p>
+                      </div>
+                      {activityDisplayGroups.map(([groupKey, items]) => (
+                        <FindingRow
+                          key={`activity-${groupKey}`}
+                          groupKey={groupKey}
+                          items={items}
+                          expanded={expandedCheckIds.has(`activity:${groupKey}`)}
+                          onToggleExpanded={() => toggleExpandedCheck(`activity:${groupKey}`)}
+                          onReview={openReview}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>

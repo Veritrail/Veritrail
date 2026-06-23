@@ -9,7 +9,7 @@ from app.models.org import Org
 
 FEATURE_KEY = "ai_finding_review_enabled"
 LEGACY_FEATURE_KEY = "ai_triage_enabled"
-LOCAL_MODEL_VERSION = "vigil-local-review-v1"
+LOCAL_MODEL_VERSION = "veritrail-local-review-v1"
 
 
 def llm_triage_available() -> bool:
@@ -58,7 +58,7 @@ def heuristic_triage_payload(finding: Finding) -> dict:
 
     rationale_bits = [
         f"{finding.severity.capitalize()} severity finding on {resource_count} resource{'s' if resource_count != 1 else ''}.",
-        "Vigil recommends validating the resource context, then using remediation or Verify after fixing.",
+        "Veritrail recommends validating the resource context, then using remediation or Verify after fixing.",
     ]
     if finding.check_id.startswith("iam."):
         rationale_bits.append(

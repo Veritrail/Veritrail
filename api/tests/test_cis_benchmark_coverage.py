@@ -16,5 +16,5 @@ def test_cis_coverage_is_subset_of_v5():
     assert matrix["automated"] + matrix["manual"] + matrix["partial"] + matrix["extended"] == matrix["control_count"]
     assert matrix["partial"] == 0
     c111 = next(c for c in matrix["controls"] if c["id"] == "1.11")
-    assert c111["vigil_status"] == "automated"
-    assert "iam.user.credentials_unused_45d" in c111["vigil_check_ids"]
+    assert c111["veritrail_status"] == "automated"
+    assert "iam.user.credentials_unused_45d" in c111["veritrail_check_ids"]

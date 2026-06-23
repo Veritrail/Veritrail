@@ -52,7 +52,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
                     "threshold_days": THRESHOLD_DAYS,
                     "note": (
                         "Identity Store does not expose last sign-in via API. "
-                        "Vigil flags long-provisioned users with no directory update in 90+ days for access review."
+                        "Veritrail flags long-provisioned users with no directory update in 90+ days for access review."
                     ),
                 },
             )

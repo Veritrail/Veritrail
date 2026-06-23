@@ -13,7 +13,7 @@ def _client_error(code: str = "AccessDenied") -> ClientError:
     return ClientError({"Error": {"Code": code, "Message": "test"}}, "TestOp")
 
 
-def _finding(*, check_id: str, bucket_name: str = "vigil-worm-storage"):
+def _finding(*, check_id: str, bucket_name: str = "veritrail-worm-storage"):
     f = MagicMock()
     f.id = uuid.uuid4()
     f.check_id = check_id
@@ -26,7 +26,7 @@ def _finding(*, check_id: str, bucket_name: str = "vigil-worm-storage"):
 def _account():
     acc = MagicMock()
     acc.id = uuid.uuid4()
-    acc.role_arn = "arn:aws:iam::123:role/VigilScanner"
+    acc.role_arn = "arn:aws:iam::123:role/VeritrailScanner"
     acc.external_id = "ext"
     return acc
 

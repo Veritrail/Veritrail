@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.sensitive_display import mask_sensitive_text
 from app.models import Finding, FindingEvent, ScanRun
 from app.models.cloudtrail import CloudTrailEvent
 from app.models.control import Control, CheckControl
@@ -108,6 +109,7 @@ def _snapshot_summary(
     *,
     findings_opened: int,
     findings_resolved: int,
+    open_findings_count: int,
 ) -> dict[str, Any]:
     return {
         "posture_score": score,
@@ -116,6 +118,7 @@ def _snapshot_summary(
         "controls_no_data": counts["controls_no_data"],
         "findings_opened": findings_opened,
         "findings_resolved": findings_resolved,
+        "open_findings_count": open_findings_count,
     }
 
 
@@ -207,13 +210,43 @@ def _persistent_failing_controls(
     return failing[:limit]
 
 
+def _posture_trend(
+    scan_runs: list[ScanRun],
+    catalog: list[tuple[Control, list[str]]],
+    findings: list[Finding],
+    events_by_finding: dict,
+) -> list[dict[str, Any]]:
+    """One score per successful scan — powers the History chart even when no controls flipped."""
+    out: list[dict[str, Any]] = []
+    for run in scan_runs:
+        ts = run.finished_at or run.started_at
+        snap = _snapshot_at(
+            catalog=catalog,
+            findings=findings,
+            events_by_finding=events_by_finding,
+            scan_runs=scan_runs,
+            as_of=ts,
+        )
+        score = _posture_score(_counts(snap))
+        if score is not None:
+            out.append({"timestamp": ts.isoformat(), "posture_score": score})
+    return out
+
+
 def _scan_cadence(scan_runs: list[ScanRun], events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per-day scan counts plus control pass/fail flips (excludes baseline and finding events)."""
     posture_days: dict[str, int] = {}
     for evt in events:
         if evt.get("type") == "baseline_established":
             continue
+        if str(evt.get("type", "")).startswith("finding_"):
+            continue
+        diff = evt.get("diff") or {}
+        flips = len(diff.get("newly_failed", [])) + len(diff.get("newly_passed", []))
+        if flips == 0:
+            continue
         day = evt["timestamp"][:10]
-        posture_days[day] = posture_days.get(day, 0) + 1
+        posture_days[day] = posture_days.get(day, 0) + flips
 
     days: dict[str, int] = {}
     for run in scan_runs:
@@ -304,7 +337,80 @@ def _event_type(
     return "scan_with_changes"
 
 
+def _events_excluding(
+    events_by_finding: dict[uuid.UUID, list[FindingEvent]],
+    skip: FindingEvent,
+) -> dict[uuid.UUID, list[FindingEvent]]:
+    return {
+        fid: [e for e in evts if e.id != skip.id]
+        for fid, evts in events_by_finding.items()
+    }
+
+
+def _control_check_ids(
+    catalog: list[tuple[Control, list[str]]],
+    control_id: str,
+) -> tuple[list[str], str]:
+    for ctrl, check_ids in catalog:
+        if ctrl.control_id == control_id:
+            return check_ids, ctrl.title
+    return [], ""
+
+
+def _open_findings_for_control(
+    check_ids: list[str],
+    findings: list[Finding],
+    as_of: datetime,
+    events_by_finding: dict[uuid.UUID, list[FindingEvent]],
+) -> int:
+    n = 0
+    for f in findings:
+        if f.check_id not in check_ids:
+            continue
+        state = finding_state_at(f, as_of, events_by_finding.get(f.id))
+        if finding_open_for_control(f, state):
+            n += 1
+    return n
+
+
+def _control_flip_for_finding_event(
+    *,
+    catalog: list[tuple[Control, list[str]]],
+    control_id: str,
+    title: str,
+    findings: list[Finding],
+    events_by_finding: dict[uuid.UUID, list[FindingEvent]],
+    scan_runs: list[ScanRun],
+    evt: FindingEvent,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """True pass/fail flip only — resolving one finding must not pass a control with other open findings."""
+    check_ids, ctrl_title = _control_check_ids(catalog, control_id)
+    if not check_ids:
+        return [], []
+
+    mapped = [f for f in findings if f.check_id in check_ids]
+    ts = evt.ts
+    has_scan = any((r.finished_at or r.started_at) <= ts and r.status == "ok" for r in scan_runs)
+    before = _control_status_at(
+        check_ids, mapped, ts, has_scan, _events_excluding(events_by_finding, evt)
+    )
+    after = _control_status_at(check_ids, mapped, ts, has_scan, events_by_finding)
+    open_count = _open_findings_for_control(check_ids, mapped, ts, events_by_finding)
+    base = {
+        "control_id": control_id,
+        "title": title or ctrl_title,
+        "open_finding_count": open_count,
+    }
+    if before != "fail" and after == "fail":
+        return [base], []
+    if before == "fail" and after == "pass":
+        return [], [base]
+    return [], []
+
+
 def _finding_control_lookup(db: Session, framework: str, findings: list[Finding]) -> dict[uuid.UUID, dict[str, Any]]:
+    from app.services.check_controls import controls_for_check
+
     check_ids = sorted({f.check_id for f in findings})
     if not check_ids:
         return {}
@@ -316,6 +422,16 @@ def _finding_control_lookup(db: Session, framework: str, findings: list[Finding]
     by_check: dict[str, dict[str, Any]] = {}
     for check_id, control_id, title in rows:
         by_check.setdefault(check_id, {"control_id": control_id, "title": title})
+    for finding in findings:
+        if finding.check_id in by_check:
+            continue
+        for row in controls_for_check(finding.check_id):
+            if row["framework"] == framework:
+                by_check[finding.check_id] = {
+                    "control_id": row["control_id"],
+                    "title": row["title"],
+                }
+                break
     return {f.id: by_check[f.check_id] for f in findings if f.check_id in by_check}
 
 
@@ -327,6 +443,9 @@ def _finding_events(
     findings: list[Finding],
     since: datetime,
     limit: int,
+    catalog: list[tuple[Control, list[str]]],
+    scan_runs: list[ScanRun],
+    events_by_finding: dict[uuid.UUID, list[FindingEvent]],
 ) -> list[dict[str, Any]]:
     finding_ids = [f.id for f in findings]
     if not finding_ids:
@@ -352,40 +471,81 @@ def _finding_events(
             "reopened": "finding_reopened",
         }.get(evt.action, "finding_updated")
         positive = evt.action in {"resolved", "excepted"}
+        newly_failed: list[dict[str, Any]] = []
+        newly_passed: list[dict[str, Any]] = []
+        if control:
+            newly_failed, newly_passed = _control_flip_for_finding_event(
+                catalog=catalog,
+                control_id=control["control_id"],
+                title=control["title"],
+                findings=findings,
+                events_by_finding=events_by_finding,
+                scan_runs=scan_runs,
+                evt=evt,
+            )
+        if newly_passed:
+            change_direction = "improved"
+        elif newly_failed:
+            change_direction = "regressed"
+        else:
+            change_direction = "improved" if positive else "regressed"
+
+        snap_after = _snapshot_at(
+            catalog=catalog,
+            findings=findings,
+            events_by_finding=events_by_finding,
+            scan_runs=scan_runs,
+            as_of=evt.ts,
+        )
+        snap_before = _snapshot_at(
+            catalog=catalog,
+            findings=findings,
+            events_by_finding=_events_excluding(events_by_finding, evt),
+            scan_runs=scan_runs,
+            as_of=evt.ts,
+        )
+        after_counts = _counts(snap_after)
+        before_counts = _counts(snap_before)
+        score_after = _posture_score(after_counts)
+        score_before = _posture_score(before_counts)
+
         out.append(
             {
                 "type": event_type,
                 "timestamp": evt.ts.isoformat(),
                 "scan_run_id": f"event-{evt.id}",
                 "framework": framework,
-                "posture_before": None,
-                "posture_after": None,
-                "controls_failed_before": None,
-                "controls_failed_after": 0,
-                "controls_passed_before": None,
-                "controls_passed_after": 0,
-                "new_failures_count": 0 if positive else 1,
-                "resolved_count": 1 if positive else 0,
+                "posture_before": score_before,
+                "posture_after": score_after,
+                "controls_failed_before": before_counts["controls_failed"],
+                "controls_failed_after": after_counts["controls_failed"],
+                "controls_passed_before": before_counts["controls_passed"],
+                "controls_passed_after": after_counts["controls_passed"],
+                "new_failures_count": len(newly_failed),
+                "resolved_count": len(newly_passed),
                 "findings_opened": 0 if positive else 1,
                 "findings_resolved": 1 if positive else 0,
                 "resource_arn": finding.resource_arn,
                 "check_id": finding.check_id,
-                "detail": evt.note or finding.title,
+                "detail": mask_sensitive_text(evt.note or finding.title),
                 "snapshot": _snapshot_summary(
-                    {"controls_passed": 0, "controls_failed": 0, "controls_no_data": 0, "controls_total": 0},
-                    None,
+                    after_counts,
+                    score_after,
                     findings_opened=0 if positive else 1,
                     findings_resolved=1 if positive else 0,
+                    open_findings_count=_open_findings_count(findings, events_by_finding, evt.ts),
                 ),
                 "top_change": {
                     "control_id": control.get("control_id") if control else None,
-                    "title": control.get("title") if control else finding.title,
-                    "direction": "improved" if positive else "regressed",
+                    "title": mask_sensitive_text(
+                        control.get("title") if control else finding.title
+                    ),
+                    "direction": change_direction,
                     "label": "Finding resolved" if evt.action == "resolved" else "Exception recorded" if evt.action == "excepted" else "Finding reopened",
                 },
                 "diff": {
-                    "newly_failed": [] if positive or not control else [control],
-                    "newly_passed": [control] if positive and control else [],
+                    "newly_failed": newly_failed,
+                    "newly_passed": newly_passed,
                 },
             }
         )
@@ -420,6 +580,7 @@ def build_compliance_scan_timeline(
             "total_failing": 0,
             "scan_count": 0,
             "scan_cadence": [],
+            "posture_trend": [],
             "persistent_gaps": [],
         }
 
@@ -487,6 +648,7 @@ def build_compliance_scan_timeline(
                         score_after,
                         findings_opened=run.findings_opened,
                         findings_resolved=run.findings_resolved,
+                        open_findings_count=findings_discovered,
                     ),
                     "top_change": _top_change(
                         newly_failed=baseline_failed,
@@ -540,6 +702,7 @@ def build_compliance_scan_timeline(
                     score_after,
                     findings_opened=run.findings_opened,
                     findings_resolved=run.findings_resolved,
+                    open_findings_count=_open_findings_count(findings, events_by_finding, ts),
                 ),
                 "top_change": _top_change(
                     newly_failed=newly_failed,
@@ -555,7 +718,19 @@ def build_compliance_scan_timeline(
         )
         prev_snap = snap
 
-    events.extend(_finding_events(db, account_id=account_id, framework=framework, findings=findings, since=since, limit=limit))
+    events.extend(
+        _finding_events(
+            db,
+            account_id=account_id,
+            framework=framework,
+            findings=findings,
+            since=since,
+            limit=limit,
+            catalog=catalog,
+            scan_runs=scan_runs,
+            events_by_finding=events_by_finding,
+        )
+    )
     events.sort(key=lambda e: e["timestamp"], reverse=True)
     events = events[:limit]
 
@@ -586,4 +761,5 @@ def build_compliance_scan_timeline(
         "persistent_gaps": _persistent_failing_controls(last_snap),
         "scan_count": len(scan_runs),
         "scan_cadence": _scan_cadence(scan_runs, events),
+        "posture_trend": _posture_trend(scan_runs, catalog, findings, events_by_finding),
     }

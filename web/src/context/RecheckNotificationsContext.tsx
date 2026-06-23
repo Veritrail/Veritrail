@@ -9,8 +9,9 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 
-const STORAGE_KEY = "vigil.recheckNotifications.v3";
+const STORAGE_KEY = "veritrail.recheckNotifications.v3";
 const HISTORY_LIMIT = 100;
 /** Max wait after Verify (queued full recheck or stuck pending state). */
 export const RECHECK_TIMEOUT_MS = 30_000;
@@ -115,8 +116,6 @@ type PersistedLegacy = {
   outcome: Omit<VerifyNotification, "id" | "kind"> | null;
 };
 
-type FindingPage = { items: { id: string }[] };
-
 type PolicyGenStatusRow = { status?: string; job_id?: string };
 
 function newNotificationId(): string {
@@ -203,11 +202,11 @@ function loadPersisted(): PersistedV3 & { latestVerifyOutcome: VerifyNotificatio
           : [],
       };
     } else {
-      const v2 = localStorage.getItem("vigil.recheckNotifications.v2");
+      const v2 = localStorage.getItem("veritrail.recheckNotifications.v2");
       if (v2) {
         state = migrateV2(v2);
       } else {
-        const v1 = localStorage.getItem("vigil.recheckNotifications.v1");
+        const v1 = localStorage.getItem("veritrail.recheckNotifications.v1");
         if (v1) state = migrateLegacyV1(v1);
       }
     }
@@ -476,7 +475,7 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
 
   const openMetricsQ = useQuery({
     queryKey: ["findings", "open"],
-    queryFn: () => api<FindingPage>("/v1/findings?status=open&limit=500"),
+    queryFn: () => fetchAllFindings<{ id: string }>({ status: "open" }),
     refetchInterval: pendingRecheck ? 3000 : false,
     enabled: !!pendingRecheck,
   });

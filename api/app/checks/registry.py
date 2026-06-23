@@ -45,6 +45,7 @@ from app.checks import (
     entra_user_inactive,
     entra_admin_unreviewed,
     identity_center_user_inactive,
+    backup_plan_missing,
     access_analyzer_not_enabled,
     aws_account_contact_incomplete,
     aws_account_security_contact_missing,
@@ -60,6 +61,7 @@ from app.checks import (
     ec2_ebs_encryption_default,
     ec2_ebs_volume_unencrypted,
     ec2_imdsv2_not_required,
+    ec2_instance_no_instance_profile,
     guardduty_not_enabled,
     guardduty_open_findings,
     iam_access_inventory_gap,
@@ -196,6 +198,7 @@ ALL_CHECKS = [
     aws_account_security_contact_missing,
     iam_server_certificate_expired,
     iam_cloudshell_access,
+    backup_plan_missing,
     # AWS Config
     config_not_enabled,
     aws_config_rules_non_compliant,
@@ -209,6 +212,7 @@ ALL_CHECKS = [
     sg_default_allows_traffic,
     # EC2 Instances
     ec2_imdsv2_not_required,
+    ec2_instance_no_instance_profile,
     ec2_ebs_encryption_default,
     ec2_ebs_volume_unencrypted,
     # RDS

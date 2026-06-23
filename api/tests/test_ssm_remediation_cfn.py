@@ -9,7 +9,7 @@ _HANDLER_RE = re.compile(
     re.DOTALL,
 )
 
-_CFN_NAME = "vigil-remediation-ssm.yaml"
+_CFN_NAME = "veritrail-remediation-ssm.yaml"
 _SCRIPT_CHECKSUM_MAP = {
     "RevokeSgIngress": "revoke_sg_ingress.py",
     "DeactivateAccessKey": "deactivate_access_key.py",
@@ -54,7 +54,7 @@ def test_ssm_script_checksums_match_repo_files():
 def test_execute_script_handlers_match_attachment_basenames():
     text = _remediation_cfn_path().read_text()
     pairs = _HANDLER_RE.findall(text)
-    assert pairs, "expected aws:executeScript Handler/Attachment pairs in vigil-remediation-ssm.yaml"
+    assert pairs, "expected aws:executeScript Handler/Attachment pairs in veritrail-remediation-ssm.yaml"
     for handler, attachment in pairs:
         module = attachment.removesuffix(".py")
         assert handler == f"{module}.handler", (

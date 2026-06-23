@@ -31,7 +31,7 @@ def _get_regions(sess) -> list[str]:
 
 
 def collect_ec2(db: Session, account: AwsAccount) -> dict:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-ec2", aws_account=account, purpose="collect_ec2")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-ec2", aws_account=account, purpose="collect_ec2")
     regions = _get_regions(sess)
     instance_count = volume_count = ebs_count = snapshot_count = ami_count = 0
 
@@ -76,6 +76,8 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
                         metadata_options = inst.get("MetadataOptions", {})
                         imdsv2_required = metadata_options.get("HttpTokens") == "required"
 
+                        profile_arn = (inst.get("IamInstanceProfile") or {}).get("Arn")
+
                         sg_ids = [sg["GroupId"] for sg in inst.get("SecurityGroups", [])]
 
                         tags = {t["Key"]: t["Value"] for t in inst.get("Tags", [])}
@@ -88,6 +90,7 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
                             instance_type=instance_type,
                             state=state,
                             imdsv2_required=imdsv2_required,
+                            iam_instance_profile_arn=profile_arn,
                             vpc_id=vpc_id,
                             subnet_id=subnet_id,
                             security_group_ids=sg_ids,
@@ -98,6 +101,7 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
                             set_={
                                 "state": state,
                                 "imdsv2_required": imdsv2_required,
+                                "iam_instance_profile_arn": profile_arn,
                                 "vpc_id": vpc_id,
                                 "subnet_id": subnet_id,
                                 "security_group_ids": sg_ids,
@@ -217,7 +221,7 @@ def collect_ec2(db: Session, account: AwsAccount) -> dict:
         except ClientError:
             continue
 
-    db.commit()
+
     log.info(
         "collect_ec2.done",
         account_id=str(account.id),

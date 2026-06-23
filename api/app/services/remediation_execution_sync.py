@@ -111,7 +111,7 @@ def sync_remediation_execution_from_ssm(
         sess = assume_role(
             account.role_arn,
             account.external_id,
-            session_name="vigil-remediation-status",
+            session_name="veritrail-remediation-status",
             aws_account=account,
             purpose="sync_remediation_execution",
         )

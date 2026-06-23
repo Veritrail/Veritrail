@@ -84,6 +84,7 @@ def test_ssm_document_ready(mock_assume):
     acc.enable_remediation_iam_policy = False
     acc.enable_remediation_ssm_parameters = False
     acc.enable_remediation_cloudtrail = False
+    acc.enable_remediation_kms = False
 
     ssm = MagicMock()
     sess = MagicMock()
@@ -94,7 +95,7 @@ def test_ssm_document_ready(mock_assume):
     out = check_remediation_runner(acc, scanner_policy_documents=_scanner_policy_with_ssm_start())
     assert out["ready"] is True
     assert out["document"]["exists"] is True
-    ssm.describe_document.assert_called_with(Name="Vigil-RevokeSecurityGroupIngressExact")
+    ssm.describe_document.assert_called_with(Name="Veritrail-RevokeSecurityGroupIngressExact")
 
 
 @patch("app.services.remediation_runner_status.assume_role")
@@ -115,13 +116,13 @@ def test_ssm_ready_false_when_start_only_on_automation_definition(mock_assume):
                 {
                     "Effect": "Allow",
                     "Action": ["ssm:DescribeDocument", "ssm:GetDocument"],
-                    "Resource": "arn:aws:ssm:*:123456789012:document/Vigil-RemediationPlanExecutor",
+                    "Resource": "arn:aws:ssm:*:123456789012:document/Veritrail-RemediationPlanExecutor",
                 },
                 {
                     "Effect": "Allow",
                     "Action": list(CONNECTOR_SSM_START_ACTIONS),
                     "Resource": [
-                        "arn:aws:ssm:*:123456789012:automation-definition/Vigil-RemediationPlanExecutor:*",
+                        "arn:aws:ssm:*:123456789012:automation-definition/Veritrail-RemediationPlanExecutor:*",
                         "arn:aws:ssm:*:123456789012:automation-execution/*",
                     ],
                 },

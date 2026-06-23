@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock, patch
 
-from app.routes.accounts import (
+from app.routes.accounts_analysis import (
     _build_policy_doc_from_statements,
     _clean_managed_policies,
 )
@@ -185,10 +185,10 @@ def test_clean_managed_policy_no_statements_field():
 
 # ── generate_role_policy integration ───────────────────────────────
 
-@patch("app.routes.accounts._resolve_advanced_policy_generation")
+@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
 def test_generate_role_policy_with_only_managed(mock_resolve):
     """Role with only managed policies → has_managed_policies=True, has_inline_policies=False."""
-    from app.routes.accounts import generate_role_policy
+    from app.routes.accounts_analysis import generate_role_policy
 
     mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 
@@ -249,10 +249,10 @@ def test_generate_role_policy_with_only_managed(mock_resolve):
     assert result["note"] is None  # Should be None when policies exist
 
 
-@patch("app.routes.accounts._resolve_advanced_policy_generation")
+@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
 def test_generate_role_policy_with_both_inline_and_managed(mock_resolve):
     """Role with both inline and managed policies → both sections present."""
-    from app.routes.accounts import generate_role_policy
+    from app.routes.accounts_analysis import generate_role_policy
 
     mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 
@@ -314,10 +314,10 @@ def test_generate_role_policy_with_both_inline_and_managed(mock_resolve):
     assert "ManagedB" in result["managed_policies"]
 
 
-@patch("app.routes.accounts._resolve_advanced_policy_generation")
+@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
 def test_generate_role_policy_with_neither(mock_resolve):
     """Role with no inline and no managed policies → both false, note present."""
-    from app.routes.accounts import generate_role_policy
+    from app.routes.accounts_analysis import generate_role_policy
 
     mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 
@@ -355,10 +355,10 @@ def test_generate_role_policy_with_neither(mock_resolve):
     assert "no inline policies" in result["note"]
 
 
-@patch("app.routes.accounts._resolve_advanced_policy_generation")
+@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
 def test_generate_role_policy_managed_summary_counts_types(mock_resolve):
     """Managed summary correctly counts customer_managed vs aws_managed policies."""
-    from app.routes.accounts import generate_role_policy
+    from app.routes.accounts_analysis import generate_role_policy
 
     mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 

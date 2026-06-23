@@ -1,0 +1,8 @@
+[veritrail-nginx-scan]
+enabled = true
+port = http,https
+filter = veritrail-nginx-scan
+logpath = __VERITRAIL_NGINX_ACCESS_LOG__
+maxretry = 30
+findtime = 60
+bantime = 3600

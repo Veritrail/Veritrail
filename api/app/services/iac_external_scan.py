@@ -140,7 +140,7 @@ def run_engine(engine: str, files: list[dict[str, str]]) -> dict:
             "findings": [],
         }
     try:
-        with tempfile.TemporaryDirectory(prefix=f"vigil-iac-{engine}-") as root:
+        with tempfile.TemporaryDirectory(prefix=f"veritrail-iac-{engine}-") as root:
             _write_files(files, root)
             if engine == "checkov":
                 proc = _run(["checkov", "-d", ".", "-o", "json", "--compact", "--quiet"], root)

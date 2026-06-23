@@ -20,6 +20,8 @@ build/
 celerybeat-schedule
 celerybeat-schedule.*
 var/log/nginx/*.log
+data/uploads/*
+!data/uploads/.gitkeep
 
 
 

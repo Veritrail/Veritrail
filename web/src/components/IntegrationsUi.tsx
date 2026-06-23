@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
+import { INTEGRATION_BRAND, type IntegrationBrandId } from "../lib/integrationBrands";
 
 export function formatSync(value: string | null | undefined) {
   if (!value) return "Never";
@@ -11,6 +12,29 @@ export function formatSync(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
+export function formatRelativeAgo(value: string | null | undefined): string {
+  if (!value) return "";
+  const diffMs = Date.now() - new Date(value).getTime();
+  if (diffMs < 0) return "just now";
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
+export function formatSyncDetail(value: string | null | undefined): { primary: string; secondary: string } {
+  if (!value) return { primary: "—", secondary: "" };
+  return {
+    primary: formatSync(value),
+    secondary: formatRelativeAgo(value),
+  };
+}
+
 export function Spinner({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24">
@@ -20,15 +44,17 @@ export function Spinner({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-export function StatusDot({ tone }: { tone: "ok" | "warn" | "idle" | "sync" }) {
+export function StatusDot({ tone }: { tone: "ok" | "warn" | "idle" | "sync" | "danger" }) {
   const cls =
     tone === "ok"
       ? "bg-emerald-500"
-      : tone === "warn"
-        ? "bg-amber-500"
-        : tone === "sync"
-          ? "bg-indigo-500 animate-pulse"
-          : "bg-zinc-300";
+      : tone === "danger"
+        ? "bg-red-500"
+        : tone === "warn"
+          ? "bg-amber-500"
+          : tone === "sync"
+            ? "bg-indigo-500 animate-pulse"
+            : "bg-zinc-300";
   return <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${cls}`} />;
 }
 
@@ -272,6 +298,77 @@ export function IntegrationEcosystemCard({
 
 /* ── Icons ── */
 
+export function IntegrationBrandIcon({
+  brand,
+  size = 40,
+  variant = "tile",
+  className = "",
+}: {
+  brand: IntegrationBrandId;
+  size?: number;
+  variant?: "tile" | "plain";
+  className?: string;
+}) {
+  const { src, fallback, tileScale = 1, tilePadding = 8 } = INTEGRATION_BRAND[brand];
+  const img = (
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      className="h-full w-full object-contain"
+      decoding="async"
+      loading="lazy"
+      style={tileScale !== 1 ? { transform: `scale(${tileScale})` } : undefined}
+      onError={
+        fallback
+          ? (event) => {
+              if (event.currentTarget.src.endsWith(fallback)) return;
+              event.currentTarget.src = fallback;
+            }
+          : undefined
+      }
+    />
+  );
+
+  const plainScale = brand === "gitlab" ? 1.22 : tileScale;
+
+  if (variant === "plain") {
+    return (
+      <span
+        className={`inline-flex shrink-0 items-center justify-center ${className}`}
+        style={{ width: size, height: size }}
+      >
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          className="h-full w-full object-contain"
+          decoding="async"
+          loading="lazy"
+          style={plainScale !== 1 ? { transform: `scale(${plainScale})` } : undefined}
+          onError={
+            fallback
+              ? (event) => {
+                  if (event.currentTarget.src.endsWith(fallback)) return;
+                  event.currentTarget.src = fallback;
+                }
+              : undefined
+          }
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03] ${className}`}
+      style={{ width: size, height: size, padding: tilePadding }}
+    >
+      {img}
+    </span>
+  );
+}
+
 export function GitHubMark({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
@@ -405,12 +502,20 @@ export function IconUsers({ className = "h-3.5 w-3.5" }: { className?: string })
   );
 }
 
-export function IconRepo({ className = "h-3.5 w-3.5" }: { className?: string }) {
+export function IconGitMerge({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" d="M6 4.5v11" />
+      <circle cx="18" cy="7" r="2.25" />
+      <circle cx="6" cy="19" r="2.25" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 10a9 9 0 0 1-9 9" />
     </svg>
   );
+}
+
+/** Git branch tree — /public/icons/git-repo.png via CSS mask */
+export function IconRepo({ className = "scm-git-repo-icon" }: { className?: string }) {
+  return <span className={className} aria-hidden />;
 }
 
 export function IconBranch({ className = "h-3.5 w-3.5" }: { className?: string }) {

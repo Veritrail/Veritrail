@@ -31,7 +31,7 @@ def _get_regions(sess) -> list[str]:
 
 
 def collect_access_analyzer(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-access-analyzer", aws_account=account, purpose="collect_access_analyzer")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-access-analyzer", aws_account=account, purpose="collect_access_analyzer")
     regions = _get_regions(sess)
     count = 0
 
@@ -82,6 +82,6 @@ def collect_access_analyzer(db: Session, account: AwsAccount) -> int:
             db.execute(stmt)
             count += 1
 
-    db.commit()
+
     log.info("collect_access_analyzer.done", account_id=str(account.id), regions=count)
     return count

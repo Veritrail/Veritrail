@@ -20,7 +20,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
         FindingDraft(
             check_id=CHECK_ID,
             resource_arn=r.arn,
-            title=f"EKS cluster `{r.name}` does not encrypt Kubernetes secrets at rest",
+            title=f"EKS cluster `{r.name}` does not use KMS envelope encryption for Kubernetes secrets",
             severity="medium",
             risk_score=score("medium"),
             evidence={

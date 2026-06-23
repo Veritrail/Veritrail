@@ -1,10 +1,10 @@
-# Vigil
+# Veritrail
 
-**AWS-native SOC 2 CC6/CC7 evidence automation for engineering teams.**
+**AWS-native SOC 2 cloud and change evidence automation for engineering teams.**
 
-Connect AWS, then optionally GitHub or GitLab for change-management evidence. Vigil scans daily, maps AWS posture and change evidence to SOC 2 CC6/CC7, and produces auditor-ready evidence packs — JSON, CSV, and PDF — on demand.
+Connect AWS, then optionally GitHub or GitLab for change-management evidence. Veritrail scans daily, maps AWS posture and change evidence to SOC 2 CC6/CC7/CC8, and produces auditor-ready evidence packs — JSON, CSV, and PDF — on demand.
 
-Built for AWS-heavy engineering teams heading into SOC 2 who need a credible CC6/CC7 evidence layer, not a broad GRC suite.
+Built for AWS-heavy engineering teams heading into SOC 2 who need a credible cloud and change evidence layer, not a broad GRC suite.
 
 **One-line:** Connect your AWS account → first downloadable SOC2 evidence pack in under 10 minutes.
 
@@ -12,11 +12,11 @@ Built for AWS-heavy engineering teams heading into SOC 2 who need a credible CC6
 
 ## What it is
 
-Vigil is a **SOC 2 infrastructure evidence layer** — not a CSPM, not a broad compliance suite.
+Veritrail is a **SOC 2 infrastructure evidence layer** — not a CSPM, not a broad compliance suite.
 
-| What Vigil does | What Vigil does not do |
+| What Veritrail does | What Veritrail does not do |
 |---|---|
-| Automates SOC 2 CC6/CC7 evidence from AWS and code-hosting systems | Replace Vanta/Drata (no HR/MDM/vendor/policy) |
+| Automates SOC 2 cloud and change evidence from AWS and code-hosting systems | Replace Vanta/Drata (no HR/MDM/vendor/policy) |
 | Produces timestamped, auditor-ready evidence packs | Compete with Wiz/Prisma on scan breadth |
 | CloudTrail change timeline + GitHub/GitLab evidence in packs | Expand into multi-cloud before AWS feels complete |
 | Shows blast radius before you remediate a finding | Generate AI summaries in evidence outputs |
@@ -47,7 +47,7 @@ Your browser
 
 Single VPS · Docker Compose · No Kubernetes · No microservices.
 
-The worker runs in Vigil's control-plane account and assumes a customer-provided read-only role. Nothing runs inside the customer's VPC. IAM and STS are AWS control-plane APIs reachable over public HTTPS.
+The worker runs in Veritrail's control-plane account and assumes a customer-provided read-only role. Nothing runs inside the customer's VPC. IAM and STS are AWS control-plane APIs reachable over public HTTPS.
 
 ---
 
@@ -74,13 +74,23 @@ AWS in dev: mount `~/.aws` (already in `compose.yml`) and set `AWS_PROFILE` in `
 
 ## Production deploy (EC2)
 
-One-shot bootstrap on Ubuntu EC2 (Docker, Let's Encrypt, nginx, `.env.prod`, compose prod profile):
+Fresh Ubuntu EC2 (22.04/24.04): clone the repo, copy your secrets to `.env.prod`, then bootstrap once:
 
 ```bash
-sudo EMAIL=you@example.com ./scripts/bootstrap-ec2.sh
+git clone https://github.com/awakzdev/Vigil.git && cd Vigil
+# scp or edit .env.prod with prod secrets (JWT, OAuth, Postgres password, etc.)
+sudo EMAIL=you@example.com ./scripts/launch-prod.sh
 ```
 
-Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue certs with `--force-cert`.
+`launch-prod.sh` defaults to `ENV_FILE=.env.prod`, installs Docker + certbot on a bare host, copies `.env.prod` → `.env`, sets `APP_ENV=production`, obtains TLS certs, runs migrations, and starts the prod compose profile.
+
+**Redeploy** on an already-bootstrapped host (git pull + migrate + rebuild):
+
+```bash
+./scripts/deploy-ec2.sh
+```
+
+Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue certs with `--force-cert`. Skip git pull with `GIT_PULL=0`.
 
 **Prerequisites**
 
@@ -88,7 +98,7 @@ Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue
 - Security group allows inbound TCP 80 and 443
 - EC2 instance profile IAM role (used to auto-detect `TRUST_PRINCIPAL_ARN` when unset)
 
-Compose files: `compose.yml` + `compose.prod.yml` with `ENV_FILE=.env.prod` and `--profile prod`.
+Compose: `compose.yml` + `compose.prod.yml` with `ENV_FILE=.env.prod` and `--profile prod`. After bootstrap, `source .compose.prod.env` before manual compose commands.
 
 ---
 
@@ -96,12 +106,12 @@ Compose files: `compose.yml` + `compose.prod.yml` with `ENV_FILE=.env.prod` and 
 
 1. Sign up — email/password, GitHub, GitLab, or Google login.
 2. **AWS Accounts** → choose connection mode:
-   - **Core Scanner** (required, read-only) — AWS posture checks and SOC 2 CC6/CC7 evidence packs.
+   - **Core Scanner** (required, read-only) — AWS posture checks and SOC 2 cloud evidence packs.
    - **Advanced IAM policy generation** (optional) — adds `iam:GenerateServiceLastAccessedDetails` and Access Analyzer policy-generation actions to a separate CFN role. Starts AWS analysis jobs only; does not modify resources.
    - **Remediation automation** (optional, second stack) — customer-owned SSM Automation for approved fixes (e.g. security groups). Not required for compliance scanning.
 3. **Continue to deploy** → **Launch CloudFormation stack** — template URL, ExternalId, trust principal, and optional parameters are pre-filled from your selections.
 4. Deploy the stack in the customer's AWS console → copy `RoleArn` output (and `AdvancedPolicyGenRoleArn` if enabled).
-5. Paste ARN → **Verify**. Vigil calls `sts:AssumeRole` to confirm trust + ExternalId.
+5. Paste ARN → **Verify**. Veritrail calls `sts:AssumeRole` to confirm trust + ExternalId.
 6. First scan triggers automatically. Findings appear in ~1–3 min.
 
 **IaC scanning** (Terraform on GitHub/GitLab pull requests) is separate: connect GitHub under Integrations. It does not use the remediation SSM document.
@@ -115,7 +125,7 @@ Compose files: `compose.yml` + `compose.prod.yml` with `ENV_FILE=.env.prod` and 
 Returns a ZIP bundle:
 
 ```
-vigil-evidence-soc2-2026-05-26.zip
+veritrail-evidence-soc2-2026-05-26.zip
   README.txt
   INDEX.csv
   checksum_manifest.json
@@ -139,35 +149,39 @@ vigil-evidence-soc2-2026-05-26.zip
 
 ---
 
-## Checks (53 total)
+## Checks (133 automated checks)
 
-### AWS (36 checks)
+Veritrail's automated check registry currently covers AWS posture, AWS activity detections,
+identity providers, source-control evidence, and change-management evidence. The
+tables below summarize the main launch-facing coverage; the canonical registry lives
+in [`api/app/checks/registry.py`](api/app/checks/registry.py).
+
+### AWS checks
 
 | Category | Checks |
 |---|---|
 | IAM root | no MFA, has access keys, root activity |
-| IAM users | no MFA, inactive 90d |
-| IAM access keys | unused 90d, no rotation 90d, multiple active |
-| IAM roles | unassumed 90d, wildcard action, unused services 90d, trust wildcard, granted vs used |
+| IAM users | no MFA, inactive/unused credentials, admin/direct policies |
+| IAM access keys | unused, no rotation, multiple active, newly created |
+| IAM roles | unassumed, wildcard action/resource, unused services, external trust, trust wildcard, granted vs used, least privilege |
 | IAM policies | wildcard resource, unattached managed policies |
-| S3 | public access (bucket + account), no HTTPS policy, no KMS, no logging |
-| KMS | no rotation |
-| CloudTrail | not enabled, no log validation, no KMS |
-| GuardDuty | not enabled |
-| EC2 / VPC | unrestricted SSH/RDP, default SG allows traffic, no flow logs, IMDSv2, EBS unencrypted, EBS default encryption |
-| RDS | publicly accessible, no encryption, no automated backup |
-| AWS services | Config not enabled, Security Hub not enabled, Access Analyzer not enabled, weak password policy |
+| S3 | public access (bucket + account), no HTTPS policy, no KMS/default encryption, no MFA delete, no logging, CloudTrail bucket exposure |
+| KMS | no rotation, wildcard key policy, CloudTrail KMS posture |
+| CloudTrail / activity | not enabled, no log validation, no CloudWatch, tampering, public-access changes, IAM policy/key changes, anomalous API volume |
+| GuardDuty / Inspector / vulnerability | not enabled, open findings, critical Inspector findings, vulnerability monitoring |
+| EC2 / VPC / EBS | unrestricted SSH/RDP, default SG ingress, no flow logs, IMDSv2, public AMIs/snapshots, unencrypted volumes/snapshots, default EBS encryption |
+| RDS | public instances/snapshots, no encryption, no backup, no deletion protection, no Multi-AZ |
+| Containers / serverless | ECR scan posture, ECS public IP/privileged/container insights, EKS public endpoint/logging/secret encryption, Lambda public URLs/deprecated runtime/no DLQ |
+| Governance services | Config, Security Hub, Access Analyzer, account contacts, backup plans, support role, weak password policy |
+| Data services | DynamoDB/SNS/SQS encryption posture, DynamoDB PITR, plaintext SSM parameters, secret rotation |
 
-### GitHub (8 checks)
+### Source-control and identity checks
 
-`github.org.mfa_not_enforced` · `github.org.dormant_members` · `github.org.outside_collaborators` ·
-`github.repo.no_branch_protection` · `github.repo.self_merge_allowed` · `github.repo.insufficient_reviews` ·
-`github.repo.no_env_protection`
-
-### GitLab (5 checks)
-
-`gitlab.org.mfa_not_enforced` · `gitlab.org.dormant_members` ·
-`gitlab.repo.no_branch_protection` · `gitlab.repo.self_merge_allowed` · `gitlab.repo.insufficient_reviews`
+| Provider | Coverage |
+|---|---|
+| GitHub | org MFA, dormant/admin/outside members, branch and environment protection, required reviews/status checks, CODEOWNERS, Dependabot, code/secret scanning |
+| GitLab | org MFA, dormant members, branch and environment protection, required reviews/status checks, CODEOWNERS, SAST/dependency/container scanning |
+| Google Workspace / Entra / Identity Center | org MFA, inactive users, admin-review evidence |
 
 ---
 
@@ -178,7 +192,7 @@ vigil-evidence-soc2-2026-05-26.zip
 | SOC 2 TSC | CC6.1 – CC6.8, CC7.1 – CC7.2 |
 | CIS AWS Foundations | Supporting AWS control mapping and detection coverage |
 
-SOC 2 CC6/CC7 is the product boundary. Other framework mappings may exist in code or exports as supporting context, but they are not the primary promise.
+SOC 2 cloud and change evidence is the product boundary. Manual governance, HR, vendor, and policy controls may appear in auditor review workflows, but they are not the primary product promise.
 
 ---
 
@@ -212,14 +226,14 @@ Every evidence item is timestamped with collection time and source API. Evidence
 
 ## Remediation (read-only scanning + optional customer automation)
 
-Vigil scanning is read-only. If you explicitly enable remediation modules, approved fixes run through customer-owned SSM Automation with scoped permissions. Remediation paths:
+Veritrail scanning is read-only. If you explicitly enable remediation modules, approved fixes run through customer-owned SSM Automation with scoped permissions. Remediation paths:
 
 | Path | What it does |
 |------|----------------|
 | **Console / CLI** | Step-by-step copy in the finding drawer (resource names interpolated). |
 | **Terraform** | Declarative snippets for **S3 / KMS** only — not security groups (no `null_resource` / local-exec). |
 | **Version-control PR** | `POST …/iac/repo-scan` scans repo `.tf`/`.hcl`; `POST …/iac/terraform-pr` opens PR for **S3 PAB** and **KMS rotation** when hclpatch finds an exact resource block. SG: scan shows file/line — fix via SSM Automation. |
-| **SSM Automation** | Customer deploys [`infra/cfn/vigil-remediation-ssm.yaml`](infra/cfn/vigil-remediation-ssm.yaml); Vigil plan v2; `POST .../remediation/dispatch` starts SSM Automation when scoped permissions are enabled, with a CLI fallback. |
+| **SSM Automation** | Customer deploys [`infra/cfn/veritrail-remediation-ssm.yaml`](infra/cfn/veritrail-remediation-ssm.yaml); Veritrail plan v2; `POST .../remediation/dispatch` starts SSM Automation when scoped permissions are enabled, with a CLI fallback. |
 
 **Security group checks** (`ec2.security_group.unrestricted_ssh` / `unrestricted_rdp`):
 - Collector flags port-specific public ingress (22 / 3389) and **all-traffic** `0.0.0.0/0`; findings include `exposing_rules` in evidence.
@@ -248,13 +262,13 @@ Full runbook: [docs/remediation-automation.md](docs/remediation-automation.md).
 
 ## AWS permissions
 
-Deployed via [`infra/cfn/vigil-readonly-role.yaml`](infra/cfn/vigil-readonly-role.yaml).
+Deployed via [`infra/cfn/veritrail-readonly-role.yaml`](infra/cfn/veritrail-readonly-role.yaml).
 
 **Read-only. No write permissions. Ever.**
 
 Base role is strictly **Read / List / Describe** access-level. Key actions: `iam:Get*` / `iam:List*` · `iam:GenerateServiceLastAccessedDetails` / `iam:GetServiceLastAccessedDetails` (read access reports; no mutation) · `s3:GetBucket*` · `s3:ListAllMyBuckets` · `kms:Describe*` / `kms:List*` · `cloudtrail:Describe*` / `cloudtrail:LookupEvents` · `guardduty:List*` / `guardduty:Get*` · `ec2:Describe*` · `rds:Describe*` · `access-analyzer:ListAnalyzers` · `config:Describe*` · `securityhub:Describe*` · `sts:GetCallerIdentity`.
 
-The Write access-level IAM Access Analyzer **policy-generation** actions (`StartPolicyGeneration` / `GetGeneratedPolicy` / `ListPolicyGenerations` / `CancelPolicyGeneration`) are **not** in the base role. They live in an optional separate role `*AdvancedPolicyGen`, created only when `EnableAdvancedPolicyGeneration=Yes` — enable it only if you want Vigil's Advanced least-privilege policy generation. A second optional role `*AccessAnalyzerMonitor` (Access Analyzer service principal) grants CloudTrail S3 read during policy generation.
+The Write access-level IAM Access Analyzer **policy-generation** actions (`StartPolicyGeneration` / `GetGeneratedPolicy` / `ListPolicyGenerations` / `CancelPolicyGeneration`) are **not** in the base role. They live in an optional separate role `*AdvancedPolicyGen`, created only when `EnableAdvancedPolicyGeneration=Yes` — enable it only if you want Veritrail's Advanced least-privilege policy generation. A second optional role `*AccessAnalyzerMonitor` (Access Analyzer service principal) grants CloudTrail S3 read during policy generation.
 
 The role uses `ExternalId` (confused-deputy protection). Only `TRUST_PRINCIPAL_ARN` can assume it.
 
@@ -280,8 +294,8 @@ web/              React + Vite + Tailwind + TanStack Query
 tools/
   hclpatch/       Go HCL patcher for repo-aware Terraform PRs (S3 checks)
 infra/
-  cfn/            vigil-readonly-role.yaml
-                  vigil-remediation-ssm.yaml          ← SG/SSM remediation (SSM Automation)
+  cfn/            veritrail-readonly-role.yaml
+                  veritrail-remediation-ssm.yaml          ← SG/SSM remediation (SSM Automation)
 docs/             remediation-automation.md, evidence-vault.md
 compose.yml
 ```
@@ -299,7 +313,7 @@ compose.yml
 
 ## Release readiness
 
-Shipped in-repo (narrow technical / design-partner launch):
+Shipped in-repo (narrow design-partner launch):
 
 | Item | Status |
 |------|--------|
@@ -334,7 +348,7 @@ Most of [deepsearch/v3.txt](deepsearch/v3.txt) **phase 1–2 and navigation (pha
 | Evidence vault: WORM upload per `report_id` | **Partial** — export upload + presigned; auditor approval UI still open |
 | Activity log + compliance timeline + noise toggle | **Done** |
 | Activity log → related open findings | **Done** (token overlap on resource names/ARNs) |
-| Customer-owned SSM Automation document | **Done** — [`infra/cfn/vigil-remediation-ssm.yaml`](infra/cfn/vigil-remediation-ssm.yaml) |
+| Customer-owned SSM Automation document | **Done** — [`infra/cfn/veritrail-remediation-ssm.yaml`](infra/cfn/veritrail-remediation-ssm.yaml) |
 | Execution per `plan_id` | **Partial** — dispatch is recorded; SSM output remains in customer account unless a callback is added |
 | `noindex` on app shell | **Done** |
 | Move long-form reference to external docs site | **Not done** |
@@ -385,7 +399,7 @@ Served at the web app root (Vite `public/`):
 | `robots.txt` | Crawl rules (app routes disallowed; `/login`, `/security` allowed) |
 | `sitemap.xml` | Public URLs only — update `SITE_BASE` in file when the production hostname changes |
 
-Default canonical host in sitemap: `https://vigil.cclab.cloud-castles.com`.
+Default canonical host in sitemap: `https://app.veritrail.io`.
 
 ---
 

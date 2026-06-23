@@ -15,6 +15,7 @@ from app.core.security import current_principal, issue_auditor_token
 from app.services.auditor_invite_email import send_auditor_invite_email
 from app.models.auditor import AuditorAccess, AuditActivityLog
 from app.models.org import Org
+from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
 
@@ -54,6 +55,7 @@ class AuditorAccessOut(BaseModel):
 
 class AuditorInviteOut(AuditorAccessOut):
     email_sent: bool
+    email_delivery_note: str | None = None
     verify_url: str
 
 
@@ -70,17 +72,41 @@ def _to_out(a: AuditorAccess) -> AuditorAccessOut:
     )
 
 
+def _dedupe_auditors_by_email(grants: list[AuditorAccess]) -> list[AuditorAccess]:
+    """One row per email — list is already newest-first."""
+    seen: set[str] = set()
+    out: list[AuditorAccess] = []
+    for grant in grants:
+        key = grant.email.strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(grant)
+    return out
+
+
 @router.post("/invite", response_model=AuditorInviteOut)
-def invite_auditor(body: AuditorInviteIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def invite_auditor(body: AuditorInviteIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
     settings = get_settings()
+    normalized_email = body.email.strip().lower()
+
+    # Replace prior grants for this email so the table stays one row per auditor.
+    prior = db.scalars(
+        select(AuditorAccess).where(
+            AuditorAccess.org_id == org.id,
+            func.lower(AuditorAccess.email) == normalized_email,
+        )
+    ).all()
+    for old in prior:
+        old.is_active = False
 
     access_token = uuid.uuid4().hex + uuid.uuid4().hex  # 64-char hex token
     expires_at = datetime.now(timezone.utc) + timedelta(days=body.expiry_days)
 
     grant = AuditorAccess(
         org_id=org.id,
-        email=body.email,
+        email=normalized_email,
         name=body.name,
         access_token=access_token,
         expires_at=expires_at,
@@ -92,8 +118,8 @@ def invite_auditor(body: AuditorInviteIn, p=Depends(current_principal), db: Sess
     db.refresh(grant)
 
     verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/auditor/verify/{access_token}"
-    email_sent = send_auditor_invite_email(
-        to=body.email,
+    email_sent, email_note = send_auditor_invite_email(
+        to=normalized_email,
         org_name=org.name or "Your organization",
         auditor_name=body.name,
         verify_url=verify_url,
@@ -101,7 +127,12 @@ def invite_auditor(body: AuditorInviteIn, p=Depends(current_principal), db: Sess
     )
 
     base = _to_out(grant)
-    return AuditorInviteOut(**base.model_dump(), email_sent=email_sent, verify_url=verify_url)
+    return AuditorInviteOut(
+        **base.model_dump(),
+        email_sent=email_sent,
+        email_delivery_note=email_note,
+        verify_url=verify_url,
+    )
 
 
 @router.get("/list", response_model=list[AuditorAccessOut])
@@ -112,11 +143,11 @@ def list_auditors(p=Depends(current_principal), db: Session = Depends(get_db)):
         .where(AuditorAccess.org_id == org.id)
         .order_by(AuditorAccess.created_at.desc())
     ).all()
-    return [_to_out(g) for g in grants]
+    return [_to_out(g) for g in _dedupe_auditors_by_email(grants)]
 
 
 @router.delete("/{auditor_id}")
-def revoke_auditor(auditor_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
+def revoke_auditor(auditor_id: str, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
     grant = db.get(AuditorAccess, uuid.UUID(auditor_id))
     if not grant or str(grant.org_id) != p["org_id"]:
@@ -138,7 +169,7 @@ class ExtendIn(BaseModel):
 
 
 @router.post("/{auditor_id}/extend", response_model=AuditorAccessOut)
-def extend_auditor(auditor_id: str, body: ExtendIn, p=Depends(current_principal), db: Session = Depends(get_db)):
+def extend_auditor(auditor_id: str, body: ExtendIn, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
     grant = db.get(AuditorAccess, uuid.UUID(auditor_id))
     if not grant or str(grant.org_id) != p["org_id"]:
