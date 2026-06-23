@@ -77,10 +77,12 @@ def db_session():
     from sqlalchemy.orm import Session as SASession
 
     from app.core.db import engine
+    from app.services.seed_controls import seed_controls
 
     connection = engine.connect()
     trans = connection.begin()
     session = SASession(bind=connection, autoflush=False, future=True)
+    seed_controls(session, commit=False)
     try:
         yield session
     finally:

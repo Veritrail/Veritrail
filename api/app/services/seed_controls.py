@@ -14,7 +14,7 @@ from app.models.control import Control, CheckControl
 _MAPPINGS_PATH = Path(__file__).parent.parent.parent / "data" / "control_mappings.json"
 
 
-def seed_controls(db: Session) -> int:
+def seed_controls(db: Session, *, commit: bool = True) -> int:
     raw = json.loads(_MAPPINGS_PATH.read_text())
 
     # Guard: a (framework, control_id) must appear once. Duplicates silently
@@ -81,5 +81,8 @@ def seed_controls(db: Session) -> int:
         if (ctrl.framework, ctrl.control_id) not in desired_keys:
             db.delete(ctrl)
 
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return upserted
