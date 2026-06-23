@@ -257,7 +257,7 @@
     "framework": "cis_aws_l1",
     "control_id": "1.5",
     "title": "Ensure hardware MFA is enabled for the root user",
-    "description": "CIS recommends hardware MFA for root. Vigil verifies MFA is enabled but cannot distinguish hardware vs virtual from IAM alone.",
+    "description": "CIS recommends hardware MFA for root. Veritrail verifies MFA is enabled but cannot distinguish hardware vs virtual from IAM alone.",
     "guidance": "Manual attestation required: the IAM API does not distinguish hardware vs virtual MFA. Attach a hardware MFA device to root and attest, or document the virtual-MFA exception.",
     "checks": []
   },
@@ -286,7 +286,7 @@
     "control_id": "1.11",
     "title": "Ensure credentials unused for 45 days or greater are disabled",
     "description": "AWS IAM users can access AWS resources using different types of credentials. CIS requires that credentials unused for 45 days or greater are disabled.",
-    "guidance": "Disable or remove IAM users with no console activity in 45+ days. Deactivate access keys unused for 45+ days, then delete after confirming no dependency. Vigil detects against the CIS 45-day threshold; deactivation is performed in your AWS account.",
+    "guidance": "Disable or remove IAM users with no console activity in 45+ days. Deactivate access keys unused for 45+ days, then delete after confirming no dependency. Veritrail detects against the CIS 45-day threshold; deactivation is performed in your AWS account.",
     "checks": [
       "iam.user.credentials_unused_45d",
       "iam.access_key.unused_45d"
@@ -690,7 +690,7 @@
     "control_id": "1.17",
     "title": "Ensure IAM instance roles are used for AWS resource access",
     "description": "Long-lived IAM user credentials on EC2 instances are discouraged; instance profiles are preferred.",
-    "guidance": "Vigil flags running instances with no IAM instance profile attached. Attach instance roles for AWS access; instances that never call AWS APIs can be snoozed with a note.",
+    "guidance": "Veritrail flags running instances with no IAM instance profile attached. Attach instance roles for AWS access; instances that never call AWS APIs can be snoozed with a note.",
     "checks": [
       "ec2.instance.no_instance_profile"
     ]
@@ -860,5 +860,197 @@
     "checks": [
       "cloudtrail.event.lambda_function_created_or_modified"
     ]
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC1.1",
+    "title": "Control Environment \u2014 Integrity & Ethics",
+    "description": "The entity demonstrates a commitment to integrity and ethical values.",
+    "guidance": "Attest: code of conduct / ethics policy is published and acknowledged by personnel. Upload the policy and acknowledgment records.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC1.2",
+    "title": "Control Environment \u2014 Board Oversight",
+    "description": "The board of directors demonstrates independence from management and exercises oversight of internal control.",
+    "guidance": "Attest: governance/oversight responsibilities are defined. Upload board or management-review evidence.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC1.3",
+    "title": "Control Environment \u2014 Structure & Authority",
+    "description": "Management establishes structures, reporting lines, and appropriate authorities and responsibilities.",
+    "guidance": "Attest: org chart and role/responsibility definitions exist. Upload org chart.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC1.4",
+    "title": "Control Environment \u2014 Competence & HR",
+    "description": "The entity demonstrates a commitment to attract, develop, and retain competent individuals \u2014 including hiring, background checks, and security training.",
+    "guidance": "Attest: background-check policy, hiring process, and security-awareness training are in place. Upload policy + completion records.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC1.5",
+    "title": "Control Environment \u2014 Accountability",
+    "description": "The entity holds individuals accountable for their internal control responsibilities.",
+    "guidance": "Attest: responsibilities and accountability mechanisms (performance, disciplinary) are defined. Upload evidence.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC2.1",
+    "title": "Communication \u2014 Quality Information",
+    "description": "The entity obtains or generates and uses relevant, quality information to support internal control.",
+    "guidance": "Attest: relevant security/operational information is captured and used. Upload sample reports/logs.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC2.2",
+    "title": "Communication \u2014 Internal",
+    "description": "The entity internally communicates information, including security objectives and responsibilities.",
+    "guidance": "Attest: security policies and responsibilities are communicated to personnel. Upload comms / onboarding materials.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC2.3",
+    "title": "Communication \u2014 External",
+    "description": "The entity communicates with external parties regarding matters affecting internal control.",
+    "guidance": "Attest: process to communicate with customers/vendors/regulators exists (e.g. status page, trust center, DPAs).",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC3.1",
+    "title": "Risk Assessment \u2014 Objectives",
+    "description": "The entity specifies objectives with sufficient clarity to enable identification and assessment of related risks.",
+    "guidance": "Attest: security/compliance objectives are documented. Upload objectives statement.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC3.2",
+    "title": "Risk Assessment \u2014 Identify & Analyze",
+    "description": "The entity identifies risks to the achievement of its objectives and analyzes them as a basis for determining how to manage them.",
+    "guidance": "Attest: a risk assessment / risk register exists and is maintained. Upload the risk register.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC3.3",
+    "title": "Risk Assessment \u2014 Fraud",
+    "description": "The entity considers the potential for fraud in assessing risks.",
+    "guidance": "Attest: fraud risks are considered in the risk assessment. Upload evidence within the risk register.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC3.4",
+    "title": "Risk Assessment \u2014 Change",
+    "description": "The entity identifies and assesses changes that could significantly impact the system of internal control.",
+    "guidance": "Attest: change-impact assessment is part of risk/change processes. Upload evidence.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC4.1",
+    "title": "Monitoring \u2014 Evaluations",
+    "description": "The entity selects, develops, and performs ongoing and/or separate evaluations to ascertain whether controls are present and functioning.",
+    "guidance": "Attest: internal audits / control self-assessments are performed (Veritrail's continuous scanning supports this). Upload audit cadence/evidence.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC4.2",
+    "title": "Monitoring \u2014 Deficiencies",
+    "description": "The entity evaluates and communicates internal control deficiencies in a timely manner to those responsible for corrective action.",
+    "guidance": "Attest: deficiencies are tracked and remediated (Veritrail findings support this). Upload remediation tracking.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC5.1",
+    "title": "Control Activities \u2014 Selection",
+    "description": "The entity selects and develops control activities that contribute to the mitigation of risks to the achievement of objectives.",
+    "guidance": "Attest: controls are mapped to risks. Upload control matrix.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC5.2",
+    "title": "Control Activities \u2014 Technology",
+    "description": "The entity selects and develops general control activities over technology to support the achievement of objectives.",
+    "guidance": "Attest: technology general controls (access, change, ops) are defined \u2014 largely covered by Veritrail's automated checks.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC5.3",
+    "title": "Control Activities \u2014 Policies",
+    "description": "The entity deploys control activities through policies that establish what is expected and procedures that put policies into action.",
+    "guidance": "Attest: a security policy set is published and maintained. Upload the policy set.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC6.4",
+    "title": "Logical & Physical Access \u2014 Physical",
+    "description": "The entity restricts physical access to facilities and protected information assets to authorized personnel.",
+    "guidance": "Attest: physical access is controlled (often inherited from the cloud provider's SOC 2 for data centers; office controls for the entity). Upload provider report + office policy.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC6.5",
+    "title": "Logical & Physical Access \u2014 Disposal",
+    "description": "The entity discontinues logical and physical protections over physical assets only after the ability to read or recover data has been diminished (secure disposal).",
+    "guidance": "Attest: secure media disposal / data destruction process exists. Upload disposal policy.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC7.3",
+    "title": "System Operations \u2014 Incident Evaluation",
+    "description": "The entity evaluates security events to determine whether they could or did result in a failure to meet objectives, and if so, takes action.",
+    "guidance": "Attest: a process to triage and evaluate security events exists (Veritrail anomaly detection + alerts support detection). Upload incident-evaluation procedure.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC7.4",
+    "title": "System Operations \u2014 Incident Response",
+    "description": "The entity responds to identified security incidents by executing a defined incident response program.",
+    "guidance": "Attest: an incident response plan exists and is tested. Upload the IR plan + any post-incident reviews.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC7.5",
+    "title": "System Operations \u2014 Recovery",
+    "description": "The entity identifies, develops, and implements activities to recover from identified security incidents.",
+    "guidance": "Attest: backup and disaster-recovery procedures exist and are tested (Veritrail backup checks support this). Upload DR test evidence.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC9.1",
+    "title": "Risk Mitigation \u2014 Business Disruption",
+    "description": "The entity identifies, selects, and develops risk mitigation activities for risks arising from potential business disruptions.",
+    "guidance": "Attest: a business continuity plan and backups exist. Upload BCP + last DR test.",
+    "checks": []
+  },
+  {
+    "framework": "soc2",
+    "control_id": "CC9.2",
+    "title": "Risk Mitigation \u2014 Vendor Risk",
+    "description": "The entity assesses and manages risks associated with vendors and business partners.",
+    "guidance": "Attest: vendors/subprocessors are inventoried and their security (e.g. SOC 2 reports) is reviewed. Upload vendor list + their reports.",
+    "checks": []
   }
 ]

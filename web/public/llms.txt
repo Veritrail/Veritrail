@@ -1,20 +1,20 @@
-# Vigil
+# Veritrail
 
-> Continuous AWS compliance monitoring and evidence automation for SOC 2, CIS AWS Foundations, and ISO 27001. Auditor-ready evidence packs, historical proof, and security findings without requiring write access to customer environments.
+> Continuous AWS compliance monitoring and evidence automation for SOC 2, CIS AWS Foundations, and ISO 27001. Auditor-ready evidence packs, historical proof, and security findings with a read-only core scanner.
 
-## What is Vigil?
+## What is Veritrail?
 
-Vigil helps security and compliance teams continuously verify AWS security controls and collect evidence required for audits.
+Veritrail helps security and compliance teams continuously verify AWS security controls and collect evidence required for audits.
 
-The platform connects to AWS through a read-only cross-account IAM role and automatically evaluates cloud configurations against mapped compliance controls. Evidence is collected over time, preserving historical snapshots that can be exported for SOC 2 Type I and Type II audits.
+The core scanner connects to AWS through a read-only cross-account IAM role and automatically evaluates cloud configurations against mapped compliance controls. Evidence is collected over time, preserving historical snapshots that can be exported for SOC 2 Type I and Type II audits.
 
-Vigil focuses on technical controls and cloud security posture. It is not a GRC platform and does not manage policies, employee onboarding, device management, or HR workflows.
+Veritrail focuses on cloud and change evidence. It is not a GRC platform and does not manage policies, employee onboarding, device management, or HR workflows.
 
 ## Core Capabilities
 
 ### Continuous Compliance Monitoring
 
-Vigil continuously evaluates AWS environments across services including:
+Veritrail continuously evaluates AWS environments across services including:
 
 * IAM
 * CloudTrail
@@ -29,7 +29,7 @@ Each finding is mapped to relevant compliance requirements and tracked over time
 
 ### Evidence Automation
 
-For every control, Vigil automatically captures and stores supporting evidence, allowing organizations to:
+For every control, Veritrail automatically captures and stores supporting evidence, allowing organizations to:
 
 * Demonstrate compliance status at any point in time
 * Track control effectiveness historically
@@ -45,7 +45,7 @@ Exports include:
 
 ### Compliance Framework Coverage
 
-Vigil maps findings and evidence to:
+Veritrail maps findings and evidence to:
 
 * SOC 2 CC6 (Logical Access)
 * SOC 2 CC7 (System Operations)
@@ -53,7 +53,7 @@ Vigil maps findings and evidence to:
 * CIS AWS Foundations Benchmark (selected controls)
 * ISO 27001 Annex A controls
 
-Control coverage is transparent. Vigil does not claim full CIS benchmark coverage and publishes exact control mappings within generated evidence packs.
+Control coverage is transparent. Veritrail does not claim full CIS benchmark coverage and publishes exact control mappings within generated evidence packs.
 
 ### What-If Analysis
 
@@ -86,14 +86,14 @@ Examples include:
 
 ## Security Model
 
-Vigil operates using:
+Veritrail operates using:
 
 * Cross-account IAM role assumption
 * ExternalId protection
-* Read-only AWS permissions
-* No modification of customer resources
+* Read-only AWS permissions for the core scanner
+* Optional customer-approved analysis and remediation capabilities
 
-The platform never performs remediation actions inside customer accounts.
+The core scanner cannot modify customer resources. Optional remediation modules require customer-owned SSM Automation and explicit approval.
 
 ## Platform
 
@@ -119,9 +119,9 @@ Authenticated application routes are not intended for indexing.
 
 ## Positioning
 
-Vigil is designed for organizations that need continuous technical compliance evidence and cloud security verification without purchasing a full governance, risk, and compliance suite.
+Veritrail is designed for organizations that need continuous cloud compliance evidence and security verification without purchasing a full governance, risk, and compliance suite.
 
-It complements, rather than replaces, platforms such as Vanta or Drata by focusing specifically on technical cloud controls and evidence collection.
+It complements, rather than replaces, platforms such as Vanta or Drata by focusing specifically on cloud posture, change evidence, and auditor-ready evidence collection.
 
 ## Licensing
 

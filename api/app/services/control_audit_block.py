@@ -8,7 +8,7 @@ from app.models.control import Control
 from app.services.check_evidence import evidence_class_label, evidence_class_for_check
 
 # Checks whose remediation is "deactivate / delete a credential" (CIS 1.11 and neighbours).
-# Vigil flags these but never performs the change — see _remediation_ownership.
+# Veritrail flags these but never performs the change — see _remediation_ownership.
 _CREDENTIAL_LIFECYCLE_CHECKS = frozenset({
     "iam.user.inactive_90d",
     "iam.user.credentials_unused_45d",
@@ -22,14 +22,14 @@ _CREDENTIAL_LIFECYCLE_CHECKS = frozenset({
 
 def _remediation_ownership(check_ids: list[str]) -> str:
     base = (
-        "Vigil is read-only and never writes to your AWS account. It detects and reports; your "
+        "Veritrail is read-only and never writes to your AWS account. It detects and reports; your "
         "team performs any disable, delete, rotate, or policy change in your own environment. "
-        "Vigil re-verifies on the next scan and updates this control automatically."
+        "Veritrail re-verifies on the next scan and updates this control automatically."
     )
     if any(cid in _CREDENTIAL_LIFECYCLE_CHECKS for cid in check_ids):
         base += (
             " For this control (e.g. CIS 1.11 — stale/unused credentials), deactivating or deleting "
-            "the flagged users and access keys is a manual step. Vigil provides console and CLI "
+            "the flagged users and access keys is a manual step. Veritrail provides console and CLI "
             "remediation guidance per finding but intentionally offers no one-click disable or delete, "
             "preserving the read-only trust boundary auditors expect of an evidence platform."
         )
@@ -69,7 +69,7 @@ def build_control_audit_block(
 
     return {
         "objective": (ctrl.description or ctrl.title or "").strip(),
-        "what_vigil_tested": tested_lines,
+        "what_veritrail_tested": tested_lines,
         "evidence_collected": {
             "sources": evidence_sources,
             "period_start": since.isoformat(),
@@ -85,7 +85,7 @@ def build_control_audit_block(
             "summary": current,
         },
         "why_it_matters": (ctrl.guidance or "").strip() or None,
-        "what_vigil_does_not_prove": (
+        "what_veritrail_does_not_prove": (
             "Company policies, HR attestations, vendor risk questionnaires, "
             "and incident-response runbooks are outside automated technical collection."
         ),

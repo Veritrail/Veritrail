@@ -44,15 +44,17 @@ export function Spinner({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-export function StatusDot({ tone }: { tone: "ok" | "warn" | "idle" | "sync" }) {
+export function StatusDot({ tone }: { tone: "ok" | "warn" | "idle" | "sync" | "danger" }) {
   const cls =
     tone === "ok"
       ? "bg-emerald-500"
-      : tone === "warn"
-        ? "bg-amber-500"
-        : tone === "sync"
-          ? "bg-indigo-500 animate-pulse"
-          : "bg-zinc-300";
+      : tone === "danger"
+        ? "bg-red-500"
+        : tone === "warn"
+          ? "bg-amber-500"
+          : tone === "sync"
+            ? "bg-indigo-500 animate-pulse"
+            : "bg-zinc-300";
   return <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${cls}`} />;
 }
 

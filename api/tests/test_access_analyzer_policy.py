@@ -33,21 +33,21 @@ from app.services.access_analyzer_policy import (
 
 
 def test_derive_advanced_role_arn_unified_connector_uses_same_role():
-    arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    arn = "arn:aws:iam::123456789012:role/VeritrailScannerRole"
     assert derive_advanced_role_arn(arn) == arn
 
 
 def test_derive_advanced_role_arn_maps_legacy_split_stack_scanner():
     assert (
-        derive_advanced_role_arn("arn:aws:iam::123456789012:role/VigilReadOnlyScannerRole")
-        == "arn:aws:iam::123456789012:role/VigilPolicyGenerationRole"
+        derive_advanced_role_arn("arn:aws:iam::123456789012:role/VeritrailReadOnlyScannerRole")
+        == "arn:aws:iam::123456789012:role/VeritrailPolicyGenerationRole"
     )
 
 
 def test_derive_advanced_role_arn_idempotent_and_guards_bad_input():
-    legacy = "arn:aws:iam::123456789012:role/VigilReadonlyAdvancedPolicyGen"
+    legacy = "arn:aws:iam::123456789012:role/VeritrailReadonlyAdvancedPolicyGen"
     assert derive_advanced_role_arn(legacy) == legacy
-    current = "arn:aws:iam::123456789012:role/VigilPolicyGenerationRole"
+    current = "arn:aws:iam::123456789012:role/VeritrailPolicyGenerationRole"
     assert derive_advanced_role_arn(current) == current
     assert derive_advanced_role_arn(None) is None
     assert derive_advanced_role_arn("not-an-arn") is None
@@ -313,10 +313,10 @@ def test_validate_policy_normalizes_and_security_filter():
 
 
 def test_derive_cloudtrail_access_role_arn_from_scanner():
-    base = "arn:aws:iam::946796614687:role/VigilScannerRole"
+    base = "arn:aws:iam::946796614687:role/VeritrailScannerRole"
     assert (
         derive_cloudtrail_access_role_arn(base)
-        == "arn:aws:iam::946796614687:role/VigilScannerRoleAccessAnalyzerMonitor"
+        == "arn:aws:iam::946796614687:role/VeritrailScannerRoleAccessAnalyzerMonitor"
     )
 
 
@@ -362,7 +362,7 @@ def test_start_policy_generation_calls_api():
     from app.services.access_analyzer_policy import trail_entry_for_policy_generation
 
     principal = "arn:aws:iam::123456789012:role/app"
-    access_role = "arn:aws:iam::123456789012:role/VigilPolicyGenerationRole"
+    access_role = "arn:aws:iam::123456789012:role/VeritrailPolicyGenerationRole"
     trail = "arn:aws:cloudtrail:us-east-1:123:trail/t1"
     end = datetime(2026, 5, 31, 12, 0, 0, tzinfo=timezone.utc)
     start, window_end = policy_generation_cloudtrail_window(end_time=end, lookback_days=90)
@@ -418,7 +418,7 @@ def test_cloudtrail_monitor_role_exists_uses_list_roles_not_get_role():
     """Connector has ListRoles but not GetRole — monitor presence must not call get_role."""
     from unittest.mock import MagicMock
 
-    connector = "arn:aws:iam::946796614687:role/VigilScannerRole"
+    connector = "arn:aws:iam::946796614687:role/VeritrailScannerRole"
     client = boto3.client("iam", region_name="us-east-1")
     stub = Stubber(client)
     created = datetime(2024, 5, 31, tzinfo=timezone.utc)
@@ -428,9 +428,9 @@ def test_cloudtrail_monitor_role_exists_uses_list_roles_not_get_role():
             "Roles": [
                 {
                     "Path": "/",
-                    "RoleName": "VigilScannerRoleAccessAnalyzerMonitor",
+                    "RoleName": "VeritrailScannerRoleAccessAnalyzerMonitor",
                     "RoleId": "AROA5Y4LZ2QPXRQHVSPSH",
-                    "Arn": "arn:aws:iam::946796614687:role/VigilScannerRoleAccessAnalyzerMonitor",
+                    "Arn": "arn:aws:iam::946796614687:role/VeritrailScannerRoleAccessAnalyzerMonitor",
                     "CreateDate": created,
                 },
             ]

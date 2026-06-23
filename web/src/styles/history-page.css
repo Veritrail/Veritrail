@@ -53,10 +53,11 @@
   min-height: 2.75rem;
   align-items: center;
   gap: 0.875rem;
-  padding: 0.5625rem 0.875rem 0.5625rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  padding: 0.5rem 0.9375rem;
+  border-radius: 0.625rem;
+  border: 1px solid #e4e7ec;
   background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -69,7 +70,8 @@
 }
 
 .history-filter-box:hover {
-  border-color: #d1d5db;
+  border-color: #cbd0d8;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 0.07);
 }
 
 .history-filter-box:focus-visible {
@@ -86,9 +88,9 @@
 .history-filter-box__label {
   flex-shrink: 0;
   font-size: 0.8125rem;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.25;
-  color: #6b7280;
+  color: #878e9b;
   white-space: nowrap;
 }
 
@@ -115,8 +117,8 @@
 .history-filter-box__aws {
   flex-shrink: 0;
   display: block;
-  width: 30px;
-  height: 19px;
+  width: 38px;
+  height: 24px;
   object-fit: contain;
   object-position: left center;
 }
@@ -128,9 +130,10 @@
 }
 
 .history-filter-box__selected {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 700;
   line-height: 1.25;
+  letter-spacing: -0.01em;
   color: #111827;
   min-width: 0;
   overflow: hidden;
@@ -237,8 +240,8 @@
 }
 
 .history-filter-menu__icon.history-filter-menu__aws {
-  width: 30px;
-  height: 19px;
+  width: 34px;
+  height: 21px;
   object-position: left center;
 }
 
@@ -250,7 +253,9 @@
   margin-left: auto;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--history-teal);
+  /* Hardcoded (not var) because this link is portalled into the app header bar,
+     outside .history-page where --history-teal is scoped. */
+  color: #439385;
   text-decoration: none;
   white-space: nowrap;
   transition: color 0.15s;

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { AccountSelect } from "../components/AccountSelect";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { HeaderSlot } from "../context/HeaderSlot";
 import { FilterChipBar } from "../components/FilterChipBar";
 import {
   BenchmarkFrameworkSelect,
@@ -13,7 +14,6 @@ import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
 import { accountListSchema } from "../lib/apiSchemas";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
-import NotificationsBell from "../components/NotificationsBell";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
 import {
@@ -313,7 +313,7 @@ function AffectedResourceRow({
         <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold text-sky-700">{assetType}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="vigil-kicker">Account</p>
+        <p className="veritrail-kicker">Account</p>
         <p className="mt-1 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
           <span className="truncate">{account}</span>
           <button
@@ -332,7 +332,7 @@ function AffectedResourceRow({
         </p>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="vigil-kicker">Last seen</p>
+        <p className="veritrail-kicker">Last seen</p>
         <p className="mt-1 flex items-center gap-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">
           {formatResourceDate(finding.last_seen)}
           <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
@@ -341,7 +341,7 @@ function AffectedResourceRow({
         </p>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="vigil-kicker">First seen</p>
+        <p className="veritrail-kicker">First seen</p>
         <p className="mt-1 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
       </div>
       {externalUrl ? (
@@ -540,8 +540,8 @@ function FindingRow({
         </div>
       </div>
       {canExpand ? (
-        <div className={`vigil-accordion-panel ${expanded ? "is-open" : ""}`}>
-          <div className="vigil-accordion-panel__inner">
+        <div className={`veritrail-accordion-panel ${expanded ? "is-open" : ""}`}>
+          <div className="veritrail-accordion-panel__inner">
             <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
               <span className="hidden sm:block" aria-hidden />
               <span className="hidden w-[5.5rem] sm:block" aria-hidden />
@@ -917,7 +917,7 @@ export default function Findings() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "vigil-findings.csv";
+    a.download = "veritrail-findings.csv";
     a.click();
     URL.revokeObjectURL(url);
   }, [status]);
@@ -926,19 +926,11 @@ export default function Findings() {
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-        <header className="mb-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827]">Findings</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {connectedAccounts.length > 0 && (
-                  <AccountSelect accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
-                )}
-              </div>
-            </div>
-            <NotificationsBell />
-          </div>
-        </header>
+        {connectedAccounts.length > 0 && (
+          <HeaderSlot>
+            <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
+          </HeaderSlot>
+        )}
 
         {searchTags.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2">

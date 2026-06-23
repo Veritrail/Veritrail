@@ -7,7 +7,6 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-height: calc(100vh - 4rem);
   gap: 1rem;
   padding-bottom: 0;
 }
@@ -166,6 +165,10 @@
 
 .integrations-table__status--warn {
   color: #d97706;
+}
+
+.integrations-table__status--danger {
+  color: #dc2626;
 }
 
 .integrations-table__status--sync {

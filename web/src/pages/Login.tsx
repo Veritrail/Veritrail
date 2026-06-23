@@ -7,10 +7,10 @@ import "../styles/login-auth.css";
 
 type AuthMode = "login" | "signup" | "forgot" | "onboard";
 
-const MFA_STORAGE_KEY = "vigil_mfa_token";
-const PENDING_CREDENTIALS_KEY = "vigil_pending_credentials";
+const MFA_STORAGE_KEY = "veritrail_mfa_token";
+const PENDING_CREDENTIALS_KEY = "veritrail_pending_credentials";
 
-const PENDING_INVITE_KEY = "vigil_pending_invite_token";
+const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
 
 function oauthErrorMessage(code: string): string {
   switch (code) {
@@ -31,7 +31,7 @@ function oauthErrorMessage(code: string): string {
     case "no_account_for_idp":
       return "No account matches that sign-in. Sign up first, then connect this provider.";
     case "domain_managed":
-      return "This email domain already has a Vigil workspace. Ask your admin for an invite, or choose a different workspace name.";
+      return "This email domain already has a Veritrail workspace. Ask your admin for an invite, or choose a different workspace name.";
     case "invite_accept_failed":
       return "Could not join the workspace from your invite. Open the invite link again and try once more.";
     case "signup_pending":
@@ -894,7 +894,7 @@ export default function Login() {
               ) : mode === "login" ? (
                 <>
                   <img src="/favicon.png" alt="" className="auth-submit__mark" aria-hidden />
-                  Sign in to Vigil
+                  Sign in to Veritrail
                 </>
               ) : (
                 "Create account"

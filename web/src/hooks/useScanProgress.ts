@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const LAST_SCAN_DURATION_KEY = "vigil:lastScanDurationMs";
+const LAST_SCAN_DURATION_KEY = "veritrail:lastScanDurationMs";
 /** Fallback when no history and worker has not reported step progress yet. */
 const DEFAULT_SCAN_DURATION_MS = 600_000;
 

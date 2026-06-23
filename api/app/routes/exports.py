@@ -62,7 +62,7 @@ def download_evidence_pack(
     zip_bytes = pack.zip_bytes
     vault = pack.vault_upload if pack.vault_upload and pack.vault_upload.get("status") == "uploaded" else None
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    filename = f"vigil-evidence-{framework}-{ts}.zip"
+    filename = f"veritrail-evidence-{framework}-{ts}.zip"
     zip_sha256 = hashlib.sha256(zip_bytes).hexdigest()
     as_of_dt = parse_as_of(as_of)
     db.add(
@@ -89,7 +89,7 @@ def download_evidence_pack(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-Content-SHA256": zip_sha256,
-            "X-Vigil-Pack-SHA256": zip_sha256,
+            "X-Veritrail-Pack-SHA256": zip_sha256,
         },
     )
 
@@ -238,7 +238,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
         failed = sum(1 for _, _, _, s, _, _ in sample_controls if s == "fail")
         period_start = (now - timedelta(days=90)).date()
         readme_lines = [
-            "VIGIL - SAMPLE COMPLIANCE EVIDENCE PACK (v2)",
+            "VERITRAIL - SAMPLE COMPLIANCE EVIDENCE PACK (v2)",
             "=" * 50,
             "NOTICE: This is a synthetic sample pack with demo data.",
             "        Connect your AWS/GitHub account to generate real evidence.",
@@ -268,7 +268,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
             "check_evidence_classes.json - benchmark vs supporting vs hygiene per check",
             "controls/              - per-control evidence folders",
             "",
-            "Download from the Vigil login page or connect your account for real evidence.",
+            "Download from the Veritrail login page or connect your account for real evidence.",
         ]
         zf.writestr("README.txt", "\n".join(readme_lines))
 
@@ -377,7 +377,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
                 {
                     "status": "planned",
                     "sample": True,
-                    "s3_uri": "s3://your-audit-vault-bucket/vigil-evidence/orgs/…/packs/SAMPLE000001.zip",
+                    "s3_uri": "s3://your-audit-vault-bucket/veritrail-evidence/orgs/…/packs/SAMPLE000001.zip",
                     "note": "Enable EVIDENCE_VAULT_ENABLED + EVIDENCE_VAULT_S3_URI on the server for real WORM uploads.",
                 },
                 indent=2,
@@ -428,7 +428,7 @@ def download_sample_evidence_pack(framework: str = Query(default="soc2")):
     return Response(
         content=buf.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="vigil-sample-{framework}-{ts}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="veritrail-sample-{framework}-{ts}.zip"'},
     )
 
 
@@ -507,5 +507,5 @@ def export_findings_csv(
     return Response(
         content=buf.getvalue().encode(),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="vigil-findings-{ts}.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="veritrail-findings-{ts}.csv"'},
     )

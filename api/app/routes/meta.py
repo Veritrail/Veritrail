@@ -76,7 +76,7 @@ def evidence_pack_signing_key() -> SigningKeyOut:
     """Public key for verifying pack_signature.json in evidence ZIPs."""
     return SigningKeyOut(
         enabled=signing_enabled(),
-        key_id="vigil-evidence-v1",
+        key_id="veritrail-evidence-v1",
         algorithm="ed25519",
         public_key_base64=public_key_base64(),
     )

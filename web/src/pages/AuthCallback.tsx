@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, storeTokens } from "../api";
 import { postAuthPath } from "../lib/postAuthRedirect";
 
-const PENDING_INVITE_KEY = "vigil_pending_invite_token";
+const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
 
 export default function AuthCallback() {
   const nav = useNavigate();

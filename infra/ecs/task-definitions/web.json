@@ -1,5 +1,5 @@
 {
-  "family": "vigil-web",
+  "family": "veritrail-web",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
@@ -15,7 +15,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/vigil-web",
+          "awslogs-group": "/ecs/veritrail-web",
           "awslogs-region": "__AWS_REGION__",
           "awslogs-stream-prefix": "web"
         }

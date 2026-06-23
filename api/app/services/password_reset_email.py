@@ -6,10 +6,10 @@ from app.services.mail import send_mail
 
 
 def send_password_reset_email(*, to: str, reset_url: str) -> bool:
-    subject = "Reset your Vigil password"
+    subject = "Reset your Veritrail password"
     text = (
         "Hi,\n\n"
-        "We received a request to reset your Vigil password.\n\n"
+        "We received a request to reset your Veritrail password.\n\n"
         f"Open this link to choose a new password:\n{reset_url}\n\n"
         "This link expires in 30 minutes. If you did not request this you can ignore "
         "this email — your password will not change."
@@ -17,7 +17,7 @@ def send_password_reset_email(*, to: str, reset_url: str) -> bool:
     html = f"""
     <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
       <h2 style="margin:0 0 12px;font-size:18px">Reset your password</h2>
-      <p style="margin:0 0 16px;color:#52525b">We received a request to reset your Vigil password.</p>
+      <p style="margin:0 0 16px;color:#52525b">We received a request to reset your Veritrail password.</p>
       <p style="margin:0 0 20px">
         <a href="{h(reset_url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;
         padding:10px 18px;border-radius:8px;font-weight:600">Choose a new password</a>

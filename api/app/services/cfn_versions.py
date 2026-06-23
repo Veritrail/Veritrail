@@ -58,9 +58,9 @@ def connector_template_url(tag: str) -> str:
     marker = "/infra/"
     if marker in base_url:
         root = base_url.split(marker, 1)[0]
-        return f"{root}/infra/{tag}/vigil-stack.yaml"
+        return f"{root}/infra/{tag}/veritrail-stack.yaml"
 
-    return f"https://amzn-s3-vigil.s3.{region}.amazonaws.com/infra/{tag}/vigil-stack.yaml"
+    return f"https://amzn-s3-veritrail.s3.{region}.amazonaws.com/infra/{tag}/veritrail-stack.yaml"
 
 
 def _yes_no(flag: bool) -> str:
@@ -98,7 +98,7 @@ def update_cli_command(
         f"  --template-url {template_url} \\",
         "  --parameters \\",
         f"    ParameterKey=ExternalId,ParameterValue={external_id} \\",
-        f"    ParameterKey=VigilAccountPrincipal,ParameterValue={settings.TRUST_PRINCIPAL_ARN} \\",
+        f"    ParameterKey=VeritrailAccountPrincipal,ParameterValue={settings.TRUST_PRINCIPAL_ARN} \\",
         f"    ParameterKey=RoleName,ParameterValue={settings.CFN_SCANNER_ROLE_NAME} \\",
         f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
     ]

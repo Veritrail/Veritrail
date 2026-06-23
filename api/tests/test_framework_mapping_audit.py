@@ -30,7 +30,7 @@ def test_cis_matrix_automated_checks_map_to_cis_framework():
     matrix = json.loads(MATRIX_PATH.read_text())
     missing = []
     for ctrl in matrix["controls"]:
-        for check_id in ctrl.get("vigil_check_ids") or []:
+        for check_id in ctrl.get("veritrail_check_ids") or []:
             if "cis_aws_l1" not in frameworks_for_check(check_id):
                 missing.append(f"{ctrl['id']}:{check_id}")
     assert not missing, f"CIS matrix checks missing cis_aws_l1: {missing}"

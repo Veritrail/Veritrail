@@ -7,13 +7,13 @@ table (v5.0.0 column). https://docs.aws.amazon.com/securityhub/latest/userguide/
 ## Headline finding (changes the plan)
 
 **CIS v5.0.0 demoted the entire §4 Monitoring (CloudWatch metric-filter / alarm) family to
-"manual check" — they are no longer automated benchmark controls.** Those are exactly Vigil's
+"manual check" — they are no longer automated benchmark controls.** Those are exactly Veritrail's
 `cloudtrail.event.*` checks (root usage, IAM changes, CMK delete, SG changes, etc.).
 
 Consequence: in real CIS v5 there is **no automated control ID** to give them. The earlier
 interim fix — keep the CloudTrail-event detections on SOC 2 (CC7.x) + ISO (A.12.4.x) and *not*
-in the CIS matrix — is therefore **correct for v5**. We will instead surface them as a Vigil
-**"extended"** capability: "CIS v5 marks these monitoring controls manual; Vigil automates them
+in the CIS matrix — is therefore **correct for v5**. We will instead surface them as a Veritrail
+**"extended"** capability: "CIS v5 marks these monitoring controls manual; Veritrail automates them
 via CloudTrail event analysis." (Good differentiator, honestly labelled.)
 
 So this rebuild is about **correcting the v5 numbering** of the controls we *do* automate, not
@@ -21,9 +21,9 @@ about adding the event family to CIS.
 
 ## Part A — renumber the controls we map cleanly to v5.0.0
 
-Current Vigil id → correct v5.0.0 id (AWS SecHub control in parens). ✓ = unchanged.
+Current Veritrail id → correct v5.0.0 id (AWS SecHub control in parens). ✓ = unchanged.
 
-| Vigil check | now | v5.0.0 | AWS control |
+| Veritrail check | now | v5.0.0 | AWS control |
 |---|---|---|---|
 | aws.account.contact_incomplete | 1.1 | **1.1** ✓ | (CIS 1.1, manual contact details) |
 | aws.account.security_contact_missing | 1.2 | **1.2** ✓ | Account.1 |
@@ -59,15 +59,15 @@ Current Vigil id → correct v5.0.0 id (AWS SecHub control in parens). ✓ = unc
 
 ## Part B — controls with no automated v5.0.0 home (CIS removed or made manual)
 
-Recommend tagging these **`extended`** (Vigil checks beyond the v5 automated benchmark), kept
+Recommend tagging these **`extended`** (Veritrail checks beyond the v5 automated benchmark), kept
 out of the 42-row matrix. They still contribute to SOC 2 / ISO where mapped.
 
-| Vigil check | now | why no v5 id | proposed |
+| Veritrail check | now | why no v5 id | proposed |
 |---|---|---|---|
 | iam.root.usage | 1.6 | "avoid root" (IAM.20) removed; root-usage is manual CloudWatch.1 | extended |
 | iam.access_key.multiple_active | 1.12 | not in v5 automated set | extended |
 | iam.role.full_admin_policy | 1.15 | IAM.1 (full-admin policy) unsupported in v5 | extended |
-| (instance roles, no check) | 1.17 | not automated; no Vigil check | **drop** |
+| (instance roles, no check) | 1.17 | not automated; no Veritrail check | **drop** |
 | iam.account.password_policy_weak (expiry) | 1.20 | IAM.17 password-expiry removed in v5 | **drop** (dup check) |
 | iam.role.full_admin_policy | 1.22 | duplicate of 1.15 mapping | **drop** (dup) |
 | s3.bucket.no_default_encryption | 2.1.2 | S3 default encryption now always-on; dropped | extended |

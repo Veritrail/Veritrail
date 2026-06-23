@@ -1,19 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  VigilAccountConnector - parent stack for Vigil in your AWS account. Core scanner (read-only role),
+  VeritrailAccountConnector - parent stack for Veritrail in your AWS account. Core scanner (read-only role),
   optional policy generation, optional remediation modules (scoped write). Stack name is not the IAM role name.
 
 Parameters:
-  VigilAccountPrincipal:
+  VeritrailAccountPrincipal:
     Type: String
-    Default: "arn:aws:iam::016266969060:role/VigilControlPlane"
+    Default: "arn:aws:iam::016266969060:role/VeritrailControlPlane"
   ExternalId:
     Type: String
     NoEcho: true
   RoleName:
     Type: String
-    Default: VigilScannerRole
-    Description: Vigil connector IAM role name. Single RoleArn output for onboarding.
+    Default: VeritrailScannerRole
+    Description: Veritrail connector IAM role name. Single RoleArn output for onboarding.
   EnableAdvancedPolicyGeneration:
     Type: String
     Default: "No"
@@ -44,10 +44,10 @@ Parameters:
     AllowedValues: ["Yes", "No"]
   CoreScannerTemplateURL:
     Type: String
-    Default: "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-core-scanner.yaml"
+    Default: "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-core-scanner.yaml"
   RemediationTemplateURL:
     Type: String
-    Default: "https://amzn-s3-vigil.s3.us-east-1.amazonaws.com/infra/2026.06/vigil-remediation-ssm.yaml"
+    Default: "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-remediation-ssm.yaml"
 
 Conditions:
   RemediationSg: !Equals [!Ref EnableSecurityGroupRemediation, "Yes"]
@@ -71,12 +71,12 @@ Resources:
     Properties:
       TemplateURL: !Ref CoreScannerTemplateURL
       Tags:
-        - Key: vigil-template
-          Value: vigil-core-scanner
-        - Key: vigil-version
+        - Key: veritrail-template
+          Value: veritrail-core-scanner
+        - Key: veritrail-version
           Value: "2026.06"
       Parameters:
-        VigilAccountPrincipal: !Ref VigilAccountPrincipal
+        VeritrailAccountPrincipal: !Ref VeritrailAccountPrincipal
         ExternalId: !Ref ExternalId
         RoleName: !Ref RoleName
         EnableAdvancedPolicyGeneration: !Ref EnableAdvancedPolicyGeneration
@@ -93,9 +93,9 @@ Resources:
     Properties:
       TemplateURL: !Ref RemediationTemplateURL
       Tags:
-        - Key: vigil-template
-          Value: vigil-remediation-ssm
-        - Key: vigil-version
+        - Key: veritrail-template
+          Value: veritrail-remediation-ssm
+        - Key: veritrail-version
           Value: "2026.06"
       Parameters:
         EnableSecurityGroupRemediation: !Ref EnableSecurityGroupRemediation

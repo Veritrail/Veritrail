@@ -4,7 +4,7 @@ Pure, side-effect-free functions: HMAC-SHA256 signature verification + extractio
 .tf/.hcl paths and repo context from a push / pull_request event. The route does the fetching and
 scanning; this module stays unit-testable in isolation.
 
-Read-only boundary: a webhook only *triggers a scan of code text*. Vigil reports results back; it
+Read-only boundary: a webhook only *triggers a scan of code text*. Veritrail reports results back; it
 never writes to AWS and never pushes commits or mutates the customer repo.
 """
 from __future__ import annotations

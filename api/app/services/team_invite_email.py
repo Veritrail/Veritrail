@@ -17,15 +17,15 @@ def send_team_invite_email(
 ) -> bool:
     expiry = expires_at.strftime("%b %d, %Y") if expires_at else None
     expiry_line = f"This link expires {expiry}." if expiry else "This link does not expire."
-    subject = f"You're invited to {org_name} on Vigil"
+    subject = f"You're invited to {org_name} on Veritrail"
     text = (
-        f"You've been invited to join {org_name} on Vigil as {role}.\n\n"
+        f"You've been invited to join {org_name} on Veritrail as {role}.\n\n"
         f"Accept invite: {invite_url}\n\n"
         f"{expiry_line}"
     )
     html = f"""
     <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-      <h2 style="margin:0 0 12px;font-size:18px">Join {h(org_name)} on Vigil</h2>
+      <h2 style="margin:0 0 12px;font-size:18px">Join {h(org_name)} on Veritrail</h2>
       <p style="margin:0 0 16px;color:#52525b">
         You've been invited as <strong>{h(role)}</strong>.
       </p>

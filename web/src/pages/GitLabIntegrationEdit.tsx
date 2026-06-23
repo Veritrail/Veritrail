@@ -220,7 +220,7 @@ export default function GitLabIntegrationEdit() {
       <header className="scope-edit__header">
         <div className="min-w-0">
           <h1 className="scope-edit__title">Configure GitLab access</h1>
-          <p className="scope-edit__subtitle">Select GitLab groups and repositories Vigil can scan and monitor.</p>
+          <p className="scope-edit__subtitle">Select GitLab groups and repositories Veritrail can scan and monitor.</p>
         </div>
         <a
           href={`${instanceBase}/-/user_settings/personal_access_tokens`}
@@ -323,7 +323,7 @@ export default function GitLabIntegrationEdit() {
           <div className="scope-card__head-row">
             <div className="min-w-0">
               <h2 className="scope-card__title">2. Repository scope</h2>
-              <p className="scope-card__subtitle">Choose the repositories Vigil should scan under the selected groups.</p>
+              <p className="scope-card__subtitle">Choose the repositories Veritrail should scan under the selected groups.</p>
             </div>
             <button onClick={() => setSelectedRepos([])} className="scope-btn-outline">
               Include all repositories

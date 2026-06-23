@@ -7,7 +7,7 @@ from app.core.config import get_settings
 settings = get_settings()
 
 celery_app = Celery(
-    "vigil",
+    "veritrail",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=["app.worker.tasks"],

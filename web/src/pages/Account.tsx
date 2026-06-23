@@ -1,40 +1,38 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError, storeTokens } from "../api";
 import { meSchema, workspaceListSchema, type Me } from "../lib/apiSchemas";
+import {
+  OverviewActionCard,
+  OverviewFactRow,
+  PostureMetricCell,
+  PostureReadinessCell,
+  ReadinessChecklistPanel,
+  type Tone,
+} from "./Workspace";
+import { HeaderSlot } from "../context/HeaderSlot";
+import { WorkspaceSwitcher, type WorkspaceEntry } from "../components/WorkspaceSwitcher";
 
-type WorkspaceEntry = {
-  org_id: string;
-  org_name: string;
-  role: string;
-};
+// d-path icons for the Workspace-style KPI strip + overview cards (Workspace's
+// Icon component renders a single <path d>). Kept local so the Account page
+// reuses the exact same visual primitives without importing the named Icon.
+const KPI_ICON = {
+  mail: "M21.75 7.5v9a2.25 2.25 0 0 1-2.25 2.25h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0-8.7 5.8a2.25 2.25 0 0 1-2.5 0L2.25 7.5",
+  building: "M4.5 21V5.25A2.25 2.25 0 0 1 6.75 3h6a2.25 2.25 0 0 1 2.25 2.25V21m-10.5 0h15m-15 0H3m12 0h6m-10.5 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.75c-.621 0-1.125.504-1.125 1.125V21m1.5-13.5h.008v.008H9V7.5Zm0 3h.008v.008H9V10.5Zm0 3h.008v.008H9V13.5Zm3-6h.008v.008H12V7.5Zm0 3h.008v.008H12V10.5Zm0 3h.008v.008H12V13.5Z",
+  fingerprint: "M7.5 12.75a4.5 4.5 0 0 1 9 0M9.75 12.75a2.25 2.25 0 0 1 4.5 0m-8.1 2.75c.58 1.63 1.72 2.82 3.35 3.5m5-15.25A8.25 8.25 0 0 0 3.75 11.6m16.5 0A8.25 8.25 0 0 0 11.4 3.35m5.95 12.15c-.58 1.63-1.72 2.82-3.35 3.5m-2-6.25c0 3.25-1.05 5.6-3.15 7.05m6.3 0c-2.1-1.45-3.15-3.8-3.15-7.05",
+  shield: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z",
+  lock: "M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z",
+  key: "M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.03 5.91c-.56-.1-1.16.03-1.56.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.82c0-.6.24-1.17.66-1.59l6.5-6.5c.4-.4.52-1 .43-1.56A6 6 0 1 1 21.75 8.25Z",
+  refresh: "M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05",
+  user: "M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0",
+} as const;
 
 type MfaSetup = {
   secret: string;
   provisioning_uri: string;
   qr_data_url: string | null;
 };
-
-function nameParts(email: string): string[] {
-  return (email.split("@")[0] || "")
-    .replace(/[._+-]+/g, " ")
-    .trim()
-    .split(" ")
-    .filter(Boolean);
-}
-
-function initialsFromEmail(email: string): string {
-  const parts = nameParts(email);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return (parts[0]?.slice(0, 2) || "?").toUpperCase();
-}
-
-function displayNameFromEmail(email: string): string {
-  const parts = nameParts(email);
-  if (!parts.length) return email;
-  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
-}
 
 type PasswordStrength = {
   label: "Waiting" | "Weak" | "Fair" | "Good" | "Strong";
@@ -138,97 +136,6 @@ function Icon({ name, className = "h-5 w-5" }: { name: string; className?: strin
   }
 }
 
-function Pill({ tone, children }: { tone: "green" | "gray" | "blue"; children: ReactNode }) {
-  const cls = tone === "green" ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : tone === "blue" ? "bg-blue-50 text-blue-700 ring-blue-200" : "bg-slate-100 text-slate-600 ring-slate-200";
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${cls}`}>{children}</span>;
-}
-
-function RoleChip({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100/90 px-3 py-1.5 text-sm font-bold capitalize text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_8px_22px_-18px_rgba(15,23,42,0.85)]">
-      <Icon name="crown" className="h-3.5 w-3.5 text-slate-600" />
-      {children}
-    </span>
-  );
-}
-
-function StatusChip({ strong }: { strong: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-extrabold ring-1 ${strong ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-slate-100 text-slate-700 ring-slate-200"}`}>
-      {strong ? <Icon name="check" className="h-4 w-4" /> : null}
-      {strong ? "Strong" : "Standard"}
-    </span>
-  );
-}
-
-function Card({ icon, title, action, children, className = "" }: { icon?: string; title: string; action?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <section className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_14px_40px_-32px_rgba(15,23,42,0.75)] ${className}`}>
-      <header className="flex items-center justify-between gap-4 px-6 py-5">
-        <div className="flex items-center gap-3">
-          {icon ? <span className="text-slate-500"><Icon name={icon} className="h-5 w-5" /></span> : null}
-          <h2 className="text-base font-extrabold tracking-tight text-slate-950">{title}</h2>
-        </div>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function iconTileClass(tone: "blue" | "green" | "violet" | "amber"): string {
-  if (tone === "green") return "border-emerald-100 bg-emerald-50 text-emerald-700";
-  if (tone === "violet") return "border-violet-100 bg-violet-50 text-violet-700";
-  if (tone === "amber") return "border-amber-100 bg-amber-50 text-amber-700";
-  return "border-blue-100 bg-blue-50 text-blue-700";
-}
-
-const CARD_ACCENT: Record<"blue" | "green" | "violet" | "amber", string> = {
-  blue: "border-t-blue-500",
-  green: "border-t-emerald-500",
-  violet: "border-t-violet-500",
-  amber: "border-t-amber-500",
-};
-
-const CARD_ACCENT_VARS: Record<"blue" | "green" | "violet" | "amber", { accent: string; soft: string }> = {
-  blue: { accent: "#2563eb", soft: "#eff6ff" },
-  green: { accent: "#16a34a", soft: "#ecfdf5" },
-  violet: { accent: "#7c3aed", soft: "#f5f3ff" },
-  amber: { accent: "#b45309", soft: "#fffbeb" },
-};
-
-function SecurityModule({ icon, tone, title, description, badge, children }: { icon: string; tone: "blue" | "green" | "violet" | "amber"; title: string; description: string; badge?: ReactNode; children: ReactNode }) {
-  return (
-    <section
-      className={`account-module flex min-h-[264px] flex-col overflow-hidden rounded-2xl border border-t-[3px] border-slate-200 ${CARD_ACCENT[tone]} bg-white shadow-[0_14px_40px_-32px_rgba(15,23,42,0.75)]`}
-      style={{ ["--card-accent" as string]: CARD_ACCENT_VARS[tone].accent, ["--card-accent-soft" as string]: CARD_ACCENT_VARS[tone].soft } as React.CSSProperties}
-    >
-      <header className="flex items-start justify-between gap-5 px-6 py-3">
-        <div className="flex min-w-0 gap-5">
-          <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${iconTileClass(tone)}`}>
-            <Icon name={icon} className="h-6 w-6" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-lg font-extrabold tracking-tight text-slate-950">{title}</h2>
-            <p className="mt-2 max-w-[28rem] text-sm leading-6 text-slate-500">{description}</p>
-          </div>
-        </div>
-        {badge}
-      </header>
-      <div className="flex flex-1 flex-col px-6 pb-3">{children}</div>
-    </section>
-  );
-}
-
-function ModuleRow({ label, value, muted = false }: { label: string; value: ReactNode; muted?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-t border-slate-100 py-1.5 first:border-t-0">
-      <span className="text-[13px] font-semibold text-slate-500">{label}</span>
-      <span className={`text-[13px] font-semibold ${muted ? "text-slate-400" : "text-slate-700"}`}>{value}</span>
-    </div>
-  );
-}
-
 function TextInput({ value, onChange, placeholder, invalid }: { value: string; onChange: (value: string) => void; placeholder: string; invalid?: boolean }) {
   const [visible, setVisible] = useState(false);
   return (
@@ -252,37 +159,6 @@ function TextInput({ value, onChange, placeholder, invalid }: { value: string; o
   );
 }
 
-function SummaryItem({ icon, label, value, tone }: { icon: string; label: string; value: string; tone?: "green" | "amber" | "slate" }) {
-  const iconClass = tone === "green" ? "text-emerald-600" : tone === "amber" ? "text-amber-500" : "text-slate-400";
-  const valueClass = tone === "green" ? "text-emerald-700" : tone === "amber" ? "text-amber-700" : "text-slate-800";
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-4 border-r border-slate-200 px-8 py-4 last:border-r-0">
-      <span className={iconClass}>
-        <Icon name={icon} className="h-6 w-6" />
-      </span>
-      <div className="min-w-0 leading-tight">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <p className={`mt-1 truncate text-sm font-extrabold ${valueClass}`}>{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceSummaryItem({ value }: { value: string }) {
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-4 border-r border-slate-200 px-8 py-4 last:border-r-0">
-      <span className="text-slate-500">
-        <Icon name="building" className="h-6 w-6" />
-      </span>
-      <div className="min-w-0 leading-tight">
-        <p className="text-sm font-medium text-slate-500">Workspace</p>
-        <p className="mt-1 truncate text-sm font-extrabold text-slate-800">{value}</p>
-        <a href="/workspace" className="mt-2 inline-flex text-sm font-bold text-blue-700 hover:text-blue-900">Manage workspace</a>
-      </div>
-    </div>
-  );
-}
-
 export default function Account() {
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
@@ -298,9 +174,6 @@ export default function Account() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [recoveryDialog, setRecoveryDialog] = useState<{ type: "email" | "phone"; value: string } | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [postureOpen, setPostureOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [helpCopied, setHelpCopied] = useState(false);
   const [toast, setToast] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const SUPPORT_EMAIL = "elazar.chodjayev@cloud-castles.com";
 
@@ -344,7 +217,11 @@ export default function Account() {
       setMfaEnableCode("");
       setMfaMsg(null);
     },
-    onError: (e: Error) => setMfaMsg({ ok: false, text: formatApiError(e) }),
+    onError: (e: Error) => {
+      const text = formatApiError(e);
+      setMfaMsg({ ok: false, text });
+      setToast({ kind: "error", text });
+    },
   });
 
   const enableMfa = useMutation({
@@ -396,302 +273,160 @@ export default function Account() {
   }
 
   function downloadRecoveryCodes(codes: string[]) {
-    const blob = new Blob([`Vigil recovery codes\n\n${codes.join("\n")}\n`], { type: "text/plain" });
+    const blob = new Blob([`Veritrail recovery codes\n\n${codes.join("\n")}\n`], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "vigil-recovery-codes.txt";
+    a.download = "veritrail-recovery-codes.txt";
     a.click();
     URL.revokeObjectURL(url);
   }
 
   const email = me?.email ?? "";
-  const initials = email ? initialsFromEmail(email) : "?";
-  const name = email ? displayNameFromEmail(email) : "Loading";
   const mfaOn = !!me?.totp_enabled;
   const hasPw = !!me?.has_password;
   const healthStrong = hasPw && mfaOn;
   const passwordStrength = getPasswordStrength(next);
 
+  const providerCount = (me?.github_id ? 1 : 0) + (me?.google_id ? 1 : 0);
+  const codesRemaining = me?.mfa_backup_codes_remaining ?? 0;
+
+  // Single source of truth for the posture ring + checklist panel: finishing
+  // every item reads 100% (no hidden factors), mirroring Workspace readiness.
+  const postureItems = [
+    { label: "Email verified", done: true },
+    { label: "Password set", done: hasPw },
+    { label: "Two-factor authentication enabled", done: mfaOn },
+    { label: "Recovery codes generated", done: codesRemaining > 0 },
+    { label: "Backup sign-in connected", done: providerCount > 0 },
+  ];
+  const postureScore = Math.round((postureItems.filter((i) => i.done).length / postureItems.length) * 100);
+  const postureTone: Tone = postureScore >= 90 ? "ok" : postureScore >= 70 ? "warn" : "danger";
+  const postureLabel = postureScore >= 90 ? "Ready" : postureScore >= 70 ? "Review" : "Setup";
+  const postureMessage =
+    postureScore >= 100 ? "Everything looks good. Keep it up." : postureScore >= 70 ? "A few items left to finish." : "Finish setup to secure your account.";
+
   return (
-    <div className="flex w-full max-w-none flex-col pb-0" style={{ minHeight: "calc(100vh - 2rem)" }}>
-      <header className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-extrabold leading-[1.15] tracking-[-0.025em] text-slate-950">Account</h1>
-          <p className="mt-1.5 text-sm leading-[1.45] text-slate-500">Manage your sign-in and personal security settings.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setHelpCopied(false);
-            setHelpOpen(true);
-          }}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-semibold tracking-tight text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+    <div className="flex w-full max-w-none flex-col gap-5 pb-2">
+      <HeaderSlot>
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          currentOrgId={me?.org_id ?? ""}
+          onSwitch={(id) => switchWorkspace.mutate(id)}
+          pending={switchWorkspace.isPending}
+        />
+        <a
+          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Veritrail support request")}`}
+          className="ml-auto inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-semibold tracking-tight text-slate-700 no-underline shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
         >
           <svg className="h-[18px] w-[18px] text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
           </svg>
           Get help
-        </button>
-      </header>
+        </a>
+      </HeaderSlot>
 
-      <section className="mb-5 grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_-42px_rgba(15,23,42,0.75)] lg:grid-cols-[1.28fr_1.05fr_0.85fr_1fr]">
-        <div className="flex items-center gap-7 border-b border-slate-200/90 px-8 py-3 lg:border-b-0 lg:border-r">
-          <span className="relative flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_25%,#eef0ff_0%,#dfe3ff_54%,#f6f7ff_100%)] text-[30px] font-black text-indigo-700 shadow-[0_22px_48px_-26px_rgba(79,70,229,0.85),inset_0_1px_0_rgba(255,255,255,0.85)] ring-1 ring-indigo-100/90">
-            <span className="drop-shadow-[0_1px_0_rgba(255,255,255,0.8)]">{initials}</span>
-            <span className="absolute bottom-2 right-1.5 h-4 w-4 rounded-full border-[3px] border-white bg-emerald-500 shadow-[0_4px_12px_rgba(16,185,129,0.45)]" />
-          </span>
-          <div className="min-w-0">
-              <h2 className="truncate text-[24px] font-black leading-tight tracking-tight text-slate-950">{name}</h2>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <RoleChip>{me?.role || "owner"}</RoleChip>
-              </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-3 lg:border-b-0 lg:border-r">
-          <span className="text-slate-500"><Icon name="mail" className="h-6 w-6" /></span>
-          <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold text-slate-900">{email || "-"}</p>
-            <p className="mt-2 text-sm font-extrabold text-emerald-700">Verified</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-5 border-b border-slate-200/90 px-8 py-3 lg:border-b-0 lg:border-r">
-          <span className="text-slate-500"><Icon name="building" className="h-6 w-6" /></span>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-500">Workspace</p>
-            <p className="mt-1.5 truncate text-[15px] font-black text-slate-900">{me?.org_name ?? "-"}</p>
-            <a href="/workspace" className="mt-2 inline-flex text-sm font-bold text-blue-700 hover:text-blue-900">Manage workspace</a>
-          </div>
-        </div>
-        <button type="button" onClick={() => setPostureOpen(true)} className="flex items-center justify-between gap-4 px-8 py-3 text-left transition hover:bg-slate-50/70">
-          <div className="min-w-0">
-            <div className="mb-2.5 flex items-center gap-2">
-              <span className="text-slate-500"><Icon name="shield" className="h-5 w-5" /></span>
-              <p className="text-sm font-bold text-slate-500">Security posture</p>
-            </div>
-            <StatusChip strong={healthStrong} />
-            <p className="mt-3 text-sm leading-5 text-slate-500">{healthStrong ? "All key security settings look good." : "Core account settings are available."}</p>
-          </div>
-          <Icon name="chevron" className="h-5 w-5 shrink-0 text-slate-500" />
-        </button>
-      </section>
-
-      <div className="grid auto-rows-fr items-stretch gap-4 xl:grid-cols-3">
-        <SecurityModule icon="lock" tone="blue" title="Password" description="Keep your password strong and update it regularly.">
-          <div className="mt-1">
-            <ModuleRow label="Last updated" value={hasPw ? "Recently" : "Not set"} />
-            <ModuleRow
-              label="Password strength"
-              value={
-                <span className="flex items-center gap-3">
-                  <span className="text-emerald-700">{hasPw ? "Strong" : "Waiting"}</span>
-                  <span className="flex w-28 gap-1">
-                    {[0, 1, 2, 3].map((n) => <span key={n} className={`h-1 flex-1 rounded-full ${hasPw ? "bg-emerald-500" : "bg-slate-200"}`} />)}
-                  </span>
-                </span>
-              }
-            />
-          </div>
-          <button type="button" onClick={() => { setPwMsg(null); setPasswordDialogOpen(true); }} className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid mt-auto w-full">
-            Change password
-            <Icon name="chevron" />
-          </button>
-        </SecurityModule>
-
-        <SecurityModule icon="shield" tone="green" title="Two-factor authentication" description="Control whether sign-in requires an authenticator code." badge={<Pill tone="gray">{mfaOn ? "Enabled" : "Disabled"}</Pill>}>
-          <div className="mt-1">
-            <ModuleRow label="Primary method" value={mfaOn ? "Authenticator app" : "None"} />
-            <ModuleRow label="Backup method" value="Recovery codes" />
-          </div>
-          <button type="button" onClick={() => startMfaSetup.mutate()} disabled={startMfaSetup.isPending || mfaOn} className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid mt-auto w-full">
-            {mfaOn ? "Manage 2FA" : startMfaSetup.isPending ? "Preparing..." : "Set up 2FA"}
-            <Icon name="chevron" />
-          </button>
-          {mfaMsg ? <p className={`mt-4 rounded-lg px-3 py-2 text-sm ${mfaMsg.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{mfaMsg.text}</p> : null}
-        </SecurityModule>
-
-        <SecurityModule icon="key" tone="violet" title="Recovery codes" description="Use recovery codes to sign in if you lose access to your device.">
-          <div className="mt-1 rounded-xl border border-violet-100 bg-violet-50/60 px-5 py-4">
-            <p className="text-lg font-extrabold text-violet-700">{me?.mfa_backup_codes_remaining ?? 0} unused codes</p>
-            <p className="mt-2 text-sm text-slate-500">{mfaOn ? "Generated from this workspace." : "Available after two-factor authentication is enabled."}</p>
-          </div>
-          <button type="button" onClick={() => generateCodes.mutate()} disabled={!mfaOn || generateCodes.isPending} className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid mt-auto w-full">
-            {generateCodes.isPending ? "Loading..." : recoveryCodes ? "Refresh codes" : "View recovery codes"}
-            <Icon name="chevron" />
-          </button>
-          {recoveryCodes ? (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-bold text-amber-900">Save these now. They will not be shown again.</p>
-              <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-white p-3">
-                {recoveryCodes.map((code) => <code key={code} className="font-mono text-sm text-slate-800">{code}</code>)}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})} className="vigil-toolbar-btn vigil-toolbar-btn--neutral">Copy all</button>
-                <button type="button" onClick={() => downloadRecoveryCodes(recoveryCodes)} className="vigil-toolbar-btn vigil-toolbar-btn--neutral">Download .txt</button>
-              </div>
-            </div>
-          ) : null}
-        </SecurityModule>
-
-        <SecurityModule icon="fingerprint" tone="blue" title="Sign-in methods" description="Manage the ways you can sign in to your account.">
-          <div className="mt-1">
-            <ModuleRow label="Password" value={hasPw ? "Enabled" : "Not set"} muted={!hasPw} />
-            <ModuleRow label="Authenticator app" value={mfaOn ? "Enabled" : "Disabled"} muted={!mfaOn} />
-            <ModuleRow label="GitHub" value={me?.github_id ? "Connected" : "Not connected"} muted={!me?.github_id} />
-            <ModuleRow label="Google" value={me?.google_id ? "Connected" : "Not connected"} muted={!me?.google_id} />
-          </div>
-          <button type="button" onClick={() => setRecoveryDialog({ type: "email", value: email })} className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid mt-auto w-full">
-            Manage methods
-            <Icon name="chevron" />
-          </button>
-        </SecurityModule>
-
-        <SecurityModule icon="user" tone="blue" title="Account status" description="Overview of your account security and verification.">
-          <div className="mt-1">
-            <ModuleRow label="Email" value="Verified" />
-            <ModuleRow label="Password" value={hasPw ? "Set" : "Not set"} muted={!hasPw} />
-            <ModuleRow label="Two-factor authentication" value={mfaOn ? "Enabled" : "Disabled"} muted={!mfaOn} />
-            <ModuleRow label="Account activity" value={<button type="button" className="font-bold text-blue-700">View history</button>} />
-          </div>
-          <button type="button" className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid mt-auto w-full">
-            Review account status
-            <Icon name="chevron" />
-          </button>
-        </SecurityModule>
-
-        <SecurityModule icon="refresh" tone="amber" title="Recovery methods" description="Keep these up to date so you can always get back in.">
-          <div className="mt-1">
-            <button type="button" onClick={() => setRecoveryDialog({ type: "email", value: email })} className="flex w-full items-center justify-between gap-4 border-t border-slate-100 py-4 text-left first:border-t-0">
-              <div className="flex min-w-0 items-center gap-4">
-                <span className="text-slate-500"><Icon name="mail" className="h-6 w-6" /></span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">Recovery email</p>
-                  <p className="mt-0.5 truncate text-sm text-slate-500">{email || "-"}</p>
-                </div>
-              </div>
-              <span className="flex items-center gap-3"><Pill tone="green">Verified</Pill><Icon name="chevron" className="h-4 w-4 text-slate-500" /></span>
-            </button>
-            <button type="button" onClick={() => setRecoveryDialog({ type: "phone", value: "" })} className="flex w-full items-center justify-between gap-4 border-t border-slate-100 py-4 text-left">
-              <div className="flex min-w-0 items-center gap-4">
-                <span className="text-slate-500"><Icon name="phone" className="h-6 w-6" /></span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-900">Recovery phone</p>
-                  <p className="mt-0.5 text-sm text-slate-500">Not set</p>
-                </div>
-              </div>
-              <span className="flex items-center gap-3"><Pill tone="gray">Not set</Pill><Icon name="chevron" className="h-4 w-4 text-slate-500" /></span>
-            </button>
-          </div>
-          <button type="button" onClick={() => setRecoveryDialog({ type: "email", value: email })} className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid mt-auto w-full">
-            Manage recovery methods
-            <Icon name="chevron" />
-          </button>
-        </SecurityModule>
+      <div className="workspace-summary">
+        <PostureReadinessCell
+          title="Account security posture"
+          score={postureScore}
+          tone={postureTone}
+          label={postureLabel}
+          message={postureMessage}
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.mail}
+          label="Email"
+          value="Verified"
+          detail={email || "—"}
+          valueTone="ok"
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.building}
+          label="Workspace"
+          value={me?.org_name ?? "—"}
+          detail={`Role: ${me?.role ?? "member"}`}
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.key}
+          label="Sign-in"
+          value={hasPw ? "Password" : providerCount ? "SSO" : "—"}
+          detail={providerCount ? `+ ${providerCount} provider${providerCount === 1 ? "" : "s"}` : "No linked providers"}
+          valueTone="info"
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.shield}
+          label="Two-factor"
+          value={mfaOn ? "On" : "Off"}
+          detail={mfaOn ? "Authenticator app" : "Not enabled"}
+          valueTone={mfaOn ? "ok" : "default"}
+        />
       </div>
 
-      {postureOpen ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setPostureOpen(false)}
-        >
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-extrabold tracking-tight text-slate-950">Security posture</h3>
-                <p className="mt-1 text-sm leading-snug text-slate-500">
-                  {healthStrong
-                    ? "Your account security is strong — every check is complete."
-                    : "Complete these to strengthen your account."}
-                </p>
-              </div>
-              <StatusChip strong={healthStrong} />
-            </div>
-            <ul className="mt-5 space-y-2.5">
-              {[
-                { label: "Set a password", done: hasPw, hint: "Lets you sign in without a provider." },
-                { label: "Enable two-factor authentication", done: mfaOn, hint: "Require an authenticator code at sign-in." },
-                {
-                  label: "Generate recovery codes",
-                  done: (me?.mfa_backup_codes_remaining ?? 0) > 0,
-                  hint: "Back-up codes for if you lose your device (after 2FA).",
-                },
-              ].map((item) => (
-                <li key={item.label} className="flex items-start gap-3 rounded-xl border border-slate-200 px-4 py-3">
-                  <span
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                      item.done ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"
-                    }`}
-                  >
-                    {item.done ? <Icon name="check" className="h-3.5 w-3.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />}
-                  </span>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-bold ${item.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{item.label}</p>
-                    {!item.done ? <p className="mt-0.5 text-xs text-slate-500">{item.hint}</p> : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-6 flex justify-end gap-2">
-              {!hasPw ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPostureOpen(false);
-                    setPasswordDialogOpen(true);
-                  }}
-                  className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid"
-                >
-                  Set password
-                </button>
-              ) : null}
-              <button type="button" onClick={() => setPostureOpen(false)} className="vigil-toolbar-btn vigil-toolbar-btn--neutral">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <div className="workspace-overview">
+        <div className="workspace-overview__cards">
+          <OverviewActionCard
+            tone="blue"
+            icon={KPI_ICON.lock}
+            title="Password"
+            description="Keep your password strong and up to date."
+            actionLabel={hasPw ? "Change password" : "Set password"}
+            onAction={() => { setPwMsg(null); setPasswordDialogOpen(true); }}
+          >
+            <OverviewFactRow icon={KPI_ICON.lock} label="Status" value={hasPw ? "Set" : "Not set"} />
+            <OverviewFactRow icon={KPI_ICON.shield} label="Strength" value={hasPw ? "Strong" : "—"} />
+            <OverviewFactRow icon={KPI_ICON.refresh} label="Last updated" value={hasPw ? "Recently" : "—"} />
+          </OverviewActionCard>
 
-      {helpOpen ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setHelpOpen(false)}
-        >
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-extrabold tracking-tight text-slate-950">Get help</h3>
-            <p className="mt-1 text-sm leading-snug text-slate-500">Email our team and we&apos;ll get back to you.</p>
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <span className="truncate font-mono text-sm text-slate-800">{SUPPORT_EMAIL}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(SUPPORT_EMAIL);
-                  setHelpCopied(true);
-                }}
-                className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
-              >
-                {helpCopied ? "Copied" : "Copy"}
-              </button>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <a
-                href={`mailto:${SUPPORT_EMAIL}?subject=Vigil%20support%20request`}
-                onClick={() => setHelpOpen(false)}
-                className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid no-underline"
-              >
-                Open email app
-              </a>
-              <button type="button" onClick={() => setHelpOpen(false)} className="vigil-toolbar-btn vigil-toolbar-btn--neutral">
-                Close
-              </button>
-            </div>
-          </div>
+          <OverviewActionCard
+            tone="green"
+            icon={KPI_ICON.shield}
+            title="Two-factor authentication"
+            description="Require an authenticator code, with recovery codes as backup."
+            actionLabel={mfaOn ? "Manage 2FA" : startMfaSetup.isPending ? "Preparing…" : "Set up 2FA"}
+            onAction={() => startMfaSetup.mutate()}
+          >
+            <OverviewFactRow icon={KPI_ICON.shield} label="Status" value={mfaOn ? "Enabled" : "Disabled"} />
+            <OverviewFactRow icon={KPI_ICON.fingerprint} label="Method" value={mfaOn ? "Authenticator app" : "None"} />
+            <OverviewFactRow icon={KPI_ICON.key} label="Recovery codes" value={`${codesRemaining} unused`} />
+          </OverviewActionCard>
+
+          <OverviewActionCard
+            tone="violet"
+            icon={KPI_ICON.key}
+            title="Recovery codes"
+            description="One-time codes to sign in if you lose your device."
+            actionLabel={mfaOn ? (codesRemaining ? "View / refresh codes" : "Generate codes") : "Enable 2FA first"}
+            onAction={() => (mfaOn ? generateCodes.mutate() : startMfaSetup.mutate())}
+          >
+            <OverviewFactRow icon={KPI_ICON.key} label="Available" value={`${codesRemaining} unused`} />
+            <OverviewFactRow icon={KPI_ICON.shield} label="Status" value={mfaOn ? "Active" : "Locked"} />
+            <OverviewFactRow icon={KPI_ICON.refresh} label="Requires" value="2FA enabled" />
+          </OverviewActionCard>
+
+          <OverviewActionCard
+            tone="amber"
+            icon={KPI_ICON.refresh}
+            title="Recovery methods"
+            description="Keep recovery contacts current so you can always get back in."
+            actionLabel="Manage recovery"
+            onAction={() => setRecoveryDialog({ type: "email", value: email })}
+          >
+            <OverviewFactRow icon={KPI_ICON.mail} label="Recovery email" value={email || "—"} />
+            <OverviewFactRow icon={KPI_ICON.user} label="Recovery phone" value="Not available" />
+            <OverviewFactRow icon={KPI_ICON.shield} label="Primary" value="Email" />
+          </OverviewActionCard>
         </div>
-      ) : null}
+
+        <ReadinessChecklistPanel
+          title="Account security posture"
+          readyCopy="Your account is fully hardened. Keep it that way."
+          score={postureScore}
+          tone={postureTone}
+          label={postureLabel}
+          items={postureItems}
+        />
+      </div>
 
       {passwordDialogOpen ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]" role="dialog" aria-modal="true">
@@ -734,8 +469,8 @@ export default function Account() {
               <div className="flex justify-between gap-3 pt-1">
                 {hasPw ? <button type="button" onClick={() => forgotPassword.mutate()} className="text-sm font-bold text-blue-700 hover:text-blue-900">Forgot current password?</button> : <span />}
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => setPasswordDialogOpen(false)} className="vigil-toolbar-btn vigil-toolbar-btn--neutral vigil-toolbar-btn--lg">Cancel</button>
-                  <button type="submit" disabled={changePw.isPending} className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid vigil-toolbar-btn--lg">
+                  <button type="button" onClick={() => setPasswordDialogOpen(false)} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral veritrail-toolbar-btn--lg">Cancel</button>
+                  <button type="submit" disabled={changePw.isPending} className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid veritrail-toolbar-btn--lg">
                     {changePw.isPending ? "Saving..." : hasPw ? "Update password" : "Set password"}
                   </button>
                 </div>
@@ -766,7 +501,8 @@ export default function Account() {
                 <label className="mb-1.5 block text-xs font-semibold text-slate-700">Verification code</label>
                 <input type="tel" inputMode="numeric" autoComplete="one-time-code" value={mfaEnableCode} onChange={(e) => setMfaEnableCode(e.target.value.replace(/\D/g, "").slice(0, 6))} className="h-12 w-full rounded-lg border border-zinc-200 px-3 text-center font-mono text-lg tracking-[0.35em] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
               </div>
-              <button type="submit" disabled={enableMfa.isPending || mfaEnableCode.length !== 6} className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid vigil-toolbar-btn--lg w-full">{enableMfa.isPending ? "Enabling..." : "Enable 2FA"}</button>
+              {mfaMsg && !mfaMsg.ok ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{mfaMsg.text}</p> : null}
+              <button type="submit" disabled={enableMfa.isPending || mfaEnableCode.length !== 6} className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid veritrail-toolbar-btn--lg w-full">{enableMfa.isPending ? "Enabling..." : "Enable 2FA"}</button>
             </form>
           </div>
         </div>
@@ -797,10 +533,33 @@ export default function Account() {
                 />
               </div>
               <div className="flex justify-end gap-3 pt-1">
-                <button type="button" onClick={() => setRecoveryDialog(null)} className="vigil-toolbar-btn vigil-toolbar-btn--neutral vigil-toolbar-btn--lg">Cancel</button>
-                <button type="submit" className="vigil-toolbar-btn vigil-toolbar-btn--primary-solid vigil-toolbar-btn--lg">Save changes</button>
+                <button type="button" onClick={() => setRecoveryDialog(null)} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral veritrail-toolbar-btn--lg">Cancel</button>
+                <button type="submit" className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid veritrail-toolbar-btn--lg">Save changes</button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {recoveryCodes ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-[2px]" role="dialog" aria-modal="true" onClick={() => setRecoveryCodes(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-white/70 bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.28)]" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700"><Icon name="key" /></p>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Recovery codes</h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Save these now. They will not be shown again.</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setRecoveryCodes(null)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              {recoveryCodes.map((code) => <code key={code} className="font-mono text-sm text-slate-800">{code}</code>)}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => navigator.clipboard.writeText(recoveryCodes.join("\n")).catch(() => {})} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral">Copy all</button>
+              <button type="button" onClick={() => downloadRecoveryCodes(recoveryCodes)} className="veritrail-toolbar-btn veritrail-toolbar-btn--neutral">Download .txt</button>
+              <button type="button" onClick={() => setRecoveryCodes(null)} className="veritrail-toolbar-btn veritrail-toolbar-btn--primary-solid">Done</button>
+            </div>
           </div>
         </div>
       ) : null}

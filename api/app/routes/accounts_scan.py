@@ -177,7 +177,7 @@ def assume_role_audit(
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
-    """Customer-facing audit log: every sts:AssumeRole Vigil made against this account.
+    """Customer-facing audit log: every sts:AssumeRole Veritrail made against this account.
 
     Returns the most recent `limit` events newest-first. Read-only.
     """

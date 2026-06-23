@@ -4,6 +4,7 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
 import { FrameworkMark } from "../components/FrameworkMark";
+import { HeaderSlot } from "../context/HeaderSlot";
 import { HistoryFilterDropdown } from "../components/HistoryFilterDropdown";
 import { HistoryPageSizeDropdown } from "../components/HistoryPageSizeDropdown";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
@@ -59,6 +60,7 @@ const EVENT_FILTERS: { id: EventFilter; label: string }[] = [
 ];
 
 const DEFAULT_VISIBLE_EVENTS = 15;
+const HISTORY_STALE_MS = 120_000;
 
 const COMPOSITE_GROUP_ORDER = [
   "identity_governance",
@@ -230,6 +232,7 @@ export default function HistoryV2() {
     queryFn: () =>
       api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=100`),
     enabled: !!effectiveAccountId,
+    staleTime: HISTORY_STALE_MS,
   });
 
   const events = useMemo(() => historyQ.data?.events ?? [], [historyQ.data]);
@@ -297,7 +300,8 @@ export default function HistoryV2() {
 
   return (
     <div className="history-page history-page--fill px-1 pb-8 pt-2 sm:px-0">
-      <div className="history-filter-bar">
+      <HeaderSlot>
+        <div className="history-filter-bar w-full" style={{ marginBottom: 0 }}>
           <HistoryFilterDropdown
             label="Account"
             boxClassName="history-filter-box--account"
@@ -371,7 +375,8 @@ export default function HistoryV2() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
           </svg>
         </Link>
-      </div>
+        </div>
+      </HeaderSlot>
 
       {historyQ.isLoading && <p className="history-loading">Loading history…</p>}
 

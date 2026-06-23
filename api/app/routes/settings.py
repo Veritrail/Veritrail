@@ -364,7 +364,7 @@ def test_slack(_rbac: RequireAdmin, body: SlackTestBody = SlackTestBody(), p=Dep
     try:
         resp = httpx.post(
             webhook_url,
-            json={"text": ":white_check_mark: *Vigil* — Slack notifications are working."},
+            json={"text": ":white_check_mark: *Veritrail* — Slack notifications are working."},
             timeout=10,
         )
         if resp.status_code != 200:

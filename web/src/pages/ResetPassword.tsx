@@ -43,8 +43,8 @@ export default function ResetPassword() {
     <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-2.5">
-          <img src="/favicon.png" alt="Vigil" className="w-12 h-12 object-contain" />
-          <span className="text-white text-xl font-semibold tracking-tight">Vigil</span>
+          <img src="/favicon.png" alt="Veritrail" className="w-12 h-12 object-contain" />
+          <span className="text-white text-xl font-semibold tracking-tight">Veritrail</span>
         </div>
         <div className="rounded-2xl bg-white p-8 shadow-2xl shadow-black/25">
           {!token ? (

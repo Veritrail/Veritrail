@@ -242,7 +242,7 @@ export default function TrustCenter() {
         <div className="flex items-center justify-center gap-2 pb-6 text-xs text-zinc-400">
           <ShieldIcon className="h-4 w-4" />
           <span>
-            Powered by <strong className="text-zinc-500">Vigil</strong> — continuous compliance evidence
+            Powered by <strong className="text-zinc-500">Veritrail</strong> — continuous compliance evidence
           </span>
         </div>
       </div>

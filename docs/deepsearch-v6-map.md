@@ -7,14 +7,14 @@
 
 ## Executive alignment
 
-| v6 theme | Vigil decision |
+| v6 theme | Veritrail decision |
 |----------|----------------|
 | Core compliance scan is read-only | **Yes** — collectors/checks are List/Get/Describe only |
 | Policy-gen uses “write-like” IAM APIs (jobs, not resource mutation) | **Yes** — optional; gated by `EnableAdvancedPolicyGeneration` |
 | Do not drop used services when telemetry is thin | **Done** — `iam_usage.py` + collector fixes |
 | CIS 1.11 scorable from read-only data | **Yes** — IAM policies + last-used; no AA required for pass/fail |
 | Split into two IAM roles (basic vs advanced) | **Not adopted** — see [Connector architecture](#connector-architecture-unified-vs-v6-split) |
-| Vigil calls `StartPolicyGeneration` from the app | **Partial** — permissions + CFN yes; **API only reads completed jobs** today |
+| Veritrail calls `StartPolicyGeneration` from the app | **Partial** — permissions + CFN yes; **API only reads completed jobs** today |
 | GitHub IaC triggers | **Done** — webhooks/PR scan; no shipped EventBridge stack |
 
 ---
@@ -27,13 +27,13 @@ v6 suggested **two roles** so the default connector stays strictly read-only and
 
 ```mermaid
 flowchart LR
-  subgraph vigil["Vigil control plane"]
+  subgraph veritrail["Veritrail control plane"]
     API[API / worker]
   end
 
   subgraph customer["Customer AWS account"]
-    Basic["VigilBasicScannerRole\n(read-only only)"]
-    Adv["VigilAdvancedPolicyRole\n(GenerateServiceLastAccessedDetails\n+ Access Analyzer Start/Get/List)"]
+    Basic["VeritrailBasicScannerRole\n(read-only only)"]
+    Adv["VeritrailAdvancedPolicyRole\n(GenerateServiceLastAccessedDetails\n+ Access Analyzer Start/Get/List)"]
   end
 
   API -->|"AssumeRole (scan)"| Basic
@@ -43,18 +43,18 @@ flowchart LR
 - **Two Role ARNs** to paste/configure.
 - Scanner never has `StartPolicyGeneration` on its role.
 
-### What Vigil ships (current)
+### What Veritrail ships (current)
 
 ```mermaid
 flowchart LR
-  subgraph vigil["Vigil control plane"]
+  subgraph veritrail["Veritrail control plane"]
     API[API / worker]
   end
 
-  subgraph customer["Customer AWS account — stack VigilAccountConnector"]
-    Role["VigilScannerRole\n(one role)"]
-    Base["Inline: VigilMinimalReadOnly\n(always)"]
-    Opt["Inline: VigilAdvancedPolicyGeneration\n(if EnableAdvancedPolicyGeneration=Yes)"]
+  subgraph customer["Customer AWS account — stack VeritrailAccountConnector"]
+    Role["VeritrailScannerRole\n(one role)"]
+    Base["Inline: VeritrailMinimalReadOnly\n(always)"]
+    Opt["Inline: VeritrailAdvancedPolicyGeneration\n(if EnableAdvancedPolicyGeneration=Yes)"]
     Role --> Base
     Role --> Opt
   end
@@ -64,10 +64,10 @@ flowchart LR
 
 | Piece | Path |
 |-------|------|
-| Parent stack | `infra/cfn/vigil-stack.yaml` |
-| Connector role | `infra/cfn/vigil-core-scanner.yaml` → `VigilScannerRole` |
-| Optional policy-gen permissions | Same role, conditional policy `VigilAdvancedPolicyGeneration` |
-| Legacy split-stack | `VigilReadOnlyScannerRole` → `VigilPolicyGenerationRole` mapped in `derive_advanced_role_arn()` |
+| Parent stack | `infra/cfn/veritrail-stack.yaml` |
+| Connector role | `infra/cfn/veritrail-core-scanner.yaml` → `VeritrailScannerRole` |
+| Optional policy-gen permissions | Same role, conditional policy `VeritrailAdvancedPolicyGeneration` |
+| Legacy split-stack | `VeritrailReadOnlyScannerRole` → `VeritrailPolicyGenerationRole` mapped in `derive_advanced_role_arn()` |
 
 **Why unified:** one Role ARN in onboarding, one ExternalId, capability verify on that role. Advanced is a **stack parameter + inline policy**, not a second connector.
 
@@ -79,7 +79,7 @@ flowchart LR
 
 ### On the connector (when Policy Generation enabled)
 
-| Action | In CFN (`vigil-core-scanner.yaml`) | Used by Vigil today |
+| Action | In CFN (`veritrail-core-scanner.yaml`) | Used by Veritrail today |
 |--------|-------------------------------------|---------------------|
 | `iam:GenerateServiceLastAccessedDetails` | Yes (advanced inline) | **Yes** — `collectors/last_accessed.py` on each scan |
 | `iam:GetServiceLastAccessedDetails` | Yes | **Yes** — poll job after generate |
@@ -97,7 +97,7 @@ Capability verify: `account_capabilities.py` → `ADVANCED_POLICY_ACTIONS` (incl
 2. If `advanced=true`: `_resolve_advanced_policy_generation()` assumes connector role, loops regions, calls **`fetch_latest_generated_policy`** (latest **SUCCEEDED** job only).
 3. Does **not** call `StartPolicyGeneration` inline (docstring: read-only product choice — no blocking minutes in request).
 
-**Implication:** Deploying CFN with the four actions you listed is **necessary but not sufficient** for **high confidence + resource ARNs** in the drawer. You also need a **completed** Access Analyzer policy-generation job per role (Console today, or future Vigil-triggered job).
+**Implication:** Deploying CFN with the four actions you listed is **necessary but not sufficient** for **high confidence + resource ARNs** in the drawer. You also need a **completed** Access Analyzer policy-generation job per role (Console today, or future Veritrail-triggered job).
 
 ---
 
@@ -109,10 +109,10 @@ Capability verify: `account_capabilities.py` → `ADVANCED_POLICY_ACTIONS` (incl
 | Accounts UI: enable capability + verify permissions | **Customer** |
 | Re-scan (populate `access_analyzers`, refresh `iam_perm_usage`) | **Customer** |
 | IAM Access Analyzer enabled in regions | **Customer** |
-| Completed AA policy-gen job per role | **Gap** — Vigil does not start jobs; reads existing SUCCEEDED only |
+| Completed AA policy-gen job per role | **Gap** — Veritrail does not start jobs; reads existing SUCCEEDED only |
 | UI: `advanced=true` when capability on | **Done** — auto when deployed |
 | UI: clear note when no completed job | **Done** — `advanced_note` / confidence copy |
-| Optional: Vigil calls `StartPolicyGeneration` + poll until SUCCEEDED | **Not built** — closes “manual Console job” gap |
+| Optional: Veritrail calls `StartPolicyGeneration` + poll until SUCCEEDED | **Not built** — closes “manual Console job” gap |
 | Optional: `EnableAccessAnalyzerMonitorRole` + CloudTrail bucket (legacy template) | **Separate** — AA service reading trail S3; not the four actions you listed |
 
 ---
@@ -139,11 +139,11 @@ Capability verify: `account_capabilities.py` → `ADVANCED_POLICY_ACTIONS` (incl
 | Layer | Status |
 |-------|--------|
 | **Detection** | **Automated** — `iam.user.credentials_unused_45d`, `iam.access_key.unused_45d` (45-day threshold) |
-| **Remediation** | **Manual** — Vigil is read-only; matrix `remediation_status: manual` |
+| **Remediation** | **Manual** — Veritrail is read-only; matrix `remediation_status: manual` |
 
 **Supporting hygiene (not CIS 1.11):** `iam.user.inactive_90d`, `iam.access_key.unused_90d` stay mapped to SOC2/ISO only.
 
-Matrix: `api/data/cis_v5_level1_matrix.json` → `"vigil_status": "automated"` for 1.11.
+Matrix: `api/data/cis_v5_level1_matrix.json` → `"veritrail_status": "automated"` for 1.11.
 
 ---
 

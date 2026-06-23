@@ -123,7 +123,7 @@ export function findingScopeProvider(f: {
   return "aws";
 }
 
-/** 12-digit AWS account id from API or resource ARN (not Vigil's internal account uuid). */
+/** 12-digit AWS account id from API or resource ARN (not Veritrail's internal account uuid). */
 export function awsAccountIdFromFinding(f: {
   aws_account_id?: string | null;
   resource_arn?: string;

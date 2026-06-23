@@ -700,7 +700,7 @@ aws iam update-assume-role-policy --role-name <role-name> --policy-document file
       "Review Principal.AWS entries — note each external 12-digit account ID",
       "Confirm with the owning team that each account is still required",
       "Remove stale principals, or add ExternalId / aws:PrincipalArn conditions to narrow who can assume",
-      "Save an approved exception in Vigil if the trust is intentional (vendor, security tool, shared services)",
+      "Save an approved exception in Veritrail if the trust is intentional (vendor, security tool, shared services)",
     ],
     cli: `# Read trust policy
 aws iam get-role --role-name <role-name> --query 'Role.AssumeRolePolicyDocument'
@@ -839,13 +839,13 @@ aws kms get-key-rotation-status --key-id <key-id>`,
     console: ["Open CloudTrail → Trails → Create trail", "Set a name, enable logging in all regions (multi-region trail)", "Select or create an S3 bucket for log delivery", 'Enable "Log file validation" and save'],
     cli: `# Create a multi-region trail
 aws cloudtrail create-trail \\
-  --name vigil-audit \\
+  --name veritrail-audit \\
   --s3-bucket-name <your-log-bucket> \\
   --is-multi-region-trail \\
   --enable-log-file-validation
 
 # Start logging
-aws cloudtrail start-logging --name vigil-audit`,
+aws cloudtrail start-logging --name veritrail-audit`,
     risk: "Without audit logs, compromise may go undetected and incident response is severely hampered.",
   },
   "cloudtrail.trail.no_log_validation": {
@@ -1503,7 +1503,7 @@ aws iam attach-role-policy --role-name AWSSupportRole \\
     cli: `# Enable in each region
 for region in $(aws ec2 describe-regions --query 'Regions[].RegionName' --output text); do
   aws accessanalyzer create-analyzer \\
-    --analyzer-name vigil-analyzer \\
+    --analyzer-name veritrail-analyzer \\
     --type ACCOUNT \\
     --region $region 2>/dev/null || true
 done`,
@@ -1717,11 +1717,11 @@ aws configservice start-configuration-recorder --configuration-recorder-name def
     risk: "High-volume API activity can indicate credential compromise or destructive automation.",
   },
   "iam.access_inventory_gap": {
-    why: "Vigil could not reconcile IAM users, roles, and access keys against a complete inventory (missing collectors or partial scan).",
+    why: "Veritrail could not reconcile IAM users, roles, and access keys against a complete inventory (missing collectors or partial scan).",
     console: [
       "Confirm the scan role can list IAM (users, roles, keys)",
-      "Re-run a full account scan from Vigil",
-      "Compare IAM console user count to Vigil collected count",
+      "Re-run a full account scan from Veritrail",
+      "Compare IAM console user count to Veritrail collected count",
     ],
     cli: `aws iam get-account-summary`,
     risk: "Access reviews and evidence packs may omit principals until inventory is complete.",
@@ -2105,7 +2105,7 @@ function generatePolicyIntro(cloudTrailLogging: boolean) {
 }
 
 const SUGGESTED_POLICY_CONNECTOR_ERROR =
-  "Could not build the suggested policy because Vigil could not verify the AWS connector permissions. Verify the connector role, then try again.";
+  "Could not build the suggested policy because Veritrail could not verify the AWS connector permissions. Verify the connector role, then try again.";
 
 function formatSuggestedPolicyError(error: unknown): string {
   const message = formatApiError(error);
@@ -2824,7 +2824,7 @@ function BlastRadiusSection({
           <p className="text-red-400">
             Check that the API is running and <code className="font-mono">VITE_API_URL</code> matches your setup
             (e.g. <code className="font-mono">http://localhost:8000</code> locally, or{" "}
-            <code className="font-mono">https://api.vigil.cclab.cloud-castles.com</code> on the remote host).
+            <code className="font-mono">https://api.veritrail.io</code> on the remote host).
           </p>
         )}
       </div>
@@ -3378,7 +3378,7 @@ function BlastRadiusSection({
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-zinc-400">No CloudTrail trails reference this key. Note: S3, RDS, and EBS key associations are not yet tracked per-key in Vigil.</p>
+              <p className="text-xs text-zinc-400">No CloudTrail trails reference this key. Note: S3, RDS, and EBS key associations are not yet tracked per-key in Veritrail.</p>
             )}
           </div>
         )}
@@ -3769,7 +3769,7 @@ function ComplianceTabContent({
       <FlowCallout tone="neutral" title="Framework mapping">
         {isError
           ? "Could not load compliance mapping for this check."
-          : "This check is not yet mapped to a composite control in Vigil."}
+          : "This check is not yet mapped to a composite control in Veritrail."}
       </FlowCallout>
     );
   }
@@ -4645,7 +4645,7 @@ function PolicyScopedActionList({ actions, servicePrefix }: { actions: string[];
 
 type PolicyReviewTab = "summary" | "services";
 
-const POLICY_REVIEW_TAB_KEY = "vigil-policy-review-tab";
+const POLICY_REVIEW_TAB_KEY = "veritrail-policy-review-tab";
 
 function loadPreferredPolicyReviewTab(): PolicyReviewTab {
   try {
@@ -5437,7 +5437,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Vigil can detect it, then start analysis."}
+              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
           </p>
           <Link
             to="/accounts"
@@ -5451,7 +5451,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "Enable Advanced IAM policy generation on the AWS connector so Vigil can start CloudTrail-based analysis."}
+              "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
           </p>
           <Link
             to="/accounts"
@@ -5603,7 +5603,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Vigil can detect it, then start analysis."}
+              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
           </p>
           <Link
             to="/accounts"
@@ -5617,7 +5617,7 @@ function PolicyCloudTrailStartAction({
         <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
-              "Enable Advanced IAM policy generation on the AWS connector so Vigil can start CloudTrail-based analysis."}
+              "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
           </p>
           <Link
             to="/accounts"

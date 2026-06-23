@@ -517,7 +517,7 @@ def auditor_control_evidence(
             db.scalars(snap_q.order_by(EvidenceSnapshot.taken_at.desc()).limit(50)).all()
         )
 
-    note = "No automated Vigil checks are mapped to this control yet." if not check_ids else None
+    note = "No automated Veritrail checks are mapped to this control yet." if not check_ids else None
 
     _log_audit(db, auditor_access_id=str(grant.id), action="view_control_evidence", resource_type="control", resource_id=ctrl.control_id)
 
@@ -571,7 +571,7 @@ def auditor_export(
 
     zip_bytes = pack.zip_bytes
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    filename = f"vigil-evidence-{framework}-{ts}-auditor.zip"
+    filename = f"veritrail-evidence-{framework}-{ts}-auditor.zip"
 
     import hashlib
     zip_sha256 = hashlib.sha256(zip_bytes).hexdigest()
@@ -598,7 +598,7 @@ def auditor_export(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-Content-SHA256": zip_sha256,
-            "X-Vigil-Pack-SHA256": zip_sha256,
-            "X-Vigil-Auditor-Pack": "true",
+            "X-Veritrail-Pack-SHA256": zip_sha256,
+            "X-Veritrail-Auditor-Pack": "true",
         },
     )

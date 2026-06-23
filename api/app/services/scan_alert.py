@@ -40,28 +40,28 @@ def send_scan_failure_email(
     error_type: str | None,
     error_summary: str,
 ) -> bool:
-    subject = f"Vigil: Scan failed — {account_label}"
+    subject = f"Veritrail: Scan failed — {account_label}"
     acct = f" ({account_id})" if account_id else ""
     text = (
-        f"A Vigil scan failed for {account_label}{acct}.\n\n"
+        f"A Veritrail scan failed for {account_label}{acct}.\n\n"
         f"Organization: {org_name}\n"
         f"Step: {failed_step or 'unknown'}\n"
         f"Error: {error_type or 'Error'}\n\n"
         f"{error_summary}\n\n"
-        "Open Vigil → Accounts to verify your IAM role and trigger a re-scan."
+        "Open Veritrail → Accounts to verify your IAM role and trigger a re-scan."
     )
     html = f"""
     <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
       <h2 style="margin:0 0 12px;font-size:18px">Scan failed</h2>
       <p style="margin:0 0 16px;color:#52525b">
-        A Vigil scan failed for <strong>{h(account_label)}</strong>{h(acct)}.
+        A Veritrail scan failed for <strong>{h(account_label)}</strong>{h(acct)}.
       </p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         <tr><td style="padding:6px 0;color:#71717a;width:100px">Step</td><td>{h(failed_step or "unknown")}</td></tr>
         <tr><td style="padding:6px 0;color:#71717a">Error</td><td>{h(error_type or "Error")}</td></tr>
       </table>
       <pre style="margin:16px 0;padding:12px;background:#fafafa;border:1px solid #e4e4e7;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">{h(error_summary[:800])}</pre>
-      <p style="margin:0;color:#71717a;font-size:13px">Open Vigil → Accounts to verify your IAM role and trigger a re-scan.</p>
+      <p style="margin:0;color:#71717a;font-size:13px">Open Veritrail → Accounts to verify your IAM role and trigger a re-scan.</p>
     </div>
     """
     sent, err = send_mail(to=to, subject=subject, text=text, html=html)
@@ -129,7 +129,7 @@ def _post_scan_failure_slack(
     error_summary: str,
 ) -> bool:
     text = (
-        f":x: *Vigil scan failed* — `{account_label}`\n"
+        f":x: *Veritrail scan failed* — `{account_label}`\n"
         f"Step: {failed_step or 'unknown'}\n"
         f"Error: {error_type or 'Error'}\n"
         f"{error_summary[:500]}"
@@ -155,8 +155,8 @@ def _post_new_findings_slack(
         lines.append(f"…and {len(items) - len(shown)} more")
     plural = "s" if len(items) != 1 else ""
     text = (
-        f":rotating_light: *Vigil — {len(items)} new critical/high finding{plural}* "
-        f"in {account_label}\n" + "\n".join(lines) + f"\n<{app_url}|Review in Vigil>"
+        f":rotating_light: *Veritrail — {len(items)} new critical/high finding{plural}* "
+        f"in {account_label}\n" + "\n".join(lines) + f"\n<{app_url}|Review in Veritrail>"
     )
     try:
         resp = httpx.post(slack_url, json={"text": text}, timeout=10)
@@ -191,7 +191,7 @@ def send_new_findings_email(
         if n > len(shown)
         else ""
     )
-    subject = f"Vigil: {n} new critical/high finding{plural} — {account_label}"
+    subject = f"Veritrail: {n} new critical/high finding{plural} — {account_label}"
     text = (
         f"{n} new critical/high finding{plural} in {account_label}{acct} ({org_name}).\n\n"
         + "\n".join(f"[{sev.upper()}] {title}" for sev, title in shown)
@@ -204,7 +204,7 @@ def send_new_findings_email(
       <p style="margin:0 0 16px;color:#52525b">Account <strong>{h(account_label)}</strong>{h(acct)}.</p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">{rows}</table>
       {more}
-      <p style="margin:16px 0 0"><a href="{h(app_url)}" style="color:#4f46e5;font-weight:600">Review in Vigil →</a></p>
+      <p style="margin:16px 0 0"><a href="{h(app_url)}" style="color:#4f46e5;font-weight:600">Review in Veritrail →</a></p>
     </div>
     """
     sent, err = send_mail(to=to, subject=subject, text=text, html=html)
@@ -307,13 +307,13 @@ def send_stale_scan_email(
     hours_overdue: int, last_scan_label: str,
 ) -> bool:
     acct = f" ({account_id})" if account_id else ""
-    subject = f"Vigil: No recent scan — {account_label}"
+    subject = f"Veritrail: No recent scan — {account_label}"
     text = (
-        f"Vigil has not completed a scan for {account_label}{acct} in over "
+        f"Veritrail has not completed a scan for {account_label}{acct} in over "
         f"{hours_overdue} hours (last scan {last_scan_label}).\n\n"
         f"Organization: {org_name}\n\n"
         "Continuous evidence has a gap until the next successful scan. Open "
-        "Vigil → Accounts to verify the IAM role and trigger a scan."
+        "Veritrail → Accounts to verify the IAM role and trigger a scan."
     )
     sent, err = send_mail(to=to, subject=subject, text=text)
     if not sent:
@@ -323,7 +323,7 @@ def send_stale_scan_email(
 
 def _post_stale_scan_slack(slack_url: str, account_label: str, hours_overdue: int) -> bool:
     text = (
-        f":warning: *Vigil scan gap* — `{account_label}` has not completed a scan "
+        f":warning: *Veritrail scan gap* — `{account_label}` has not completed a scan "
         f"in over {hours_overdue}h. Evidence collection has a gap until the next "
         "successful scan."
     )

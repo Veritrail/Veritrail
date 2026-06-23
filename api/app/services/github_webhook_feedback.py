@@ -28,7 +28,7 @@ def _findings_summary_text(
     repo: str,
     branch: str,
     result: dict,
-    vigil_base_url: str = "",
+    veritrail_base_url: str = "",
 ) -> str:
     """Build a human-readable Markdown comment from scan results."""
     scan_result = result.get("result", {})
@@ -39,12 +39,12 @@ def _findings_summary_text(
 
     if not findings and native.get("finding_count", 0) == 0:
         lines = [
-            f"## 🔒 Vigil IaC Scan — {repo}@{branch}",
+            f"## 🔒 Veritrail IaC Scan — {repo}@{branch}",
             "",
             "✅ **No security issues found** in the changed Terraform files.",
             "",
             "---",
-            "*Scanned by [Vigil]({vigil_base_url}) — cloud security posture*",
+            "*Scanned by [Veritrail]({veritrail_base_url}) — cloud security posture*",
         ]
         return "\n".join(lines)
 
@@ -55,7 +55,7 @@ def _findings_summary_text(
         sev_counts[sev] = sev_counts.get(sev, 0) + 1
 
     lines = [
-        f"## 🔒 Vigil IaC Scan — {repo}@{branch}",
+        f"## 🔒 Veritrail IaC Scan — {repo}@{branch}",
         "",
         f"### Summary: {len(findings)} finding(s)",
         "",
@@ -103,11 +103,11 @@ def _findings_summary_text(
     for e in engines:
         lines.append(f"- {e}")
 
-    vigil_link = f" ([view in Vigil]({vigil_base_url}))" if vigil_base_url else ""
+    veritrail_link = f" ([view in Veritrail]({veritrail_base_url}))" if veritrail_base_url else ""
     lines.append("")
     lines.append(
         f"---\n"
-        f"*Scanned by [Vigil]{vigil_link} — cloud security posture management*\n"
+        f"*Scanned by [Veritrail]{veritrail_link} — cloud security posture management*\n"
         f"*Last updated: automated IaC scan on push/PR*"
     )
 
@@ -127,7 +127,7 @@ def _check_run_text(
     total = len(findings) or native.get("finding_count", 0)
     if total == 0:
         return (
-            "Vigil IaC Scan: Passed",
+            "Veritrail IaC Scan: Passed",
             "No security issues found ✅",
             f"No IaC security issues detected in {repo}@{branch}.",
         )
@@ -141,7 +141,7 @@ def _check_run_text(
     has_high = sev_counts.get("high", 0) > 0
     conclusion = "failure" if (has_critical or has_high) else "neutral"
 
-    title = f"Vigil IaC Scan: {total} finding(s)"
+    title = f"Veritrail IaC Scan: {total} finding(s)"
     summary_parts = []
     for sev in ("critical", "high", "medium", "low"):
         count = sev_counts.get(sev, 0)
@@ -154,12 +154,12 @@ def _check_run_text(
 
 
 def _scan_comment_marker() -> str:
-    """Return a hidden marker used to find and update existing Vigil scan comments."""
-    return "<!-- vigil-iac-scan -->"
+    """Return a hidden marker used to find and update existing Veritrail scan comments."""
+    return "<!-- veritrail-iac-scan -->"
 
 
 def _find_existing_comment_id(client: httpx.Client, owner: str, repo: str, pr_number: int) -> int | None:
-    """Find an existing Vigil bot comment on the PR."""
+    """Find an existing Veritrail bot comment on the PR."""
     params: dict[str, Any] = {"per_page": 100}
     url = f"{GITHUB_API}/repos/{owner}/{repo}/issues/{pr_number}/comments"
     while url:
@@ -215,7 +215,7 @@ def _post_check_run(
     resp = client.post(
         f"{GITHUB_API}/repos/{owner}/{repo}/check-runs",
         json={
-            "name": "Vigil IaC Scan",
+            "name": "Veritrail IaC Scan",
             "head_sha": head_sha,
             "status": "completed",
             "conclusion": conclusion,
@@ -238,7 +238,7 @@ def post_webhook_feedback(
     event: dict,
     changed_iac_paths: list[str],
     scan_result: dict,
-    vigil_base_url: str,
+    veritrail_base_url: str,
 ) -> dict[str, Any]:
     """Post IaC scan results back to the GitHub PR or push.
 
@@ -273,7 +273,7 @@ def post_webhook_feedback(
         try:
             if event_type == "pull_request" and ctx["pr_number"]:
                 comment_text = _findings_summary_text(
-                    ctx["repo"], ctx["branch"] or "unknown", scan_result, vigil_base_url
+                    ctx["repo"], ctx["branch"] or "unknown", scan_result, veritrail_base_url
                 )
                 posted = _post_pr_comment(client, owner, repo, ctx["pr_number"], comment_text)
                 return {"feedback": posted["action"], "pr_comment_url": posted.get("comment_url"), **posted}
@@ -287,7 +287,7 @@ def post_webhook_feedback(
                 if not changed_iac_paths:
                     posted = _post_check_run(
                         client, owner, repo, head_sha,
-                        title="Vigil IaC Scan: No changes",
+                        title="Veritrail IaC Scan: No changes",
                         summary="No .tf/.hcl changes in this push",
                         text=f"No Terraform/HCL files changed in {ctx['repo']}@{ctx['branch'] or 'unknown'}.",
                         conclusion="success",

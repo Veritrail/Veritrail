@@ -1,4 +1,4 @@
-# Vigil product assessment — June 2026
+# Veritrail product assessment — June 2026
 
 Snapshot taken 2026-06-11 on `dev`. Numbers from the codebase: ~135 registered
 checks across 142 check files, 27 collectors, 9 SOC2 + 41 CIS AWS L1 + 16

@@ -31,7 +31,7 @@ def _get_regions(sess) -> list[str]:
 
 
 def collect_config_service(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-config", aws_account=account, purpose="collect_config_service")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-config", aws_account=account, purpose="collect_config_service")
     regions = _get_regions(sess)
     count = 0
 

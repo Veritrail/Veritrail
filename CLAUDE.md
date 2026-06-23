@@ -72,7 +72,7 @@ HANDOFF.md      detailed status + roadmap (read this for scope)
 
 ## Primary differentiator: "What If" blast radius analysis
 
-**This is the key feature that separates Vigil from Orca, Wiz, Checkmarx, Prisma, and every CSPM/CNAPP tool.** They flag findings. Nobody shows what breaks if you actually remediate. Engineers don't fix IAM debt because they're afraid of breaking prod — Vigil removes that fear.
+**This is the key feature that separates Veritrail from Orca, Wiz, Checkmarx, Prisma, and every CSPM/CNAPP tool.** They flag findings. Nobody shows what breaks if you actually remediate. Engineers don't fix IAM debt because they're afraid of breaking prod — Veritrail removes that fear.
 
 Feature: "What If I fix this?" drawer tab per finding:
 - Blast radius — what principals/services depend on this resource right now
@@ -124,6 +124,6 @@ docker compose up
 
 ## Repo
 
-https://github.com/awakzdev/Vigil
+https://github.com/awakzdev/Veritrail
 
 Read `HANDOFF.md` for full status + 2-week roadmap. Read `README.md` for onboarding flow.

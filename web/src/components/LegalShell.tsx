@@ -17,7 +17,7 @@ export function LegalShell({
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link to="/login" className="flex items-center gap-2.5">
             <img src="/favicon.png" alt="" className="h-6 w-6" aria-hidden />
-            <span className="text-lg font-bold tracking-tight text-zinc-900">Vigil</span>
+            <span className="text-lg font-bold tracking-tight text-zinc-900">Veritrail</span>
           </Link>
           <Link to="/login" className="text-sm font-medium text-zinc-500 hover:text-zinc-800">
             Back to sign in
@@ -35,7 +35,7 @@ export function LegalShell({
           <div className="flex flex-wrap gap-4">
             <Link to="/privacy" className="hover:text-zinc-600">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-zinc-600">Terms of Service</Link>
-            <span>© {new Date().getFullYear()} Vigil</span>
+            <span>© {new Date().getFullYear()} Veritrail</span>
           </div>
         </footer>
       </main>

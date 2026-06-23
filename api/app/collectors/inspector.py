@@ -42,7 +42,7 @@ def collect_inspector(db: Session, account: AwsAccount) -> dict:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-inspector",
+        session_name="veritrail-inspector",
         aws_account=account,
         purpose="collect_inspector",
     )

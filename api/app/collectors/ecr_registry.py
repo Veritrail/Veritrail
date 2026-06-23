@@ -34,7 +34,7 @@ def collect_ecr_registry_settings(db: Session, account: AwsAccount) -> int:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-ecr-registry",
+        session_name="veritrail-ecr-registry",
         aws_account=account,
         purpose="collect_ecr_registry_settings",
     )

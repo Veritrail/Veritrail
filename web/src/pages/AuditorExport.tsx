@@ -35,7 +35,7 @@ export default function AuditorExport() {
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `vigil-evidence-${framework}-auditor.zip`;
+      a.download = `veritrail-evidence-${framework}-auditor.zip`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch (e) {

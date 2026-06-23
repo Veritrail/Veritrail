@@ -63,7 +63,7 @@ def _is_weak_tls_policy(policy: str | None) -> bool:
 
 
 def collect_acm(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-acm", aws_account=account, purpose="collect_acm")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-acm", aws_account=account, purpose="collect_acm")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -107,7 +107,7 @@ def collect_acm(db: Session, account: AwsAccount) -> int:
 
 
 def collect_lambda(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-lambda", aws_account=account, purpose="collect_lambda")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-lambda", aws_account=account, purpose="collect_lambda")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -159,7 +159,7 @@ def collect_lambda(db: Session, account: AwsAccount) -> int:
 
 
 def collect_ecr(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-ecr", aws_account=account, purpose="collect_ecr")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-ecr", aws_account=account, purpose="collect_ecr")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -199,7 +199,7 @@ def collect_ecr(db: Session, account: AwsAccount) -> int:
 
 
 def collect_secrets(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-secrets", aws_account=account, purpose="collect_secrets")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-secrets", aws_account=account, purpose="collect_secrets")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -231,7 +231,7 @@ def collect_secrets(db: Session, account: AwsAccount) -> int:
 
 
 def collect_ssm_parameters(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-ssm", aws_account=account, purpose="collect_ssm_parameters")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-ssm", aws_account=account, purpose="collect_ssm_parameters")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -262,7 +262,7 @@ def collect_ssm_parameters(db: Session, account: AwsAccount) -> int:
 
 
 def collect_elb(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-elb", aws_account=account, purpose="collect_elb")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-elb", aws_account=account, purpose="collect_elb")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -311,7 +311,7 @@ def collect_elb(db: Session, account: AwsAccount) -> int:
 
 
 def collect_dynamodb(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-dynamodb", aws_account=account, purpose="collect_dynamodb")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-dynamodb", aws_account=account, purpose="collect_dynamodb")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -362,7 +362,7 @@ def collect_dynamodb(db: Session, account: AwsAccount) -> int:
 
 
 def collect_sns(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-sns", aws_account=account, purpose="collect_sns")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-sns", aws_account=account, purpose="collect_sns")
     count = 0
     for region in _get_regions(sess):
         try:
@@ -397,7 +397,7 @@ def collect_sns(db: Session, account: AwsAccount) -> int:
 
 
 def collect_sqs(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-sqs", aws_account=account, purpose="collect_sqs")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-sqs", aws_account=account, purpose="collect_sqs")
     count = 0
     for region in _get_regions(sess):
         try:

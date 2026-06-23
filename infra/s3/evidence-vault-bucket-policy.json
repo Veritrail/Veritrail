@@ -7,8 +7,8 @@
       "Principal": "*",
       "Action": "s3:*",
       "Resource": [
-        "arn:aws:s3:::vigil-worm-storage",
-        "arn:aws:s3:::vigil-worm-storage/*"
+        "arn:aws:s3:::veritrail-worm-storage",
+        "arn:aws:s3:::veritrail-worm-storage/*"
       ],
       "Condition": {
         "Bool": {
@@ -17,7 +17,7 @@
       }
     },
     {
-      "Sid": "AllowVigilApiVaultWriter",
+      "Sid": "AllowVeritrailApiVaultWriter",
       "Effect": "Allow",
       "Principal": {
         "AWS": "arn:aws:iam::946796614687:root"
@@ -26,10 +26,10 @@
         "s3:ListBucket",
         "s3:GetBucketObjectLockConfiguration"
       ],
-      "Resource": "arn:aws:s3:::vigil-worm-storage"
+      "Resource": "arn:aws:s3:::veritrail-worm-storage"
     },
     {
-      "Sid": "AllowVigilApiVaultObjectWrite",
+      "Sid": "AllowVeritrailApiVaultObjectWrite",
       "Effect": "Allow",
       "Principal": {
         "AWS": "arn:aws:iam::946796614687:root"
@@ -42,7 +42,7 @@
         "s3:PutObjectLegalHold",
         "s3:GetObjectRetention"
       ],
-      "Resource": "arn:aws:s3:::vigil-worm-storage/*"
+      "Resource": "arn:aws:s3:::veritrail-worm-storage/*"
     }
   ]
 }

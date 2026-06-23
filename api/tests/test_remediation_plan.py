@@ -59,7 +59,7 @@ def test_preview_plan_has_no_approval():
     assert "approval" not in plan
 
 
-def test_dispatch_custom_vigil_doc_uses_home_automation_region(monkeypatch):
+def test_dispatch_custom_veritrail_doc_uses_home_automation_region(monkeypatch):
     monkeypatch.setenv("REMEDIATION_AUTOMATION_REGION", "us-east-1")
     from app.core.config import get_settings
 
@@ -141,9 +141,9 @@ def test_iac_includes_ssm_remediation_panel():
     ssm = out["ssm_remediation"]
     assert ssm["module_id"] == "security_groups"
     assert ssm["module_enabled"] is True
-    assert ssm["automation_provider"] == "vigil"
+    assert ssm["automation_provider"] == "veritrail"
     assert ssm["aws_document_name"] is None
-    assert ssm["runbook"]["document_name"] == "Vigil-RevokeSecurityGroupIngressExact"
+    assert ssm["runbook"]["document_name"] == "Veritrail-RevokeSecurityGroupIngressExact"
 
 
 def test_iac_ssm_panel_s3_shows_aws_owned_metadata_execution_unchanged():
@@ -183,10 +183,10 @@ def test_iac_ssm_panel_s3_shows_aws_owned_metadata_execution_unchanged():
     assert exec_rb is not None
     assert exec_rb.owner == "aws"
     assert ssm["runbook"]["document_name"] == "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
-    assert ssm["requires_vigil_document"] is False
+    assert ssm["requires_veritrail_document"] is False
 
 
-def test_iac_ssm_panel_iam_key_shows_vigil_metadata():
+def test_iac_ssm_panel_iam_key_shows_veritrail_metadata():
     from unittest.mock import MagicMock
 
     from app.services.iac_snippets import build_iac_remediation
@@ -215,8 +215,8 @@ def test_iac_ssm_panel_iam_key_shows_vigil_metadata():
     db.scalars.return_value.all.return_value = []
     out = build_iac_remediation(db, f, f.org_id)
     ssm = out["ssm_remediation"]
-    assert ssm["automation_provider"] == "vigil"
-    assert ssm["runbook"]["document_name"] == "Vigil-DeactivateIamAccessKey"
+    assert ssm["automation_provider"] == "veritrail"
+    assert ssm["runbook"]["document_name"] == "Veritrail-DeactivateIamAccessKey"
 
 
 def test_access_key_unused_plan_enables_automation():
@@ -249,7 +249,7 @@ def test_access_key_unused_plan_enables_automation():
     assert out["apply_paths"]["customer_automation"] is True
 
 
-def test_resolve_automation_region_vigil_custom_uses_home_region():
+def test_resolve_automation_region_veritrail_custom_uses_home_region():
     from app.services.remediation_plan import resolve_automation_region
 
     # S3 uses AWS-owned runbook in the resource region
@@ -257,12 +257,12 @@ def test_resolve_automation_region_vigil_custom_uses_home_region():
         resolve_automation_region("s3.bucket.public_access_not_blocked", "eu-west-1")
         == "eu-west-1"
     )
-    # SSM parameter — Vigil custom, uses home
+    # SSM parameter — Veritrail custom, uses home
     assert (
         resolve_automation_region("ssm.parameter.plaintext_secret", "eu-west-1")
         == "us-east-1"
     )
-    # IAM keys — Vigil custom, uses home
+    # IAM keys — Veritrail custom, uses home
     assert (
         resolve_automation_region("iam.access_key.unused_45d", "eu-west-1")
         == "us-east-1"

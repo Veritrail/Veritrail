@@ -701,17 +701,17 @@ class TestWildcardResourceCheck:
         drafts = iam_policy_wildcard_resource.run(mock_db, acc_id)
         assert drafts == []
 
-    def test_skips_vigil_scan_role(self, mock_db):
+    def test_skips_veritrail_scan_role(self, mock_db):
         from app.checks import iam_policy_wildcard_resource
         acc_id = uuid.uuid4()
-        vigil_arn = "arn:aws:iam::123456789012:role/VigilReadOnly"
+        veritrail_arn = "arn:aws:iam::123456789012:role/VeritrailReadOnly"
         acc = MagicMock()
-        acc.role_arn = vigil_arn
+        acc.role_arn = veritrail_arn
         mock_db.get.return_value = acc
         role = _role_with_inline(
-            arn=vigil_arn,
+            arn=veritrail_arn,
             account_id=acc_id,
-            inline={"VigilMinimalReadOnly": {"Statement": [
+            inline={"VeritrailMinimalReadOnly": {"Statement": [
                 {"Effect": "Allow", "Action": ["iam:GenerateServiceLastAccessedDetails"], "Resource": "*"}
             ]}},
         )

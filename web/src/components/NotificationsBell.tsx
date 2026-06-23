@@ -111,7 +111,7 @@ export default function NotificationsBell() {
     function onDocClick(e: MouseEvent) {
       const target = e.target as Node;
       if (rootRef.current?.contains(target)) return;
-      const panel = document.getElementById("vigil-notifications-panel");
+      const panel = document.getElementById("veritrail-notifications-panel");
       if (panel?.contains(target)) return;
       setOpen(false);
     }
@@ -142,7 +142,7 @@ export default function NotificationsBell() {
     open && panelPos
       ? createPortal(
           <div
-            id="vigil-notifications-panel"
+            id="veritrail-notifications-panel"
             className="fixed z-[200] w-[min(38rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200/90 bg-white shadow-xl shadow-zinc-900/15"
             style={{ top: panelPos.top, right: panelPos.right }}
           >

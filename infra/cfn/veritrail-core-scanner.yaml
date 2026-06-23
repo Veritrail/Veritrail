@@ -1,89 +1,117 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  LEGACY monolithic template — prefer vigil-stack.yaml (parent with conditional nested stacks).
-  Vigil read-only IAM role for compliance scanning. Enumerates AWS config
-  across IAM, account contacts (CIS 1.1/1.2), IAM server certificates (CIS 1.18),
-  storage, compute, networking, and security services. The base role is strictly
-  Read/List/Describe access-level — it never modifies infrastructure. The Write
-  access-level IAM Access Analyzer policy-generation actions live in a separate,
-  optional role (EnableAdvancedPolicyGeneration). Role retained on stack deletion —
-  update the stack to pick up new read actions.
+  Veritrail Core Scanner v2026.06 — read-only AWS access + optional narrow-scoped
+  remediation IAM policies. Managed via vigit.cclab infra.
+
+Metadata:
+  VeritrailVersion: "2026.06"
+  VeritrailTemplate: veritrail-core-scanner
 
 Parameters:
-  VigilAccountPrincipal:
+  VeritrailAccountPrincipal:
     Type: String
-    Default: "arn:aws:iam::016266969060:role/VigilControlPlane"
-    Description: ARN of the Vigil control plane principal (provided during onboarding).
+    Description: ARN of the Veritrail control plane principal (provided during onboarding).
   ExternalId:
     Type: String
     Description: Unique ExternalId issued at onboarding. Required to assume the role.
     NoEcho: true
   RoleName:
     Type: String
-    Default: VigilReadOnly
-    Description: IAM role name. Do not change on stack updates.
-  EnableAccessAnalyzerMonitorRole:
-    Type: String
-    Default: "No"
-    AllowedValues: ["Yes", "No"]
-    Description: >
-      Create a separate IAM role for IAM Access Analyzer policy generation (reads CloudTrail
-      logs in S3). Optional — only needed for Vigil Advanced suggested-policy (ARN scope).
+    Default: VeritrailScannerRole
+    Description: Veritrail connector role name. Do not rename on stack updates.
   EnableAdvancedPolicyGeneration:
     Type: String
     Default: "No"
     AllowedValues: ["Yes", "No"]
     Description: >
-      Create a separate, optional role holding the IAM Access Analyzer policy-generation actions
-      (StartPolicyGeneration / GetGeneratedPolicy / ListPolicyGenerations / CancelPolicyGeneration).
-      These are Write access-level — they create an analysis job; no infrastructure is modified.
-      Keep "No" for a base role that is strictly Read/List/Describe. Set "Yes" only if you want
-      Vigil's Advanced least-privilege policy generation (resource/ARN-level suggestions).
+      Attach VeritrailAdvancedPolicyGeneration inline policy (IAM/Access Analyzer analysis jobs only;
+      does not modify customer resources).
   CloudTrailLogsBucketName:
     Type: String
     Default: ""
     Description: >
-      S3 bucket name where CloudTrail delivers logs (not ARN). Required when monitor role is Yes.
-      For organization trails in another account, create the monitor role manually and grant
-      bucket/KMS access there; leave this No.
+      S3 bucket where CloudTrail delivers logs (name only). Optional; leave empty to allow the
+      monitor role broad S3 read for policy generation. Set for least-privilege bucket scope.
   CloudTrailLogsBucketPrefix:
     Type: String
     Default: "AWSLogs/"
-    Description: Optional key prefix under the bucket (include trailing slash if used).
+    Description: Key prefix under the bucket (include trailing slash if used).
   CloudTrailLogsKmsKeyArn:
     Type: String
     Default: ""
-    Description: KMS key ARN if CloudTrail log objects are SSE-KMS encrypted (optional).
+    Description: KMS key ARN if trail log objects use SSE-KMS (optional).
+  EnableSecurityGroupRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableS3Remediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableIamAccessKeyRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableIamPolicyRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableSsmParameterRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  EnableCloudTrailRemediation:
+    Type: String
+    Default: "No"
+    AllowedValues: ["Yes", "No"]
+  RemediationAutomationDocumentName:
+    Type: String
+    Default: Veritrail-RemediationPlanExecutor
+  RemediationAutomationRoleName:
+    Type: String
+    Default: VeritrailRemediationAutomationRole
 
 Conditions:
-  CreateAdvancedPolicyGenRole: !Equals [!Ref EnableAdvancedPolicyGeneration, "Yes"]
-  CreateMonitorRole:
-    Fn::And:
-      - !Equals [!Ref EnableAccessAnalyzerMonitorRole, "Yes"]
-      - !Not [!Equals [!Ref CloudTrailLogsBucketName, ""]]
+  CreateAdvancedPolicyGeneration: !Equals [!Ref EnableAdvancedPolicyGeneration, "Yes"]
+  CreateMonitorRole: !Equals [!Ref EnableAdvancedPolicyGeneration, "Yes"]
+  HasCloudTrailBucket: !Not [!Equals [!Ref CloudTrailLogsBucketName, ""]]
   HasCloudTrailKmsKey: !Not [!Equals [!Ref CloudTrailLogsKmsKeyArn, ""]]
+  RemediationSg: !Equals [!Ref EnableSecurityGroupRemediation, "Yes"]
+  RemediationS3: !Equals [!Ref EnableS3Remediation, "Yes"]
+  RemediationIamKeys: !Equals [!Ref EnableIamAccessKeyRemediation, "Yes"]
+  RemediationIamPolicy: !Equals [!Ref EnableIamPolicyRemediation, "Yes"]
+  RemediationSsmParameters: !Equals [!Ref EnableSsmParameterRemediation, "Yes"]
+  RemediationCloudTrail: !Equals [!Ref EnableCloudTrailRemediation, "Yes"]
+  CreateRemediationStartPermissions:
+    Fn::Or:
+      - !Condition RemediationSg
+      - !Condition RemediationS3
+      - !Condition RemediationIamKeys
+      - !Condition RemediationIamPolicy
+      - !Condition RemediationSsmParameters
+      - !Condition RemediationCloudTrail
 
 Resources:
-  VigilRole:
+  VeritrailRole:
     Type: AWS::IAM::Role
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
       RoleName: !Ref RoleName
-      Description: Vigil read-only compliance scanner. No write access.
+      Description: Veritrail AWS connector for compliance scanning and optional policy analysis.
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Ref VigilAccountPrincipal
+              AWS: !Ref VeritrailAccountPrincipal
             Action: sts:AssumeRole
             Condition:
               StringEquals:
                 sts:ExternalId: !Ref ExternalId
       Policies:
-        - PolicyName: VigilMinimalReadOnly
+        - PolicyName: VeritrailMinimalReadOnly
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -99,7 +127,6 @@ Resources:
                   - iam:ListAccountAliases
                   - iam:GetAccountPasswordPolicy
                 Resource: "*"
-
               - Sid: IamRoleEnumeration
                 Effect: Allow
                 Action:
@@ -111,29 +138,23 @@ Resources:
                   - iam:GetPolicyVersion
                   - iam:ListPolicies
                 Resource: "*"
-
-              # Read existing IAM access reports only. Starting a new report
-              # (GenerateServiceLastAccessedDetails) is in the optional advanced role.
               - Sid: IamServiceLastAccessedRead
                 Effect: Allow
                 Action:
                   - iam:GetServiceLastAccessedDetails
                 Resource: "*"
-
               - Sid: IamServerCertificates
                 Effect: Allow
                 Action:
                   - iam:ListServerCertificates
                   - iam:GetServerCertificate
                 Resource: "*"
-
               - Sid: AccountContacts
                 Effect: Allow
                 Action:
                   - account:GetContactInformation
                   - account:GetAlternateContact
                 Resource: "*"
-
               - Sid: S3BucketConfiguration
                 Effect: Allow
                 Action:
@@ -146,7 +167,6 @@ Resources:
                   - s3:GetBucketPolicy
                   - s3:GetBucketAcl
                 Resource: "*"
-
               - Sid: KmsKeyConfiguration
                 Effect: Allow
                 Action:
@@ -156,7 +176,6 @@ Resources:
                   - kms:GetKeyPolicy
                   - kms:ListAliases
                 Resource: "*"
-
               - Sid: CloudTrailConfiguration
                 Effect: Allow
                 Action:
@@ -164,7 +183,6 @@ Resources:
                   - cloudtrail:GetTrailStatus
                   - cloudtrail:LookupEvents
                 Resource: "*"
-
               - Sid: AwsBackupConfiguration
                 Effect: Allow
                 Action:
@@ -180,13 +198,11 @@ Resources:
                   - guardduty:ListFindings
                   - guardduty:GetFindings
                 Resource: "*"
-
               - Sid: SecurityHubConfiguration
                 Effect: Allow
                 Action:
                   - securityhub:DescribeHub
                 Resource: "*"
-
               - Sid: VpcAndSecurityGroupEnumeration
                 Effect: Allow
                 Action:
@@ -195,7 +211,6 @@ Resources:
                   - ec2:DescribeFlowLogs
                   - ec2:DescribeSecurityGroups
                 Resource: "*"
-
               - Sid: Ec2InstanceEnumeration
                 Effect: Allow
                 Action:
@@ -206,16 +221,11 @@ Resources:
                   - ec2:DescribeImages
                   - ec2:GetEbsEncryptionByDefault
                 Resource: "*"
-
-              # List-level only — enables the "Access Analyzer not enabled" compliance check.
-              # The Write-level policy-generation actions live in VigilAdvancedPolicyGen
-              # (optional), so the base role stays strictly Read/List/Describe.
               - Sid: AccessAnalyzerEnumeration
                 Effect: Allow
                 Action:
                   - access-analyzer:ListAnalyzers
                 Resource: "*"
-
               - Sid: ConfigServiceConfiguration
                 Effect: Allow
                 Action:
@@ -224,7 +234,6 @@ Resources:
                   - config:DescribeDeliveryChannels
                   - config:DescribeComplianceByConfigRule
                 Resource: "*"
-
               - Sid: IdentityCenterDirectory
                 Effect: Allow
                 Action:
@@ -238,7 +247,6 @@ Resources:
                   - identitystore:DescribeUser
                   - identitystore:DescribeGroup
                 Resource: "*"
-
               - Sid: RdsConfiguration
                 Effect: Allow
                 Action:
@@ -246,33 +254,28 @@ Resources:
                   - rds:DescribeDBSnapshots
                   - rds:DescribeDBSnapshotAttributes
                 Resource: "*"
-
               - Sid: AcmCertificates
                 Effect: Allow
                 Action:
                   - acm:ListCertificates
                   - acm:DescribeCertificate
                 Resource: "*"
-
               - Sid: LambdaConfiguration
                 Effect: Allow
                 Action:
                   - lambda:ListFunctions
                   - lambda:GetFunctionEventInvokeConfig
                 Resource: "*"
-
               - Sid: SecretsManagerConfiguration
                 Effect: Allow
                 Action:
                   - secretsmanager:ListSecrets
                 Resource: "*"
-
               - Sid: SsmParameters
                 Effect: Allow
                 Action:
                   - ssm:DescribeParameters
                 Resource: "*"
-
               - Sid: ElbConfiguration
                 Effect: Allow
                 Action:
@@ -280,7 +283,6 @@ Resources:
                   - elasticloadbalancing:DescribeLoadBalancerAttributes
                   - elasticloadbalancing:DescribeListeners
                 Resource: "*"
-
               - Sid: DynamoDbConfiguration
                 Effect: Allow
                 Action:
@@ -288,35 +290,30 @@ Resources:
                   - dynamodb:DescribeTable
                   - dynamodb:DescribeContinuousBackups
                 Resource: "*"
-
               - Sid: SnsConfiguration
                 Effect: Allow
                 Action:
                   - sns:ListTopics
                   - sns:GetTopicAttributes
                 Resource: "*"
-
               - Sid: SqsConfiguration
                 Effect: Allow
                 Action:
                   - sqs:ListQueues
                   - sqs:GetQueueAttributes
                 Resource: "*"
-
               - Sid: EcrConfiguration
                 Effect: Allow
                 Action:
                   - ecr:DescribeRepositories
                   - ecr:GetRegistryScanningConfiguration
                 Resource: "*"
-
               - Sid: EksConfiguration
                 Effect: Allow
                 Action:
                   - eks:ListClusters
                   - eks:DescribeCluster
                 Resource: "*"
-
               - Sid: EcsConfiguration
                 Effect: Allow
                 Action:
@@ -326,7 +323,6 @@ Resources:
                   - ecs:DescribeServices
                   - ecs:DescribeTaskDefinition
                 Resource: "*"
-
               - Sid: InspectorConfiguration
                 Effect: Allow
                 Action:
@@ -335,84 +331,62 @@ Resources:
                   - inspector2:ListFindings
                   - inspector2:BatchGetFindingDetails
                 Resource: "*"
-
               - Sid: OrganizationsAccountLabel
                 Effect: Allow
                 Action:
                   - organizations:DescribeAccount
                 Resource: "*"
+        - !If
+          - CreateRemediationStartPermissions
+          - PolicyName: VeritrailSsmRemediationStart
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Sid: DescribeApprovedSsmDocuments
+                  Effect: Allow
+                  Action:
+                    - ssm:DescribeDocument
+                    - ssm:GetDocument
+                  Resource:
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/${RemediationAutomationDocumentName}"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Veritrail-*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*::document/AWS-*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*::document/AWSConfigRemediation-*"
+                - Sid: StartApprovedSsmAutomation
+                  Effect: Allow
+                  Action:
+                    - ssm:StartAutomationExecution
+                    - ssm:GetAutomationExecution
+                    - ssm:DescribeAutomationExecutions
+                  Resource:
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/${RemediationAutomationDocumentName}"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-definition/${RemediationAutomationDocumentName}:*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Veritrail-*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-definition/Veritrail-*:*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*::document/AWS-*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*::automation-definition/AWS-*:*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*::document/AWSConfigRemediation-*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*::automation-definition/AWSConfigRemediation-*:*"
+                    - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-execution/*"
+                - Sid: PassRemediationAutomationRole
+                  Effect: Allow
+                  Action:
+                    - iam:PassRole
+                  Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${RemediationAutomationRoleName}"
+                  Condition:
+                    StringEquals:
+                      iam:PassedToService: ssm.amazonaws.com
+          - !Ref AWS::NoValue
 
-  VigilAdvancedPolicyGenRole:
-    Type: AWS::IAM::Role
-    Condition: CreateAdvancedPolicyGenRole
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      RoleName: !Sub "${RoleName}AdvancedPolicyGen"
-      Description: >
-        Optional Vigil role for IAM Access Analyzer least-privilege policy generation. Holds only
-        the policy-generation actions (Write access-level — they create an analysis job; no
-        infrastructure is modified). Assumed by the Vigil control plane with the same ExternalId.
-      MaxSessionDuration: 3600
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Ref VigilAccountPrincipal
-            Action: sts:AssumeRole
-            Condition:
-              StringEquals:
-                sts:ExternalId: !Ref ExternalId
-      Policies:
-        - PolicyName: VigilAdvancedPolicyGeneration
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Sid: IamServiceLastAccessedGenerate
-                Effect: Allow
-                Action:
-                  - iam:GenerateServiceLastAccessedDetails
-                  - iam:GetServiceLastAccessedDetails
-                Resource: "*"
-              - Sid: AccessAnalyzerPolicyGeneration
-                Effect: Allow
-                Action:
-                  - access-analyzer:ListAnalyzers
-                  - access-analyzer:StartPolicyGeneration
-                  - access-analyzer:GetGeneratedPolicy
-                  - access-analyzer:ListPolicyGenerations
-                  - access-analyzer:CancelPolicyGeneration
-                Resource: "*"
-
-  VigilAdvancedPolicyGenPassMonitorPolicy:
-    Type: AWS::IAM::Policy
-    Condition: CreateMonitorRole
-    Properties:
-      PolicyName: VigilPassAccessAnalyzerMonitor
-      Roles:
-        - !Ref VigilAdvancedPolicyGenRole
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: PassAccessAnalyzerMonitorRole
-            Effect: Allow
-            Action: iam:PassRole
-            Resource: !GetAtt AccessAnalyzerMonitorRole.Arn
-            Condition:
-              StringEquals:
-                iam:PassedToService: access-analyzer.amazonaws.com
-
-  AccessAnalyzerMonitorRole:
+  VeritrailAccessAnalyzerMonitorRole:
     Type: AWS::IAM::Role
     Condition: CreateMonitorRole
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
       RoleName: !Sub "${RoleName}AccessAnalyzerMonitor"
-      Description: >
-        Lets IAM Access Analyzer read CloudTrail S3 logs for policy generation. Assumed by
-        access-analyzer.amazonaws.com — not by Vigil directly.
+      Description: IAM Access Analyzer policy-generation monitor role for Veritrail.
+      MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -421,67 +395,67 @@ Resources:
               Service: access-analyzer.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: AccessAnalyzerCloudTrailRead
+        - PolicyName: VeritrailAccessAnalyzerMonitorRead
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              Fn::If:
+              - Sid: CloudTrailDiscovery
+                Effect: Allow
+                Action:
+                  - cloudtrail:DescribeTrails
+                  - cloudtrail:GetTrail
+                  - cloudtrail:GetTrailStatus
+                Resource: "*"
+              - Sid: CloudTrailLogRead
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: "*"
+              - !If
                 - HasCloudTrailKmsKey
-                - - Sid: CloudTrailDiscovery
-                    Effect: Allow
-                    Action:
-                      - cloudtrail:DescribeTrails
-                      - cloudtrail:GetTrail
-                      - cloudtrail:GetTrailStatus
-                    Resource: "*"
-                  - Sid: CloudTrailLogRead
-                    Effect: Allow
-                    Action:
-                      - s3:GetObject
-                      - s3:GetBucketLocation
-                      - s3:ListBucket
-                    Resource:
-                      - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
-                      - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}/${CloudTrailLogsBucketPrefix}*"
-                  - Sid: CloudTrailLogDecrypt
-                    Effect: Allow
-                    Action:
-                      - kms:Decrypt
-                      - kms:DescribeKey
-                    Resource: !Ref CloudTrailLogsKmsKeyArn
-                - - Sid: CloudTrailDiscovery
-                    Effect: Allow
-                    Action:
-                      - cloudtrail:DescribeTrails
-                      - cloudtrail:GetTrail
-                      - cloudtrail:GetTrailStatus
-                    Resource: "*"
-                  - Sid: CloudTrailLogRead
-                    Effect: Allow
-                    Action:
-                      - s3:GetObject
-                      - s3:GetBucketLocation
-                      - s3:ListBucket
-                    Resource:
-                      - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}"
-                      - !Sub "arn:aws:s3:::${CloudTrailLogsBucketName}/${CloudTrailLogsBucketPrefix}*"
+                - Sid: CloudTrailKmsDecrypt
+                  Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                  Resource: !Ref CloudTrailLogsKmsKeyArn
+                - !Ref AWS::NoValue
 
-  Outputs:
+  AdvancedPolicyGenerationPolicy:
+    Type: AWS::IAM::Policy
+    Condition: CreateAdvancedPolicyGeneration
+    Properties:
+      PolicyName: VeritrailAdvancedPolicyGeneration
+      Roles: [!Ref VeritrailRole]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AccessAnalyzerPolicyGeneration
+            Effect: Allow
+            Action:
+              - iam:GenerateServiceLastAccessedDetails
+              - access-analyzer:StartPolicyGeneration
+              - access-analyzer:GetGeneratedPolicy
+              - access-analyzer:CancelPolicyGeneration
+              - access-analyzer:ListPolicyGenerations
+            Resource: "*"
+          - Sid: PassAccessAnalyzerMonitorRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt VeritrailAccessAnalyzerMonitorRole.Arn
+            Condition:
+              StringEquals:
+                iam:PassedToService: access-analyzer.amazonaws.com
+
+Outputs:
   RoleArn:
-    Description: Paste this ARN into Vigil to finish onboarding.
-    Value: !GetAtt VigilRole.Arn
-  ExternalId:
-    Description: ExternalId required to assume the role.
-    Value: !Ref ExternalId
-  AdvancedPolicyGenRoleArn:
-    Condition: CreateAdvancedPolicyGenRole
-    Description: >
-      Optional. Paste into Vigil (Advanced policy generation) — the control plane assumes this
-      role for IAM Access Analyzer policy generation. The base VigilReadOnly role stays Read-only.
-    Value: !GetAtt VigilAdvancedPolicyGenRole.Arn
+    Value: !GetAtt VeritrailRole.Arn
+  RoleName:
+    Value: !Ref VeritrailRole
+  AdvancedPolicyGenerationRoleArn:
+    Condition: CreateAdvancedPolicyGeneration
+    Value: !GetAtt VeritrailRole.Arn
   AccessAnalyzerMonitorRoleArn:
     Condition: CreateMonitorRole
-    Description: >
-      Pass to Vigil (Advanced policy generation). IAM Access Analyzer assumes this role to read
-      CloudTrail logs — not the VigilReadOnly role.
-    Value: !GetAtt AccessAnalyzerMonitorRole.Arn
+    Value: !GetAtt VeritrailAccessAnalyzerMonitorRole.Arn

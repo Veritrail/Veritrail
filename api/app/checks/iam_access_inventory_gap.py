@@ -31,7 +31,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
                 "iam_user_count": iam_count,
                 "identity_center_user_count": ic_count,
                 "note": (
-                    "If the organization uses IAM Identity Center (SSO), ensure the Vigil role can "
+                    "If the organization uses IAM Identity Center (SSO), ensure the Veritrail role can "
                     "list Identity Center users. If access is federated elsewhere, document manually for auditors."
                 ),
             },

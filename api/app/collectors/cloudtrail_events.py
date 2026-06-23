@@ -167,7 +167,7 @@ def collect_cloudtrail_events(db: Session, account: AwsAccount) -> int:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-ct-events",
+        session_name="veritrail-ct-events",
         aws_account=account,
         purpose="collect_cloudtrail_events",
     )

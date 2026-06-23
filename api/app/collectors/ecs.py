@@ -53,7 +53,7 @@ def collect_ecs(db: Session, account: AwsAccount) -> dict:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-ecs",
+        session_name="veritrail-ecs",
         aws_account=account,
         purpose="collect_ecs",
     )

@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.aws import ensure_vigil_role_trust, verify_account
+from app.core.aws import ensure_veritrail_role_trust, verify_account
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.route_deps import RequireAdmin
@@ -38,8 +38,8 @@ def update_cloudtrail_onboarding(
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
     mode = body.mode.strip().lower()
-    if mode not in ("existing", "vigil_managed"):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "mode must be existing or vigil_managed")
+    if mode not in ("existing", "veritrail_managed"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "mode must be existing or veritrail_managed")
     acc.cloudtrail_onboarding_mode = mode
     db.commit()
     return CloudTrailOnboardingOut(mode=acc.cloudtrail_onboarding_mode)
@@ -113,7 +113,7 @@ def get_connector_update_artifacts(
 
 @router.post("/{account_id}/sync-local-trust", status_code=200)
 def sync_local_trust(account_id: str, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
-    """Dev helper: add your current AWS caller (e.g. SSO) to VigilReadOnly trust policy."""
+    """Dev helper: add your current AWS caller (e.g. SSO) to VeritrailReadOnly trust policy."""
     if settings.APP_ENV != "dev":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "only available in dev")
     acc = db.get(AwsAccount, uuid.UUID(account_id))
@@ -121,7 +121,7 @@ def sync_local_trust(account_id: str, _rbac: RequireAdmin, p=Depends(current_pri
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
     if not acc.role_arn:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "connect the account first")
-    updated = ensure_vigil_role_trust(acc.role_arn, acc.external_id)
+    updated = ensure_veritrail_role_trust(acc.role_arn, acc.external_id)
     return {"ok": True, "trust_policy_updated": updated}
 
 

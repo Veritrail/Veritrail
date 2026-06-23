@@ -1,4 +1,4 @@
-"""Per-account CloudFormation stack name (VigilAccountConnector; legacy VigilReadOnly)."""
+"""Per-account CloudFormation stack name (VeritrailAccountConnector; legacy VeritrailReadOnly)."""
 
 from alembic import op
 import sqlalchemy as sa
@@ -8,8 +8,8 @@ down_revision = "0038"
 branch_labels = None
 depends_on = None
 
-CFN_STACK_LEGACY = "VigilReadOnly"
-CFN_STACK_CURRENT = "VigilAccountConnector"
+CFN_STACK_LEGACY = "VeritrailReadOnly"
+CFN_STACK_CURRENT = "VeritrailAccountConnector"
 
 
 def upgrade() -> None:

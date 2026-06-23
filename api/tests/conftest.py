@@ -1,4 +1,4 @@
-"""Shared fixtures for Vigil tests."""
+"""Shared fixtures for Veritrail tests."""
 from __future__ import annotations
 
 import uuid
@@ -31,7 +31,7 @@ def _no_real_email(monkeypatch):
 
 
 def make_account(
-    role_arn: str = "arn:aws:iam::123456789012:role/VigilScannerRole",
+    role_arn: str = "arn:aws:iam::123456789012:role/VeritrailScannerRole",
     external_id: str = "test-external-id",
     account_id: str = "123456789012",
 ) -> MagicMock:

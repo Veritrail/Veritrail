@@ -122,7 +122,7 @@ export function TeamMembersSettings() {
         <div className="access-invite-card__copy">
           <p className="access-invite-card__title">Invite a member</p>
           <p className="access-invite-card__description">
-            For people who do not have a Vigil account yet — contractors and personal emails are fine. If they already
+            For people who do not have a Veritrail account yet — contractors and personal emails are fine. If they already
             belong to another workspace, they must leave that account first or use a different email.
           </p>
         </div>

@@ -8,7 +8,7 @@ from pathlib import Path
 _MAPPINGS_PATH = Path(__file__).parent.parent.parent / "data" / "control_mappings.json"
 _V5_MATRIX_PATH = Path(__file__).parent.parent.parent / "data" / "cis_v5_level1_matrix.json"
 
-# CIS AWS Foundations Benchmark v5.0 Level 1 — Vigil matrix row count (see cis_v5_level1_matrix.json).
+# CIS AWS Foundations Benchmark v5.0 Level 1 — Veritrail matrix row count (see cis_v5_level1_matrix.json).
 CIS_V5_LEVEL1_TOTAL = 42
 
 
@@ -40,16 +40,16 @@ def cis_benchmark_coverage() -> dict:
     controls = sorted(by_id.values(), key=lambda x: x["control_id"])
     v5 = cis_v5_level1_matrix()
     v5_controls = v5.get("controls") or []
-    automated_v5 = sum(1 for c in v5_controls if c.get("vigil_status") == "automated")
-    partial_v5 = sum(1 for c in v5_controls if c.get("vigil_status") == "partial")
-    extended_v5 = sum(1 for c in v5_controls if c.get("vigil_status") == "extended")
-    manual_v5 = sum(1 for c in v5_controls if c.get("vigil_status") == "manual")
+    automated_v5 = sum(1 for c in v5_controls if c.get("veritrail_status") == "automated")
+    partial_v5 = sum(1 for c in v5_controls if c.get("veritrail_status") == "partial")
+    extended_v5 = sum(1 for c in v5_controls if c.get("veritrail_status") == "extended")
+    manual_v5 = sum(1 for c in v5_controls if c.get("veritrail_status") == "manual")
 
     return {
         "framework": "cis_aws_l1",
         "reference_benchmark": "CIS Amazon Web Services Foundations Benchmark",
         "reference_versions": ["v3.0.0 (selected controls)", "v5.0.0 (40 Level 1 controls — not fully automated)"],
-        "vigil_claim": "curated_subset",
+        "veritrail_claim": "curated_subset",
         "cis_v5_level1_total": CIS_V5_LEVEL1_TOTAL,
         "mapped_control_count": len(controls),
         "mapped_control_count_with_checks": sum(1 for c in controls if c["check_ids"]),
@@ -64,7 +64,7 @@ def cis_benchmark_coverage() -> dict:
             "controls": v5_controls,
         },
         "disclaimer": (
-            "Vigil automates a subset of CIS AWS Foundations controls mapped in control_mappings.json. "
+            "Veritrail automates a subset of CIS AWS Foundations controls mapped in control_mappings.json. "
             "This is not full CIS v5.0 Level 1 parity. Unmapped CIS controls require manual attestation."
         ),
         "controls": controls,

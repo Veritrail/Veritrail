@@ -373,7 +373,7 @@ def iac_snippets(finding_id: str, p=Depends(current_principal), db: Session = De
 
 class TerraformPrIn(BaseModel):
     repo_full_name: str
-    file_path: str = "vigil/remediation.tf"
+    file_path: str = "veritrail/remediation.tf"
     base_branch: str | None = None
 
 

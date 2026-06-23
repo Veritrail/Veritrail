@@ -52,7 +52,7 @@ def test_assume_role_logs_success(stub_aws_account):
         awsmod.assume_role(
             "arn:aws:iam::123:role/x",
             "ext-id",
-            session_name="vigil-test",
+            session_name="veritrail-test",
             aws_account=stub_aws_account,
             purpose="unit_test",
         )
@@ -61,7 +61,7 @@ def test_assume_role_logs_success(stub_aws_account):
     row = rows[0]
     assert row.success is True
     assert row.role_arn == "arn:aws:iam::123:role/x"
-    assert row.session_name == "vigil-test"
+    assert row.session_name == "veritrail-test"
     assert row.purpose == "unit_test"
     assert row.aws_account_id == stub_aws_account.id
     assert row.org_id == stub_aws_account.org_id
@@ -87,7 +87,7 @@ def test_assume_role_logs_client_error(stub_aws_account):
             awsmod.assume_role(
                 "arn:aws:iam::123:role/x",
                 "ext-id",
-                session_name="vigil-test",
+                session_name="veritrail-test",
                 aws_account=stub_aws_account,
                 purpose="unit_test",
             )
@@ -115,7 +115,7 @@ def test_assume_role_logs_generic_exception(stub_aws_account):
             awsmod.assume_role(
                 "arn:aws:iam::123:role/x",
                 "ext-id",
-                session_name="vigil-test",
+                session_name="veritrail-test",
                 aws_account=stub_aws_account,
                 purpose="unit_test",
             )
@@ -154,7 +154,7 @@ def test_assume_role_audit_failure_is_swallowed(stub_aws_account):
         result = awsmod.assume_role(
             "arn:aws:iam::123:role/x",
             "ext-id",
-            session_name="vigil-test",
+            session_name="veritrail-test",
             aws_account=stub_aws_account,
         )
 

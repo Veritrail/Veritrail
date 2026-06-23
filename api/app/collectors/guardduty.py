@@ -31,7 +31,7 @@ def _get_regions(sess) -> list[str]:
 
 
 def collect_guardduty(db: Session, account: AwsAccount) -> int:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-guardduty", aws_account=account, purpose="collect_guardduty")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-guardduty", aws_account=account, purpose="collect_guardduty")
     regions = _get_regions(sess)
     count = 0
 

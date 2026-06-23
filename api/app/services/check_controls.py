@@ -1,4 +1,4 @@
-"""Map Vigil check_id → compliance controls (framework priority: SOC 2 → CIS → ISO)."""
+"""Map Veritrail check_id → compliance controls (framework priority: SOC 2 → CIS → ISO)."""
 from __future__ import annotations
 
 import json

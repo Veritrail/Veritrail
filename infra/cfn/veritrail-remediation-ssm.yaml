@@ -1,17 +1,17 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Vigil remediation SSM Automation runbooks. Python handlers live in S3
+  Veritrail remediation SSM Automation runbooks. Python handlers live in S3
   (infra/<release>/ssm-scripts/*.py); publish with ./scripts/upload-cfn.sh
   before updating this stack.
 
 Parameters:
   AutomationRoleName:
     Type: String
-    Default: VigilRemediationAutomationRole
+    Default: VeritrailRemediationAutomationRole
   SsmScriptsBucket:
     Type: String
-    Default: amzn-s3-vigil
-    Description: S3 bucket hosting Vigil SSM handler scripts (public-read).
+    Default: amzn-s3-veritrail
+    Description: S3 bucket hosting Veritrail SSM handler scripts (public-read).
   SsmScriptsRelease:
     Type: String
     Default: "2026.06"
@@ -63,13 +63,13 @@ Conditions:
 Mappings:
   SsmScriptChecksums:
     RevokeSgIngress:
-      sha256: adab1144fdcdd2ff52671bb35154780ea8c160c1dbda8e5b511f2b0492ed9aea
+      sha256: b84751cd19bb7b503bb2f8d5e1b306fd127737c074046e1b556f67d2dce60ad4
     DeactivateAccessKey:
-      sha256: 81ffa9e85bc35bccad2c8cebb04fed3c3b22ecc9ca3b95ee149b9a5f95a04ebd
+      sha256: 4ba38af54ef082050c5d837a613dcb1f8f2f6480532da127919d4cb46801ef34
     MigrateSecureString:
-      sha256: bc4030538433deffe0d80d64c8de6dfecc7bc4f72ad125290d8a366aaf80d65a
+      sha256: b9bf16bcb71a91d8e7c4dbb1106dbf2c53db214339027caad99507ef572eee0d
     RemediateExcessPermissions:
-      sha256: d35963a74276affcf07c3d2ed595456287fc6c7df4a1672325ee5096b75abdc8
+      sha256: 88be3542c322ef671dd7e95750a9cb3fc3f57695843a5971eaa17aca5ec6b311
 
 Resources:
   RemediationAutomationRole:
@@ -84,7 +84,7 @@ Resources:
               Service: ssm.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: VigilRemediationAutomation
+        - PolicyName: VeritrailRemediationAutomation
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -164,7 +164,7 @@ Resources:
     Type: AWS::SSM::Document
     Condition: SecurityGroupModule
     Properties:
-      Name: Vigil-RevokeSecurityGroupIngressExact
+      Name: Veritrail-RevokeSecurityGroupIngressExact
       DocumentType: Automation
       DocumentFormat: YAML
       UpdateMethod: NewVersion
@@ -178,12 +178,12 @@ Resources:
                 Release: !Ref SsmScriptsRelease
       Content:
         schemaVersion: "0.3"
-        description: Revoke only the exact public ingress rule from a signed Vigil plan.
+        description: Revoke only the exact public ingress rule from a signed Veritrail plan.
         assumeRole: !GetAtt RemediationAutomationRole.Arn
         parameters:
           PlanJson:
             type: String
-            description: Signed Vigil remediation plan JSON.
+            description: Signed Veritrail remediation plan JSON.
         files:
           revoke_sg_ingress.py:
             checksums:
@@ -203,7 +203,7 @@ Resources:
     Type: AWS::SSM::Document
     Condition: IamAccessKeyModule
     Properties:
-      Name: Vigil-DeactivateIamAccessKey
+      Name: Veritrail-DeactivateIamAccessKey
       DocumentType: Automation
       DocumentFormat: YAML
       UpdateMethod: NewVersion
@@ -222,7 +222,7 @@ Resources:
         parameters:
           PlanJson:
             type: String
-            description: Signed Vigil remediation plan JSON.
+            description: Signed Veritrail remediation plan JSON.
         files:
           deactivate_access_key.py:
             checksums:
@@ -242,7 +242,7 @@ Resources:
     Type: AWS::SSM::Document
     Condition: SsmParameterModule
     Properties:
-      Name: Vigil-MigrateSsmParameterToSecureString
+      Name: Veritrail-MigrateSsmParameterToSecureString
       DocumentType: Automation
       DocumentFormat: YAML
       UpdateMethod: NewVersion
@@ -261,7 +261,7 @@ Resources:
         parameters:
           PlanJson:
             type: String
-            description: Signed Vigil remediation plan JSON.
+            description: Signed Veritrail remediation plan JSON.
         files:
           migrate_to_secure_string.py:
             checksums:
@@ -281,7 +281,7 @@ Resources:
     Type: AWS::SSM::Document
     Condition: IamPolicyModule
     Properties:
-      Name: Vigil-RemediateIamExcessPermissions
+      Name: Veritrail-RemediateIamExcessPermissions
       DocumentType: Automation
       DocumentFormat: YAML
       UpdateMethod: NewVersion
@@ -295,12 +295,12 @@ Resources:
                 Release: !Ref SsmScriptsRelease
       Content:
         schemaVersion: "0.3"
-        description: Narrow IAM role policies per a signed Vigil remediation plan.
+        description: Narrow IAM role policies per a signed Veritrail remediation plan.
         assumeRole: !GetAtt RemediationAutomationRole.Arn
         parameters:
           PlanJson:
             type: String
-            description: Signed Vigil remediation plan JSON.
+            description: Signed Veritrail remediation plan JSON.
         files:
           remediate_excess_permissions.py:
             checksums:
@@ -325,10 +325,10 @@ Outputs:
     Description: S3 prefix for handler scripts (upload before stack update).
     Value: !Sub infra/${SsmScriptsRelease}/ssm-scripts/
   SecurityGroupDocumentName:
-    Value: Vigil-RevokeSecurityGroupIngressExact
+    Value: Veritrail-RevokeSecurityGroupIngressExact
   IamAccessKeyDocumentName:
-    Value: Vigil-DeactivateIamAccessKey
+    Value: Veritrail-DeactivateIamAccessKey
   SsmParameterDocumentName:
-    Value: Vigil-MigrateSsmParameterToSecureString
+    Value: Veritrail-MigrateSsmParameterToSecureString
   IamPolicyDocumentName:
-    Value: Vigil-RemediateIamExcessPermissions
+    Value: Veritrail-RemediateIamExcessPermissions

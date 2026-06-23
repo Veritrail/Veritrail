@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 
-const STORAGE_KEY = "vigil.recheckNotifications.v3";
+const STORAGE_KEY = "veritrail.recheckNotifications.v3";
 const HISTORY_LIMIT = 100;
 /** Max wait after Verify (queued full recheck or stuck pending state). */
 export const RECHECK_TIMEOUT_MS = 30_000;
@@ -202,11 +202,11 @@ function loadPersisted(): PersistedV3 & { latestVerifyOutcome: VerifyNotificatio
           : [],
       };
     } else {
-      const v2 = localStorage.getItem("vigil.recheckNotifications.v2");
+      const v2 = localStorage.getItem("veritrail.recheckNotifications.v2");
       if (v2) {
         state = migrateV2(v2);
       } else {
-        const v1 = localStorage.getItem("vigil.recheckNotifications.v1");
+        const v1 = localStorage.getItem("veritrail.recheckNotifications.v1");
         if (v1) state = migrateLegacyV1(v1);
       }
     }

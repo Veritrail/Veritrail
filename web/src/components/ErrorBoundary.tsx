@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f172a] px-4 py-12 text-slate-100">
         <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#152033] p-8 shadow-2xl shadow-black/40">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Vigil</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Veritrail</p>
           <h1 className="mt-3 text-xl font-semibold text-white">Something went wrong</h1>
           <p className="mt-2 text-sm leading-relaxed text-slate-400">
             The page hit an unexpected error. Reload to try again. If it keeps happening, contact support.

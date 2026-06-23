@@ -29,7 +29,7 @@ export function friendlyPolicyGenerationError(raw: string): string {
   if (lower.includes("cloudtrail:gettrail")) {
     return (
       "The Access Analyzer monitor role cannot call CloudTrail APIs needed for policy generation " +
-      "(for example cloudtrail:GetTrail). Update the Vigil connector with Advanced IAM policy generation " +
+      "(for example cloudtrail:GetTrail). Update the Veritrail connector with Advanced IAM policy generation " +
       "enabled so the monitor role is refreshed, then try again."
     );
   }
@@ -47,7 +47,7 @@ export function friendlyPolicyGenerationError(raw: string): string {
   }
   if (compact.includes("passrole")) {
     return (
-      "Vigil can call Access Analyzer APIs but cannot pass the CloudTrail reader role to the service. " +
+      "Veritrail can call Access Analyzer APIs but cannot pass the CloudTrail reader role to the service. " +
       "Update the AWS connector with Advanced IAM policy generation enabled, then verify permissions again."
     );
   }
@@ -56,7 +56,7 @@ export function friendlyPolicyGenerationError(raw: string): string {
   }
   if (lower.includes("accessdenied") || lower.includes("not authorized") || lower.includes("unauthorized")) {
     return (
-      "CloudTrail analysis could not be started in the regions Vigil tried. " +
+      "CloudTrail analysis could not be started in the regions Veritrail tried. " +
       "Run a full account scan, then try again. If CloudTrail is new, confirm the trail is logging to S3."
     );
   }

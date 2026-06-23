@@ -25,7 +25,7 @@ def _now() -> datetime:
 def collect_iam(db: Session, account: AwsAccount) -> dict:
     """Collect IAM users, console password state, MFA, access keys + last-used."""
     log.info("collect_iam.start", account_id=str(account.id), role_arn=account.role_arn)
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-collect", aws_account=account, purpose="collect_iam")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-collect", aws_account=account, purpose="collect_iam")
     iam = sess.client("iam")
 
     user_count = 0

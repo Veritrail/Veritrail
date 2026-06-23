@@ -4,7 +4,15 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { ProductShell } from "../components/ProductShell";
-import NotificationsBell from "../components/NotificationsBell";
+import { PostureMetricCell } from "./Workspace";
+
+// d-path icons for the Workspace-style KPI strip.
+const IK = {
+  connected: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  syncing: "M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05",
+  errors: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z",
+  sources: "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z",
+} as const;
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import {
@@ -40,7 +48,7 @@ type SettingsSlice = {
   };
 };
 
-type Tone = "ok" | "warn" | "idle" | "sync";
+type Tone = "ok" | "warn" | "idle" | "sync" | "danger";
 
 type IntegrationRow = {
   key: string;
@@ -84,56 +92,6 @@ function CapabilityPills({ tags }: { tags: string[] }) {
         </span>
       ))}
       {extra > 0 && <span className="integrations-capability">+{extra}</span>}
-    </div>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: Tone;
-}) {
-  const iconCls =
-    tone === "ok"
-      ? "integrations-summary-icon integrations-summary-icon--ok"
-      : tone === "sync"
-        ? "integrations-summary-icon integrations-summary-icon--sync"
-        : tone === "warn"
-          ? "integrations-summary-icon integrations-summary-icon--warn"
-          : "integrations-summary-icon integrations-summary-icon--sync";
-
-  const icon =
-    tone === "warn" ? (
-      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-        />
-      </svg>
-    ) : tone === "sync" ? (
-      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"
-        />
-      </svg>
-    ) : (
-      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-    );
-
-  return (
-    <div className="integrations-summary-card">
-      <span className={iconCls}>{icon}</span>
-      <div>
-        <span className="integrations-summary-label">{label}</span>
-        <div className="integrations-summary-value">{value}</div>
-      </div>
     </div>
   );
 }
@@ -353,9 +311,18 @@ function IntegrationsContent() {
   const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(
     Boolean,
   ).length;
-  const errorCount = [accounts.isError, github.isError, gitlab.isError, googleWorkspace.isError, entra.isError, settings.isError].filter(
-    Boolean,
-  ).length;
+  const errorCount = [
+    accounts.isError,
+    github.isError,
+    gitlab.isError,
+    googleWorkspace.isError,
+    entra.isError,
+    settings.isError,
+    // A connected provider whose token/webhook broke ("Needs reconnect") is a
+    // real error, not a soft warning — surface it in the Errors KPI.
+    github.data?.status === "error",
+    gitlab.data?.status === "error",
+  ].filter(Boolean).length;
 
   const integrationRows: IntegrationRow[] = [
     {
@@ -391,7 +358,7 @@ function IntegrationsContent() {
           : githubConnected
             ? "Healthy"
             : "Not configured",
-      healthTone: githubSync.isSyncing ? "sync" : github.data?.status === "error" ? "warn" : githubConnected ? "ok" : "idle",
+      healthTone: githubSync.isSyncing ? "sync" : github.data?.status === "error" ? "danger" : githubConnected ? "ok" : "idle",
       permissionsLabel: githubConnected ? "OAuth connected" : "Not connected",
       permissionsVerified: githubConnected,
       capabilities: ["Branch protection", "Reviews", "Repositories"],
@@ -413,7 +380,7 @@ function IntegrationsContent() {
           : gitlabConnected
             ? "Healthy"
             : "Not configured",
-      healthTone: gitlabSync.isSyncing ? "sync" : gitlab.data?.status === "error" ? "warn" : gitlabConnected ? "ok" : "idle",
+      healthTone: gitlabSync.isSyncing ? "sync" : gitlab.data?.status === "error" ? "danger" : gitlabConnected ? "ok" : "idle",
       permissionsLabel: gitlabConnected ? "OAuth connected" : "Not connected",
       permissionsVerified: gitlabConnected,
       capabilities: ["Protected branches", "MR approvals", "Projects"],
@@ -519,20 +486,11 @@ function IntegrationsContent() {
 
   return (
     <div className="integrations-page">
-      <header className="integrations-page__header flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Integrations</h1>
-          <p className="mt-1 max-w-2xl text-sm text-zinc-500">
-            Connect and manage sources for findings, compliance mapping, and audit evidence.
-          </p>
-        </div>
-        <NotificationsBell />
-      </header>
-
-      <div className="integrations-summary">
-        <SummaryCard label="Connected" value={connectedCount} tone="ok" />
-        <SummaryCard label="Syncing" value={syncingCount} tone="sync" />
-        <SummaryCard label="Errors" value={errorCount} tone="warn" />
+      <div className="workspace-summary workspace-summary--metrics">
+        <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail="Active connectors" valueTone="ok" />
+        <PostureMetricCell icon={IK.syncing} label="Syncing" value={String(syncingCount)} detail={syncingCount ? "In progress" : "Idle"} valueTone={syncingCount ? "info" : "default"} />
+        <PostureMetricCell icon={IK.errors} label="Errors" value={String(errorCount)} detail={errorCount ? "Need attention" : "None"} valueTone={errorCount ? "warn" : "default"} />
+        <PostureMetricCell icon={IK.sources} label="Sources" value={String(activeRows.length)} detail="Configured" />
       </div>
 
       {awsScanRunning && <ScanProgressBanner />}
@@ -547,7 +505,7 @@ function IntegrationsContent() {
 
 export default function Integrations() {
   return (
-    <ProductShell className="flex min-h-full flex-col">
+    <ProductShell className="flex flex-1 flex-col">
       <IntegrationsContent />
     </ProductShell>
   );

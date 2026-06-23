@@ -60,7 +60,7 @@ class AccountOut(BaseModel):
     remediation_modules: RemediationModulesIn
     remediation_modules_deployed: RemediationModulesIn
     advanced_policy_generation_deployed: bool = False
-    cfn_stack_name: str = "VigilAccountConnector"
+    cfn_stack_name: str = "VeritrailAccountConnector"
     cfn_launch_url: str | None = None
     cfn_update_launch_url: str | None = None
     cfn_template_url: str | None = None
@@ -76,7 +76,7 @@ class AccountOut(BaseModel):
 
 
 class CloudTrailOnboardingIn(BaseModel):
-    mode: str  # existing | vigil_managed
+    mode: str  # existing | veritrail_managed
 
 
 class CloudTrailOnboardingOut(BaseModel):
@@ -155,7 +155,7 @@ def _cfn_stack_params(
         "templateURL": s.CFN_TEMPLATE_URL,
         "stackName": stack_name,
         "param_ExternalId": external_id,
-        "param_VigilAccountPrincipal": s.TRUST_PRINCIPAL_ARN,
+        "param_VeritrailAccountPrincipal": s.TRUST_PRINCIPAL_ARN,
         "param_RoleName": s.CFN_SCANNER_ROLE_NAME,
         "param_EnableAdvancedPolicyGeneration": _yes_no(enable_advanced_policy_generation),
     }
@@ -208,7 +208,7 @@ def _cli_command(
         f"  --template-url {s.CFN_TEMPLATE_URL} \\",
         "  --parameters \\",
         f"    ParameterKey=ExternalId,ParameterValue={external_id} \\",
-        f"    ParameterKey=VigilAccountPrincipal,ParameterValue={s.TRUST_PRINCIPAL_ARN} \\",
+        f"    ParameterKey=VeritrailAccountPrincipal,ParameterValue={s.TRUST_PRINCIPAL_ARN} \\",
         f"    ParameterKey=RoleName,ParameterValue={s.CFN_SCANNER_ROLE_NAME} \\",
         f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
     ]
@@ -241,7 +241,7 @@ def _update_cli_command(
 def _remediation_launch_url() -> str:
     params = {
         "templateURL": get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL,
-        "stackName": "VigilRemediationSSM",
+        "stackName": "VeritrailRemediationSSM",
     }
     qs = "&".join(f"{k}={quote(v, safe='')}" for k, v in params.items())
     return f"{_cfn_console_base_url()}#/stacks/create/review?{qs}"
@@ -249,14 +249,14 @@ def _remediation_launch_url() -> str:
 
 def _remediation_update_launch_url(stack_name: str) -> str:
     """Nested remediation child stack (only if deployed standalone). Prefer parent stack update."""
-    return _cfn_stack_list_url(stack_name.strip() or "VigilRemediationSSM")
+    return _cfn_stack_list_url(stack_name.strip() or "VeritrailRemediationSSM")
 
 
 def _remediation_cli_command() -> str:
     return (
         "aws cloudformation create-stack \
 "
-        "  --stack-name VigilRemediationSSM \
+        "  --stack-name VeritrailRemediationSSM \
 "
         f"  --template-url {get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL} \
 "
@@ -275,7 +275,7 @@ def _update_stack_name(acc: AwsAccount) -> str:
 
 
 def _display_cfn_stack_name(acc: AwsAccount) -> str:
-    """UI label: pending legacy rows show current name; connected legacy keeps VigilReadOnly."""
+    """UI label: pending legacy rows show current name; connected legacy keeps VeritrailReadOnly."""
     if acc.status != "connected" and acc.cfn_stack_name == settings.CFN_STACK_NAME_LEGACY:
         return settings.CFN_STACK_NAME
     return acc.cfn_stack_name
@@ -391,7 +391,7 @@ def update_connection_options(
             status.HTTP_409_CONFLICT,
             "Advanced IAM policy generation is verified in your deployed role. "
             "Update your CloudFormation stack with EnableAdvancedPolicyGeneration=No, "
-            "run Verify permissions, then turn this off in Vigil.",
+            "run Verify permissions, then turn this off in Veritrail.",
         )
     for spec in REMEDIATION_MODULES:
         if (
@@ -402,7 +402,7 @@ def update_connection_options(
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 f"{spec.label} remediation is verified in your deployed role. "
-                f"Update your stack with {spec.cfn_parameter}=No, verify, then disable in Vigil.",
+                f"Update your stack with {spec.cfn_parameter}=No, verify, then disable in Veritrail.",
             )
     if body.enable_advanced_policy_generation != acc.enable_advanced_policy_generation:
         acc.advanced_policy_generation_deployed = False

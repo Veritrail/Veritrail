@@ -49,7 +49,7 @@ def apply_role_policy(
         sess = assume_role(
             acc.role_arn,
             acc.external_id,
-            session_name="vigil-apply-policy",
+            session_name="veritrail-apply-policy",
             aws_account=acc,
             purpose="apply_role_policy",
         )

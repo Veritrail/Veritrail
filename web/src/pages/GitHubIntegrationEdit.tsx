@@ -223,7 +223,7 @@ export default function GitHubIntegrationEdit() {
       <header className="scope-edit__header">
         <div className="min-w-0">
           <h1 className="scope-edit__title">Configure GitHub access</h1>
-          <p className="scope-edit__subtitle">Select GitHub owners and repositories Vigil can scan and monitor.</p>
+          <p className="scope-edit__subtitle">Select GitHub owners and repositories Veritrail can scan and monitor.</p>
         </div>
         <button onClick={() => manageAccess.mutate()} disabled={manageAccess.isPending} className="scope-edit__manage-btn">
           <ShieldIcon />
@@ -324,7 +324,7 @@ export default function GitHubIntegrationEdit() {
           <div className="scope-card__head-row">
             <div className="min-w-0">
               <h2 className="scope-card__title">2. Repository scope</h2>
-              <p className="scope-card__subtitle">Choose the repositories Vigil should scan under the selected owners.</p>
+              <p className="scope-card__subtitle">Choose the repositories Veritrail should scan under the selected owners.</p>
             </div>
             <button onClick={() => setSelectedRepos([])} className="scope-btn-outline">
               Include all repositories

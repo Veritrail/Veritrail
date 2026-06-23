@@ -1,8 +1,8 @@
 import { LegalSection, LegalShell } from "../components/LegalShell";
 
 // Edit these for your legal entity before launch.
-const ENTITY = "Vigil";
-const CONTACT_EMAIL = "legal@vigil.app"; // TODO: replace with your real contact address
+const ENTITY = "Veritrail";
+const CONTACT_EMAIL = "legal@veritrail.app"; // TODO: replace with your real contact address
 const GOVERNING_LAW = "the State of Israel"; // TODO: replace with your jurisdiction
 const UPDATED = "June 21, 2026";
 
@@ -10,16 +10,16 @@ export default function Terms() {
   return (
     <LegalShell title="Terms of Service" updated={UPDATED}>
       <p>
-        These Terms govern your use of the Vigil service provided by {ENTITY} ("we", "us"). By creating an account or
-        using Vigil, you agree to them. If you use Vigil on behalf of an organization, you represent that you are
+        These Terms govern your use of the Veritrail service provided by {ENTITY} ("we", "us"). By creating an account or
+        using Veritrail, you agree to them. If you use Veritrail on behalf of an organization, you represent that you are
         authorized to bind it.
       </p>
 
       <LegalSection heading="The service">
         <p>
-          Vigil is a read-only cloud compliance-evidence tool. You connect AWS accounts via an IAM role you create;
-          Vigil scans configuration and metadata, ranks findings, maps them to compliance frameworks, and produces
-          auditor-ready evidence. Vigil makes no changes to your AWS resources unless you explicitly enable and approve a
+          Veritrail is a read-only cloud compliance-evidence tool. You connect AWS accounts via an IAM role you create;
+          Veritrail scans configuration and metadata, ranks findings, maps them to compliance frameworks, and produces
+          auditor-ready evidence. Veritrail makes no changes to your AWS resources unless you explicitly enable and approve a
           remediation action.
         </p>
       </LegalSection>
@@ -40,10 +40,10 @@ export default function Terms() {
 
       <LegalSection heading="No compliance or audit guarantee">
         <p>
-          Vigil helps you <em>prepare</em> and <em>evidence</em> your security posture. It is not an auditor, does not
+          Veritrail helps you <em>prepare</em> and <em>evidence</em> your security posture. It is not an auditor, does not
           issue certifications, and does not guarantee that you will pass any audit or meet any standard (including
           SOC&nbsp;2, CIS, or ISO). Findings, control statuses, and scores are informational aids, not legal, compliance,
-          or professional advice. A licensed assessor — not Vigil — determines audit outcomes.
+          or professional advice. A licensed assessor — not Veritrail — determines audit outcomes.
         </p>
       </LegalSection>
 
@@ -65,7 +65,7 @@ export default function Terms() {
 
       <LegalSection heading="Intellectual property">
         <p>
-          We own the Vigil software and service. You own your data. You grant us the limited rights needed to operate
+          We own the Veritrail software and service. You own your data. You grant us the limited rights needed to operate
           the service and provide it to you.
         </p>
       </LegalSection>
@@ -95,7 +95,7 @@ export default function Terms() {
 
       <LegalSection heading="Termination">
         <p>
-          You may stop using Vigil and delete your account at any time. We may suspend or terminate access for breach of
+          You may stop using Veritrail and delete your account at any time. We may suspend or terminate access for breach of
           these Terms or to protect the service and its users.
         </p>
       </LegalSection>

@@ -142,7 +142,7 @@ def remediation_automation_metadata(
     if candidate:
         note = candidate.note
     return {
-        "automation_provider": "vigil",
+        "automation_provider": "veritrail",
         "aws_document_name": None,
         "automation_confidence": None,
         "automation_note": note,

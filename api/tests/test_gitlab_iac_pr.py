@@ -162,7 +162,7 @@ def test_create_gitlab_mr_opens_successfully(mock_token):
         db = MagicMock()
 
         mock_proj = {"id": 42, "default_branch": "main"}
-        mock_branch = {"name": "vigil/remediation-abc123"}
+        mock_branch = {"name": "veritrail/remediation-abc123"}
         mock_commit = {"id": "abc123commit"}
         mock_mr = {
             "iid": 1,
@@ -204,7 +204,7 @@ def test_create_gitlab_mr_opens_successfully(mock_token):
                 provider,
                 db,
                 repo_full_name="group/subgroup/project",
-                title="Vigil: remediate s3.bucket.public_access_not_blocked",
+                title="Veritrail: remediate s3.bucket.public_access_not_blocked",
                 body="Automated remediation",
                 terraform_hcl='resource "aws_s3_bucket" "main" {}',
                 file_path="terraform/main.tf",
@@ -215,7 +215,7 @@ def test_create_gitlab_mr_opens_successfully(mock_token):
             assert result["mr_iid"] == 1
             assert result["mr_id"] == 100
             assert result["mr_url"] == "https://gitlab.example.com/group/proj/-/merge_requests/1"
-            assert result["branch"].startswith("vigil/remediation-")
+            assert result["branch"].startswith("veritrail/remediation-")
             assert result["file_path"] == "terraform/main.tf"
             assert result["base_branch"] == "main"
 
@@ -231,7 +231,7 @@ def test_create_gitlab_mr_sanitizes_file_path(mock_token):
         db = MagicMock()
 
         mock_proj = {"id": 42, "default_branch": "main"}
-        mock_branch = {"name": "vigil/remediation-def456"}
+        mock_branch = {"name": "veritrail/remediation-def456"}
         mock_commit = {"id": "def456commit"}
         mock_mr = {
             "iid": 2,
@@ -283,7 +283,7 @@ def test_create_gitlab_mr_sanitizes_file_path(mock_token):
 
 @patch("app.services.gitlab_iac_pr.ensure_gitlab_token", return_value="fake-token")
 def test_create_gitlab_mr_applies_default_file_path(mock_token):
-    """create_terraform_mr uses vigil-remediation.tf when path is empty."""
+    """create_terraform_mr uses veritrail-remediation.tf when path is empty."""
     from app.services.gitlab_iac_pr import create_terraform_mr
 
     provider = MagicMock()
@@ -292,7 +292,7 @@ def test_create_gitlab_mr_applies_default_file_path(mock_token):
         db = MagicMock()
 
         mock_proj = {"id": 42, "default_branch": "main"}
-        mock_branch = {"name": "vigil/remediation-xyz789"}
+        mock_branch = {"name": "veritrail/remediation-xyz789"}
         mock_commit = {"id": "xyz789commit"}
         mock_mr = {
             "iid": 3,
@@ -337,7 +337,7 @@ def test_create_gitlab_mr_applies_default_file_path(mock_token):
                 file_path="/",
             )
 
-            assert result["file_path"] == "vigil-remediation.tf"
+            assert result["file_path"] == "veritrail-remediation.tf"
 
 
 # ---------------------------------------------------------------------------
@@ -425,7 +425,7 @@ def test_dispatch_rejects_expired_plan():
     expired = (now - timedelta(minutes=5)).isoformat()
     expired_plan = {
         "plan_id": "expired-plan",
-        "schema": "vigil_remediation_plan/v2",
+        "schema": "veritrail_remediation_plan/v2",
         "created_at": (now - timedelta(hours=1)).isoformat(),
         "expires_at": expired,
         "expires_in_minutes": 60,

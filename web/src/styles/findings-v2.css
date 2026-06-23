@@ -10,8 +10,8 @@
   --fv-title: #111827;
   --fv-muted: #6b7280;
   --fv-meta: #98a2b3;
-  --fv-primary: var(--vigil-primary);
-  --fv-primary-hover: var(--vigil-primary-hover);
+  --fv-primary: var(--veritrail-primary);
+  --fv-primary-hover: var(--veritrail-primary-hover);
   --fv-ghost-bg: #f8fafc;
   --fv-ghost-border: #dce3ec;
   --fv-ghost-text: #344054;
@@ -173,7 +173,7 @@
   color: #111827;
 }
 
-/* Scan = Vigil teal primary, not a neutral outline. */
+/* Scan = Veritrail teal primary, not a neutral outline. */
 .findings-v2-page .findings-v2-toolbar-btn--scan {
   border-color: #0d9488;
   background: #0d9488;
@@ -362,7 +362,7 @@
   min-height: 44px;
 }
 
-.vigil-accordion-panel {
+.veritrail-accordion-panel {
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
@@ -371,18 +371,18 @@
     opacity 150ms ease;
 }
 
-.vigil-accordion-panel.is-open {
+.veritrail-accordion-panel.is-open {
   grid-template-rows: 1fr;
   opacity: 1;
 }
 
-.vigil-accordion-panel__inner {
+.veritrail-accordion-panel__inner {
   overflow: hidden;
   min-height: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vigil-accordion-panel {
+  .veritrail-accordion-panel {
     transition: none;
   }
 }
@@ -469,7 +469,7 @@
 }
 
 @media (max-width: 1120px) {
-  .vigil-toolbar-btn,
+  .veritrail-toolbar-btn,
   .findings-v2-toolbar-btn {
     height: 2.125rem;
     padding-inline: 0.65rem;

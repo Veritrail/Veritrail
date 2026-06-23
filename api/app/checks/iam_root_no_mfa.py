@@ -14,7 +14,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
     if not acc:
         return []
     try:
-        sess = assume_role(acc.role_arn, acc.external_id, session_name="vigil-root-mfa", aws_account=acc, purpose="check_iam_root_no_mfa")
+        sess = assume_role(acc.role_arn, acc.external_id, session_name="veritrail-root-mfa", aws_account=acc, purpose="check_iam_root_no_mfa")
         summary = sess.client("iam").get_account_summary()["SummaryMap"]
     except Exception:  # noqa: BLE001
         return []

@@ -25,7 +25,7 @@ for _var in ("AWS_PROFILE", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S
         del os.environ[_var]
 
 settings = get_settings()
-_boto_cfg = Config(retries={"max_attempts": 8, "mode": "standard"}, user_agent_extra="vigil/0.1")
+_boto_cfg = Config(retries={"max_attempts": 8, "mode": "standard"}, user_agent_extra="veritrail/0.1")
 
 
 def _audit_assume_role(
@@ -95,8 +95,8 @@ def _caller_iam_principal() -> tuple[str, str]:
     return account_id, arn
 
 
-def ensure_vigil_role_trust(role_arn: str, external_id: str) -> bool:
-    """Add current caller + external_id to VigilReadOnly trust (dev only). Returns True if updated."""
+def ensure_veritrail_role_trust(role_arn: str, external_id: str) -> bool:
+    """Add current caller + external_id to VeritrailReadOnly trust (dev only). Returns True if updated."""
     if settings.APP_ENV != "dev":
         return False
     role_name = parse_role_name(role_arn)
@@ -105,7 +105,7 @@ def ensure_vigil_role_trust(role_arn: str, external_id: str) -> bool:
     try:
         caller_acct, caller_iam = _caller_iam_principal()
     except ClientError:
-        log.warning("ensure_vigil_role_trust.caller_identity_failed")
+        log.warning("ensure_veritrail_role_trust.caller_identity_failed")
         return False
     if caller_acct != parse_role_account(role_arn):
         return False
@@ -120,14 +120,14 @@ def ensure_vigil_role_trust(role_arn: str, external_id: str) -> bool:
             PolicyDocument=json.dumps(merged),
         )
         log.info(
-            "ensure_vigil_role_trust.updated",
+            "ensure_veritrail_role_trust.updated",
             role_name=role_name,
             principal=caller_iam,
         )
         return True
     except ClientError as e:
         log.warning(
-            "ensure_vigil_role_trust.failed",
+            "ensure_veritrail_role_trust.failed",
             role_name=role_name,
             error_code=e.response.get("Error", {}).get("Code"),
         )
@@ -158,7 +158,7 @@ def _sts_assume(role_arn: str, external_id: str, session_name: str) -> dict:
 def assume_role(
     role_arn: str,
     external_id: str,
-    session_name: str = "vigil-scan",
+    session_name: str = "veritrail-scan",
     *,
     aws_account: "AwsAccount | None" = None,
     purpose: str | None = None,
@@ -176,7 +176,7 @@ def assume_role(
         err = e.response.get("Error", {})
         code = err.get("Code")
         if code == "AccessDenied" and settings.APP_ENV == "dev" and not strict:
-            if ensure_vigil_role_trust(role_arn, external_id):
+            if ensure_veritrail_role_trust(role_arn, external_id):
                 try:
                     resp = _sts_assume(role_arn, external_id, session_name)
                     _audit_assume_role(
@@ -263,7 +263,7 @@ def verify_account(
         sess = assume_role(
             role_arn,
             external_id,
-            session_name="vigil-verify",
+            session_name="veritrail-verify",
             aws_account=aws_account,
             purpose="verify",
             strict=True,

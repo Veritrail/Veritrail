@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, publicApi, restoreSession, storeTokens, token as accessToken, BASE } from "../api";
 import { postAuthPath } from "../lib/postAuthRedirect";
 
-const PENDING_INVITE_KEY = "vigil_pending_invite_token";
+const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
 
 type InvitePreview = {
   org_name: string;

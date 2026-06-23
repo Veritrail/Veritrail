@@ -10,8 +10,8 @@
 |--------|--------|------|
 | **40** | `CIS_V5_LEVEL1_TOTAL` in `cis_benchmark_coverage.py` | Official L1 control count (reference) |
 | **Mapped** | Unique `control_id` in `api/data/control_mappings.json` (`framework: cis_aws_l1`) | **40** rows (deduped by control_id) |
-| **Automated** | `cis_v5_level1_matrix.json` → `vigil_status: automated` | Scannable via Vigil checks (re-scan after deploy) |
-| **Manual** | `vigil_status: manual` + `checks: []` | Listed for auditors; no scan finding |
+| **Automated** | `cis_v5_level1_matrix.json` → `veritrail_status: automated` | Scannable via Veritrail checks (re-scan after deploy) |
+| **Manual** | `veritrail_status: manual` + `checks: []` | Listed for auditors; no scan finding |
 
 ## Recently added scannable checks (session)
 
@@ -22,7 +22,7 @@
 | 1.18 | `iam.server_certificate.expired` | `collect_iam_server_certificates` |
 | 1.21 | `iam.cloudshell_full_access_granted` | IAM user/role attachments (existing `collect_iam`) |
 
-CFN: `infra/cfn/vigil-readonly-role.yaml` — `AccountContacts`, `IamServerCertificates`.
+CFN: `infra/cfn/veritrail-readonly-role.yaml` — `AccountContacts`, `IamServerCertificates`.
 
 Migration: `0035_cis_governance_checks.py` — `account_governance`, `iam_server_certificates`.
 

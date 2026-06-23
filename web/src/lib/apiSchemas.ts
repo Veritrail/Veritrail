@@ -198,6 +198,37 @@ export const workspaceSchema = z.object({
 
 export const workspaceListSchema = z.array(workspaceSchema);
 
+export const checklistControlSchema = z.object({
+  id: z.string(),
+  control_id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  guidance: z.string().nullable(),
+  group: z.string(),
+  kind: z.string(), // "auto" | "manual"
+  status: z.string(),
+  check_ids: z.array(z.string()).default([]),
+  finding_count: z.number().default(0),
+  owner: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
+  evidence_filename: z.string().nullable().optional(),
+  reviewed_at: z.string().nullable().optional(),
+});
+
+export const checklistSchema = z.object({
+  framework: z.string(),
+  summary: z.object({
+    total: z.number(),
+    met: z.number(),
+    not_applicable: z.number(),
+    percent: z.number(),
+  }),
+  controls: z.array(checklistControlSchema),
+});
+
+export type ChecklistControl = z.infer<typeof checklistControlSchema>;
+export type Checklist = z.infer<typeof checklistSchema>;
+
 export const auditLogEntrySchema = z.object({
   id: z.string(),
   action: z.string(),

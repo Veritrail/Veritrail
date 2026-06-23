@@ -13,12 +13,12 @@ export type ApiInit<T = unknown> = RequestInit & {
   schema?: z.ZodType<T>;
 };
 
-const ACCESS_KEY = "vigil_access_token";
-const AUDITOR_KEY = "vigil_auditor_token";
-export const SIGNED_OUT_KEY = "vigil_signed_out";
-const PENDING_INVITE_KEY = "vigil_pending_invite_token";
-const PENDING_CREDENTIALS_KEY = "vigil_pending_credentials";
-const MFA_STORAGE_KEY = "vigil_mfa_token";
+const ACCESS_KEY = "veritrail_access_token";
+const AUDITOR_KEY = "veritrail_auditor_token";
+export const SIGNED_OUT_KEY = "veritrail_signed_out";
+const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
+const PENDING_CREDENTIALS_KEY = "veritrail_pending_credentials";
+const MFA_STORAGE_KEY = "veritrail_mfa_token";
 
 /** Short-lived access token in sessionStorage (refresh is HttpOnly cookie). */
 export function token(): string | null {

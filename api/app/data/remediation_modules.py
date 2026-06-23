@@ -18,7 +18,7 @@ class RemediationModuleSpec:
     runner_supported: bool
 
 
-SSM_EXECUTOR_POLICY_NAME = "VigilRemediationAutomation"
+SSM_EXECUTOR_POLICY_NAME = "VeritrailRemediationAutomation"
 
 
 REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
@@ -125,7 +125,7 @@ REMEDIATION_MODULES: tuple[RemediationModuleSpec, ...] = (
 )
 
 REMEDIATION_MODULE_BY_ID = {m.id: m for m in REMEDIATION_MODULES}
-DEFAULT_REMEDIATION_ROLE_NAME = "VigilRemediationAutomationRole"
+DEFAULT_REMEDIATION_ROLE_NAME = "VeritrailRemediationAutomationRole"
 
 # One representative check per module for account-level SSM document verification.
 MODULE_SAMPLE_CHECK_ID: dict[str, str] = {

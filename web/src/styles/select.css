@@ -1,11 +1,11 @@
-/* App-styled dropdown (Select.tsx) — matches Vigil's light web design, replaces
+/* App-styled dropdown (Select.tsx) — matches Veritrail's light web design, replaces
    the OS-native <select> popup. */
-.vigil-select {
+.veritrail-select {
   position: relative;
   display: inline-block;
 }
 
-.vigil-select__btn {
+.veritrail-select__btn {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
@@ -19,43 +19,43 @@
   white-space: nowrap;
   transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
 }
-.vigil-select--md .vigil-select__btn {
+.veritrail-select--md .veritrail-select__btn {
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
 }
-.vigil-select--sm .vigil-select__btn {
+.veritrail-select--sm .veritrail-select__btn {
   padding: 0.3125rem 0.625rem;
   font-size: 0.75rem;
 }
-.vigil-select__btn:hover:not(:disabled) {
+.veritrail-select__btn:hover:not(:disabled) {
   border-color: #c2cad6;
   background: #fafbfc;
 }
-.vigil-select__btn:focus-visible {
+.veritrail-select__btn:focus-visible {
   outline: none;
   border-color: transparent;
   box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.28);
 }
-.vigil-select__btn:disabled {
+.veritrail-select__btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.vigil-select__value {
+.veritrail-select__value {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.vigil-select__chev {
+.veritrail-select__chev {
   flex-shrink: 0;
   color: #94a3b8;
   transition: transform 0.15s;
 }
-.vigil-select__chev--open {
+.veritrail-select__chev--open {
   transform: rotate(180deg);
 }
 
-.vigil-select__menu {
+.veritrail-select__menu {
   position: absolute;
   top: calc(100% + 0.375rem);
   left: 0;
@@ -66,14 +66,14 @@
   border: 1px solid #e8edf3;
   border-radius: 0.625rem;
   box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.02);
-  animation: vigil-select-in 0.1s ease-out;
+  animation: veritrail-select-in 0.1s ease-out;
 }
-.vigil-select__menu--right {
+.veritrail-select__menu--right {
   left: auto;
   right: 0;
 }
 
-@keyframes vigil-select-in {
+@keyframes veritrail-select-in {
   from {
     opacity: 0;
     transform: translateY(-3px);
@@ -84,7 +84,7 @@
   }
 }
 
-.vigil-select__opt {
+.veritrail-select__opt {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -99,20 +99,20 @@
   white-space: nowrap;
   transition: background 0.1s, color 0.1s;
 }
-.vigil-select__opt:hover:not(:disabled) {
+.veritrail-select__opt:hover:not(:disabled) {
   background: #f1f5f9;
   color: #0f172a;
 }
-.vigil-select__opt--active {
+.veritrail-select__opt--active {
   background: #f1f5f9;
   color: #0f172a;
   font-weight: 600;
 }
-.vigil-select__opt--active:hover {
+.veritrail-select__opt--active:hover {
   background: #e9eef4;
   color: #0f172a;
 }
-.vigil-select__opt:disabled {
+.veritrail-select__opt:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

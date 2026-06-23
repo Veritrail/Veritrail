@@ -42,6 +42,10 @@ def test_every_mapped_control_has_narrative():
     for entry in raw:
         fw = entry["framework"]
         cid = entry["control_id"]
+        # Manual controls (no automated checks) carry their own description +
+        # guidance for attestation; check-evidence narratives don't apply.
+        if not entry.get("checks"):
+            continue
         if not narrative_for(fw, cid):
             missing.append(f"{fw}:{cid}")
     assert not missing, f"missing narratives: {missing[:10]}"

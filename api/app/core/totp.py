@@ -6,7 +6,7 @@ import io
 
 import pyotp
 
-_ISSUER = "Vigil"
+_ISSUER = "Veritrail"
 
 
 def new_secret() -> str:

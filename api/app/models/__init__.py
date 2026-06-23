@@ -10,6 +10,7 @@ from app.models.resources import (
     AccountGovernance, IamServerCertificate,
 )
 from app.models.control import Control, CheckControl
+from app.models.control_attestation import ControlAttestation
 from app.models.evidence_snapshot import EvidenceSnapshot
 from app.models.github import IdentityProvider, IdentityUser, Repo, RepoProtection, PullRequest, WorkflowRun, CiPipeline
 from app.models.cloudtrail import CloudTrailEvent
@@ -30,7 +31,7 @@ __all__ = [
     "Ec2Instance", "EbsVolume", "EbsEncryptionDefault",
     "IamPasswordPolicy", "AccessAnalyzer", "ConfigRecorder", "SecurityHubStatus",
     "AccountGovernance", "IamServerCertificate",
-    "Control", "CheckControl",
+    "Control", "CheckControl", "ControlAttestation",
     "EvidenceSnapshot",
     "IdentityProvider", "IdentityUser", "Repo", "RepoProtection", "PullRequest",
     "WorkflowRun", "CiPipeline",

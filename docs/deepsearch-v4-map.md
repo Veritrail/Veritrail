@@ -3,12 +3,12 @@
 Source: `deepsearch/v4.txt` (architecture review, 2026-05). Use this to track what shipped vs deferred.  
 Read-only / policy-gen posture: [deepsearch-v6-map.md](./deepsearch-v6-map.md).
 
-## Executive alignment (v4 → Vigil spine)
+## Executive alignment (v4 → Veritrail spine)
 
 | v4 recommendation | Repo decision |
 |-------------------|---------------|
 | EventBridge + fixed-role Lambda for MVP remediation | **Superseded** — SSM Automation is now preferred |
-| SSM Automation for enterprise | **Current** — `vigil-remediation-ssm.yaml`, `runner_type: ssm` |
+| SSM Automation for enterprise | **Current** — `veritrail-remediation-ssm.yaml`, `runner_type: ssm` |
 | No Terraform `null_resource` / local-exec live remediation | **Aligned** — customer repo PR + automation only |
 | No runtime IAM attach/detach | **Aligned** — fixed inline policies per family in runner |
 | PR IaC only when resource match is deterministic | **Partial** — `tools/hclpatch`, S3 PAB + KMS rotation |
@@ -21,10 +21,10 @@ Read-only / policy-gen posture: [deepsearch-v6-map.md](./deepsearch-v6-map.md).
 |------|-----------|-----------|
 | Remediation plan + dispatch | `remediation_plan.py`, `remediation_dispatch.py`, `findings.py` | **Done** v2 fields; **dispatch** now seals `approval` block |
 | Read-only generated policies | `accounts.py` | **Done** |
-| Customer SSM Automation | `infra/cfn/vigil-remediation-ssm.yaml`, `remediation_dispatch.py` | **Done** for SG exact revoke + SSM plaintext secret |
+| Customer SSM Automation | `infra/cfn/veritrail-remediation-ssm.yaml`, `remediation_dispatch.py` | **Done** for SG exact revoke + SSM plaintext secret |
 | Terraform PR / hclpatch | `terraform_pr.py`, `hcl_patch.py`, `tools/hclpatch` | **Partial** — S3/KMS patch; SG scan-only |
 | GitHub PR route | `POST …/iac/terraform-pr` | **Callable** (UI may still say automation-only for SG) |
-| SSM remediation | `vigil-remediation-ssm.yaml` | **Done** for first modules |
+| SSM remediation | `veritrail-remediation-ssm.yaml` | **Done** for first modules |
 | Evidence vault | `evidence_vault.py`, `evidence_pack.py` | **Done** upload + presign; docs synced in `evidence-vault.md` |
 | Export audit trail | `evidence_exports` table | **Extended** — `report_id` + vault columns (migration 0034) |
 | Compliance timeline | `compliance_scan_timeline.py`, `ComplianceHistory.tsx`, `HistoryDashboard.tsx` | **Partial** — KPI dashboard + charts shipped; see [history-dashboard.md](./history-dashboard.md) |
@@ -81,10 +81,10 @@ Expanded failing/passing controls use a single-audience flow (no SOC2 textbook p
 | Section | Purpose |
 |---------|---------|
 | **Control status** | Pass/fail, finding count, scan coverage |
-| **How Vigil evaluates** | Mapped check labels (what runs each scan) |
+| **How Veritrail evaluates** | Mapped check labels (what runs each scan) |
 | **Evidence sources** | Snapshot / integration sources |
 | **Findings** | Open findings by check (fail only) |
-| **Auditor response** | Copyable Vigil-focused text (not `NARRATIVES` long form) |
+| **Auditor response** | Copyable Veritrail-focused text (not `NARRATIVES` long form) |
 
 Removed from UI: **Auditor summary**, **Short answer** (duplicated SOC2 boilerplate).
 

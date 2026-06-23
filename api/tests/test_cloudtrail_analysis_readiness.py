@@ -18,7 +18,7 @@ def test_readiness_no_trail_when_advanced_enabled():
     acc.id = uuid.uuid4()
     acc.enable_advanced_policy_generation = True
     acc.advanced_policy_generation_deployed = False
-    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailScannerRole"
 
     db = MagicMock()
     db.scalars.return_value.all.return_value = []
@@ -34,7 +34,7 @@ def test_readiness_ready_when_logging_trail_exists():
     acc.id = uuid.uuid4()
     acc.enable_advanced_policy_generation = True
     acc.advanced_policy_generation_deployed = False
-    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailScannerRole"
 
     db = MagicMock()
     db.scalars.return_value.all.return_value = [_trail(logging=True)]
@@ -50,7 +50,7 @@ def test_readiness_advanced_disabled():
     acc.id = uuid.uuid4()
     acc.enable_advanced_policy_generation = False
     acc.advanced_policy_generation_deployed = False
-    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailScannerRole"
 
     db = MagicMock()
     db.scalars.return_value.all.return_value = [_trail(logging=True)]

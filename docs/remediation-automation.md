@@ -1,31 +1,31 @@
 # Customer-account remediation (SSM Automation)
 
-Vigil's scanner stays read-only unless the customer explicitly enables remediation modules.
-Approved fixes run through AWS Systems Manager Automation in the customer account. Vigil
+Veritrail's scanner stays read-only unless the customer explicitly enables remediation modules.
+Approved fixes run through AWS Systems Manager Automation in the customer account. Veritrail
 prefers AWS-owned runbooks where they fit the finding exactly, and uses a small custom SSM
 document only when extra guardrails are needed.
 
 ## Architecture
 
 ```
-Vigil UI -> review -> explicit Start remediation -> ssm:StartAutomationExecution (automation_region)
--> AWS-owned runbook or Vigil guardrail document
+Veritrail UI -> review -> explicit Start remediation -> ssm:StartAutomationExecution (automation_region)
+-> AWS-owned runbook or Veritrail guardrail document
 -> SSM Automation assumes customer remediation role
 -> document applies the approved action in resource_region (same region for EC2/SSM resources)
 ```
 
 - **No dynamic IAM attach**: write permissions are static on the customer-owned automation role.
 - **AWS-native execution**: execution history and output live in Systems Manager.
-- **Regions**: `resource_region` is where the affected resource lives. `automation_region` is where `StartAutomationExecution` runs. **AWS-owned runbooks** use `resource_region`. **Vigil custom documents** deploy through the remediation nested CloudFormation stack in `REMEDIATION_AUTOMATION_REGION`; `PlanJson` includes `resource_region` for regional API calls (EC2, SSM, IAM).
+- **Regions**: `resource_region` is where the affected resource lives. `automation_region` is where `StartAutomationExecution` runs. **AWS-owned runbooks** use `resource_region`. **Veritrail custom documents** deploy through the remediation nested CloudFormation stack in `REMEDIATION_AUTOMATION_REGION`; `PlanJson` includes `resource_region` for regional API calls (EC2, SSM, IAM).
 - **Exact-match revoke**: security-group fixes only remove tuples from `exact_match_rules`; returns `stale_plan` if live rules drifted.
 - **No custom Lambda runner**: SSM owns execution, audit trail, and output.
 
 ## Deploy (connector-first)
 
-1. **Update the Vigil connector stack** (`vigil-stack` / core scanner) with SSM remediation modules enabled.
+1. **Update the Veritrail connector stack** (`veritrail-stack` / core scanner) with SSM remediation modules enabled.
    The connector role receives scoped `ssm:DescribeDocument`, `ssm:GetDocument`,
    `ssm:StartAutomationExecution`, `ssm:GetAutomationExecution`, and `iam:PassRole` for
-   `VigilRemediationAutomationRole` only.
+   `VeritrailRemediationAutomationRole` only.
 
 2. **Publish templates and handler scripts to S3** before deploying or updating the customer stack:
 
@@ -33,28 +33,28 @@ Vigil UI -> review -> explicit Start remediation -> ssm:StartAutomationExecution
 ./scripts/upload-cfn.sh
 ```
 
-3. **Deploy or update the parent connector stack** (`VigilAccountConnector`) with the desired `Enable*Remediation` parameters. The parent stack creates the remediation nested stack, which creates the customer-owned automation role and the Vigil SSM documents via `AWS::SSM::Document`.
+3. **Deploy or update the parent connector stack** (`VeritrailAccountConnector`) with the desired `Enable*Remediation` parameters. The parent stack creates the remediation nested stack, which creates the customer-owned automation role and the Veritrail SSM documents via `AWS::SSM::Document`.
 
-AWS-owned runbooks (S3 public access, CloudTrail) do not create Vigil documents, but the connector still needs the remediation permissions and `iam:PassRole` for the customer-owned automation role.
+AWS-owned runbooks (S3 public access, CloudTrail) do not create Veritrail documents, but the connector still needs the remediation permissions and `iam:PassRole` for the customer-owned automation role.
 
-Set Vigil `REMEDIATION_AUTOMATION_REGION=us-east-1` to the automation home region.
+Set Veritrail `REMEDIATION_AUTOMATION_REGION=us-east-1` to the automation home region.
 
 ## Console: empty `stackName` validation error
 
 AWS documents quick-create links for **create** only (`#/stacks/create/review`). Update wizard
 URLs (`#/stacks/update/review` or `update/template`) often drop `stackName` and fail with
-`Value '' at 'stackName'`. Vigil no longer uses those links: **Manage capabilities → CLI**
+`Value '' at 'stackName'`. Veritrail no longer uses those links: **Manage capabilities → CLI**
 (one command) or **Open stack in console** (filtered list) then Update → Replace template →
 paste the template URL from **Copy template URL**.
 
 ## Console: "Failed to load stack policy"
 
-This is **not** a bad `vigil-stack.yaml` body. The CloudFormation console calls
+This is **not** a bad `veritrail-stack.yaml` body. The CloudFormation console calls
 `cloudformation:GetStackPolicy` on your existing stack before it will continue an update.
 If your IAM user/role lacks that action (common with custom admin policies or SCPs), the
 wizard stops on **Specify template** with that red banner.
 
-**Workaround:** use the CLI from Vigil Accounts → Manage capabilities → CLI (includes
+**Workaround:** use the CLI from Veritrail Accounts → Manage capabilities → CLI (includes
 `--stack-name` and module parameters), or add to your role:
 
 - `cloudformation:GetStackPolicy`
@@ -77,10 +77,10 @@ Templates on S3 must stay in sync: run `./scripts/upload-cfn.sh` (incremental `a
 | `cloudtrail.trail.not_enabled` | Guided AWS-owned runbook; requires customer-provided `S3BucketName` and `TrailName` |
 
 AWS-owned runbook mappings are tracked in `api/app/services/ssm_remediation_catalog.py`.
-They should be wired only when Vigil can provide the document's required parameters safely.
+They should be wired only when Veritrail can provide the document's required parameters safely.
 
 IAM policy findings (`iam.role.full_admin_policy`, `iam.policy.wildcard_resource`) are intentionally analysis-first.
-Vigil can generate least-privilege candidates and Terraform/PR guidance, but it does not offer one-click SSM
+Veritrail can generate least-privilege candidates and Terraform/PR guidance, but it does not offer one-click SSM
 policy detachment/replacement because workload impact must be reviewed against observed usage.
 
 Lambda service findings are detected and documented, but not auto-executed yet:
@@ -110,7 +110,7 @@ role has the optional remediation permissions and the CloudFormation-managed SSM
 ```bash
 aws ssm start-automation-execution \
   --region us-east-1 \
-  --document-name Vigil-RevokeSecurityGroupIngressExact \
+  --document-name Veritrail-RevokeSecurityGroupIngressExact \
   --parameters '{"PlanJson":["{...approved plan json...}"]}'
 ```
 
@@ -120,7 +120,7 @@ Always re-scan before preparing a plan, then re-scan after successful remediatio
 
 | Symptom | Cause |
 |--------|-------|
-| Poll step fails: `Invalid Input - When attachment is provided only, Handler should be [file].[function]` | `aws:executeScript` used `Handler: handler` instead of `Handler: <script_basename>.handler` (must match `Attachment` without `.py`, e.g. `revoke_sg_ingress.handler` for `revoke_sg_ingress.py`). Update `vigil-remediation-ssm` nested stack so documents get a new version. |
+| Poll step fails: `Invalid Input - When attachment is provided only, Handler should be [file].[function]` | `aws:executeScript` used `Handler: handler` instead of `Handler: <script_basename>.handler` (must match `Attachment` without `.py`, e.g. `revoke_sg_ingress.handler` for `revoke_sg_ingress.py`). Update `veritrail-remediation-ssm` nested stack so documents get a new version. |
 | `InvalidDocument` | SSM template not deployed in the automation region |
 | `plan_expired` / `content_sha256_mismatch` | Old or edited payload; prepare a fresh plan |
 | `stale_plan` | Resource changed since scan; re-scan and prepare a new plan |

@@ -1,5 +1,5 @@
 {
-  "family": "vigil-worker",
+  "family": "veritrail-worker",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
@@ -19,7 +19,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/vigil-worker",
+          "awslogs-group": "/ecs/veritrail-worker",
           "awslogs-region": "__AWS_REGION__",
           "awslogs-stream-prefix": "worker"
         }

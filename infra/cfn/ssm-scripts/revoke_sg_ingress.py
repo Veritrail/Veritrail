@@ -4,7 +4,7 @@ import json
 
 import boto3
 
-PLAN_SCHEMA = "vigil_remediation_plan/v2"
+PLAN_SCHEMA = "veritrail_remediation_plan/v2"
 ALLOWED = {
     "ec2.security_group.unrestricted_ssh",
     "ec2.security_group.unrestricted_rdp",

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, token } from "../api";
+import { roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
@@ -20,8 +21,8 @@ import {
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingFailsControl } from "../lib/evidenceClass";
-import { AccountSelect } from "../components/AccountSelect";
-import NotificationsBell from "../components/NotificationsBell";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { HeaderSlot } from "../context/HeaderSlot";
 import "../styles/findings-v2.css";
 
 const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
@@ -67,6 +68,8 @@ type ControlRow = {
   status: "pass" | "fail" | "no_data";
   finding_count: number;
   open_finding_ids: string[];
+  kind?: "auto" | "manual";
+  attestation_status?: "met" | "not_met" | "not_applicable" | "pending" | null;
 };
 
 type ControlHistory = {
@@ -250,11 +253,58 @@ type ControlGroup = {
   noData: number;
 };
 
+const MANUAL_STATUS = [
+  { value: "pending", label: "Pending" },
+  { value: "met", label: "Met" },
+  { value: "not_met", label: "Not met" },
+  { value: "not_applicable", label: "N/A" },
+];
+
+function ManualAttestation({
+  status,
+  canEdit,
+  saving,
+  onChange,
+}: {
+  status: string;
+  canEdit: boolean;
+  saving: boolean;
+  onChange: (status: string) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-zinc-800">Manual control</p>
+        <p className="text-meta leading-relaxed text-zinc-500">
+          No automated check maps here — attest its status with your own evidence.
+        </p>
+      </div>
+      {canEdit ? (
+        <select
+          value={status}
+          disabled={saving}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-9 shrink-0 cursor-pointer rounded-lg border border-zinc-200 bg-white px-2.5 text-sm font-semibold text-zinc-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+        >
+          {MANUAL_STATUS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+      ) : (
+        <span className="shrink-0 text-sm font-semibold text-zinc-600">
+          {MANUAL_STATUS.find((s) => s.value === status)?.label ?? status}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function controlFamily(framework: string, controlId: string) {
   if (framework === "soc2") {
-    if (controlId.startsWith("CC6")) return { key: "cc6", label: "CC6 Logical Access" };
-    if (controlId.startsWith("CC7")) return { key: "cc7", label: "CC7 System Operations" };
-    if (controlId.startsWith("CC8")) return { key: "cc8", label: "CC8 Change Management" };
+    if (controlId.startsWith("CC6")) return { key: "cc6", label: "CC6 Cloud Access" };
+    if (controlId.startsWith("CC7")) return { key: "cc7", label: "CC7 Cloud Operations" };
+    if (controlId.startsWith("CC8")) return { key: "cc8", label: "CC8 Change Evidence" };
+    return { key: "manual-evidence", label: "Manual Evidence" };
   }
 
   if (framework === "cis_aws_l1") {
@@ -272,7 +322,7 @@ function controlFamily(framework: string, controlId: string) {
     if (controlId.startsWith("A.13")) return { key: "iso-a13", label: "A.13 Communications Security" };
   }
 
-  return { key: "other", label: "Other Controls" };
+  return { key: "other", label: "Other" };
 }
 
 function controlIdSortKey(controlId: string): (string | number)[] {
@@ -334,7 +384,15 @@ function groupControls(rows: ControlRow[], framework: string): ControlGroup[] {
     });
   }
 
-  return Array.from(groups.values());
+  // Keep named families in their natural order, but always park manual/catch-all
+  // evidence on the far right (stable sort preserves the rest).
+  return Array.from(groups.values()).sort(
+    (a, b) => (
+      a.key === "manual-evidence" || a.key === "other" ? 1 : 0
+    ) - (
+      b.key === "manual-evidence" || b.key === "other" ? 1 : 0
+    ),
+  );
 }
 
 function shortControlTitle(title: string) {
@@ -358,7 +416,7 @@ function controlTheme(control: ControlRow) {
 
 function controlSummary(control: ControlRow): string {
   if (control.check_ids.length === 0) {
-    return "Not automated in Vigil yet — CIS expects this control; map manually or wait for a future check.";
+    return "Not automated in Veritrail yet — CIS expects this control; map manually or wait for a future check.";
   }
   if (control.status === "pass") {
     return "Passing — no open findings. Keep in the evidence pack for audit review.";
@@ -1137,10 +1195,10 @@ function CompositeExpandedDetails({
   const underlying = underlyingCriteriaForComposite(ctrl, frameworkRows);
 
   return (
-    <div className={`vigil-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
+    <div className={`veritrail-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
       {underlying.length > 0 && (
         <div>
-          <p className="vigil-kicker">Underlying criteria</p>
+          <p className="veritrail-kicker">Underlying criteria</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {underlying.slice(0, 10).map((c) => {
               const params = new URLSearchParams({ framework, control: c.control_id });
@@ -1163,7 +1221,7 @@ function CompositeExpandedDetails({
       )}
       <div>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="vigil-kicker">Top failing checks</p>
+          <p className="veritrail-kicker">Top failing checks</p>
           {findingsHref && (
             <button
               type="button"
@@ -1305,8 +1363,8 @@ function CompositeControlsPanel({
               </div>
             </button>
 
-            <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
-              <div className="vigil-accordion-panel__inner">
+            <div className={`veritrail-accordion-panel ${isExpanded ? "is-open" : ""}`}>
+              <div className="veritrail-accordion-panel__inner">
                 <div className="border-t border-zinc-100 bg-white px-5 pb-5 pt-5">
                   <CompositeExpandedDetails
                     ctrl={ctrl}
@@ -1502,7 +1560,7 @@ function MappedChecksList({
 
   return (
     <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-3.5">
-      <p className="vigil-kicker">Findings</p>
+      <p className="veritrail-kicker">Findings</p>
       <p className="mt-0.5 text-xs text-zinc-500">Open findings by mapped check · click to filter in Findings</p>
       {inner}
     </div>
@@ -1944,6 +2002,15 @@ export default function Controls() {
     enabled: !accounts.isLoading,
   });
 
+  const qc = useQueryClient();
+  const meQ = useMe();
+  const canAttest = roleAtLeast(meQ.data?.role, "admin");
+  const attest = useMutation({
+    mutationFn: (v: { id: string; status: string }) =>
+      api(`/v1/controls/${v.id}/attestation`, { method: "PUT", body: JSON.stringify({ status: v.status }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["controls"] }),
+  });
+
   const compositeControls = useQuery({
     queryKey: ["controls", "composites", activeAccount?.id],
     queryFn: () =>
@@ -2187,7 +2254,7 @@ export default function Controls() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `vigil-evidence-${opts?.framework ?? framework}-${(asOfVal ?? new Date().toISOString().slice(0, 10))}.zip`;
+      a.download = `veritrail-evidence-${opts?.framework ?? framework}-${(asOfVal ?? new Date().toISOString().slice(0, 10))}.zip`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -2267,22 +2334,11 @@ export default function Controls() {
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-      <div className="mb-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Compliance</h1>
-            {!hasScanned && connectedAccount && !controls.isLoading ? (
-              <p className="mt-1 text-sm text-zinc-500">Control status against selected frameworks.</p>
-            ) : null}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {connectedAccounts.length > 0 && activeAccount && (
-                <AccountSelect accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
-              )}
-            </div>
-          </div>
-          <NotificationsBell />
-        </div>
-      </div>
+      {connectedAccounts.length > 0 && activeAccount && (
+        <HeaderSlot>
+          <AccountFilterDropdown accounts={connectedAccounts} value={activeAccount.id} onChange={handleAccountChange} />
+        </HeaderSlot>
+      )}
 
       {!hasScanned && connectedAccount && !controls.isLoading && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 text-sm text-amber-900">
@@ -2443,9 +2499,9 @@ export default function Controls() {
                     </div>
                   </button>
 
-                  <div className={`vigil-accordion-panel ${isExpanded ? "is-open" : ""}`}>
-                    <div className="vigil-accordion-panel__inner">
-                      <div className="vigil-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
+                  <div className={`veritrail-accordion-panel ${isExpanded ? "is-open" : ""}`}>
+                    <div className="veritrail-accordion-panel__inner">
+                      <div className="veritrail-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
                         <ControlStatusBlock
                           control={ctrl}
                           periodDays={exportWindow.period}
@@ -2455,9 +2511,16 @@ export default function Controls() {
                           accountId={activeAccount?.id ?? ""}
                         />
 
-                        {ctrl.check_ids.length === 0 ? (
+                        {ctrl.kind === "manual" ? (
+                          <ManualAttestation
+                            status={ctrl.attestation_status ?? "pending"}
+                            canEdit={canAttest}
+                            saving={attest.isPending}
+                            onChange={(status) => attest.mutate({ id: ctrl.id, status })}
+                          />
+                        ) : ctrl.check_ids.length === 0 ? (
                           <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
-                            No automated Vigil checks map to this control yet — attest manually (e.g. IAM users only
+                            No automated Veritrail checks map to this control yet — attest manually (e.g. IAM users only
                             inherit access via groups or roles).
                           </p>
                         ) : (

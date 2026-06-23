@@ -64,7 +64,7 @@ export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
     summary: "Disable or delete dormant keys using SSM Automation",
     bullets: [
       "Deactivate unused access keys after approval",
-      "Runs under your VigilRemediationRole via Systems Manager",
+      "Runs under your VeritrailRemediationRole via Systems Manager",
     ],
     permissions: [
       "iam:UpdateAccessKey",

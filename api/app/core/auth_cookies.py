@@ -5,7 +5,7 @@ from fastapi import Request, Response
 
 from app.core.config import get_settings
 
-REFRESH_COOKIE = "vigil_refresh"
+REFRESH_COOKIE = "veritrail_refresh"
 
 
 def refresh_cookie_enabled() -> bool:

@@ -9,7 +9,7 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-_IPAPI_HEADERS = {"User-Agent": "Vigil/1.0"}
+_IPAPI_HEADERS = {"User-Agent": "Veritrail/1.0"}
 
 
 def _is_public_ip(ip: str) -> bool:

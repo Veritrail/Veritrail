@@ -11,7 +11,7 @@ from app.services.ssm_remediation_catalog import (
 )
 
 CHECK = "kms.key.no_rotation"
-ROLE = "arn:aws:iam::123456789012:role/VigilRemediationAutomationRole"
+ROLE = "arn:aws:iam::123456789012:role/VeritrailRemediationAutomationRole"
 
 
 def test_kms_runbook_is_aws_owned():

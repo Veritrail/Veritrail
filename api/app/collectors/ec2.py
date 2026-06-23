@@ -31,7 +31,7 @@ def _get_regions(sess) -> list[str]:
 
 
 def collect_ec2(db: Session, account: AwsAccount) -> dict:
-    sess = assume_role(account.role_arn, account.external_id, session_name="vigil-ec2", aws_account=account, purpose="collect_ec2")
+    sess = assume_role(account.role_arn, account.external_id, session_name="veritrail-ec2", aws_account=account, purpose="collect_ec2")
     regions = _get_regions(sess)
     instance_count = volume_count = ebs_count = snapshot_count = ami_count = 0
 

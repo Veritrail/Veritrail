@@ -1142,7 +1142,7 @@ def _build_readme(
     no_data = sum(1 for r in results if r["status"] == "no_data")
     excepted_controls = sum(1 for r in results if r.get("exception_count", 0) > 0)
     lines = [
-        "VIGIL - COMPLIANCE EVIDENCE PACK (v2)",
+        "VERITRAIL - COMPLIANCE EVIDENCE PACK (v2)",
         "=" * 50,
         f"Account:     {acc.label} ({acc.account_id or 'unknown'})",
         f"Framework:   {framework.upper().replace('_', ' ')}",
@@ -1201,7 +1201,7 @@ def _build_readme(
         "pack_signature.json (when present) proves manifest integrity — verify with GET /v1/meta/evidence-pack-signing-key.",
         "",
         "NOTE: Evidence in snapshots.json is raw API data collected by",
-        "Vigil during scans. Each entry includes a taken_at timestamp.",
+        "Veritrail during scans. Each entry includes a taken_at timestamp.",
         "Auditors may request specific date-range exports to confirm a",
         "control was in effect on a sampled date.",
     ]

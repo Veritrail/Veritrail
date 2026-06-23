@@ -2,7 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { api, formatApiError } from "../api";
+import { api, formatApiError, storeTokens } from "../api";
+import { useMe } from "../hooks/useMe";
+import { HeaderSlot } from "../context/HeaderSlot";
+import { WorkspaceSwitcher, type WorkspaceEntry } from "../components/WorkspaceSwitcher";
+import { workspaceListSchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
@@ -21,7 +25,6 @@ import {
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { Select } from "../components/Select";
-import NotificationsBell from "../components/NotificationsBell";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
@@ -145,10 +148,10 @@ const PERMISSION_VERIFY_DESCRIPTION = "Verified from deployed IAM role policy.";
 const workflowInlineBtn =
   "inline-flex shrink-0 items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50";
 
-const neutralToolbarBtn = "vigil-toolbar-btn vigil-toolbar-btn--neutral shrink-0";
+const neutralToolbarBtn = "veritrail-toolbar-btn veritrail-toolbar-btn--neutral shrink-0";
 
 const neutralToolbarBtnLg =
-  "vigil-toolbar-btn vigil-toolbar-btn--neutral vigil-toolbar-btn--lg w-full sm:w-auto sm:min-w-[12rem]";
+  "veritrail-toolbar-btn veritrail-toolbar-btn--neutral veritrail-toolbar-btn--lg w-full sm:w-auto sm:min-w-[12rem]";
 
 function WorkflowCheckIcon() {
   return (
@@ -331,7 +334,7 @@ function remediationModuleVerified(
   return Boolean(deployedFallback && !verify?.requested);
 }
 
-/** IAM still has this capability — cannot turn off in Vigil until stack is updated in AWS. */
+/** IAM still has this capability — cannot turn off in Veritrail until stack is updated in AWS. */
 function capabilityLockedInAws(
   verify: ModuleVerifyResult | undefined,
   deployedFallback: boolean,
@@ -1090,7 +1093,7 @@ function ConnectorTemplateBadge({ version }: { version: string | null }) {
   return (
     <span
       className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/70"
-      title="Latest Vigil connector CloudFormation template version"
+      title="Latest Veritrail connector CloudFormation template version"
     >
       CFN v{version}
     </span>
@@ -1259,7 +1262,7 @@ function ManageCapabilitiesPanel({
             <CapabilityAccessBadge kind="read-only" />
           </div>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-            CIS / SOC 2 / ISO checks. Always enabled.
+            Read-only cloud evidence for SOC 2 / CIS / ISO mappings. Cannot modify AWS resources.
           </p>
         </div>
 
@@ -1337,11 +1340,11 @@ function ConnectionCapabilitiesPicker({
           <CapabilityVerifiedMark className="mt-0.5" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium leading-snug text-zinc-900">Core compliance scanner</p>
+              <p className="text-sm font-medium leading-snug text-zinc-900">Core Scanner</p>
               <CapabilityAccessBadge kind="read-only" />
             </div>
             <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-              Read-only · CIS / SOC 2 / ISO checks
+              Read-only cloud evidence · cannot modify AWS resources
             </p>
           </div>
         </div>
@@ -1580,7 +1583,7 @@ function RemediationAutomationSection({
         <span className="min-w-0 flex-1">
           <span className="text-sm font-medium text-zinc-900">SSM remediation</span>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-            Approved fixes run via SSM Automation under your VigilRemediationRole. Each module adds scoped
+            Approved fixes run via SSM Automation under your VeritrailRemediationRole. Each module adds scoped
             permissions only.
           </p>
         </span>
@@ -1657,7 +1660,7 @@ function RemediationAutomationSection({
                   <div className="space-y-4 border-t border-zinc-100 bg-zinc-50/50 px-3 py-3">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                        What Vigil can do
+                        What Veritrail can do
                       </p>
                       <ul className="mt-1 space-y-0.5">
                         {spec.bullets.map((b) => (
@@ -1683,7 +1686,7 @@ function RemediationAutomationSection({
                     {!analysisOnly && (
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Permissions added to VigilRemediationRole
+                          Permissions added to VeritrailRemediationRole
                         </p>
                         <div className="mt-2">
                           <RemediationPermissionsBlock
@@ -1985,7 +1988,7 @@ function FirstAccountOnboarding({
               Connect your AWS account
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-zinc-600">
-              Choose what Vigil can do, then deploy one CloudFormation stack in your account.
+              Choose what Veritrail can do, then deploy one CloudFormation stack in your account.
             </p>
           </div>
         </div>
@@ -2144,7 +2147,7 @@ function DeployMethodTabs({
 const ONBOARDING_STEPS = [
   { n: 1, title: "Deploy AWS connector", short: "Launch CloudFormation in your AWS account" },
   { n: 2, title: "Copy Role ARN", short: "From the stack Outputs tab after deploy completes" },
-  { n: 3, title: "Verify Connection", short: "Paste the Role ARN to connect Vigil" },
+  { n: 3, title: "Verify Connection", short: "Paste the Role ARN to connect Veritrail" },
 ] as const;
 
 function OnboardingProgress({
@@ -3783,6 +3786,21 @@ export default function Accounts() {
     refetchOnMount: "always",
   });
 
+  const meQ = useMe();
+  const { data: workspaces = [] } = useQuery<WorkspaceEntry[]>({
+    queryKey: ["workspaces"],
+    queryFn: () => api("/v1/auth/workspaces", { schema: workspaceListSchema }),
+    enabled: !!meQ.data,
+  });
+  const switchWorkspace = useMutation({
+    mutationFn: (orgId: string) =>
+      api<{ access_token: string }>("/v1/auth/workspaces/switch", { method: "POST", body: JSON.stringify({ org_id: orgId }) }),
+    onSuccess: (data) => {
+      storeTokens(data.access_token);
+      window.location.reload();
+    },
+  });
+
   const create = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
       api<Account>("/v1/accounts", {
@@ -3872,20 +3890,21 @@ export default function Accounts() {
 
   return (
     <div className="accounts-page w-full space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-teal-600">Cloud coverage</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-950">Accounts</h1>
-          <p className="mt-1.5 text-sm text-zinc-500">
-            {showFirstAccountOnboarding
-              ? "Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and generate evidence for your auditor."
-              : "Connect cloud accounts and scan for misconfigurations and risks."}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <NotificationsBell />
-        </div>
-      </div>
+      <HeaderSlot>
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          currentOrgId={meQ.data?.org_id ?? ""}
+          onSwitch={(id) => switchWorkspace.mutate(id)}
+          pending={switchWorkspace.isPending}
+        />
+      </HeaderSlot>
+
+      {showFirstAccountOnboarding && (
+        <p className="max-w-3xl text-sm text-zinc-500">
+          Connect your AWS account to scan for misconfigurations, map findings to SOC 2 / CIS / ISO controls, and
+          generate evidence for your auditor.
+        </p>
+      )}
 
       {accounts.isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

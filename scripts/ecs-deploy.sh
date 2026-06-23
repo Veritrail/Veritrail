@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build, push, and register Vigil ECS task definitions.
+# Build, push, and register Veritrail ECS task definitions.
 # Prereq: control-plane stack deployed (infra/ecs/cloudformation/control-plane.yaml).
 set -euo pipefail
 
@@ -7,9 +7,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 : "${AWS_REGION:?Set AWS_REGION}"
-: "${ENVIRONMENT_NAME:=vigil-prod}"
+: "${ENVIRONMENT_NAME:=veritrail-prod}"
 : "${IMAGE_TAG:=$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d)}"
-: "${VITE_API_URL:?Set VITE_API_URL e.g. https://api.vigil.example.com}"
+: "${VITE_API_URL:?Set VITE_API_URL e.g. https://api.veritrail.example.com}"
 
 API_REPO="${API_ECR_URI:?Set API_ECR_URI from stack output ApiEcrUri}"
 WEB_REPO="${WEB_ECR_URI:?Set WEB_ECR_URI from stack output WebEcrUri}"
@@ -31,7 +31,7 @@ docker push "${WEB_REPO}:latest"
 
 register_task() {
   local name="$1" template="$2"
-  local out="/tmp/vigil-task-${name}.json"
+  local out="/tmp/veritrail-task-${name}.json"
   sed \
     -e "s|__EXECUTION_ROLE_ARN__|${EXECUTION_ROLE_ARN}|g" \
     -e "s|__TASK_ROLE_ARN__|${TASK_ROLE_ARN}|g" \
@@ -41,7 +41,7 @@ register_task() {
     -e "s|__WEB_IMAGE__|${WEB_REPO}:${IMAGE_TAG}|g" \
     "$template" > "$out"
   aws ecs register-task-definition --cli-input-json "file://${out}" --region "$AWS_REGION" >/dev/null
-  echo "Registered task definition: vigil-${name}"
+  echo "Registered task definition: veritrail-${name}"
 }
 
 : "${EXECUTION_ROLE_ARN:?}"
@@ -54,4 +54,4 @@ register_task beat infra/ecs/task-definitions/beat.json
 register_task web infra/ecs/task-definitions/web.json
 
 echo "Done. Update ECS services to the new task definition revisions, or run:"
-echo "  aws ecs update-service --cluster ${ECS_CLUSTER:-$ENVIRONMENT_NAME} --service vigil-api --task-definition vigil-api --force-new-deployment"
+echo "  aws ecs update-service --cluster ${ECS_CLUSTER:-$ENVIRONMENT_NAME} --service veritrail-api --task-definition veritrail-api --force-new-deployment"

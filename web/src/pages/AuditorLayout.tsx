@@ -59,10 +59,10 @@ export default function AuditorLayout() {
                 boxShadow: "0 0 12px rgba(99,102,241,0.25)",
                 border: "1px solid rgba(99,102,241,0.3)",
               }}>
-              <img src="/favicon.png" alt="Vigil" className="h-6 w-6 object-contain" />
+              <img src="/favicon.png" alt="Veritrail" className="h-6 w-6 object-contain" />
             </div>
             <div>
-              <span className="text-base font-semibold text-white">Vigil</span>
+              <span className="text-base font-semibold text-white">Veritrail</span>
               <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
                 AUDITOR
               </span>

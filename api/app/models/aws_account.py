@@ -19,7 +19,7 @@ class AwsAccount(Base):
     role_arn: Mapped[str | None] = mapped_column(EncryptedString(700), nullable=True)
     external_id: Mapped[str] = mapped_column(EncryptedString(200))
     status: Mapped[str] = mapped_column(String(40), default="pending")  # pending|connected|error
-    cfn_stack_name: Mapped[str] = mapped_column(String(64), default="VigilAccountConnector", nullable=False)
+    cfn_stack_name: Mapped[str] = mapped_column(String(64), default="VeritrailAccountConnector", nullable=False)
     enable_advanced_policy_generation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     advanced_policy_generation_deployed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     enable_remediation_sg: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -59,7 +59,7 @@ class ScanRun(Base):
 class AssumeRoleAudit(Base):
     """One row per sts:AssumeRole call against a customer account.
 
-    Purpose: customer transparency ("show me when Vigil touched my account"),
+    Purpose: customer transparency ("show me when Veritrail touched my account"),
     forensic trail, and operational debugging (verify failures, throttles).
     """
 

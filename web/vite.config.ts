@@ -36,7 +36,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: ["vigil.cclab.cloud-castles.com"],
+    allowedHosts: ["app.veritrail.io"],
     proxy: {
       "/v1": devProxy,
       "/uploads": devProxy,

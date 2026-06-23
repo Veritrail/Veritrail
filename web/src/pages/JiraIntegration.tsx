@@ -116,7 +116,7 @@ export default function JiraIntegration() {
               {connected && <span className="integration-setup__badge">Connected</span>}
             </div>
             <p className="integration-setup__subtitle">
-              Create Jira issues from Vigil findings for remediation tracking and incident-response evidence.
+              Create Jira issues from Veritrail findings for remediation tracking and incident-response evidence.
             </p>
           </div>
         </div>

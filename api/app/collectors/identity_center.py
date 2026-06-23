@@ -35,7 +35,7 @@ def collect_identity_center(db: Session, account: AwsAccount) -> int:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-identity-center",
+        session_name="veritrail-identity-center",
         aws_account=account,
         purpose="collect_identity_center",
     )
@@ -107,7 +107,7 @@ def list_permission_set_snapshots(account: AwsAccount) -> list[dict]:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-identity-center-ps",
+        session_name="veritrail-identity-center-ps",
         aws_account=account,
         purpose="collect_identity_center_permission_sets",
     )

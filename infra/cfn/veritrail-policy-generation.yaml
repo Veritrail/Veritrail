@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  DEPRECATED — policy generation is an inline policy on vigil-core-scanner.yaml (single connector role).
-  Kept for reference only; not launched by vigil-stack.yaml.
+  DEPRECATED — policy generation is an inline policy on veritrail-core-scanner.yaml (single connector role).
+  Kept for reference only; not launched by veritrail-stack.yaml.
 
 Parameters:
-  VigilAccountPrincipal:
+  VeritrailAccountPrincipal:
     Type: String
-    Description: ARN of the Vigil control plane principal.
+    Description: ARN of the Veritrail control plane principal.
   ExternalId:
     Type: String
     NoEcho: true
@@ -34,27 +34,27 @@ Conditions:
   HasCloudTrailKmsKey: !Not [!Equals [!Ref CloudTrailLogsKmsKeyArn, ""]]
 
 Resources:
-  VigilAdvancedPolicyGenRole:
+  VeritrailAdvancedPolicyGenRole:
     Type: AWS::IAM::Role
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      RoleName: VigilPolicyGenerationRole
+      RoleName: VeritrailPolicyGenerationRole
       Description: >
-        Optional Vigil role for IAM Access Analyzer least-privilege policy generation.
+        Optional Veritrail role for IAM Access Analyzer least-privilege policy generation.
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Ref VigilAccountPrincipal
+              AWS: !Ref VeritrailAccountPrincipal
             Action: sts:AssumeRole
             Condition:
               StringEquals:
                 sts:ExternalId: !Ref ExternalId
       Policies:
-        - PolicyName: VigilAdvancedPolicyGeneration
+        - PolicyName: VeritrailAdvancedPolicyGeneration
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -80,7 +80,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      RoleName: VigilAccessAnalyzerMonitor
+      RoleName: VeritrailAccessAnalyzerMonitor
       Description: IAM Access Analyzer reads CloudTrail logs in S3 for policy generation.
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -137,7 +137,7 @@ Resources:
 
 Outputs:
   AdvancedPolicyGenRoleArn:
-    Value: !GetAtt VigilAdvancedPolicyGenRole.Arn
+    Value: !GetAtt VeritrailAdvancedPolicyGenRole.Arn
   AccessAnalyzerMonitorRoleArn:
     Condition: CreateMonitorRole
     Value: !GetAtt AccessAnalyzerMonitorRole.Arn

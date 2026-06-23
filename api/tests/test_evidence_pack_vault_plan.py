@@ -9,7 +9,7 @@ from app.services.evidence_vault import plan_vault_upload, vault_enabled
 def test_vault_plan_included_when_enabled(monkeypatch):
     seed = os.urandom(32)
     monkeypatch.setenv("EVIDENCE_VAULT_ENABLED", "true")
-    monkeypatch.setenv("EVIDENCE_VAULT_S3_URI", "s3://vault-bucket/vigil")
+    monkeypatch.setenv("EVIDENCE_VAULT_S3_URI", "s3://vault-bucket/veritrail")
     from app.core.config import get_settings
 
     get_settings.cache_clear()

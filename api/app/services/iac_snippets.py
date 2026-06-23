@@ -139,7 +139,7 @@ def _ssm_remediation_panel(db: Session, finding: Finding) -> dict[str, Any] | No
         "resource_region": resource_region,
         "automation_region": automation_region,
         "runbook": runbook_payload(runbook, automation_region=automation_region) if runbook else None,
-        "requires_vigil_document": bool(runbook and runbook.owner == "vigil"),
+        "requires_veritrail_document": bool(runbook and runbook.owner == "veritrail"),
         **automation_meta,
     }
 
@@ -600,7 +600,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
 }
 
 resource "aws_cloudtrail" "this" {
-  name                          = "vigil-multi-region-trail"
+  name                          = "veritrail-multi-region-trail"
   s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
   enable_logging                = true
   enable_log_file_validation    = true
@@ -613,10 +613,10 @@ resource "aws_cloudtrail" "this" {
         "cloudformation": None,
         "cli": [
             "# Create an S3 bucket for CloudTrail logs first, then:",
-            f"aws cloudtrail create-trail --name vigil-multi-region-trail "
+            f"aws cloudtrail create-trail --name veritrail-multi-region-trail "
             f"--s3-bucket-name <bucket> --is-multi-region-trail "
             f"--enable-log-file-validation --include-global-service-events",
-            "aws cloudtrail start-logging --name vigil-multi-region-trail",
+            "aws cloudtrail start-logging --name veritrail-multi-region-trail",
         ],
         "hints": [
             "The S3 bucket name must be globally unique — replace ${var.aws_account_id} with your actual account ID.",

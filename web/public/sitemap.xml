@@ -2,12 +2,12 @@
 <!-- Public marketing/auth pages only. App routes require login. Update SITE_BASE when hostname changes. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://vigil.cclab.cloud-castles.com/login</loc>
+    <loc>https://app.veritrail.io/login</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://vigil.cclab.cloud-castles.com/security</loc>
+    <loc>https://app.veritrail.io/security</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>

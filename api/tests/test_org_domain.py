@@ -60,9 +60,9 @@ def test_verify_domain_dns(monkeypatch):
             self.strings = [s]
 
     def fake_resolve(self, qname, rdtype):
-        assert str(qname) == "_vigil-challenge.acme.com"
+        assert str(qname) == "_veritrail-challenge.acme.com"
         assert rdtype == "TXT"
-        return [FakeRdata(b"vigil-domain-verification=tok123")]
+        return [FakeRdata(b"veritrail-domain-verification=tok123")]
 
     monkeypatch.setattr(dns.resolver.Resolver, "resolve", fake_resolve)
     assert org_domain.verify_domain_dns("acme.com", "tok123") is True

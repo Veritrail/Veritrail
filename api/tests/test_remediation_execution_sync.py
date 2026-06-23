@@ -30,7 +30,7 @@ def test_skips_when_not_running():
 def test_marks_success_from_ssm():
     db = MagicMock()
     row = _row()
-    account = MagicMock(role_arn="arn:aws:iam::1:role/VigilReadOnly", external_id="ext")
+    account = MagicMock(role_arn="arn:aws:iam::1:role/VeritrailReadOnly", external_id="ext")
 
     mock_ssm = MagicMock()
     mock_ssm.get_automation_execution.return_value = {
@@ -58,7 +58,7 @@ def test_marks_success_from_ssm():
 def test_marks_failed_when_step_returns_ok_false():
     db = MagicMock()
     row = _row()
-    account = MagicMock(role_arn="arn:aws:iam::1:role/VigilReadOnly", external_id="ext")
+    account = MagicMock(role_arn="arn:aws:iam::1:role/VeritrailReadOnly", external_id="ext")
 
     mock_ssm = MagicMock()
     mock_ssm.get_automation_execution.return_value = {

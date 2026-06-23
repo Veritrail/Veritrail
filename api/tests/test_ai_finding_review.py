@@ -39,6 +39,6 @@ def test_heuristic_triage_payload_shape():
         evidence={"resource_count": 1},
     )
     payload = heuristic_triage_payload(finding)
-    assert payload["model_version"] == "vigil-local-review-v1"
+    assert payload["model_version"] == "veritrail-local-review-v1"
     assert payload["suggested_action"] == "resolve"
     assert payload["confidence_score"] >= 0.8

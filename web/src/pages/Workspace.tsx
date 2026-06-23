@@ -5,7 +5,6 @@ import { api, formatApiError } from "../api";
 import { settingsSchema, trustCenterSettingsSchema, auditorListSchema, memberListSchema } from "../lib/apiSchemas";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { ProductShell } from "../components/ProductShell";
-import NotificationsBell from "../components/NotificationsBell";
 import { InfoTip, Panel, PanelIcon, PANEL_ICONS, Toggle } from "../components/SettingsUi";
 import { DomainsSettings } from "../components/DomainsSettings";
 import { TeamMembersSettings } from "../components/TeamMembersSettings";
@@ -23,7 +22,7 @@ type ScanInterval = "daily" | "weekly" | "custom" | "manual";
 type FreqMode = "daily" | "weekly" | "custom";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type TabId = "overview" | "access" | "sharing" | "scanning" | "notifications" | "activity";
-type Tone = "ok" | "warn" | "danger" | "idle" | "info";
+export type Tone = "ok" | "warn" | "danger" | "idle" | "info";
 
 type OptionalCheck = {
   check_id: string;
@@ -91,7 +90,7 @@ function tabFromHash(hash: string): TabId {
   return TABS.some((t) => t.id === id) ? id : "overview";
 }
 
-const ICONS = {
+export const ICONS = {
   access:
     "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z",
   sharing:
@@ -260,7 +259,7 @@ function SaveIndicator({ status, error }: { status: SaveStatus; error?: string }
   return <StatusBadge tone="danger">{error ?? "Could not save"}</StatusBadge>;
 }
 
-function ReadinessRing({ score, tone }: { score: number; tone: Tone }) {
+export function ReadinessRing({ score, tone }: { score: number; tone: Tone }) {
   const size = 80;
   const stroke = 7;
   const radius = (size - stroke) / 2;
@@ -312,33 +311,32 @@ function ReadinessRing({ score, tone }: { score: number; tone: Tone }) {
   );
 }
 
-function PostureReadinessCell({
+export function PostureReadinessCell({
   score,
   tone,
   label,
   message,
+  title = "Workspace readiness",
 }: {
   score: number;
   tone: Tone;
   label: string;
   message: string;
+  title?: string;
 }) {
   return (
     <div className="workspace-summary__cell workspace-summary__cell--readiness">
       <ReadinessRing score={score} tone={tone} />
       <div className="workspace-summary__content workspace-summary__content--readiness">
-        <div className="workspace-summary__heading">Workspace readiness</div>
+        <div className="workspace-summary__heading">{title}</div>
         <div className="workspace-summary__status workspace-summary__status--readiness">{label}</div>
         <div className="workspace-summary__detail">{message}</div>
-        <div className={`workspace-summary__progress workspace-summary__progress--${tone}`} aria-hidden>
-          <span className="workspace-summary__progress-fill" style={{ width: `${score}%` }} />
-        </div>
       </div>
     </div>
   );
 }
 
-function PostureMetricCell({
+export function PostureMetricCell({
   icon,
   iconSlot,
   label,
@@ -352,12 +350,12 @@ function PostureMetricCell({
   label: string;
   value: string;
   detail: string;
-  valueTone?: "default" | "ok" | "info";
+  valueTone?: "default" | "ok" | "info" | "warn";
   pill?: ReactNode;
 }) {
   return (
     <div className="workspace-summary__cell workspace-summary__cell--metric">
-      <div className="workspace-summary__icon">
+      <div className={`workspace-summary__icon${valueTone === "warn" ? " workspace-summary__icon--warn" : ""}`}>
         {iconSlot ?? (icon ? <Icon d={icon} /> : null)}
       </div>
       <div className="workspace-summary__content">
@@ -428,7 +426,7 @@ function Segmented({
   );
 }
 
-function OverviewFactRow({
+export function OverviewFactRow({
   icon,
   label,
   value,
@@ -448,7 +446,7 @@ function OverviewFactRow({
   );
 }
 
-function OverviewActionCard({
+export function OverviewActionCard({
   tone,
   icon,
   title,
@@ -484,23 +482,27 @@ function OverviewActionCard({
   );
 }
 
-function ReadinessChecklistPanel({
+export function ReadinessChecklistPanel({
   score,
   tone,
   label,
   items,
+  title = "Workspace readiness",
+  readyCopy = "You're all set. Keep monitoring to stay secure.",
 }: {
   score: number;
   tone: Tone;
   label: string;
   items: { label: string; done: boolean }[];
+  title?: string;
+  readyCopy?: string;
 }) {
   const completed = items.filter((item) => item.done);
   const remaining = items.filter((item) => !item.done);
   return (
     <aside className="workspace-readiness-panel">
       <div className="workspace-readiness-panel__header">
-        <h2 className="workspace-readiness-panel__title">Workspace readiness</h2>
+        <h2 className="workspace-readiness-panel__title">{title}</h2>
         <div className="workspace-readiness-panel__sparkles" aria-hidden>
           <span />
           <span />
@@ -514,7 +516,7 @@ function ReadinessChecklistPanel({
         <div>
           <p className="workspace-readiness-panel__grade">{label === "Ready" ? "Excellent" : label}</p>
           <p className="workspace-readiness-panel__copy">
-            {label === "Ready" ? "You're all set. Keep monitoring to stay secure." : "Review the remaining setup items."}
+            {label === "Ready" ? readyCopy : "Review the remaining setup items."}
           </p>
         </div>
       </div>
@@ -1120,21 +1122,11 @@ export default function Workspace() {
   return (
     <ProductShell>
       <div className="workspace-page">
-        <header className="workspace-page__header">
-          <div>
-            <div className="workspace-page__title-row">
-              <h1 className="workspace-page__title">Workspace</h1>
-              {workspaceName !== "Workspace" && <span className="workspace-page__org">{workspaceName}</span>}
-            </div>
-            <p className="workspace-page__description">
-              Manage access, evidence sharing, scan schedule, and alert routing for this Vigil workspace.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
+        {saveStatus !== "idle" && (
+          <div className="mb-3 flex justify-end">
             <SaveIndicator status={saveStatus} error={saveError} />
-            <NotificationsBell />
           </div>
-        </header>
+        )}
 
         {!canEditWorkspace && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

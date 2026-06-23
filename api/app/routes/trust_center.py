@@ -206,7 +206,7 @@ def request_trust_access(
                 f"{body.email} from {company} requested access to your compliance "
                 f"report via your Trust Center.\n\n"
                 + (f"Their message:\n{note}\n\n" if note else "")
-                + "Share the report under NDA through the private auditor portal in Vigil."
+                + "Share the report under NDA through the private auditor portal in Veritrail."
             )
             send_mail(
                 to=owner_email,

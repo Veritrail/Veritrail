@@ -11,9 +11,9 @@ from app.models.org import Org, User
 from app.models.org_team import ORG_ROLES, OrgDomain
 
 # Where the org publishes the verification record, e.g.
-#   _vigil-challenge.acme.com  TXT  "vigil-domain-verification=<token>"
-DNS_CHALLENGE_PREFIX = "_vigil-challenge"
-DNS_TXT_KEY = "vigil-domain-verification"
+#   _veritrail-challenge.acme.com  TXT  "veritrail-domain-verification=<token>"
+DNS_CHALLENGE_PREFIX = "_veritrail-challenge"
+DNS_TXT_KEY = "veritrail-domain-verification"
 _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9](-?[a-z0-9])*\.)+[a-z]{2,}$")
 
 # Verify against known public recursive resolvers rather than the host/container

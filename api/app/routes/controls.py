@@ -8,11 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.rbac import get_org_user, role_at_least
 from app.core.security import current_principal
 from app.data.control_narratives import narrative_for, narrative_detail_for
 from app.models import Finding, AwsAccount, EvidenceSnapshot, ScanRun
 from app.models.control import Control, CheckControl
+from app.models.control_attestation import ATTESTATION_STATUSES, ControlAttestation
 from app.models.org import Org
+from app.services.org_activity import log_org_activity
 from app.services.check_settings import hidden_check_ids
 from app.services.check_coverage import (
     control_coverage_tier,
@@ -53,6 +56,8 @@ class ControlOut(BaseModel):
     status: str          # pass | fail | no_data
     finding_count: int
     open_finding_ids: list[str]
+    kind: str = "auto"   # auto | manual
+    attestation_status: str | None = None  # manual controls: met|not_met|not_applicable|pending
 
 
 class CompositeControlOut(BaseModel):
@@ -211,6 +216,15 @@ def list_controls(
     for f in open_findings:
         open_by_check.setdefault(f.check_id, []).append(f)
 
+    # Manual controls (no automated checks) take their status from the org's
+    # attestation, so they roll into the same pass/fail tally as scanned controls.
+    attest_by_control = {
+        a.control_id: a
+        for a in db.scalars(
+            select(ControlAttestation).where(ControlAttestation.org_id == uuid.UUID(p["org_id"]))
+        ).all()
+    }
+
     result = []
     for ctrl in controls:
         mapped_check_ids = list(
@@ -220,14 +234,27 @@ def list_controls(
         )
         check_ids = [cid for cid in mapped_check_ids if cid not in hidden]
 
-        has_scanned = bool(acc_id and acc and acc.last_scan_at)
-        ctrl_status, hits, _ = compute_control_status(
-            check_ids,
-            open_by_check,
-            latest_checks_run,
-            latest_failed_checks,
-            has_scanned_account=has_scanned,
-        )
+        kind = "auto"
+        attestation_status: str | None = None
+        if not mapped_check_ids:
+            kind = "manual"
+            a = attest_by_control.get(ctrl.id)
+            attestation_status = a.status if a else "pending"
+            ctrl_status = (
+                "pass" if attestation_status == "met"
+                else "fail" if attestation_status == "not_met"
+                else "no_data"
+            )
+            hits = []
+        else:
+            has_scanned = bool(acc_id and acc and acc.last_scan_at)
+            ctrl_status, hits, _ = compute_control_status(
+                check_ids,
+                open_by_check,
+                latest_checks_run,
+                latest_failed_checks,
+                has_scanned_account=has_scanned,
+            )
 
         detail = narrative_detail_for(ctrl.framework, ctrl.control_id, check_ids)
         cov_tier = control_coverage_tier(check_ids)
@@ -254,10 +281,243 @@ def list_controls(
                 status=ctrl_status,
                 finding_count=len(hits),
                 open_finding_ids=[str(f.id) for f in hits],
+                kind=kind,
+                attestation_status=attestation_status,
             )
         )
 
     return result
+
+
+class ChecklistControlOut(BaseModel):
+    id: str
+    control_id: str
+    title: str
+    description: str
+    guidance: str | None
+    group: str
+    kind: str            # auto | manual
+    status: str          # auto: pass|fail|no_data ; manual: met|not_met|not_applicable|pending
+    check_ids: list[str] = []
+    finding_count: int = 0
+    owner: str | None = None
+    note: str | None = None
+    evidence_filename: str | None = None
+    reviewed_at: str | None = None
+
+
+class ChecklistSummary(BaseModel):
+    total: int
+    met: int
+    not_applicable: int
+    percent: int
+
+
+class ChecklistOut(BaseModel):
+    framework: str
+    summary: ChecklistSummary
+    controls: list[ChecklistControlOut]
+
+
+@router.get("/checklist", response_model=ChecklistOut)
+def control_checklist(
+    framework: str = Query("soc2"),
+    account_id: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Full control catalog as a readiness checklist: automated controls take
+    their pass/fail from the latest scan; controls with no checks are manual and
+    take their status from the org's attestation. Returns a readiness %."""
+    if framework not in FRAMEWORKS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(FRAMEWORKS)}")
+
+    org_id = uuid.UUID(p["org_id"])
+    controls = db.scalars(
+        select(Control).where(Control.framework == framework).order_by(Control.control_id)
+    ).all()
+
+    # Resolve account + latest scan for automated-control status.
+    acc: AwsAccount | None = None
+    acc_id: uuid.UUID | None = None
+    if account_id:
+        acc = db.get(AwsAccount, uuid.UUID(account_id))
+        if not acc or str(acc.org_id) != p["org_id"]:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+        acc_id = acc.id
+    else:
+        acc = db.scalars(
+            select(AwsAccount).where(AwsAccount.org_id == org_id, AwsAccount.status == "connected")
+        ).first()
+        if acc:
+            acc_id = acc.id
+
+    org = db.get(Org, org_id)
+    hidden = hidden_check_ids(org.settings if org else {})
+
+    open_by_check: dict[str, list[Finding]] = {}
+    latest_checks_run: set[str] = set()
+    latest_failed_checks: set[str] = set()
+    if acc_id:
+        open_q = select(Finding).where(Finding.account_id == acc_id, Finding.status == "open")
+        if hidden:
+            open_q = open_q.where(Finding.check_id.notin_(hidden))
+        for f in db.scalars(open_q).all():
+            open_by_check.setdefault(f.check_id, []).append(f)
+        latest_run = db.scalars(
+            select(ScanRun)
+            .where(
+                ScanRun.account_id == acc_id,
+                ScanRun.status.in_(("ok", "degraded")),
+                ScanRun.finished_at.isnot(None),
+            )
+            .order_by(ScanRun.finished_at.desc())
+            .limit(1)
+        ).first()
+        run_stats = latest_run.stats if latest_run and isinstance(latest_run.stats, dict) else {}
+        if isinstance(run_stats.get("checks_run"), list):
+            latest_checks_run = {str(c) for c in run_stats["checks_run"]}
+        if isinstance(run_stats.get("check_errors"), list):
+            for err in run_stats["check_errors"]:
+                if isinstance(err, dict) and err.get("check_id"):
+                    latest_failed_checks.add(str(err["check_id"]))
+
+    has_scanned = bool(acc_id and acc and acc.last_scan_at)
+
+    attest_by_control = {
+        a.control_id: a
+        for a in db.scalars(select(ControlAttestation).where(ControlAttestation.org_id == org_id)).all()
+    }
+
+    out: list[ChecklistControlOut] = []
+    met = 0
+    na = 0
+    for ctrl in controls:
+        mapped = list(
+            db.scalars(select(CheckControl.check_id).where(CheckControl.control_id == ctrl.id)).all()
+        )
+        group = ctrl.control_id.split(".")[0]
+        if mapped:  # automated control — status from scan
+            check_ids = [c for c in mapped if c not in hidden]
+            ctrl_status, hits, _ = compute_control_status(
+                check_ids,
+                open_by_check,
+                latest_checks_run,
+                latest_failed_checks,
+                has_scanned_account=has_scanned,
+            )
+            if ctrl_status == "pass":
+                met += 1
+            out.append(
+                ChecklistControlOut(
+                    id=str(ctrl.id),
+                    control_id=ctrl.control_id,
+                    title=ctrl.title,
+                    description=ctrl.description,
+                    guidance=ctrl.guidance,
+                    group=group,
+                    kind="auto",
+                    status=ctrl_status,
+                    check_ids=check_ids,
+                    finding_count=len(hits),
+                )
+            )
+        else:  # manual control — status from attestation
+            a = attest_by_control.get(ctrl.id)
+            st = a.status if a else "pending"
+            if st == "met":
+                met += 1
+            elif st == "not_applicable":
+                na += 1
+            out.append(
+                ChecklistControlOut(
+                    id=str(ctrl.id),
+                    control_id=ctrl.control_id,
+                    title=ctrl.title,
+                    description=ctrl.description,
+                    guidance=ctrl.guidance,
+                    group=group,
+                    kind="manual",
+                    status=st,
+                    owner=a.owner if a else None,
+                    note=a.note if a else None,
+                    evidence_filename=a.evidence_filename if a else None,
+                    reviewed_at=a.reviewed_at.isoformat() if (a and a.reviewed_at) else None,
+                )
+            )
+
+    total = len(controls)
+    denom = total - na
+    percent = round(met / denom * 100) if denom > 0 else 0
+    return ChecklistOut(
+        framework=framework,
+        summary=ChecklistSummary(total=total, met=met, not_applicable=na, percent=percent),
+        controls=out,
+    )
+
+
+class AttestationIn(BaseModel):
+    status: str
+    owner: str | None = None
+    note: str | None = None
+
+
+@router.put("/{control_id}/attestation")
+def put_attestation(
+    control_id: str,
+    body: AttestationIn,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Set a workspace's manual attestation for a control with no automated
+    checks. Admin/owner only."""
+    user = get_org_user(db, p)
+    if not role_at_least(user.role, "admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+    if body.status not in ATTESTATION_STATUSES:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"status must be one of {sorted(ATTESTATION_STATUSES)}"
+        )
+    try:
+        cid = uuid.UUID(control_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "control not found")
+    ctrl = db.get(Control, cid)
+    if not ctrl:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "control not found")
+    if db.scalar(select(CheckControl.id).where(CheckControl.control_id == ctrl.id).limit(1)):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "control is automated; status is derived from scans"
+        )
+
+    org_id = uuid.UUID(p["org_id"])
+    row = db.scalar(
+        select(ControlAttestation).where(
+            ControlAttestation.org_id == org_id, ControlAttestation.control_id == ctrl.id
+        )
+    )
+    if row is None:
+        row = ControlAttestation(org_id=org_id, control_id=ctrl.id)
+        db.add(row)
+    row.status = body.status
+    row.owner = (body.owner or "").strip() or None
+    row.note = (body.note or "").strip() or None
+    row.updated_by = user.id
+    row.reviewed_at = datetime.now(timezone.utc)
+    db.flush()
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action="control.attested",
+        target_type="control",
+        target_id=ctrl.control_id,
+        target_label=ctrl.title,
+        detail={"status": body.status},
+    )
+    db.commit()
+    return {"ok": True, "control_id": ctrl.control_id, "status": row.status}
 
 
 @router.get("/{control_id}/evidence")
@@ -291,7 +551,7 @@ def control_evidence(
             "period_days": period,
             "snapshot_count": 0,
             "snapshots": [],
-            "note": "No automated Vigil checks are mapped to this control yet.",
+            "note": "No automated Veritrail checks are mapped to this control yet.",
         }
 
     entity_types = _entity_types_for_check_ids(check_ids)

@@ -97,7 +97,7 @@ def test_run_scan_collector_failure_rolls_back_and_continues(monkeypatch):
     fake_acc = MagicMock()
     fake_acc.id = uuid.uuid4()
     fake_acc.org_id = uuid.uuid4()
-    fake_acc.role_arn = "arn:aws:iam::123456789012:role/VigilReadOnlyScannerRole"
+    fake_acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailReadOnlyScannerRole"
     fake_acc.external_id = "ext"
 
     fake_run = MagicMock()
@@ -126,7 +126,7 @@ def test_run_scan_collector_failure_rolls_back_and_continues(monkeypatch):
     monkeypatch.setattr(tasks, "ScanRun", lambda **kw: fake_run)
     monkeypatch.setattr(tasks.collect_perm_usage_task, "delay", lambda *a, **kw: None)
 
-    with patch("app.worker.scan_pipeline.ensure_vigil_role_trust", return_value=False), \
+    with patch("app.worker.scan_pipeline.ensure_veritrail_role_trust", return_value=False), \
          patch.object(tasks, "SessionLocal", return_value=fake_db):
         result = tasks.run_scan(str(fake_acc.id))
 
@@ -151,7 +151,7 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
     fake_acc = MagicMock()
     fake_acc.id = uuid.uuid4()
     fake_acc.org_id = uuid.uuid4()
-    fake_acc.role_arn = "arn:aws:iam::123456789012:role/VigilReadOnlyScannerRole"
+    fake_acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailReadOnlyScannerRole"
     fake_acc.external_id = "ext"
 
     fake_run = MagicMock()
@@ -229,8 +229,8 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
     monkeypatch.setattr(tasks, "ScanRun", lambda **kw: fake_run)
     monkeypatch.setattr(tasks.collect_perm_usage_task, "delay", lambda *a, **kw: None)
 
-    # CI uses APP_ENV=dev from .env.example; ensure_vigil_role_trust calls STS without creds.
-    with patch("app.worker.scan_pipeline.ensure_vigil_role_trust", return_value=False), \
+    # CI uses APP_ENV=dev from .env.example; ensure_veritrail_role_trust calls STS without creds.
+    with patch("app.worker.scan_pipeline.ensure_veritrail_role_trust", return_value=False), \
          patch.object(tasks, "SessionLocal", return_value=fake_db):
         result = tasks.run_scan(str(fake_acc.id))
 

@@ -3,7 +3,7 @@ import { awsIconUrlForCheckId, awsServiceIconUrl } from "../lib/awsServiceIconMa
 
 type Props = {
   size?: number;
-  /** Prefer check_id — maps to the correct Architecture Icon for all Vigil checks. */
+  /** Prefer check_id — maps to the correct Architecture Icon for all Veritrail checks. */
   checkId?: string;
   /** IAM service prefix label (EC2, LOGS, CLOUDFRONT, …) from policy action grouping. */
   service?: string;

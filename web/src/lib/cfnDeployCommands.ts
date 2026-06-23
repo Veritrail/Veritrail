@@ -50,7 +50,7 @@ export function parseCfnLaunchMeta(launchUrl: string): {
   const qs = launchUrl.includes("?") ? (launchUrl.split("?").pop() ?? "") : "";
   const params = new URLSearchParams(qs);
   return {
-    trustPrincipalArn: params.get("param_VigilAccountPrincipal") ?? "",
+    trustPrincipalArn: params.get("param_VeritrailAccountPrincipal") ?? "",
     scannerRoleName: params.get("param_RoleName") ?? SCANNER_ROLE_NAME,
   };
 }
@@ -80,7 +80,7 @@ function buildCreateLaunchUrl(
   params.set("stackName", stackName);
   params.set("templateURL", acc.cfn_template_url);
   params.set("param_ExternalId", acc.external_id);
-  params.set("param_VigilAccountPrincipal", meta.trustPrincipalArn);
+  params.set("param_VeritrailAccountPrincipal", meta.trustPrincipalArn);
   params.set("param_RoleName", meta.scannerRoleName);
   params.set(
     "param_EnableAdvancedPolicyGeneration",
@@ -108,7 +108,7 @@ export function buildCfnCliCommand(
     `  --template-url ${acc.cfn_template_url} \\`,
     "  --parameters \\",
     `    ParameterKey=ExternalId,ParameterValue=${acc.external_id} \\`,
-    `    ParameterKey=VigilAccountPrincipal,ParameterValue=${meta.trustPrincipalArn} \\`,
+    `    ParameterKey=VeritrailAccountPrincipal,ParameterValue=${meta.trustPrincipalArn} \\`,
     `    ParameterKey=RoleName,ParameterValue=${meta.scannerRoleName} \\`,
     `    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue=${yesNo(opts.enable_advanced_policy_generation)} \\`,
   ];

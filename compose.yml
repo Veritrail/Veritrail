@@ -160,7 +160,7 @@ services:
     command: >
       -c "
         set -e
-        DUMP_FILE=/tmp/vigil_$$(date +%Y%m%d_%H%M%S).dump
+        DUMP_FILE=/tmp/veritrail_$$(date +%Y%m%d_%H%M%S).dump
         pg_dump -h db -U $$POSTGRES_USER -Fc $$POSTGRES_DB > $$DUMP_FILE
         echo \"Dump written: $$DUMP_FILE ($$(du -sh $$DUMP_FILE | cut -f1))\"
         if [ -n \"$$B2_KEY_ID\" ]; then

@@ -213,7 +213,7 @@ def _validate_cleaned_policies(acc: AwsAccount, cleaned_policies: dict[str, dict
         sess = assume_role(
             acc.role_arn,
             acc.external_id,
-            session_name="vigil-policy-validate",
+            session_name="veritrail-policy-validate",
             aws_account=acc,
             purpose="validate_generated_policy",
         )
@@ -431,7 +431,7 @@ def _resolve_advanced_policy_generation(
         sess = assume_role(
             policy_arn,
             acc.external_id,
-            session_name="vigil-policy-gen",
+            session_name="veritrail-policy-gen",
             aws_account=acc,
             purpose="generate_role_policy_advanced",
         )
@@ -795,7 +795,7 @@ def _assume_policy_generation_session(acc: AwsAccount):
         sess = assume_role(
             policy_arn,
             acc.external_id,
-            session_name="vigil-policy-gen",
+            session_name="veritrail-policy-gen",
             aws_account=acc,
             purpose="policy_generation_start",
         )
@@ -991,7 +991,7 @@ def generate_s3_https_policy(
         sess = assume_role(
             acc.role_arn,
             acc.external_id,
-            session_name="vigil-s3-policy",
+            session_name="veritrail-s3-policy",
             aws_account=acc,
             purpose="generate_s3_https_policy",
         )

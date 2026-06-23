@@ -1,8 +1,8 @@
 """SSM Automation mapping for approved remediation.
 
-Prefer AWS-owned runbooks where they fit the finding safely. Use focused Vigil
+Prefer AWS-owned runbooks where they fit the finding safely. Use focused Veritrail
 custom runbooks where AWS has no exact runbook or where the AWS runbook is
-broader than Vigil's reviewed evidence.
+broader than Veritrail's reviewed evidence.
 """
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ class SsmRemediationRunbook:
     note: str
 
 
-VIGIL_SG_DOCUMENT = "Vigil-RevokeSecurityGroupIngressExact"
-VIGIL_IAM_KEY_DOCUMENT = "Vigil-DeactivateIamAccessKey"
-VIGIL_SSM_PARAMETER_DOCUMENT = "Vigil-MigrateSsmParameterToSecureString"
-VIGIL_IAM_POLICY_DOCUMENT = "Vigil-RemediateIamExcessPermissions"
+VERITRAIL_SG_DOCUMENT = "Veritrail-RevokeSecurityGroupIngressExact"
+VERITRAIL_IAM_KEY_DOCUMENT = "Veritrail-DeactivateIamAccessKey"
+VERITRAIL_SSM_PARAMETER_DOCUMENT = "Veritrail-MigrateSsmParameterToSecureString"
+VERITRAIL_IAM_POLICY_DOCUMENT = "Veritrail-RemediateIamExcessPermissions"
 
 AWS_S3_BUCKET_PAB_DOCUMENT = "AWSConfigRemediation-ConfigureS3BucketPublicAccessBlock"
 AWS_KMS_ENABLE_ROTATION_DOCUMENT = "AWSConfigRemediation-EnableKeyRotation"
@@ -31,24 +31,24 @@ AWS_KMS_ENABLE_ROTATION_DOCUMENT = "AWSConfigRemediation-EnableKeyRotation"
 RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     "ec2.security_group.unrestricted_ssh": SsmRemediationRunbook(
         check_id="ec2.security_group.unrestricted_ssh",
-        document_name=VIGIL_SG_DOCUMENT,
-        owner="vigil",
+        document_name=VERITRAIL_SG_DOCUMENT,
+        owner="veritrail",
         parameter_mode="plan_json",
-        note="Focused Vigil runbook removes only the exact public ingress rule captured in finding evidence.",
+        note="Focused Veritrail runbook removes only the exact public ingress rule captured in finding evidence.",
     ),
     "ec2.security_group.unrestricted_rdp": SsmRemediationRunbook(
         check_id="ec2.security_group.unrestricted_rdp",
-        document_name=VIGIL_SG_DOCUMENT,
-        owner="vigil",
+        document_name=VERITRAIL_SG_DOCUMENT,
+        owner="veritrail",
         parameter_mode="plan_json",
-        note="Focused Vigil runbook removes only the exact public ingress rule captured in finding evidence.",
+        note="Focused Veritrail runbook removes only the exact public ingress rule captured in finding evidence.",
     ),
     "ssm.parameter.plaintext_secret": SsmRemediationRunbook(
         check_id="ssm.parameter.plaintext_secret",
-        document_name=VIGIL_SSM_PARAMETER_DOCUMENT,
-        owner="vigil",
+        document_name=VERITRAIL_SSM_PARAMETER_DOCUMENT,
+        owner="veritrail",
         parameter_mode="plan_json",
-        note="Focused Vigil runbook rewrites the reviewed String parameter as SecureString.",
+        note="Focused Veritrail runbook rewrites the reviewed String parameter as SecureString.",
     ),
     "s3.bucket.public_access_not_blocked": SsmRemediationRunbook(
         check_id="s3.bucket.public_access_not_blocked",
@@ -59,22 +59,22 @@ RUNBOOKS: dict[str, SsmRemediationRunbook] = {
     ),
     "iam.access_key.unused_45d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_45d",
-        document_name=VIGIL_IAM_KEY_DOCUMENT,
-        owner="vigil",
+        document_name=VERITRAIL_IAM_KEY_DOCUMENT,
+        owner="veritrail",
         parameter_mode="plan_json",
-        note="Focused Vigil runbook deactivates only the reviewed access key.",
+        note="Focused Veritrail runbook deactivates only the reviewed access key.",
     ),
     "iam.access_key.unused_90d": SsmRemediationRunbook(
         check_id="iam.access_key.unused_90d",
-        document_name=VIGIL_IAM_KEY_DOCUMENT,
-        owner="vigil",
+        document_name=VERITRAIL_IAM_KEY_DOCUMENT,
+        owner="veritrail",
         parameter_mode="plan_json",
-        note="Focused Vigil runbook deactivates only the reviewed access key.",
+        note="Focused Veritrail runbook deactivates only the reviewed access key.",
     ),
     "iam.role.least_privilege_policy": SsmRemediationRunbook(
         check_id="iam.role.least_privilege_policy",
-        document_name=VIGIL_IAM_POLICY_DOCUMENT,
-        owner="vigil",
+        document_name=VERITRAIL_IAM_POLICY_DOCUMENT,
+        owner="veritrail",
         parameter_mode="plan_json",
         note=(
             "Applies the approved least-privilege proposal from CloudTrail + IAM last-accessed data. "
@@ -115,7 +115,7 @@ def ssm_document_console_url(document_name: str, region: str) -> str:
 
 
 def runbook_source_url(runbook: SsmRemediationRunbook, *, automation_region: str = "us-east-1") -> str:
-    """AWS runbook docs (public) or SSM document console link for Vigil-owned documents."""
+    """AWS runbook docs (public) or SSM document console link for Veritrail-owned documents."""
     if runbook.owner == "aws":
         slug = runbook.document_name.lower().replace("_", "-")
         return (
@@ -199,7 +199,7 @@ def automation_parameters_for_plan(
         automation_role = _require_automation_role(automation_assume_role_arn)
         overrides = parameter_overrides or {}
         plan_params = plan.get("parameters") or {}
-        trail_name = overrides.get("TrailName") or plan_params.get("TrailName", "VigilCloudTrail")
+        trail_name = overrides.get("TrailName") or plan_params.get("TrailName", "VeritrailCloudTrail")
         s3_bucket = overrides.get("S3BucketName") or plan_params.get("S3BucketName", "")
         params: dict[str, list[str]] = {
             "AutomationAssumeRole": [automation_role],

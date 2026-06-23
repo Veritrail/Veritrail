@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.checks.base import FindingDraft, score
-from app.checks.iam_role_exclusions import is_vigil_integration_role
+from app.checks.iam_role_exclusions import is_veritrail_integration_role
 from app.core.config import get_settings
 from app.models import AwsAccount, IamRole
 
@@ -46,18 +46,18 @@ def _external_account_ids(trust_policy: dict, own_account_id: str | None) -> lis
     return sorted(found)
 
 
-def _vigil_control_plane_account_id() -> str | None:
+def _veritrail_control_plane_account_id() -> str | None:
     arn = (get_settings().TRUST_PRINCIPAL_ARN or "").strip()
     m = _ACCOUNT_ARN.match(arn)
     return m.group(1) if m else None
 
 
 def _external_ids_for_finding(external: list[str]) -> list[str]:
-    """Drop Vigil control-plane account when it is the only external principal."""
-    vigil_acct = _vigil_control_plane_account_id()
-    if not vigil_acct:
+    """Drop Veritrail control-plane account when it is the only external principal."""
+    veritrail_acct = _veritrail_control_plane_account_id()
+    if not veritrail_acct:
         return external
-    remaining = [a for a in external if a != vigil_acct]
+    remaining = [a for a in external if a != veritrail_acct]
     return remaining if remaining else []
 
 
@@ -67,7 +67,7 @@ def run(db: Session, account_id) -> list[FindingDraft]:
     roles = db.scalars(select(IamRole).where(IamRole.account_id == account_id)).all()
     out: list[FindingDraft] = []
     for r in roles:
-        if is_vigil_integration_role(r.name):
+        if is_veritrail_integration_role(r.name):
             continue
         if not r.trust_policy:
             continue

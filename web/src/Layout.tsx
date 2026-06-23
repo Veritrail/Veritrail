@@ -1,10 +1,12 @@
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, logout, restoreSession, token } from "./api";
 import { accountListSchema } from "./lib/apiSchemas";
 import { roleAtLeast, useMe } from "./hooks/useMe";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
+import { HeaderSlotContext } from "./context/HeaderSlot";
+import NotificationsBell from "./components/NotificationsBell";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
 
@@ -17,10 +19,16 @@ const navItem = ({ isActive }: { isActive: boolean }) =>
 
 type AccountRow = { status: string; account_id: string | null };
 
+const DEFAULT_HISTORY_FRAMEWORK = "soc2";
+const DEFAULT_HISTORY_DAYS = 90;
+const HISTORY_PREFETCH_STALE_MS = 120_000;
+
 export default function Layout() {
   const nav = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [authReady, setAuthReady] = useState(false);
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   const requiresAccount = pathRequiresConnectedAccount(location.pathname);
 
   const meQ = useMe();
@@ -52,6 +60,21 @@ export default function Layout() {
       cancelled = true;
     };
   }, [nav]);
+
+  useEffect(() => {
+    if (!accountsQ.isSuccess) return;
+    const account = accountsQ.data.find((a) => isAccountConnected(a));
+    if (!account?.id) return;
+
+    void queryClient.prefetchQuery({
+      queryKey: ["history", account.id, DEFAULT_HISTORY_FRAMEWORK, DEFAULT_HISTORY_DAYS],
+      queryFn: () =>
+        api(
+          `/v1/accounts/${account.id}/compliance-timeline?framework=${DEFAULT_HISTORY_FRAMEWORK}&days=${DEFAULT_HISTORY_DAYS}&limit=100`,
+        ),
+      staleTime: HISTORY_PREFETCH_STALE_MS,
+    });
+  }, [accountsQ.data, accountsQ.isSuccess, queryClient]);
 
   if (!authReady) {
     return (
@@ -94,9 +117,9 @@ export default function Layout() {
                 border: "1px solid rgba(99,102,241,0.3)",
               }}
             >
-              <img src="/favicon.png" alt="Vigil" className="h-7 w-7 object-contain drop-shadow" />
+              <img src="/favicon.png" alt="Veritrail" className="h-7 w-7 object-contain drop-shadow" />
             </div>
-            <span className="text-2xl font-semibold leading-none tracking-tight text-white">Vigil</span>
+            <span className="text-2xl font-semibold leading-none tracking-tight text-white">Veritrail</span>
           </div>
         </div>
 
@@ -184,10 +207,23 @@ export default function Layout() {
 
       <main className="ml-64 flex min-h-screen min-w-0 flex-col">
         <RecheckNotificationsProvider>
-          <div data-app-scroll className="flex-1 overflow-auto px-8 py-8">
-            <div className="w-full min-w-0">
-              <Outlet />
+          <div data-app-scroll className="flex flex-1 flex-col overflow-auto">
+            {/* App-wide header bar: a single bell (fixed top-right so it never
+                shifts between pages) plus a left slot that pages fill via
+                <HeaderSlot> so their top controls share this row — no dead
+                space above the page. */}
+            <div className="sticky top-0 z-30 flex items-center gap-3 bg-[#F6F8FB]/95 px-8 pt-5 pb-3 backdrop-blur-sm">
+              <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
+              <NotificationsBell />
             </div>
+            <HeaderSlotContext.Provider value={headerSlot}>
+              {/* flex-1 so short pages fill the viewport — lets pages pin
+                  bottom content (e.g. Integrations "Explore") to the bottom
+                  without leaving a scroll. */}
+              <div className="flex w-full min-w-0 flex-1 flex-col px-8 pb-8">
+                <Outlet />
+              </div>
+            </HeaderSlotContext.Provider>
           </div>
         </RecheckNotificationsProvider>
       </main>

@@ -1,6 +1,6 @@
-# Vigil AWS sandbox QA
+# Veritrail AWS sandbox QA
 
-Use a **dedicated throwaway AWS account** to exercise the full Vigil flow before production.
+Use a **dedicated throwaway AWS account** to exercise the full Veritrail flow before production.
 
 ## Quick start
 
@@ -19,4 +19,4 @@ Use a **dedicated throwaway AWS account** to exercise the full Vigil flow before
 
 ## Cleanup
 
-Delete seeded IAM users, buckets, and security group rules; disconnect the account in Vigil when finished.
+Delete seeded IAM users, buckets, and security group rules; disconnect the account in Veritrail when finished.

@@ -37,7 +37,7 @@ def test_lookup_private_ip_uses_egress():
         }
         client.get.assert_called_once_with(
             "https://ipapi.co/json/",
-            headers={"User-Agent": "Vigil/1.0"},
+            headers={"User-Agent": "Veritrail/1.0"},
         )
 
 
@@ -57,7 +57,7 @@ def test_lookup_public_ip():
         }
         client.get.assert_called_once_with(
             "https://ipapi.co/8.8.8.8/json/",
-            headers={"User-Agent": "Vigil/1.0"},
+            headers={"User-Agent": "Veritrail/1.0"},
         )
 
 

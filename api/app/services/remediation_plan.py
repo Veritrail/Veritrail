@@ -1,4 +1,4 @@
-"""Signed remediation plans for customer-hosted automation (read-only Vigil → customer executor)."""
+"""Signed remediation plans for customer-hosted automation (read-only Veritrail → customer executor)."""
 from __future__ import annotations
 
 import hashlib
@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.models import Finding
 from app.services.pack_signing import sign_payload
 
-PLAN_SCHEMA = "vigil_remediation_plan/v2"
+PLAN_SCHEMA = "veritrail_remediation_plan/v2"
 SG_CHECKS = frozenset(
     {
         "ec2.security_group.unrestricted_ssh",
@@ -30,8 +30,8 @@ IAM_ACCESS_KEY_CHECKS = frozenset(
 )
 IAM_POLICY_SSM_CHECKS = frozenset({"iam.role.least_privilege_policy"})
 
-# Custom Vigil document runs from one automation home region; PlanJson carries resource_region.
-VIGIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS | IAM_POLICY_SSM_CHECKS
+# Custom Veritrail document runs from one automation home region; PlanJson carries resource_region.
+VERITRAIL_CUSTOM_SSM_CHECKS = SG_CHECKS | SSM_CHECKS | IAM_ACCESS_KEY_CHECKS | IAM_POLICY_SSM_CHECKS
 # Back-compat alias (was IAM-only before SG/SSM used home region too).
 IAM_GLOBAL_SSM_CHECKS = IAM_ACCESS_KEY_CHECKS
 
@@ -58,7 +58,7 @@ def resource_region_for_finding(finding: Finding) -> str:
 
 
 def automation_region_for_finding(finding: Finding) -> str:
-    """SSM StartAutomationExecution region (home for Vigil custom doc; resource for AWS runbooks)."""
+    """SSM StartAutomationExecution region (home for Veritrail custom doc; resource for AWS runbooks)."""
     return resolve_automation_region(
         finding.check_id,
         resource_region_for_finding(finding),
@@ -68,7 +68,7 @@ def automation_region_for_finding(finding: Finding) -> str:
 def resolve_automation_region(check_id: str | None, resource_region: str | None) -> str:
     """Pick SSM Automation region for describe/start and StartAutomationExecution."""
     home_region = automation_home_region()
-    if check_id and check_id in VIGIL_CUSTOM_SSM_CHECKS:
+    if check_id and check_id in VERITRAIL_CUSTOM_SSM_CHECKS:
         return home_region
     if resource_region:
         return resource_region
@@ -141,7 +141,7 @@ def build_remediation_plan_body(
             "delivery": delivery,
             "document_name": settings.REMEDIATION_SSM_DOCUMENT_NAME,
             "note": (
-                "AWS-owned runbooks run in resource_region. Vigil custom document runs in automation_region "
+                "AWS-owned runbooks run in resource_region. Veritrail custom document runs in automation_region "
                 "(REMEDIATION_AUTOMATION_REGION); PlanJson includes resource_region for regional API calls."
             ),
         },
@@ -152,7 +152,7 @@ def build_remediation_plan_body(
     # CloudTrail guided manual: add parameter hints and requires_user_input
     if finding.check_id == "cloudtrail.trail.not_enabled":
         body["parameters"] = {
-            "TrailName": "VigilCloudTrail",
+            "TrailName": "VeritrailCloudTrail",
             "S3BucketName": "",
             "EnableLogFileValidation": True,
             "IsMultiRegionTrail": True,
@@ -267,6 +267,6 @@ def _steps_for_check(finding: Finding) -> list[dict[str, str]]:
             {"action": "execute", "detail": "SSM Automation enables annual key rotation — transparent to callers, no re-encryption of existing data required"},
         ]
     return [
-        {"action": "review", "detail": "Follow Console/CLI remediation in Vigil finding drawer"},
+        {"action": "review", "detail": "Follow Console/CLI remediation in Veritrail finding drawer"},
         {"action": "execute", "detail": "Optional: wire customer automation when plan type is supported"},
     ]

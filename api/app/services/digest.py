@@ -32,9 +32,9 @@ def _posture_score(counts: dict[str, int]) -> int:
     return max(0, min(100, 100 - (counts["critical"] + counts["high"]) * 10 - counts["medium"] * 3))
 
 
-def _vigil_mark_path() -> Path | None:
+def _veritrail_mark_path() -> Path | None:
     here = Path(__file__).resolve()
-    candidates = [here.parent / "assets" / "vigil-mark.png"]
+    candidates = [here.parent / "assets" / "veritrail-mark.png"]
     if len(here.parents) > 3:
         candidates.append(here.parents[3] / "web" / "public" / "favicon.png")
     for path in candidates:
@@ -43,8 +43,8 @@ def _vigil_mark_path() -> Path | None:
     return None
 
 
-def _load_vigil_mark() -> bytes | None:
-    path = _vigil_mark_path()
+def _load_veritrail_mark() -> bytes | None:
+    path = _veritrail_mark_path()
     if not path:
         return None
     try:
@@ -55,15 +55,15 @@ def _load_vigil_mark() -> bytes | None:
 
 def _brand_row_html(*, has_mark: bool, mark_top_right: bool = False) -> str:
     mark_img = (
-        '<img src="cid:vigil-mark" width="28" height="28" alt="" '
+        '<img src="cid:veritrail-mark" width="28" height="28" alt="" '
         'style="display:block;width:28px;height:28px;border-radius:7px">'
     )
     if not has_mark:
-        return '<div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Vigil</div>'
+        return '<div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Veritrail</div>'
     if mark_top_right:
         return (
             '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
-            '<td style="vertical-align:middle;font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Vigil</td>'
+            '<td style="vertical-align:middle;font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Veritrail</td>'
             f'<td width="36" align="right" style="vertical-align:top;padding-left:12px">{mark_img}</td>'
             "</tr></table>"
         )
@@ -72,7 +72,7 @@ def _brand_row_html(*, has_mark: bool, mark_top_right: bool = False) -> str:
         '<td style="padding-right:10px;vertical-align:middle">'
         f"{mark_img}"
         "</td>"
-        '<td style="vertical-align:middle;font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Vigil</td>'
+        '<td style="vertical-align:middle;font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Veritrail</td>'
         "</tr></table>"
     )
 
@@ -101,9 +101,9 @@ def send_digest(
     posture = _posture_score(counts)
 
     images: dict[str, bytes] = {}
-    mark = _load_vigil_mark()
+    mark = _load_veritrail_mark()
     if mark:
-        images["vigil-mark"] = mark
+        images["veritrail-mark"] = mark
     try:
         from app.services.digest_charts import donut_png, grouped_bars_png
 
@@ -117,7 +117,7 @@ def send_digest(
             )
     except Exception:  # noqa: BLE001 — charts are best-effort; fall back to a text-table email
         log.warning("digest.charts_failed", exc_info=True)
-        images = {k: v for k, v in images.items() if k == "vigil-mark"}
+        images = {k: v for k, v in images.items() if k == "veritrail-mark"}
 
     subject = _subject(open_findings)
     html = _html(
@@ -137,10 +137,10 @@ def _subject(open_findings: list[dict]) -> str:
     crit_high = sum(1 for f in open_findings if f["severity"] in ("critical", "high"))
     total = len(open_findings)
     if crit_high:
-        return f"Vigil: {crit_high} critical/high finding{'s' if crit_high != 1 else ''} need attention"
+        return f"Veritrail: {crit_high} critical/high finding{'s' if crit_high != 1 else ''} need attention"
     if total:
-        return f"Vigil: {total} open finding{'s' if total != 1 else ''} — weekly digest"
-    return "Vigil: No open findings — all clear"
+        return f"Veritrail: {total} open finding{'s' if total != 1 else ''} — weekly digest"
+    return "Veritrail: No open findings — all clear"
 
 
 # Email-safe severity palette (mockup: critical red, high orange, medium amber, low green).
@@ -492,12 +492,12 @@ def _html(
     help_card = _sidebar_card(
         "Need help?",
         '<div style="font-size:13.5px;color:#52525b;line-height:1.5;margin:0">'
-        "Reply to this email or open the Vigil console to dig into any finding."
+        "Reply to this email or open the Veritrail console to dig into any finding."
         "</div>"
         f'<div style="margin-top:18px">'
         f'<a href="{h(findings_url)}" style="display:inline-block;background:#0b1220;color:#fff;'
         f'padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;line-height:1;'
-        f'text-decoration:none">Open Vigil Console</a></div>',
+        f'text-decoration:none">Open Veritrail Console</a></div>',
         min_height_px=BOTTOM_PAIR_MIN_H,
     )
 
@@ -548,7 +548,7 @@ def _html(
         f'{_stat_cell_html("Resolved", f"{resolved_this_week}", "#16a34a", resolved_hint)}'
     )
     highlight = h(_weekly_highlight_html(new_count, resolved_this_week, posture_score))
-    has_mark = "vigil-mark" in images
+    has_mark = "veritrail-mark" in images
     brand_row = _brand_row_html(has_mark=has_mark)
     report_header = f"""
     <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;background:#fff">
@@ -586,10 +586,10 @@ def _html(
 
     <!-- Footer -->
     <div style="padding:14px 8px 8px;text-align:center">
-      <div style="font-size:12px;color:#94a3b8">Vigil · Continuous cloud monitoring</div>
+      <div style="font-size:12px;color:#94a3b8">Veritrail · Continuous cloud monitoring</div>
       <div style="font-size:11px;color:#a1a1aa;margin-top:6px">
         Weekly digest for {h(org_name)} · {h(account_label)} · {end.strftime('%B %d, %Y')}<br>
-        You're receiving this because you're subscribed to the Vigil Weekly Digest. <a href="{h(unsubscribe_href)}" style="color:#71717a;text-decoration:underline">Unsubscribe</a>
+        You're receiving this because you're subscribed to the Veritrail Weekly Digest. <a href="{h(unsubscribe_href)}" style="color:#71717a;text-decoration:underline">Unsubscribe</a>
       </div>
     </div>
   </div>
@@ -607,7 +607,7 @@ def _text(
 ) -> str:
     unsubscribe_href = _unsubscribe_url(unsubscribe_token)
     lines = [
-        f"Vigil — Weekly Security Digest for {org_name}",
+        f"Veritrail — Weekly Security Digest for {org_name}",
         f"Account: {account_label}",
         f"Date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
         "",
@@ -678,13 +678,13 @@ def build_digest_slack_blocks(
     app_url = _findings_app_url().rstrip("/")
 
     fallback = (
-        f"Vigil weekly digest — {account_label}: "
+        f"Veritrail weekly digest — {account_label}: "
         f"{total} open ({crit_high} critical/high) · "
         f"{len(new_this_week)} new · {resolved_this_week} resolved"
     )
 
     blocks: list[dict] = [
-        {"type": "header", "text": {"type": "plain_text", "text": "Vigil weekly digest", "emoji": True}},
+        {"type": "header", "text": {"type": "plain_text", "text": "Veritrail weekly digest", "emoji": True}},
         {"type": "context", "elements": [
             {"type": "mrkdwn", "text": f":shield: *{account_label}*  ·  {date}"}
         ]},
@@ -713,7 +713,7 @@ def build_digest_slack_blocks(
             "type": "mrkdwn", "text": "*Top findings to address*\n" + "\n".join(lines)}})
 
     blocks.append({"type": "actions", "elements": [
-        {"type": "button", "text": {"type": "plain_text", "text": "Open Vigil", "emoji": True},
+        {"type": "button", "text": {"type": "plain_text", "text": "Open Veritrail", "emoji": True},
          "url": f"{app_url}/findings", "style": "primary"},
     ]})
 

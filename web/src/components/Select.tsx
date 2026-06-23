@@ -77,19 +77,19 @@ export function Select({
   }, [open]);
 
   return (
-    <div className={`vigil-select vigil-select--${size}`}>
+    <div className={`veritrail-select veritrail-select--${size}`}>
       <button
         ref={btnRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className={`vigil-select__btn ${className}`}
+        className={`veritrail-select__btn ${className}`}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="vigil-select__value">{selected?.label ?? "Select"}</span>
+        <span className="veritrail-select__value">{selected?.label ?? "Select"}</span>
         <svg
-          className={`vigil-select__chev${open ? " vigil-select__chev--open" : ""}`}
+          className={`veritrail-select__chev${open ? " veritrail-select__chev--open" : ""}`}
           width="16"
           height="16"
           viewBox="0 0 24 24"
@@ -105,7 +105,7 @@ export function Select({
         createPortal(
           <div
             ref={menuRef}
-            className={`vigil-select__menu vigil-select--${size}`}
+            className={`veritrail-select__menu veritrail-select--${size}`}
             role="listbox"
             style={{
               position: "fixed",
@@ -129,7 +129,7 @@ export function Select({
                     onChange(o.value);
                     setOpen(false);
                   }}
-                  className={`vigil-select__opt${active ? " vigil-select__opt--active" : ""}`}
+                  className={`veritrail-select__opt${active ? " veritrail-select__opt--active" : ""}`}
                 >
                   <span>{o.label}</span>
                   {active && (

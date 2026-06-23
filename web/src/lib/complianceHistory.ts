@@ -151,7 +151,7 @@ export async function downloadEvidenceForScan(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `vigil-evidence-${framework}-${scanAsOfDate(scanIso)}.zip`;
+  a.download = `veritrail-evidence-${framework}-${scanAsOfDate(scanIso)}.zip`;
   a.click();
   URL.revokeObjectURL(url);
 }

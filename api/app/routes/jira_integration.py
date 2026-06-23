@@ -198,7 +198,7 @@ def create_issue_from_finding(
         f"Check: {finding.check_id}\n"
         f"Resource: {finding.resource_arn}\n"
         f"Risk score: {finding.risk_score}\n\n"
-        f"Open in Vigil: {finding_url}"
+        f"Open in Veritrail: {finding_url}"
     )
 
     try:
@@ -209,10 +209,10 @@ def create_issue_from_finding(
         )
         created = client.create_issue(
             project_key=cfg["project_key"],
-            summary=f"[Vigil] {finding.title}"[:255],
+            summary=f"[Veritrail] {finding.title}"[:255],
             description=description,
             issue_type=cfg.get("issue_type") or "Task",
-            labels=["vigil", finding.severity],
+            labels=["veritrail", finding.severity],
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e

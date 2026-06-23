@@ -6,14 +6,14 @@
   :root {
     color-scheme: light;
     background: #f7f9fb;
-    --vigil-primary: #0f172a;
-    --vigil-primary-hover: #1e293b;
-    --vigil-neutral-border: #d8dee8;
-    --vigil-neutral-text: #0f172a;
-    --vigil-neutral-hover: #f8fafc;
-    --vigil-btn-icon-border: #e2e8f0;
-    --vigil-btn-icon-color: #64748b;
-    --vigil-success: #059669;
+    --veritrail-primary: #0f172a;
+    --veritrail-primary-hover: #1e293b;
+    --veritrail-neutral-border: #d8dee8;
+    --veritrail-neutral-text: #0f172a;
+    --veritrail-neutral-hover: #f8fafc;
+    --veritrail-btn-icon-border: #e2e8f0;
+    --veritrail-btn-icon-color: #64748b;
+    --veritrail-success: #059669;
   }
 
   html {
@@ -61,28 +61,28 @@
 }
 
 @layer components {
-  .vigil-card {
+  .veritrail-card {
     @apply rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-6px_rgba(15,23,42,0.08)];
   }
 
-  .vigil-soft-card {
+  .veritrail-soft-card {
     @apply rounded-md border border-zinc-200 bg-white shadow-[0_1px_1px_rgba(15,23,42,0.03)];
   }
 
-  .vigil-muted-panel {
+  .veritrail-muted-panel {
     @apply rounded-md bg-zinc-50 border border-zinc-100;
   }
 
-  .vigil-button {
+  .veritrail-button {
     @apply inline-flex items-center justify-center gap-1.5 rounded border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50;
   }
 
-  .vigil-button-primary {
-    @apply vigil-toolbar-btn vigil-toolbar-btn--neutral text-[12px];
+  .veritrail-button-primary {
+    @apply veritrail-toolbar-btn veritrail-toolbar-btn--neutral text-[12px];
   }
 
   /* Toolbar buttons — neutral default; explicit neutral variant below. */
-  .vigil-toolbar-btn,
+  .veritrail-toolbar-btn,
   .findings-v2-toolbar-btn {
     display: inline-flex;
     align-items: center;
@@ -92,11 +92,11 @@
     min-width: 0;
     padding: 0 0.75rem;
     border-radius: 0.625rem;
-    border: 1px solid var(--vigil-neutral-border);
+    border: 1px solid var(--veritrail-neutral-border);
     background: #ffffff;
     font-size: 13px;
     font-weight: 500;
-    color: var(--vigil-neutral-text);
+    color: var(--veritrail-neutral-text);
     white-space: nowrap;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
     transition:
@@ -105,53 +105,53 @@
       box-shadow 0.15s ease;
   }
 
-  .vigil-toolbar-btn:hover:not(:disabled),
+  .veritrail-toolbar-btn:hover:not(:disabled),
   .findings-v2-toolbar-btn:hover:not(:disabled) {
-    border-color: var(--vigil-neutral-border);
-    background: var(--vigil-neutral-hover);
+    border-color: var(--veritrail-neutral-border);
+    background: var(--veritrail-neutral-hover);
   }
 
-  .vigil-toolbar-btn:disabled,
+  .veritrail-toolbar-btn:disabled,
   .findings-v2-toolbar-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .vigil-toolbar-btn svg,
+  .veritrail-toolbar-btn svg,
   .findings-v2-toolbar-btn svg {
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
-    color: var(--vigil-btn-icon-color);
+    color: var(--veritrail-btn-icon-color);
   }
 
   .findings-v2-toolbar-icon-btn {
-    border-color: var(--vigil-btn-icon-border);
+    border-color: var(--veritrail-btn-icon-border);
   }
 
   /* Calm white outline — Add account, Connect, View details. */
-  .vigil-toolbar-btn--neutral {
+  .veritrail-toolbar-btn--neutral {
     flex-shrink: 0;
-    border-color: var(--vigil-neutral-border);
+    border-color: var(--veritrail-neutral-border);
     background: #ffffff;
-    color: var(--vigil-neutral-text);
+    color: var(--veritrail-neutral-text);
     font-weight: 600;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   }
 
-  .vigil-toolbar-btn--neutral svg {
+  .veritrail-toolbar-btn--neutral svg {
     color: #94a3b8;
   }
 
-  .vigil-toolbar-btn--neutral:hover:not(:disabled),
-  .vigil-toolbar-btn--neutral[aria-expanded="true"] {
-    border-color: var(--vigil-neutral-border);
-    background: var(--vigil-neutral-hover);
-    color: var(--vigil-neutral-text);
+  .veritrail-toolbar-btn--neutral:hover:not(:disabled),
+  .veritrail-toolbar-btn--neutral[aria-expanded="true"] {
+    border-color: var(--veritrail-neutral-border);
+    background: var(--veritrail-neutral-hover);
+    color: var(--veritrail-neutral-text);
   }
 
-  .vigil-toolbar-btn--neutral:hover:not(:disabled) svg,
-  .vigil-toolbar-btn--neutral[aria-expanded="true"] svg {
+  .veritrail-toolbar-btn--neutral:hover:not(:disabled) svg,
+  .veritrail-toolbar-btn--neutral[aria-expanded="true"] svg {
     color: #64748b;
   }
 
@@ -162,35 +162,35 @@
   }
 
   /* Legacy aliases — map old loud variants to quiet system. */
-  .vigil-toolbar-btn--primary,
-  .vigil-toolbar-btn--glass,
-  .vigil-toolbar-btn--primary-solid {
+  .veritrail-toolbar-btn--primary,
+  .veritrail-toolbar-btn--glass,
+  .veritrail-toolbar-btn--primary-solid {
     flex-shrink: 0;
-    border-color: var(--vigil-neutral-border);
+    border-color: var(--veritrail-neutral-border);
     background: #ffffff;
-    color: var(--vigil-neutral-text);
+    color: var(--veritrail-neutral-text);
     font-weight: 600;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   }
 
-  .vigil-toolbar-btn--primary svg,
-  .vigil-toolbar-btn--glass svg,
-  .vigil-toolbar-btn--primary-solid svg {
+  .veritrail-toolbar-btn--primary svg,
+  .veritrail-toolbar-btn--glass svg,
+  .veritrail-toolbar-btn--primary-solid svg {
     color: #94a3b8;
   }
 
-  .vigil-toolbar-btn--primary:hover:not(:disabled),
-  .vigil-toolbar-btn--primary[aria-expanded="true"],
-  .vigil-toolbar-btn--glass:hover:not(:disabled),
-  .vigil-toolbar-btn--glass[aria-expanded="true"],
-  .vigil-toolbar-btn--primary-solid:hover:not(:disabled),
-  .vigil-toolbar-btn--primary-solid[aria-expanded="true"] {
-    border-color: var(--vigil-neutral-border);
-    background: var(--vigil-neutral-hover);
-    color: var(--vigil-neutral-text);
+  .veritrail-toolbar-btn--primary:hover:not(:disabled),
+  .veritrail-toolbar-btn--primary[aria-expanded="true"],
+  .veritrail-toolbar-btn--glass:hover:not(:disabled),
+  .veritrail-toolbar-btn--glass[aria-expanded="true"],
+  .veritrail-toolbar-btn--primary-solid:hover:not(:disabled),
+  .veritrail-toolbar-btn--primary-solid[aria-expanded="true"] {
+    border-color: var(--veritrail-neutral-border);
+    background: var(--veritrail-neutral-hover);
+    color: var(--veritrail-neutral-text);
   }
 
-  .vigil-toolbar-btn--lg,
+  .veritrail-toolbar-btn--lg,
   .findings-v2-toolbar-btn--lg {
     height: 2.5rem;
     padding: 0 1rem;
@@ -199,18 +199,18 @@
     font-size: 14px;
   }
 
-  .vigil-toolbar-btn--lg svg,
+  .veritrail-toolbar-btn--lg svg,
   .findings-v2-toolbar-btn--lg svg {
     width: 1.125rem;
     height: 1.125rem;
   }
 
-  .vigil-kicker {
+  .veritrail-kicker {
     @apply text-[11px] font-semibold uppercase tracking-wide text-zinc-500;
   }
 }
 
-@keyframes vigil-scan-indeterminate {
+@keyframes veritrail-scan-indeterminate {
   0% {
     transform: translateX(-120%);
   }
@@ -225,11 +225,11 @@
   left: 0;
   width: 18%;
   border-radius: 9999px;
-  animation: vigil-scan-indeterminate 1.15s ease-in-out infinite;
+  animation: veritrail-scan-indeterminate 1.15s ease-in-out infinite;
 }
 
 /* Shared expand/collapse reveal for row accordions (Findings + Compliance). */
-@keyframes vigil-expand-in {
+@keyframes veritrail-expand-in {
   0% {
     opacity: 0;
     transform: translateY(-4px);
@@ -240,12 +240,12 @@
   }
 }
 
-.vigil-expand-in {
-  animation: vigil-expand-in 0.16s ease-out;
+.veritrail-expand-in {
+  animation: veritrail-expand-in 0.16s ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vigil-expand-in {
+  .veritrail-expand-in {
     animation: none;
   }
 }
@@ -444,11 +444,11 @@
 
 /* Accounts page: stronger button borders so they don't blend, and a teal Scan
    primary — matching the Findings toolbar treatment. Scoped to .accounts-page. */
-.accounts-page .vigil-toolbar-btn {
+.accounts-page .veritrail-toolbar-btn {
   border-color: #cbd5e1;
 }
 
-.accounts-page .vigil-toolbar-btn:hover:not(:disabled) {
+.accounts-page .veritrail-toolbar-btn:hover:not(:disabled) {
   border-color: #9aa7b8;
 }
 
@@ -467,18 +467,18 @@
 
 /* Account cards: footer button carries the card's accent tint (matches the
    colored top border), darkening to solid on hover. Scoped to .account-module. */
-.account-module .vigil-toolbar-btn--primary-solid {
+.account-module .veritrail-toolbar-btn--primary-solid {
   background: var(--card-accent-soft);
   border-color: transparent;
   color: var(--card-accent);
   font-weight: 700;
 }
 
-.account-module .vigil-toolbar-btn--primary-solid:hover:not(:disabled) {
+.account-module .veritrail-toolbar-btn--primary-solid:hover:not(:disabled) {
   background: var(--card-accent);
   color: #ffffff;
 }
 
-.account-module .vigil-toolbar-btn--primary-solid svg {
+.account-module .veritrail-toolbar-btn--primary-solid svg {
   color: currentColor;
 }

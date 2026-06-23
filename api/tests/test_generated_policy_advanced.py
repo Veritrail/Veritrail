@@ -16,7 +16,7 @@ def test_policy_generation_meta_medium_note_without_cloudtrail_job():
     acc.id = uuid.uuid4()
     acc.enable_advanced_policy_generation = True
     acc.advanced_policy_generation_deployed = False
-    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailScannerRole"
 
     meta = _policy_generation_meta(
         db,
@@ -29,7 +29,7 @@ def test_policy_generation_meta_medium_note_without_cloudtrail_job():
     )
 
     assert meta["confidence"] == "medium"
-    assert "Start analysis in Vigil" in meta["confidence_note"]
+    assert "Start analysis in Veritrail" in meta["confidence_note"]
     assert meta["advanced_requested"] is False
     assert meta["advanced_effective"] is True
     assert meta["advanced_available"] is True
@@ -48,7 +48,7 @@ def test_use_advanced_auto_enabled_when_deployed(mock_resolve):
     acc.org_id = uuid.uuid4()
     acc.enable_advanced_policy_generation = False
     acc.advanced_policy_generation_deployed = True
-    acc.role_arn = "arn:aws:iam::123456789012:role/VigilScannerRole"
+    acc.role_arn = "arn:aws:iam::123456789012:role/VeritrailScannerRole"
     acc.external_id = "ext"
 
     role = MagicMock()

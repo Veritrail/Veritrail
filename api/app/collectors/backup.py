@@ -34,7 +34,7 @@ def collect_backup(db: Session, account: AwsAccount) -> dict[str, int]:
     sess = assume_role(
         account.role_arn,
         account.external_id,
-        session_name="vigil-backup",
+        session_name="veritrail-backup",
         aws_account=account,
         purpose="collect_backup",
     )

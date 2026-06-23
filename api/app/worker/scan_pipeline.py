@@ -22,7 +22,7 @@ from app.worker.snapshot_builder import build_snapshots_from_schema
 from app.services.snapshot_provenance import attach_provenance
 from app.checks.persist import persist_findings
 from app.core.db import SessionLocal
-from app.core.aws import ensure_vigil_role_trust
+from app.core.aws import ensure_veritrail_role_trust
 from app.core.config import get_settings
 
 log = structlog.get_logger()
@@ -135,7 +135,7 @@ class ScanPipeline:
         """Verify dev role trust if needed."""
         settings = get_settings()
         if settings.APP_ENV == "dev" and self.account.role_arn and self.account.external_id:
-            ensure_vigil_role_trust(self.account.role_arn, self.account.external_id)
+            ensure_veritrail_role_trust(self.account.role_arn, self.account.external_id)
 
     def _collect(
         self,
@@ -219,7 +219,7 @@ class ScanPipeline:
                 sess = assume_role(
                     self.account.role_arn,
                     self.account.external_id,
-                    session_name="vigil-account-summary",
+                    session_name="veritrail-account-summary",
                     aws_account=self.account,
                     purpose="evidence_snapshot_account_summary",
                 )

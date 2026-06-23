@@ -11,7 +11,7 @@ def test_new_secret_is_valid_base32():
 
 def test_provisioning_uri_includes_issuer_and_email():
     uri = provisioning_uri("alice@example.com", "JBSWY3DPEHPK3PXP")
-    assert "Vigil" in uri
+    assert "Veritrail" in uri
     assert "alice%40example.com" in uri or "alice@example.com" in uri
 
 

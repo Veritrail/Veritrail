@@ -195,7 +195,7 @@ async def github_webhook(
         event=event,
         changed_iac_paths=changed,
         scan_result={"status": "scanned", "changed_iac_paths": changed, "result": scan_result, **ctx},
-        vigil_base_url=settings.FRONTEND_URL,
+        veritrail_base_url=settings.FRONTEND_URL,
     )
 
     return {
@@ -316,14 +316,14 @@ async def gitlab_webhook(
             critical_or_high = native.get("high", 0) + external.get("high", 0)
 
             note_body = (
-                f"## 🔍 Vigil IaC Scan Results\n\n"
+                f"## 🔍 Veritrail IaC Scan Results\n\n"
                 f"**{total} finding(s)** detected in changed `.tf`/`.hcl` files.\n\n"
             )
             if critical_or_high:
                 note_body += f"⚠️ **{critical_or_high} high-severity** findings require attention.\n\n"
             note_body += (
-                f"View full details in Vigil: {settings.FRONTEND_URL}/dashboard/iac\n\n"
-                f"---\n*Scan performed by Vigil IaC security lint.*"
+                f"View full details in Veritrail: {settings.FRONTEND_URL}/dashboard/iac\n\n"
+                f"---\n*Scan performed by Veritrail IaC security lint.*"
             )
 
             with httpx.Client(headers={"Authorization": f"Bearer {token}"}, timeout=20) as client:

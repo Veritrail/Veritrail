@@ -1,16 +1,16 @@
 import { LegalSection, LegalShell } from "../components/LegalShell";
 
 // Edit these three for your legal entity before launch.
-const ENTITY = "Vigil";
-const CONTACT_EMAIL = "privacy@vigil.app"; // TODO: replace with your real contact address
+const ENTITY = "Veritrail";
+const CONTACT_EMAIL = "privacy@veritrail.app"; // TODO: replace with your real contact address
 const UPDATED = "June 21, 2026";
 
 export default function Privacy() {
   return (
     <LegalShell title="Privacy Policy" updated={UPDATED}>
       <p>
-        This Privacy Policy explains what information {ENTITY} ("we", "us") collects when you use the Vigil
-        service, why we collect it, how we protect it, and the choices you have. Vigil is a read-only cloud
+        This Privacy Policy explains what information {ENTITY} ("we", "us") collects when you use the Veritrail
+        service, why we collect it, how we protect it, and the choices you have. Veritrail is a read-only cloud
         compliance-evidence tool for engineering teams.
       </p>
 
@@ -30,10 +30,10 @@ export default function Privacy() {
             ID. The role ARN and external ID are encrypted at rest.
           </li>
           <li>
-            <strong>Scan results (configuration metadata).</strong> When you connect an account, Vigil assumes the
+            <strong>Scan results (configuration metadata).</strong> When you connect an account, Veritrail assumes the
             read-only role you create and collects <em>configuration and metadata</em> about your AWS resources — for
             example IAM users, roles, policies and access-key usage; S3, KMS, EC2/EBS, VPC, RDS and similar resource
-            settings; CloudTrail event metadata; and the findings and evidence snapshots derived from them. Vigil does
+            settings; CloudTrail event metadata; and the findings and evidence snapshots derived from them. Veritrail does
             <strong> not</strong> read the contents of your data stores (object/file contents) or the values of your
             secrets — only the configuration needed to evaluate posture.
           </li>
@@ -75,12 +75,12 @@ export default function Privacy() {
 
       <LegalSection heading="Who we share it with">
         <p>
-          We do not sell your data. We share it only with service providers that help us run Vigil, under contract and
+          We do not sell your data. We share it only with service providers that help us run Veritrail, under contract and
           only as needed:
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><strong>Cloud hosting / infrastructure</strong> — to operate the application and database.</li>
-          <li><strong>Amazon Web Services</strong> — Vigil assumes the read-only role <em>you</em> create to scan your account.</li>
+          <li><strong>Amazon Web Services</strong> — Veritrail assumes the read-only role <em>you</em> create to scan your account.</li>
           <li><strong>Email delivery</strong> — to send digests, invitations, and alerts you opt into.</li>
         </ul>
         <p>We may also disclose data if required by law or to protect our rights and users.</p>
@@ -96,7 +96,7 @@ export default function Privacy() {
       </LegalSection>
 
       <LegalSection heading="Children">
-        <p>Vigil is a business tool and is not directed to anyone under 16. We do not knowingly collect their data.</p>
+        <p>Veritrail is a business tool and is not directed to anyone under 16. We do not knowingly collect their data.</p>
       </LegalSection>
 
       <LegalSection heading="Changes to this policy">

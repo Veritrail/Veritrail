@@ -24,7 +24,7 @@ def collect_iam_server_certificates(db: Session, account: AwsAccount) -> int:
         sess = assume_role(
             account.role_arn,
             account.external_id,
-            session_name="vigil-iam-certs",
+            session_name="veritrail-iam-certs",
             aws_account=account,
             purpose="collect_iam_server_certificates",
         )
