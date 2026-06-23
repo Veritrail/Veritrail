@@ -24,10 +24,14 @@ export EMAIL="${EMAIL:-zenmyx@gmail.com}"
 export ENV_FILE="${ENV_FILE:-.env.prod}"
 export DOMAIN="${DOMAIN:-app.veritrail.io}"
 export API_DOMAIN="${API_DOMAIN:-api.veritrail.io}"
+export COMPOSE_DISABLE_GIT_TRACKING="${COMPOSE_DISABLE_GIT_TRACKING:-1}"
+export BUILDX_NO_DEFAULT_ATTESTATIONS="${BUILDX_NO_DEFAULT_ATTESTATIONS:-1}"
 
 if [[ "$(id -u)" -eq 0 ]]; then
   exec "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"
 fi
 
 exec sudo -E EMAIL="$EMAIL" ENV_FILE="$ENV_FILE" DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" \
+  COMPOSE_DISABLE_GIT_TRACKING="$COMPOSE_DISABLE_GIT_TRACKING" \
+  BUILDX_NO_DEFAULT_ATTESTATIONS="$BUILDX_NO_DEFAULT_ATTESTATIONS" \
   "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"

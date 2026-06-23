@@ -3,6 +3,8 @@ WORKDIR /app
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ .
+# If host node_modules slipped into context, reinstall so .bin/vite stays executable.
+RUN if [ ! -x node_modules/.bin/vite ]; then rm -rf node_modules && npm ci; fi
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build

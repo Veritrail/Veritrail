@@ -79,10 +79,10 @@ Fresh Ubuntu EC2 (22.04/24.04): clone the repo, copy your secrets to `.env.prod`
 ```bash
 git clone https://github.com/awakzdev/Vigil.git && cd Vigil
 # scp or edit .env.prod with prod secrets (JWT, OAuth, Postgres password, etc.)
-sudo EMAIL=you@example.com ./scripts/launch-prod.sh
+sudo EMAIL=you@example.com bash scripts/launch-prod.sh
 ```
 
-`launch-prod.sh` defaults to `ENV_FILE=.env.prod`, installs Docker + certbot on a bare host, copies `.env.prod` → `.env`, sets `APP_ENV=production`, obtains TLS certs, runs migrations, and starts the prod compose profile.
+`launch-prod.sh` defaults to `ENV_FILE=.env.prod`, installs Docker + certbot on a bare host, copies `.env.prod` → `.env`, sets `APP_ENV=production`, obtains TLS certs, runs migrations, and starts the prod compose profile. **Git auth is not required to build** — compose only uses git optionally for image labels (disabled by default). Do not run `npm install` in `web/` on the host before building; if you did, `rm -rf web/node_modules` before deploy.
 
 **Redeploy** on an already-bootstrapped host (git pull + migrate + rebuild):
 

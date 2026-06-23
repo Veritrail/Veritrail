@@ -49,6 +49,11 @@ log() { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
+# Docker Compose tries `git rev-parse` during build to stamp image metadata.
+# That is optional — builds must not depend on git auth or even a .git directory.
+export COMPOSE_DISABLE_GIT_TRACKING="${COMPOSE_DISABLE_GIT_TRACKING:-1}"
+export BUILDX_NO_DEFAULT_ATTESTATIONS="${BUILDX_NO_DEFAULT_ATTESTATIONS:-1}"
+
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -514,6 +519,15 @@ deploy_compose() {
 
   log "Running database migrations..."
   compose_no_profile run --rm api alembic upgrade head
+
+  # Defend against host web/node_modules + web/dist copied in via SFTP/scp:
+  # `COPY web/ .` in Dockerfile.prod would overwrite the image's clean `npm ci`
+  # output and break node_modules/.bin (sh: vite: Permission denied, exit 126).
+  # .dockerignore covers this only if it transferred; this guarantees it.
+  if [[ -d "$REPO_DIR/web/node_modules" || -d "$REPO_DIR/web/dist" ]]; then
+    log "Removing host web/node_modules + web/dist (prevents exit-126 vite build break)..."
+    rm -rf "$REPO_DIR/web/node_modules" "$REPO_DIR/web/dist"
+  fi
 
   log "Building and starting production stack..."
   compose up -d --build
