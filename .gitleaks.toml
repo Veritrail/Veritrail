@@ -1,0 +1,11 @@
+# Extend default gitleaks rules; allowlist known false positives in test/UI data.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Test fixtures and check label strings that match secret heuristics"
+targetRules = ["aws-access-token", "generic-api-key"]
+paths = [
+  '''(?:^|/)api/tests/test_sensitive_display\.py$''',
+  '''(?:^|/)web/src/data/checkLabels\.ts$''',
+]
