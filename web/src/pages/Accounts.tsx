@@ -73,6 +73,15 @@ const DEFAULT_CONNECTION_OPTIONS: ConnectionOptions = {
   remediation_modules: { ...DEFAULT_REMEDIATION_MODULES },
 };
 
+function defaultOnboardingConnectionOptions(): ConnectionOptions {
+  return {
+    enable_advanced_policy_generation: true,
+    remediation_modules: Object.fromEntries(
+      Object.keys(DEFAULT_REMEDIATION_MODULES).map((k) => [k, true]),
+    ) as RemediationModules,
+  };
+}
+
 function roleArnFieldValidation(
   roleArn: string,
   verify: { isPending: boolean; isError: boolean; isSuccess: boolean },
@@ -1859,9 +1868,9 @@ function CliCodeBlock({
 type DeployTab = "console" | "cli" | "terraform";
 
 const ONBOARDING_FLOW_STEPS = [
-  { n: 1, label: "Capabilities" },
-  { n: 2, label: "Deploy" },
-  { n: 3, label: "Verify" },
+  { n: 1, label: "Choose capabilities" },
+  { n: 2, label: "Review access" },
+  { n: 3, label: "Connect account" },
 ] as const;
 
 /** Map in-card wizard step → top stepper (Choose capabilities / Deploy / Verify). */
@@ -1957,35 +1966,69 @@ const ONBOARDING_CAPS = [
   {
     id: "core" as const,
     title: "Core scan",
-    blurb: "Read-only scan for security and compliance.",
+    blurb: "Continuously scan for security and compliance issues.",
     icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z",
-    tone: "violet" as const,
-    badge: { label: "Required", tone: "violet" as const },
+    tone: "teal" as const,
+    badge: { label: "Required", tone: "teal" as const },
     required: true,
+    roleName: "VeritrailCoreScanRole",
+    drawerLabel: "ReadOnly",
+    accessType: "Read-only" as const,
   },
   {
     id: "iam" as const,
     title: "IAM analysis",
-    blurb: "Generate least-privilege recommendations.",
+    blurb: "Analyze IAM permissions and generate least-privilege recommendations.",
     icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125Z",
     tone: "blue" as const,
     badge: { label: "Optional", tone: "slate" as const },
     required: false,
+    roleName: "VeritrailIamAnalysisRole",
+    drawerLabel: "IAMAnalysis",
+    accessType: "Analysis" as const,
   },
   {
     id: "ssm" as const,
     title: "Remediation",
-    blurb: "Automate fixes with scoped permissions.",
-    icon: "M11.42 15.17L6.34 20.25a2.121 2.121 0 01-2.83-2.83l5.08-5.08m2.83 2.83l4.24-4.24m-4.24 4.24a4 4 0 015.5-5.46l-2.3 2.3 1.83 1.83 2.3-2.3a4 4 0 01-5.46 5.5",
-    tone: "emerald" as const,
+    blurb: "Automate fixes with scoped permissions and approvals.",
+    icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z",
+    tone: "amber" as const,
     badge: { label: "Scoped write", tone: "amber" as const },
     required: false,
+    roleName: "VeritrailRemediationRole",
+    drawerLabel: "Remediation",
+    accessType: "Scoped write" as const,
   },
 ] as const;
 
-/** Onboarding step 1 — three capability cards (icon tile + circle selector + badge),
- *  wired to the live ConnectionOptions. Capabilities are additive: Core is required
- *  + on; IAM and Remediation are optional add-ons. */
+const ONBOARDING_VALUE_PROPS = [
+  {
+    title: "Least privilege by design",
+    blurb: "Each capability maps to a dedicated IAM role with scoped permissions.",
+    icon: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z",
+  },
+  {
+    title: "Full transparency",
+    blurb: "Review every permission before you deploy the CloudFormation stack.",
+    icon: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+  },
+  {
+    title: "Secure by default",
+    blurb: "Core scanning stays read-only. Write access is optional and scoped.",
+    icon: "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z",
+  },
+] as const;
+
+function onboardingCapIsOn(value: ConnectionOptions, id: (typeof ONBOARDING_CAPS)[number]["id"]) {
+  const ssmOn = anyRemediationEnabled(value.remediation_modules);
+  return id === "core" ? true : id === "iam" ? value.enable_advanced_policy_generation : ssmOn;
+}
+
+function selectedOnboardingCaps(value: ConnectionOptions) {
+  return ONBOARDING_CAPS.filter((c) => onboardingCapIsOn(value, c.id));
+}
+
+/** Onboarding step 1 — capability cards with role mapping (mock: choose capabilities). */
 function OnboardingCapabilityCards({
   value,
   onChange,
@@ -2000,9 +2043,6 @@ function OnboardingCapabilityCards({
     Object.keys(DEFAULT_REMEDIATION_MODULES).map((k) => [k, true]),
   ) as RemediationModules;
 
-  const isOn = (id: (typeof ONBOARDING_CAPS)[number]["id"]) =>
-    id === "core" ? true : id === "iam" ? value.enable_advanced_policy_generation : ssmOn;
-
   const toggle = (id: (typeof ONBOARDING_CAPS)[number]["id"]) => {
     if (id === "iam") {
       onChange({ ...value, enable_advanced_policy_generation: !value.enable_advanced_policy_generation });
@@ -2014,7 +2054,7 @@ function OnboardingCapabilityCards({
   return (
     <div className="accounts-cap-grid">
       {ONBOARDING_CAPS.map((c) => {
-        const on = isOn(c.id);
+        const on = onboardingCapIsOn(value, c.id);
         return (
           <button
             key={c.id}
@@ -2024,6 +2064,14 @@ function OnboardingCapabilityCards({
             aria-pressed={on}
             className={`accounts-cap-card accounts-cap-card--${c.tone}${on ? " is-selected" : ""}${c.required ? " is-required" : ""}`}
           >
+            {on ? (
+              <span className={`accounts-cap-card__check accounts-cap-card__check--${c.tone}`} aria-hidden>
+                <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+            ) : null}
+
             <span className={`accounts-cap-card__icon-ring accounts-cap-card__icon-ring--${c.tone}`}>
               <svg className="accounts-cap-card__icon" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d={c.icon} />
@@ -2034,10 +2082,29 @@ function OnboardingCapabilityCards({
               {c.badge.label}
             </span>
             <p className="accounts-cap-card__blurb">{c.blurb}</p>
-            <span className={`accounts-cap-card__selector${on ? " is-on" : ""}`} aria-hidden />
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function OnboardingValueProps() {
+  return (
+    <div className="accounts-connect-value-props">
+      {ONBOARDING_VALUE_PROPS.map((item) => (
+        <div key={item.title} className="accounts-connect-value-props__item">
+          <span className="accounts-connect-value-props__icon" aria-hidden>
+            <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+            </svg>
+          </span>
+          <div>
+            <p className="accounts-connect-value-props__title">{item.title}</p>
+            <p className="accounts-connect-value-props__blurb">{item.blurb}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -2055,48 +2122,84 @@ function FirstAccountOnboarding({
   onContinue: () => void;
   continuing: boolean;
 }) {
-  const selectedNames = [
-    "Core scan",
-    value.enable_advanced_policy_generation ? "IAM analysis" : null,
-    anyRemediationEnabled(value.remediation_modules) ? "Remediation" : null,
-  ].filter((x): x is string => Boolean(x));
+  const selected = selectedOnboardingCaps(value);
+  const accessTypes = [...new Set(selected.map((c) => c.accessType))];
 
   return (
     <div className="accounts-connect-shell">
-      <div className="accounts-connect-shell__header">
-        <h2 className="accounts-connect-shell__title">Connect a cloud account</h2>
-        <p className="accounts-connect-shell__subtitle">
-          Choose the capabilities to enable for this connection.
-        </p>
+      <div className="accounts-connect-shell__progress" aria-label="Setup progress">
+        <OnboardingFlowProgress activeStep={1} />
       </div>
 
-      <OnboardingCapabilityCards value={value} onChange={onChange} disabled={disabled} />
-
-      <div className="accounts-connect-shell__footer">
-        <div className="accounts-connect-shell__selection">
-          <span className="accounts-connect-shell__selection-icon" aria-hidden>
-            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-            </svg>
-          </span>
-          <div>
-            <p className="accounts-connect-shell__selection-label">
-              {selectedNames.length === 1 ? "Selected capability" : "Selected capabilities"}
+      <div className="accounts-connect-shell__layout">
+        <div className="accounts-connect-shell__main">
+          <div className="accounts-connect-shell__header">
+            <h2 className="accounts-connect-shell__title">Connect a cloud account</h2>
+            <p className="accounts-connect-shell__subtitle">
+              Choose the capabilities to enable for this connection.
             </p>
-            <p className="accounts-connect-shell__selection-value">{selectedNames.join(" · ")}</p>
+          </div>
+
+          <OnboardingCapabilityCards value={value} onChange={onChange} disabled={disabled} />
+          <OnboardingValueProps />
+
+          <div className="accounts-connect-shell__footer">
+            <div className="accounts-connect-shell__footer-stats">
+              <div className="accounts-connect-shell__footer-stat">
+                <p className="accounts-connect-shell__footer-label">Selected capabilities</p>
+                <div className="accounts-connect-shell__cap-icons">
+                  {selected.map((c) => (
+                    <span
+                      key={c.id}
+                      className={`accounts-connect-shell__cap-icon accounts-connect-shell__cap-icon--${c.tone}`}
+                      title={c.title}
+                    >
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d={c.icon} />
+                      </svg>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="accounts-connect-shell__footer-stat">
+                <p className="accounts-connect-shell__footer-label">Roles to be created</p>
+                <p className="accounts-connect-shell__footer-value">
+                  {selected.length} IAM role{selected.length === 1 ? "" : "s"}
+                </p>
+              </div>
+              <div className="accounts-connect-shell__footer-stat">
+                <p className="accounts-connect-shell__footer-label">Access model</p>
+                <div className="accounts-connect-shell__footer-badges">
+                  {accessTypes.map((t) => (
+                    <span
+                      key={t}
+                      className={`accounts-connect-shell__footer-badge${
+                        t === "Scoped write"
+                          ? " accounts-connect-shell__footer-badge--muted"
+                          : t === "Analysis"
+                            ? " accounts-connect-shell__footer-badge--blue"
+                            : ""
+                      }`}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onContinue}
+              disabled={disabled || continuing}
+              className="accounts-connect-shell__cta"
+            >
+              {continuing ? "Setting up…" : "Continue to review"}
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </button>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={disabled || continuing}
-          className="accounts-connect-shell__cta"
-        >
-          {continuing ? "Setting up…" : "Continue to deploy"}
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </button>
       </div>
     </div>
   );
@@ -3867,7 +3970,7 @@ export default function Accounts() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAllAccounts, setShowAllAccounts] = useState(false);
   const [pendingConnectionOptions, setPendingConnectionOptions] = useState<ConnectionOptions>(
-    DEFAULT_CONNECTION_OPTIONS,
+    defaultOnboardingConnectionOptions,
   );
   const [page, setPage] = useState(1);
   const pageSize = 10;

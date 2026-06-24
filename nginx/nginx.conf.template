@@ -62,6 +62,8 @@ http {
 
         include /etc/nginx/iap/iap.oauth2.conf;
 
+        include /etc/nginx/public-app-routes.conf;
+
         location / {
             include /etc/nginx/iap/iap.auth.conf;
             limit_req zone=veritrail_general burst=40 nodelay;

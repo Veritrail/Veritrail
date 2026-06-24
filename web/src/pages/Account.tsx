@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, formatApiError, storeTokens } from "../api";
-import { meSchema, workspaceListSchema, type Me } from "../lib/apiSchemas";
+import { api, formatApiError } from "../api";
+import { meSchema, type Me } from "../lib/apiSchemas";
 import {
   OverviewActionCard,
   OverviewFactRow,
@@ -11,8 +11,6 @@ import {
   ReadinessChecklistPanel,
   type Tone,
 } from "./Workspace";
-import { HeaderSlot } from "../context/HeaderSlot";
-import { WorkspaceSwitcher, type WorkspaceEntry } from "../components/WorkspaceSwitcher";
 
 // d-path icons for the Workspace-style KPI strip + overview cards (Workspace's
 // Icon component renders a single <path d>). Kept local so the Account page
@@ -175,21 +173,8 @@ export default function Account() {
   const [recoveryDialog, setRecoveryDialog] = useState<{ type: "email" | "phone"; value: string } | null>(null);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [toast, setToast] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-  const SUPPORT_EMAIL = "elazar.chodjayev@cloud-castles.com";
 
   const { data: me } = useQuery<Me>({ queryKey: ["me"], queryFn: () => api("/v1/auth/me", { schema: meSchema }) });
-  const { data: workspaces = [] } = useQuery<WorkspaceEntry[]>({ queryKey: ["workspaces"], queryFn: () => api("/v1/auth/workspaces", { schema: workspaceListSchema }), enabled: !!me });
-
-  const switchWorkspace = useMutation({
-    mutationFn: (orgId: string) => api<{ access_token: string }>("/v1/auth/workspaces/switch", { method: "POST", body: JSON.stringify({ org_id: orgId }) }),
-    onSuccess: (data) => {
-      storeTokens(data.access_token);
-      qc.invalidateQueries({ queryKey: ["me"] });
-      qc.invalidateQueries({ queryKey: ["workspaces"] });
-      qc.invalidateQueries({ queryKey: ["settings"] });
-      window.location.reload();
-    },
-  });
 
   const forgotPassword = useMutation({
     mutationFn: () => api("/v1/auth/password-reset/request", { method: "POST", body: JSON.stringify({ email: me?.email }) }),
@@ -308,23 +293,6 @@ export default function Account() {
 
   return (
     <div className="flex w-full max-w-none flex-col gap-5 pb-2">
-      <HeaderSlot>
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          currentOrgId={me?.org_id ?? ""}
-          onSwitch={(id) => switchWorkspace.mutate(id)}
-          pending={switchWorkspace.isPending}
-        />
-        <a
-          href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Veritrail support request")}`}
-          className="ml-auto inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-semibold tracking-tight text-slate-700 no-underline shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-        >
-          <svg className="h-[18px] w-[18px] text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-          </svg>
-          Get help
-        </a>
-      </HeaderSlot>
 
       <div className="workspace-summary">
         <PostureReadinessCell

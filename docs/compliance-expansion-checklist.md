@@ -296,4 +296,4 @@ Source files: `api/data/control_mappings.json`, `web/src/data/checkComplianceCop
 |-----|---------|
 | [deepsearch-v6-map.md](./deepsearch-v6-map.md) | IAM / policy-gen |
 | [cis-v5-40-controls.md](./cis-v5-40-controls.md) | CIS reference |
-| [HANDOFF.md](../HANDOFF.md) | Shipped features |
+| [README.md](../README.md) | Shipped features and launch scope |

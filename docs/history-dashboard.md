@@ -55,4 +55,4 @@
 
 - [deepsearch-v4-map.md](./deepsearch-v4-map.md) — History row
 - `api/app/services/compliance_timeline.py` — control-level history for Controls drawer
-- `HANDOFF.md` — session 29 History UX
+- `README.md` — launch scope and current architecture

@@ -61,6 +61,45 @@
 }
 
 @layer components {
+  .veritrail-app-main {
+    isolation: isolate;
+    background:
+      linear-gradient(180deg, #fbfcff 0%, #f7f9fc 42%, #f8fafc 100%);
+  }
+
+  .veritrail-app-main::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.84) 58%, rgba(241, 245, 249, 0.5) 100%);
+  }
+
+  .veritrail-app-main::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.24;
+    background-image: radial-gradient(circle at center, rgba(100, 116, 139, 0.22) 0 1px, transparent 1.35px);
+    background-size: 18px 18px;
+    -webkit-mask-image:
+      linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 5.5rem, rgba(0, 0, 0, 0.36) 11rem),
+      linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 44%, rgba(0, 0, 0, 0.32) 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 5.5rem, rgba(0, 0, 0, 0.36) 11rem),
+      linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.08) 44%, rgba(0, 0, 0, 0.32) 100%);
+    mask-composite: intersect;
+  }
+
+  .veritrail-app-header {
+    background: rgba(248, 250, 252, 0.68);
+  }
+
   .veritrail-card {
     @apply rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-6px_rgba(15,23,42,0.08)];
   }

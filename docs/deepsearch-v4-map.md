@@ -119,4 +119,4 @@ Code: `web/src/pages/Controls.tsx` — `ControlStatusBlock`, `ControlEvaluationB
 2. **Next:** History dashboard v2 (per-control trends, scan heatmap); auditor share record + read-only viewer; expand hclpatch beyond S3/KMS.
 3. **Later:** SSM runbook packs; Terraform modules for customer remediation deploy (optional; CFN is fine today).
 
-See also: [policy-generator-iam-last-accessed.md](./policy-generator-iam-last-accessed.md), [remediation-automation.md](./remediation-automation.md), [evidence-vault.md](./evidence-vault.md), [HANDOFF.md](../HANDOFF.md) session 29.
+See also: [policy-generator-iam-last-accessed.md](./policy-generator-iam-last-accessed.md), [remediation-automation.md](./remediation-automation.md), and [evidence-vault.md](./evidence-vault.md).

@@ -14,7 +14,7 @@ export async function postAuthPath(): Promise<"/accounts" | "/findings"> {
 }
 
 /** Routes reachable before a connected AWS account exists. */
-export const ACCOUNT_OPTIONAL_PATHS = new Set(["/accounts", "/account"]);
+export const ACCOUNT_OPTIONAL_PATHS = new Set(["/accounts", "/account", "/profile"]);
 
 export function pathRequiresConnectedAccount(pathname: string): boolean {
   return !ACCOUNT_OPTIONAL_PATHS.has(pathname);

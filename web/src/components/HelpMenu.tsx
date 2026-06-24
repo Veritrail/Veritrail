@@ -46,29 +46,15 @@ export default function HelpMenu() {
             onClick={() => setOpen(false)}
             className="block px-3 py-2.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50"
           >
-            Reference
+            Documentation
           </Link>
           <a
             href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Veritrail support request")}`}
             onClick={() => setOpen(false)}
             className="block px-3 py-2.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50"
           >
-            Contact support
+            Contact Support
           </a>
-          <Link
-            to="/privacy"
-            onClick={() => setOpen(false)}
-            className="block px-3 py-2.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50"
-          >
-            Privacy
-          </Link>
-          <Link
-            to="/terms"
-            onClick={() => setOpen(false)}
-            className="block px-3 py-2.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50"
-          >
-            Terms
-          </Link>
         </div>
       )}
     </div>

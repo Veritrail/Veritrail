@@ -77,7 +77,7 @@ AWS in dev: mount `~/.aws` (already in `compose.yml`) and set `AWS_PROFILE` in `
 Fresh Ubuntu EC2 (22.04/24.04): clone the repo, copy your secrets to `.env.prod`, then bootstrap once:
 
 ```bash
-git clone https://github.com/awakzdev/Vigil.git && cd Vigil
+git clone https://github.com/awakzdev/Veritrail.git && cd Veritrail
 # scp or edit .env.prod with prod secrets (JWT, OAuth, Postgres password, etc.)
 sudo EMAIL=you@example.com bash scripts/launch-prod.sh
 ```
@@ -98,7 +98,28 @@ Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue
 - Security group allows inbound TCP 80 and 443
 - EC2 instance profile IAM role (used to auto-detect `TRUST_PRINCIPAL_ARN` when unset)
 
-Compose: `compose.yml` + `compose.prod.yml` with `ENV_FILE=.env.prod` and `--profile prod`. After bootstrap, `source .compose.prod.env` before manual compose commands.
+Production uses the base compose file plus the production override:
+
+```bash
+ENV_FILE=.env.prod docker compose \
+  -f compose.yml \
+  -f compose.prod.yml \
+  --env-file .env.prod \
+  --profile prod \
+  up -d
+```
+
+If `IAP_ENABLED=true`, add `-f compose.iap.yml --profile iap`; `scripts/launch-prod.sh` and `scripts/bootstrap-ec2.sh` do this automatically. After bootstrap, `source .compose.prod.env` before manual compose commands.
+
+Compose file roles:
+
+| File | Use |
+|------|-----|
+| `compose.yml` | Base local/dev services plus shared prod-profile services such as `nginx` and `backup` |
+| `compose.prod.yml` | Production override: prod Dockerfiles, no bind mounts, no local dev ports, multi-worker API |
+| `compose.iap.yml` | Optional production override that makes nginx wait for `oauth2-proxy` when IAP is enabled |
+
+`var/log/nginx/` is intentionally kept in the repo with `.gitkeep`. In production nginx writes `access.log` and `error.log` there, and fail2ban reads `access.log`; the actual `*.log` files are ignored.
 
 ---
 
@@ -224,9 +245,9 @@ Every evidence item is timestamped with collection time and source API. Evidence
 
 ---
 
-## Remediation (read-only scanning + optional customer automation)
+## Remediation (read-only core + optional customer automation)
 
-Veritrail scanning is read-only. If you explicitly enable remediation modules, approved fixes run through customer-owned SSM Automation with scoped permissions. Remediation paths:
+Veritrail's Core Scanner is read-only. If you explicitly enable remediation modules, approved fixes run through customer-owned SSM Automation with scoped permissions. Remediation paths:
 
 | Path | What it does |
 |------|----------------|
@@ -262,13 +283,13 @@ Full runbook: [docs/remediation-automation.md](docs/remediation-automation.md).
 
 ## AWS permissions
 
-Deployed via [`infra/cfn/veritrail-readonly-role.yaml`](infra/cfn/veritrail-readonly-role.yaml).
+Core Scanner is deployed via [`infra/cfn/veritrail-readonly-role.yaml`](infra/cfn/veritrail-readonly-role.yaml).
 
-**Read-only. No write permissions. Ever.**
+**Read-only by default. Optional modules require separate customer-approved permissions.**
 
 Base role is strictly **Read / List / Describe** access-level. Key actions: `iam:Get*` / `iam:List*` · `iam:GenerateServiceLastAccessedDetails` / `iam:GetServiceLastAccessedDetails` (read access reports; no mutation) · `s3:GetBucket*` · `s3:ListAllMyBuckets` · `kms:Describe*` / `kms:List*` · `cloudtrail:Describe*` / `cloudtrail:LookupEvents` · `guardduty:List*` / `guardduty:Get*` · `ec2:Describe*` · `rds:Describe*` · `access-analyzer:ListAnalyzers` · `config:Describe*` · `securityhub:Describe*` · `sts:GetCallerIdentity`.
 
-The Write access-level IAM Access Analyzer **policy-generation** actions (`StartPolicyGeneration` / `GetGeneratedPolicy` / `ListPolicyGenerations` / `CancelPolicyGeneration`) are **not** in the base role. They live in an optional separate role `*AdvancedPolicyGen`, created only when `EnableAdvancedPolicyGeneration=Yes` — enable it only if you want Veritrail's Advanced least-privilege policy generation. A second optional role `*AccessAnalyzerMonitor` (Access Analyzer service principal) grants CloudTrail S3 read during policy generation.
+The Write access-level IAM Access Analyzer **policy-generation** actions (`StartPolicyGeneration` / `GetGeneratedPolicy` / `ListPolicyGenerations` / `CancelPolicyGeneration`) are **not** in the base role. They live in an optional separate role `*AdvancedPolicyGen`, created only when `EnableAdvancedPolicyGeneration=Yes` — enable it only if you want Veritrail's Advanced least-privilege policy generation. A second optional role `*AccessAnalyzerMonitor` (Access Analyzer service principal) grants CloudTrail S3 read during policy generation. Remediation uses a separate customer-owned SSM Automation stack and runs only after approval.
 
 The role uses `ExternalId` (confused-deputy protection). Only `TRUST_PRINCIPAL_ARN` can assume it.
 
@@ -297,7 +318,9 @@ infra/
   cfn/            veritrail-readonly-role.yaml
                   veritrail-remediation-ssm.yaml          ← SG/SSM remediation (SSM Automation)
 docs/             remediation-automation.md, evidence-vault.md
-compose.yml
+compose.yml       base dev/shared compose file
+compose.prod.yml  production override
+compose.iap.yml   optional production IAP override
 ```
 
 ---
@@ -383,7 +406,7 @@ See [`docs/deepsearch-v4-map.md`](docs/deepsearch-v4-map.md) for the full featur
 | Repo-aware Terraform beyond S3/KMS patch | **Partial** |
 | Docs said vault “scaffold only” | **Fixed** — code was ahead of docs |
 
-**Other planning docs:** day-to-day scope and session history live in [`HANDOFF.md`](HANDOFF.md) (roadmap, working agreements, per-session shipped lists). Product constraints are summarized in [`CLAUDE.md`](CLAUDE.md). Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md).
+**Reference docs:** Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). Product assessment: [`docs/product-assessment-2026-06.md`](docs/product-assessment-2026-06.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md).
 
 **Ops hygiene:** Never distribute repo archives with `.env` / `.env.prod`. Use `git archive` or CI artifacts. Rotate any secret that ever appeared in a shared ZIP.
 

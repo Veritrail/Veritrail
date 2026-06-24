@@ -24,6 +24,7 @@ import JiraIntegration from "./pages/JiraIntegration";
 import Integrations from "./pages/Integrations";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
+import PublicHome from "./pages/PublicHome";
 import Layout from "./Layout";
 import AuditorLogin from "./pages/AuditorLogin";
 import AuditorLayout from "./pages/AuditorLayout";
@@ -54,6 +55,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
+          <Route path="/" element={<PublicHome />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
@@ -61,13 +63,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route element={<Layout />}>
-            <Route path="/" element={<Navigate to="/findings" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/findings" element={<Findings />} />
             <Route path="/reference" element={<Reference />} />
             <Route path="/resources" element={<Navigate to="/findings" replace />} />
             <Route path="/accounts" element={<Accounts />} />
-            <Route path="/account" element={<Account />} />
+            <Route path="/profile" element={<Account />} />
+            <Route path="/account" element={<Navigate to="/profile" replace />} />
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/settings" element={<Navigate to="/workspace" replace />} />
             <Route path="/trust-center" element={<Navigate to="/workspace#sharing" replace />} />

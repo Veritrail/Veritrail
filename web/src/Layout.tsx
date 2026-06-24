@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, restoreSession, storeTokens, token } from "./api";
 import { accountListSchema, workspaceListSchema } from "./lib/apiSchemas";
@@ -8,8 +8,7 @@ import { RecheckNotificationsProvider } from "./context/RecheckNotificationsCont
 import { HeaderSlotContext } from "./context/HeaderSlot";
 import NotificationsBell from "./components/NotificationsBell";
 import HelpMenu from "./components/HelpMenu";
-import SidebarWorkspaceCard from "./components/SidebarWorkspaceCard";
-import UserMenu from "./components/UserMenu";
+import SidebarUserCard from "./components/SidebarUserCard";
 import SidebarNavLink from "./components/SidebarNavLink";
 import { WorkspaceSwitcher, type WorkspaceEntry } from "./components/WorkspaceSwitcher";
 import { isAccountConnected } from "./lib/accountConnection";
@@ -17,8 +16,25 @@ import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
 import "./styles/sidebar.css";
 import "./styles/user-menu.css";
 
-/** Drop your logo at `public/brand/veritrail-mark.svg` (or .png). */
+/** Brand logo lives at `public/brand/veritrail-mark.png`. */
 const SIDEBAR_LOGO_SRC = "/brand/veritrail-mark.png";
+
+type SidebarIconName = "accounts" | "findings" | "compliance" | "history" | "integrations" | "workspace";
+type SidebarIconStyle = CSSProperties & { "--sidebar-icon-url": string };
+
+const SIDEBAR_ICONS: Record<SidebarIconName, string> = {
+  accounts: "/icons/sidebar/veritrail-icon-accounts-line.png",
+  findings: "/icons/sidebar/veritrail-icon-findings-line.png",
+  compliance: "/icons/sidebar/veritrail-icon-compliance-line.png",
+  history: "/icons/sidebar/veritrail-icon-history-line.png",
+  integrations: "/icons/sidebar/veritrail-icon-integrations-line.png",
+  workspace: "/icons/sidebar/veritrail-icon-workspace-line.png",
+};
+
+function SidebarIcon({ name }: { name: SidebarIconName }) {
+  const style: SidebarIconStyle = { "--sidebar-icon-url": `url(${SIDEBAR_ICONS[name]})` };
+  return <span className="app-sidebar__icon" style={style} aria-hidden />;
+}
 
 type AccountRow = { status: string; account_id: string | null };
 
@@ -32,9 +48,13 @@ export default function Layout() {
   const queryClient = useQueryClient();
   const [authReady, setAuthReady] = useState(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("veritrail-sidebar-collapsed") === "1";
+  });
   const requiresAccount = pathRequiresConnectedAccount(location.pathname);
-  const showWorkspaceSwitcher = location.pathname === "/accounts" || location.pathname === "/profile";
-  const workspaceSwitcherTitle = location.pathname === "/profile" ? "Profile" : "Cloud accounts";
+  const showWorkspaceSwitcher = false;
+  const workspaceSwitcherTitle = "Profile";
 
   const meQ = useMe();
   const canManageAccounts = roleAtLeast(meQ.data?.role, "admin");
@@ -59,13 +79,6 @@ export default function Layout() {
     },
   });
 
-  const planUsageQ = useQuery({
-    queryKey: ["accounts-plan-usage"],
-    queryFn: () =>
-      api<{ plan_label: string }>("/v1/accounts/plan-usage"),
-    enabled: authReady && !!meQ.data,
-    staleTime: 60_000,
-  });
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -76,6 +89,10 @@ export default function Layout() {
 
   const hasConnectedAccount =
     accountsQ.isSuccess && accountsQ.data.some((a) => isAccountConnected(a));
+
+  useEffect(() => {
+    window.localStorage.setItem("veritrail-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,70 +149,70 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-[#F6F8FB] text-[#111827]">
-      <aside className="app-sidebar">
+      <aside className={`app-sidebar${sidebarCollapsed ? " is-collapsed" : ""}`}>
         <div className="app-sidebar__brand">
           <img src={SIDEBAR_LOGO_SRC} alt="" className="app-sidebar__logo" decoding="async" />
           <span className="app-sidebar__wordmark">Veritrail</span>
         </div>
 
+        <button
+          type="button"
+          className="app-sidebar__collapse-toggle"
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-pressed={sidebarCollapsed}
+          onClick={() => setSidebarCollapsed((v) => !v)}
+        >
+          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d={sidebarCollapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
+          </svg>
+        </button>
+
         <nav className="app-sidebar__nav">
           {canManageAccounts && (
-            <SidebarNavLink to="/accounts">
-              <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-              </svg>
-              Accounts
+            <SidebarNavLink to="/accounts" title="Accounts">
+              <SidebarIcon name="accounts" />
+              <span className="app-sidebar__label">Accounts</span>
             </SidebarNavLink>
           )}
 
-          <SidebarNavLink to="/findings">
-            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            Findings
+          <SidebarNavLink to="/findings" title="Findings">
+            <SidebarIcon name="findings" />
+            <span className="app-sidebar__label">Findings</span>
           </SidebarNavLink>
 
-          <SidebarNavLink to="/controls">
-            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-            </svg>
-            Compliance
+          <SidebarNavLink to="/controls" title="Compliance">
+            <SidebarIcon name="compliance" />
+            <span className="app-sidebar__label">Compliance</span>
           </SidebarNavLink>
 
-          <SidebarNavLink to="/history" title="Compliance timeline and infrastructure events">
-            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5a2.25 2.25 0 002.25-2.25m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-              />
-            </svg>
-            History
+          <SidebarNavLink to="/history" title="History">
+            <SidebarIcon name="history" />
+            <span className="app-sidebar__label">History</span>
           </SidebarNavLink>
 
           {canManageAccounts && (
-            <SidebarNavLink to="/integrations">
-              <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7a2 2 0 012-2h2.5a2 2 0 011.6.8l.8 1.067a2 2 0 001.6.8H18a2 2 0 012 2V17a2 2 0 01-2 2H6a2 2 0 01-2-2V7z" />
-              </svg>
-              Integrations
+            <SidebarNavLink to="/integrations" title="Integrations">
+              <SidebarIcon name="integrations" />
+              <span className="app-sidebar__label">Integrations</span>
             </SidebarNavLink>
           )}
+
+          <SidebarNavLink to="/workspace" title="Workspace">
+            <SidebarIcon name="workspace" />
+            <span className="app-sidebar__label">Workspace</span>
+          </SidebarNavLink>
         </nav>
 
         <div className="app-sidebar__footer">
-          <SidebarWorkspaceCard
-            orgName={meQ.data?.org_name ?? "Workspace"}
-            planLabel={planUsageQ.data?.plan_label}
-          />
+          {meQ.data?.email ? <SidebarUserCard email={meQ.data.email} subtitle={meQ.data?.org_name ?? "Workspace"} /> : null}
         </div>
       </aside>
 
-      <main className="veritrail-app-main relative ml-64 flex min-h-screen min-w-0 flex-col overflow-hidden">
+      <main className={`veritrail-app-main relative flex min-h-screen min-w-0 flex-col overflow-hidden transition-[margin-left] duration-200 ease-out ${sidebarCollapsed ? "ml-24" : "ml-80"}`}>
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
             {/* App-wide header bar: help + bell on the right, a left slot pages fill via <HeaderSlot>. */}
-            <div className="veritrail-app-header sticky top-0 z-30 flex items-center gap-3 px-8 pt-5 pb-3 backdrop-blur-md">
+            <div className="veritrail-app-header sticky top-0 z-30 flex min-h-[4.75rem] items-center gap-3 px-8 pt-5 pb-3 backdrop-blur-md">
               {showWorkspaceSwitcher && (
                 <WorkspaceSwitcher
                   title={workspaceSwitcherTitle}
@@ -208,7 +225,6 @@ export default function Layout() {
               <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
               <HelpMenu />
               <NotificationsBell />
-              {meQ.data?.email ? <UserMenu email={meQ.data.email} /> : null}
             </div>
             <HeaderSlotContext.Provider value={headerSlot}>
               {/* flex-1 so short pages fill the viewport — lets pages pin

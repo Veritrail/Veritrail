@@ -1,4 +1,4 @@
-name: vigil
+name: veritrail
 
 services:
   db:
@@ -113,6 +113,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/iap:/etc/nginx/iap:ro
+      - ./infra/nginx/public-app-routes.conf:/etc/nginx/public-app-routes.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./var/log/nginx:/var/log/nginx
     depends_on:

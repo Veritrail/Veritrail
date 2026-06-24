@@ -42,4 +42,4 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 echo ""
-echo "See also: README.md onboarding flow and HANDOFF.md for full E2E scope."
+echo "See also: README.md onboarding flow and docs/soc2-coverage-map.md for scope."

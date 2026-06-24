@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
 import { FrameworkMark } from "../components/FrameworkMark";
@@ -368,13 +368,6 @@ export default function HistoryV2() {
               patchSearchParams({ composite: value || null });
             }}
           />
-
-        <Link to="/controls" className="history-compliance-link">
-          View in compliance
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
-          </svg>
-        </Link>
         </div>
       </HeaderSlot>
 

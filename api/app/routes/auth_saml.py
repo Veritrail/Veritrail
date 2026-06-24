@@ -124,15 +124,28 @@ def _saml_settings(cfg: OrgSamlConfig) -> dict:
     }
 
 
+def _request_host(request: Request) -> str:
+    """Host header for SAML request validation (must include non-default port in dev)."""
+    forwarded = request.headers.get("x-forwarded-host")
+    if forwarded:
+        return forwarded
+    host_header = request.headers.get("host")
+    if host_header:
+        return host_header
+    url = request.url
+    if url.port and url.port not in (80, 443):
+        return f"{url.hostname}:{url.port}"
+    return url.hostname or ""
+
+
 def _prepare_request(request: Request, post_data: dict | None = None) -> dict:
     url = request.url
     # Honor the reverse proxy (Caddy/nginx terminate TLS) so SAML Destination /
     # audience checks reconstruct the public https host, not the internal one.
     proto = request.headers.get("x-forwarded-proto", url.scheme)
-    host = request.headers.get("x-forwarded-host") or url.hostname or ""
     return {
         "https": "on" if proto == "https" else "off",
-        "http_host": host,
+        "http_host": _request_host(request),
         "script_name": url.path,
         "get_data": dict(request.query_params),
         "post_data": post_data or {},
@@ -220,8 +233,12 @@ async def saml_acs(slug: str, request: Request, db: Session = Depends(get_db)):
     cfg = _get_enabled_config(db, slug)
     form = await request.form()
     post_data = {k: str(v) for k, v in form.items()}
-    auth = _load_auth(request, cfg, post_data)
-    auth.process_response()
+    try:
+        auth = _load_auth(request, cfg, post_data)
+        auth.process_response()
+    except Exception as e:
+        log.exception("saml.acs_exception", slug=slug, error=str(e))
+        return _error_redirect("saml_invalid_response")
 
     errors = auth.get_errors()
     if errors:

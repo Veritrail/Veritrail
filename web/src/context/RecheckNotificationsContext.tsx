@@ -4,12 +4,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { accountListSchema } from "../lib/apiSchemas";
+import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { readPendingScan, type ScanRunLatest } from "../hooks/useTriggeredScan";
 
 const STORAGE_KEY = "veritrail.recheckNotifications.v3";
 const HISTORY_LIMIT = 100;
@@ -17,6 +21,7 @@ const HISTORY_LIMIT = 100;
 export const RECHECK_TIMEOUT_MS = 30_000;
 const CLOUDTRAIL_POLL_MS = 30_000;
 const CLOUDTRAIL_MAX_MS = 25 * 60 * 1000;
+const SCAN_FAILURE_MONITOR_POLL_MS = 5_000;
 
 export type VerifyNotification = {
   id: string;
@@ -183,11 +188,15 @@ function migrateV2(raw: string): PersistedV3 {
   }
 }
 
-function loadPersisted(): PersistedV3 & { latestVerifyOutcome: VerifyNotification | null } {
+function notificationStorageKey(orgId: string | null | undefined): string {
+  return orgId ? `${STORAGE_KEY}:${orgId}` : `${STORAGE_KEY}:no-org`;
+}
+
+function loadPersisted(storageKey: string): PersistedV3 & { latestVerifyOutcome: VerifyNotification | null } {
   try {
     let state: PersistedV3 = { pendingRecheck: null, pendingCloudTrail: null, history: [] };
 
-    const v3 = localStorage.getItem(STORAGE_KEY);
+    const v3 = localStorage.getItem(storageKey);
     if (v3) {
       const parsed = JSON.parse(v3) as PersistedV3;
       state = {
@@ -239,9 +248,9 @@ function loadPersisted(): PersistedV3 & { latestVerifyOutcome: VerifyNotificatio
   }
 }
 
-function savePersisted(state: PersistedV3) {
+function savePersisted(storageKey: string, state: PersistedV3) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(storageKey, JSON.stringify(state));
   } catch {
     /* ignore */
   }
@@ -292,9 +301,11 @@ type RecheckNotificationsContextValue = {
 
 const RecheckNotificationsContext = createContext<RecheckNotificationsContextValue | null>(null);
 
-export function RecheckNotificationsProvider({ children }: { children: ReactNode }) {
+export function RecheckNotificationsProvider({ children, orgId }: { children: ReactNode; orgId?: string | null }) {
   const qc = useQueryClient();
-  const initial = loadPersisted();
+  const storageKey = useMemo(() => notificationStorageKey(orgId), [orgId]);
+  const initial = loadPersisted(storageKey);
+  const lastReportedScanFailureRef = useRef<Record<string, string>>({});
   const [pendingRecheck, setPendingRecheck] = useState<PendingRecheck | null>(initial.pendingRecheck);
   const [pendingCloudTrail, setPendingCloudTrail] = useState<PendingCloudTrail | null>(
     initial.pendingCloudTrail,
@@ -303,8 +314,8 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
   const [recheckOutcome, setRecheckOutcome] = useState<VerifyNotification | null>(initial.latestVerifyOutcome);
 
   useEffect(() => {
-    savePersisted({ pendingRecheck, pendingCloudTrail, history: notificationHistory });
-  }, [pendingRecheck, pendingCloudTrail, notificationHistory]);
+    savePersisted(storageKey, { pendingRecheck, pendingCloudTrail, history: notificationHistory });
+  }, [pendingRecheck, pendingCloudTrail, notificationHistory, storageKey]);
 
   const recordVerifyOutcome = useCallback(
     (outcome: Omit<VerifyNotification, "completedAt" | "id" | "readAt" | "kind">) => {
@@ -472,6 +483,46 @@ export function RecheckNotificationsProvider({ children }: { children: ReactNode
     },
     [],
   );
+
+  const accountsQ = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => api("/v1/accounts", { schema: accountListSchema }),
+    enabled: !!orgId,
+    staleTime: 30_000,
+  });
+  const connectedAccounts = useMemo(
+    () => accountsQ.data?.filter((account) => isAccountConnected(account)) ?? [],
+    [accountsQ.data],
+  );
+  const monitoredScanRuns = useQueries({
+    queries: connectedAccounts.map((account) => ({
+      queryKey: ["scan-run-latest", account.id],
+      queryFn: () => api<ScanRunLatest | null>(`/v1/accounts/${account.id}/scan-runs/latest`),
+      refetchInterval: (query: { state: { data?: ScanRunLatest | null } }) => {
+        if (readPendingScan(account.id) || query.state.data?.status === "running") return 2_000;
+        return SCAN_FAILURE_MONITOR_POLL_MS;
+      },
+      staleTime: 0,
+    })),
+  });
+
+  useEffect(() => {
+    monitoredScanRuns.forEach((scanRun, index) => {
+      const account = connectedAccounts[index];
+      const run = scanRun.data;
+      if (!account || run?.status !== "error" || !run.error) return;
+      const failureKey = `${run.id}:${run.failed_at ?? ""}:${run.error_type ?? ""}:${run.error}`;
+      if (lastReportedScanFailureRef.current[account.id] === failureKey) return;
+      lastReportedScanFailureRef.current[account.id] = failureKey;
+      reportScanFailure({
+        accountId: account.id,
+        message: run.error,
+        failedAt: run.failed_at ?? null,
+        errorType: run.error_type ?? null,
+        step: null,
+      });
+    });
+  }, [connectedAccounts, monitoredScanRuns, reportScanFailure]);
 
   const openMetricsQ = useQuery({
     queryKey: ["findings", "open"],

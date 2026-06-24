@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -588,9 +588,8 @@ export default function Findings() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get("account") ?? "");
-  const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, reportScanFailure, clearDrawerVerifyFlash } =
+  const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, clearDrawerVerifyFlash } =
     useRecheckNotifications();
-  const lastScanFailureKeyRef = useRef("");
 
   const frameworkMapQ = useQuery({
     queryKey: ["check-frameworks"],
@@ -621,20 +620,6 @@ export default function Findings() {
     connectedId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
   );
-
-  useEffect(() => {
-    if (!(scanStatus === "error" && scanRun.data?.error)) return;
-    const failureKey = `${connectedId ?? "unknown"}:${scanRun.data.failed_at ?? ""}:${scanRun.data.error_type ?? ""}:${scanRun.data.error}`;
-    if (lastScanFailureKeyRef.current === failureKey) return;
-    lastScanFailureKeyRef.current = failureKey;
-    reportScanFailure({
-      accountId: connectedId ?? null,
-      message: scanRun.data.error,
-      failedAt: scanRun.data.failed_at ?? null,
-      errorType: scanRun.data.error_type ?? null,
-      step: null,
-    });
-  }, [connectedId, scanRun.data, scanStatus, reportScanFailure]);
 
   useEffect(() => {
     if (isRefreshing && !q.isFetching) {

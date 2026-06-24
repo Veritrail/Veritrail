@@ -103,7 +103,7 @@ Two readings, two answers:
 4. **No real-customer E2E** — seeded sandbox + production deploy remain the
    actual blockers; UI polish past 9/10 is deferred from this.
 5. **RESEND key + `onboarding@resend.dev` sender** — rotate key, verified
-   domain before prod (pre-prod blocker from CLAUDE.md).
+   domain before prod.
 
 ## Priority order
 

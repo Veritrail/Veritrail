@@ -720,9 +720,12 @@ export default function Login() {
       <div className="auth-shell__inner">
         <div className="auth-card">
           <header className={`auth-card__header${mode === "signup" ? " auth-card__header--signup" : ""}`}>
-            <h1 className="auth-card__title">
-              {mode === "login" ? "Welcome back" : "Create your account"}
-            </h1>
+            <div className="auth-card__title-row">
+              <img src="/brand/veritrail-mark.png" alt="Veritrail" className="auth-card__logo" />
+              <h1 className="auth-card__title">
+                {mode === "login" ? "Welcome back" : "Create your account"}
+              </h1>
+            </div>
             {mode === "login" && (
               <p className="auth-card__subtitle">Continue to your workspace</p>
             )}
@@ -892,10 +895,7 @@ export default function Login() {
               {loading ? (
                 "Please wait…"
               ) : mode === "login" ? (
-                <>
-                  <img src="/favicon.png" alt="" className="auth-submit__mark" aria-hidden />
-                  Sign in to Veritrail
-                </>
+                "Sign in to Veritrail"
               ) : (
                 "Create account"
               )}

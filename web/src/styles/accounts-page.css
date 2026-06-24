@@ -122,7 +122,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #8b5cf6, #6366f1);
+  background: linear-gradient(90deg, #14b8a6, #0d9488);
 }
 
 /* Toolbar */
@@ -877,7 +877,7 @@
 .accounts-connect-shell {
   margin: 0 auto;
   width: 100%;
-  max-width: 72rem;
+  max-width: 88rem;
   overflow: hidden;
   border: 1px solid var(--accounts-border);
   border-radius: 1rem;
@@ -885,9 +885,45 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
+.accounts-connect-shell__progress {
+  border-bottom: 1px solid #f4f4f5;
+  padding: 1.25rem 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .accounts-connect-shell__progress {
+    padding: 1.35rem 2rem;
+  }
+}
+
+.accounts-connect-shell__layout {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1100px) {
+  .accounts-connect-shell__layout {
+    flex-direction: row;
+    align-items: stretch;
+  }
+}
+
+.accounts-connect-shell__main {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
 .accounts-connect-shell__header {
-  padding: 2.5rem 2rem 0;
+  padding: 2rem 2rem 0;
   text-align: center;
+}
+
+@media (min-width: 1100px) {
+  .accounts-connect-shell__header {
+    padding: 2.5rem 2.5rem 0;
+  }
 }
 
 .accounts-connect-shell__title {
@@ -920,8 +956,9 @@
 }
 
 .accounts-cap-card {
+  position: relative;
   display: flex;
-  min-height: 15.5rem;
+  min-height: 18rem;
   flex-direction: column;
   align-items: center;
   border: 1px solid #e4e4e7;
@@ -941,10 +978,54 @@
   box-shadow: 0 8px 24px -18px rgba(15, 23, 42, 0.35);
 }
 
-.accounts-cap-card.is-selected {
-  border-color: #c4b5fd;
-  background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
-  box-shadow: 0 12px 32px -20px rgba(124, 58, 237, 0.45);
+.accounts-cap-card.is-selected.accounts-cap-card--teal {
+  border-color: #99f6e4;
+  background: linear-gradient(180deg, #f0fdfa 0%, #fff 100%);
+  box-shadow: 0 12px 32px -20px rgba(13, 148, 136, 0.35);
+}
+
+.accounts-cap-card.is-selected.accounts-cap-card--blue {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
+  box-shadow: 0 12px 32px -20px rgba(59, 130, 246, 0.3);
+}
+
+.accounts-cap-card.is-selected.accounts-cap-card--amber {
+  border-color: #fde68a;
+  background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
+  box-shadow: 0 12px 32px -20px rgba(245, 158, 11, 0.35);
+}
+
+.accounts-cap-card__check {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.accounts-cap-card__check svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.accounts-cap-card__check--teal {
+  background: #0d9488;
+  color: #fff;
+}
+
+.accounts-cap-card__check--blue {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.accounts-cap-card__check--amber {
+  background: #f59e0b;
+  color: #fff;
 }
 
 .accounts-cap-card__icon-ring {
@@ -957,13 +1038,18 @@
   border-radius: 999px;
 }
 
-.accounts-cap-card__icon-ring--violet { color: #8b5cf6; background: #f5f3ff; }
+.accounts-cap-card__icon-ring--teal { color: #0d9488; background: #f0fdfa; }
 .accounts-cap-card__icon-ring--blue { color: #3b82f6; background: #eff6ff; }
-.accounts-cap-card__icon-ring--emerald { color: #10b981; background: #ecfdf5; }
+.accounts-cap-card__icon-ring--amber { color: #d97706; background: #fffbeb; }
 
 .accounts-cap-card__icon {
   width: 1.75rem;
   height: 1.75rem;
+}
+
+.accounts-cap-card__icon-ring--amber .accounts-cap-card__icon {
+  width: 1.85rem;
+  height: 1.85rem;
 }
 
 .accounts-cap-card__title {
@@ -982,78 +1068,184 @@
   font-weight: 600;
 }
 
-.accounts-cap-card__badge--violet { background: #ede9fe; color: #6d28d9; }
+.accounts-cap-card__badge--teal { background: #ccfbf1; color: #0f766e; }
 .accounts-cap-card__badge--slate { background: #f4f4f5; color: #52525b; }
 .accounts-cap-card__badge--amber { background: #ffedd5; color: #c2410c; }
 
 .accounts-cap-card__blurb {
   margin: 0.85rem 0 0;
+  flex: 1 1 auto;
   max-width: 14rem;
   font-size: 0.8125rem;
   line-height: 1.45;
   color: #71717a;
 }
 
-.accounts-cap-card__selector {
-  margin-top: auto;
-  width: 1.125rem;
-  height: 1.125rem;
-  border: 2px solid #d4d4d8;
-  border-radius: 999px;
-  background: #fff;
+/* Value props row */
+.accounts-connect-value-props {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  padding: 2rem 2rem 0;
 }
 
-.accounts-cap-card__selector.is-on {
-  border-color: #7c3aed;
-  background: #7c3aed;
-  box-shadow: inset 0 0 0 3px #fff;
+@media (min-width: 900px) {
+  .accounts-connect-value-props {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    padding: 2.5rem 2.5rem 0;
+  }
 }
 
+.accounts-connect-value-props__item {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.accounts-connect-value-props__icon {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #f4f4f5;
+  color: #52525b;
+}
+
+.accounts-connect-value-props__icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.accounts-connect-value-props__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.accounts-connect-value-props__blurb {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #71717a;
+}
+
+/* Footer summary bar */
 .accounts-connect-shell__footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.25rem;
   margin-top: 2rem;
   border-top: 1px solid #f4f4f5;
   background: #fafafa;
   padding: 1.35rem 2rem;
 }
 
-.accounts-connect-shell__selection {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
+@media (min-width: 1100px) {
+  .accounts-connect-shell__footer {
+    padding: 1.35rem 2.5rem;
+  }
 }
 
-.accounts-connect-shell__selection-icon {
+.accounts-connect-shell__footer-stats {
   display: flex;
-  width: 2.5rem;
-  height: 2.5rem;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 1rem 0;
+  margin-right: 2rem;
+}
+
+.accounts-connect-shell__footer-stat {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.1rem 0 0.1rem 2.5rem;
+}
+
+.accounts-connect-shell__footer-stat:first-child {
+  padding-left: 0;
+}
+
+.accounts-connect-shell__footer-stat + .accounts-connect-shell__footer-stat {
+  border-left: 1px solid #e4e4e7;
+}
+
+.accounts-connect-shell__footer-label {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+.accounts-connect-shell__cap-icons {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+}
+
+.accounts-connect-shell__cap-icon {
+  display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.65rem;
-  background: #ede9fe;
-  color: #7c3aed;
 }
 
-.accounts-connect-shell__selection-icon svg {
+.accounts-connect-shell__cap-icon svg {
   width: 1.25rem;
   height: 1.25rem;
 }
 
-.accounts-connect-shell__selection-label {
-  margin: 0;
-  font-size: 0.75rem;
-  color: #71717a;
+.accounts-connect-shell__cap-icon--teal {
+  color: #0d9488;
 }
 
-.accounts-connect-shell__selection-value {
-  margin: 0.1rem 0 0;
+.accounts-connect-shell__cap-icon--blue {
+  color: #2563eb;
+}
+
+.accounts-connect-shell__cap-icon--amber {
+  color: #ea580c;
+}
+
+.accounts-connect-shell__footer-value {
+  margin: 0.35rem 0 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #09090b;
+  color: #18181b;
+}
+
+.accounts-connect-shell__footer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.accounts-connect-shell__footer-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.accounts-connect-shell__footer-badge--muted {
+  background: #f4f4f5;
+  color: #52525b;
+}
+
+.accounts-connect-shell__footer-badge--blue {
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .accounts-connect-shell__cta {
@@ -1062,7 +1254,7 @@
   gap: 0.45rem;
   border: 0;
   border-radius: 0.75rem;
-  background: #7c3aed;
+  background: #0d9488;
   padding: 0.8rem 1.35rem;
   font-size: 0.875rem;
   font-weight: 600;
@@ -1072,10 +1264,234 @@
 }
 
 .accounts-connect-shell__cta:hover:not(:disabled) {
-  background: #6d28d9;
+  background: #0f766e;
 }
 
 .accounts-connect-shell__cta:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* IAM role selection drawer (mock 2) */
+.accounts-connect-drawer {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #f4f4f5;
+  background: #fafafa;
+  padding: 1.5rem;
+}
+
+@media (min-width: 1100px) {
+  .accounts-connect-drawer {
+    width: 22rem;
+    flex-shrink: 0;
+    border-top: 0;
+    border-left: 1px solid #f4f4f5;
+    padding: 1.75rem 1.5rem;
+  }
+}
+
+.accounts-connect-drawer__header {
+  margin-bottom: 0.25rem;
+}
+
+.accounts-connect-drawer__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #09090b;
+}
+
+.accounts-connect-drawer__count {
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.accounts-connect-drawer__roles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.accounts-connect-drawer__role {
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+
+.accounts-connect-drawer__role.is-open {
+  border-color: #d4d4d8;
+}
+
+.accounts-connect-drawer__role-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 0;
+  background: transparent;
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.accounts-connect-drawer__role-trigger:hover {
+  background: #fafafa;
+}
+
+.accounts-connect-drawer__role-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.accounts-connect-drawer__access {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.accounts-connect-drawer__access--teal {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.accounts-connect-drawer__access--blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.accounts-connect-drawer__access--amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.accounts-connect-drawer__chevron {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  color: #a1a1aa;
+  transition: transform 0.15s ease;
+}
+
+.accounts-connect-drawer__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.accounts-connect-drawer__role-body {
+  border-top: 1px solid #f4f4f5;
+  padding: 0.75rem 0.85rem 0.85rem;
+}
+
+.accounts-connect-drawer__role-cap {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.accounts-connect-drawer__role-arn {
+  margin: 0.25rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  color: #71717a;
+}
+
+.accounts-connect-drawer__role-blurb {
+  margin: 0.45rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: #a1a1aa;
+}
+
+.accounts-connect-drawer__summary {
+  margin-top: 1.25rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0.85rem;
+}
+
+.accounts-connect-drawer__summary-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.accounts-connect-drawer__summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  font-size: 0.75rem;
+  color: #52525b;
+}
+
+.accounts-connect-drawer__summary-row--total {
+  margin-top: 0.35rem;
+  border-top: 1px solid #f4f4f5;
+  padding-top: 0.65rem;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.accounts-connect-drawer__summary-pill {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.accounts-connect-drawer__summary-pill--amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.accounts-connect-drawer__summary-total {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #09090b;
+}
+
+.accounts-connect-drawer__note {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+  border-radius: 0.65rem;
+  background: #eff6ff;
+  padding: 0.85rem;
+}
+
+.accounts-connect-drawer__note-icon {
+  display: flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  align-items: flex-start;
+  color: #3b82f6;
+}
+
+.accounts-connect-drawer__note-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.accounts-connect-drawer__note p {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: #1e40af;
 }
