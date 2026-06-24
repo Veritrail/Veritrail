@@ -1,0 +1,76 @@
+.user-menu {
+  position: relative;
+}
+
+.user-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  transition: opacity 0.15s ease;
+}
+
+.user-menu__trigger:hover {
+  opacity: 0.85;
+}
+
+.user-menu__avatar {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e4e4e7;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #52525b;
+}
+
+.user-menu__dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 40;
+  min-width: 9.5rem;
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0.25rem;
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.18);
+}
+
+.user-menu__item {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #27272a;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.user-menu__item:hover {
+  background: #f4f4f5;
+}
+
+.user-menu__item--danger {
+  color: #b91c1c;
+}
+
+.user-menu__item--danger:hover {
+  background: #fef2f2;
+}

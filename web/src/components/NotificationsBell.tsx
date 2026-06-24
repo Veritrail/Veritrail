@@ -73,6 +73,39 @@ function titleColor(item: NotificationItem): string {
   return item.status === "verified" ? "text-emerald-950" : "text-amber-950";
 }
 
+function isNotificationError(item: NotificationItem): boolean {
+  if (item.kind === "scan_failure") return true;
+  return item.kind === "cloudtrail" && item.status === "failed";
+}
+
+function isNotificationSuccess(item: NotificationItem): boolean {
+  if (item.kind === "verify" && item.status === "verified") return true;
+  return item.kind === "cloudtrail" && item.status === "succeeded";
+}
+
+type BellTone = "error" | "success" | "neutral";
+
+function bellToneFromHistory(items: NotificationItem[]): BellTone {
+  if (items.some(isNotificationError)) return "error";
+  if (items.some(isNotificationSuccess)) return "success";
+  return "neutral";
+}
+
+const BELL_BUTTON_CLASS: Record<BellTone, string> = {
+  error:
+    "border-red-200/90 bg-red-50/90 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus-visible:ring-red-500/15",
+  success:
+    "border-emerald-200/90 bg-emerald-50/90 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:ring-emerald-500/15",
+  neutral:
+    "border-zinc-200/90 bg-white/80 text-zinc-600 hover:border-zinc-300 hover:bg-white hover:text-zinc-900 focus-visible:ring-zinc-900/[0.06]",
+};
+
+const BELL_BADGE_CLASS: Record<BellTone, string> = {
+  error: "bg-red-600",
+  success: "bg-emerald-600",
+  neutral: "bg-blue-600",
+};
+
 export default function NotificationsBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -134,10 +167,7 @@ export default function NotificationsBell() {
   );
 
   const hasItems = pendingRecheck || pendingCloudTrail || historyVisible.length > 0;
-  // Badge is red only for genuine failures; otherwise calm brand teal, since
-  // notifications also carry positive/in-progress messages (scan passed, etc.).
-  const hasFailure = notificationHistory.some((h) => h.kind === "scan_failure");
-
+  const bellTone = bellToneFromHistory(historyVisible);
   const panel =
     open && panelPos
       ? createPortal(
@@ -229,7 +259,7 @@ export default function NotificationsBell() {
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-zinc-600 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
+        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus-visible:ring-4 ${BELL_BUTTON_CLASS.neutral}`}
         aria-label={notificationCount ? `${notificationCount} notifications` : "Notifications"}
         aria-expanded={open}
       >
@@ -241,7 +271,9 @@ export default function NotificationsBell() {
           />
         </svg>
         {notificationCount > 0 && (
-          <span className={`absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-medium leading-none text-white ring-2 ring-white ${hasFailure ? "bg-[#d93025]" : "bg-teal-600"}`}>
+          <span
+            className={`absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-white ring-2 ring-white ${BELL_BADGE_CLASS[bellTone]}`}
+          >
             {notificationCount > 9 ? "9+" : notificationCount}
           </span>
         )}

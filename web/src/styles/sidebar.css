@@ -1,0 +1,294 @@
+/* App sidebar — dark navy panel (Overview mock) */
+
+.app-sidebar {
+  --sidebar-bg: #0b1120;
+  --sidebar-glow: rgba(94, 129, 244, 0.14);
+  --sidebar-active-bg: #161f30;
+  --sidebar-active: #5e81f4;
+  --sidebar-muted: #8b94a6;
+  --sidebar-hover: rgba(255, 255, 255, 0.05);
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 30;
+  display: flex;
+  width: 16rem;
+  flex-direction: column;
+  overflow-y: auto;
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(94, 129, 244, 0.10) 0%, transparent 55%),
+    linear-gradient(180deg, #0c1322 0%, #0a0f1c 100%);
+  border-right: 1px solid rgba(228, 232, 238, 0.06);
+  box-shadow: 4px 0 24px -8px rgba(2, 6, 23, 0.55);
+}
+
+.app-sidebar::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 11rem;
+  height: 11rem;
+  background: radial-gradient(circle at 0% 0%, var(--sidebar-glow) 0%, transparent 68%);
+}
+
+/* Right-edge blue accent — the premium glow seam in the mock. */
+.app-sidebar::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(94, 129, 244, 0.45) 38%,
+    rgba(94, 129, 244, 0.28) 64%,
+    transparent 100%
+  );
+}
+
+.app-sidebar__brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.5rem 1.25rem 1.25rem;
+}
+
+.app-sidebar__logo {
+  width: 3.25rem;
+  height: 3.25rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: transparent;
+}
+
+.app-sidebar__wordmark {
+  font-size: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.app-sidebar__nav {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.app-sidebar__divider {
+  margin: 0.65rem 0.35rem;
+  border-top: 1px solid var(--sidebar-border);
+}
+
+.app-sidebar__footer {
+  position: relative;
+  z-index: 1;
+  padding: 0.85rem 1rem 1.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+  padding: 0.72rem 0.95rem;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--sidebar-muted);
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-sidebar__link svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.app-sidebar__link:hover {
+  background: var(--sidebar-hover);
+  color: #cbd5e1;
+}
+
+.app-sidebar__link.is-active,
+.app-sidebar__link.is-active:hover {
+  background: rgba(94, 129, 244, 0.12);
+  border-color: rgba(120, 150, 255, 0.18);
+  color: #eef2fb;
+}
+
+.app-sidebar__link.is-active svg {
+  color: #9db4ff;
+}
+
+.app-sidebar__button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--sidebar-muted);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.app-sidebar__button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.app-sidebar__button:hover {
+  background: var(--sidebar-hover);
+  color: #cbd5e1;
+}
+
+/* Auditor portal: sticky column inside flex shell (not fixed). */
+.app-sidebar--inline {
+  position: sticky;
+  inset: auto;
+  flex-shrink: 0;
+  height: 100vh;
+}
+
+.app-sidebar__brand-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.app-sidebar__auditor-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.16);
+  padding: 0.15rem 0.45rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fbbf24;
+}
+
+.app-sidebar__expiry {
+  margin: 0.35rem 0 0;
+  width: 100%;
+  font-size: 0.6875rem;
+  color: var(--sidebar-muted);
+}
+
+.app-sidebar__workspace-card {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-sidebar__workspace-card:hover,
+.app-sidebar__workspace-card:focus,
+.app-sidebar__workspace-card:focus-visible,
+.app-sidebar__workspace-card:active {
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.app-sidebar__workspace-card:hover .app-sidebar__workspace-avatar,
+.app-sidebar__workspace-card:focus-visible .app-sidebar__workspace-avatar {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(147, 180, 255, 0.35),
+    0 0 18px rgba(59, 111, 244, 0.55),
+    0 0 32px rgba(59, 111, 244, 0.28);
+}
+
+.app-sidebar__workspace-avatar {
+  display: inline-flex;
+  width: 2.375rem;
+  height: 2.375rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: linear-gradient(165deg, #5d8ef7 0%, #3f6fe8 52%, #3562db 100%);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+  transition:
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+
+.app-sidebar__workspace-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.app-sidebar__workspace-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.app-sidebar__workspace-plan {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #94a3b8;
+}
+
+.app-sidebar__workspace-chevron {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  color: var(--sidebar-muted);
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.app-sidebar__workspace-card:hover .app-sidebar__workspace-chevron,
+.app-sidebar__workspace-card:focus-visible .app-sidebar__workspace-chevron {
+  color: #cbd5e1;
+  transform: translateY(1px);
+}
