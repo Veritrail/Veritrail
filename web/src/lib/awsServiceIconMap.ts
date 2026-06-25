@@ -4,6 +4,8 @@
  * @see https://aws.amazon.com/architecture/icons/
  */
 
+import { AWS_LOGO_LIGHT } from "./awsBrand";
+
 const ICON_CDN_BASE =
   "https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v19.0/dist";
 const ICON_LOCAL_BASE = "/aws-icons";
@@ -11,39 +13,39 @@ const ICON_LOCAL_BASE = "/aws-icons";
 /** Icon key → filename in public/aws-icons/ (vendored copy of Architecture Icon PNG). */
 export const AWS_ICON_FILES: Record<string, string> = {
   AWS: "aws.png",
-  IAM: "iam.png",
-  S3: "s3.png",
-  KMS: "kms.png",
-  EC2: "ec2.png",
-  VPC: "vpc.png",
-  RDS: "rds.png",
-  LAMBDA: "lambda.png",
-  CLOUDTRAIL: "cloudtrail.png",
-  CLOUDWATCH: "cloudwatch.png",
-  CONFIG: "config.png",
-  GUARDDUTY: "guardduty.png",
-  SECURITYHUB: "securityhub.png",
+  IAM: "iam.svg",
+  S3: "s3.svg",
+  KMS: "kms.svg",
+  EC2: "ec2.svg",
+  VPC: "vpc.svg",
+  RDS: "rds.svg",
+  LAMBDA: "lambda.svg",
+  CLOUDTRAIL: "cloudtrail.svg",
+  CLOUDWATCH: "cloudwatch.svg",
+  CONFIG: "config.svg",
+  GUARDDUTY: "guardduty.svg",
+  SECURITYHUB: "securityhub.svg",
   ACCESSANALYZER: "access-analyzer.png",
-  ORGANIZATIONS: "organizations.png",
-  DYNAMODB: "dynamodb.png",
-  SNS: "sns.png",
-  SQS: "sqs.png",
-  SSM: "ssm.png",
-  SECRETSMANAGER: "secretsmanager.png",
-  ELB: "elb.png",
-  EKS: "eks.png",
-  ECR: "ecr.png",
-  ACM: "acm.png",
-  CLOUDFRONT: "cloudfront.png",
-  ELASTICACHE: "elasticache.png",
-  EVENTBRIDGE: "eventbridge.png",
-  CLOUDWATCHLOGS: "cloudwatch-logs.png",
-  APIGATEWAY: "apigateway.png",
-  ROUTE53: "route53.png",
-  ES: "opensearch.png",
-  FIREHOSE: "firehose.png",
-  KINESIS: "kinesis.png",
-  STS: "sts.png",
+  ORGANIZATIONS: "organizations.svg",
+  DYNAMODB: "dynamodb.svg",
+  SNS: "sns.svg",
+  SQS: "sqs.svg",
+  SSM: "ssm.svg",
+  SECRETSMANAGER: "secretsmanager.svg",
+  ELB: "elb.svg",
+  EKS: "eks.svg",
+  ECR: "ecr.svg",
+  ACM: "acm.svg",
+  CLOUDFRONT: "cloudfront.svg",
+  ELASTICACHE: "elasticache.svg",
+  EVENTBRIDGE: "eventbridge.svg",
+  CLOUDWATCHLOGS: "cloudwatch-logs.svg",
+  APIGATEWAY: "apigateway.svg",
+  ROUTE53: "route53.svg",
+  ES: "opensearch.svg",
+  FIREHOSE: "firehose.svg",
+  KINESIS: "kinesis.svg",
+  STS: "sts.svg",
 };
 
 /** IAM action prefix labels (uppercase, non-alphanumeric stripped) → Architecture Icon key. */
@@ -144,6 +146,9 @@ const CHECK_PREFIX_TO_ICON_KEY: [string, string][] = [
 
 const DEFAULT_ICON_KEY = "AWS";
 
+/** Use the brand AWS favicon for generic / IAM sources (not per-service architecture tiles). */
+const BRAND_FAVICON_ICON_KEYS = new Set(["IAM", "AWS"]);
+
 export function iconKeyForCheckId(checkId: string): string {
   for (const [prefix, key] of CHECK_PREFIX_TO_ICON_KEY) {
     if (checkId.startsWith(prefix)) return key;
@@ -170,6 +175,7 @@ function cdnIconUrl(key: string): string {
 }
 
 function awsIconUrlForKey(key: string): string {
+  if (BRAND_FAVICON_ICON_KEYS.has(key)) return AWS_LOGO_LIGHT;
   return localIconUrl(key) ?? cdnIconUrl(key);
 }
 

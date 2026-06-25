@@ -1,12 +1,16 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+import json
+import re
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.rbac import get_org_user, role_at_least
 from app.core.security import current_principal
@@ -14,6 +18,7 @@ from app.data.control_narratives import narrative_for, narrative_detail_for
 from app.models import Finding, AwsAccount, EvidenceSnapshot, ScanRun
 from app.models.control import Control, CheckControl
 from app.models.control_attestation import ATTESTATION_STATUSES, ControlAttestation
+from app.models.evidence_artifact import EvidenceArtifact
 from app.models.org import Org
 from app.services.org_activity import log_org_activity
 from app.services.check_settings import hidden_check_ids
@@ -27,7 +32,7 @@ from app.services.check_evidence import all_evidence_classes, evidence_class_for
 from app.services.check_frameworks import check_framework_map, framework_catalog
 from app.services.cis_benchmark_coverage import cis_benchmark_coverage
 from app.services.compliance_timeline import build_control_history
-from app.services.composite_controls import list_composite_controls
+from app.services.composite_controls import composite_control_definitions, list_composite_controls
 from app.services.control_status import compute_control_status
 
 router = APIRouter()
@@ -85,6 +90,318 @@ class CheckFrameworksOut(BaseModel):
     evidence_classes: dict[str, str] = {}
     evidence_class_labels: dict[str, str] = {}
     cis_benchmark_coverage: dict | None = None
+
+
+class EvidenceArtifactOut(BaseModel):
+    id: str
+    control_id: str | None = None
+    composite_control_id: str | None = None
+    check_id: str | None = None
+    framework: str
+    control_ref: str | None = None
+    title: str
+    source: str | None = None
+    evidence_type: str | None = None
+    period_start: str | None = None
+    period_end: str | None = None
+    note: str | None = None
+    external_url: str | None = None
+    owner: str | None = None
+    status: str = "submitted"
+    expires_at: str | None = None
+    filename: str | None = None
+    content_type: str | None = None
+    size_bytes: int
+    suggested_mappings: list[dict] = []
+    created_at: str | None = None
+
+
+_MAX_EVIDENCE_UPLOAD_BYTES = 12 * 1024 * 1024
+_TEXT_EXTENSIONS = {".txt", ".csv", ".json", ".md", ".log"}
+_ALLOWED_EVIDENCE_EXTENSIONS = _TEXT_EXTENSIONS | {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _safe_filename(name: str) -> str:
+    clean = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(name or "evidence").name).strip(".-")
+    return clean[:180] or "evidence"
+
+
+def _parse_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "dates must use YYYY-MM-DD")
+
+
+def _extract_evidence_text(filename: str, content_type: str | None, raw: bytes) -> str:
+    suffix = Path(filename).suffix.lower()
+    if suffix == ".json" or content_type == "application/json":
+        try:
+            parsed = json.loads(raw.decode("utf-8"))
+            return json.dumps(parsed, indent=2, sort_keys=True)[:30_000]
+        except Exception:
+            return raw.decode("utf-8", errors="ignore")[:30_000]
+    if suffix in _TEXT_EXTENSIONS or (content_type or "").startswith("text/"):
+        return raw.decode("utf-8", errors="ignore")[:30_000]
+    return ""
+
+
+def _keyword_suggestions(text: str, controls: list[Control]) -> list[dict]:
+    haystack = text.lower()
+    buckets = [
+        (
+            ("vulnerability", "inspector", "tenable", "qualys", "wiz", "snyk", "cve", "scanner", "container", "ecr"),
+            ("vulnerability", "technical vulnerabilities", "security monitoring", "system operations"),
+            "Looks like vulnerability-management evidence.",
+        ),
+        (
+            ("access review", "mfa", "inactive user", "privileged", "iam", "permission", "identity", "user access"),
+            ("access", "logical access", "identity", "privileged"),
+            "Looks like access-review or identity evidence.",
+        ),
+        (
+            ("change", "pull request", "merge request", "approval", "deployment", "release", "branch protection"),
+            ("change", "system changes", "change management"),
+            "Looks like change-management evidence.",
+        ),
+        (
+            ("backup", "restore", "recovery", "retention", "resilience", "snapshot"),
+            ("backup", "recovery", "availability", "resilience"),
+            "Looks like backup or recovery evidence.",
+        ),
+        (
+            ("encryption", "kms", "secret", "public access", "data protection", "classification"),
+            ("encryption", "data", "cryptography", "secret"),
+            "Looks like data-protection evidence.",
+        ),
+    ]
+    out: list[dict] = []
+    seen: set[str] = set()
+    for triggers, control_terms, reason in buckets:
+        if not any(token in haystack for token in triggers):
+            continue
+        for ctrl in controls:
+            searchable = f"{ctrl.control_id} {ctrl.title} {ctrl.description} {ctrl.guidance or ''}".lower()
+            if any(term in searchable for term in control_terms) and str(ctrl.id) not in seen:
+                seen.add(str(ctrl.id))
+                out.append(
+                    {
+                        "control_id": str(ctrl.id),
+                        "control_ref": ctrl.control_id,
+                        "title": ctrl.title,
+                        "reason": reason,
+                    }
+                )
+                if len(out) >= 5:
+                    return out
+    return out
+
+
+def _composite_definition(composite_id: str) -> dict | None:
+    for entry in composite_control_definitions():
+        if entry.get("id") == composite_id:
+            return entry
+    return None
+
+
+def _artifact_out(row: EvidenceArtifact) -> EvidenceArtifactOut:
+    return EvidenceArtifactOut(
+        id=str(row.id),
+        control_id=str(row.control_id) if row.control_id else None,
+        composite_control_id=row.composite_control_id,
+        check_id=row.check_id,
+        framework=row.framework,
+        control_ref=row.control_ref,
+        title=row.title,
+        source=row.source,
+        evidence_type=row.evidence_type,
+        period_start=row.period_start.isoformat() if row.period_start else None,
+        period_end=row.period_end.isoformat() if row.period_end else None,
+        note=row.note,
+        external_url=row.external_url,
+        owner=row.owner,
+        status=row.status or "submitted",
+        expires_at=row.expires_at.isoformat() if row.expires_at else None,
+        filename=row.filename,
+        content_type=row.content_type,
+        size_bytes=row.size_bytes,
+        suggested_mappings=row.suggested_mappings or [],
+        created_at=row.created_at.isoformat() if row.created_at else None,
+    )
+
+
+@router.get("/evidence", response_model=list[EvidenceArtifactOut])
+def list_evidence_artifacts(
+    framework: str | None = Query(default=None),
+    control_id: str | None = Query(default=None),
+    composite_control_id: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org_id = uuid.UUID(p["org_id"])
+    q = select(EvidenceArtifact).where(EvidenceArtifact.org_id == org_id)
+    if framework:
+        q = q.where(EvidenceArtifact.framework == framework)
+    if control_id:
+        try:
+            q = q.where(EvidenceArtifact.control_id == uuid.UUID(control_id))
+        except ValueError:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid control_id")
+    if composite_control_id:
+        q = q.where(EvidenceArtifact.composite_control_id == composite_control_id)
+    rows = db.scalars(q.order_by(EvidenceArtifact.created_at.desc())).all()
+    return [_artifact_out(row) for row in rows]
+
+
+@router.post("/evidence", response_model=EvidenceArtifactOut)
+async def upload_evidence_artifact(
+    request: Request,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+    if not role_at_least(user.role, "editor"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "editor role required")
+    form = await request.form()
+    file = form.get("file")
+    has_file = file is not None and hasattr(file, "read")
+
+    def field(name: str) -> str | None:
+        value = form.get(name)
+        return value if isinstance(value, str) else None
+
+    framework = field("framework") or ""
+    control_id = field("control_id")
+    composite_control_id = (field("composite_control_id") or "").strip() or None
+    check_id = (field("check_id") or "").strip() or None
+    external_url = (field("external_url") or "").strip() or None
+    owner = (field("owner") or "").strip() or None
+    title = field("title")
+    source = field("source")
+    evidence_type = field("evidence_type")
+    period_start = field("period_start")
+    period_end = field("period_end")
+    expires_at = field("expires_at")
+    note = field("note")
+
+    if framework not in FRAMEWORKS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(FRAMEWORKS)}")
+
+    if not has_file and not external_url:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "evidence file or external_url is required")
+
+    composite_def: dict | None = None
+    if composite_control_id:
+        composite_def = _composite_definition(composite_control_id)
+        if not composite_def:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid composite_control_id")
+        if check_id and check_id not in composite_def.get("checks", []):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "check_id is not mapped to this composite group")
+
+    ctrl: Control | None = None
+    ctrl_id: uuid.UUID | None = None
+    if control_id:
+        try:
+            ctrl_id = uuid.UUID(control_id)
+        except ValueError:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid control_id")
+        ctrl = db.get(Control, ctrl_id)
+        if not ctrl or ctrl.framework != framework:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "control not found")
+
+    org_id = uuid.UUID(p["org_id"])
+    original_name: str | None = None
+    relative_path: str | None = None
+    content_type: str | None = None
+    size_bytes = 0
+    extracted = ""
+
+    if has_file:
+        original_name = _safe_filename(getattr(file, "filename", None) or "evidence")
+        suffix = Path(original_name).suffix.lower()
+        if suffix not in _ALLOWED_EVIDENCE_EXTENSIONS:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "unsupported evidence file type")
+
+        raw = await file.read()
+        if not raw:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "empty evidence file")
+        if len(raw) > _MAX_EVIDENCE_UPLOAD_BYTES:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "evidence file is too large")
+
+        stored_name = f"{uuid.uuid4()}-{original_name}"
+        relative_path = str(Path("evidence") / str(org_id) / stored_name)
+        full_path = Path(get_settings().LOCAL_UPLOAD_DIR) / relative_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_bytes(raw)
+
+        content_type = getattr(file, "content_type", None)
+        extracted = _extract_evidence_text(original_name, content_type, raw)
+        size_bytes = len(raw)
+
+    controls = db.scalars(select(Control).where(Control.framework == framework)).all()
+    suggest_text = " ".join(
+        part
+        for part in [
+            title or "",
+            source or "",
+            evidence_type or "",
+            note or "",
+            external_url or "",
+            original_name or "",
+            extracted,
+        ]
+        if part
+    )
+    suggestions = _keyword_suggestions(suggest_text, controls)
+
+    row = EvidenceArtifact(
+        org_id=org_id,
+        control_id=ctrl_id,
+        composite_control_id=composite_control_id,
+        check_id=check_id,
+        framework=framework,
+        control_ref=ctrl.control_id if ctrl else None,
+        title=(title or original_name or source or "External evidence").strip()[:300],
+        source=(source or "").strip()[:120] or None,
+        evidence_type=(evidence_type or "").strip()[:80] or None,
+        period_start=_parse_date(period_start),
+        period_end=_parse_date(period_end),
+        note=(note or "").strip() or None,
+        external_url=external_url[:500] if external_url else None,
+        owner=owner[:200] if owner else None,
+        status="submitted",
+        expires_at=_parse_date(expires_at),
+        filename=original_name,
+        storage_path=relative_path,
+        content_type=content_type,
+        size_bytes=size_bytes,
+        extracted_text=extracted or None,
+        suggested_mappings=suggestions,
+        created_by=user.id,
+    )
+    db.add(row)
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action="evidence.uploaded",
+        target_type="control",
+        target_id=ctrl.control_id if ctrl else composite_control_id or framework,
+        target_label=row.title,
+        detail={
+            "framework": framework,
+            "control_ref": row.control_ref,
+            "composite_control_id": composite_control_id,
+            "filename": original_name,
+            "external_url": bool(external_url),
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return _artifact_out(row)
 
 
 @router.get("/check-frameworks", response_model=CheckFrameworksOut)

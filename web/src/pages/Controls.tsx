@@ -22,6 +22,7 @@ import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingFailsControl } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { HeaderSlot } from "../context/HeaderSlot";
 import "../styles/findings-v2.css";
 
@@ -1186,6 +1187,14 @@ function CompositeExpandedDetails({
         </div>
         <div className="compliance-group-expanded__side">
           <CompositeGroupInsights ctrl={ctrl} findingCountByCheck={findingCountByCheck} />
+          <ExternalEvidencePanel
+            compositeId={ctrl.id}
+            compositeTitle={ctrl.title}
+            framework={framework}
+            checkIds={ctrl.check_ids}
+            underlyingCriteria={underlyingCriteriaForComposite(ctrl, frameworkRows)}
+            frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
+          />
           <CompositeGroupExplore groupId={ctrl.id} findingsHref={findingsHref} framework={framework} accountId={accountId} />
         </div>
       </div>

@@ -17,6 +17,9 @@ type SelectProps = {
   className?: string;
   size?: "sm" | "md";
   align?: "left" | "right";
+  menuClassName?: string;
+  menuZIndex?: number;
+  maxMenuHeight?: string;
 };
 
 type Coords = { top: number; left?: number; right?: number; minWidth: number };
@@ -32,6 +35,9 @@ export function Select({
   className = "",
   size = "md",
   align = "left",
+  menuClassName = "",
+  menuZIndex = 50,
+  maxMenuHeight,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -61,18 +67,23 @@ export function Select({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    function onScrollResize() {
+    function onScroll(e: Event) {
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onResize() {
       setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScrollResize, true);
-    window.addEventListener("resize", onScrollResize);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScrollResize, true);
-      window.removeEventListener("resize", onScrollResize);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
@@ -105,7 +116,7 @@ export function Select({
         createPortal(
           <div
             ref={menuRef}
-            className={`veritrail-select__menu veritrail-select--${size}`}
+            className={`veritrail-select__menu veritrail-select--${size} ${menuClassName}`.trim()}
             role="listbox"
             style={{
               position: "fixed",
@@ -113,9 +124,17 @@ export function Select({
               left: coords.left,
               right: coords.right,
               minWidth: coords.minWidth,
+              zIndex: menuZIndex,
             }}
           >
-            {options.map((o) => {
+            <div
+              className="veritrail-select__menu-scroll"
+              style={{
+                maxHeight: maxMenuHeight,
+                overflowY: maxMenuHeight ? "auto" : undefined,
+              }}
+            >
+              {options.map((o) => {
               const active = o.value === value;
               return (
                 <button
@@ -140,6 +159,7 @@ export function Select({
                 </button>
               );
             })}
+            </div>
           </div>,
           document.body,
         )}

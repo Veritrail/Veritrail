@@ -1,8 +1,8 @@
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState, type CSSProperties } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, restoreSession, storeTokens, token } from "./api";
-import { accountListSchema, workspaceListSchema } from "./lib/apiSchemas";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, restoreSession, token } from "./api";
+import { accountListSchema } from "./lib/apiSchemas";
 import { roleAtLeast, useMe } from "./hooks/useMe";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
 import { HeaderSlotContext } from "./context/HeaderSlot";
@@ -10,7 +10,6 @@ import NotificationsBell from "./components/NotificationsBell";
 import HelpMenu from "./components/HelpMenu";
 import SidebarUserCard from "./components/SidebarUserCard";
 import SidebarNavLink from "./components/SidebarNavLink";
-import { WorkspaceSwitcher, type WorkspaceEntry } from "./components/WorkspaceSwitcher";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
 import "./styles/sidebar.css";
@@ -53,32 +52,9 @@ export default function Layout() {
     return window.localStorage.getItem("veritrail-sidebar-collapsed") === "1";
   });
   const requiresAccount = pathRequiresConnectedAccount(location.pathname);
-  const showWorkspaceSwitcher = false;
-  const workspaceSwitcherTitle = "Profile";
 
   const meQ = useMe();
   const canManageAccounts = roleAtLeast(meQ.data?.role, "admin");
-
-  const workspacesQ = useQuery<WorkspaceEntry[]>({
-    queryKey: ["workspaces"],
-    queryFn: () => api("/v1/auth/workspaces", { schema: workspaceListSchema }),
-    enabled: authReady && !!meQ.data && showWorkspaceSwitcher,
-  });
-  const switchWorkspace = useMutation({
-    mutationFn: (orgId: string) =>
-      api<{ access_token: string }>("/v1/auth/workspaces/switch", {
-        method: "POST",
-        body: JSON.stringify({ org_id: orgId }),
-      }),
-    onSuccess: (data) => {
-      storeTokens(data.access_token);
-      queryClient.invalidateQueries({ queryKey: ["me"] });
-      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
-      window.location.reload();
-    },
-  });
-
 
   const accountsQ = useQuery({
     queryKey: ["accounts"],
@@ -204,7 +180,12 @@ export default function Layout() {
         </nav>
 
         <div className="app-sidebar__footer">
-          {meQ.data?.email ? <SidebarUserCard email={meQ.data.email} subtitle={meQ.data?.org_name ?? "Workspace"} /> : null}
+          {meQ.data?.email ? (
+            <SidebarUserCard
+              email={meQ.data.email}
+              subtitle={meQ.data?.org_name ?? "Workspace"}
+            />
+          ) : null}
         </div>
       </aside>
 
@@ -213,15 +194,6 @@ export default function Layout() {
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
             {/* App-wide header bar: help + bell on the right, a left slot pages fill via <HeaderSlot>. */}
             <div className="veritrail-app-header sticky top-0 z-30 flex min-h-[4.75rem] items-center gap-3 px-8 pt-5 pb-3 backdrop-blur-md">
-              {showWorkspaceSwitcher && (
-                <WorkspaceSwitcher
-                  title={workspaceSwitcherTitle}
-                  workspaces={workspacesQ.data ?? []}
-                  currentOrgId={meQ.data?.org_id ?? ""}
-                  onSwitch={(id) => switchWorkspace.mutate(id)}
-                  pending={switchWorkspace.isPending}
-                />
-              )}
               <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
               <HelpMenu />
               <NotificationsBell />

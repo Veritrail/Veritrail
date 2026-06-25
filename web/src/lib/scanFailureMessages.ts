@@ -102,3 +102,60 @@ export function friendlyScanFailureMessage(raw: string): string {
 
 export const SCAN_FAILURE_USER_ACTION =
   "Open Accounts to verify your connector, then run a scan from Findings.";
+
+export type ScanFailureInfo = { title: string; fix: string };
+
+/**
+ * Same classification as friendlyScanFailureMessage, but returns a short
+ * reason title + one-line fix for the credential alert (instead of a paragraph).
+ */
+export function classifyScanFailure(raw: string): ScanFailureInfo {
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes("tokenretrieval") ||
+    lower.includes("retrieving token from sso") ||
+    (lower.includes("sso") && (lower.includes("profile") || lower.includes("token") || lower.includes("session")))
+  ) {
+    return { title: "AWS session expired", fix: "Run aws sso login for the tied profile, or reconnect the account, then re-check." };
+  }
+  if (
+    lower.includes("expiredtoken") ||
+    lower.includes("token has expired") ||
+    (lower.includes("credentials") && lower.includes("expired"))
+  ) {
+    return { title: "AWS session expired", fix: "Reconnect the account, then run a new scan." };
+  }
+  if (
+    lower.includes("accessdenied") ||
+    lower.includes("not authorized") ||
+    lower.includes("unauthorized") ||
+    lower.includes("is not authorized to perform")
+  ) {
+    return { title: "Connector role is missing permissions", fix: "Verify the connector and re-deploy the CloudFormation stack if prompted." };
+  }
+  if (lower.includes("assumerole") || lower.includes("externalid") || lower.includes("trust")) {
+    return { title: "Couldn't assume the connector role", fix: "Check the CloudFormation stack is deployed and the role ARN matches this account." };
+  }
+  if (lower.includes("throttl") || lower.includes("rate exceeded") || lower.includes("too many requests")) {
+    return { title: "AWS rate-limited the scan", fix: "Wait a few minutes, then run a scan again." };
+  }
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    return { title: "Scan timed out", fix: "Try again shortly; if it persists, check connector health." };
+  }
+  if (lower.includes("no credentials") || lower.includes("unable to locate credentials")) {
+    return { title: "No AWS credentials available", fix: "Reconnect the account, or confirm the deployment can assume the customer role." };
+  }
+  if (
+    lower.includes("connection") ||
+    lower.includes("network") ||
+    lower.includes("could not connect") ||
+    lower.includes("name or service not known")
+  ) {
+    return { title: "Couldn't reach AWS", fix: "Check your network is up, then run a scan again." };
+  }
+  if (lower.includes("region") && lower.includes("invalid")) {
+    return { title: "Unsupported region", fix: "Check the account region on Accounts, then try again." };
+  }
+  return { title: "Scan didn't finish", fix: "Verify your AWS connection, then run a scan again." };
+}

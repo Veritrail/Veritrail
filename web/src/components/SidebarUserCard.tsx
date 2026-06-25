@@ -5,7 +5,7 @@ import { userDisplayName, userInitials } from "../lib/displayNames";
 
 /**
  * Sidebar footer identity card: avatar + name + subtitle, opening an upward
- * menu with Profile + Sign out. Replaces the old workspace card.
+ * menu with Profile + Sign out.
  */
 export default function SidebarUserCard({ email, subtitle = email }: { email: string; subtitle?: string }) {
   const [open, setOpen] = useState(false);
@@ -73,7 +73,9 @@ export default function SidebarUserCard({ email, subtitle = email }: { email: st
         </span>
         <span className="app-sidebar__workspace-copy">
           <span className="app-sidebar__workspace-name">{name}</span>
-          <span className="app-sidebar__workspace-plan" title={email}>{subtitle}</span>
+          <span className="app-sidebar__workspace-plan" title={email}>
+            {subtitle}
+          </span>
         </span>
         <svg
           className="app-sidebar__user-chevron"

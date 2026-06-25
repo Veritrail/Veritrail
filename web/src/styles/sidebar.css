@@ -82,7 +82,7 @@
 
 .app-sidebar__collapse-toggle {
   position: absolute;
-  top: 13.1rem;
+  top: 11.55rem;
   right: 0;
   z-index: 4;
   display: flex;
@@ -96,7 +96,7 @@
   color: rgba(219, 234, 254, 0.86);
   cursor: pointer;
   box-shadow:
-    0 0 18px rgba(59, 130, 246, 0.34),
+    0 0 10px rgba(59, 130, 246, 0.22),
     inset 1px 0 0 rgba(255, 255, 255, 0.08);
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -107,7 +107,7 @@
   color: #fff;
   outline: none;
   box-shadow:
-    0 0 22px rgba(59, 130, 246, 0.5),
+    0 0 12px rgba(59, 130, 246, 0.32),
     inset 1px 0 0 rgba(255, 255, 255, 0.12);
 }
 
@@ -263,7 +263,7 @@
 }
 
 .app-sidebar.is-collapsed .app-sidebar__brand {
-  padding: 3.05rem 1rem 2.5rem;
+  padding: 4.05rem 1rem 5.15rem;
 }
 
 .app-sidebar.is-collapsed .app-sidebar__logo {
@@ -282,7 +282,7 @@
 }
 
 .app-sidebar.is-collapsed .app-sidebar__collapse-toggle {
-  top: 11.9rem;
+  top: 8.55rem;
   background: rgba(59, 130, 246, 0.48);
 }
 
@@ -353,6 +353,10 @@
   display: none;
 }
 
+.app-sidebar.is-collapsed .app-sidebar__workspace-card[aria-expanded="true"] {
+  background: rgba(30, 41, 67, 0.46);
+}
+
 .app-sidebar.is-collapsed .app-sidebar__workspace-avatar {
   width: 2.8rem;
   height: 2.8rem;
@@ -421,6 +425,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+.app-sidebar__user {
+  position: relative;
+}
+
 .app-sidebar__workspace-card:hover,
 .app-sidebar__workspace-card:focus-visible {
   border-color: rgba(147, 197, 253, 0.18);
@@ -480,19 +488,6 @@
   color: rgba(203, 213, 225, 0.8);
 }
 
-/* Footer identity card: chevron + upward Profile/Sign-out menu */
-.app-sidebar__user {
-  position: relative;
-}
-
-.app-sidebar__user-chevron {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  color: rgba(203, 213, 225, 0.82);
-  transition: color 0.18s ease;
-}
-
 .app-sidebar__workspace-card:hover .app-sidebar__user-chevron,
 .app-sidebar__workspace-card[aria-expanded="true"] .app-sidebar__user-chevron {
   color: #cbd5e1;
@@ -542,6 +537,14 @@
 .app-sidebar__user-menu-item:hover {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
+}
+
+.app-sidebar__user-chevron {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: rgba(203, 213, 225, 0.82);
+  transition: color 0.18s ease;
 }
 
 .app-sidebar__user-menu-item--danger {

@@ -20,6 +20,7 @@ import {
   allRemediationModulesEnabled,
   anyRemediationEnabled,
   countRemediationEnabled,
+  type RemediationModuleId,
   type RemediationModules,
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -30,7 +31,7 @@ import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { isAccountConnected } from "../lib/accountConnection";
-import { friendlyScanFailureMessage } from "../lib/scanFailureMessages";
+import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import {
   CONNECTOR_STACK_NAME,
   SCANNER_ROLE_NAME,
@@ -1922,14 +1923,20 @@ function DisclosureLink({
   );
 }
 
-function OnboardingFlowProgress({ activeStep }: { activeStep: 1 | 2 | 3 }) {
+function OnboardingFlowProgress({
+  activeStep,
+  onStepClick,
+}: {
+  activeStep: 1 | 2 | 3;
+  onStepClick?: (step: 1 | 2 | 3) => void;
+}) {
   return (
     <ol className="flex items-center gap-3">
       {ONBOARDING_FLOW_STEPS.map((step, i) => {
         const active = activeStep === step.n;
         const done = activeStep > step.n;
-        return (
-          <li key={step.n} className="flex flex-1 items-center gap-3 last:flex-none">
+        const content = (
+          <>
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                 active
@@ -1954,6 +1961,22 @@ function OnboardingFlowProgress({ activeStep }: { activeStep: 1 | 2 | 3 }) {
             >
               {step.label}
             </span>
+          </>
+        );
+        return (
+          <li key={step.n} className="flex flex-1 items-center gap-3 last:flex-none">
+            {onStepClick ? (
+              <button
+                type="button"
+                onClick={() => onStepClick(step.n)}
+                className="accounts-flow-step"
+                aria-current={active ? "step" : undefined}
+              >
+                {content}
+              </button>
+            ) : (
+              <div className="accounts-flow-step">{content}</div>
+            )}
             {i < ONBOARDING_FLOW_STEPS.length - 1 && <span className="h-px flex-1 bg-zinc-200" />}
           </li>
         );
@@ -2001,6 +2024,24 @@ const ONBOARDING_CAPS = [
   },
 ] as const;
 
+const ONBOARDING_ROLE_PERMISSIONS: Record<(typeof ONBOARDING_CAPS)[number]["id"], string[]> = {
+  core: [
+    "Read AWS resource configuration",
+    "Collect cloud posture evidence",
+    "Run compliance and security checks",
+  ],
+  iam: [
+    "iam:GenerateServiceLastAccessedDetails",
+    "access-analyzer:StartPolicyGeneration",
+    "access-analyzer:GetGeneratedPolicy",
+  ],
+  ssm: [
+    "Run approved SSM Automation documents",
+    "Apply selected remediation modules only",
+    "Write scoped fixes after approval",
+  ],
+};
+
 const ONBOARDING_VALUE_PROPS = [
   {
     title: "Least privilege by design",
@@ -2026,6 +2067,211 @@ function onboardingCapIsOn(value: ConnectionOptions, id: (typeof ONBOARDING_CAPS
 
 function selectedOnboardingCaps(value: ConnectionOptions) {
   return ONBOARDING_CAPS.filter((c) => onboardingCapIsOn(value, c.id));
+}
+
+type PolicyStatementSummary = {
+  sid: string;
+  actions: readonly string[];
+  resource: string;
+  grantedOn?: string;
+};
+
+type OnboardingPermissionSummary = {
+  id: (typeof ONBOARDING_CAPS)[number]["id"];
+  cap: (typeof ONBOARDING_CAPS)[number];
+  roleName: string;
+  policyName: string;
+  statements: readonly PolicyStatementSummary[];
+  scope: string;
+  description: string;
+};
+
+const CORE_SCANNER_STATEMENTS: readonly PolicyStatementSummary[] = [
+  { sid: "IamUserAndKeyEnumeration", actions: ["iam:ListUsers", "iam:ListMFADevices", "iam:GetLoginProfile", "iam:ListAccessKeys", "iam:GetAccessKeyLastUsed", "iam:GetAccountSummary", "iam:ListAccountAliases", "iam:GetAccountPasswordPolicy"], resource: "*" },
+  { sid: "IamRoleEnumeration", actions: ["iam:ListRoles", "iam:ListRolePolicies", "iam:GetRolePolicy", "iam:ListAttachedRolePolicies", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicies"], resource: "*" },
+  { sid: "IamServiceLastAccessedRead", actions: ["iam:GetServiceLastAccessedDetails"], resource: "*" },
+  { sid: "IamServerCertificates", actions: ["iam:ListServerCertificates", "iam:GetServerCertificate"], resource: "*" },
+  { sid: "AccountContacts", actions: ["account:GetContactInformation", "account:GetAlternateContact"], resource: "*" },
+  { sid: "S3BucketConfiguration", actions: ["s3:ListAllMyBuckets", "s3:GetAccountPublicAccessBlock", "s3:GetBucketLogging", "s3:GetEncryptionConfiguration", "s3:GetBucketVersioning", "s3:GetBucketPublicAccessBlock", "s3:GetBucketPolicy", "s3:GetBucketAcl"], resource: "*" },
+  { sid: "KmsKeyConfiguration", actions: ["kms:ListKeys", "kms:DescribeKey", "kms:GetKeyRotationStatus", "kms:GetKeyPolicy", "kms:ListAliases"], resource: "*" },
+  { sid: "CloudTrailConfiguration", actions: ["cloudtrail:DescribeTrails", "cloudtrail:GetTrailStatus", "cloudtrail:LookupEvents"], resource: "*" },
+  { sid: "AwsBackupConfiguration", actions: ["backup:ListBackupPlans", "backup:ListBackupVaults"], resource: "*" },
+  { sid: "GuardDutyConfiguration", actions: ["guardduty:ListDetectors", "guardduty:GetDetector", "guardduty:ListFindings", "guardduty:GetFindings"], resource: "*" },
+  { sid: "SecurityHubConfiguration", actions: ["securityhub:DescribeHub"], resource: "*" },
+  { sid: "VpcAndSecurityGroupEnumeration", actions: ["ec2:DescribeRegions", "ec2:DescribeVpcs", "ec2:DescribeFlowLogs", "ec2:DescribeSecurityGroups"], resource: "*" },
+  { sid: "Ec2InstanceEnumeration", actions: ["ec2:DescribeInstances", "ec2:DescribeVolumes", "ec2:DescribeSnapshots", "ec2:DescribeSnapshotAttribute", "ec2:DescribeImages", "ec2:GetEbsEncryptionByDefault"], resource: "*" },
+  { sid: "AccessAnalyzerEnumeration", actions: ["access-analyzer:ListAnalyzers"], resource: "*" },
+  { sid: "ConfigServiceConfiguration", actions: ["config:DescribeConfigurationRecorders", "config:DescribeConfigurationRecorderStatus", "config:DescribeDeliveryChannels", "config:DescribeComplianceByConfigRule"], resource: "*" },
+  { sid: "IdentityCenterDirectory", actions: ["sso:ListInstances", "sso:DescribeInstance", "sso:ListPermissionSets", "sso:DescribePermissionSet", "sso:ListAccountsForProvisionedPermissionSet", "sso:ListAccountAssignments", "identitystore:ListUsers", "identitystore:DescribeUser", "identitystore:DescribeGroup"], resource: "*" },
+  { sid: "RdsConfiguration", actions: ["rds:DescribeDBInstances", "rds:DescribeDBSnapshots", "rds:DescribeDBSnapshotAttributes"], resource: "*" },
+  { sid: "AcmCertificates", actions: ["acm:ListCertificates", "acm:DescribeCertificate"], resource: "*" },
+  { sid: "LambdaConfiguration", actions: ["lambda:ListFunctions", "lambda:GetFunctionEventInvokeConfig"], resource: "*" },
+  { sid: "SecretsManagerConfiguration", actions: ["secretsmanager:ListSecrets"], resource: "*" },
+  { sid: "SsmParameters", actions: ["ssm:DescribeParameters"], resource: "*" },
+  { sid: "ElbConfiguration", actions: ["elasticloadbalancing:DescribeLoadBalancers", "elasticloadbalancing:DescribeLoadBalancerAttributes", "elasticloadbalancing:DescribeListeners"], resource: "*" },
+  { sid: "DynamoDbConfiguration", actions: ["dynamodb:ListTables", "dynamodb:DescribeTable", "dynamodb:DescribeContinuousBackups"], resource: "*" },
+  { sid: "SnsConfiguration", actions: ["sns:ListTopics", "sns:GetTopicAttributes"], resource: "*" },
+  { sid: "SqsConfiguration", actions: ["sqs:ListQueues", "sqs:GetQueueAttributes"], resource: "*" },
+  { sid: "EcrConfiguration", actions: ["ecr:DescribeRepositories", "ecr:GetRegistryScanningConfiguration"], resource: "*" },
+  { sid: "EksConfiguration", actions: ["eks:ListClusters", "eks:DescribeCluster"], resource: "*" },
+  { sid: "EcsConfiguration", actions: ["ecs:ListClusters", "ecs:DescribeClusters", "ecs:ListServices", "ecs:DescribeServices", "ecs:DescribeTaskDefinition"], resource: "*" },
+  { sid: "InspectorConfiguration", actions: ["inspector2:BatchGetAccountStatus", "inspector2:ListCoverage", "inspector2:ListFindings", "inspector2:BatchGetFindingDetails"], resource: "*" },
+  { sid: "OrganizationsAccountLabel", actions: ["organizations:DescribeAccount"], resource: "*" },
+] as const;
+
+const ADVANCED_POLICY_STATEMENTS: readonly PolicyStatementSummary[] = [
+  {
+    sid: "AccessAnalyzerPolicyGeneration",
+    actions: ADVANCED_POLICY_RAW_ACTIONS.filter((action) => action !== "iam:PassRole"),
+    resource: "*",
+  },
+  {
+    sid: "PassAccessAnalyzerMonitorRole",
+    actions: ["iam:PassRole"],
+    resource: "Access Analyzer monitor role ARN",
+  },
+] as const;
+
+const REMEDIATION_START_STATEMENTS: readonly PolicyStatementSummary[] = [
+  {
+    sid: "DescribeApprovedSsmDocuments",
+    actions: ["ssm:DescribeDocument", "ssm:GetDocument"],
+    resource: "Veritrail and AWS remediation documents",
+    grantedOn: SCANNER_ROLE_NAME,
+  },
+  {
+    sid: "StartApprovedSsmAutomation",
+    actions: ["ssm:StartAutomationExecution", "ssm:GetAutomationExecution", "ssm:DescribeAutomationExecutions"],
+    resource: "Approved SSM automation documents and executions",
+    grantedOn: SCANNER_ROLE_NAME,
+  },
+  {
+    sid: "PassRemediationAutomationRole",
+    actions: ["iam:PassRole"],
+    resource: "VeritrailRemediationAutomationRole, passed only to ssm.amazonaws.com",
+    grantedOn: SCANNER_ROLE_NAME,
+  },
+] as const;
+
+const REMEDIATION_MODULE_STATEMENTS: Record<RemediationModuleId, PolicyStatementSummary> = {
+  security_groups: {
+    sid: "Ec2SecurityGroupIngress",
+    actions: ["ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules", "ec2:RevokeSecurityGroupIngress"],
+    resource: "*",
+  },
+  s3_public_access: {
+    sid: "S3BucketPublicAccessBlock",
+    actions: ["s3:GetBucketPublicAccessBlock", "s3:PutBucketPublicAccessBlock"],
+    resource: "arn:aws:s3:::*",
+  },
+  iam_access_keys: {
+    sid: "IamAccessKeyRemediation",
+    actions: ["iam:UpdateAccessKey", "iam:GetAccessKeyLastUsed"],
+    resource: "*",
+  },
+  iam_policies: {
+    sid: "IamPolicyRemediation",
+    actions: ["iam:GetRole", "iam:GetRolePolicy", "iam:PutRolePolicy", "iam:ListAttachedRolePolicies", "iam:DetachRolePolicy", "iam:GetPolicy"],
+    resource: "*",
+  },
+  ssm_parameters: {
+    sid: "SsmParameterSecureStringMigration",
+    actions: ["ssm:GetParameter", "ssm:PutParameter"],
+    resource: "*",
+  },
+  cloudtrail_logging: {
+    sid: "CloudTrailRunbook",
+    actions: ["cloudtrail:UpdateTrail", "cloudtrail:StartLogging"],
+    resource: "*",
+  },
+  kms_rotation: {
+    sid: "KmsKeyRotation",
+    actions: ["kms:EnableKeyRotation", "kms:GetKeyRotationStatus", "kms:DescribeKey"],
+    resource: "*",
+  },
+};
+
+function uniqueActionCount(statements: readonly PolicyStatementSummary[]): number {
+  return new Set(statements.flatMap((statement) => statement.actions)).size;
+}
+
+function reviewRoleTitle(summary: OnboardingPermissionSummary): string {
+  if (summary.id === "core") return "Core Scanner Role";
+  if (summary.id === "iam") return "IAM Analysis Role";
+  return "Remediation Automation Role";
+}
+
+function policyJsonForSummary(summary: OnboardingPermissionSummary): string {
+  return JSON.stringify(
+    {
+      Version: "2012-10-17",
+      Statement: summary.statements.map((statement) => ({
+        Sid: statement.sid,
+        Effect: "Allow",
+        Action: statement.actions.length === 1 ? statement.actions[0] : statement.actions,
+        Resource: statement.resource,
+        ...(statement.sid === "PassRemediationAutomationRole"
+          ? { Condition: { StringEquals: { "iam:PassedToService": "ssm.amazonaws.com" } } }
+          : {}),
+        ...(statement.sid === "PassAccessAnalyzerMonitorRole"
+          ? { Condition: { StringEquals: { "iam:PassedToService": "access-analyzer.amazonaws.com" } } }
+          : {}),
+      })),
+    },
+    null,
+    2,
+  );
+}
+
+function buildPermissionSummaries(value: ConnectionOptions): OnboardingPermissionSummary[] {
+  const caps = Object.fromEntries(ONBOARDING_CAPS.map((cap) => [cap.id, cap])) as Record<
+    (typeof ONBOARDING_CAPS)[number]["id"],
+    (typeof ONBOARDING_CAPS)[number]
+  >;
+  const summaries: OnboardingPermissionSummary[] = [
+    {
+      id: "core",
+      cap: caps.core,
+      roleName: SCANNER_ROLE_NAME,
+      policyName: "VeritrailMinimalReadOnly",
+      statements: CORE_SCANNER_STATEMENTS,
+      scope: "Account-wide read-only",
+      description: "Core scanner role created by veritrail-core-scanner.yaml.",
+    },
+  ];
+
+  if (value.enable_advanced_policy_generation) {
+    summaries.push({
+      id: "iam",
+      cap: caps.iam,
+      roleName: SCANNER_ROLE_NAME,
+      policyName: "VeritrailAdvancedPolicyGeneration",
+      statements: ADVANCED_POLICY_STATEMENTS,
+      scope: "IAM and Access Analyzer analysis",
+      description: "Optional inline policy on the scanner role; it does not modify customer resources.",
+    });
+  }
+
+  if (anyRemediationEnabled(value.remediation_modules)) {
+    const selectedModuleStatements = REMEDIATION_MODULE_SPECS.filter(
+      (spec) => value.remediation_modules[spec.id],
+    ).map((spec) => REMEDIATION_MODULE_STATEMENTS[spec.id]);
+    summaries.push({
+      id: "ssm",
+      cap: caps.ssm,
+      roleName: "VeritrailRemediationAutomationRole",
+      policyName: "VeritrailRemediationAutomation",
+      statements: [
+        ...REMEDIATION_START_STATEMENTS,
+        { sid: "SsmHandlerScriptsFromS3", actions: ["s3:GetObject"], resource: "Veritrail-hosted SSM handler scripts" },
+        ...selectedModuleStatements,
+      ],
+      scope: "Selected remediation modules",
+      description: "Remediation includes scanner-role permissions to start approved SSM automation plus automation-role permissions to run the selected fixes.",
+    });
+  }
+
+  return summaries;
 }
 
 /** Onboarding step 1 — capability cards with role mapping (mock: choose capabilities). */
@@ -2193,12 +2439,359 @@ function FirstAccountOnboarding({
               disabled={disabled || continuing}
               className="accounts-connect-shell__cta"
             >
-              {continuing ? "Setting up…" : "Continue to review"}
+              {continuing ? "Setting up…" : "Continue"}
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OnboardingRoleReview({
+  acc,
+  value,
+}: {
+  acc: Account;
+  value: ConnectionOptions;
+}) {
+  const summaries = buildPermissionSummaries(value);
+  const [activeRole, setActiveRole] = useState(summaries[0]?.id ?? "core");
+  const [jsonCopied, setJsonCopied] = useState(false);
+  const accountId = acc.account_id || "YOUR_AWS_ACCOUNT_ID";
+  const activeSummary = summaries.find((summary) => summary.id === activeRole) ?? summaries[0];
+
+  useEffect(() => {
+    if (!summaries.some((summary) => summary.id === activeRole)) {
+      setActiveRole(summaries[0]?.id ?? "core");
+    }
+  }, [activeRole, summaries]);
+
+  async function copyPolicyJson() {
+    if (!activeSummary) return;
+    await navigator.clipboard.writeText(policyJsonForSummary(activeSummary));
+    setJsonCopied(true);
+    window.setTimeout(() => setJsonCopied(false), 1600);
+  }
+
+  if (!activeSummary) return null;
+
+  return (
+    <div className="accounts-review-clean">
+      <div className="accounts-review-clean__roles">
+        <div className="accounts-review-summary">
+          <span className="accounts-review-summary__count">
+            {summaries.length} role{summaries.length === 1 ? "" : "s"} will be created
+          </span>
+        </div>
+
+        <div className="accounts-role-rows">
+          {summaries.map((summary) => {
+            const actionCount = uniqueActionCount(summary.statements);
+            return (
+              <button
+                key={summary.id}
+                type="button"
+                onClick={() => setActiveRole(summary.id)}
+                className={`accounts-role-row accounts-role-row--${summary.cap.tone}${activeSummary.id === summary.id ? " is-active" : ""}`}
+              >
+                <span className={`accounts-role-row__icon accounts-role-row__icon--${summary.cap.tone}`} aria-hidden>
+                  <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d={summary.cap.icon} />
+                  </svg>
+                </span>
+                <div className="accounts-role-row__identity">
+                  <p className="accounts-role-row__name">{reviewRoleTitle(summary)}</p>
+                  <span className="accounts-role-row__meta">
+                    {summary.statements.length} statement{summary.statements.length === 1 ? "" : "s"} · {actionCount} action{actionCount === 1 ? "" : "s"} · {summary.scope}
+                  </span>
+                </div>
+                <span className={`accounts-role-row__access accounts-connect-drawer__access accounts-connect-drawer__access--${summary.cap.tone}`}>
+                  {summary.cap.accessType}
+                </span>
+                <span className="accounts-role-row__view" aria-hidden>
+                  <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+      </div>
+
+      <section className="accounts-policy-card">
+        <div className="accounts-policy-card__head">
+          <div>
+            <div className="accounts-policy-card__title-row">
+              <h3>Policy JSON</h3>
+              <span className={`accounts-connect-drawer__access accounts-connect-drawer__access--${activeSummary.cap.tone}`}>
+                {activeSummary.cap.accessType}
+              </span>
+            </div>
+            <p>This is the policy document that will be provisioned for this role.</p>
+          </div>
+          <button type="button" className="accounts-policy-card__copy" onClick={() => void copyPolicyJson()}>
+            <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z" />
+            </svg>
+            {jsonCopied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <pre className="accounts-policy-json accounts-policy-json--inline">
+          <code>{policyJsonForSummary(activeSummary)}</code>
+        </pre>
+        <div className="accounts-policy-card__foot">
+          <span>
+            {activeSummary.statements.length} statement{activeSummary.statements.length === 1 ? "" : "s"} · {uniqueActionCount(activeSummary.statements)} action{uniqueActionCount(activeSummary.statements) === 1 ? "" : "s"}
+          </span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function OnboardingDeployPanel({
+  acc,
+  connectionOptions,
+}: {
+  acc: Account;
+  connectionOptions: ConnectionOptions;
+}) {
+  const [tab, setTab] = useState<DeployTab>("console");
+  const [copied, setCopied] = useState(false);
+  const [cliExpanded, setCliExpanded] = useState(false);
+  const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
+
+  async function copyExternalId() {
+    await navigator.clipboard.writeText(acc.external_id);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <aside className="accounts-deploy-rail">
+      <h3>Deploy</h3>
+      <p>Launch the CloudFormation stack with the selected roles.</p>
+
+      <div className="accounts-deploy-rail__params">
+        <p>Deployment parameters</p>
+        <label>
+          <span>External ID</span>
+          <div>
+            <code>{acc.external_id}</code>
+            <button type="button" onClick={() => void copyExternalId()} aria-label="Copy external ID">
+              {copied ? (
+                <svg fill="none" stroke="currentColor" strokeWidth={2.3} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </label>
+      </div>
+
+      <div className="accounts-deploy-rail__next">
+        <p>What happens next?</p>
+        <ul>
+          <li>
+            <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            CloudFormation stack is created
+          </li>
+          <li>
+            <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            IAM roles are provisioned
+          </li>
+          <li>
+            <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            You&apos;ll continue with account verification
+          </li>
+        </ul>
+      </div>
+
+      <div className="accounts-deploy-rail__method">
+        <p className="accounts-deploy-rail__method-label">Deploy method</p>
+        <div className="accounts-deploy-tabs">
+          {(["console", "cli", "terraform"] as DeployTab[]).map((t) => (
+            <button key={t} type="button" className={tab === t ? "is-active" : ""} onClick={() => setTab(t)}>
+              {t === "console" ? "Console" : t === "cli" ? "CLI" : "Terraform"}
+            </button>
+          ))}
+        </div>
+        {tab === "console" ? (
+          <div className="accounts-deploy-rail__section">
+            <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
+              Launch CloudFormation
+              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
+              </svg>
+            </a>
+          </div>
+        ) : tab === "cli" ? (
+          <div className="accounts-deploy-rail__section">
+            <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
+          </div>
+        ) : (
+          <div className="accounts-deploy-rail__section accounts-deploy-rail__empty">
+            <p>Terraform module</p>
+            <span>Coming soon. Use Console or CLI for this deployment.</span>
+          </div>
+        )}
+      </div>
+
+    </aside>
+  );
+}
+
+function PendingAccountOnboarding({
+  acc,
+  connectionOptions,
+  roleArn,
+  setRoleArn,
+  verify,
+  onVerifyConnection,
+  onBackToCapabilities,
+  embedded = false,
+  initialStep = 2,
+}: {
+  acc: Account;
+  connectionOptions: ConnectionOptions;
+  roleArn: string;
+  setRoleArn: (v: string) => void;
+  verify: { mutate: () => void; isPending: boolean; isError: boolean; isSuccess: boolean; error: unknown };
+  onVerifyConnection: () => void;
+  onBackToCapabilities: () => void;
+  embedded?: boolean;
+  initialStep?: number;
+}) {
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(initialStep === 3 ? 3 : 2);
+  const roleArnValid = isValidIamRoleArn(roleArn);
+  const roleArnValidation = roleArnFieldValidation(roleArn, verify);
+
+  useEffect(() => {
+    setActiveStep(initialStep === 3 ? 3 : 2);
+  }, [initialStep, acc.id]);
+
+  return (
+    <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}`}>
+      <div className="accounts-connect-shell__progress" aria-label="Setup progress">
+        <OnboardingFlowProgress
+          activeStep={activeStep}
+          onStepClick={(step) => {
+            if (step === 1) onBackToCapabilities();
+            else setActiveStep(step);
+          }}
+        />
+      </div>
+
+      <div className="accounts-connect-shell__layout">
+        <div className="accounts-connect-shell__main">
+          {activeStep === 2 ? (
+            <>
+              <div className="accounts-connect-shell__header">
+                <h2 className="accounts-connect-shell__title">Review access and deploy</h2>
+                <p className="accounts-connect-shell__subtitle">
+                  These IAM roles will be created by the CloudFormation stack.
+                </p>
+              </div>
+
+              <div className="accounts-review-stage">
+                <main className="accounts-review-stage__main">
+                  <OnboardingRoleReview acc={acc} value={connectionOptions} />
+                </main>
+                <OnboardingDeployPanel acc={acc} connectionOptions={connectionOptions} />
+              </div>
+
+              <div className="accounts-connect-shell__footer">
+                <button type="button" onClick={onBackToCapabilities} className="accounts-connect-shell__back">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0 5-5m-5 5h12" />
+                  </svg>
+                  Back to capabilities
+                </button>
+                <button type="button" onClick={() => setActiveStep(3)} className="accounts-connect-shell__cta">
+                  Continue
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="accounts-connect-shell__header accounts-connect-shell__header--verify">
+                <h2 className="accounts-connect-shell__title">Confirm stack output</h2>
+                <p className="accounts-connect-shell__subtitle">
+                  Paste the RoleArn output from CloudFormation. Veritrail will test the trust policy and connect the account.
+                </p>
+              </div>
+
+              <div className="accounts-connect-step accounts-connect-step--verify">
+                <div className="accounts-output-panel">
+                  <CopyInputField label="External ID" value={acc.external_id} />
+                  <CopyInputField
+                    label="CloudFormation RoleArn output"
+                    value={roleArn}
+                    readOnly={false}
+                    accountId={acc.account_id}
+                    onChange={setRoleArn}
+                    validation={roleArnValidation}
+                  />
+                  <p className="accounts-output-panel__note" role="note">
+                    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+                      />
+                    </svg>
+                    This RoleArn is used to establish a secure trust relationship with Veritrail.
+                  </p>
+                  {verify.error ? (
+                    <div className="accounts-output-panel__error" role="alert">
+                      {formatApiError(verify.error)}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="accounts-connect-shell__footer accounts-connect-shell__footer--verify">
+                <button type="button" onClick={() => setActiveStep(2)} className="accounts-connect-shell__back">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0 5-5m-5 5h12" />
+                  </svg>
+                  Back to review access
+                </button>
+                <button
+                  type="button"
+                  onClick={onVerifyConnection}
+                  disabled={verify.isPending || !roleArnValid}
+                  className="accounts-connect-shell__cta"
+                >
+                  {verify.isPending ? "Testing connection..." : "Test and connect"}
+                  {!verify.isPending ? (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  ) : null}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -2500,7 +3093,7 @@ function InCardAccountSetupWizard({
               disabled={!roleArnValid}
               className="text-sm font-semibold text-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Continue to verify →
+              Continue →
             </button>
           </div>
         )}
@@ -3481,12 +4074,18 @@ function VerifiedBadgeIcon() {
 }
 
 function CredentialAlert({
-  message,
+  title,
+  fix,
+  onRecheck,
+  recheckPending,
   onReconnect,
   onViewInstructions,
   onDismiss,
 }: {
-  message: string;
+  title: string;
+  fix: string;
+  onRecheck: () => void;
+  recheckPending: boolean;
   onReconnect: () => void;
   onViewInstructions: () => void;
   onDismiss?: () => void;
@@ -3499,20 +4098,31 @@ function CredentialAlert({
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
           </svg>
         </span>
-        <div>
-          <p className="accounts-credential-alert__title">Cloud credentials need attention</p>
-          <p className="accounts-credential-alert__body">{message}</p>
+        <div className="accounts-credential-alert__text">
+          <div className="accounts-credential-alert__heading">
+            <p className="accounts-credential-alert__title">{title}</p>
+            <span className="accounts-credential-alert__tag">Credentials</span>
+          </div>
+          <p className="accounts-credential-alert__body">{fix}</p>
         </div>
       </div>
       <div className="accounts-credential-alert__actions">
-        <button type="button" className="accounts-outline-btn" onClick={onReconnect}>
+        <button
+          type="button"
+          className="accounts-credential-alert__primary"
+          onClick={onRecheck}
+          disabled={recheckPending}
+        >
           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
           </svg>
+          {recheckPending ? "Re-checking…" : "Re-check"}
+        </button>
+        <button type="button" className="accounts-outline-btn" onClick={onReconnect}>
           Reconnect
         </button>
         <button type="button" className="accounts-outline-btn" onClick={onViewInstructions}>
-          View instructions
+          Instructions
           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
           </svg>
@@ -3733,6 +4343,7 @@ function AccountPremiumCard({
   const scanAgo = hasScanned ? formatRelativeScanAgo(acc.last_scan_at) : "Never";
   const showCredentialAlert =
     connected && !isScanActive && scanStatus === "error" && !!scanRun.data?.error;
+  const credentialFailure = showCredentialAlert ? classifyScanFailure(scanRun.data!.error!) : null;
 
   const handleRowClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -3858,7 +4469,10 @@ function AccountPremiumCard({
 
         {showCredentialAlert && !dismissedAlert && (
           <CredentialAlert
-            message={friendlyScanFailureMessage(scanRun.data!.error!)}
+            title={credentialFailure!.title}
+            fix={credentialFailure!.fix}
+            onRecheck={() => triggerScan(acc.id)}
+            recheckPending={isScanActive}
             onReconnect={() => {
               ensureExpanded();
               setShowUpdateArn(true);
@@ -3919,15 +4533,15 @@ function AccountPremiumCard({
             )}
 
             {showSetup && (
-              <InCardAccountSetupWizard
+              <PendingAccountOnboarding
                 acc={acc}
                 connectionOptions={setupConnectionOptions}
-                onConnectionOptionsChange={applyConnectionOptions}
-                connectionOptionsSaving={patchConnection.isPending}
                 roleArn={roleArn}
                 setRoleArn={setRoleArn}
                 verify={verify}
                 onVerifyConnection={handleVerifyConnection}
+                onBackToCapabilities={onToggle}
+                embedded
                 initialStep={setupInitialStep}
               />
             )}
@@ -3958,6 +4572,96 @@ function AccountPremiumCard({
         />
       </div>
     </>
+  );
+}
+
+function PendingAccountSetupSurface({
+  acc,
+  initialStep,
+  onBackToCapabilities,
+}: {
+  acc: Account;
+  initialStep: number;
+  onBackToCapabilities: () => void;
+}) {
+  const qc = useQueryClient();
+  const [roleArn, setRoleArn] = useState("");
+  const [setupConnectionOptions, setSetupConnectionOptions] = useState(() => accountConnectionOptions(acc));
+
+  useEffect(() => {
+    setSetupConnectionOptions(accountConnectionOptions(acc));
+  }, [
+    acc.id,
+    acc.enable_advanced_policy_generation,
+    acc.remediation_modules,
+    acc.status,
+  ]);
+
+  const patchConnection = useMutation({
+    mutationFn: (opts: ConnectionOptions) =>
+      api<Account>(`/v1/accounts/${acc.id}/connection-options`, {
+        method: "PATCH",
+        body: JSON.stringify(opts),
+      }),
+    onSuccess: (updated) => {
+      qc.setQueryData<Account[]>(["accounts"], (rows) =>
+        rows ? rows.map((row) => (row.id === updated.id ? updated : row)) : [updated],
+      );
+      setSetupConnectionOptions(accountConnectionOptions(updated));
+    },
+  });
+
+  const verify = useMutation({
+    mutationFn: () =>
+      api<Account>(`/v1/accounts/${acc.id}/verify`, {
+        method: "POST",
+        body: JSON.stringify({ role_arn: sanitizeIamRoleArnInput(roleArn) }),
+      }),
+    onSuccess: (updated) => {
+      qc.setQueryData<Account[]>(["accounts"], (rows) =>
+        rows ? rows.map((row) => (row.id === updated.id ? updated : row)) : [updated],
+      );
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
+      setRoleArn("");
+    },
+    onError: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
+  const connectionOptionsDirty = () => {
+    const saved = accountConnectionOptions(acc);
+    return (
+      setupConnectionOptions.enable_advanced_policy_generation !==
+        saved.enable_advanced_policy_generation ||
+      REMEDIATION_MODULE_SPECS.some(
+        (m) =>
+          setupConnectionOptions.remediation_modules[m.id] !== saved.remediation_modules[m.id],
+      )
+    );
+  };
+
+  const handleVerifyConnection = () => {
+    const runVerify = () => verify.mutate();
+    if (connectionOptionsDirty()) {
+      patchConnection.mutate(setupConnectionOptions, { onSuccess: runVerify });
+      return;
+    }
+    runVerify();
+  };
+
+  return (
+    <PendingAccountOnboarding
+      acc={acc}
+      connectionOptions={setupConnectionOptions}
+      roleArn={roleArn}
+      setRoleArn={setRoleArn}
+      verify={verify}
+      onVerifyConnection={handleVerifyConnection}
+      onBackToCapabilities={onBackToCapabilities}
+      initialStep={initialStep}
+    />
   );
 }
 
@@ -4008,7 +4712,7 @@ export default function Accounts() {
     onSuccess: (acc) => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
-      setSetupInitialStep(1);
+      setSetupInitialStep(2);
       setExpandedId(acc.id);
       setPendingConnectionOptions(accountConnectionOptions(acc));
     },
@@ -4082,8 +4786,16 @@ export default function Accounts() {
 
   const hasConnectedAccount = accs.some((a) => isAccountConnected(a));
   const pendingAcc = accs.find((a) => !isAccountConnected(a));
+  const showPendingOnboarding =
+    !accounts.isLoading &&
+    !accounts.isError &&
+    !!pendingAcc &&
+    expandedId === pendingAcc.id;
   const showCapabilityOnboarding =
-    !hasConnectedAccount && !accounts.isLoading && !accounts.isError && expandedId === null;
+    !hasConnectedAccount &&
+    !accounts.isLoading &&
+    !accounts.isError &&
+    (!pendingAcc || expandedId === null);
 
   const handleOnboardingContinue = () => {
     if (pendingAcc) {
@@ -4091,7 +4803,7 @@ export default function Accounts() {
         { accountId: pendingAcc.id, opts: pendingConnectionOptions },
         {
           onSuccess: () => {
-            setSetupInitialStep(1);
+            setSetupInitialStep(2);
             setExpandedId(pendingAcc.id);
           },
         },
@@ -4146,7 +4858,19 @@ export default function Accounts() {
         />
       )}
 
-      {!showCapabilityOnboarding && accs.length > 0 && (
+      {showPendingOnboarding && pendingAcc && (
+        <PendingAccountSetupSurface
+          acc={pendingAcc}
+          initialStep={setupInitialStep}
+          onBackToCapabilities={() => {
+            setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
+            setSetupInitialStep(1);
+            setExpandedId(null);
+          }}
+        />
+      )}
+
+      {!showPendingOnboarding && hasConnectedAccount && accs.length > 0 && (
         <div className="space-y-6">
           {hasConnectedAccount ? (
             <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} planUsage={planUsage.data} />
