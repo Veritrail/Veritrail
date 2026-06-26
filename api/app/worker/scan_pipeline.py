@@ -75,6 +75,8 @@ class ScanProgressTracker:
         self._commit_every = 4
         self._stats: dict = {}
         self._current_step_name: str | None = None
+        self._collector_index: int | None = None
+        self._collector_total: int | None = None
 
     def _ratio(self, step_counter: int) -> float:
         """Weighted 0–1 ratio matching web/src/hooks/useScanProgress.ts."""
@@ -107,14 +109,30 @@ class ScanProgressTracker:
     def set_step_name(self, name: str | None) -> None:
         self._current_step_name = name
 
+    def clear_collector_progress(self) -> None:
+        """Leave collection phase — stop reporting per-collector index in stats."""
+        self._collector_index = None
+        self._collector_total = None
+
+    def publish_collector_start(self, index: int, total: int, name: str) -> None:
+        """Publish before a collector runs so the UI shows live X/Y + collector name."""
+        self._current_step_name = name
+        self._collector_index = index
+        self._collector_total = total
+        self._publish()
+
     def _publish(self) -> None:
-        self.run.stats = {
+        stats: dict[str, Any] = {
             **self._stats,
             "_progress_step": self._step_counter,
             "_progress_total": self._total,
             "_progress_phase": self._phase(self._step_counter),
             "_progress_step_name": self._current_step_name,
         }
+        if self._collector_index is not None and self._collector_total is not None:
+            stats["_progress_collector_index"] = self._collector_index
+            stats["_progress_collector_total"] = self._collector_total
+        self.run.stats = stats
         self.db.commit()
 
     def _should_publish(self) -> bool:
@@ -179,10 +197,11 @@ class ScanPipeline:
         the collection phase (the slow part), instead of freezing on "Initializing".
         """
         results: list[CollectorResult] = []
-        for name, fn in collectors:
+        collector_total = len(collectors)
+        for index, (name, fn) in enumerate(collectors, start=1):
             self.step_name = name
             if tracker is not None:
-                tracker.set_step_name(name)
+                tracker.publish_collector_start(index, collector_total, name)
             try:
                 stats = fn(self.db, self.account)
                 self.db.commit()
@@ -338,6 +357,7 @@ class ScanPipeline:
                 })
 
         # Check phase — advance per check
+        tracker.clear_collector_progress()
         check_result = self._run_checks(enabled_checks, tracker)
 
         # Persist findings

@@ -25,7 +25,7 @@ import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
-import { formatProgressStepName, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
+import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { isAccountConnected } from "../lib/accountConnection";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
@@ -3396,6 +3396,8 @@ function ScanPhaseBlock({
   progressTotal,
   progressPhase,
   progressStepName,
+  progressCollectorIndex,
+  progressCollectorTotal,
   indeterminate,
   compact = false,
 }: {
@@ -3405,6 +3407,8 @@ function ScanPhaseBlock({
   progressTotal: number | null;
   progressPhase: number | null;
   progressStepName: string | null;
+  progressCollectorIndex: number | null;
+  progressCollectorTotal: number | null;
   indeterminate: boolean;
   compact?: boolean;
 }) {
@@ -3417,10 +3421,19 @@ function ScanPhaseBlock({
       : progressStep != null && progressTotal
         ? mapWorkerStepToUiPhase(progressStep, progressTotal)
         : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
-  const stepLabel = formatProgressStepName(progressStepName);
   const activePhaseLabel = SCAN_PHASES[activeIdx] ?? SCAN_PHASES[0];
-  const detailLabel =
-    stepLabel && activeIdx <= 1 ? `${activePhaseLabel}: ${stepLabel}` : activePhaseLabel;
+  const detailLabel = formatScanProgressDetailLabel(
+    activePhaseLabel,
+    activeIdx,
+    progressStepName,
+    progressCollectorIndex,
+    progressCollectorTotal,
+  );
+  const showWorkerStepCount =
+    !compact &&
+    progressStep != null &&
+    progressTotal != null &&
+  !(progressCollectorIndex != null && progressCollectorTotal != null);
 
   return (
     <div className="accounts-scan-module accounts-scan-module--steps">
@@ -3435,7 +3448,7 @@ function ScanPhaseBlock({
             {!compact ? (
               <span className="ml-1.5 font-normal text-zinc-500">— {detailLabel}</span>
             ) : null}
-            {!compact && progressStep != null && progressTotal ? (
+            {!compact && showWorkerStepCount ? (
               <span className="ml-1.5 font-normal text-zinc-400">
                 ({progressStep}/{progressTotal})
               </span>
@@ -3952,6 +3965,8 @@ function AccountCard({
           progressTotal={scanProgress.progressTotal}
           progressPhase={scanProgress.progressPhase}
           progressStepName={scanProgress.progressStepName}
+          progressCollectorIndex={scanProgress.progressCollectorIndex}
+          progressCollectorTotal={scanProgress.progressCollectorTotal}
           indeterminate={scanProgress.indeterminate}
         />
       )}
@@ -4470,6 +4485,8 @@ function AccountPremiumCard({
             progressTotal={scanProgress.progressTotal}
             progressPhase={scanProgress.progressPhase}
             progressStepName={scanProgress.progressStepName}
+            progressCollectorIndex={scanProgress.progressCollectorIndex}
+            progressCollectorTotal={scanProgress.progressCollectorTotal}
             indeterminate={scanProgress.indeterminate}
             compact
           />

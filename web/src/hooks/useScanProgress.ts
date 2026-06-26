@@ -9,6 +9,8 @@ export type WorkerProgress = {
   total: number;
   phase?: number | null;
   stepName?: string | null;
+  collectorIndex?: number | null;
+  collectorTotal?: number | null;
 };
 
 /** Must match `_COLLECTOR_STEPS` in `api/app/worker/scan_pipeline.py`. */
@@ -74,6 +76,30 @@ export function formatProgressStepName(name: string | null | undefined): string 
   return stripped.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Title line for Accounts scan module during collection vs other phases. */
+export function formatScanProgressDetailLabel(
+  activePhaseLabel: string,
+  activeIdx: number,
+  stepName: string | null | undefined,
+  collectorIndex: number | null | undefined,
+  collectorTotal: number | null | undefined,
+): string {
+  const stepLabel = formatProgressStepName(stepName);
+  const isCollecting = activeIdx === 1;
+  const collectorSuffix =
+    isCollecting && collectorIndex != null && collectorTotal != null && collectorTotal > 0
+      ? ` (${collectorIndex}/${collectorTotal})`
+      : "";
+
+  if (isCollecting && stepLabel) {
+    return `${activePhaseLabel}${collectorSuffix} — ${stepLabel}`;
+  }
+  if (stepLabel && activeIdx <= 1) {
+    return `${activePhaseLabel}: ${stepLabel}`;
+  }
+  return `${activePhaseLabel}${collectorSuffix}`;
+}
+
 export function loadExpectedScanDurationMs(): number {
   const raw = localStorage.getItem(LAST_SCAN_DURATION_KEY);
   const n = raw ? parseInt(raw, 10) : NaN;
@@ -104,6 +130,8 @@ type ScanProgress = {
   progressTotal: number | null;
   progressPhase: number | null;
   progressStepName: string | null;
+  progressCollectorIndex: number | null;
+  progressCollectorTotal: number | null;
 };
 
 export function useScanProgress(
@@ -132,6 +160,8 @@ export function useScanProgress(
     progressTotal: null,
     progressPhase: null,
     progressStepName: null,
+    progressCollectorIndex: null,
+    progressCollectorTotal: null,
   };
 
   if (!active) return empty;
@@ -159,6 +189,8 @@ export function useScanProgress(
       progressTotal: workerProgress.total,
       progressPhase: mapWorkerStepToUiPhase(step, workerProgress.total),
       progressStepName: workerProgress.stepName ?? null,
+      progressCollectorIndex: workerProgress.collectorIndex ?? null,
+      progressCollectorTotal: workerProgress.collectorTotal ?? null,
     };
   }
 
@@ -176,5 +208,7 @@ export function useScanProgress(
     progressTotal: null,
     progressPhase: null,
     progressStepName: null,
+    progressCollectorIndex: null,
+    progressCollectorTotal: null,
   };
 }

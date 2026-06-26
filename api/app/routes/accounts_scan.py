@@ -29,6 +29,8 @@ class ScanRunOut(BaseModel):
     progress_total: int | None = None  # total steps (from stats._progress_total)
     progress_phase: int | None = None  # current UI phase index 0-5 (from stats._progress_phase)
     progress_step_name: str | None = None  # worker step label (from stats._progress_step_name)
+    progress_collector_index: int | None = None  # 1-based collector index (from stats._progress_collector_index)
+    progress_collector_total: int | None = None  # collector count (from stats._progress_collector_total)
     duration_seconds: float | None = None
     checks_run_count: int | None = None
     check_error_count: int | None = None
@@ -167,6 +169,8 @@ def latest_scan_run(account_id: str, p=Depends(current_principal), db: Session =
         progress_total=stats.get("_progress_total"),
         progress_phase=stats.get("_progress_phase"),
         progress_step_name=stats.get("_progress_step_name"),
+        progress_collector_index=stats.get("_progress_collector_index"),
+        progress_collector_total=stats.get("_progress_collector_total"),
         duration_seconds=duration_seconds,
         checks_run_count=len(checks_run) if checks_run else None,
         check_error_count=len(check_errors) if check_errors else None,
