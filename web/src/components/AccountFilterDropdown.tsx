@@ -15,12 +15,12 @@ function FilterChevron({ open }: { open: boolean }) {
   return (
     <svg
       className={`account-filter__chevron${open ? " account-filter__chevron--open" : ""}`}
-      width="16"
-      height="16"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={1.75}
       aria-hidden
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
@@ -76,7 +76,7 @@ export function AccountFilterDropdown({
     if (!btn) return;
     const rect = btn.getBoundingClientRect();
     setMenuPos({
-      top: rect.bottom + 8,
+      top: rect.bottom,
       left: rect.left,
       minWidth: Math.max(rect.width, 360),
     });
@@ -207,10 +207,10 @@ export function AccountFilterDropdown({
                       <span className="account-filter-card__indicator" aria-hidden>
                         {active ? (
                           <svg viewBox="0 0 20 20" fill="none" aria-hidden>
-                            <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+                            <circle cx="10" cy="10" r="9" fill="#e4e4e7" />
                             <path
                               d="M6 10.2 8.4 12.6 14 7"
-                              stroke="currentColor"
+                              stroke="#52525b"
                               strokeWidth="1.75"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -218,7 +218,7 @@ export function AccountFilterDropdown({
                           </svg>
                         ) : (
                           <svg viewBox="0 0 20 20" fill="none" aria-hidden>
-                            <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+                            <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.25" />
                           </svg>
                         )}
                       </span>
@@ -254,7 +254,7 @@ export function AccountFilterDropdown({
       <button
         ref={triggerRef}
         type="button"
-        className="account-filter__trigger"
+        className={`account-filter__trigger${open ? " account-filter__trigger--open" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
