@@ -4,11 +4,22 @@ const LAST_SCAN_DURATION_KEY = "veritrail:lastScanDurationMs";
 /** Fallback when no history and worker has not reported step progress yet. */
 const DEFAULT_SCAN_DURATION_MS = 600_000;
 
-export type WorkerProgress = { step: number; total: number; phase?: number | null };
+export type WorkerProgress = {
+  step: number;
+  total: number;
+  phase?: number | null;
+  stepName?: string | null;
+};
 
 /** Must match `_COLLECTOR_STEPS` in `api/app/worker/scan_pipeline.py`. */
 export const WORKER_COLLECTOR_STEPS = 32;
 export const WORKER_FINALIZE_STEPS = 2;
+
+/**
+ * UI phase band starts (0–1). Must stay in sync with `_PHASE_THRESHOLDS` in
+ * `api/app/worker/scan_pipeline.py`.
+ */
+export const UI_PHASE_THRESHOLDS = [0, 0.05, 0.55, 0.7, 0.85, 0.95] as const;
 
 /** Weight collection (~55%) so the bar moves during the slow collector phase. */
 export function workerProgressRatio(step: number, total: number): number {
@@ -30,12 +41,37 @@ export function workerProgressRatio(step: number, total: number): number {
   return checksEnd + (finalizeStep / Math.max(1, finalize)) * (1 - checksEnd);
 }
 
+/** Map weighted progress ratio onto the 6 Accounts UI phases. */
+export function mapProgressRatioToUiPhase(ratio: number): number {
+  const r = Math.max(0, Math.min(1, ratio));
+  for (let i = UI_PHASE_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (r >= UI_PHASE_THRESHOLDS[i]) return i;
+  }
+  return 0;
+}
+
 /** Map fine-grained worker steps onto the 6 marketing phases in the Accounts UI. */
 export function mapWorkerStepToUiPhase(step: number, total: number): number {
-  const UI_PHASE_COUNT = 6;
   if (total <= 0 || step <= 0) return 0;
+  if (step <= 1) return 0;
   const ratio = workerProgressRatio(step, total);
-  return Math.min(UI_PHASE_COUNT - 1, Math.floor(ratio * UI_PHASE_COUNT));
+  return Math.max(1, mapProgressRatioToUiPhase(ratio));
+}
+
+/** Human-readable label for the worker's current step name. */
+export function formatProgressStepName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  if (name === "bootstrap") return "Starting up";
+  if (name.startsWith("check:")) {
+    return name
+      .slice(6)
+      .replace(/\./g, " · ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  if (name === "persist_findings") return "Saving findings";
+  if (name === "write_evidence_snapshots") return "Writing evidence";
+  const stripped = name.replace(/^collect_/, "").replace(/_/g, " ");
+  return stripped.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function loadExpectedScanDurationMs(): number {
@@ -67,6 +103,7 @@ type ScanProgress = {
   progressStep: number | null;
   progressTotal: number | null;
   progressPhase: number | null;
+  progressStepName: string | null;
 };
 
 export function useScanProgress(
@@ -94,6 +131,7 @@ export function useScanProgress(
     progressStep: null,
     progressTotal: null,
     progressPhase: null,
+    progressStepName: null,
   };
 
   if (!active) return empty;
@@ -119,7 +157,8 @@ export function useScanProgress(
       finishing,
       progressStep: step,
       progressTotal: workerProgress.total,
-      progressPhase: workerProgress.phase ?? null,
+      progressPhase: mapWorkerStepToUiPhase(step, workerProgress.total),
+      progressStepName: workerProgress.stepName ?? null,
     };
   }
 
@@ -136,5 +175,6 @@ export function useScanProgress(
     progressStep: null,
     progressTotal: null,
     progressPhase: null,
+    progressStepName: null,
   };
 }

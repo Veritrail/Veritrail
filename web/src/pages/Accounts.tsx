@@ -25,7 +25,7 @@ import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
-import { mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
+import { formatProgressStepName, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { isAccountConnected } from "../lib/accountConnection";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
@@ -3395,6 +3395,7 @@ function ScanPhaseBlock({
   progressStep,
   progressTotal,
   progressPhase,
+  progressStepName,
   indeterminate,
   compact = false,
 }: {
@@ -3403,6 +3404,7 @@ function ScanPhaseBlock({
   progressStep: number | null;
   progressTotal: number | null;
   progressPhase: number | null;
+  progressStepName: string | null;
   indeterminate: boolean;
   compact?: boolean;
 }) {
@@ -3415,6 +3417,10 @@ function ScanPhaseBlock({
       : progressStep != null && progressTotal
         ? mapWorkerStepToUiPhase(progressStep, progressTotal)
         : Math.min(SCAN_PHASES.length - 1, Math.floor((pct / 100) * SCAN_PHASES.length));
+  const stepLabel = formatProgressStepName(progressStepName);
+  const activePhaseLabel = SCAN_PHASES[activeIdx] ?? SCAN_PHASES[0];
+  const detailLabel =
+    stepLabel && activeIdx <= 1 ? `${activePhaseLabel}: ${stepLabel}` : activePhaseLabel;
 
   return (
     <div className="accounts-scan-module accounts-scan-module--steps">
@@ -3426,9 +3432,12 @@ function ScanPhaseBlock({
           </svg>
           <p className="accounts-scan-module__title">
             Scan in progress
+            {!compact ? (
+              <span className="ml-1.5 font-normal text-zinc-500">— {detailLabel}</span>
+            ) : null}
             {!compact && progressStep != null && progressTotal ? (
-              <span className="ml-1.5 font-normal text-zinc-500">
-                — Step {progressStep} of {progressTotal}
+              <span className="ml-1.5 font-normal text-zinc-400">
+                ({progressStep}/{progressTotal})
               </span>
             ) : null}
             {elapsed ? <span className="ml-1.5 font-normal text-zinc-500">· {elapsed}</span> : null}
@@ -3942,6 +3951,7 @@ function AccountCard({
           progressStep={scanProgress.progressStep}
           progressTotal={scanProgress.progressTotal}
           progressPhase={scanProgress.progressPhase}
+          progressStepName={scanProgress.progressStepName}
           indeterminate={scanProgress.indeterminate}
         />
       )}
@@ -4459,6 +4469,7 @@ function AccountPremiumCard({
             progressStep={scanProgress.progressStep}
             progressTotal={scanProgress.progressTotal}
             progressPhase={scanProgress.progressPhase}
+            progressStepName={scanProgress.progressStepName}
             indeterminate={scanProgress.indeterminate}
             compact
           />

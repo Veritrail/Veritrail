@@ -31,6 +31,8 @@ log = structlog.get_logger()
 # number of _step(...) calls in the collection phase.
 _COLLECTOR_STEPS = 32
 _FINALIZE_STEPS = 2
+# UI phase band starts (0–1). Must stay in sync with UI_PHASE_THRESHOLDS in useScanProgress.ts.
+_PHASE_THRESHOLDS = (0.0, 0.05, 0.55, 0.70, 0.85, 0.95)
 
 
 @dataclass
@@ -72,19 +74,38 @@ class ScanProgressTracker:
         self._total = _COLLECTOR_STEPS + len(enabled_checks) + _FINALIZE_STEPS
         self._commit_every = 4
         self._stats: dict = {}
+        self._current_step_name: str | None = None
+
+    def _ratio(self, step_counter: int) -> float:
+        """Weighted 0–1 ratio matching web/src/hooks/useScanProgress.ts."""
+        if self._total <= 0 or step_counter <= 0:
+            return 0.0
+        collectors = _COLLECTOR_STEPS
+        finalize = _FINALIZE_STEPS
+        check_total = max(0, self._total - collectors - finalize)
+        collection_end = 0.55
+        checks_end = 0.95
+
+        if step_counter <= collectors:
+            return (step_counter / collectors) * collection_end
+        if step_counter <= collectors + check_total:
+            check_step = step_counter - collectors
+            return collection_end + (check_step / max(1, check_total)) * (checks_end - collection_end)
+        finalize_step = step_counter - collectors - check_total
+        return checks_end + (finalize_step / max(1, finalize)) * (1 - checks_end)
 
     def _phase(self, step_counter: int) -> int:
-        """Map step counter to UI phase.
-        0 Initializing · 1 Collecting · 2 Analyzing · 3 Policy eval · 4 Risk · 5 Reporting."""
-        if step_counter <= 0:
+        """Map weighted ratio to UI phase (0–5)."""
+        if step_counter <= 1:
             return 0
-        if step_counter <= _COLLECTOR_STEPS:
-            return 1 if step_counter <= int(_COLLECTOR_STEPS * 0.6) else 2
-        cs = step_counter - _COLLECTOR_STEPS
-        nchecks = len(self._run_checks) if hasattr(self, '_run_checks') else 0
-        if cs <= nchecks:
-            return 3 if cs <= int(nchecks * 0.8) else 4
-        return 5
+        ratio = self._ratio(step_counter)
+        for i in range(len(_PHASE_THRESHOLDS) - 1, -1, -1):
+            if ratio >= _PHASE_THRESHOLDS[i]:
+                return max(1, i)
+        return 0
+
+    def set_step_name(self, name: str | None) -> None:
+        self._current_step_name = name
 
     def _publish(self) -> None:
         self.run.stats = {
@@ -92,6 +113,7 @@ class ScanProgressTracker:
             "_progress_step": self._step_counter,
             "_progress_total": self._total,
             "_progress_phase": self._phase(self._step_counter),
+            "_progress_step_name": self._current_step_name,
         }
         self.db.commit()
 
@@ -159,6 +181,8 @@ class ScanPipeline:
         results: list[CollectorResult] = []
         for name, fn in collectors:
             self.step_name = name
+            if tracker is not None:
+                tracker.set_step_name(name)
             try:
                 stats = fn(self.db, self.account)
                 self.db.commit()
@@ -185,6 +209,8 @@ class ScanPipeline:
 
         for mod in enabled_checks:
             self.step_name = f"check:{mod.CHECK_ID}"
+            if tracker is not None:
+                tracker.set_step_name(self.step_name)
             check_ids_run.add(mod.CHECK_ID)
             try:
                 drafts.extend(mod.run(self.db, self.account.id))
@@ -298,6 +324,7 @@ class ScanPipeline:
         tracker.set_enabled_checks(enabled_checks)
 
         self._bootstrap()
+        tracker.set_step_name("bootstrap")
         tracker.step("bootstrap", lambda: {})
         tracker.finalize()  # publish immediately so the UI leaves "Initializing" right away
 
@@ -314,11 +341,13 @@ class ScanPipeline:
         check_result = self._run_checks(enabled_checks, tracker)
 
         # Persist findings
+        tracker.set_step_name("persist_findings")
         persist_stats = tracker.step("persist_findings", lambda: self._persist(check_result))
         opened = persist_stats["opened"]
         resolved = persist_stats["resolved"]
 
         # Snapshots
+        tracker.set_step_name("write_evidence_snapshots")
         snap_count = tracker.step("write_evidence_snapshots", lambda: self._write_snapshots())
 
         # Finalize run metadata and stats (tracker.finalize is the single writer for run.stats)
