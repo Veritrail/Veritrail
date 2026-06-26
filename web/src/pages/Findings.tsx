@@ -1088,7 +1088,7 @@ export default function Findings() {
 
                   {postureDisplayGroups.length > 0 ? (
                       <VirtualizedFindingsGroups
-                        className="findings-v2-table max-h-[min(70vh,960px)] overflow-y-auto"
+                        className="findings-v2-table"
                         groups={postureDisplayGroups}
                         expandedCheckIds={expandedCheckIds}
                         toggleExpandedCheck={toggleExpandedCheck}
@@ -1104,7 +1104,7 @@ export default function Findings() {
                         <p className="mt-0.5 text-xs text-zinc-500">CloudTrail events — informational; they do not fail compliance controls.</p>
                       </div>
                       <VirtualizedFindingsGroups
-                        className="findings-v2-table max-h-[min(50vh,640px)] overflow-y-auto"
+                        className="findings-v2-table"
                         groups={activityDisplayGroups}
                         expandedCheckIds={expandedCheckIds}
                         toggleExpandedCheck={(key) => toggleExpandedCheck(`activity:${key}`)}
