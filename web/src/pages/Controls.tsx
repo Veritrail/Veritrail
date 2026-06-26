@@ -23,6 +23,20 @@ import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingFailsControl } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
+import { EvidenceCoverageDashboard } from "../components/EvidenceCoverageDashboard";
+import { CompliancePageHeader } from "../components/CompliancePageHeader";
+import { ScanCollectorSummary } from "../components/ScanCollectorSummary";
+import {
+  compositeRecommendedAction,
+  isPermissionGapError,
+  type ComplianceDisplayStatus,
+  type RecommendedAction,
+} from "../lib/compositeRecommendedAction";
+import type { ExternalEvidenceArtifact } from "../lib/externalEvidence";
+import { evidenceIsStale } from "../lib/externalEvidence";
+import { openAbsenceGapChecks } from "../lib/evidenceGap";
+import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
+import { ControlEvidenceSlideOver } from "../components/ControlEvidenceSlideOver";
 import { HeaderSlot } from "../context/HeaderSlot";
 import "../styles/findings-v2.css";
 
@@ -44,9 +58,9 @@ type CompositeControlRow = {
   status: "pass" | "fail" | "no_data";
   finding_count: number;
   open_finding_ids: string[];
+  scan_errors?: { check_id: string; error_type?: string | null; error?: string | null }[];
+  coverage_override?: "out_of_scope" | "not_applicable" | null;
 };
-
-type ComplianceDisplayStatus = "passing" | "failing" | "at_risk" | "unevaluated";
 
 type ControlRow = {
   id: string;
@@ -90,7 +104,16 @@ const AUDIT_WINDOWS = [
   { value: 365, label: "Last 365 days" },
 ] as const;
 
-type StatusFilter = "all" | "pass" | "fail" | "no_data";
+type StatusFilter =
+  | "all"
+  | "pass"
+  | "fail"
+  | "no_data"
+  | "needs_evidence"
+  | "externally_covered"
+  | "pending_review"
+  | "stale"
+  | "expired";
 
 type ComplianceView = "composite" | "detailed";
 
@@ -122,13 +145,53 @@ function ComplianceExpandChevron({ expanded, className = "" }: { expanded: boole
 function compositeDisplayStatus(
   ctrl: CompositeControlRow,
   findingCountByCheck: Map<string, number>,
+  hasAcceptedExternalEvidence = false,
+  hasExpiredEvidence = false,
 ): ComplianceDisplayStatus {
+  if (ctrl.coverage_override === "out_of_scope") return "out_of_scope";
+  if (ctrl.coverage_override === "not_applicable") return "not_applicable";
   if (ctrl.status === "pass") return "passing";
   if (ctrl.status === "no_data") return "unevaluated";
+  if (hasExpiredEvidence && !hasAcceptedExternalEvidence) return "expired";
+  if (ctrl.status === "fail" && hasAcceptedExternalEvidence) return "externally_covered";
+  if (
+    ctrl.status === "fail" &&
+    !hasAcceptedExternalEvidence &&
+    openAbsenceGapChecks(ctrl.check_ids, findingCountByCheck).length > 0
+  ) {
+    return "needs_evidence";
+  }
   const failingChecks = ctrl.check_ids.filter((id) => (findingCountByCheck.get(id) ?? 0) > 0);
   if (failingChecks.length === 0) return "failing";
   const hasCoreFailure = failingChecks.some((id) => (ctrl.check_tiers?.[id] ?? "core") === "core");
   return hasCoreFailure ? "failing" : "at_risk";
+}
+
+function compositeMatchesStatusFilter(
+  ctrl: CompositeControlRow,
+  filter: StatusFilter,
+  findingCountByCheck: Map<string, number>,
+  acceptedCompositeIds: Set<string>,
+  submittedCount = 0,
+  hasStaleEvidence = false,
+  hasExpiredEvidence = false,
+): boolean {
+  if (filter === "all") return true;
+  const display = compositeDisplayStatus(
+    ctrl,
+    findingCountByCheck,
+    acceptedCompositeIds.has(ctrl.id),
+    hasExpiredEvidence,
+  );
+  if (filter === "pass") return ctrl.status === "pass";
+  if (filter === "no_data") return ctrl.status === "no_data";
+  if (filter === "needs_evidence") return display === "needs_evidence";
+  if (filter === "externally_covered") return display === "externally_covered";
+  if (filter === "pending_review") return submittedCount > 0;
+  if (filter === "stale") return hasStaleEvidence;
+  if (filter === "expired") return hasExpiredEvidence;
+  if (filter === "fail") return ctrl.status === "fail" && (display === "failing" || display === "at_risk");
+  return true;
 }
 
 function controlDisplayStatus(
@@ -157,6 +220,11 @@ function ComplianceRowSummary({
     failing: "Failing",
     at_risk: "At risk",
     unevaluated: "Not evaluated",
+    externally_covered: "Externally covered",
+    needs_evidence: "Needs evidence",
+    expired: "Expired evidence",
+    out_of_scope: "Out of scope",
+    not_applicable: "Not applicable",
   };
 
   const dotClass: Record<ComplianceDisplayStatus, string> = {
@@ -164,6 +232,11 @@ function ComplianceRowSummary({
     failing: "bg-rose-500",
     at_risk: "bg-amber-500",
     unevaluated: "bg-zinc-400",
+    externally_covered: "bg-indigo-500",
+    needs_evidence: "bg-orange-500",
+    expired: "bg-zinc-500",
+    out_of_scope: "bg-sky-500",
+    not_applicable: "bg-sky-400",
   };
 
   const chipToneClass: Record<ComplianceDisplayStatus, string> = {
@@ -171,6 +244,11 @@ function ComplianceRowSummary({
     failing: "bg-rose-50 text-rose-800 ring-rose-200/70",
     at_risk: "bg-amber-50 text-amber-800 ring-amber-200/70",
     unevaluated: "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
+    externally_covered: "bg-indigo-50 text-indigo-900 ring-indigo-200/80",
+    needs_evidence: "bg-orange-50 text-orange-900 ring-orange-200/80",
+    expired: "bg-zinc-100 text-zinc-700 ring-zinc-300/80",
+    out_of_scope: "bg-sky-50 text-sky-900 ring-sky-200/80",
+    not_applicable: "bg-sky-50 text-sky-800 ring-sky-200/70",
   };
   const chipClass = `inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ring-1 ${chipToneClass[displayStatus]}`;
   const content = (
@@ -465,6 +543,7 @@ const COMPOSITE_DISPLAY_ORDER = [
   "vulnerability_management",
   "logging_monitoring",
   "backup_resilience",
+  "endpoint_security",
 ] as const;
 
 const NESTED_COMPOSITE_IDS: Record<string, string> = {
@@ -675,27 +754,49 @@ function ComplianceStatusFilterBar({
   passed,
   failed,
   noData,
+  needsEvidence,
+  externallyCovered,
+  pendingReview,
+  staleEvidence,
+  expiredEvidence,
   statusFilter,
   onChange,
+  compositeMode = false,
 }: {
   total: number;
   passed: number;
   failed: number;
   noData: number;
+  needsEvidence?: number;
+  externallyCovered?: number;
+  pendingReview?: number;
+  staleEvidence?: number;
+  expiredEvidence?: number;
   statusFilter: StatusFilter;
   onChange: (filter: StatusFilter) => void;
+  compositeMode?: boolean;
 }) {
+  const chips = [
+    { id: "all", label: "All", count: total },
+    { id: "fail", label: "Failing", count: failed, urgent: true },
+    ...(compositeMode
+      ? [
+          { id: "needs_evidence", label: "Needs evidence", count: needsEvidence ?? 0, urgent: true },
+          { id: "externally_covered", label: "External", count: externallyCovered ?? 0 },
+          { id: "pending_review", label: "Pending review", count: pendingReview ?? 0 },
+          { id: "stale", label: "Stale", count: staleEvidence ?? 0, urgent: (staleEvidence ?? 0) > 0 },
+          { id: "expired", label: "Expired", count: expiredEvidence ?? 0, urgent: (expiredEvidence ?? 0) > 0 },
+        ]
+      : []),
+    { id: "pass", label: "Passing", count: passed },
+    { id: "no_data", label: "No data", count: noData },
+  ];
   return (
     <FilterChipBar
       ariaLabel="Control status"
       selected={statusFilter}
       onChange={(id) => onChange(id as StatusFilter)}
-      chips={[
-        { id: "all", label: "All", count: total },
-        { id: "fail", label: "Failing", count: failed, urgent: true },
-        { id: "pass", label: "Passing", count: passed },
-        { id: "no_data", label: "No data", count: noData },
-      ]}
+      chips={chips}
     />
   );
 }
@@ -798,6 +899,7 @@ function ComplianceUnifiedToolbar({
   statusFilter,
   onStatusFilterChange,
   statusCounts,
+  compositeStatusFilter = false,
   showStatusFilter,
   auditExport,
   showAuditExport,
@@ -809,7 +911,18 @@ function ComplianceUnifiedToolbar({
   onFrameworkChange: (id: string) => void;
   statusFilter: StatusFilter;
   onStatusFilterChange: (filter: StatusFilter) => void;
-  statusCounts: { total: number; passed: number; failed: number; noData: number };
+  statusCounts: {
+    total: number;
+    passed: number;
+    failed: number;
+    noData: number;
+    needsEvidence?: number;
+    externallyCovered?: number;
+    pendingReview?: number;
+    staleEvidence?: number;
+    expiredEvidence?: number;
+  };
+  compositeStatusFilter?: boolean;
   showStatusFilter: boolean;
   auditExport: ReactNode;
   showAuditExport: boolean;
@@ -823,8 +936,14 @@ function ComplianceUnifiedToolbar({
             passed={statusCounts.passed}
             failed={statusCounts.failed}
             noData={statusCounts.noData}
+            needsEvidence={statusCounts.needsEvidence}
+            externallyCovered={statusCounts.externallyCovered}
+            pendingReview={statusCounts.pendingReview}
+            staleEvidence={statusCounts.staleEvidence}
+            expiredEvidence={statusCounts.expiredEvidence}
             statusFilter={statusFilter}
             onChange={onStatusFilterChange}
+            compositeMode={compositeStatusFilter}
           />
         )}
         <ComplianceFrameworkSelect
@@ -967,6 +1086,41 @@ function InsightIcon({ tone, children }: { tone: "emerald" | "sky" | "rose"; chi
     <span className={`compliance-group-insight__icon compliance-group-insight__icon--${tone}`} aria-hidden>
       {children}
     </span>
+  );
+}
+
+function CompositeRecommendedActionBanner({ action }: { action: RecommendedAction }) {
+  return (
+    <div className={`compliance-group-action compliance-group-action--${action.tone}`}>
+      <p className="compliance-group-action__title">{action.title}</p>
+      <p className="compliance-group-action__detail">{action.detail}</p>
+    </div>
+  );
+}
+
+function CompositePermissionGaps({
+  errors,
+}: {
+  errors: NonNullable<CompositeControlRow["scan_errors"]>;
+}) {
+  const gaps = errors.filter((e) => isPermissionGapError(e.error_type, e.error));
+  if (gaps.length === 0) return null;
+
+  return (
+    <div className="compliance-group-permission-gaps">
+      <p className="compliance-group-card-title">Permission gaps</p>
+      <p className="compliance-group-permission-gaps__hint">
+        These checks did not run on the last scan — usually missing IAM permissions on the Veritrail connector role.
+      </p>
+      <ul className="compliance-group-permission-gaps__list">
+        {gaps.map((gap) => (
+          <li key={gap.check_id}>
+            <span className="compliance-group-permission-gaps__check">{labelForCheck(gap.check_id)}</span>
+            {gap.error && <span className="compliance-group-permission-gaps__error">{gap.error}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -1155,6 +1309,9 @@ function CompositeExpandedDetails({
   framework = "soc2",
   frameworkRows = [],
   accountId,
+  acceptedCompositeIds,
+  submittedCount = 0,
+  expiredCompositeIds,
 }: {
   ctrl: CompositeControlRow;
   findingCountByCheck: Map<string, number>;
@@ -1162,13 +1319,30 @@ function CompositeExpandedDetails({
   framework?: string;
   frameworkRows?: ControlRow[];
   accountId?: string | null;
+  acceptedCompositeIds: Set<string>;
+  submittedCount?: number;
+  expiredCompositeIds?: Set<string>;
 }) {
   const navigate = useNavigate();
   const findingsHref = findingsHrefForChecks(ctrl.check_ids, findingCountByCheck);
+  const displayStatus = compositeDisplayStatus(
+    ctrl,
+    findingCountByCheck,
+    acceptedCompositeIds.has(ctrl.id),
+    expiredCompositeIds?.has(ctrl.id),
+  );
+  const scanErrors = ctrl.scan_errors ?? [];
+  const recommended = compositeRecommendedAction(displayStatus, {
+    submittedCount,
+    hasPermissionGaps: scanErrors.some((e) => isPermissionGapError(e.error_type, e.error)),
+  });
 
   if (variant === "card") {
     return (
       <div className="compliance-group-expanded">
+        {recommended && <CompositeRecommendedActionBanner action={recommended} />}
+        {scanErrors.length > 0 && <CompositePermissionGaps errors={scanErrors} />}
+        <ScanCollectorSummary accountId={accountId} />
         <div className="compliance-group-checks-card">
           {ctrl.finding_count > 0 ? (
             <div className="compliance-top-checks__header grid grid-cols-[auto_minmax(0,1fr)_4.5rem_6.5rem] items-end gap-3">
@@ -1191,7 +1365,9 @@ function CompositeExpandedDetails({
             compositeId={ctrl.id}
             compositeTitle={ctrl.title}
             framework={framework}
+            groupStatus={ctrl.status}
             checkIds={ctrl.check_ids}
+            findingCountByCheck={findingCountByCheck}
             underlyingCriteria={underlyingCriteriaForComposite(ctrl, frameworkRows)}
             frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
           />
@@ -1205,6 +1381,8 @@ function CompositeExpandedDetails({
 
   return (
     <div className={`veritrail-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
+      {recommended && <CompositeRecommendedActionBanner action={recommended} />}
+      {scanErrors.length > 0 && <CompositePermissionGaps errors={scanErrors} />}
       {underlying.length > 0 && (
         <div>
           <p className="veritrail-kicker">Underlying criteria</p>
@@ -1257,6 +1435,9 @@ function QuietNestedCompositeRow({
   frameworkRows,
   accountId,
   findingCountByCheck,
+  acceptedCompositeIds,
+  submittedCountByComposite,
+  expiredCompositeIds,
 }: {
   child: CompositeControlRow;
   expandedId: string | null;
@@ -1265,6 +1446,9 @@ function QuietNestedCompositeRow({
   frameworkRows: ControlRow[];
   accountId?: string | null;
   findingCountByCheck: Map<string, number>;
+  acceptedCompositeIds: Set<string>;
+  submittedCountByComposite: Map<string, number>;
+  expiredCompositeIds: Set<string>;
 }) {
   const navigate = useNavigate();
   const display = NESTED_COMPOSITE_DISPLAY[child.id];
@@ -1293,7 +1477,12 @@ function QuietNestedCompositeRow({
           ) : null}
         </div>
         <ComplianceRowSummary
-          displayStatus={compositeDisplayStatus(child, findingCountByCheck)}
+          displayStatus={compositeDisplayStatus(
+            child,
+            findingCountByCheck,
+            acceptedCompositeIds.has(child.id),
+            expiredCompositeIds.has(child.id),
+          )}
           href={href}
           onNavigate={(h) => navigate(h)}
         />
@@ -1306,6 +1495,9 @@ function QuietNestedCompositeRow({
           frameworkRows={frameworkRows}
           accountId={accountId}
           findingCountByCheck={findingCountByCheck}
+          acceptedCompositeIds={acceptedCompositeIds}
+          submittedCount={submittedCountByComposite.get(child.id) ?? 0}
+          expiredCompositeIds={expiredCompositeIds}
         />
       )}
     </div>
@@ -1320,6 +1512,9 @@ function CompositeControlsPanel({
   framework,
   frameworkRows,
   accountId,
+  acceptedCompositeIds,
+  submittedCountByComposite,
+  expiredCompositeIds,
 }: {
   rows: CompositeControlRow[];
   findingCountByCheck: Map<string, number>;
@@ -1328,6 +1523,9 @@ function CompositeControlsPanel({
   framework: string;
   frameworkRows: ControlRow[];
   accountId?: string | null;
+  acceptedCompositeIds: Set<string>;
+  submittedCountByComposite: Map<string, number>;
+  expiredCompositeIds: Set<string>;
 }) {
   const navigate = useNavigate();
   const treeRows = useMemo(() => prepareCompositeTreeRows(rows), [rows]);
@@ -1338,7 +1536,12 @@ function CompositeControlsPanel({
     <div className="divide-y divide-zinc-100">
       {treeRows.map(({ row: ctrl, child }) => {
         const isExpanded = expandedId === ctrl.id;
-        const displayStatus = compositeDisplayStatus(ctrl, findingCountByCheck);
+        const displayStatus = compositeDisplayStatus(
+          ctrl,
+          findingCountByCheck,
+          acceptedCompositeIds.has(ctrl.id),
+          expiredCompositeIds.has(ctrl.id),
+        );
         const findingsHref = findingsHrefForChecks(ctrl.check_ids, findingCountByCheck);
 
         return (
@@ -1382,6 +1585,9 @@ function CompositeControlsPanel({
                     framework={framework}
                     frameworkRows={frameworkRows}
                     accountId={accountId}
+                    acceptedCompositeIds={acceptedCompositeIds}
+                    submittedCount={submittedCountByComposite.get(ctrl.id) ?? 0}
+                    expiredCompositeIds={expiredCompositeIds}
                   />
                 </div>
               </div>
@@ -1396,6 +1602,9 @@ function CompositeControlsPanel({
                 frameworkRows={frameworkRows}
                 accountId={accountId}
                 findingCountByCheck={findingCountByCheck}
+                acceptedCompositeIds={acceptedCompositeIds}
+                submittedCountByComposite={submittedCountByComposite}
+                expiredCompositeIds={expiredCompositeIds}
               />
             ) : null}
           </div>
@@ -1957,6 +2166,7 @@ export default function Controls() {
   const [periodKey, setPeriodKey] = useState<string | number>(90);
   const [asOf, setAsOf] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [evidenceSlideOverControlId, setEvidenceSlideOverControlId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportAnchor, setExportAnchor] = useState<{ top: number; right: number } | null>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -2014,6 +2224,7 @@ export default function Controls() {
   const qc = useQueryClient();
   const meQ = useMe();
   const canAttest = roleAtLeast(meQ.data?.role, "admin");
+  const canEditEvidence = roleAtLeast(meQ.data?.role, "editor");
   const attest = useMutation({
     mutationFn: (v: { id: string; status: string }) =>
       api(`/v1/controls/${v.id}/attestation`, { method: "PUT", body: JSON.stringify({ status: v.status }) }),
@@ -2028,6 +2239,62 @@ export default function Controls() {
       ),
     enabled: !accounts.isLoading && !!activeAccount,
   });
+
+  const externalEvidence = useQuery({
+    queryKey: ["external-evidence", framework],
+    queryFn: () => api<ExternalEvidenceArtifact[]>(`/v1/controls/evidence?framework=${encodeURIComponent(framework)}`),
+    enabled: !accounts.isLoading,
+  });
+
+  const acceptedCompositeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of externalEvidence.data ?? []) {
+      if (row.status === "accepted" && row.composite_control_id) {
+        ids.add(row.composite_control_id);
+      }
+    }
+    return ids;
+  }, [externalEvidence.data]);
+
+  const submittedCountByComposite = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of externalEvidence.data ?? []) {
+      if (row.status === "submitted" && row.composite_control_id) {
+        counts.set(row.composite_control_id, (counts.get(row.composite_control_id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [externalEvidence.data]);
+
+  const submittedCountByControl = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of externalEvidence.data ?? []) {
+      if (row.status === "submitted" && row.control_id) {
+        counts.set(row.control_id, (counts.get(row.control_id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [externalEvidence.data]);
+
+  const staleCompositeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of externalEvidence.data ?? []) {
+      if (row.status === "accepted" && row.composite_control_id && evidenceIsStale(row)) {
+        ids.add(row.composite_control_id);
+      }
+    }
+    return ids;
+  }, [externalEvidence.data]);
+
+  const expiredCompositeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of externalEvidence.data ?? []) {
+      if (row.status === "expired" && row.composite_control_id) {
+        ids.add(row.composite_control_id);
+      }
+    }
+    return ids;
+  }, [externalEvidence.data]);
 
   const deepLinkDone = useRef(false);
   useEffect(() => {
@@ -2192,6 +2459,18 @@ export default function Controls() {
   }, [complianceTimeline.data?.events]);
 
   const rows = controls.data ?? [];
+  const compositeIdByControlId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ctrl of rows) {
+      for (const comp of compositeControls.data ?? []) {
+        if (ctrl.check_ids.some((id) => comp.check_ids.includes(id))) {
+          map.set(ctrl.id, comp.id);
+          break;
+        }
+      }
+    }
+    return map;
+  }, [rows, compositeControls.data]);
   const passed = rows.filter((r) => r.status === "pass").length;
   const failed = rows.filter((r) => r.status === "fail").length;
   const noData = rows.filter((r) => r.status === "no_data").length;
@@ -2199,6 +2478,11 @@ export default function Controls() {
   const filteredRows = useMemo(
     () => (statusFilter === "all" ? rows : rows.filter((r) => r.status === statusFilter)),
     [rows, statusFilter]
+  );
+
+  const evidenceSlideOverControl = useMemo(
+    () => rows.find((r) => r.id === evidenceSlideOverControlId) ?? null,
+    [rows, evidenceSlideOverControlId],
   );
 
   const groupedRows = useMemo(
@@ -2225,16 +2509,64 @@ export default function Controls() {
   );
 
   const compositePassed = primaryComposites.filter((c) => c.status === "pass").length;
-  const compositeFailed = primaryComposites.filter((c) => c.status === "fail").length;
   const compositeNoData = primaryComposites.filter((c) => c.status === "no_data").length;
   const compositeTotal = primaryComposites.length;
+
+  const compositeDisplayCounts = useMemo(() => {
+    let needsEvidence = 0;
+    let externallyCovered = 0;
+    let failing = 0;
+    let pendingReview = 0;
+    let staleEvidence = 0;
+    let expiredEvidence = 0;
+    for (const c of primaryComposites) {
+      const display = compositeDisplayStatus(
+        c,
+        findingCountByCheck,
+        acceptedCompositeIds.has(c.id),
+        expiredCompositeIds.has(c.id),
+      );
+      if (display === "needs_evidence") needsEvidence++;
+      if (display === "externally_covered") externallyCovered++;
+      if (display === "failing" || display === "at_risk") failing++;
+      if ((submittedCountByComposite.get(c.id) ?? 0) > 0) pendingReview++;
+      if (staleCompositeIds.has(c.id)) staleEvidence++;
+      if (expiredCompositeIds.has(c.id)) expiredEvidence++;
+    }
+    return { needsEvidence, externallyCovered, failing, pendingReview, staleEvidence, expiredEvidence };
+  }, [
+    primaryComposites,
+    findingCountByCheck,
+    acceptedCompositeIds,
+    submittedCountByComposite,
+    staleCompositeIds,
+    expiredCompositeIds,
+  ]);
 
   const filteredCompositePanelRows = useMemo(
     () =>
       statusFilter === "all"
         ? compositePanelRows
-        : compositePanelRows.filter((c) => c.status === statusFilter),
-    [compositePanelRows, statusFilter],
+        : compositePanelRows.filter((c) =>
+            compositeMatchesStatusFilter(
+              c,
+              statusFilter,
+              findingCountByCheck,
+              acceptedCompositeIds,
+              submittedCountByComposite.get(c.id) ?? 0,
+              staleCompositeIds.has(c.id),
+              expiredCompositeIds.has(c.id),
+            ),
+          ),
+    [
+      compositePanelRows,
+      statusFilter,
+      findingCountByCheck,
+      acceptedCompositeIds,
+      submittedCountByComposite,
+      staleCompositeIds,
+      expiredCompositeIds,
+    ],
   );
 
   function handleStatusFilterChange(filter: StatusFilter) {
@@ -2358,6 +2690,18 @@ export default function Controls() {
       {controls.isLoading && <LoadingSkeleton />}
 
       {!controls.isLoading && connectedAccount && (
+        <CompliancePageHeader
+          kicker="Compliance"
+          title={complianceView === "composite" ? "Compliance groups" : "Detailed criteria"}
+          subtitle={
+            complianceView === "composite"
+              ? "Auditor-facing roll-ups with automated checks, external evidence, and coverage status."
+              : "Individual framework criteria with mapped checks and attestation."
+          }
+        />
+      )}
+
+      {!controls.isLoading && connectedAccount && (
         <ComplianceContentShell
           toolbar={
             <div>
@@ -2379,11 +2723,17 @@ export default function Controls() {
                     ? {
                         total: compositeTotal,
                         passed: compositePassed,
-                        failed: compositeFailed,
+                        failed: compositeDisplayCounts.failing,
                         noData: compositeNoData,
+                        needsEvidence: compositeDisplayCounts.needsEvidence,
+                        externallyCovered: compositeDisplayCounts.externallyCovered,
+                        pendingReview: compositeDisplayCounts.pendingReview,
+                        staleEvidence: compositeDisplayCounts.staleEvidence,
+                        expiredEvidence: compositeDisplayCounts.expiredEvidence,
                       }
                     : { total, passed, failed, noData }
                 }
+                compositeStatusFilter={complianceView === "composite"}
                 showStatusFilter={
                   (complianceView === "composite" &&
                     !compositeControls.isLoading &&
@@ -2410,6 +2760,25 @@ export default function Controls() {
         >
           {complianceView === "composite" &&
             !compositeControls.isLoading &&
+            primaryComposites.length > 0 && (
+              <div className="px-5 pt-5 sm:px-6">
+                <EvidenceCoverageDashboard
+                  framework={framework}
+                  accountId={activeAccount?.id}
+                  onCategorySelect={(compositeId, displayStatus) => {
+                    setComplianceViewWithUrl("composite");
+                    if (compositeId) setExpandedComposite(compositeId);
+                    if (displayStatus === "needs_evidence") setStatusFilter("needs_evidence");
+                    else if (displayStatus === "externally_covered") setStatusFilter("externally_covered");
+                    else if (displayStatus === "expired") setStatusFilter("expired");
+                    else setStatusFilter("all");
+                  }}
+                />
+              </div>
+            )}
+
+          {complianceView === "composite" &&
+            !compositeControls.isLoading &&
             primaryComposites.length > 0 &&
             filteredCompositePanelRows.length === 0 &&
             statusFilter !== "all" && (
@@ -2429,6 +2798,9 @@ export default function Controls() {
                 framework={framework}
                 frameworkRows={rows}
                 accountId={activeAccount?.id}
+                acceptedCompositeIds={acceptedCompositeIds}
+                submittedCountByComposite={submittedCountByComposite}
+                expiredCompositeIds={expiredCompositeIds}
               />
             )}
 
@@ -2498,7 +2870,15 @@ export default function Controls() {
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-3 self-center">
+                    <div className="flex shrink-0 flex-col items-end gap-2 self-center sm:flex-row sm:items-center">
+                      <ControlEvidenceDrawerTrigger
+                        control={ctrl}
+                        artifacts={externalEvidence.data ?? []}
+                        findingCountByCheck={findingCountByCheck}
+                        displayStatus={displayStatus}
+                        submittedCount={submittedCountByControl.get(ctrl.id) ?? 0}
+                        onOpen={() => setEvidenceSlideOverControlId(ctrl.id)}
+                      />
                       <ComplianceRowSummary
                         displayStatus={displayStatus}
                         href={findingsHref}
@@ -2550,6 +2930,27 @@ export default function Controls() {
             })}
         </ComplianceContentShell>
       )}
+
+      <ControlEvidenceSlideOver
+        open={!!evidenceSlideOverControl}
+        control={evidenceSlideOverControl}
+        artifacts={externalEvidence.data ?? []}
+        findingCountByCheck={findingCountByCheck}
+        displayStatus={
+          evidenceSlideOverControl
+            ? controlDisplayStatus(evidenceSlideOverControl, findingCountByCheck)
+            : "passing"
+        }
+        submittedCount={
+          evidenceSlideOverControl ? submittedCountByControl.get(evidenceSlideOverControl.id) ?? 0 : 0
+        }
+        framework={framework}
+        compositeId={
+          evidenceSlideOverControl ? compositeIdByControlId.get(evidenceSlideOverControl.id) ?? null : null
+        }
+        canEdit={canEditEvidence}
+        onClose={() => setEvidenceSlideOverControlId(null)}
+      />
     </div>
   );
 }

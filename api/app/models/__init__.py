@@ -17,6 +17,8 @@ from app.models.cloudtrail import CloudTrailEvent
 from app.models.remediation_execution import RemediationExecution
 from app.models.evidence_export import EvidenceExport
 from app.models.evidence_artifact import EvidenceArtifact
+from app.models.evidence_artifact_comment import EvidenceArtifactComment
+from app.models.evidence_source import EvidenceSource
 from app.models.ai_triage import AITriageResult
 from app.models.auditor import AuditorAccess, AuditActivityLog, TrustCenterConfig
 from app.models.org_team import OrgActivityLog, OrgDomain, OrgInvite, OrgJoinRequest, OrgMembership
@@ -40,6 +42,8 @@ __all__ = [
     "RemediationExecution",
     "EvidenceExport",
     "EvidenceArtifact",
+    "EvidenceArtifactComment",
+    "EvidenceSource",
     "AITriageResult",
     "AuditorAccess", "AuditActivityLog", "TrustCenterConfig",
     "OrgInvite", "OrgActivityLog", "OrgDomain", "OrgJoinRequest", "OrgMembership",

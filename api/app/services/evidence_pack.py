@@ -322,6 +322,32 @@ def build_evidence_pack(
             _write(folder + "exceptions.json", json.dumps(cr["exceptions"], indent=2, default=str))
             _write(folder + "snapshots.json", json.dumps(cr["snapshots"], indent=2, default=str))
 
+        from app.services.external_evidence_export import write_external_evidence_to_pack
+
+        external_summary = write_external_evidence_to_pack(
+            db,
+            org_id=org_id,
+            framework=framework,
+            write=_write,
+        )
+        _write("external_evidence_summary.json", json.dumps(external_summary, indent=2))
+        from app.services.evidence_source_store import evidence_sources_for_export_db
+
+        _write(
+            "evidence_source_registry.json",
+            json.dumps(evidence_sources_for_export_db(db, org_id), indent=2, default=str),
+        )
+        from app.services.category_evidence_coverage import build_category_evidence_coverage
+
+        _write(
+            "category_evidence_coverage.json",
+            json.dumps(
+                build_category_evidence_coverage(db, org_id=org_id, framework=framework, account_id=acc.id),
+                indent=2,
+                default=str,
+            ),
+        )
+
         from app.services.pack_signing import signing_enabled
 
         pdf_bytes = build_pdf(
@@ -1181,6 +1207,12 @@ def _build_readme(
         "  findings.json      - open findings mapped to this control",
         "  exceptions.json    - approved exceptions with approver + expiry",
         "  snapshots.json     - raw evidence (see snapshots_total in summary.json if truncated)",
+        "external-evidence/ - customer-uploaded proof from external systems",
+        "  manifest.json      - metadata, review status, checksums, control mapping",
+        "  [group]/           - accepted/submitted files organized by compliance group",
+        "external_evidence_summary.json - counts of uploaded external artifacts",
+        "evidence_source_registry.json - workspace-declared external systems by compliance category",
+        "category_evidence_coverage.json - automated vs external evidence coverage by category",
         "",
         "EXCEPTIONS",
         "-" * 30,

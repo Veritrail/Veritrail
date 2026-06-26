@@ -75,3 +75,5 @@ Org-level override (future): `org.settings["evidence_vault"]["customer_s3_uri"]`
 **Not wired yet:** auditor approval UI, share records (`shared_with`), read-only viewer page. `EVIDENCE_VAULT_AUDITOR_ACCESS_MODE=presigned` can mint URLs from code paths that call `generate_presigned_get()` — no end-to-end “approve auditor → link” product flow.
 
 Enable only after bucket Object Lock, IAM, and retention policy review.
+
+For customer-uploaded external evidence (separate from pack vault), see [external-evidence.md](./external-evidence.md).

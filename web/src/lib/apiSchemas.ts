@@ -185,6 +185,27 @@ export const settingsSchema = z.object({
     min_custom_hours: z.number(),
   }),
   account_email: z.string().nullable(),
+  evidence_source_categories: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        composite_ids: z.array(z.string()),
+        entry: z
+          .object({
+            vendor: z.string(),
+            owner: z.string().nullable().optional(),
+            cadence: z.string().nullable().optional(),
+            scope_description: z.string().nullable().optional(),
+            source_type: z.string().nullable().optional(),
+            updated_at: z.string().nullable().optional(),
+          })
+          .nullable()
+          .optional(),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 
 export type SettingsData = z.infer<typeof settingsSchema>;

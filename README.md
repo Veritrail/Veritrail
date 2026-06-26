@@ -162,7 +162,35 @@ veritrail-evidence-soc2-2026-05-26.zip
       exceptions.json    ← approved exceptions (reason, approver, expiry)
     CC6.2/ …
     CC7.1/ …
+  external-evidence/     ← customer-uploaded proof (files + manifest.json)
+  external_evidence_summary.json
+  evidence_source_registry.json   ← workspace-declared external tools by category
+  evidence_coverage.json          ← automated vs external coverage by category
 ```
+
+### External evidence (engineers)
+
+Under **Compliance → Groups**, engineers can upload or link proof from systems outside AWS (e.g. Wiz, Tenable, GitHub for change management). Workflow:
+
+1. Upload evidence on a failing group (vulnerability groups include a short scanner wizard).
+2. Admin **accepts** or **rejects** with optional review notes.
+3. Accepted evidence shows **Externally covered** on the group; auditors receive files in the audit pack ZIP.
+
+**Workspace → Evidence** stores your declared external tools per category (included in `evidence_source_registry.json`). Registry rows are persisted in Postgres (`evidence_sources`); legacy JSON in org settings is migrated automatically.
+
+See **[docs/external-evidence.md](docs/external-evidence.md)** for the full workflow, API, lifecycle states, and comments.
+
+**API:** `GET/POST /v1/controls/evidence`, `PATCH /v1/controls/evidence/{id}/review`, `DELETE /v1/controls/evidence/{id}`, `GET/POST /v1/controls/evidence/{id}/comments`, `GET /v1/controls/evidence-coverage`
+
+**Storage env vars** (optional — defaults to local disk under `data/uploads`):
+
+| Variable | Purpose |
+|---|---|
+| `EVIDENCE_ARTIFACTS_S3_URI` | e.g. `s3://bucket/prefix` — store uploaded evidence files in S3 |
+| `EVIDENCE_ARTIFACTS_S3_REGION` | AWS region for artifact bucket |
+| `EVIDENCE_VAULT_ENABLED` + `EVIDENCE_VAULT_S3_URI` | Immutable WORM copy of full evidence pack on export |
+
+Auditors use the **auditor portal** and downloaded pack — not the upload UI.
 
 **Sample pack** (no auth, no account needed):
 

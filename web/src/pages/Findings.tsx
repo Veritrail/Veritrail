@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FilterChipBar } from "../components/FilterChipBar";
@@ -916,6 +917,12 @@ export default function Findings() {
             <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
           </HeaderSlot>
         )}
+
+        <CompliancePageHeader
+          kicker="Compliance"
+          title="Findings"
+          subtitle="Open issues mapped to automated checks. Remediate in AWS or document external coverage from Compliance groups."
+        />
 
         {searchTags.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2">

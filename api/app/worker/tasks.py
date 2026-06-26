@@ -414,6 +414,44 @@ def prune_assume_role_audit(retention_days: int = 365) -> dict:
         db.close()
 
 
+@celery_app.task(name="app.worker.tasks.expire_evidence_artifacts")
+def expire_evidence_artifacts() -> dict:
+    """Mark expired external evidence and optionally purge old rejected/expired rows."""
+    from app.services.evidence_artifact_retention import run_evidence_artifact_retention
+
+    db = SessionLocal()
+    try:
+        result = run_evidence_artifact_retention(db)
+        if result["expired_status"] or result["purged"]:
+            log.info("expire_evidence_artifacts", **result)
+        return result
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        log.exception("expire_evidence_artifacts.failed")
+        return {"ok": False, "expired_status": 0, "purged": 0}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.worker.tasks.notify_evidence_renewals")
+def notify_evidence_renewals() -> dict:
+    """Email org admins/editors about expiring or stale external evidence."""
+    from app.services.evidence_renewal_reminders import notify_all_orgs_evidence_renewals
+
+    db = SessionLocal()
+    try:
+        result = notify_all_orgs_evidence_renewals(db)
+        if result["sent"]:
+            log.info("notify_evidence_renewals", **result)
+        return result
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        log.exception("notify_evidence_renewals.failed")
+        return {"ok": False, "sent": 0, "skipped": 0}
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.worker.tasks.send_weekly_digests")
 def send_weekly_digests() -> dict:
     """Send Monday digest to all org members with a connected account."""

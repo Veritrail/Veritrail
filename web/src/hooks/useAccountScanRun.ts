@@ -14,6 +14,9 @@ export type ScanRun = {
   progress_step?: number | null;
   progress_total?: number | null;
   progress_phase?: number | null;
+  duration_seconds?: number | null;
+  checks_run_count?: number | null;
+  check_error_count?: number | null;
 };
 
 export function useAccountScanRun(accountId: string | null | undefined) {

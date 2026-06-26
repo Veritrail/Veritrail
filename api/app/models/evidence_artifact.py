@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-EVIDENCE_STATUSES = frozenset({"submitted", "accepted", "expired"})
+EVIDENCE_STATUSES = frozenset({"submitted", "accepted", "rejected", "expired", "superseded"})
 
 
 class EvidenceArtifact(Base):
@@ -39,8 +39,17 @@ class EvidenceArtifact(Base):
     storage_path: Mapped[str | None] = mapped_column(String(700), nullable=True)
     content_type: Mapped[str | None] = mapped_column(String(160), nullable=True)
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggested_mappings: Mapped[list[dict]] = mapped_column(JSONB, default=list)
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evidence_artifacts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

@@ -41,6 +41,14 @@ celery_app.conf.update(
             "task": "app.worker.tasks.prune_assume_role_audit",
             "schedule": crontab(hour=4, minute=30),  # daily 04:30 UTC, off-hours
         },
+        "expire-evidence-artifacts": {
+            "task": "app.worker.tasks.expire_evidence_artifacts",
+            "schedule": crontab(hour=5, minute=0),  # daily 05:00 UTC
+        },
+        "evidence-renewal-reminders": {
+            "task": "app.worker.tasks.notify_evidence_renewals",
+            "schedule": crontab(hour=8, minute=30),  # daily 08:30 UTC
+        },
     },
 )
 

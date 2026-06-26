@@ -28,6 +28,9 @@ class ScanRunOut(BaseModel):
     progress_step: int | None = None  # worker step counter (from stats._progress_step)
     progress_total: int | None = None  # total steps (from stats._progress_total)
     progress_phase: int | None = None  # current UI phase index 0-5 (from stats._progress_phase)
+    duration_seconds: float | None = None
+    checks_run_count: int | None = None
+    check_error_count: int | None = None
 
 
 class ScanStatsOut(BaseModel):
@@ -144,6 +147,11 @@ def latest_scan_run(account_id: str, p=Depends(current_principal), db: Session =
     if not run:
         return None
     stats = run.stats or {}
+    duration_seconds = None
+    if run.finished_at and run.started_at:
+        duration_seconds = round((run.finished_at - run.started_at).total_seconds(), 1)
+    checks_run = stats.get("checks_run") if isinstance(stats.get("checks_run"), list) else []
+    check_errors = stats.get("check_errors") if isinstance(stats.get("check_errors"), list) else []
     return ScanRunOut(
         id=str(run.id),
         status=run.status,
@@ -157,6 +165,9 @@ def latest_scan_run(account_id: str, p=Depends(current_principal), db: Session =
         progress_step=stats.get("_progress_step"),
         progress_total=stats.get("_progress_total"),
         progress_phase=stats.get("_progress_phase"),
+        duration_seconds=duration_seconds,
+        checks_run_count=len(checks_run) if checks_run else None,
+        check_error_count=len(check_errors) if check_errors else None,
     )
 
 

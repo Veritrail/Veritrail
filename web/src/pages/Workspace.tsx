@@ -5,6 +5,7 @@ import { api, formatApiError } from "../api";
 import { settingsSchema, trustCenterSettingsSchema, auditorListSchema, memberListSchema } from "../lib/apiSchemas";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { ProductShell } from "../components/ProductShell";
+import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { InfoTip, Panel, PanelIcon, PANEL_ICONS, Toggle } from "../components/SettingsUi";
 import { DomainsSettings } from "../components/DomainsSettings";
 import { TeamMembersSettings } from "../components/TeamMembersSettings";
@@ -12,6 +13,7 @@ import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
 import { AccessCard } from "../components/accessUi";
 import { WorkspaceActivity } from "../components/WorkspaceActivity";
+import { EvidenceSourceRegistrySettings } from "../components/EvidenceSourceRegistrySettings";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import "../styles/findings-v2.css";
@@ -21,7 +23,7 @@ import "../styles/workspace-page.css";
 type ScanInterval = "daily" | "weekly" | "custom" | "manual";
 type FreqMode = "daily" | "weekly" | "custom";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type TabId = "overview" | "access" | "sharing" | "scanning" | "notifications" | "activity";
+type TabId = "overview" | "access" | "sharing" | "scanning" | "notifications" | "evidence" | "activity";
 export type Tone = "ok" | "warn" | "danger" | "idle" | "info";
 
 type OptionalCheck = {
@@ -82,6 +84,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "sharing", label: "Sharing" },
   { id: "scanning", label: "Scanning" },
   { id: "notifications", label: "Notifications" },
+  { id: "evidence", label: "Evidence" },
   { id: "activity", label: "Activity" },
 ];
 
@@ -1122,6 +1125,11 @@ export default function Workspace() {
   return (
     <ProductShell>
       <div className="workspace-page">
+        <CompliancePageHeader
+          kicker="Workspace"
+          title={workspaceName}
+          subtitle="Members, scanning, notifications, and declared external evidence sources."
+        />
         {saveStatus !== "idle" && (
           <div className="mb-3 flex justify-end">
             <SaveIndicator status={saveStatus} error={saveError} />
@@ -1502,6 +1510,20 @@ export default function Workspace() {
                 </section>
               </div>
             </section>
+          </WorkspaceDetailSection>
+        )}
+
+        {tab === "evidence" && (
+          <WorkspaceDetailSection
+            icon={<Icon d={ICONS.evidence} />}
+            eyebrow="Evidence"
+            title="External evidence sources"
+            description="Systems your team uses when Veritrail cannot verify coverage through AWS alone. Included in audit packages."
+          >
+            <EvidenceSourceRegistrySettings
+              canEdit={canEditWorkspace}
+              onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })}
+            />
           </WorkspaceDetailSection>
         )}
 

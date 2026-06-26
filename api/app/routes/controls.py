@@ -1,11 +1,13 @@
 import uuid
 import json
 import re
+import hashlib
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,8 +20,9 @@ from app.data.control_narratives import narrative_for, narrative_detail_for
 from app.models import Finding, AwsAccount, EvidenceSnapshot, ScanRun
 from app.models.control import Control, CheckControl
 from app.models.control_attestation import ATTESTATION_STATUSES, ControlAttestation
-from app.models.evidence_artifact import EvidenceArtifact
-from app.models.org import Org
+from app.models.evidence_artifact import EVIDENCE_STATUSES, EvidenceArtifact
+from app.models.evidence_artifact_comment import EvidenceArtifactComment
+from app.models.org import Org, User
 from app.services.org_activity import log_org_activity
 from app.services.check_settings import hidden_check_ids
 from app.services.check_coverage import (
@@ -34,6 +37,18 @@ from app.services.cis_benchmark_coverage import cis_benchmark_coverage
 from app.services.compliance_timeline import build_control_history
 from app.services.composite_controls import composite_control_definitions, list_composite_controls
 from app.services.control_status import compute_control_status
+from app.services.evidence_artifact_storage import (
+    delete_artifact,
+    is_s3_storage_path,
+    presigned_download_url,
+    save_artifact_bytes,
+    storage_backend_label,
+)
+from app.services.evidence_artifact_retention import default_expires_at
+from app.services.evidence_artifact_safety import EvidenceUploadRejected, validate_evidence_upload
+from app.services.evidence_artifact_clamav import scan_bytes as clamav_scan_bytes
+from app.services.evidence_artifact_supersession import supersede_prior_accepted
+from app.services.category_evidence_coverage import build_category_evidence_coverage
 
 router = APIRouter()
 
@@ -65,6 +80,12 @@ class ControlOut(BaseModel):
     attestation_status: str | None = None  # manual controls: met|not_met|not_applicable|pending
 
 
+class CheckScanErrorOut(BaseModel):
+    check_id: str
+    error_type: str | None = None
+    error: str | None = None
+
+
 class CompositeControlOut(BaseModel):
     id: str
     control_id: str
@@ -81,6 +102,8 @@ class CompositeControlOut(BaseModel):
     status: str
     finding_count: int
     open_finding_ids: list[str]
+    scan_errors: list[CheckScanErrorOut] = []
+    coverage_override: str | None = None
 
 
 class CheckFrameworksOut(BaseModel):
@@ -112,8 +135,49 @@ class EvidenceArtifactOut(BaseModel):
     filename: str | None = None
     content_type: str | None = None
     size_bytes: int
+    checksum_sha256: str | None = None
+    review_notes: str | None = None
+    reviewed_at: str | None = None
+    superseded_by: str | None = None
     suggested_mappings: list[dict] = []
     created_at: str | None = None
+
+
+class EvidenceReviewIn(BaseModel):
+    status: Literal["accepted", "rejected"]
+    review_notes: str | None = None
+
+
+class EvidenceCommentOut(BaseModel):
+    id: str
+    artifact_id: str
+    body: str
+    author_email: str | None = None
+    created_at: str
+
+
+class EvidenceCommentIn(BaseModel):
+    body: str
+
+
+class EvidenceCoverageCategoryOut(BaseModel):
+    key: str
+    label: str
+    composite_ids: list[str]
+    primary_composite_id: str | None = None
+    scan_status: str
+    display_status: str
+    registry_vendor: str | None = None
+    accepted_artifacts: int = 0
+    submitted_artifacts: int = 0
+    stale_artifacts: int = 0
+
+
+class EvidenceCoverageOut(BaseModel):
+    framework: str
+    summary: dict[str, int]
+    categories: list[EvidenceCoverageCategoryOut]
+    storage_backend: str
 
 
 _MAX_EVIDENCE_UPLOAD_BYTES = 12 * 1024 * 1024
@@ -227,6 +291,10 @@ def _artifact_out(row: EvidenceArtifact) -> EvidenceArtifactOut:
         filename=row.filename,
         content_type=row.content_type,
         size_bytes=row.size_bytes,
+        checksum_sha256=row.checksum_sha256,
+        review_notes=row.review_notes,
+        reviewed_at=row.reviewed_at.isoformat() if row.reviewed_at else None,
+        superseded_by=str(row.superseded_by) if row.superseded_by else None,
         suggested_mappings=row.suggested_mappings or [],
         created_at=row.created_at.isoformat() if row.created_at else None,
     )
@@ -253,6 +321,86 @@ def list_evidence_artifacts(
         q = q.where(EvidenceArtifact.composite_control_id == composite_control_id)
     rows = db.scalars(q.order_by(EvidenceArtifact.created_at.desc())).all()
     return [_artifact_out(row) for row in rows]
+
+
+class EvidenceDownloadOut(BaseModel):
+    url: str
+    expires_in: int
+
+
+@router.get("/evidence/{artifact_id}/download")
+def download_evidence_artifact(
+    artifact_id: str,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+    try:
+        art_id = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid artifact_id")
+
+    org_id = uuid.UUID(p["org_id"])
+    row = db.get(EvidenceArtifact, art_id)
+    if not row or row.org_id != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    if row.external_url:
+        return RedirectResponse(row.external_url, status_code=status.HTTP_302_FOUND)
+
+    if not row.storage_path:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no file stored for this evidence")
+
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action="evidence.downloaded",
+        target_type="control",
+        target_id=row.control_ref or row.composite_control_id or row.framework,
+        target_label=row.title,
+        detail={"artifact_id": str(row.id), "filename": row.filename},
+    )
+    db.commit()
+
+    if is_s3_storage_path(row.storage_path):
+        ttl = get_settings().EVIDENCE_ARTIFACTS_DOWNLOAD_TTL_SECONDS
+        try:
+            url = presigned_download_url(row.storage_path, filename=row.filename, ttl_seconds=ttl)
+        except Exception:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "failed to create download URL")
+        return EvidenceDownloadOut(url=url, expires_in=ttl)
+
+    local_path = Path(get_settings().LOCAL_UPLOAD_DIR) / row.storage_path
+    if not local_path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence file not found")
+    return FileResponse(
+        local_path,
+        media_type=row.content_type or "application/octet-stream",
+        filename=row.filename or local_path.name,
+    )
+
+
+@router.get("/evidence-coverage", response_model=EvidenceCoverageOut)
+def evidence_coverage_route(
+    framework: str = Query(default="soc2"),
+    account_id: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    if framework not in FRAMEWORKS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(FRAMEWORKS)}")
+    org_id = uuid.UUID(p["org_id"])
+    acc_id: uuid.UUID | None = None
+    if account_id:
+        try:
+            acc_id = uuid.UUID(account_id)
+        except ValueError:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid account_id")
+    payload = build_category_evidence_coverage(db, org_id=org_id, framework=framework, account_id=acc_id)
+    payload["storage_backend"] = storage_backend_label()
+    return payload
 
 
 @router.post("/evidence", response_model=EvidenceArtifactOut)
@@ -317,28 +465,41 @@ async def upload_evidence_artifact(
     content_type: str | None = None
     size_bytes = 0
     extracted = ""
+    checksum_sha256: str | None = None
 
     if has_file:
         original_name = _safe_filename(getattr(file, "filename", None) or "evidence")
-        suffix = Path(original_name).suffix.lower()
-        if suffix not in _ALLOWED_EVIDENCE_EXTENSIONS:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "unsupported evidence file type")
-
         raw = await file.read()
-        if not raw:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "empty evidence file")
+        try:
+            validate_evidence_upload(original_name, raw, allowed_extensions=_ALLOWED_EVIDENCE_EXTENSIONS)
+        except EvidenceUploadRejected as e:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
         if len(raw) > _MAX_EVIDENCE_UPLOAD_BYTES:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "evidence file is too large")
 
-        stored_name = f"{uuid.uuid4()}-{original_name}"
-        relative_path = str(Path("evidence") / str(org_id) / stored_name)
-        full_path = Path(get_settings().LOCAL_UPLOAD_DIR) / relative_path
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_path.write_bytes(raw)
+        try:
+            clamav_scan_bytes(raw)
+        except EvidenceUploadRejected as e:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
+        stored_name = f"{uuid.uuid4()}-{original_name}"
         content_type = getattr(file, "content_type", None)
+        try:
+            relative_path = save_artifact_bytes(
+                org_id=org_id,
+                stored_name=stored_name,
+                raw=raw,
+                content_type=content_type,
+            )
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "failed to store evidence file") from e
+
         extracted = _extract_evidence_text(original_name, content_type, raw)
         size_bytes = len(raw)
+        checksum_sha256 = hashlib.sha256(raw).hexdigest()
+
+    elif external_url:
+        checksum_sha256 = hashlib.sha256(external_url.encode("utf-8")).hexdigest()
 
     controls = db.scalars(select(Control).where(Control.framework == framework)).all()
     suggest_text = " ".join(
@@ -356,6 +517,8 @@ async def upload_evidence_artifact(
     )
     suggestions = _keyword_suggestions(suggest_text, controls)
 
+    parsed_expires = _parse_date(expires_at) or default_expires_at()
+
     row = EvidenceArtifact(
         org_id=org_id,
         control_id=ctrl_id,
@@ -372,11 +535,12 @@ async def upload_evidence_artifact(
         external_url=external_url[:500] if external_url else None,
         owner=owner[:200] if owner else None,
         status="submitted",
-        expires_at=_parse_date(expires_at),
+        expires_at=parsed_expires,
         filename=original_name,
         storage_path=relative_path,
         content_type=content_type,
         size_bytes=size_bytes,
+        checksum_sha256=checksum_sha256,
         extracted_text=extracted or None,
         suggested_mappings=suggestions,
         created_by=user.id,
@@ -402,6 +566,192 @@ async def upload_evidence_artifact(
     db.commit()
     db.refresh(row)
     return _artifact_out(row)
+
+
+@router.delete("/evidence/{artifact_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_evidence_artifact(
+    artifact_id: str,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+    if not role_at_least(user.role, "editor"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "editor role required")
+
+    try:
+        art_id = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid artifact_id")
+
+    org_id = uuid.UUID(p["org_id"])
+    row = db.get(EvidenceArtifact, art_id)
+    if not row or row.org_id != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    if row.storage_path:
+        delete_artifact(row.storage_path)
+
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action="evidence.removed",
+        target_type="control",
+        target_id=row.control_ref or row.composite_control_id or row.framework,
+        target_label=row.title,
+        detail={
+            "artifact_id": str(row.id),
+            "framework": row.framework,
+            "composite_control_id": row.composite_control_id,
+            "filename": row.filename,
+            "had_external_url": bool(row.external_url),
+        },
+    )
+    db.delete(row)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/evidence/{artifact_id}/review", response_model=EvidenceArtifactOut)
+def review_evidence_artifact(
+    artifact_id: str,
+    body: EvidenceReviewIn,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+    if not role_at_least(user.role, "admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+    if body.status not in {"accepted", "rejected"}:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "status must be accepted or rejected")
+
+    try:
+        art_id = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid artifact_id")
+
+    org_id = uuid.UUID(p["org_id"])
+    row = db.get(EvidenceArtifact, art_id)
+    if not row or row.org_id != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+    if row.status not in {"submitted", "accepted"}:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "only submitted or accepted evidence can be reviewed")
+
+    row.status = body.status
+    row.reviewed_by = user.id
+    row.reviewed_at = datetime.now(timezone.utc)
+    if body.review_notes is not None:
+        row.review_notes = body.review_notes.strip() or None
+
+    if body.status == "accepted":
+        supersede_prior_accepted(db, org_id=org_id, new_artifact=row)
+
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action=f"evidence.{body.status}",
+        target_type="control",
+        target_id=row.control_ref or row.composite_control_id or row.framework,
+        target_label=row.title,
+        detail={
+            "artifact_id": str(row.id),
+            "framework": row.framework,
+            "composite_control_id": row.composite_control_id,
+            "review_notes": row.review_notes,
+        },
+    )
+    db.commit()
+    db.refresh(row)
+    return _artifact_out(row)
+
+
+def _comment_out(row: EvidenceArtifactComment, author_email: str | None) -> EvidenceCommentOut:
+    return EvidenceCommentOut(
+        id=str(row.id),
+        artifact_id=str(row.artifact_id),
+        body=row.body,
+        author_email=author_email,
+        created_at=row.created_at.isoformat() if row.created_at else "",
+    )
+
+
+@router.get("/evidence/{artifact_id}/comments", response_model=list[EvidenceCommentOut])
+def list_evidence_comments(
+    artifact_id: str,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    try:
+        art_id = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid artifact_id")
+
+    org_id = uuid.UUID(p["org_id"])
+    artifact = db.get(EvidenceArtifact, art_id)
+    if not artifact or artifact.org_id != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    rows = db.scalars(
+        select(EvidenceArtifactComment)
+        .where(EvidenceArtifactComment.artifact_id == art_id, EvidenceArtifactComment.org_id == org_id)
+        .order_by(EvidenceArtifactComment.created_at.asc())
+    ).all()
+    emails: dict[uuid.UUID, str | None] = {}
+    for row in rows:
+        if row.user_id and row.user_id not in emails:
+            author = db.get(User, row.user_id)
+            emails[row.user_id] = author.email if author else None
+    return [_comment_out(row, emails.get(row.user_id) if row.user_id else None) for row in rows]
+
+
+@router.post("/evidence/{artifact_id}/comments", response_model=EvidenceCommentOut, status_code=status.HTTP_201_CREATED)
+def add_evidence_comment(
+    artifact_id: str,
+    body: EvidenceCommentIn,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "comment body is required")
+    if len(text) > 4000:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "comment is too long")
+
+    try:
+        art_id = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid artifact_id")
+
+    org_id = uuid.UUID(p["org_id"])
+    artifact = db.get(EvidenceArtifact, art_id)
+    if not artifact or artifact.org_id != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    row = EvidenceArtifactComment(
+        org_id=org_id,
+        artifact_id=art_id,
+        user_id=user.id,
+        body=text,
+    )
+    db.add(row)
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action="evidence.comment_added",
+        target_type="control",
+        target_id=artifact.control_ref or artifact.composite_control_id or artifact.framework,
+        target_label=artifact.title,
+        detail={"artifact_id": str(artifact.id), "comment_id": str(row.id)},
+    )
+    db.commit()
+    db.refresh(row)
+    return _comment_out(row, user.email)
 
 
 @router.get("/check-frameworks", response_model=CheckFrameworksOut)

@@ -15,6 +15,7 @@ from app.services.check_coverage import control_coverage_tier, extended_checks_i
 from app.services.check_evidence import evidence_class_for_check
 from app.services.check_settings import hidden_check_ids
 from app.services.control_status import compute_control_status
+from app.services.coverage_overrides import get_coverage_overrides
 
 _DEFINITIONS_PATH = Path(__file__).parent.parent.parent / "data" / "composite_controls.json"
 
@@ -159,18 +160,19 @@ def _scan_context(
     org_id: uuid.UUID,
     account_id: uuid.UUID | None,
     hidden: set[str],
-) -> tuple[dict[str, list[Finding]], set[str], set[str], bool]:
+) -> tuple[dict[str, list[Finding]], set[str], set[str], bool, list[dict[str, Any]]]:
     open_by_check: dict[str, list[Finding]] = {}
     latest_checks_run: set[str] = set()
     latest_failed_checks: set[str] = set()
+    scan_check_errors: list[dict[str, Any]] = []
     has_scanned_account = False
 
     if not account_id:
-        return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account
+        return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors
 
     acc = db.get(AwsAccount, account_id)
     if not acc or acc.org_id != org_id:
-        return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account
+        return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors
 
     open_q = select(Finding).where(
         Finding.account_id == account_id,
@@ -199,10 +201,18 @@ def _scan_context(
     if isinstance(errors_raw, list):
         for err in errors_raw:
             if isinstance(err, dict) and err.get("check_id"):
-                latest_failed_checks.add(str(err["check_id"]))
+                cid = str(err["check_id"])
+                latest_failed_checks.add(cid)
+                scan_check_errors.append(
+                    {
+                        "check_id": cid,
+                        "error_type": err.get("error_type"),
+                        "error": (err.get("error") or "")[:300],
+                    }
+                )
 
     has_scanned_account = bool(acc.last_scan_at)
-    return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account
+    return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors
 
 
 def list_composite_controls(
@@ -212,9 +222,11 @@ def list_composite_controls(
 ) -> list[dict[str, Any]]:
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {})
-    open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account = _scan_context(
+    coverage_overrides = get_coverage_overrides(org.settings if org else {})
+    open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors = _scan_context(
         db, org_id, account_id, hidden
     )
+    errors_by_check = {e["check_id"]: e for e in scan_check_errors}
 
     result: list[dict[str, Any]] = []
     for entry in composite_control_definitions():
@@ -244,6 +256,8 @@ def list_composite_controls(
                 "status": status,
                 "finding_count": finding_count,
                 "open_finding_ids": [str(f.id) for f in open_hits],
+                "scan_errors": [errors_by_check[cid] for cid in check_ids if cid in errors_by_check],
+                "coverage_override": coverage_overrides.get(entry["id"]),
             }
         )
     return result

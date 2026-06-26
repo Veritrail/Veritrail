@@ -32,6 +32,9 @@ from app.services.scan_schedule import (
     validate_scanning,
 )
 from app.services.trust_logo_storage import TrustLogoError, delete_trust_logo, is_uploaded_trust_logo_path, save_trust_logo
+from app.services.evidence_source_registry import EVIDENCE_SOURCE_CATEGORIES
+from app.services.evidence_source_store import apply_evidence_source_updates, load_evidence_sources
+from app.services.coverage_overrides import merge_coverage_overrides
 
 router = APIRouter()
 
@@ -48,6 +51,7 @@ DEFAULT_SETTINGS: dict = {
         "slack_critical_alerts_enabled": True,
         "scan_failure_email_enabled": True,
         "critical_alert_enabled": True,
+        "evidence_renewal_email_enabled": True,
     },
     "features": {
         "ai_finding_review_enabled": True,
@@ -77,10 +81,34 @@ class NotificationsIn(BaseModel):
     slack_critical_alerts_enabled: bool = True
     scan_failure_email_enabled: bool = True
     critical_alert_enabled: bool = True
+    evidence_renewal_email_enabled: bool = True
 
 
 class FeaturesIn(BaseModel):
     ai_finding_review_enabled: bool = True
+
+
+class EvidenceSourceEntryIn(BaseModel):
+    vendor: str | None = None
+    owner: str | None = None
+    cadence: str | None = None
+    scope_description: str | None = None
+    source_type: str | None = None
+
+
+class EvidenceSourcesIn(BaseModel):
+    entries: dict[str, EvidenceSourceEntryIn]
+
+
+class CoverageOverridesIn(BaseModel):
+    entries: dict[str, Literal["out_of_scope", "not_applicable"] | None]
+
+
+class EvidenceSourceCategoryOut(BaseModel):
+    key: str
+    label: str
+    composite_ids: list[str]
+    entry: dict | None = None
 
 
 class ScanningIn(BaseModel):
@@ -109,6 +137,8 @@ class SettingsPatch(BaseModel):
     scanning: ScanningIn | None = None
     notifications: NotificationsIn | None = None
     features: FeaturesIn | None = None
+    evidence_sources: EvidenceSourcesIn | None = None
+    coverage_overrides: CoverageOverridesIn | None = None
 
 
 class OptionalCheckOut(BaseModel):
@@ -128,8 +158,21 @@ class SettingsOut(BaseModel):
     scanning: dict
     notifications: dict
     features: dict
+    evidence_source_categories: list[EvidenceSourceCategoryOut] = []
     scan_status: ScanStatusOut
     account_email: str | None = None
+
+
+def _evidence_source_categories_out(sources: dict[str, dict]) -> list[EvidenceSourceCategoryOut]:
+    return [
+        EvidenceSourceCategoryOut(
+            key=cat["key"],
+            label=cat["label"],
+            composite_ids=cat["composite_ids"],
+            entry=sources.get(cat["key"]),
+        )
+        for cat in EVIDENCE_SOURCE_CATEGORIES
+    ]
 
 
 def _get_org(p, db: Session) -> Org:
@@ -164,11 +207,13 @@ def get_settings(p=Depends(current_principal), db: Session = Depends(get_db)):
     user = db.get(User, uuid.UUID(p["sub"]))
     org_settings = org.settings or {}
     merged = _merged(org_settings)
+    registry_sources = load_evidence_sources(db, org.id)
     return SettingsOut(
         **merged,
         optional_checks=optional_checks_for_ui(org_settings),
         evidence_classes=all_evidence_classes(),
         cis_benchmark_coverage=cis_benchmark_coverage(),
+        evidence_source_categories=_evidence_source_categories_out(registry_sources),
         scan_status=_scan_status(org, db),
         account_email=user.email if user and user.email else None,
     )
@@ -212,6 +257,16 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
         features["ai_finding_review_enabled"] = body.features.ai_finding_review_enabled
         current["features"] = features
 
+    if body.evidence_sources is not None:
+        patches = {k: v.model_dump() for k, v in body.evidence_sources.entries.items()}
+        apply_evidence_source_updates(db, org.id, patches, user_id=p.get("sub"))
+
+    if body.coverage_overrides is not None:
+        current["coverage_overrides"] = merge_coverage_overrides(
+            current,
+            body.coverage_overrides.entries,
+        )
+
     changed_sections = [
         name
         for name, val in (
@@ -219,6 +274,8 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
             ("scanning", body.scanning),
             ("notifications", body.notifications),
             ("features", body.features),
+            ("evidence_sources", body.evidence_sources),
+            ("coverage_overrides", body.coverage_overrides),
         )
         if val is not None
     ]
@@ -237,11 +294,13 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
     db.refresh(org)
     user = db.get(User, uuid.UUID(p["sub"]))
     merged = _merged(org.settings)
+    registry_sources = load_evidence_sources(db, org.id)
     return SettingsOut(
         **merged,
         optional_checks=optional_checks_for_ui(org.settings),
         evidence_classes=all_evidence_classes(),
         cis_benchmark_coverage=cis_benchmark_coverage(),
+        evidence_source_categories=_evidence_source_categories_out(registry_sources),
         scan_status=_scan_status(org, db),
         account_email=user.email if user and user.email else None,
     )

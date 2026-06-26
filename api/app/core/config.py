@@ -121,6 +121,20 @@ class Settings(BaseSettings):
     # none | presigned | approved_link (future auditor read path)
     EVIDENCE_VAULT_AUDITOR_ACCESS_MODE: str = "none"
 
+    # External evidence artifact storage (uploaded PDFs, exports). When set, files go to S3
+    # instead of LOCAL_UPLOAD_DIR. Example: s3://amzn-s3-veritrail/external-evidence
+    EVIDENCE_ARTIFACTS_S3_URI: str = ""
+    EVIDENCE_ARTIFACTS_S3_REGION: str = ""
+    EVIDENCE_ARTIFACTS_DOWNLOAD_TTL_SECONDS: int = 900
+    EVIDENCE_ARTIFACTS_DEFAULT_EXPIRY_DAYS: int = 365
+    # Purge rejected/expired artifact rows (+ S3 objects) older than this many days. 0 = keep rows.
+    EVIDENCE_ARTIFACTS_RETENTION_DAYS: int = 0
+
+    # Optional ClamAV INSTREAM scan before persisting uploaded evidence files.
+    EVIDENCE_CLAMAV_ENABLED: bool = False
+    EVIDENCE_CLAMAV_HOST: str = "127.0.0.1"
+    EVIDENCE_CLAMAV_PORT: int = 3310
+
     # Go HCL patch binary (repo-aware Terraform PRs). Default: /usr/local/bin/hclpatch
     HCLPATCH_BIN: str = "/usr/local/bin/hclpatch"
     # Skip terraform fmt/validate when binary missing (dev only).

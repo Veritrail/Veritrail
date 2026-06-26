@@ -269,5 +269,21 @@
       "rds.instance.no_multi_az",
       "rds.snapshot.public"
     ]
+  },
+  {
+    "id": "endpoint_security",
+    "control_id": "COMPOSITE.ENDPOINT_SECURITY",
+    "title": "Endpoint Security & EDR",
+    "description": "Confirms workstations and servers are monitored by endpoint protection outside native AWS visibility.",
+    "guidance": "Declare your EDR/MDM platform in Workspace → Evidence, or upload endpoint-security attestations when AWS cannot observe corporate devices.",
+    "soc2_criteria": [
+      "CC6",
+      "CC7"
+    ],
+    "checks": [
+      "ec2.instance.no_instance_profile",
+      "guardduty.detector.not_enabled",
+      "guardduty.open_findings"
+    ]
   }
 ]
