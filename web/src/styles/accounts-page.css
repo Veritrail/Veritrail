@@ -3463,8 +3463,8 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card__watermark--cloud {
-  right: -0.35rem;
-  bottom: -0.35rem;
+  right: 1rem;
+  bottom: 0.75rem;
   width: 6rem;
   height: auto;
   opacity: 1;
