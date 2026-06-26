@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
 
 import { api } from "../api";
+import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { HistoryDashboard } from "../components/HistoryDashboard";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
 import {
@@ -310,15 +311,11 @@ export default function ComplianceHistory() {
   return (
     <div className={`w-full ${drawer ? "xl:pr-[28rem]" : ""}`}>
       <header className="mb-5 border-b border-zinc-200/80 pb-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">Security progress</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-950">History</h1>
-            <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-              Posture, findings, controls, and remediation movement over time.
-            </p>
-          </div>
-        </div>
+        <CompliancePageHeader
+          kicker="Compliance"
+          title="History"
+          subtitle="Posture, findings, controls, and remediation movement over time."
+        />
         <HistoryFilters
           accounts={connected}
           accountId={effectiveAccountId}

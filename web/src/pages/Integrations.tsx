@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { ProductShell } from "../components/ProductShell";
 import { PostureMetricCell } from "./Workspace";
 
@@ -486,6 +487,12 @@ function IntegrationsContent() {
 
   return (
     <div className="integrations-page">
+      <CompliancePageHeader
+        kicker="Infrastructure"
+        title="Integrations"
+        subtitle="Connect AWS, identity providers, and notification channels for scans and evidence collection."
+      />
+
       <div className="workspace-summary workspace-summary--metrics">
         <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail="Active connectors" valueTone="ok" />
         <PostureMetricCell icon={IK.syncing} label="Syncing" value={String(syncingCount)} detail={syncingCount ? "In progress" : "Idle"} valueTone={syncingCount ? "info" : "default"} />

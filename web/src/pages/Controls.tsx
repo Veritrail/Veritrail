@@ -23,6 +23,7 @@ import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingFailsControl } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
+import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import { EvidenceCoverageDashboard } from "../components/EvidenceCoverageDashboard";
 import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { ScanCollectorSummary } from "../components/ScanCollectorSummary";
@@ -1341,6 +1342,11 @@ function CompositeExpandedDetails({
     return (
       <div className="compliance-group-expanded">
         {recommended && <CompositeRecommendedActionBanner action={recommended} />}
+        <CoverageOverridePanel
+          compositeId={ctrl.id}
+          compositeTitle={ctrl.title}
+          coverageOverride={ctrl.coverage_override}
+        />
         {scanErrors.length > 0 && <CompositePermissionGaps errors={scanErrors} />}
         <ScanCollectorSummary accountId={accountId} />
         <div className="compliance-group-checks-card">
@@ -1382,6 +1388,11 @@ function CompositeExpandedDetails({
   return (
     <div className={`veritrail-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4 sm:pl-12 ${statusExpandedBg[ctrl.status]}`}>
       {recommended && <CompositeRecommendedActionBanner action={recommended} />}
+      <CoverageOverridePanel
+        compositeId={ctrl.id}
+        compositeTitle={ctrl.title}
+        coverageOverride={ctrl.coverage_override}
+      />
       {scanErrors.length > 0 && <CompositePermissionGaps errors={scanErrors} />}
       {underlying.length > 0 && (
         <div>

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
+import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { HistoryFilterDropdown } from "../components/HistoryFilterDropdown";
@@ -300,6 +301,12 @@ export default function HistoryV2() {
 
   return (
     <div className="history-page history-page--fill px-1 pb-8 pt-2 sm:px-0">
+      <CompliancePageHeader
+        kicker="Compliance"
+        title="History"
+        subtitle="Posture, findings, controls, and remediation movement over time."
+      />
+
       <HeaderSlot>
         <div className="history-filter-bar w-full" style={{ marginBottom: 0 }}>
           <HistoryFilterDropdown

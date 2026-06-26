@@ -5040,6 +5040,46 @@
   gap: 0.35rem;
 }
 
+.workspace-evidence-sources__category {
+  border: 1px solid #e4e4e7;
+  border-radius: 0.75rem;
+  background: #fafafa;
+  padding: 0.85rem 1rem;
+}
+
+.workspace-evidence-sources__category-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.workspace-evidence-sources__fields {
+  display: grid;
+  gap: 0.65rem;
+}
+
+@media (min-width: 640px) {
+  .workspace-evidence-sources__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-evidence-sources__field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.workspace-evidence-sources__field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.workspace-evidence-sources__field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #52525b;
+}
+
 @media (min-width: 640px) {
   .workspace-evidence-sources__row {
     grid-template-columns: 11rem 1fr;
