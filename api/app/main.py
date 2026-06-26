@@ -16,7 +16,7 @@ from app.core.ratelimit import limiter
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
-from app.routes import accounts, accounts_onboard, accounts_scan, accounts_remediate, accounts_analysis, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, slack_integration, jira_integration, linear_integration, gcp_integration, azure_integration, scanner_integration, cloud_integration, iac, settings as settings_router, members
+from app.routes import accounts, accounts_onboard, accounts_scan, accounts_remediate, accounts_analysis, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, slack_integration, jira_integration, linear_integration, gcp_integration, azure_integration, scanner_integration, cloud_integration, integration_requests, iac, settings as settings_router, members
 from app.routes import controls, exports, meta, public, domains, join_requests, audit_log
 from app.routes import auditor, auditor_portal, trust_center
 
@@ -184,3 +184,4 @@ app.include_router(gcp_integration.wif_router, prefix="/v1/integrations/gcp/wif"
 app.include_router(azure_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(scanner_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(cloud_integration.router, prefix="/v1/integrations", tags=["integrations"])
+app.include_router(integration_requests.router, prefix="/v1/integrations", tags=["integrations"])
