@@ -56,6 +56,30 @@ export function groupAccountId(id: string): string {
   return /^\d{12}$/.test(id) ? id.replace(/(\d{4})(?=\d)/g, "$1 ") : id;
 }
 
+export function providerDisplayName(provider?: CloudProvider): string {
+  switch (provider) {
+    case "gcp":
+      return "Google Cloud";
+    case "azure":
+      return "Microsoft Azure";
+    default:
+      return "AWS";
+  }
+}
+
+/** Primary line for account pickers (label, or formatted external id). */
+export function accountDisplayName(account: AccountOption): string {
+  if (account.label?.trim()) return account.label.trim();
+  return groupAccountId(account.account_id ?? "");
+}
+
+/** Secondary line: "Provider · account_id" (or label when id is missing). */
+export function accountDisplaySubtitle(account: AccountOption): string {
+  const provider = providerDisplayName(account.provider);
+  const detail = groupAccountId(account.account_id ?? account.label ?? "");
+  return `${provider} · ${detail}`;
+}
+
 function relativeScan(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return "just now";
