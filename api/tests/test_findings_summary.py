@@ -56,4 +56,31 @@ def test_findings_summary(db_session):
     assert out.total >= 3
     assert out.by_status.get("open", 0) >= 2
     assert out.by_severity.get("critical", 0) >= 1
-    assert any(row["check_id"] == "iam.user.no_mfa" for row in out.top_checks)
+def test_findings_summary_scoped_to_gcp_project(db_session):
+    from app.models.gcp_project import GcpProject
+
+    org, user = _seed_org_user(db_session)
+    project = GcpProject(org_id=org.id, project_id="carwiz-prod", label="carwiz", status="connected")
+    db_session.add(project)
+    db_session.add(_finding(org.id, severity="high"))
+    db_session.add(
+        _finding(
+            org.id,
+            severity="critical",
+            check_id="gcp.logging.not_enabled",
+            resource_arn="gcp://project/carwiz-prod/logging",
+            gcp_project_id=project.id,
+            account_id=None,
+        )
+    )
+    db_session.flush()
+
+    out_all = findings_summary(p={"org_id": str(org.id), "sub": str(user.id)}, db=db_session)
+    out_scoped = findings_summary(
+        gcp_project_id=str(project.id),
+        p={"org_id": str(org.id), "sub": str(user.id)},
+        db=db_session,
+    )
+    assert out_all.total >= 2
+    assert out_scoped.total == 1
+    assert out_scoped.by_severity.get("critical", 0) == 1

@@ -1,6 +1,5 @@
 import { HistoryFilterDropdown } from "./HistoryFilterDropdown";
-import { groupAccountId, type AccountOption } from "./AccountSelect";
-import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
+import { groupAccountId, ProviderMark, type AccountOption } from "./AccountSelect";
 import "../styles/history-page.css";
 
 /**
@@ -18,9 +17,12 @@ export function AccountFilterDropdown({
   onChange: (id: string) => void;
 }) {
   if (accounts.length === 0) return null;
-  const awsLogo = (className: string) => (
-    <img src={AWS_LOGO_LIGHT} alt="" className={className} width={30} height={19} />
+
+  const current = accounts.find((a) => a.id === value) ?? accounts[0];
+  const providerIcon = (provider: AccountOption["provider"], className: string) => (
+    <ProviderMark provider={provider} className={className} />
   );
+
   return (
     <HistoryFilterDropdown
       label="Account"
@@ -29,8 +31,11 @@ export function AccountFilterDropdown({
       value={value}
       options={accounts.map((a) => ({ value: a.id, label: a.label || groupAccountId(a.account_id ?? "") }))}
       onChange={onChange}
-      valueIcon={awsLogo("history-filter-box__aws")}
-      optionIcon={() => awsLogo("history-filter-menu__icon history-filter-menu__aws")}
+      valueIcon={providerIcon(current.provider, "history-filter-box__provider")}
+      optionIcon={(optionValue) => {
+        const account = accounts.find((a) => a.id === optionValue);
+        return providerIcon(account?.provider, "history-filter-menu__icon history-filter-menu__provider");
+      }}
     />
   );
 }

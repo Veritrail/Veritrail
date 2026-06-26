@@ -18,7 +18,7 @@ import {
   frameworkEvidenceUi,
   showControlEvidenceSection,
 } from "../lib/frameworkEvidenceCoverage";
-import { isAccountConnected } from "../lib/accountConnection";
+import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingFailsControl } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -2226,19 +2226,11 @@ export default function Controls() {
   const exportRef = useRef<HTMLDivElement>(null);
   const exportPanelRef = useRef<HTMLDivElement>(null);
 
-  const accounts = useQuery({
-    queryKey: ["accounts"],
-    queryFn: () => api<Account[]>("/v1/accounts"),
-  });
-
-  const connectedAccount = accounts.data?.find((a) => isAccountConnected(a));
-  const connectedAccounts = useMemo(
-    () => accounts.data?.filter((a) => isAccountConnected(a)) ?? [],
-    [accounts.data],
-  );
+  const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
+    useConnectedAccountOptions();
   const activeAccount =
-    (urlAccountId && accounts.data?.find((a) => a.id === urlAccountId && isAccountConnected(a))) ||
-    connectedAccount;
+    (urlAccountId && connectedAccounts.find((a) => a.id === urlAccountId)) || connectedAccounts[0];
+  const isAwsAccount = !activeAccount?.provider || activeAccount.provider === "aws";
   const hasScanned = !!activeAccount?.last_scan_at;
 
   function handleAccountChange(id: string) {
@@ -2270,9 +2262,9 @@ export default function Controls() {
     queryKey: ["controls", framework, activeAccount?.id],
     queryFn: () =>
       api<ControlRow[]>(
-        `/v1/controls?framework=${framework}${activeAccount ? `&account_id=${activeAccount.id}` : ""}`
+        `/v1/controls?framework=${framework}${isAwsAccount && activeAccount ? `&account_id=${activeAccount.id}` : ""}`
       ),
-    enabled: !accounts.isLoading,
+    enabled: !accountsLoading,
   });
 
   const qc = useQueryClient();
@@ -2289,15 +2281,15 @@ export default function Controls() {
     queryKey: ["controls", "composites", activeAccount?.id],
     queryFn: () =>
       api<CompositeControlRow[]>(
-        `/v1/controls/composites${activeAccount ? `?account_id=${activeAccount.id}` : ""}`,
+        `/v1/controls/composites${isAwsAccount && activeAccount ? `?account_id=${activeAccount.id}` : ""}`,
       ),
-    enabled: !accounts.isLoading && !!activeAccount,
+    enabled: !accountsLoading && !!activeAccount && isAwsAccount,
   });
 
   const externalEvidence = useQuery({
     queryKey: ["external-evidence", framework],
     queryFn: () => api<ExternalEvidenceArtifact[]>(`/v1/controls/evidence?framework=${encodeURIComponent(framework)}`),
-    enabled: !accounts.isLoading,
+    enabled: !accountsLoading,
   });
 
   const acceptedCompositeIds = useMemo(() => {
@@ -2400,7 +2392,7 @@ export default function Controls() {
 
   const openFindingsRaw = useQuery({
     queryKey: ["findings", "open", activeAccount?.id, "controls-meta"],
-    queryFn: () => fetchAllFindings<OpenFindingMeta>({ status: "open" }),
+    queryFn: () => fetchAllFindings<OpenFindingMeta>({ status: "open", ...findingsScopeParams(activeAccount) }),
     enabled: !!activeAccount && hasScanned,
   });
 
@@ -2445,7 +2437,7 @@ export default function Controls() {
         `/v1/accounts/${activeAccount!.id}/evidence-coverage?${params}`
       );
     },
-    enabled: !!activeAccount && hasScanned,
+    enabled: !!activeAccount && hasScanned && isAwsAccount,
   });
 
   useEffect(() => {
@@ -2482,9 +2474,9 @@ export default function Controls() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [exportOpen]);
 
-  const soc2Stats = useFrameworkStats("soc2", activeAccount?.id, hasScanned);
-  const cisStats = useFrameworkStats("cis_aws_l1", activeAccount?.id, hasScanned);
-  const isoStats = useFrameworkStats("iso27001", activeAccount?.id, hasScanned);
+  const soc2Stats = useFrameworkStats("soc2", isAwsAccount ? activeAccount?.id : undefined, hasScanned && isAwsAccount);
+  const cisStats = useFrameworkStats("cis_aws_l1", isAwsAccount ? activeAccount?.id : undefined, hasScanned && isAwsAccount);
+  const isoStats = useFrameworkStats("iso27001", isAwsAccount ? activeAccount?.id : undefined, hasScanned && isAwsAccount);
 
   const frameworkStatsById: Record<string, FrameworkStats | undefined> = {
     soc2: soc2Stats.data,
@@ -2498,7 +2490,7 @@ export default function Controls() {
       api<ComplianceHistoryResponse>(
         `/v1/accounts/${activeAccount!.id}/compliance-timeline?framework=${framework}&days=7&limit=20`,
       ),
-    enabled: !!activeAccount && hasScanned,
+    enabled: !!activeAccount && hasScanned && isAwsAccount,
     staleTime: 60_000,
   });
 
@@ -2659,12 +2651,12 @@ export default function Controls() {
     }
   }
 
-  if (!accounts.isLoading && !connectedAccount) {
+  if (accountsReady && !accountsLoading && connectedAccounts.length === 0) {
     return <ConnectAwsEmptyState />;
   }
 
   const showAuditExportAboveCard =
-    !!connectedAccount &&
+    !!activeAccount &&
     !controls.isLoading &&
     ((complianceView === "composite" &&
       !compositeControls.isLoading &&
@@ -2735,7 +2727,7 @@ export default function Controls() {
         </HeaderSlot>
       )}
 
-      {!hasScanned && connectedAccount && !controls.isLoading && (
+      {!hasScanned && activeAccount && !controls.isLoading && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 text-sm text-amber-900">
           <span className="font-semibold">Awaiting first scan.</span> Control pass/fail status appears after your account finishes scanning.
         </div>
@@ -2743,7 +2735,7 @@ export default function Controls() {
 
       {controls.isLoading && <LoadingSkeleton />}
 
-      {!controls.isLoading && connectedAccount && (
+      {!controls.isLoading && activeAccount && (
         <ComplianceContentShell
           toolbar={
             <div>

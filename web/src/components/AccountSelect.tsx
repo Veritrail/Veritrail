@@ -38,12 +38,14 @@ function CloudIcon({ className }: { className?: string }) {
   );
 }
 
-/** Neutral cloud today; GCP/Azure marks are wired but dark until those
- *  connectors ship (accounts never carry those providers yet). */
-function ProviderMark({ provider, className }: { provider?: CloudProvider; className?: string }) {
+export function ProviderMark({ provider, className }: { provider?: CloudProvider; className?: string }) {
   if (provider === "gcp") return <GcpMark className={className} />;
   if (provider === "azure") return <AzureMark className={className} />;
   return <AwsMark className={className} />;
+}
+
+function ProviderMarkInternal({ provider, className }: { provider?: CloudProvider; className?: string }) {
+  return <ProviderMark provider={provider} className={className} />;
 }
 
 export function groupAccountId(id: string): string {
@@ -133,7 +135,7 @@ export function AccountSelect({
         aria-expanded={open}
         className={`${CONTEXT_PILL} max-w-[18rem] cursor-pointer gap-2.5 text-left border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03] transition hover:border-zinc-300 hover:bg-zinc-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
       >
-        <ProviderMark provider={current.provider} className="h-6 w-10" />
+        <ProviderMarkInternal provider={current.provider} className="h-6 w-10" />
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-none tracking-[-0.02em] text-zinc-900">
           {current.label || groupAccountId(current.account_id ?? "")}
         </span>
@@ -171,7 +173,7 @@ export function AccountSelect({
                   active ? "bg-indigo-50 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
                 }`}
               >
-                <ProviderMark provider={a.provider} className="h-5 w-10 shrink-0" />
+                <ProviderMarkInternal provider={a.provider} className="h-5 w-10 shrink-0" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold leading-tight tracking-[-0.02em]">
                     {hasLabel ? a.label : groupAccountId(a.account_id ?? "")}

@@ -119,6 +119,22 @@ def _scope_maps(db: Session, org_id: uuid.UUID):
     )
 
 
+def _apply_scope_filter(
+    q,
+    *,
+    account_id: uuid.UUID | None = None,
+    gcp_project_id: uuid.UUID | None = None,
+    azure_subscription_id: uuid.UUID | None = None,
+):
+    if account_id is not None:
+        return q.where(Finding.account_id == account_id)
+    if gcp_project_id is not None:
+        return q.where(Finding.gcp_project_id == gcp_project_id)
+    if azure_subscription_id is not None:
+        return q.where(Finding.azure_subscription_id == azure_subscription_id)
+    return q
+
+
 class FindingPage(BaseModel):
     items: list[FindingOut]
     total: int
@@ -135,6 +151,8 @@ class FindingSummaryOut(BaseModel):
 @router.get("/summary", response_model=FindingSummaryOut)
 def findings_summary(
     account_id: str | None = None,
+    gcp_project_id: str | None = None,
+    azure_subscription_id: str | None = None,
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
@@ -142,14 +160,19 @@ def findings_summary(
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {}) | RETIRED_FINDING_CHECKS
     acc_uuid = uuid.UUID(account_id) if account_id else None
+    gcp_uuid = uuid.UUID(gcp_project_id) if gcp_project_id else None
+    az_uuid = uuid.UUID(azure_subscription_id) if azure_subscription_id else None
 
     def _scoped(q):
         q = q.where(Finding.org_id == org_id)
         if hidden:
             q = q.where(Finding.check_id.notin_(hidden))
-        if acc_uuid:
-            q = q.where(Finding.account_id == acc_uuid)
-        return q
+        return _apply_scope_filter(
+            q,
+            account_id=acc_uuid,
+            gcp_project_id=gcp_uuid,
+            azure_subscription_id=az_uuid,
+        )
 
     total = db.scalar(select(func.count()).select_from(_scoped(select(Finding)).subquery())) or 0
 
@@ -355,6 +378,8 @@ def list_findings(
     severity: str | None = None,
     check_id: str | None = None,
     account_id: str | None = None,
+    gcp_project_id: str | None = None,
+    azure_subscription_id: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
     cursor: str | None = Query(default=None),
     p=Depends(current_principal),
@@ -363,6 +388,9 @@ def list_findings(
     org_id = uuid.UUID(p["org_id"])
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {}) | RETIRED_FINDING_CHECKS
+    acc_uuid = uuid.UUID(account_id) if account_id else None
+    gcp_uuid = uuid.UUID(gcp_project_id) if gcp_project_id else None
+    az_uuid = uuid.UUID(azure_subscription_id) if azure_subscription_id else None
 
     base_q = select(Finding).where(Finding.org_id == org_id)
     if hidden:
@@ -373,8 +401,12 @@ def list_findings(
         base_q = base_q.where(Finding.severity == severity)
     if check_id:
         base_q = base_q.where(Finding.check_id == check_id)
-    if account_id:
-        base_q = base_q.where(Finding.account_id == uuid.UUID(account_id))
+    base_q = _apply_scope_filter(
+        base_q,
+        account_id=acc_uuid,
+        gcp_project_id=gcp_uuid,
+        azure_subscription_id=az_uuid,
+    )
 
     total = db.scalar(select(func.count()).select_from(base_q.subquery()))
 

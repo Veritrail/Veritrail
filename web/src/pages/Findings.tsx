@@ -12,9 +12,11 @@ import {
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
-import { accountListSchema, findingSummarySchema } from "../lib/apiSchemas";
+import { findingSummarySchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
+import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
+import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
 import {
@@ -29,8 +31,6 @@ import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
 import { assetTypeLabel } from "../lib/findingDisplay";
 import { vcsResourceWebUrl } from "../lib/findingDisplay";
-import { isAccountConnected } from "../lib/accountConnection";
-import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useRecheckNotifications, type RecheckResponse } from "../context/RecheckNotificationsContext";
 import { CloudProviderMark } from "../components/FindingResourceIcon";
 import "../styles/findings-v2.css";
@@ -600,40 +600,43 @@ export default function Findings() {
     queryFn: () => api<{ checks: Record<string, string[]> }>("/v1/controls/check-frameworks"),
     staleTime: 300_000,
   });
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api("/v1/accounts", { schema: accountListSchema }) });
-  const connectedAccounts = useMemo(
-    () => accounts.data?.filter((a) => isAccountConnected(a)) ?? [],
-    [accounts.data],
-  );
+  const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
+    useConnectedAccountOptions();
   const effectiveAccountId =
     (selectedAccountId && connectedAccounts.some((a) => a.id === selectedAccountId)
       ? selectedAccountId
       : connectedAccounts[0]?.id) || "";
+  const activeAccount = connectedAccounts.find((a) => a.id === effectiveAccountId);
+  const scopeParams = findingsScopeParams(activeAccount);
   const connectedId = effectiveAccountId || undefined;
+  const awsScanAccountId =
+    activeAccount?.provider === "aws" || !activeAccount?.provider ? effectiveAccountId || undefined : undefined;
 
   const summaryQuery = useQuery({
-    queryKey: ["findings-summary", status, effectiveAccountId],
+    queryKey: ["findings-summary", status, effectiveAccountId, scopeParams],
     queryFn: () => {
       const qs = new URLSearchParams();
-      if (effectiveAccountId) qs.set("account_id", effectiveAccountId);
+      if (scopeParams.account_id) qs.set("account_id", scopeParams.account_id);
+      if (scopeParams.gcp_project_id) qs.set("gcp_project_id", scopeParams.gcp_project_id);
+      if (scopeParams.azure_subscription_id) qs.set("azure_subscription_id", scopeParams.azure_subscription_id);
       return api(`/v1/findings/summary?${qs.toString()}`, { schema: findingSummarySchema });
     },
     enabled: !!effectiveAccountId || connectedAccounts.length > 0,
   });
 
   const findingsQuery = useQuery({
-    queryKey: ["findings", status, effectiveAccountId, severityFilter],
+    queryKey: ["findings", status, effectiveAccountId, scopeParams, severityFilter],
     queryFn: () =>
       fetchAllFindings<Finding>({
         status,
-        account_id: effectiveAccountId || undefined,
+        ...scopeParams,
         severity: severityFilter !== "all" ? severityFilter : undefined,
       }),
     enabled: !!effectiveAccountId || connectedAccounts.length > 0,
     refetchInterval: pendingRecheck ? 3000 : false,
   });
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
-    connectedId,
+    awsScanAccountId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
   );
 
@@ -931,7 +934,7 @@ export default function Findings() {
     URL.revokeObjectURL(url);
   }, [status]);
 
-  if (!accounts.isLoading && accounts.data && !connectedId) return <ConnectAwsEmptyState />;
+  if (accountsReady && !accountsLoading && connectedAccounts.length === 0) return <ConnectAwsEmptyState />;
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
@@ -1035,9 +1038,9 @@ export default function Findings() {
                     <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
                       Export
                     </button>
-                    {connectedId ? (
+                    {awsScanAccountId ? (
                       <FindingsScanButton
-                        connectedId={connectedId}
+                        connectedId={awsScanAccountId}
                         isRunning={isRunning}
                         scanTriggered={scanTriggered}
                         onScan={triggerScan}
