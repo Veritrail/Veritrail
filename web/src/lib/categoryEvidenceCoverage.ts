@@ -11,6 +11,12 @@ export type CategoryEvidenceCoverageRow = {
   stale_artifacts: number;
 };
 
+/** Categories AWS cannot verify (corporate laptops, EDR, MDM). */
+export const EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS = new Set([
+  "endpoint_security",
+  "mdm_endpoint",
+]);
+
 export type CategoryEvidenceCoverage = {
   framework: string;
   summary: {
@@ -68,6 +74,15 @@ export function coverageExternalSummary(cat: CategoryEvidenceCoverageRow) {
 }
 
 export function coverageAutomatedSummary(cat: CategoryEvidenceCoverageRow) {
+  if (
+    EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS.has(cat.key) &&
+    (cat.display_status === "needs_evidence" || cat.display_status === "unevaluated")
+  ) {
+    return "Not available from AWS";
+  }
+  if (cat.display_status === "needs_evidence") {
+    return "Not connected";
+  }
   if (cat.scan_status === "pass") return "Verified";
   if (cat.scan_status === "no_data") return "Not scanned";
   return "Gap detected";

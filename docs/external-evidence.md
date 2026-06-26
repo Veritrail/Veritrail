@@ -20,7 +20,7 @@ Veritrail treats customer-uploaded proof and declared external tools as first-cl
 
 ## Evidence categories (registry)
 
-Nine workspace categories map to compliance composites:
+Ten workspace categories map to compliance composites:
 
 | Key | Label | Composites |
 |-----|-------|------------|
@@ -32,7 +32,14 @@ Nine workspace categories map to compliance composites:
 | `vulnerability_management` | Vulnerability management | `vulnerability_management`, `container_vulnerability_monitoring` |
 | `logging_monitoring` | Logging & monitoring | `logging_monitoring` |
 | `backup_resilience` | Backup & resilience | `backup_resilience` |
-| `endpoint_security` | Endpoint security | `endpoint_security` |
+| `endpoint_security` | Endpoint security | `endpoint_security` (no AWS checks — external proof required) |
+| `mdm_endpoint` | Device management (MDM) | *(none — registry + upload only)* |
+
+### Employee endpoints and MDM
+
+AWS cannot verify corporate laptops, EDR agents, or MDM enrollment. Categories `endpoint_security` and `mdm_endpoint` **never pass from AWS scans alone**. Coverage requires accepted external evidence (uploaded attestation or report). Declaring a vendor in Workspace → Evidence is helpful context but does not count as coverage until an artifact is accepted.
+
+For MDM specifically, both a declared vendor **and** an accepted artifact are required before the category shows as externally covered.
 
 Registry rows live in Postgres (`evidence_sources` table). Legacy `org.settings.evidence_sources` JSON is imported on first read.
 

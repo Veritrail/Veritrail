@@ -6,8 +6,9 @@ Summary of what Veritrail ships today versus deferred phase-two/phase-three work
 
 ### External evidence & coverage
 
-- Nine registry categories + up to five custom org categories (`org.settings.custom_evidence_categories`)
-- MDM registry category (`mdm_endpoint`) for Intune/Jamf declarations (no live API yet)
+- Ten registry categories + up to five custom org categories (`org.settings.custom_evidence_categories`)
+- MDM registry category (`mdm_endpoint`) for Intune/Jamf declarations (no live API yet; requires accepted upload to count as covered)
+- Employee endpoint / EDR categories require external evidence — AWS GuardDuty and EC2 checks do not substitute for corporate device coverage
 - Upload/review lifecycle, comments, superseded/expired states, renewal emails
 - Coverage dashboard, overrides, absence-gap CTAs, criterion slide-over upload
 - Policy-to-evidence linking via optional `policy_ref` on uploads

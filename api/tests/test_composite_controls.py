@@ -30,6 +30,8 @@ def test_composite_definitions_load():
         "backup_resilience",
     }
     for entry in defs:
+        if entry["id"] == "endpoint_security":
+            continue  # AWS cannot observe corporate endpoints — external evidence only
         assert entry.get("checks"), f"{entry['id']} must map checks"
         assert entry.get("control_id", "").startswith("COMPOSITE.")
 

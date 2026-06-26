@@ -284,10 +284,6 @@
       "CC6",
       "CC7"
     ],
-    "checks": [
-      "ec2.instance.no_instance_profile",
-      "guardduty.detector.not_enabled",
-      "guardduty.open_findings"
-    ]
+    "checks": []
   }
 ]

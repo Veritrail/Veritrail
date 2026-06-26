@@ -53,9 +53,12 @@ EVIDENCE_SOURCE_CATEGORIES: list[dict[str, Any]] = [
     {
         "key": "mdm_endpoint",
         "label": "Device management (MDM)",
-        "composite_ids": ["endpoint_security"],
+        "composite_ids": [],
     },
 ]
+
+# AWS cannot verify corporate laptops/EDR/MDM — coverage requires external proof.
+EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS = frozenset({"endpoint_security", "mdm_endpoint"})
 
 ENDPOINT_SECURITY_TOOLS = [
     "CrowdStrike",

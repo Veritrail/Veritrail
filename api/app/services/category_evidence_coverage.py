@@ -13,7 +13,10 @@ from app.models.org import Org
 from app.services.composite_controls import list_composite_controls
 from app.services.evidence_gap import open_absence_gap_check_ids
 from app.services.coverage_overrides import get_coverage_overrides
-from app.services.evidence_source_registry import EVIDENCE_SOURCE_CATEGORIES
+from app.services.evidence_source_registry import (
+    EVIDENCE_SOURCE_CATEGORIES,
+    EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS,
+)
 from app.services.evidence_source_store import load_evidence_sources
 
 _STATUS_PRIORITY = {"fail": 0, "no_data": 1, "pass": 2}
@@ -56,6 +59,30 @@ def _worst_scan_status(statuses: list[str]) -> str:
     if not statuses:
         return "no_data"
     return min(statuses, key=lambda s: _STATUS_PRIORITY.get(s, 99))
+
+
+def _external_evidence_category_status(
+    cat_key: str,
+    *,
+    display_status: str,
+    has_accepted: bool,
+    registry_vendor: str | None,
+) -> str:
+    """Employee endpoints and MDM cannot pass from AWS scans alone."""
+    if cat_key not in EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS:
+        return display_status
+    if display_status in ("out_of_scope", "not_applicable"):
+        return display_status
+    if cat_key == "mdm_endpoint":
+        if has_accepted and registry_vendor:
+            return "externally_covered"
+        return "needs_evidence"
+    # endpoint_security
+    if has_accepted:
+        return "externally_covered"
+    if display_status in ("passing", "unevaluated", "failing", "at_risk"):
+        return "needs_evidence"
+    return display_status
 
 
 def build_category_evidence_coverage(
@@ -115,8 +142,8 @@ def build_category_evidence_coverage(
         composite_ids = list(cat["composite_ids"])
         member_rows = [by_id[cid] for cid in composite_ids if cid in by_id]
         scan_status = _worst_scan_status([r["status"] for r in member_rows])
-        primary_id = composite_ids[0]
-        primary = by_id.get(primary_id) or (member_rows[0] if member_rows else None)
+        primary_id = composite_ids[0] if composite_ids else None
+        primary = by_id.get(primary_id) if primary_id else (member_rows[0] if member_rows else None)
 
         accepted = sum(accepted_by_composite.get(cid, 0) for cid in composite_ids)
         submitted = sum(submitted_by_composite.get(cid, 0) for cid in composite_ids)
@@ -137,12 +164,20 @@ def build_category_evidence_coverage(
                 open_by_check=open_by_check,
             )
 
+        entry = registry.get(cat["key"])
+        registry_vendor = entry.get("vendor") if entry else None
+        display_status = _external_evidence_category_status(
+            cat["key"],
+            display_status=display_status,
+            has_accepted=has_accepted,
+            registry_vendor=registry_vendor,
+        )
+
         if display_status in summary_counts:
             summary_counts[display_status] += 1
         elif display_status == "passing":
             summary_counts["automated_passing"] += 1
 
-        entry = registry.get(cat["key"])
         categories_out.append(
             {
                 "key": cat["key"],
@@ -151,7 +186,7 @@ def build_category_evidence_coverage(
                 "primary_composite_id": primary_id if primary else None,
                 "scan_status": scan_status,
                 "display_status": display_status,
-                "registry_vendor": entry.get("vendor") if entry else None,
+                "registry_vendor": registry_vendor,
                 "accepted_artifacts": accepted,
                 "submitted_artifacts": submitted,
                 "stale_artifacts": stale,

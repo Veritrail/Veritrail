@@ -2,7 +2,11 @@ import uuid
 from datetime import date
 
 from app.models.evidence_artifact import EvidenceArtifact
-from app.services.category_evidence_coverage import _artifact_is_stale, _composite_display_status
+from app.services.category_evidence_coverage import (
+    _artifact_is_stale,
+    _composite_display_status,
+    _external_evidence_category_status,
+)
 
 
 def test_artifact_is_stale_when_period_end_passed():
@@ -57,3 +61,69 @@ def test_composite_display_status_gap_mapped_without_open_finding_is_not_needs_e
 def test_composite_display_status_passing():
     composite = {"status": "pass", "check_ids": [], "check_tiers": {}}
     assert _composite_display_status(composite, has_accepted=False, open_by_check={}) == "passing"
+
+
+def test_external_evidence_category_endpoint_security_aws_pass_not_passing():
+    assert (
+        _external_evidence_category_status(
+            "endpoint_security",
+            display_status="passing",
+            has_accepted=False,
+            registry_vendor="CrowdStrike",
+        )
+        == "needs_evidence"
+    )
+
+
+def test_external_evidence_category_endpoint_security_accepted_artifact():
+    assert (
+        _external_evidence_category_status(
+            "endpoint_security",
+            display_status="passing",
+            has_accepted=True,
+            registry_vendor="CrowdStrike",
+        )
+        == "externally_covered"
+    )
+
+
+def test_external_evidence_category_mdm_requires_vendor_and_artifact():
+    assert (
+        _external_evidence_category_status(
+            "mdm_endpoint",
+            display_status="unevaluated",
+            has_accepted=False,
+            registry_vendor="Jamf Pro",
+        )
+        == "needs_evidence"
+    )
+    assert (
+        _external_evidence_category_status(
+            "mdm_endpoint",
+            display_status="unevaluated",
+            has_accepted=True,
+            registry_vendor=None,
+        )
+        == "needs_evidence"
+    )
+    assert (
+        _external_evidence_category_status(
+            "mdm_endpoint",
+            display_status="unevaluated",
+            has_accepted=True,
+            registry_vendor="Jamf Pro",
+        )
+        == "externally_covered"
+    )
+
+
+def test_external_evidence_category_other_categories_unchanged():
+    assert (
+        _external_evidence_category_status(
+            "logging_monitoring",
+            display_status="passing",
+            has_accepted=False,
+            registry_vendor=None,
+        )
+        == "passing"
+    )
