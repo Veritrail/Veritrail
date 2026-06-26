@@ -49,11 +49,11 @@ function CopyField({ label, value }: { label: string; value: string }) {
     setTimeout(() => setCopied(false), 1500);
   }
   return (
-    <div>
+    <div className="integration-setup__copy-field">
       <label className="integration-setup__field-label">{label}</label>
       <div className="integration-setup__copy-row">
         <input className="integration-setup__input" readOnly value={value} />
-        <button type="button" className="integration-setup__btn" onClick={copy}>
+        <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={copy}>
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
@@ -68,6 +68,32 @@ function terraformSnippet(setup: GcpSetup) {
   -var="veritrail_issuer_uri=${setup.issuer_uri}" \\
   -var="veritrail_token_audience=${setup.token_audience}" \\
   -var="wif_subject=${setup.wif_subject}"`;
+}
+
+function CodeBlock({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+  return (
+    <div className="integration-setup__code-block">
+      <label className="integration-setup__field-label">{label}</label>
+      <textarea className="integration-setup__textarea" rows={8} readOnly value={value} />
+      <div className="integration-setup__code-block-actions">
+        <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={copy}>
+          {copied ? "Copied" : "Copy command"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function statusClass(status: string) {
+  if (status === "connected") return "integration-setup__status integration-setup__status--connected";
+  if (status === "error") return "integration-setup__status integration-setup__status--error";
+  return "integration-setup__status integration-setup__status--pending";
 }
 
 function gcloudSnippet(setup: GcpSetup) {
@@ -254,142 +280,150 @@ export default function GcpIntegration() {
             </div>
 
             {step === 0 && (
-              <div className="integration-setup__section">
-                <p className="integration-setup__callout">
-                  Enter the GCP project ID to scan. Veritrail will generate a unique federation subject (like AWS ExternalId).
-                </p>
-                <div className="integration-setup__grid integration-setup__grid--2">
-                  <div>
-                    <label className="integration-setup__field-label" htmlFor="gcp-project-id">Project ID</label>
-                    <input
-                      id="gcp-project-id"
-                      className="integration-setup__input"
-                      value={projectId}
-                      onChange={(e) => setProjectId(e.target.value)}
-                    />
+              <>
+                <div className="integration-setup__section">
+                  <p className="integration-setup__callout">
+                    Enter the GCP project ID to scan. Veritrail will generate a unique federation subject (like AWS ExternalId).
+                  </p>
+                  <div className="integration-setup__grid integration-setup__grid--2">
+                    <div>
+                      <label className="integration-setup__field-label" htmlFor="gcp-project-id">Project ID</label>
+                      <input
+                        id="gcp-project-id"
+                        className="integration-setup__input"
+                        value={projectId}
+                        onChange={(e) => setProjectId(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="integration-setup__field-label" htmlFor="gcp-label">Label</label>
+                      <input
+                        id="gcp-label"
+                        className="integration-setup__input"
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
+                        placeholder="Production GCP"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="integration-setup__field-label" htmlFor="gcp-label">Label</label>
-                    <input
-                      id="gcp-label"
-                      className="integration-setup__input"
-                      value={label}
-                      onChange={(e) => setLabel(e.target.value)}
-                      placeholder="Production GCP"
-                    />
-                  </div>
+                  {saveError && <p className="integration-setup__error">{saveError}</p>}
                 </div>
-                {saveError && <p className="integration-setup__error">{saveError}</p>}
-                <div className="integration-setup__actions">
+                <div className="integration-setup__actions integration-setup__actions--end">
                   <button
                     type="button"
                     className="integration-setup__btn integration-setup__btn--primary"
                     disabled={!projectId.trim() || create.isPending}
                     onClick={() => create.mutate()}
                   >
-                    Continue
+                    {create.isPending ? "Creating…" : "Continue"}
                   </button>
                 </div>
-              </div>
+              </>
             )}
 
             {step === 1 && draftProject && (
-              <div className="integration-setup__section">
-                <p className="integration-setup__callout">
-                  Run Terraform or gcloud in your GCP project to create the workload identity pool, OIDC provider (trusting Veritrail), and scanner service account.
-                </p>
-                {setupQuery.isLoading && <p className="integration-setup__loading">Loading setup parameters…</p>}
-                {setup && (
-                  <>
-                    <CopyField label="WIF subject (bind in IAM)" value={setup.wif_subject} />
-                    <CopyField label="Veritrail issuer URI" value={setup.issuer_uri} />
-                    <CopyField label="Token audience" value={setup.token_audience} />
-                    <CopyField label="Principal member" value={setup.principal_member} />
-                    <div className="integration-setup__tabs">
-                      <button
-                        type="button"
-                        className={deployTab === "terraform" ? "integration-setup__tab--active" : ""}
-                        onClick={() => setDeployTab("terraform")}
-                      >
-                        Terraform
-                      </button>
-                      <button
-                        type="button"
-                        className={deployTab === "gcloud" ? "integration-setup__tab--active" : ""}
-                        onClick={() => setDeployTab("gcloud")}
-                      >
-                        gcloud
-                      </button>
+              <>
+                <div className="integration-setup__section">
+                  <p className="integration-setup__callout">
+                    Run Terraform or gcloud in your GCP project to create the workload identity pool, OIDC provider (trusting Veritrail), and scanner service account.
+                  </p>
+                  {setupQuery.isLoading && <p className="integration-setup__loading">Loading setup parameters…</p>}
+                  {setupQuery.isError && (
+                    <p className="integration-setup__error">{formatApiError(setupQuery.error)}</p>
+                  )}
+                  {setup && (
+                    <>
+                    <div className="integration-setup__copy-fields">
+                      <CopyField label="WIF subject (bind in IAM)" value={setup.wif_subject} />
+                      <CopyField label="Veritrail issuer URI" value={setup.issuer_uri} />
+                      <CopyField label="Token audience" value={setup.token_audience} />
+                      <CopyField label="Principal member" value={setup.principal_member} />
                     </div>
-                    <label className="integration-setup__field-label">
-                      {deployTab === "terraform" ? "Terraform (infra/gcp/wif-setup)" : "gcloud script"}
-                    </label>
-                    <textarea
-                      className="integration-setup__textarea"
-                      rows={8}
-                      readOnly
+                      <div className="integration-setup__tabs">
+                        <button
+                          type="button"
+                          className={`integration-setup__tab${deployTab === "terraform" ? " integration-setup__tab--active" : ""}`}
+                          onClick={() => setDeployTab("terraform")}
+                        >
+                          Terraform
+                        </button>
+                        <button
+                          type="button"
+                          className={`integration-setup__tab${deployTab === "gcloud" ? " integration-setup__tab--active" : ""}`}
+                          onClick={() => setDeployTab("gcloud")}
+                        >
+                          gcloud
+                        </button>
+                      </div>
+                    <CodeBlock
+                      label={deployTab === "terraform" ? "Terraform (infra/gcp/wif-setup)" : "gcloud script"}
                       value={deployTab === "terraform" ? terraformSnippet(setup) : gcloudSnippet(setup)}
                     />
-                  </>
-                )}
-                {saveError && <p className="integration-setup__error">{saveError}</p>}
+                    </>
+                  )}
+                  {saveError && <p className="integration-setup__error">{saveError}</p>}
+                </div>
                 <div className="integration-setup__actions">
-                  <button type="button" className="integration-setup__btn" onClick={() => setStep(0)}>Back</button>
+                  <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={() => setStep(0)}>Back</button>
                   <button type="button" className="integration-setup__btn integration-setup__btn--primary" onClick={() => setStep(2)}>
                     I&apos;ve deployed trust →
                   </button>
                 </div>
-              </div>
+              </>
             )}
 
             {step === 2 && draftProject && (
-              <div className="integration-setup__section">
-                <p className="integration-setup__callout">
-                  Paste values from your Terraform/gcloud outputs, then continue to verify.
-                </p>
-                <div className="integration-setup__grid integration-setup__grid--2">
-                  <div>
-                    <label className="integration-setup__field-label" htmlFor="gcp-pnum">Project number</label>
-                    <input id="gcp-pnum" className="integration-setup__input" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
+              <>
+                <div className="integration-setup__section">
+                  <p className="integration-setup__callout">
+                    Paste values from your Terraform/gcloud outputs, then continue to verify.
+                  </p>
+                  <div className="integration-setup__grid integration-setup__grid--2">
+                    <div>
+                      <label className="integration-setup__field-label" htmlFor="gcp-pnum">Project number</label>
+                      <input id="gcp-pnum" className="integration-setup__input" value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="integration-setup__field-label" htmlFor="gcp-pool">Pool ID</label>
+                      <input id="gcp-pool" className="integration-setup__input" value={poolId} onChange={(e) => setPoolId(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="integration-setup__field-label" htmlFor="gcp-provider">Provider ID</label>
+                      <input id="gcp-provider" className="integration-setup__input" value={providerId} onChange={(e) => setProviderId(e.target.value)} />
+                    </div>
+                    <div className="integration-setup__field--wide">
+                      <label className="integration-setup__field-label" htmlFor="gcp-sa-email">Scanner service account email</label>
+                      <input id="gcp-sa-email" className="integration-setup__input" value={serviceAccountEmail} onChange={(e) => setServiceAccountEmail(e.target.value)} />
+                    </div>
                   </div>
-                  <div>
-                    <label className="integration-setup__field-label" htmlFor="gcp-pool">Pool ID</label>
-                    <input id="gcp-pool" className="integration-setup__input" value={poolId} onChange={(e) => setPoolId(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="integration-setup__field-label" htmlFor="gcp-provider">Provider ID</label>
-                    <input id="gcp-provider" className="integration-setup__input" value={providerId} onChange={(e) => setProviderId(e.target.value)} />
-                  </div>
-                  <div className="integration-setup__field--wide">
-                    <label className="integration-setup__field-label" htmlFor="gcp-sa-email">Scanner service account email</label>
-                    <input id="gcp-sa-email" className="integration-setup__input" value={serviceAccountEmail} onChange={(e) => setServiceAccountEmail(e.target.value)} />
-                  </div>
+                  {saveError && <p className="integration-setup__error">{saveError}</p>}
                 </div>
-                {saveError && <p className="integration-setup__error">{saveError}</p>}
                 <div className="integration-setup__actions">
-                  <button type="button" className="integration-setup__btn" onClick={() => setStep(1)}>Back</button>
+                  <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={() => setStep(1)}>Back</button>
                   <button
                     type="button"
                     className="integration-setup__btn integration-setup__btn--primary"
                     disabled={!wifReady || patchWif.isPending}
                     onClick={() => patchWif.mutate()}
                   >
-                    Save &amp; verify →
+                    {patchWif.isPending ? "Saving…" : "Save & verify →"}
                   </button>
                 </div>
-              </div>
+              </>
             )}
 
             {step === 3 && draftProject && (
-              <div className="integration-setup__section">
-                <p className="integration-setup__callout">
-                  Veritrail exchanges a short-lived OIDC token for federated credentials and tests Cloud Resource Manager + Logging.
-                </p>
-                <CopyField label="Project ID" value={draftProject.project_id} />
-                <CopyField label="WIF subject" value={draftProject.wif_subject ?? ""} />
-                {saveError && <p className="integration-setup__error">{saveError}</p>}
+              <>
+                <div className="integration-setup__section">
+                  <p className="integration-setup__callout">
+                    Veritrail exchanges a short-lived OIDC token for federated credentials and tests Cloud Resource Manager + Logging.
+                  </p>
+                  <CopyField label="Project ID" value={draftProject.project_id} />
+                  <CopyField label="WIF subject" value={draftProject.wif_subject ?? ""} />
+                  {saveError && <p className="integration-setup__error">{saveError}</p>}
+                </div>
                 <div className="integration-setup__actions">
-                  <button type="button" className="integration-setup__btn" onClick={() => setStep(2)}>Back</button>
+                  <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={() => setStep(2)}>Back</button>
                   <button
                     type="button"
                     className="integration-setup__btn integration-setup__btn--primary"
@@ -403,7 +437,7 @@ export default function GcpIntegration() {
                     {actionState === draftProject.id ? "Verifying…" : "Verify connection"}
                   </button>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
@@ -411,7 +445,7 @@ export default function GcpIntegration() {
             <div className="integration-setup__card">
               <div className="integration-setup__section-header">
                 <h2 className="integration-setup__section-title">Connected projects</h2>
-                <button type="button" className="integration-setup__btn" onClick={resetWizard}>
+                <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={resetWizard}>
                   Add project
                 </button>
               </div>
@@ -420,14 +454,15 @@ export default function GcpIntegration() {
                   <li key={p.id} className="integration-setup__list-item">
                     <div>
                       <strong>{p.label}</strong>
-                      <div className="text-sm text-slate-500">
-                        {p.project_id} · {p.auth_method} · {p.status}
+                      <div className="integration-setup__list-meta">
+                        {p.project_id} · {p.auth_method.replaceAll("_", " ")} ·{" "}
+                        <span className={statusClass(p.status)}>{p.status}</span>
                       </div>
-                      {p.last_error && <div className="text-sm text-red-600">{p.last_error}</div>}
+                      {p.last_error && <div className="integration-setup__list-error">{p.last_error}</div>}
                     </div>
                     <div className="integration-setup__actions">
-                      <button type="button" className="integration-setup__btn" disabled={actionState === p.id} onClick={() => verifyProject(p.id)}>Verify</button>
-                      <button type="button" className="integration-setup__btn" disabled={p.status !== "connected" || actionState === `scan-${p.id}`} onClick={() => scanProject(p.id)}>Scan</button>
+                      <button type="button" className="integration-setup__btn integration-setup__btn--secondary" disabled={actionState === p.id} onClick={() => verifyProject(p.id)}>Verify</button>
+                      <button type="button" className="integration-setup__btn integration-setup__btn--secondary" disabled={p.status !== "connected" || actionState === `scan-${p.id}`} onClick={() => scanProject(p.id)}>Scan</button>
                       <button type="button" className="integration-setup__btn integration-setup__btn--danger" onClick={() => remove.mutate(p.id)}>Remove</button>
                     </div>
                   </li>
