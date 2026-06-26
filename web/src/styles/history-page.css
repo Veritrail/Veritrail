@@ -251,7 +251,8 @@
   object-fit: contain;
 }
 
-.history-filter-menu__icon.history-filter-menu__aws {
+.history-filter-menu__icon.history-filter-menu__aws,
+.history-filter-menu__icon.history-filter-menu__provider {
   width: 34px;
   height: 21px;
   object-position: left center;

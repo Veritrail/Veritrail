@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
-import { AzureMark, GcpMark } from "./IntegrationsUi";
+import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 
 export type CloudProvider = "aws" | "gcp" | "azure";
 
@@ -15,17 +14,24 @@ export type AccountOption = {
 const CONTEXT_PILL =
   "inline-flex h-10 items-center rounded-full border border-zinc-200/90 bg-white px-4 shadow-sm shadow-zinc-950/[0.03] transition-colors";
 
-function AwsMark({ className }: { className?: string }) {
+function ProviderBrandImg({ provider, className }: { provider: CloudProvider; className?: string }) {
+  const brand = INTEGRATION_BRAND[provider];
   return (
     <img
-      src="/aws-account-icon.png"
+      src={brand.src}
       alt=""
       className={`${className ?? "h-[1.125rem] w-[2.25rem]"} shrink-0 object-contain object-left`}
       aria-hidden
-      onError={(e) => {
-        e.currentTarget.onerror = null;
-        e.currentTarget.src = AWS_LOGO_LIGHT;
-      }}
+      decoding="async"
+      onError={
+        brand.fallback
+          ? (e) => {
+              if (e.currentTarget.src.endsWith(brand.fallback!)) return;
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = brand.fallback!;
+            }
+          : undefined
+      }
     />
   );
 }
@@ -39,9 +45,7 @@ function CloudIcon({ className }: { className?: string }) {
 }
 
 export function ProviderMark({ provider, className }: { provider?: CloudProvider; className?: string }) {
-  if (provider === "gcp") return <GcpMark className={className} />;
-  if (provider === "azure") return <AzureMark className={className} />;
-  return <AwsMark className={className} />;
+  return <ProviderBrandImg provider={provider ?? "aws"} className={className} />;
 }
 
 function ProviderMarkInternal({ provider, className }: { provider?: CloudProvider; className?: string }) {
