@@ -78,6 +78,8 @@ Enable only after bucket Object Lock, IAM, and retention policy review.
 
 For customer-uploaded external evidence (separate from pack vault), see [external-evidence.md](./external-evidence.md).
 
+**Scoped auditor export links** are available in Workspace → Evidence sharing (`POST /v1/auditor/exports/{id}/scoped-link`). See [enterprise-readiness.md](./enterprise-readiness.md).
+
 ### Upload quarantine (external evidence)
 
 Customer PDFs and exports uploaded via `POST /v1/controls/evidence` can be held until ClamAV reports clean:

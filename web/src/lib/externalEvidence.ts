@@ -22,6 +22,7 @@ export type ExternalEvidenceArtifact = {
   review_notes: string | null;
   reviewed_at: string | null;
   superseded_by: string | null;
+  policy_ref?: string | null;
 };
 
 export const VULN_COMPOSITE_IDS = new Set([

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.evidence_source import EvidenceSource
 from app.models.org import Org
+from app.services.custom_evidence_categories import custom_category_defs
 from app.services.evidence_source_registry import EVIDENCE_SOURCE_CATEGORIES, get_evidence_sources, merge_evidence_sources
 
 _VALID_KEYS = {c["key"] for c in EVIDENCE_SOURCE_CATEGORIES}
@@ -77,6 +78,9 @@ def apply_evidence_source_updates(
 ) -> dict[str, dict[str, Any]]:
     """Upsert category entries; empty vendor removes the row."""
     load_evidence_sources(db, org_id)
+    org = db.get(Org, org_id)
+    custom_keys = {c["key"] for c in custom_category_defs(org.settings if org else {})}
+    valid_keys = _VALID_KEYS | custom_keys
     now = datetime.now(timezone.utc)
     actor_id = uuid.UUID(user_id) if user_id else None
     existing = {
@@ -85,7 +89,7 @@ def apply_evidence_source_updates(
     }
 
     for key, patch in updates.items():
-        if key not in _VALID_KEYS:
+        if key not in valid_keys:
             continue
         vendor = (patch.get("vendor") or "").strip()
         if not vendor:
@@ -110,8 +114,23 @@ def apply_evidence_source_updates(
 def evidence_sources_for_export_db(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
     from app.services.evidence_source_registry import evidence_sources_for_export
 
+    org = db.get(Org, org_id)
     sources = load_evidence_sources(db, org_id)
-    return evidence_sources_for_export({"evidence_sources": sources})
+    base = evidence_sources_for_export({"evidence_sources": sources})
+    custom = custom_category_defs(org.settings if org else {})
+    if custom:
+        base["categories"] = list(base.get("categories") or []) + [
+            {
+                "key": c["key"],
+                "label": c["label"],
+                "composite_ids": c.get("composite_ids") or [],
+                "entry": sources.get(c["key"]),
+                "custom": True,
+            }
+            for c in custom
+        ]
+        base["configured_count"] = sum(1 for cat in base["categories"] if cat.get("entry"))
+    return base
 
 
 def merge_evidence_sources_settings(

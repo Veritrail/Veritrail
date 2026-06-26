@@ -178,8 +178,13 @@ class SettingsOut(BaseModel):
     account_email: str | None = None
 
 
-def _evidence_source_categories_out(sources: dict[str, dict]) -> list[EvidenceSourceCategoryOut]:
-    return [
+def _evidence_source_categories_out(
+    sources: dict[str, dict],
+    org_settings: dict | None = None,
+) -> list[EvidenceSourceCategoryOut]:
+    from app.services.custom_evidence_categories import custom_category_defs
+
+    built = [
         EvidenceSourceCategoryOut(
             key=cat["key"],
             label=cat["label"],
@@ -188,6 +193,16 @@ def _evidence_source_categories_out(sources: dict[str, dict]) -> list[EvidenceSo
         )
         for cat in EVIDENCE_SOURCE_CATEGORIES
     ]
+    for custom in custom_category_defs(org_settings):
+        built.append(
+            EvidenceSourceCategoryOut(
+                key=custom["key"],
+                label=custom["label"],
+                composite_ids=custom.get("composite_ids") or [],
+                entry=sources.get(custom["key"]),
+            )
+        )
+    return built
 
 
 def _get_org(p, db: Session) -> Org:
@@ -228,7 +243,7 @@ def get_settings(p=Depends(current_principal), db: Session = Depends(get_db)):
         optional_checks=optional_checks_for_ui(org_settings),
         evidence_classes=all_evidence_classes(),
         cis_benchmark_coverage=cis_benchmark_coverage(),
-        evidence_source_categories=_evidence_source_categories_out(registry_sources),
+        evidence_source_categories=_evidence_source_categories_out(registry_sources, org_settings),
         custom_evidence_categories=get_custom_evidence_categories(org_settings),
         scan_status=_scan_status(org, db),
         account_email=user.email if user and user.email else None,
@@ -298,6 +313,7 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
             ("features", body.features),
             ("evidence_sources", body.evidence_sources),
             ("coverage_overrides", body.coverage_overrides),
+            ("custom_evidence_categories", body.custom_evidence_categories),
         )
         if val is not None
     ]
@@ -317,12 +333,13 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
     user = db.get(User, uuid.UUID(p["sub"]))
     merged = _merged(org.settings)
     registry_sources = load_evidence_sources(db, org.id)
+    org_settings = org.settings or {}
     return SettingsOut(
         **merged,
         optional_checks=optional_checks_for_ui(org.settings),
         evidence_classes=all_evidence_classes(),
         cis_benchmark_coverage=cis_benchmark_coverage(),
-        evidence_source_categories=_evidence_source_categories_out(registry_sources),
+        evidence_source_categories=_evidence_source_categories_out(registry_sources, org_settings),
         custom_evidence_categories=get_custom_evidence_categories(org_settings),
         scan_status=_scan_status(org, db),
         account_email=user.email if user and user.email else None,

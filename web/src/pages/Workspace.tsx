@@ -14,6 +14,8 @@ import { TrustCenterSettings } from "../components/TrustCenterSettings";
 import { AccessCard } from "../components/accessUi";
 import { WorkspaceActivity } from "../components/WorkspaceActivity";
 import { EvidenceSourceRegistrySettings } from "../components/EvidenceSourceRegistrySettings";
+import { CustomEvidenceCategoriesSettings } from "../components/CustomEvidenceCategoriesSettings";
+import { AuditorScopedExportPanel } from "../components/AuditorScopedExportPanel";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import "../styles/findings-v2.css";
@@ -1329,6 +1331,7 @@ export default function Workspace() {
                     ) : (
                       <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
                     )}
+                    {canEditWorkspace ? <AuditorScopedExportPanel embedded /> : null}
                   </div>
                 </div>
               </div>
@@ -1524,6 +1527,16 @@ export default function Workspace() {
               canEdit={canEditWorkspace}
               onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })}
             />
+            <div className="mt-8 border-t border-zinc-100 pt-8">
+              <h3 className="text-sm font-semibold text-zinc-900">Custom evidence categories</h3>
+              <p className="mt-1 text-sm text-zinc-500">Org-specific categories for intake and registry (max 5).</p>
+              <div className="mt-4">
+                <CustomEvidenceCategoriesSettings
+                  canEdit={canEditWorkspace}
+                  onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })}
+                />
+              </div>
+            </div>
           </WorkspaceDetailSection>
         )}
 

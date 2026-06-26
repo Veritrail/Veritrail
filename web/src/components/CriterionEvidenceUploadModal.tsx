@@ -29,6 +29,7 @@ export function CriterionEvidenceUploadModal({
   const [evidenceType, setEvidenceType] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [owner, setOwner] = useState("");
+  const [policyRef, setPolicyRef] = useState("");
   const [note, setNote] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -42,6 +43,7 @@ export function CriterionEvidenceUploadModal({
     setEvidenceType("");
     setExternalUrl("");
     setOwner("");
+    setPolicyRef("");
     setNote("");
     setPeriodEnd("");
     setFile(null);
@@ -67,6 +69,7 @@ export function CriterionEvidenceUploadModal({
       if (evidenceType) form.append("evidence_type", evidenceType);
       if (externalUrl.trim()) form.append("external_url", externalUrl.trim());
       if (owner.trim()) form.append("owner", owner.trim());
+      if (policyRef.trim()) form.append("policy_ref", policyRef.trim());
       if (note.trim()) form.append("note", note.trim());
       if (periodEnd.trim()) form.append("period_end", periodEnd.trim());
       if (file) form.append("file", file);
@@ -153,6 +156,14 @@ export function CriterionEvidenceUploadModal({
           <label className="compliance-external-evidence__field">
             <span>Owner (optional)</span>
             <input value={owner} onChange={(e) => setOwner(e.target.value)} />
+          </label>
+          <label className="compliance-external-evidence__field">
+            <span>Linked policy (optional)</span>
+            <input
+              value={policyRef}
+              onChange={(e) => setPolicyRef(e.target.value)}
+              placeholder="e.g. ISMS-SEC-12 or policy URL slug"
+            />
           </label>
           <label className="compliance-external-evidence__field">
             <span>Coverage through (optional)</span>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -13,7 +13,7 @@ import {
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
-import { accountListSchema } from "../lib/apiSchemas";
+import { accountListSchema, findingPageSchema, findingSummarySchema } from "../lib/apiSchemas";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
@@ -23,7 +23,7 @@ import {
   findingGroupSearchText,
   isActivityCheck,
 } from "../data/findingGroups";
-import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { VirtualizedFindingsGroups } from "../components/VirtualizedFindingsGroups";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
@@ -608,15 +608,46 @@ export default function Findings() {
       : connectedAccounts[0]?.id) || "";
   const connectedId = effectiveAccountId || undefined;
 
-  const q = useQuery({
-    queryKey: ["findings", status, effectiveAccountId],
-    queryFn: () =>
-      fetchAllFindings<Finding>({
-        status,
-        account_id: effectiveAccountId || undefined,
-      }),
+  const summaryQuery = useQuery({
+    queryKey: ["findings-summary", status, effectiveAccountId],
+    queryFn: () => {
+      const qs = new URLSearchParams();
+      if (effectiveAccountId) qs.set("account_id", effectiveAccountId);
+      return api(`/v1/findings/summary?${qs.toString()}`, { schema: findingSummarySchema });
+    },
+    enabled: !!effectiveAccountId || connectedAccounts.length > 0,
+  });
+
+  const findingsQuery = useInfiniteQuery({
+    queryKey: ["findings", status, effectiveAccountId, severityFilter],
+    queryFn: async ({ pageParam }) => {
+      const qs = new URLSearchParams({ limit: "200", status });
+      if (effectiveAccountId) qs.set("account_id", effectiveAccountId);
+      if (severityFilter !== "all") qs.set("severity", severityFilter);
+      if (pageParam) qs.set("cursor", pageParam);
+      return api(`/v1/findings?${qs.toString()}`, { schema: findingPageSchema });
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor,
+    maxPages: 5,
     refetchInterval: pendingRecheck ? 3000 : false,
   });
+
+  const q = {
+    data: findingsQuery.data
+      ? {
+          items: findingsQuery.data.pages.flatMap((page) => page.items as Finding[]),
+          total: findingsQuery.data.pages[0]?.total ?? 0,
+          truncated:
+            (findingsQuery.data.pages[0]?.total ?? 0) >
+            findingsQuery.data.pages.flatMap((page) => page.items).length,
+        }
+      : undefined,
+    isLoading: findingsQuery.isLoading,
+    isFetching: findingsQuery.isFetching,
+    fetchNextPage: findingsQuery.fetchNextPage,
+    hasNextPage: findingsQuery.hasNextPage,
+  };
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
     connectedId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
@@ -794,6 +825,16 @@ export default function Findings() {
 
   const severityCounts = useMemo(() => {
     const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    if (selectedFrameworks.length === 0 && summaryQuery.data && status === "open") {
+      const bySev = summaryQuery.data.by_severity;
+      counts.all = Object.values(bySev).reduce((a, b) => a + b, 0);
+      counts.critical = bySev.critical ?? 0;
+      counts.high = bySev.high ?? 0;
+      counts.medium = bySev.medium ?? 0;
+      counts.low = bySev.low ?? 0;
+      counts.info = bySev.info ?? 0;
+      return counts;
+    }
     for (const f of benchmarkScopedFindings) {
       counts.all += 1;
       if (f.severity === "critical") counts.critical += 1;
@@ -803,7 +844,7 @@ export default function Findings() {
       else if (f.severity === "info") counts.info += 1;
     }
     return counts;
-  }, [benchmarkScopedFindings]);
+  }, [benchmarkScopedFindings, selectedFrameworks.length, summaryQuery.data, status]);
 
   function openReview(items: Finding[], focus?: Finding, tab: FindingDrawerTab = "resources") {
     if (items.length === 0) return;
@@ -921,7 +962,11 @@ export default function Findings() {
         <CompliancePageHeader
           kicker="Compliance"
           title="Findings"
-          subtitle="Open issues mapped to automated checks. Remediate in AWS or document external coverage from Compliance groups."
+          subtitle={
+            summaryQuery.data
+              ? `${summaryQuery.data.by_status.open ?? 0} open · ${summaryQuery.data.total} total across automated checks`
+              : "Open issues mapped to automated checks. Remediate in AWS or document external coverage from Compliance groups."
+          }
         />
 
         {searchTags.length > 0 && (
@@ -1031,14 +1076,23 @@ export default function Findings() {
               </div>
 
               {findingsTruncated && (
-                <div className="flex items-center gap-2 border-b border-amber-200/70 bg-amber-50/60 px-6 py-2.5 text-[12px] text-amber-800">
+                <div className="flex flex-wrap items-center gap-2 border-b border-amber-200/70 bg-amber-50/60 px-6 py-2.5 text-[12px] text-amber-800">
                   <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                   </svg>
                   <span>
-                    Showing the {findings.length.toLocaleString()} highest-risk of {findingsTotal.toLocaleString()} findings.
-                    Filter by check, severity, or account to see the rest.
+                    Showing {findings.length.toLocaleString()} of {findingsTotal.toLocaleString()} findings (server-paginated).
+                    Filter by check, severity, or account to narrow results.
                   </span>
+                  {q.hasNextPage ? (
+                    <button
+                      type="button"
+                      className="font-semibold text-amber-900 underline"
+                      onClick={() => q.fetchNextPage()}
+                    >
+                      Load more
+                    </button>
+                  ) : null}
                 </div>
               )}
               {rows.length === 0 ? (
@@ -1081,18 +1135,14 @@ export default function Findings() {
                   </div>
 
                   {postureDisplayGroups.length > 0 ? (
-                    <div>
-                      {postureDisplayGroups.map(([groupKey, items]) => (
-                        <FindingRow
-                          key={groupKey}
-                          groupKey={groupKey}
-                          items={items}
-                          expanded={expandedCheckIds.has(groupKey)}
-                          onToggleExpanded={() => toggleExpandedCheck(groupKey)}
-                          onReview={openReview}
-                        />
-                      ))}
-                    </div>
+                      <VirtualizedFindingsGroups
+                        className="findings-v2-table max-h-[min(70vh,960px)] overflow-y-auto"
+                        groups={postureDisplayGroups}
+                        expandedCheckIds={expandedCheckIds}
+                        toggleExpandedCheck={toggleExpandedCheck}
+                        onReview={openReview}
+                        FindingRow={FindingRow}
+                      />
                   ) : null}
 
                   {activityDisplayGroups.length > 0 ? (
@@ -1101,16 +1151,15 @@ export default function Findings() {
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Activity detections</p>
                         <p className="mt-0.5 text-xs text-zinc-500">CloudTrail events — informational; they do not fail compliance controls.</p>
                       </div>
-                      {activityDisplayGroups.map(([groupKey, items]) => (
-                        <FindingRow
-                          key={`activity-${groupKey}`}
-                          groupKey={groupKey}
-                          items={items}
-                          expanded={expandedCheckIds.has(`activity:${groupKey}`)}
-                          onToggleExpanded={() => toggleExpandedCheck(`activity:${groupKey}`)}
-                          onReview={openReview}
-                        />
-                      ))}
+                      <VirtualizedFindingsGroups
+                        className="findings-v2-table max-h-[min(50vh,640px)] overflow-y-auto"
+                        groups={activityDisplayGroups}
+                        expandedCheckIds={expandedCheckIds}
+                        toggleExpandedCheck={(key) => toggleExpandedCheck(`activity:${key}`)}
+                        onReview={openReview}
+                        FindingRow={FindingRow}
+                        keyPrefix="activity:"
+                      />
                     </div>
                   ) : null}
                 </>

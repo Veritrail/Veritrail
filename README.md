@@ -179,7 +179,7 @@ Under **Compliance → Groups**, engineers can upload or link proof from systems
 
 **Workspace → Evidence** stores your declared external tools per category (included in `evidence_source_registry.json`). Registry rows are persisted in Postgres (`evidence_sources`); legacy JSON in org settings is migrated automatically.
 
-See **[docs/external-evidence.md](docs/external-evidence.md)** for the full workflow, API, lifecycle states, and comments.
+See **[docs/external-evidence.md](docs/external-evidence.md)** for the full workflow, API, lifecycle states, and comments. **[docs/enterprise-readiness.md](docs/enterprise-readiness.md)** summarizes shipped vs deferred enterprise features.
 
 **API:** `GET/POST /v1/controls/evidence`, `PATCH /v1/controls/evidence/{id}/review`, `DELETE /v1/controls/evidence/{id}`, `GET/POST /v1/controls/evidence/{id}/comments`, `GET /v1/controls/evidence-coverage`
 

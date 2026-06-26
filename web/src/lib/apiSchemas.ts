@@ -137,6 +137,37 @@ export const auditorAccessSchema = z.object({
 
 export const auditorListSchema = z.array(auditorAccessSchema);
 
+export const evidenceExportSchema = z.object({
+  id: z.string(),
+  account_id: z.string(),
+  framework: z.string(),
+  period_days: z.number(),
+  as_of: z.string().nullable(),
+  report_id: z.string().nullable(),
+  zip_sha256: z.string(),
+  file_size_bytes: z.number(),
+  vault_s3_uri: z.string().nullable(),
+  created_at: z.string(),
+});
+
+export const evidenceExportListSchema = z.array(evidenceExportSchema);
+
+export const scopedExportLinkSchema = z.object({
+  export_id: z.string(),
+  report_id: z.string().nullable(),
+  link_type: z.string(),
+  url: z.string(),
+  expires_at: z.string(),
+  instructions: z.string().nullable().optional(),
+});
+
+export const findingSummarySchema = z.object({
+  total: z.number(),
+  by_status: z.record(z.string(), z.number()),
+  by_severity: z.record(z.string(), z.number()),
+  top_checks: z.array(z.object({ check_id: z.string(), count: z.number() })),
+});
+
 export const auditorInviteSchema = auditorAccessSchema.extend({
   email_sent: z.boolean().optional(),
   email_delivery_note: z.string().nullable().optional(),
@@ -204,6 +235,10 @@ export const settingsSchema = z.object({
           .optional(),
       }),
     )
+    .optional()
+    .default([]),
+  custom_evidence_categories: z
+    .array(z.object({ key: z.string(), label: z.string() }))
     .optional()
     .default([]),
 });
