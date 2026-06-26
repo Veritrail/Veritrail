@@ -235,7 +235,7 @@ function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
       <div className="integrations-explore-grid">
         {cards.map((card) => (
           <article key={card.key} className="integrations-explore-card">
-            <IntegrationBrandIcon brand={card.brand} size={36} variant="plain" className="integrations-explore-card__icon" />
+            <IntegrationBrandIcon brand={card.brand} size={48} variant="plain" className="integrations-explore-card__icon" />
             <div className="integrations-explore-card__body">
               <div className="integrations-explore-card__name">{card.name}</div>
               <p className="integrations-explore-card__desc">{card.description}</p>
