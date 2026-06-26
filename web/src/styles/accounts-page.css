@@ -281,8 +281,7 @@
 
 .accounts-list-item__main > .accounts-coverage,
 .accounts-list-item__main > .accounts-findings-cell,
-.accounts-list-item__main > .accounts-status,
-.accounts-list-item__main > .accounts-status-pill {
+.accounts-list-item__main > .accounts-status {
   justify-self: start;
 }
 
@@ -544,12 +543,6 @@
   white-space: nowrap;
 }
 
-.accounts-list-item__main > .accounts-status {
-  justify-self: start;
-  width: fit-content;
-  max-width: 100%;
-}
-
 .accounts-status__dot {
   width: 0.42rem;
   height: 0.42rem;
@@ -568,31 +561,6 @@
 .accounts-status--rose { color: #dc2626; }
 .accounts-status--amber { color: #dc2626; }
 .accounts-status--blue { color: #2563eb; }
-
-/* Legacy pill selectors — kept for any stragglers; prefer .accounts-status */
-.accounts-status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  width: fit-content;
-  max-width: 100%;
-  border-radius: 999px;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.accounts-list-item__main > .accounts-status-pill {
-  justify-self: start;
-  width: fit-content;
-  max-width: 100%;
-}
-
-.accounts-status-pill--rose { color: #be123c; background: #fff1f2; }
-.accounts-status-pill--amber { color: #b45309; background: #fffbeb; }
-.accounts-status-pill--emerald { color: #047857; background: #ecfdf5; }
-.accounts-status-pill--blue { color: #1d4ed8; background: #eff6ff; }
 
 .accounts-row-actions {
   display: flex;
