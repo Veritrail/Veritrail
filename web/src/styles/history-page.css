@@ -338,10 +338,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 1rem;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-  color: #09090b;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: #18181b;
 }
 
 .account-filter__meta,
@@ -350,7 +350,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.25;
   color: #71717a;
 }
@@ -392,10 +392,10 @@
 .account-filter-menu__heading {
   margin: 0;
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #71717a;
+  color: #a1a1aa;
 }
 
 .account-filter-menu__header-action {
@@ -411,7 +411,7 @@
 }
 
 .account-filter-menu__header-action:hover {
-  color: #09090b;
+  color: #52525b;
   background: #f4f4f5;
 }
 
@@ -445,8 +445,8 @@
   background: #fafafa;
   padding: 0 0.875rem 0 2.375rem;
   font-size: 0.875rem;
-  font-weight: 500;
-  color: #09090b;
+  font-weight: 400;
+  color: #18181b;
   outline: none;
 }
 
@@ -475,7 +475,7 @@
   margin: 0;
   padding: 1rem 0.75rem;
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #a1a1aa;
   text-align: center;
 }
@@ -503,12 +503,12 @@
 
 .account-filter-card--selected {
   border-color: #e4e4e7;
-  border-left-color: #18181b;
-  background: #f4f4f5;
+  border-left-color: #a1a1aa;
+  background: #fafafa;
 }
 
 .account-filter-card--selected:hover {
-  background: #f4f4f5;
+  background: #fafafa;
 }
 
 .account-filter-card__indicator {
@@ -522,7 +522,7 @@
 }
 
 .account-filter-card--selected .account-filter-card__indicator {
-  color: #18181b;
+  color: #71717a;
 }
 
 .account-filter-card__indicator svg {
@@ -542,8 +542,8 @@
 
 .account-filter-menu__footer-meta {
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: #71717a;
+  font-weight: 500;
+  color: #a1a1aa;
   white-space: nowrap;
 }
 
@@ -552,15 +552,15 @@
   align-items: center;
   gap: 0.375rem;
   font-size: 0.8125rem;
-  font-weight: 700;
-  color: #52525b;
+  font-weight: 500;
+  color: #71717a;
   text-decoration: none;
   transition: color 0.12s;
   white-space: nowrap;
 }
 
 .account-filter-menu__footer-link:hover {
-  color: #09090b;
+  color: #52525b;
 }
 
 .account-filter-menu__footer-link svg {
