@@ -626,12 +626,6 @@ function parseAccountListRowKey(key: string, rows: AccountListRow[]): AccountLis
   return rows.find((row) => accountListRowKey(row) === key) ?? null;
 }
 
-const VIEW_PRESETS = [
-  { value: "all", label: "All accounts", provider: "all", status: "all" },
-  { value: "connected", label: "Connected only", provider: "all", status: "connected" },
-  { value: "action", label: "Needs attention", provider: "all", status: "action" },
-] as const;
-
 function isCloudAccountConnected(row: CloudAccountRow): boolean {
   return row.status === "connected";
 }
@@ -5945,7 +5939,6 @@ export default function Accounts() {
   const [accountSearch, setAccountSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewPreset, setViewPreset] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [pendingConnectionOptions, setPendingConnectionOptions] = useState<ConnectionOptions>(
     defaultOnboardingConnectionOptions,
@@ -6164,16 +6157,6 @@ export default function Accounts() {
     void scanStats.refetch();
   };
 
-  const handleViewPresetChange = (value: string) => {
-    setViewPreset(value);
-    const preset = VIEW_PRESETS.find((p) => p.value === value);
-    if (preset) {
-      setProviderFilter(preset.provider);
-      setStatusFilter(preset.status);
-    }
-    setPage(1);
-  };
-
   useEffect(() => {
     if (pendingAcc && expandedId === null) {
       setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
@@ -6268,12 +6251,6 @@ export default function Accounts() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
                 </svg>
               </button>
-              <Select
-                className="accounts-toolbar__select"
-                value={viewPreset}
-                onChange={handleViewPresetChange}
-                options={VIEW_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
-              />
             </div>
             <div className="accounts-toolbar__actions">
               <button
@@ -6314,7 +6291,6 @@ export default function Accounts() {
                 value={providerFilter}
                 onChange={(v) => {
                   setProviderFilter(v);
-                  setViewPreset("all");
                   setPage(1);
                 }}
                 options={[
@@ -6329,7 +6305,6 @@ export default function Accounts() {
                 value={statusFilter}
                 onChange={(v) => {
                   setStatusFilter(v);
-                  setViewPreset("all");
                   setPage(1);
                 }}
                 options={[
