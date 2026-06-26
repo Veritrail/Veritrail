@@ -5,6 +5,7 @@ import { api, formatApiError } from "../api";
 import { settingsSchema, trustCenterSettingsSchema, auditorListSchema, memberListSchema } from "../lib/apiSchemas";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import { CompliancePageHeader } from "../components/CompliancePageHeader";
+import { ProductShell } from "../components/ProductShell";
 import { InfoTip, Panel, PanelIcon, PANEL_ICONS, Toggle } from "../components/SettingsUi";
 import { DomainsSettings } from "../components/DomainsSettings";
 import { TeamMembersSettings } from "../components/TeamMembersSettings";
@@ -1124,7 +1125,8 @@ export default function Workspace() {
     readinessScore >= 100 ? "Everything looks good. Keep it up." : readinessScore >= 70 ? "A few items left to finish." : "Finish setup to harden this workspace.";
 
   return (
-    <div className="workspace-page">
+    <ProductShell>
+      <div className="workspace-page">
         <CompliancePageHeader
           kicker="Workspace"
           title={workspaceName}
@@ -1552,5 +1554,6 @@ export default function Workspace() {
         </div>
         </div>
       </div>
+    </ProductShell>
   );
 }

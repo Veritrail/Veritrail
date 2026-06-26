@@ -12,7 +12,6 @@ import SidebarUserCard from "./components/SidebarUserCard";
 import SidebarNavLink from "./components/SidebarNavLink";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
-import { ProductShell } from "./components/ProductShell";
 import "./styles/sidebar.css";
 import "./styles/user-menu.css";
 
@@ -196,7 +195,7 @@ export default function Layout() {
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
             {/* App-wide header bar: help + bell on the right, a left slot pages fill via <HeaderSlot>. */}
-            <div className="veritrail-app-header sticky top-0 z-30 flex min-h-[4.75rem] items-center gap-3 px-8 pt-5 pb-3 backdrop-blur-md">
+            <div className="veritrail-app-header sticky top-0 z-30 flex items-center gap-3 px-8 pt-5 pb-3 backdrop-blur-md">
               <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
               <HelpMenu />
               <NotificationsBell />
@@ -206,9 +205,7 @@ export default function Layout() {
                   bottom content (e.g. Integrations "Explore") to the bottom
                   without leaving a scroll. */}
               <div className="flex w-full min-w-0 flex-1 flex-col px-8 pb-8">
-                <ProductShell className="flex-1">
-                  <Outlet />
-                </ProductShell>
+                <Outlet />
               </div>
             </HeaderSlotContext.Provider>
           </div>

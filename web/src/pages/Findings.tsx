@@ -931,14 +931,14 @@ export default function Findings() {
   if (!accounts.isLoading && accounts.data && !connectedId) return <ConnectAwsEmptyState />;
 
   return (
-    <div className="findings-v2-page findings-v2-shell min-h-full w-full">
+    <div className="findings-v2-page findings-v2-shell min-h-full w-full space-y-4">
         {connectedAccounts.length > 0 && (
           <HeaderSlot>
             <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
           </HeaderSlot>
         )}
 
-        <header className="compliance-page-header mb-4">
+        <header className="compliance-page-header">
           <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">Findings</h1>
         </header>
 
