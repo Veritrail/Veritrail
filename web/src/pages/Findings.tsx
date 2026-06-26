@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FilterChipBar } from "../components/FilterChipBar";
@@ -939,15 +938,9 @@ export default function Findings() {
           </HeaderSlot>
         )}
 
-        <CompliancePageHeader
-          kicker="Compliance"
-          title="Findings"
-          subtitle={
-            summaryQuery.data
-              ? `${summaryQuery.data.by_status.open ?? 0} open · ${summaryQuery.data.total} total across automated checks`
-              : "Open issues mapped to automated checks. Remediate in AWS or document external coverage from Compliance groups."
-          }
-        />
+        <header className="compliance-page-header mb-4 px-1">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">Findings</h1>
+        </header>
 
         {searchTags.length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
