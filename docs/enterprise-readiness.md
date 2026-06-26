@@ -52,6 +52,22 @@ Summary of what Veritrail ships today versus deferred phase-two/phase-three work
 | Full cloud evidence normalization | Ongoing; AWS/GCP/Azure baselines shipped |
 | Auditor approval UI for vault objects | Presign API exists; end-to-end share records still minimal |
 
+## Plan tiers (connected AWS accounts)
+
+Billing is not wired yet — set `orgs.plan` manually (or via migration). Unknown slugs fall back to **Trial** (1 account).
+
+| Plan | Slug | Connected accounts |
+|------|------|-------------------|
+| Trial | `trial` | 1 |
+| Starter | `starter` | 3 |
+| Growth | `growth` | 10 |
+| Scale | `scale` | 25 |
+| Enterprise | `enterprise` | Unlimited |
+
+Legacy aliases: `free` → trial, `paid` → growth. Enforcement lives in `api/app/data/plans.py` and `POST /v1/accounts` (402 when at cap).
+
+The Cloud Castles dogfood workspace (`slug = cloud-castles`) is on **Growth** via migration `0075`.
+
 ## Configuration checklist (enterprise)
 
 1. `EVIDENCE_ARTIFACTS_S3_URI` + IAM for uploads
