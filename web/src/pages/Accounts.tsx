@@ -4312,11 +4312,42 @@ function resolveAccountRowStatus(
   isScanActive: boolean,
   scanStatus: string | null | undefined,
   lastError: string | null | undefined,
+  accountStatus?: string,
 ): { label: string; tone: "rose" | "amber" | "emerald" | "blue" } {
-  if (!connected) return { label: "Setup required", tone: "amber" };
+  if (!connected) return { label: "Setup required", tone: "rose" };
   if (isScanActive) return { label: "Scanning", tone: "blue" };
+  if (accountStatus === "error") return { label: "Connection error", tone: "rose" };
   if (scanStatus === "error" && lastError) return { label: "Action required", tone: "rose" };
   return { label: "Connected", tone: "emerald" };
+}
+
+function AccountStatusIndicator({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "rose" | "amber" | "emerald" | "blue";
+}) {
+  const showCheck = tone === "emerald";
+  return (
+    <span className={`accounts-status accounts-status--${tone}`} role="status">
+      {showCheck ? (
+        <svg className="accounts-status__icon" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.25" />
+          <path
+            d="M5.25 8.1 7 9.85 10.85 6"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : (
+        <span className="accounts-status__dot" aria-hidden />
+      )}
+      <span>{label}</span>
+    </span>
+  );
 }
 
 function VerifiedBadgeIcon() {
@@ -4584,6 +4615,20 @@ function AccountSplitDetailPane({
     else if (cloud) cloudScan.triggerScan(cloudScanPath(cloud));
   };
 
+  const detailScanActive = isAws ? isScanActive : cloudScan.isScanActive;
+  const detailScanStatus = isAws ? scanStatus : cloudScan.scanStatus;
+  const detailScanError =
+    detailScanStatus === "error"
+      ? (isAws ? scanRun.data?.error : cloudScan.scanRun.data?.error) ?? null
+      : null;
+  const detailStatus = resolveAccountRowStatus(
+    connected,
+    detailScanActive,
+    detailScanStatus,
+    detailScanError,
+    isAws ? acc!.status : cloud!.status,
+  );
+
   const scanBusy = isAws ? isScanActive : cloudScan.isScanActive;
   const coveragePct =
     coverageQ.data != null ? Math.round(coverageQ.data.coverage_ratio * 100) : null;
@@ -4691,7 +4736,7 @@ function AccountSplitDetailPane({
           </div>
         </div>
         <div className="accounts-detail-pane__status-col">
-          <span className="accounts-status-pill accounts-status-pill--emerald">Connected</span>
+          <AccountStatusIndicator label={detailStatus.label} tone={detailStatus.tone} />
           {scanAgo ? <p className="accounts-detail-pane__connected-ago">Connected {scanAgo}</p> : null}
         </div>
       </div>
@@ -5259,7 +5304,13 @@ function IntegrationCloudAccountCard({
     },
   });
 
-  const rowStatus = resolveAccountRowStatus(connected, isScanActive, scanStatus, null);
+  const rowStatus = resolveAccountRowStatus(
+    connected,
+    isScanActive,
+    scanStatus,
+    null,
+    cloud.status,
+  );
   const scanError = scan.isError ? formatApiError(scan.error) : null;
 
   const handleRowClick = (e: React.MouseEvent) => {
@@ -5311,9 +5362,7 @@ function IntegrationCloudAccountCard({
               <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
               <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
             </div>
-            <span className={`accounts-status-pill accounts-status-pill--${rowStatus.tone}`}>
-              {rowStatus.label}
-            </span>
+            <AccountStatusIndicator label={rowStatus.label} tone={rowStatus.tone} />
             <div className="accounts-row-actions">
               {!splitLayout ? (
                 <button
@@ -5574,7 +5623,13 @@ function AccountPremiumCard({
   };
 
   const scanError = scanStatus === "error" ? scanRun.data?.error ?? null : null;
-  const rowStatus = resolveAccountRowStatus(connected, isScanActive, scanStatus, scanError);
+  const rowStatus = resolveAccountRowStatus(
+    connected,
+    isScanActive,
+    scanStatus,
+    scanError,
+    acc.status,
+  );
   const scanAgo = hasScanned ? formatRelativeScanAgo(acc.last_scan_at) : "Never";
   const showCredentialAlert =
     connected && !isScanActive && scanStatus === "error" && !!scanRun.data?.error;
@@ -5632,9 +5687,7 @@ function AccountPremiumCard({
                 <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
                 <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
               </div>
-              <span className={`accounts-status-pill accounts-status-pill--${rowStatus.tone}`}>
-                {rowStatus.label}
-              </span>
+              <AccountStatusIndicator label={rowStatus.label} tone={rowStatus.tone} />
               <div className="accounts-row-actions">
                 {!splitLayout ? (
                   <button
@@ -6186,13 +6239,6 @@ export default function Accounts() {
 
   const continuingOnboarding = create.isPending || patchConnection.isPending;
 
-  const refreshAccounts = () => {
-    void accounts.refetch();
-    void cloudAccounts.refetch();
-    void allFindings.refetch();
-    void scanStats.refetch();
-  };
-
   useEffect(() => {
     if (pendingAcc && expandedId === null) {
       setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
@@ -6285,18 +6331,6 @@ export default function Accounts() {
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
-                </svg>
-              </button>
-            </div>
-            <div className="accounts-toolbar__actions">
-              <button
-                type="button"
-                className="accounts-toolbar__icon-btn"
-                aria-label="Refresh accounts"
-                onClick={refreshAccounts}
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
                 </svg>
               </button>
               <button

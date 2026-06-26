@@ -131,26 +131,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-}
-
-.accounts-toolbar__start,
-.accounts-toolbar__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: 0.7rem;
 }
 
 .accounts-toolbar__start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
   min-width: 0;
   flex: 1 1 auto;
-}
-
-.accounts-toolbar__actions {
-  margin-left: auto;
-  flex-shrink: 0;
 }
 
 .accounts-toolbar__search {
@@ -291,6 +281,7 @@
 
 .accounts-list-item__main > .accounts-coverage,
 .accounts-list-item__main > .accounts-findings-cell,
+.accounts-list-item__main > .accounts-status,
 .accounts-list-item__main > .accounts-status-pill {
   justify-self: start;
 }
@@ -540,6 +531,45 @@
   color: #09090b;
 }
 
+.accounts-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.accounts-list-item__main > .accounts-status {
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.accounts-status__dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.accounts-status__icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+
+.accounts-status--emerald { color: #16a34a; }
+.accounts-status--rose { color: #dc2626; }
+.accounts-status--amber { color: #dc2626; }
+.accounts-status--blue { color: #2563eb; }
+
+/* Legacy pill selectors — kept for any stragglers; prefer .accounts-status */
 .accounts-status-pill {
   display: inline-flex;
   align-items: center;
