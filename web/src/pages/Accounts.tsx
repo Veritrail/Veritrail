@@ -4840,8 +4840,8 @@ function AccountSplitDetailPane({
                   onClick={handleScan}
                   disabled={scanBusy}
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7 7 0 1 0 6.76 6.76a7 7 0 0 0 9.89 9.89ZM13 10h-3v3" />
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
                   </svg>
                   {scanBusy ? "Scanning…" : "Scan now"}
                 </button>
@@ -4851,9 +4851,7 @@ function AccountSplitDetailPane({
                   onClick={() => navigate(`/findings?account=${accountId}`)}
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75 19.5 7.5v5.25c0 4.25-3 7.1-7.5 8.25-4.5-1.15-7.5-4-7.5-8.25V7.5L12 3.75Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.5v4.25" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16h.01" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
                   </svg>
                   View findings
                 </button>
@@ -4865,7 +4863,7 @@ function AccountSplitDetailPane({
                       onClick={() => setShowConnectorUpdate(true)}
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
                       </svg>
                       Manage connection
                     </button>
@@ -4878,7 +4876,7 @@ function AccountSplitDetailPane({
                       }}
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12M6 12h12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
                       </svg>
                       Edit account
                     </button>
@@ -4890,7 +4888,7 @@ function AccountSplitDetailPane({
                     onClick={() => navigate(cloudIntegrationPath(cloud!.provider))}
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
                     </svg>
                     Manage connection
                   </button>
@@ -5283,7 +5281,6 @@ function IntegrationCloudAccountCard({
                 <CopyIdButton text={cloud.external_id} />
               </div>
             ) : null}
-            <p className="mt-0.5 text-xs text-zinc-500">{cloudProviderLabel(cloud.provider)}</p>
           </div>
         </div>
 
@@ -5602,12 +5599,6 @@ function AccountPremiumCard({
                   <CopyIdButton text={acc.account_id} />
                 </div>
               ) : null}
-              <CapabilityBadges
-                acc={acc}
-                variant="table"
-                connectionOptions={connected ? undefined : setupConnectionOptions}
-                capabilityVerify={capabilityVerify}
-              />
             </div>
           </div>
 
