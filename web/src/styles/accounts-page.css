@@ -218,7 +218,7 @@
   /* Last track is a FIXED width (not max-content): the header and each row are
      separate grids, so max-content would size the header's "Actions" track to the
      word while each row sized to its buttons — drifting every middle column. */
-  --accounts-row-grid: 2rem minmax(240px, 1.55fr) minmax(120px, 0.8fr) minmax(220px, 1.1fr) minmax(110px, 0.55fr) 9.5rem;
+  --accounts-row-grid: minmax(240px, 1.55fr) minmax(120px, 0.8fr) minmax(220px, 1.1fr) minmax(110px, 0.55fr) 9.5rem;
 }
 
 .accounts-list-shell {
@@ -231,7 +231,7 @@
 
 .accounts-list-shell__header {
   border-bottom: 1px solid #f4f4f5;
-  padding: 1rem 1.35rem;
+  padding: 1rem 1.15rem 1rem 0.75rem;
 }
 
 .accounts-list-shell__title {
@@ -247,7 +247,7 @@
   grid-template-columns: var(--accounts-row-grid);
   align-items: center;
   gap: 0.75rem;
-  padding: 0.85rem 1.15rem;
+  padding: 0.85rem 1.15rem 0.85rem 0.75rem;
 }
 
 .accounts-list-head {
@@ -373,11 +373,11 @@
 }
 
 .accounts-list-item.is-pending .accounts-list-item__main {
-  grid-template-columns: 2rem minmax(240px, 1fr) auto;
+  grid-template-columns: minmax(240px, 1fr) auto;
 }
 
 .accounts-list-item.is-pending .accounts-row-actions--pending {
-  grid-column: 3;
+  grid-column: 2;
 }
 
 .accounts-row-chevron {
@@ -727,21 +727,21 @@
   }
 
   .accounts-list-item__main {
-    grid-template-columns: 2rem 1fr;
+    grid-template-columns: 1fr;
     gap: 0.75rem;
-    padding: 1rem;
+    padding: 1rem 1rem 1rem 0.75rem;
   }
 
   .accounts-list-item.is-pending .accounts-list-item__main {
-    grid-template-columns: 2rem 1fr auto;
+    grid-template-columns: 1fr auto;
   }
 
-  .accounts-list-item__main > :not(.accounts-row-chevron):not(.accounts-account-cell):not(.accounts-row-actions) {
-    grid-column: 2 / -1;
+  .accounts-list-item__main > :not(.accounts-account-cell):not(.accounts-row-actions) {
+    grid-column: 1 / -1;
   }
 
   .accounts-row-actions {
-    grid-column: 2 / -1;
+    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 }

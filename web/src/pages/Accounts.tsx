@@ -4403,8 +4403,6 @@ function IntegrationCloudAccountCard({
   return (
     <div className={`accounts-list-item ${!connected ? "is-pending" : ""}`}>
       <div className="accounts-list-item__main">
-        <span className="accounts-row-chevron accounts-row-chevron--spacer" aria-hidden />
-
         <div className="accounts-account-cell">
           <div className="accounts-account-cell__logo">
             <IntegrationBrandIcon brand={cloud.provider as "gcp" | "azure"} size={28} variant="plain" />
@@ -4702,28 +4700,6 @@ function AccountPremiumCard({
     <>
       <div className={`accounts-list-item ${!connected ? "is-pending" : ""} ${expanded ? "is-expanded" : ""}`}>
         <div className="accounts-list-item__main" onClick={handleRowClick}>
-          <button
-            type="button"
-            className="accounts-row-chevron"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle();
-            }}
-            aria-expanded={expanded}
-            aria-label={expanded ? "Collapse account" : "Expand account"}
-          >
-            <svg
-              className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-            </svg>
-          </button>
-
           <div className="accounts-account-cell">
             <div className="accounts-account-cell__logo">
               <img src="/aws.png" alt="AWS" className="h-full w-full object-contain" aria-hidden />
@@ -5456,7 +5432,6 @@ export default function Accounts() {
                 <h2 className="accounts-list-shell__title">Cloud accounts ({filteredRows.length})</h2>
               </div>
               <div className="accounts-list-head" aria-hidden>
-                <span />
                 <span className="accounts-col accounts-col--account">Account</span>
                 <span className="accounts-col accounts-col--coverage">Coverage</span>
                 <span className="accounts-col accounts-col--findings">Open findings</span>
