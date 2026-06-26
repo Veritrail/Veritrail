@@ -741,7 +741,7 @@ function matchesAccountSearch(acc: Account, query: string): boolean {
   return haystack.includes(needle);
 }
 
-const SEV_MIX_COLORS = { critHigh: "#ef4444", medium: "#f59e0b", low: "#10b981", info: "#a1a1aa" } as const;
+const SEV_MIX_COLORS = { critHigh: "#f87171", medium: "#fbbf24", low: "#4ade80", info: "#cbd5e1" } as const;
 
 type MixSegment = { key: string; value: number; color: string };
 
@@ -787,7 +787,7 @@ function FindingsMixDonutSvg({
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0" aria-hidden>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={premium ? "#ececef" : "#f4f4f5"} strokeWidth={stroke} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={premium ? "#e8eaee" : "#f0f1f3"} strokeWidth={stroke} />
       {segments.map((seg) => {
         const fraction = seg.value / total;
         const dash = fraction * circum;
@@ -822,7 +822,7 @@ function FindingsMixDonutCompact({ stats, hasScanned }: { stats: FindingStats | 
     <div className="accounts-findings-donut">
       <div className="accounts-findings-donut__ring">
         {showChart ? (
-          <FindingsMixDonutSvg segments={segments} size={76} stroke={9} premium gapPx={2.5} />
+          <FindingsMixDonutSvg segments={segments} size={76} stroke={6} premium gapPx={2} />
         ) : (
           <div className="accounts-findings-donut__empty" aria-hidden />
         )}
@@ -841,9 +841,9 @@ function FindingsSeverityLegend({ stats, hasScanned }: { stats: FindingStats | u
   const low = stats?.low ?? 0;
 
   const rows = [
-    { label: "High", count: critHigh, color: "#ef4444" },
-    { label: "Medium", count: medium, color: "#f59e0b" },
-    { label: "Low", count: low, color: "#22c55e" },
+    { label: "High", count: critHigh, color: SEV_MIX_COLORS.critHigh },
+    { label: "Medium", count: medium, color: SEV_MIX_COLORS.medium },
+    { label: "Low", count: low, color: SEV_MIX_COLORS.low },
   ];
 
   return (
@@ -4447,16 +4447,8 @@ function DetailTabStub({ title, body, action }: { title: string; body: string; a
   );
 }
 
-const ACCOUNT_OVERVIEW_METRIC_HELP = {
-  openFindings:
-    "Unresolved security findings from the latest scan, counted across all severity levels. Lower is generally better for remediation workload.",
-  resourcesCovered:
-    "Cloud resources evaluated in the most recent scan across connected regions—not the same as evidence window coverage.",
-  compliancePosture:
-    "Share of SOC 2 controls passing over the last 7 days based on collected evidence. Tracks audit readiness trend, not a certification score.",
-  coverage:
-    "Share of days in the last 7 days with scan or snapshot evidence. Higher means more continuous monitoring for audit readiness—not how many cloud resources were scanned.",
-} as const;
+const COVERAGE_METRIC_HELP =
+  "Share of days in the last 7 days with scan or snapshot evidence. Higher means more continuous monitoring for audit readiness—not how many cloud resources were scanned.";
 
 function AccountSplitDetailPane({
   row,
@@ -4847,10 +4839,7 @@ function AccountSplitDetailPane({
             <div className="accounts-detail-overview__cards">
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
-                  <div className="accounts-detail-metric-card__label-row">
-                    <p className="accounts-detail-metric-card__label">Open findings</p>
-                    <MetricHelpTip metric="Open findings" text={ACCOUNT_OVERVIEW_METRIC_HELP.openFindings} />
-                  </div>
+                  <p className="accounts-detail-metric-card__label">Open findings</p>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">{hasScanned ? stats?.open ?? 0 : "—"}</p>
@@ -4875,10 +4864,7 @@ function AccountSplitDetailPane({
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__content">
                   <div className="accounts-detail-metric-card__top">
-                    <div className="accounts-detail-metric-card__label-row">
-                      <p className="accounts-detail-metric-card__label">Resources covered</p>
-                      <MetricHelpTip metric="Resources covered" text={ACCOUNT_OVERVIEW_METRIC_HELP.resourcesCovered} />
-                    </div>
+                    <p className="accounts-detail-metric-card__label">Resources covered</p>
                   </div>
                   <div className="accounts-detail-metric-card__value-row">
                     <p className="accounts-detail-metric-card__value">
@@ -4897,10 +4883,7 @@ function AccountSplitDetailPane({
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
-                  <div className="accounts-detail-metric-card__label-row">
-                    <p className="accounts-detail-metric-card__label">Compliance posture</p>
-                    <MetricHelpTip metric="Compliance posture" text={ACCOUNT_OVERVIEW_METRIC_HELP.compliancePosture} />
-                  </div>
+                  <p className="accounts-detail-metric-card__label">Compliance posture</p>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">
@@ -4941,7 +4924,7 @@ function AccountSplitDetailPane({
                 <div className="accounts-detail-metric-card__top">
                   <div className="accounts-detail-metric-card__label-row">
                     <p className="accounts-detail-metric-card__label">Coverage</p>
-                    <MetricHelpTip metric="Coverage" text={ACCOUNT_OVERVIEW_METRIC_HELP.coverage} />
+                    <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
                   </div>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
