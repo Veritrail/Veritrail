@@ -84,7 +84,8 @@ export type Account = z.infer<typeof accountSchema>;
 
 export const findingSchema = z.object({
   id: z.string(),
-  account_id: z.string(),
+  // GCP/Azure findings use gcp_project_id / azure_subscription_id; account_id is null.
+  account_id: z.string().nullable(),
   aws_account_id: z.string().nullable().optional(),
   account_label: z.string().nullable().optional(),
   account_name: z.string().nullable().optional(),
