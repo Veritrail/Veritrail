@@ -1,5 +1,4 @@
 """Inbound integration requests from workspace users."""
-from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends, Request, status

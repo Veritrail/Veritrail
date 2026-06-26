@@ -152,7 +152,7 @@ function authMethodLabel(method: string) {
 
 export default function GcpIntegration() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["gcp-projects"],
     queryFn: () => api<GcpProject[]>("/v1/integrations/gcp/projects"),
   });
@@ -344,7 +344,13 @@ export default function GcpIntegration() {
 
       {isLoading && <p className="integration-setup__loading">Loading…</p>}
 
-      {!isLoading && (
+      {isError && (
+        <p className="integration-setup__error">
+          {formatApiError(error)}
+        </p>
+      )}
+
+      {!isLoading && !isError && (
         <>
           <div className="integration-setup__card">
             <div className="integration-setup__steps">
