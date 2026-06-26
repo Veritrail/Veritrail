@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,7 +17,12 @@ from app.models.gcp_project import GcpProject
 from app.models.org import Org
 from app.routes.accounts_scan import ScanRunOut
 from app.services.cloud_normalization import build_cloud_coverage, list_cloud_accounts
-from app.services.cloud_scan_runs import cloud_scan_run_to_out, latest_cloud_scan, latest_running_cloud_scan
+from app.services.cloud_scan_runs import (
+    cloud_scan_run_to_out,
+    latest_cloud_scan,
+    latest_running_cloud_scan,
+    list_cloud_scans,
+)
 
 router = APIRouter()
 
@@ -61,6 +66,27 @@ class CloudScanAllOut(BaseModel):
 def get_cloud_accounts(p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
     return [CloudAccountOut(**row) for row in list_cloud_accounts(db, org.id)]
+
+
+@router.get("/cloud-accounts/{provider}/{resource_id}/scan-runs", response_model=list[ScanRunOut])
+def list_cloud_scan_runs(
+    provider: str,
+    resource_id: uuid.UUID,
+    limit: int = Query(3, ge=1, le=20),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    if provider not in {"gcp", "azure"}:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "cloud account not found")
+    if provider == "gcp":
+        row = db.get(GcpProject, resource_id)
+    else:
+        row = db.get(AzureSubscription, resource_id)
+    if not row or row.org_id != org.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "cloud account not found")
+    runs = list_cloud_scans(db, provider=provider, resource_id=resource_id, limit=limit)
+    return [cloud_scan_run_to_out(run) for run in runs]
 
 
 @router.get("/cloud-accounts/{provider}/{resource_id}/scan-runs/latest", response_model=ScanRunOut | None)

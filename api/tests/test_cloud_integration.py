@@ -8,6 +8,25 @@ from unittest.mock import MagicMock
 
 from app.routes.findings import _to_out
 from app.services.cloud_normalization import build_cloud_coverage, list_cloud_accounts
+from app.services.cloud_scan_runs import list_cloud_scans
+
+
+def test_list_cloud_scans_returns_newest_first():
+    resource_id = uuid.uuid4()
+    older = SimpleNamespace(
+        id=uuid.uuid4(),
+        started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    newer = SimpleNamespace(
+        id=uuid.uuid4(),
+        started_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+    )
+    db = MagicMock()
+    db.scalars.return_value.all.return_value = [newer, older]
+
+    runs = list_cloud_scans(db, provider="gcp", resource_id=resource_id, limit=3)
+    assert runs == [newer, older]
+    db.scalars.assert_called_once()
 
 
 def test_list_cloud_accounts_normalizes_all_providers():

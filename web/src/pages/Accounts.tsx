@@ -42,7 +42,7 @@ import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
-import { useTriggeredCloudScan } from "../hooks/useTriggeredCloudScan";
+import { useTriggeredCloudScan, type ScanRunLatest } from "../hooks/useTriggeredCloudScan";
 import { isAccountConnected } from "../lib/accountConnection";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import {
@@ -876,6 +876,48 @@ function scanSucceeded(evt: { type?: string; controls_failed_before?: number | n
     evt.controls_failed_after > evt.controls_failed_before
   ) return false;
   return true;
+}
+
+type RecentScanDisplayRow = {
+  key: string;
+  timestamp: string;
+  succeeded: boolean;
+};
+
+function buildRecentScanRows(
+  isAws: boolean,
+  hasScanned: boolean,
+  lastScanAt: string | null,
+  awsEvents: ComplianceHistoryResponse["events"],
+  cloudRuns: ScanRunLatest[] | undefined,
+): RecentScanDisplayRow[] {
+  if (isAws) {
+    if (awsEvents.length > 0) {
+      return awsEvents.slice(0, 3).map((evt) => ({
+        key: evt.scan_run_id + evt.timestamp,
+        timestamp: evt.timestamp,
+        succeeded: scanSucceeded(evt),
+      }));
+    }
+    if (hasScanned && lastScanAt) {
+      return [{ key: "fallback", timestamp: lastScanAt, succeeded: true }];
+    }
+    return [];
+  }
+  const completed = (cloudRuns ?? []).filter(
+    (run) => run.status !== "running" && (run.finished_at ?? run.started_at),
+  );
+  if (completed.length > 0) {
+    return completed.map((run) => ({
+      key: run.id,
+      timestamp: run.finished_at ?? run.started_at,
+      succeeded: run.status === "ok",
+    }));
+  }
+  if (hasScanned && lastScanAt) {
+    return [{ key: "fallback", timestamp: lastScanAt, succeeded: true }];
+  }
+  return [];
 }
 
 function FindingsMixDonut({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
@@ -4477,7 +4519,15 @@ function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) 
       : "";
 
   return (
-    <span className="accounts-detail-metric-card__sparkline" aria-hidden>
+    <span
+      className="accounts-detail-metric-card__sparkline"
+      role="img"
+      aria-label={
+        hasRealTrend
+          ? "Compliance posture trend over time. Hover points for date and score."
+          : "Compliance posture trend placeholder."
+      }
+    >
       <svg viewBox="0 0 320 160" preserveAspectRatio="none">
         <defs>
           <linearGradient id={`${gradientId}-fill`} x1="160" y1="42" x2="160" y2="126" gradientUnits="userSpaceOnUse">
@@ -4661,6 +4711,8 @@ function AccountSplitDetailPane({
       onScanComplete: () => {
         qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
         qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+        qc.invalidateQueries({ queryKey: ["cloud-scan-runs", cloud!.provider, accountId] });
+        qc.invalidateQueries({ queryKey: ["cloud-scan-run-latest", cloud!.provider, accountId] });
       },
     },
   );
@@ -4710,6 +4762,16 @@ function AccountSplitDetailPane({
         `/v1/accounts/${accountId}/compliance-timeline?framework=soc2&days=14&limit=40`,
       ),
     enabled: isAws && connected && hasScanned,
+    staleTime: 60_000,
+  });
+
+  const cloudScanHistoryQ = useQuery({
+    queryKey: ["cloud-scan-runs", cloud?.provider, accountId],
+    queryFn: () =>
+      api<ScanRunLatest[]>(
+        `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/scan-runs?limit=10`,
+      ),
+    enabled: !isAws && connected && hasScanned,
     staleTime: 60_000,
   });
 
@@ -4815,6 +4877,28 @@ function AccountSplitDetailPane({
     coverageQ.data != null ? Math.round(coverageQ.data.coverage_ratio * 100) : null;
   const compliancePct = controlsQ.data;
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
+  const recentScanRows = useMemo(
+    () =>
+      buildRecentScanRows(
+        isAws,
+        hasScanned,
+        lastScanAt,
+        historyQ.data?.events ?? [],
+        cloudScanHistoryQ.data,
+      ).slice(0, 3),
+    [isAws, hasScanned, lastScanAt, historyQ.data?.events, cloudScanHistoryQ.data],
+  );
+  const cloudScanTabRows = useMemo(
+    () =>
+      buildRecentScanRows(
+        false,
+        hasScanned,
+        lastScanAt,
+        [],
+        cloudScanHistoryQ.data,
+      ),
+    [hasScanned, lastScanAt, cloudScanHistoryQ.data],
+  );
   const complianceTrendPoints = useMemo(() => postureTrendSeries(historyQ.data), [historyQ.data]);
 
   const openFindingsDelta = useMemo(() => {
@@ -5143,101 +5227,77 @@ function AccountSplitDetailPane({
               </div>
             </div>
 
-            {isAws && recentScans.length > 0 ? (
+            {recentScanRows.length > 0 ? (
               <div className="accounts-detail-recent-scans">
                 <div className="accounts-detail-recent-scans__head">
                   <h3 className="accounts-detail-recent-scans__title">Recent scans</h3>
                 </div>
-                {recentScans.map((evt) => {
-                  const ok = scanSucceeded(evt);
-                  return (
-                    <div className="accounts-detail-scan-row" key={evt.scan_run_id + evt.timestamp}>
-                      <span className={`accounts-detail-scan-row__mark ${ok ? "is-success" : "is-failed"}`} aria-hidden>
-                        {ok ? (
-                          <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
-                          </svg>
-                        ) : (
-                          <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
-                          </svg>
-                        )}
-                      </span>
-                      <div>
-                        <p className="accounts-detail-scan-row__when">{scanDayLabel(evt.timestamp)}</p>
-                        <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(evt.timestamp)}</p>
-                      </div>
-                      <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
+                {recentScanRows.map((row) => (
+                  <div className="accounts-detail-scan-row" key={row.key}>
+                    <span className={`accounts-detail-scan-row__mark ${row.succeeded ? "is-success" : "is-failed"}`} aria-hidden>
+                      {row.succeeded ? (
+                        <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                        </svg>
+                      ) : (
+                        <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
+                        </svg>
+                      )}
+                    </span>
+                    <div>
+                      <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
+                      <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
+                    </div>
+                    {hasScanned && resourceStats.resources > 0 ? (
+                      <p className="accounts-detail-scan-row__resources">
+                        {resourceStats.resources.toLocaleString()} resources scanned
+                      </p>
+                    ) : (
+                      <p className="accounts-detail-scan-row__resources">Scan complete</p>
+                    )}
+                    {hasScanned && stats ? (
                       <div className="accounts-detail-scan-row__findings">
                         <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
                           <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{stats?.critHigh ?? 0}</span>
+                          <span className="accounts-detail-scan-row__finding-count">{stats.critHigh ?? 0}</span>
                         </span>
                         <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
                           <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{stats?.medium ?? 0}</span>
+                          <span className="accounts-detail-scan-row__finding-count">{stats.medium ?? 0}</span>
                         </span>
                         <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
                           <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{stats?.low ?? 0}</span>
+                          <span className="accounts-detail-scan-row__finding-count">{stats.low ?? 0}</span>
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        className="accounts-detail-scan-row__view"
-                        onClick={() => navigate(`/history?account_id=${accountId}`)}
-                      >
-                        View
-                      </button>
-                    </div>
-                  );
-                })}
-                <div className="accounts-detail-recent-scans__footer">
-                  <button type="button" onClick={() => navigate(`/history?account_id=${accountId}`)}>
-                    View all scans →
-                  </button>
-                </div>
-              </div>
-            ) : isAws && hasScanned ? (
-              <div className="accounts-detail-recent-scans">
-                <div className="accounts-detail-recent-scans__head">
-                  <h3 className="accounts-detail-recent-scans__title">Recent scans</h3>
-                </div>
-                <div className="accounts-detail-scan-row">
-                  <span className="accounts-detail-scan-row__mark is-success" aria-hidden>
-                    <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
-                    </svg>
-                  </span>
-                  <div>
-                    <p className="accounts-detail-scan-row__when">
-                      {lastScanAt ? scanDayLabel(lastScanAt) : "—"}
-                    </p>
-                    <p className="accounts-detail-scan-row__ago">{scanAgo}</p>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="accounts-detail-scan-row__view"
+                      onClick={() =>
+                        isAws
+                          ? navigate(`/history?account_id=${accountId}`)
+                          : setTab("scans")
+                      }
+                    >
+                      View
+                    </button>
                   </div>
-                  <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
-                  <div className="accounts-detail-scan-row__findings">
-                    <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
-                      <i aria-hidden />
-                      <span className="accounts-detail-scan-row__finding-count">{stats?.critHigh ?? 0}</span>
-                    </span>
-                    <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
-                      <i aria-hidden />
-                      <span className="accounts-detail-scan-row__finding-count">{stats?.medium ?? 0}</span>
-                    </span>
-                    <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
-                      <i aria-hidden />
-                      <span className="accounts-detail-scan-row__finding-count">{stats?.low ?? 0}</span>
-                    </span>
+                ))}
+                {isAws ? (
+                  <div className="accounts-detail-recent-scans__footer">
+                    <button type="button" onClick={() => navigate(`/history?account_id=${accountId}`)}>
+                      View all scans →
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="accounts-detail-scan-row__view"
-                    onClick={() => navigate(`/history?account_id=${accountId}`)}
-                  >
-                    View
-                  </button>
-                </div>
+                ) : recentScanRows.length > 1 ? (
+                  <div className="accounts-detail-recent-scans__footer">
+                    <button type="button" onClick={() => setTab("scans")}>
+                      View all scans →
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </>
@@ -5278,10 +5338,62 @@ function AccountSplitDetailPane({
                 </button>
               }
             />
+          ) : cloudScanTabRows.length > 0 ? (
+            <div className="accounts-detail-recent-scans">
+              <div className="accounts-detail-recent-scans__head">
+                <h3 className="accounts-detail-recent-scans__title">Scan history</h3>
+              </div>
+              {cloudScanTabRows.map((row) => (
+                <div className="accounts-detail-scan-row" key={row.key}>
+                  <span className={`accounts-detail-scan-row__mark ${row.succeeded ? "is-success" : "is-failed"}`} aria-hidden>
+                    {row.succeeded ? (
+                      <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                      </svg>
+                    ) : (
+                      <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
+                      </svg>
+                    )}
+                  </span>
+                  <div>
+                    <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
+                    <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
+                  </div>
+                  {hasScanned && resourceStats.resources > 0 ? (
+                    <p className="accounts-detail-scan-row__resources">
+                      {resourceStats.resources.toLocaleString()} resources scanned
+                    </p>
+                  ) : (
+                    <p className="accounts-detail-scan-row__resources">Scan complete</p>
+                  )}
+                  {hasScanned && stats ? (
+                    <div className="accounts-detail-scan-row__findings">
+                      <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
+                        <i aria-hidden />
+                        <span className="accounts-detail-scan-row__finding-count">{stats.critHigh ?? 0}</span>
+                      </span>
+                      <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
+                        <i aria-hidden />
+                        <span className="accounts-detail-scan-row__finding-count">{stats.medium ?? 0}</span>
+                      </span>
+                      <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
+                        <i aria-hidden />
+                        <span className="accounts-detail-scan-row__finding-count">{stats.low ?? 0}</span>
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           ) : (
             <DetailTabStub
               title="On-demand scans"
-              body="GCP and Azure accounts run scans on demand from this page or the integration settings."
+              body={
+                hasScanned
+                  ? "Scan history appears after your first completed scan."
+                  : "GCP and Azure accounts run scans on demand from this page or the integration settings."
+              }
             />
           )
         )}

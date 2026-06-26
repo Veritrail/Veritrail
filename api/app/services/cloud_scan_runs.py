@@ -37,14 +37,27 @@ def latest_cloud_scan(
     provider: str,
     resource_id: uuid.UUID,
 ) -> CloudScanRun | None:
-    return db.scalar(
-        select(CloudScanRun)
-        .where(
-            CloudScanRun.provider == provider,
-            CloudScanRun.resource_id == resource_id,
-        )
-        .order_by(CloudScanRun.started_at.desc())
-        .limit(1)
+    runs = list_cloud_scans(db, provider=provider, resource_id=resource_id, limit=1)
+    return runs[0] if runs else None
+
+
+def list_cloud_scans(
+    db: Session,
+    *,
+    provider: str,
+    resource_id: uuid.UUID,
+    limit: int = 3,
+) -> list[CloudScanRun]:
+    return list(
+        db.scalars(
+            select(CloudScanRun)
+            .where(
+                CloudScanRun.provider == provider,
+                CloudScanRun.resource_id == resource_id,
+            )
+            .order_by(CloudScanRun.started_at.desc())
+            .limit(limit)
+        ).all()
     )
 
 
