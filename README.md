@@ -2,7 +2,7 @@
 
 **AWS-native SOC 2 cloud and change evidence automation for engineering teams.**
 
-Connect AWS, then optionally GitHub or GitLab for change-management evidence. Veritrail scans daily, maps AWS posture and change evidence to SOC 2 CC6/CC7/CC8, and produces auditor-ready evidence packs — JSON, CSV, and PDF — on demand.
+Connect AWS, then optionally GitHub or GitLab for change-management evidence. GCP and Azure baseline collectors add multi-cloud posture checks (logging, compute exposure, Defender, storage) alongside AWS scans. Veritrail scans daily, maps cloud and change evidence to SOC 2 CC6/CC7/CC8, and produces auditor-ready evidence packs — JSON, CSV, and PDF — on demand.
 
 Built for AWS-heavy engineering teams heading into SOC 2 who need a credible cloud and change evidence layer, not a broad GRC suite.
 
@@ -18,7 +18,8 @@ Veritrail is a **SOC 2 infrastructure evidence layer** — not a CSPM, not a bro
 |---|---|
 | Automates SOC 2 cloud and change evidence from AWS and code-hosting systems | Replace Vanta/Drata (no HR/MDM/vendor/policy) |
 | Produces timestamped, auditor-ready evidence packs | Compete with Wiz/Prisma on scan breadth |
-| CloudTrail change timeline + GitHub/GitLab evidence in packs | Expand into multi-cloud before AWS feels complete |
+| CloudTrail change timeline + GitHub/GitLab evidence in packs | Expand into full GRC (HR, training, vendor risk) |
+| GCP/Azure baseline checks + unified cloud-accounts API | Full multi-cloud parity with AWS scan breadth |
 | Shows blast radius before you remediate a finding | Generate AI summaries in evidence outputs |
 | Console / CLI / Terraform / optional customer SSM Automation | Auto-remediate without customer approval |
 | Documents exceptions with approver + reason + expiry | Run agents inside customer VPCs |
@@ -434,7 +435,7 @@ See [`docs/deepsearch-v4-map.md`](docs/deepsearch-v4-map.md) for the full featur
 | Repo-aware Terraform beyond S3/KMS patch | **Partial** |
 | Docs said vault “scaffold only” | **Fixed** — code was ahead of docs |
 
-**Reference docs:** Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). Product assessment: [`docs/product-assessment-2026-06.md`](docs/product-assessment-2026-06.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md).
+**Reference docs:** Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). Product assessment: [`docs/product-assessment-2026-06.md`](docs/product-assessment-2026-06.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md). Multi-cloud collectors: [`docs/multi-cloud-collectors.md`](docs/multi-cloud-collectors.md). Integrations overview: [`docs/integrations-overview.md`](docs/integrations-overview.md).
 
 **Ops hygiene:** Never distribute repo archives with `.env` / `.env.prod`. Use `git archive` or CI artifacts. Rotate any secret that ever appeared in a shared ZIP.
 

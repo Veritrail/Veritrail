@@ -1,6 +1,6 @@
-# Multi-cloud collectors (phase one)
+# Multi-cloud collectors (phase one & two)
 
-Veritrail's phase-one GCP and Azure integrations collect baseline posture evidence via REST APIs, run registered checks, and persist findings scoped to cloud projects or subscriptions.
+Veritrail's GCP and Azure integrations collect baseline posture evidence via REST APIs, run registered checks, and persist findings scoped to cloud projects or subscriptions. Phase two adds normalized APIs and composite-control mapping so AWS, GCP, and Azure evidence surfaces consistently in the UI and audit packs.
 
 ## GCP
 
@@ -20,6 +20,34 @@ Veritrail's phase-one GCP and Azure integrations collect baseline posture eviden
   - `azure.storage.public_blob_access`
 - **Tables:** `azure_subscriptions`, `azure_defender_status`, `azure_storage_accounts`
 
+## Normalization APIs (phase two)
+
+Unified endpoints for Integrations KPIs, future Accounts page, and multi-cloud posture:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /v1/integrations/cloud-accounts` | AWS accounts + GCP projects + Azure subscriptions in one list (`provider`, `id`, `external_id`, `label`, `status`, `last_scan_at`) |
+| `GET /v1/integrations/cloud-coverage` | Per-provider `connected_count`, `open_findings_count`, `last_scan_at` plus totals |
+| `POST /v1/integrations/cloud-scan-all` | Queue scans for every connected AWS account, GCP project, and Azure subscription |
+
+Findings from GCP/Azure checks include `account_provider` (`gcp` / `azure`) and scope labels resolved from project/subscription records, matching AWS account metadata on the findings list.
+
+## Composite control mapping
+
+GCP and Azure baseline checks are mapped into existing composites in `api/data/composite_controls.json`:
+
+| Check | Composite |
+|---|---|
+| `gcp.logging.not_enabled` | `logging_monitoring` |
+| `gcp.compute.instance_public_ip` | `data_protection` |
+| `azure.defender.not_enabled` | `logging_monitoring` |
+| `azure.storage.public_blob_access` | `data_protection` |
+
+## Scan-all UX
+
+- **Per-provider:** GCP and Azure integration pages expose **Scan** on each connected project/subscription (unchanged).
+- **Integrations hub:** **Scan all cloud** calls `POST /v1/integrations/cloud-scan-all` when any cloud account is connected. AWS scans respect the same 30-minute running-scan dedup as `POST /v1/accounts/scan-all`.
+
 ## Vulnerability scanners
 
 IdentityProvider types `scanner_wiz`, `scanner_tenable`, and `scanner_qualys` (one per org per vendor) store API credentials. Sync stores `open_findings_count` and `last_synced_at` in provider config — no full vuln database in phase one. Summary is exported in audit packs as `scanner_integrations.json`.
@@ -28,4 +56,4 @@ IdentityProvider types `scanner_wiz`, `scanner_tenable`, and `scanner_qualys` (o
 
 Audit packs include `sdlc_evidence.json` with workflow run / CI pipeline counts, branch protection coverage, and open findings linked to remediation tickets (`remediation_ticket_key` / `remediation_ticket_url` on findings). Jira and Linear create-issue routes populate these fields.
 
-See also [external-evidence.md](./external-evidence.md).
+See also [integrations-overview.md](./integrations-overview.md) and [external-evidence.md](./external-evidence.md).

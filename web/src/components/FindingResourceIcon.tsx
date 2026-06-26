@@ -57,12 +57,10 @@ export function CloudProviderFavicon({ finding, size = 16 }: { finding: FindingL
   if (scope === "gitlab") {
     return <FaviconImg src={PROVIDER_FAVICON.gitlab} size={size} />;
   }
-
-  const accountProvider = (finding.account_provider ?? "").toLowerCase();
-  if (accountProvider === "gcp") {
+  if (scope === "gcp") {
     return <FaviconImg src={PROVIDER_FAVICON.gcp} size={size} />;
   }
-  if (accountProvider === "azure") {
+  if (scope === "azure") {
     return <FaviconImg src={PROVIDER_FAVICON.azure} size={size} />;
   }
 
@@ -129,12 +127,10 @@ export function FindingResourceIcon({ finding, size = 22 }: { finding: FindingLi
   if (scope === "gitlab") {
     return <FaviconImg src={PROVIDER_FAVICON.gitlab} size={size} />;
   }
-
-  const accountProvider = (finding.account_provider ?? "").toLowerCase();
-  if (accountProvider === "gcp") {
+  if (scope === "gcp") {
     return <FaviconImg src={PROVIDER_FAVICON.gcp} size={size} />;
   }
-  if (accountProvider === "azure") {
+  if (scope === "azure") {
     return <FaviconImg src={PROVIDER_FAVICON.azure} size={size} />;
   }
 

@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.security import current_principal
 from app.models import Finding, FindingEvent, AwsAccount
+from app.models.azure_subscription import AzureSubscription
+from app.models.gcp_project import GcpProject
 from app.models.org import Org
 from app.services.check_settings import hidden_check_ids
 from app.core.route_deps import RequireEditor
@@ -99,6 +101,24 @@ def _load_org_accounts(db: Session, org_id: uuid.UUID) -> dict[uuid.UUID, AwsAcc
     return {a.id: a for a in rows}
 
 
+def _load_org_gcp_projects(db: Session, org_id: uuid.UUID) -> dict[uuid.UUID, GcpProject]:
+    rows = db.scalars(select(GcpProject).where(GcpProject.org_id == org_id)).all()
+    return {p.id: p for p in rows}
+
+
+def _load_org_azure_subscriptions(db: Session, org_id: uuid.UUID) -> dict[uuid.UUID, AzureSubscription]:
+    rows = db.scalars(select(AzureSubscription).where(AzureSubscription.org_id == org_id)).all()
+    return {s.id: s for s in rows}
+
+
+def _scope_maps(db: Session, org_id: uuid.UUID):
+    return (
+        _load_org_accounts(db, org_id),
+        _load_org_gcp_projects(db, org_id),
+        _load_org_azure_subscriptions(db, org_id),
+    )
+
+
 class FindingPage(BaseModel):
     items: list[FindingOut]
     total: int
@@ -155,7 +175,25 @@ def _cloud_provider(check_id: str) -> str | None:
     return None
 
 
-def _cloud_scope_name(f: Finding) -> str:
+def _cloud_scope_name(
+    f: Finding,
+    gcp_projects: dict[uuid.UUID, GcpProject] | None = None,
+    azure_subscriptions: dict[uuid.UUID, AzureSubscription] | None = None,
+) -> str:
+    if f.gcp_project_id and gcp_projects:
+        proj = gcp_projects.get(f.gcp_project_id)
+        if proj:
+            label = (proj.label or "").strip()
+            if label and label != proj.project_id:
+                return label
+            return proj.project_id
+    if f.azure_subscription_id and azure_subscriptions:
+        sub = azure_subscriptions.get(f.azure_subscription_id)
+        if sub:
+            label = (sub.label or "").strip()
+            if label and label != sub.subscription_id:
+                return label
+            return sub.subscription_id
     evidence = f.evidence if isinstance(f.evidence, dict) else {}
     for key in ("project_id", "subscription_id"):
         raw = evidence.get(key)
@@ -164,7 +202,12 @@ def _cloud_scope_name(f: Finding) -> str:
     return "Cloud resource"
 
 
-def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> FindingOut:
+def _to_out(
+    f: Finding,
+    accounts: dict[uuid.UUID, AwsAccount] | None = None,
+    gcp_projects: dict[uuid.UUID, GcpProject] | None = None,
+    azure_subscriptions: dict[uuid.UUID, AzureSubscription] | None = None,
+) -> FindingOut:
     vcs = _vcs_provider(f.check_id)
     cloud = _cloud_provider(f.check_id)
     ticket_key = f.remediation_ticket_key
@@ -199,7 +242,7 @@ def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> 
             remediation_ticket_url=ticket_url,
         )
     if cloud:
-        scope = _cloud_scope_name(f)
+        scope = _cloud_scope_name(f, gcp_projects, azure_subscriptions)
         return FindingOut(
             id=str(f.id),
             account_id=str(f.account_id) if f.account_id else None,
@@ -292,9 +335,11 @@ def list_findings(
     items = rows[:limit]
     next_cursor = _encode_cursor(items[-1].risk_score, items[-1].id) if has_more and items else None
 
-    accounts = _load_org_accounts(db, org_id)
+    accounts, gcp_projects, azure_subscriptions = _scope_maps(db, org_id)
     return FindingPage(
-        items=[_to_out(f, accounts) for f in items],
+        items=[
+            _to_out(f, accounts, gcp_projects, azure_subscriptions) for f in items
+        ],
         total=total,
         next_cursor=next_cursor,
     )
@@ -343,8 +388,8 @@ def snooze(finding_id: str, body: SnoozeIn, _rbac: RequireEditor, p=Depends(curr
     f.snooze_until = datetime.now(timezone.utc) + timedelta(days=body.days)
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="snoozed", actor=p["sub"], note=body.note))
     db.commit()
-    accounts = _load_org_accounts(db, f.org_id)
-    return _to_out(f, accounts)
+    accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
+    return _to_out(f, accounts, gcp_projects, azure_subscriptions)
 
 
 @router.post("/{finding_id}/resolve", response_model=FindingOut)
@@ -361,8 +406,8 @@ def resolve(finding_id: str, body: ResolveIn, _rbac: RequireEditor, p=Depends(cu
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="resolved", actor=p["sub"], note=body.note))
     resolve_retired_for_resource(db, canonical=f, now=now, actor=p["sub"])
     db.commit()
-    accounts = _load_org_accounts(db, f.org_id)
-    return _to_out(f, accounts)
+    accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
+    return _to_out(f, accounts, gcp_projects, azure_subscriptions)
 
 
 @router.post("/{finding_id}/reopen", response_model=FindingOut)
@@ -375,8 +420,8 @@ def reopen(finding_id: str, _rbac: RequireEditor, p=Depends(current_principal), 
     f.snooze_until = None
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="reopened", actor=p["sub"]))
     db.commit()
-    accounts = _load_org_accounts(db, f.org_id)
-    return _to_out(f, accounts)
+    accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
+    return _to_out(f, accounts, gcp_projects, azure_subscriptions)
 
 
 @router.post("/{finding_id}/ignore", response_model=FindingOut)
@@ -385,8 +430,8 @@ def ignore(finding_id: str, _rbac: RequireEditor, p=Depends(current_principal), 
     f.status = "ignored"
     db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="ignored", actor=p["sub"]))
     db.commit()
-    accounts = _load_org_accounts(db, f.org_id)
-    return _to_out(f, accounts)
+    accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
+    return _to_out(f, accounts, gcp_projects, azure_subscriptions)
 
 
 @router.post("/{finding_id}/exception", response_model=FindingOut)
@@ -404,8 +449,8 @@ def create_exception(finding_id: str, body: ExceptionIn, _rbac: RequireEditor, p
         note=f"Approved by {body.approved_by}: {body.reason}",
     ))
     db.commit()
-    accounts = _load_org_accounts(db, f.org_id)
-    return _to_out(f, accounts)
+    accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
+    return _to_out(f, accounts, gcp_projects, azure_subscriptions)
 
 
 @router.get("/{finding_id}/remediation-plan")

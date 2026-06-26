@@ -34,6 +34,8 @@ def test_to_out_includes_account_name():
         exception_reason=None,
         exception_approved_by=None,
         exception_expires_at=None,
+        remediation_ticket_key=None,
+        remediation_ticket_url=None,
     )
     acc = SimpleNamespace(label="Staging", account_id="999999999999")
     out = _to_out(f, {acc_id: acc})
@@ -58,9 +60,39 @@ def test_to_out_github_uses_org_scope_not_aws_account():
         exception_reason=None,
         exception_approved_by=None,
         exception_expires_at=None,
+        remediation_ticket_key=None,
+        remediation_ticket_url=None,
     )
     acc = SimpleNamespace(label="prod-aws", account_id="123456789012")
     out = _to_out(f, {acc_id: acc})
     assert out.account_provider == "github"
     assert out.account_name == "acme-corp"
     assert out.account_label == "acme-corp"
+
+
+def test_to_out_azure_includes_provider_and_scope():
+    subscription_id = uuid.uuid4()
+    f = SimpleNamespace(
+        id=uuid.uuid4(),
+        account_id=None,
+        gcp_project_id=None,
+        azure_subscription_id=subscription_id,
+        check_id="azure.defender.not_enabled",
+        resource_arn="azure://defender/sub-abc",
+        title="Defender not enabled",
+        severity="high",
+        risk_score=75,
+        status="open",
+        evidence={"subscription_id": "sub-abc"},
+        first_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(timezone.utc),
+        exception_reason=None,
+        exception_approved_by=None,
+        exception_expires_at=None,
+        remediation_ticket_key=None,
+        remediation_ticket_url=None,
+    )
+    sub = SimpleNamespace(label="Azure Prod", subscription_id="sub-abc")
+    out = _to_out(f, {}, {}, {subscription_id: sub})
+    assert out.account_provider == "azure"
+    assert out.account_label == "Azure Prod"

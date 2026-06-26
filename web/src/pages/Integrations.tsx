@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,35 +34,33 @@ type ProviderSummary = {
   pull_requests: number;
 };
 
-type AccountRow = {
-  id: string;
-  status: string;
-  account_id: string | null;
-  label: string;
-  last_scan_at: string | null;
-};
-
-type GcpProjectRow = {
-  id: string;
-  status: string;
-  project_id: string;
-  label: string;
-  last_scan_at: string | null;
-};
-
-type AzureSubscriptionRow = {
-  id: string;
-  status: string;
-  subscription_id: string;
-  label: string;
-  last_scan_at: string | null;
-};
-
 type ScannerIntegrationRow = {
   connected: boolean;
   status: string;
   vendor: string;
   config: { last_synced_at?: string | null; open_findings_count?: number };
+};
+
+type CloudAccountRow = {
+  provider: string;
+  id: string;
+  external_id: string | null;
+  label: string;
+  status: string;
+  last_scan_at: string | null;
+};
+
+type CloudCoverageProvider = {
+  provider: string;
+  connected_count: number;
+  open_findings_count: number;
+  last_scan_at: string | null;
+};
+
+type CloudCoverage = {
+  providers: CloudCoverageProvider[];
+  total_connected: number;
+  total_open_findings: number;
 };
 
 type SettingsSlice = {
@@ -272,6 +270,76 @@ function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
   );
 }
 
+function formatCloudScanAt(iso: string | null | undefined): string {
+  if (!iso) return "Never";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Never";
+  return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  aws: "AWS",
+  gcp: "Google Cloud",
+  azure: "Microsoft Azure",
+};
+
+function MultiCloudPostureCard({
+  coverage,
+  loading,
+}: {
+  coverage: CloudCoverage | undefined;
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <section className="integrations-multicloud-card integrations-multicloud-card--loading">
+        <p className="text-sm text-slate-500">Loading multi-cloud posture…</p>
+      </section>
+    );
+  }
+  if (!coverage) return null;
+
+  return (
+    <section className="integrations-multicloud-card" aria-label="Multi-cloud posture">
+      <div className="integrations-multicloud-card__header">
+        <div>
+          <h2>Multi-cloud posture</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Connected accounts, open findings, and last scan across AWS, GCP, and Azure.
+          </p>
+        </div>
+        <div className="integrations-multicloud-card__totals">
+          <span className="integrations-multicloud-card__pill">{coverage.total_connected} connected</span>
+          <span className="integrations-multicloud-card__pill integrations-multicloud-card__pill--warn">
+            {coverage.total_open_findings} open findings
+          </span>
+        </div>
+      </div>
+      <div className="integrations-multicloud-card__grid">
+        {coverage.providers.map((row) => (
+          <article key={row.provider} className="integrations-multicloud-card__provider">
+            <div className="integrations-multicloud-card__provider-name">{PROVIDER_LABELS[row.provider] ?? row.provider}</div>
+            <dl className="integrations-multicloud-card__stats">
+              <div>
+                <dt>Connected</dt>
+                <dd>{row.connected_count}</dd>
+              </div>
+              <div>
+                <dt>Open findings</dt>
+                <dd>{row.open_findings_count}</dd>
+              </div>
+              <div>
+                <dt>Last scan</dt>
+                <dd>{formatCloudScanAt(row.last_scan_at)}</dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ScanProgressBanner() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
@@ -294,6 +362,8 @@ function ScanProgressBanner() {
 function IntegrationsContent() {
   const qc = useQueryClient();
   const prevScanStatus = useRef<string | null>(null);
+  const [cloudScanState, setCloudScanState] = useState<"idle" | "scanning" | "done" | "error">("idle");
+  const [cloudScanMessage, setCloudScanMessage] = useState("");
 
   const github = useQuery({ queryKey: ["github-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/github") });
   const gitlab = useQuery({ queryKey: ["gitlab-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/gitlab") });
@@ -302,15 +372,24 @@ function IntegrationsContent() {
     queryFn: () => api<ProviderSummary | null>("/v1/integrations/google-workspace"),
   });
   const entra = useQuery({ queryKey: ["entra-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/entra") });
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<AccountRow[]>("/v1/accounts") });
-  const gcpProjects = useQuery({ queryKey: ["gcp-projects"], queryFn: () => api<GcpProjectRow[]>("/v1/integrations/gcp/projects") });
-  const azureSubs = useQuery({ queryKey: ["azure-subscriptions"], queryFn: () => api<AzureSubscriptionRow[]>("/v1/integrations/azure/subscriptions") });
+  const cloudAccounts = useQuery({
+    queryKey: ["cloud-accounts"],
+    queryFn: () => api<CloudAccountRow[]>("/v1/integrations/cloud-accounts"),
+  });
+  const cloudCoverage = useQuery({
+    queryKey: ["cloud-coverage"],
+    queryFn: () => api<CloudCoverage>("/v1/integrations/cloud-coverage"),
+  });
   const wizScanner = useQuery({ queryKey: ["scanner-wiz"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/wiz") });
   const tenableScanner = useQuery({ queryKey: ["scanner-tenable"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/tenable") });
   const qualysScanner = useQuery({ queryKey: ["scanner-qualys"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/qualys") });
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<SettingsSlice>("/v1/settings") });
 
-  const awsAccount = accounts.data?.find((a) => a.status === "connected") ?? accounts.data?.[0];
+  const accountsList = cloudAccounts.data ?? [];
+  const awsRows = accountsList.filter((a) => a.provider === "aws");
+  const gcpRows = accountsList.filter((a) => a.provider === "gcp");
+  const azureRows = accountsList.filter((a) => a.provider === "azure");
+  const awsAccount = awsRows.find((a) => a.status === "connected") ?? awsRows[0];
   const connectedAccountId = awsAccount?.id;
   const { isRunning: awsScanRunning, scanStatus } = useAccountScanRun(connectedAccountId);
   const githubSync = useIntegrationSyncState("github");
@@ -328,14 +407,16 @@ function IntegrationsContent() {
 
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
 
-  const gcpConnected = (gcpProjects.data ?? []).some((p) => p.status === "connected");
-  const gcpProject = (gcpProjects.data ?? []).find((p) => p.status === "connected") ?? gcpProjects.data?.[0];
-  const azureConnected = (azureSubs.data ?? []).some((s) => s.status === "connected");
-  const azureSub = (azureSubs.data ?? []).find((s) => s.status === "connected") ?? azureSubs.data?.[0];
+  const gcpConnected = gcpRows.some((p) => p.status === "connected");
+  const gcpProject = gcpRows.find((p) => p.status === "connected") ?? gcpRows[0];
+  const azureConnected = azureRows.some((s) => s.status === "connected");
+  const azureSub = azureRows.find((s) => s.status === "connected") ?? azureRows[0];
   const scannerConnected = [wizScanner.data, tenableScanner.data, qualysScanner.data].some((s) => s?.connected);
   const activeScanner = [wizScanner.data, tenableScanner.data, qualysScanner.data].find((s) => s?.connected);
 
   const awsConnected = awsAccount?.status === "connected";
+  const cloudConnectedCount = accountsList.filter((a) => a.status === "connected").length;
+  const canScanAllCloud = cloudConnectedCount > 0;
   const githubConnected = !!github.data;
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
@@ -348,7 +429,7 @@ function IntegrationsContent() {
     Boolean,
   ).length;
   const errorCount = [
-    accounts.isError,
+    cloudAccounts.isError,
     github.isError,
     gitlab.isError,
     googleWorkspace.isError,
@@ -369,7 +450,7 @@ function IntegrationsContent() {
       href: "/accounts",
       connected: awsConnected,
       syncing: awsScanRunning,
-      loading: accounts.isLoading,
+      loading: cloudAccounts.isLoading,
       lastSyncAt: awsAccount?.last_scan_at ?? null,
       healthLabel: awsScanRunning ? "Scanning" : awsAccount?.last_scan_at ? "Healthy" : "Awaiting scan",
       healthTone: awsScanRunning ? "sync" : awsAccount?.last_scan_at ? "ok" : "idle",
@@ -490,7 +571,7 @@ function IntegrationsContent() {
             icon: <IntegrationBrandIcon brand="gcp" size={48} />,
             href: "/integrations/gcp",
             connected: true,
-            loading: gcpProjects.isLoading,
+            loading: cloudAccounts.isLoading,
             lastSyncAt: gcpProject?.last_scan_at ?? null,
             healthLabel: gcpProject?.last_scan_at ? "Healthy" : "Awaiting scan",
             healthTone: (gcpProject?.last_scan_at ? "ok" : "idle") as Tone,
@@ -509,7 +590,7 @@ function IntegrationsContent() {
             icon: <IntegrationBrandIcon brand="azure" size={48} />,
             href: "/integrations/azure",
             connected: true,
-            loading: azureSubs.isLoading,
+            loading: cloudAccounts.isLoading,
             lastSyncAt: azureSub?.last_scan_at ?? null,
             healthLabel: azureSub?.last_scan_at ? "Healthy" : "Awaiting scan",
             healthTone: (azureSub?.last_scan_at ? "ok" : "idle") as Tone,
@@ -628,22 +709,68 @@ function IntegrationsContent() {
     },
   ];
 
+  async function handleScanAllCloud() {
+    setCloudScanState("scanning");
+    setCloudScanMessage("");
+    try {
+      const res = await api<{ message: string; queued: Record<string, number> }>("/v1/integrations/cloud-scan-all", {
+        method: "POST",
+        body: "{}",
+      });
+      setCloudScanState("done");
+      setCloudScanMessage(res.message);
+      qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
+      qc.invalidateQueries({ queryKey: ["cloud-coverage"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["gcp-projects"] });
+      qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
+    } catch {
+      setCloudScanState("error");
+      setCloudScanMessage("Could not queue cloud scans. Check permissions and try again.");
+    }
+  }
+
   return (
     <div className="integrations-page">
       <CompliancePageHeader
         kicker="Infrastructure"
         title="Integrations"
-        subtitle="Connect AWS, identity providers, and notification channels for scans and evidence collection."
+        subtitle="Connect AWS, GCP, Azure, identity providers, and notification channels for scans and evidence collection."
       />
+
+      <div className="integrations-page__actions">
+        {canScanAllCloud ? (
+          <button
+            type="button"
+            className="integrations-scan-all-btn"
+            disabled={cloudScanState === "scanning" || awsScanRunning}
+            onClick={() => void handleScanAllCloud()}
+          >
+            {cloudScanState === "scanning" ? (
+              <>
+                <Spinner className="h-4 w-4" />
+                Scanning cloud…
+              </>
+            ) : (
+              "Scan all cloud"
+            )}
+          </button>
+        ) : null}
+        {cloudScanMessage ? (
+          <p className={`integrations-scan-all-msg integrations-scan-all-msg--${cloudScanState}`}>{cloudScanMessage}</p>
+        ) : null}
+      </div>
 
       <div className="workspace-summary workspace-summary--metrics">
         <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail="Active connectors" valueTone="ok" />
         <PostureMetricCell icon={IK.syncing} label="Syncing" value={String(syncingCount)} detail={syncingCount ? "In progress" : "Idle"} valueTone={syncingCount ? "info" : "default"} />
         <PostureMetricCell icon={IK.errors} label="Errors" value={String(errorCount)} detail={errorCount ? "Need attention" : "None"} valueTone={errorCount ? "warn" : "default"} />
-        <PostureMetricCell icon={IK.sources} label="Sources" value={String(activeRows.length)} detail="Configured" />
+        <PostureMetricCell icon={IK.sources} label="Cloud accounts" value={String(cloudConnectedCount)} detail={`${accountsList.length} configured`} />
       </div>
 
       {awsScanRunning && <ScanProgressBanner />}
+
+      <MultiCloudPostureCard coverage={cloudCoverage.data} loading={cloudCoverage.isLoading} />
 
       <div className="integrations-page__body">
         <IntegrationsTable rows={activeRows} />

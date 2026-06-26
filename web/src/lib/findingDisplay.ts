@@ -102,7 +102,7 @@ export function vcsOrgSlugFromFinding(f: FindingLike): string | null {
   return slug.split("/")[0] ?? null;
 }
 
-export type FindingScopeProvider = "aws" | "github" | "gitlab";
+export type FindingScopeProvider = "aws" | "github" | "gitlab" | "gcp" | "azure";
 
 export function isVcsFinding(f: { check_id: string; resource_arn?: string }): boolean {
   return (
@@ -117,9 +117,11 @@ export function findingScopeProvider(f: {
   account_provider?: string | null;
 }): FindingScopeProvider {
   const p = (f.account_provider ?? "").toLowerCase();
-  if (p === "github" || p === "gitlab") return p;
+  if (p === "github" || p === "gitlab" || p === "gcp" || p === "azure") return p;
   if (f.check_id.startsWith("github.")) return "github";
   if (f.check_id.startsWith("gitlab.")) return "gitlab";
+  if (f.check_id.startsWith("gcp.")) return "gcp";
+  if (f.check_id.startsWith("azure.")) return "azure";
   return "aws";
 }
 
@@ -147,10 +149,15 @@ export function findingScopeDisplayName(
   awsAccountsById?: Map<string, { label?: string | null; account_id?: string | null; account_name?: string | null }>,
 ): string {
   const provider = findingScopeProvider(f);
-  if (provider !== "aws") {
+  if (provider === "github" || provider === "gitlab") {
     const fromApi = (f.account_name ?? f.account_label ?? "").trim();
     if (fromApi) return fromApi;
     return vcsOrgSlugFromFinding(f) ?? (provider === "github" ? "GitHub organization" : "GitLab group");
+  }
+  if (provider === "gcp" || provider === "azure") {
+    const fromApi = (f.account_name ?? f.account_label ?? "").trim();
+    if (fromApi) return fromApi;
+    return provider === "gcp" ? "GCP project" : "Azure subscription";
   }
   const acc = f.account_id ? awsAccountsById?.get(f.account_id) : undefined;
   if (acc) {

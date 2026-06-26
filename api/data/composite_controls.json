@@ -156,6 +156,8 @@
       "ec2.security_group.unrestricted_ssh",
       "ecs.service.public_ip_enabled",
       "ecs.task_definition.privileged_container",
+      "azure.storage.public_blob_access",
+      "gcp.compute.instance_public_ip",
       "eks.cluster.public_endpoint",
       "eks.cluster.secrets_encryption_disabled",
       "elb.load_balancer.weak_tls_policy",
@@ -246,7 +248,9 @@
       "elb.load_balancer.no_access_logs",
       "guardduty.detector.not_enabled",
       "guardduty.open_findings",
-      "vpc.flow_logs.not_enabled"
+      "vpc.flow_logs.not_enabled",
+      "azure.defender.not_enabled",
+      "gcp.logging.not_enabled"
     ]
   },
   {

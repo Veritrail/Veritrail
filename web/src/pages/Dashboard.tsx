@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { accountListSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
@@ -134,17 +135,18 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5 max-w-6xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">Dashboard</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          IAM posture overview.
-          {scanRun.data?.finished_at && <> Last scan {lastScanLabel(scanRun.data.finished_at)}.</>}
-          {scanRun.data?.status === "error" && (
-            <span className="text-red-500 ml-2">Last scan failed.</span>
-          )}
-        </p>
-      </div>
+      <CompliancePageHeader
+        kicker="Overview"
+        title="Dashboard"
+        subtitle={
+          scanRun.data?.finished_at
+            ? `IAM posture overview. Last scan ${lastScanLabel(scanRun.data.finished_at)}.`
+            : "IAM posture overview across your connected cloud accounts."
+        }
+      />
+      {scanRun.data?.status === "error" && (
+        <p className="text-sm text-red-500 -mt-2">Last scan failed.</p>
+      )}
 
       {/* Top row: posture score + severity cards */}
       <div className="grid grid-cols-4 gap-4">
