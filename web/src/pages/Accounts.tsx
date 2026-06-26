@@ -4914,15 +4914,15 @@ function AccountSplitDetailPane({
                       </div>
                       <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
                       <div className="accounts-detail-scan-row__findings">
-                        <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--high">
+                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
                           <i aria-hidden />
                           <span className="accounts-detail-scan-row__finding-count">{stats?.critHigh ?? 0}</span>
                         </span>
-                        <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--medium">
+                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
                           <i aria-hidden />
                           <span className="accounts-detail-scan-row__finding-count">{stats?.medium ?? 0}</span>
                         </span>
-                        <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--low">
+                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
                           <i aria-hidden />
                           <span className="accounts-detail-scan-row__finding-count">{stats?.low ?? 0}</span>
                         </span>
@@ -4962,15 +4962,15 @@ function AccountSplitDetailPane({
                   </div>
                   <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
                   <div className="accounts-detail-scan-row__findings">
-                    <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--high">
+                    <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
                       <i aria-hidden />
                       <span className="accounts-detail-scan-row__finding-count">{stats?.critHigh ?? 0}</span>
                     </span>
-                    <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--medium">
+                    <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
                       <i aria-hidden />
                       <span className="accounts-detail-scan-row__finding-count">{stats?.medium ?? 0}</span>
                     </span>
-                    <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--low">
+                    <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
                       <i aria-hidden />
                       <span className="accounts-detail-scan-row__finding-count">{stats?.low ?? 0}</span>
                     </span>
