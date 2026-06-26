@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -13,7 +13,8 @@ import {
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
-import { accountListSchema, findingPageSchema, findingSummarySchema } from "../lib/apiSchemas";
+import { accountListSchema, findingSummarySchema } from "../lib/apiSchemas";
+import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
@@ -618,47 +619,28 @@ export default function Findings() {
     enabled: !!effectiveAccountId || connectedAccounts.length > 0,
   });
 
-  const findingsQuery = useInfiniteQuery({
+  const findingsQuery = useQuery({
     queryKey: ["findings", status, effectiveAccountId, severityFilter],
-    queryFn: async ({ pageParam }) => {
-      const qs = new URLSearchParams({ limit: "200", status });
-      if (effectiveAccountId) qs.set("account_id", effectiveAccountId);
-      if (severityFilter !== "all") qs.set("severity", severityFilter);
-      if (pageParam) qs.set("cursor", pageParam);
-      return api(`/v1/findings?${qs.toString()}`, { schema: findingPageSchema });
-    },
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.next_cursor,
-    maxPages: 5,
+    queryFn: () =>
+      fetchAllFindings<Finding>({
+        status,
+        account_id: effectiveAccountId || undefined,
+        severity: severityFilter !== "all" ? severityFilter : undefined,
+      }),
+    enabled: !!effectiveAccountId || connectedAccounts.length > 0,
     refetchInterval: pendingRecheck ? 3000 : false,
   });
-
-  const q = {
-    data: findingsQuery.data
-      ? {
-          items: findingsQuery.data.pages.flatMap((page) => page.items as Finding[]),
-          total: findingsQuery.data.pages[0]?.total ?? 0,
-          truncated:
-            (findingsQuery.data.pages[0]?.total ?? 0) >
-            findingsQuery.data.pages.flatMap((page) => page.items).length,
-        }
-      : undefined,
-    isLoading: findingsQuery.isLoading,
-    isFetching: findingsQuery.isFetching,
-    fetchNextPage: findingsQuery.fetchNextPage,
-    hasNextPage: findingsQuery.hasNextPage,
-  };
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
     connectedId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
   );
 
   useEffect(() => {
-    if (isRefreshing && !q.isFetching) {
+    if (isRefreshing && !findingsQuery.isFetching) {
       const t = setTimeout(() => setIsRefreshing(false), 600);
       return () => clearTimeout(t);
     }
-  }, [q.isFetching, isRefreshing]);
+  }, [findingsQuery.isFetching, isRefreshing]);
 
   useEffect(() => {
     const raw = searchParams.get("checks");
@@ -689,9 +671,7 @@ export default function Findings() {
     },
   });
 
-  const findings = q.data?.items ?? [];
-  const findingsTruncated = q.data?.truncated ?? false;
-  const findingsTotal = q.data?.total ?? findings.length;
+  const findings = findingsQuery.data?.items ?? [];
   const hasActiveFilters =
     searchTags.length > 0 ||
     !!searchText.trim() ||
@@ -994,9 +974,9 @@ export default function Findings() {
           </div>
         )}
 
-        {q.isLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
+        {findingsQuery.isLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
 
-        {!q.isLoading && (
+        {!findingsQuery.isLoading && (
           <section className="min-w-0">
             <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
               <div className="findings-v2-table-toolbar">
@@ -1075,26 +1055,6 @@ export default function Findings() {
                 </div>
               </div>
 
-              {findingsTruncated && (
-                <div className="flex flex-wrap items-center gap-2 border-b border-amber-200/70 bg-amber-50/60 px-6 py-2.5 text-[12px] text-amber-800">
-                  <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                  </svg>
-                  <span>
-                    Showing {findings.length.toLocaleString()} of {findingsTotal.toLocaleString()} findings (server-paginated).
-                    Filter by check, severity, or account to narrow results.
-                  </span>
-                  {q.hasNextPage ? (
-                    <button
-                      type="button"
-                      className="font-semibold text-amber-900 underline"
-                      onClick={() => q.fetchNextPage()}
-                    >
-                      Load more
-                    </button>
-                  ) : null}
-                </div>
-              )}
               {rows.length === 0 ? (
                 <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>
                   {isPositiveEmpty ? (
