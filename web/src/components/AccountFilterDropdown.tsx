@@ -207,10 +207,9 @@ export function AccountFilterDropdown({
                       <span className="account-filter-card__indicator" aria-hidden>
                         {active ? (
                           <svg viewBox="0 0 20 20" fill="none" aria-hidden>
-                            <circle cx="10" cy="10" r="9" fill="#e4e4e7" />
+                            <circle cx="10" cy="10" r="9" />
                             <path
                               d="M6 10.2 8.4 12.6 14 7"
-                              stroke="#52525b"
                               strokeWidth="1.75"
                               strokeLinecap="round"
                               strokeLinejoin="round"

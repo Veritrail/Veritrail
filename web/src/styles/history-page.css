@@ -548,8 +548,12 @@
   color: #e4e4e7;
 }
 
-.account-filter-card--selected .account-filter-card__indicator {
-  color: #e4e4e7;
+.account-filter-card--selected .account-filter-card__indicator circle {
+  fill: #eff6ff;
+}
+
+.account-filter-card--selected .account-filter-card__indicator path {
+  stroke: #3b82f6;
 }
 
 .account-filter-card__indicator svg {
@@ -569,8 +573,8 @@
 
 .account-filter-menu__footer-meta {
   font-size: 0.75rem;
-  font-weight: 500;
-  color: #d4d4d8;
+  font-weight: 600;
+  color: #71717a;
   white-space: nowrap;
 }
 
