@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, formatApiError } from "../api";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/integration-setup.css";
@@ -209,6 +209,14 @@ function impersonationPlatformSaEmail(setup: GcpImpersonationSetup) {
   return setup.veritrail_platform_sa_email?.trim() || setup.platform_sa_email?.trim() || "";
 }
 
+function expectedScannerSaEmail(setup: GcpImpersonationSetup | undefined, projectId: string) {
+  const fromSetup = setup?.scanner_sa_email?.trim();
+  if (fromSetup) return fromSetup;
+  const pid = projectId.trim();
+  if (pid) return `veritrail-scanner@${pid}.iam.gserviceaccount.com`;
+  return "";
+}
+
 function saGcloudSnippet(setup: GcpImpersonationSetup) {
   const veritrailSa = impersonationPlatformSaEmail(setup);
   const veritrailSaExport = veritrailSa
@@ -304,6 +312,13 @@ export default function GcpIntegration() {
   const setup = setupQuery.data;
   const impersonationSetup = impersonationSetupQuery.data;
 
+  useEffect(() => {
+    if (step !== 2 || isWif || !draftProject) return;
+    const expected = expectedScannerSaEmail(impersonationSetup, draftProject.project_id);
+    if (!expected) return;
+    setServiceAccountEmail((current) => (current.trim() ? current : expected));
+  }, [step, isWif, draftProject, impersonationSetup]);
+
   const create = useMutation({
     mutationFn: () =>
       api<GcpProject>("/v1/integrations/gcp/projects", {
@@ -349,11 +364,11 @@ export default function GcpIntegration() {
   });
 
   const patchImpersonation = useMutation({
-    mutationFn: () =>
+    mutationFn: (emailOverride?: string) =>
       api<GcpProject>(`/v1/integrations/gcp/projects/${draftProject!.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          service_account_email: serviceAccountEmail.trim(),
+          service_account_email: (emailOverride ?? serviceAccountEmail).trim(),
         }),
       }),
     onSuccess: (row) => {
@@ -377,6 +392,20 @@ export default function GcpIntegration() {
   );
 
   const impersonationReady = useMemo(() => Boolean(serviceAccountEmail.trim()), [serviceAccountEmail]);
+
+  function continueFromDeploySa() {
+    if (!draftProject) return;
+    const email = expectedScannerSaEmail(impersonationSetup, draftProject.project_id);
+    if (!email) {
+      setStep(2);
+      return;
+    }
+    setServiceAccountEmail(email);
+    setSaveError("");
+    patchImpersonation.mutate(email, {
+      onError: () => setStep(2),
+    });
+  }
 
   async function verifyProject(id: string) {
     setActionState(id);
@@ -599,8 +628,13 @@ export default function GcpIntegration() {
                 </div>
                 <div className="integration-setup__actions">
                   <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={() => setStep(0)}>Back</button>
-                  <button type="button" className="integration-setup__btn integration-setup__btn--primary" onClick={() => setStep(2)}>
-                    I&apos;ve deployed the scanner SA →
+                  <button
+                    type="button"
+                    className="integration-setup__btn integration-setup__btn--primary"
+                    disabled={patchImpersonation.isPending}
+                    onClick={continueFromDeploySa}
+                  >
+                    {patchImpersonation.isPending ? "Saving…" : "I've deployed the scanner SA →"}
                   </button>
                 </div>
               </>
@@ -650,7 +684,7 @@ export default function GcpIntegration() {
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
-                    Paste the scanner service account email from your gcloud output, then continue to verify.
+                    Confirm the scanner service account email (prefilled from setup — edit if your gcloud output differs), then continue to verify.
                   </p>
                   <div className="integration-setup__field--wide">
                     <label className="integration-setup__field-label" htmlFor="gcp-sa-email-sa">Scanner service account email</label>
@@ -659,7 +693,6 @@ export default function GcpIntegration() {
                       className="integration-setup__input"
                       value={serviceAccountEmail}
                       onChange={(e) => setServiceAccountEmail(e.target.value)}
-                      placeholder={impersonationSetup?.scanner_sa_email ?? "veritrail-scanner@project.iam.gserviceaccount.com"}
                     />
                   </div>
                   {saveError && <p className="integration-setup__error">{saveError}</p>}
@@ -670,7 +703,7 @@ export default function GcpIntegration() {
                     type="button"
                     className="integration-setup__btn integration-setup__btn--primary"
                     disabled={!impersonationReady || patchImpersonation.isPending}
-                    onClick={() => patchImpersonation.mutate()}
+                    onClick={() => patchImpersonation.mutate(undefined)}
                   >
                     {patchImpersonation.isPending ? "Saving…" : "Save & verify →"}
                   </button>

@@ -11,6 +11,7 @@ import pytest
 from app.services.gcp_client import GcpClient
 from app.services.gcp_impersonation import (
     AUTH_SERVICE_ACCOUNT_IMPERSONATION,
+    expected_scanner_sa_email,
     exchange_impersonation_access_token,
     impersonation_setup_manifest,
     is_platform_sa_configured,
@@ -24,6 +25,16 @@ _PLATFORM_SA = {
     "client_email": "platform@veritrail-prod.iam.gserviceaccount.com",
     "private_key": "-----BEGIN PRIVATE KEY-----\nMIIB\n-----END PRIVATE KEY-----\n",
 }
+
+
+def test_expected_scanner_sa_email():
+    with patch("app.services.gcp_impersonation.get_settings") as gs:
+        settings = MagicMock()
+        settings.GCP_WIF_DEFAULT_SA_NAME = "veritrail-scanner"
+        gs.return_value = settings
+        assert expected_scanner_sa_email("carwiz-97e29") == (
+            "veritrail-scanner@carwiz-97e29.iam.gserviceaccount.com"
+        )
 
 
 def test_impersonation_setup_manifest():

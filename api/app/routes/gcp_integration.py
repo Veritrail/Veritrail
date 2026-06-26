@@ -18,6 +18,7 @@ from app.models.org import Org
 from app.services.gcp_client import GcpClient
 from app.services.gcp_impersonation import (
     AUTH_SERVICE_ACCOUNT_IMPERSONATION,
+    expected_scanner_sa_email,
     impersonation_setup_manifest,
     platform_sa_config_error,
 )
@@ -346,7 +347,12 @@ def verify_gcp_project(
     if row.auth_method == AUTH_WORKLOAD_IDENTITY and not _wif_configured(row):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Configure WIF pool, provider, and service account before verify")
     if row.auth_method == AUTH_SERVICE_ACCOUNT_IMPERSONATION and not _impersonation_configured(row):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Configure scanner service account email before verify")
+        expected = expected_scanner_sa_email(row.project_id)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Scanner service account email is not saved (expected {expected}). "
+            "Return to Connect and save the email from your gcloud output.",
+        )
     platform_err = platform_sa_config_error()
     if row.auth_method == AUTH_SERVICE_ACCOUNT_IMPERSONATION and platform_err:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, platform_err)

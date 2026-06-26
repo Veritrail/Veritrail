@@ -11,6 +11,7 @@ from app.services.gcp_wif import AUTH_SERVICE_ACCOUNT_IMPERSONATION, GCP_SCOPE
 __all__ = [
     "AUTH_SERVICE_ACCOUNT_IMPERSONATION",
     "exchange_impersonation_access_token",
+    "expected_scanner_sa_email",
     "impersonation_setup_manifest",
     "is_platform_sa_configured",
     "platform_sa_config_error",
@@ -128,16 +129,21 @@ def exchange_impersonation_access_token(*, service_account_email: str) -> str:
     return creds.token
 
 
+def expected_scanner_sa_email(project_id: str) -> str:
+    """Default scanner SA email for a customer GCP project (matches gcloud setup script)."""
+    settings = get_settings()
+    sa_name = settings.GCP_WIF_DEFAULT_SA_NAME
+    pid = project_id.strip()
+    if pid:
+        return f"{sa_name}@{pid}.iam.gserviceaccount.com"
+    return f"{sa_name}@PROJECT_ID.iam.gserviceaccount.com"
+
+
 def impersonation_setup_manifest(*, project_id: str) -> dict[str, Any]:
     """Customer-facing setup parameters for scanner SA + TokenCreator grant."""
     settings = get_settings()
     pid = project_id.strip()
-    sa_name = settings.GCP_WIF_DEFAULT_SA_NAME
-    scanner_email = (
-        f"{sa_name}@{pid}.iam.gserviceaccount.com"
-        if pid
-        else f"{sa_name}@PROJECT_ID.iam.gserviceaccount.com"
-    )
+    scanner_email = expected_scanner_sa_email(pid)
     platform_email = platform_sa_email()
     return {
         "auth_method": AUTH_SERVICE_ACCOUNT_IMPERSONATION,
