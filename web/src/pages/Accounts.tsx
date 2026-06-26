@@ -4741,7 +4741,7 @@ function AccountSplitDetailPane({
                     : "From latest scan"}
                 </p>
                 <span className="accounts-detail-metric-card__watermark accounts-detail-metric-card__watermark--cloud" aria-hidden>
-                  <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 18.5h10.8a4.2 4.2 0 0 0 .7-8.35 6.2 6.2 0 0 0-11.9-1.92A5.25 5.25 0 0 0 6.5 18.5Z" />
                   </svg>
                 </span>
