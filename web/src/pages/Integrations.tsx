@@ -580,13 +580,6 @@ function IntegrationsContent() {
       description: "Track work and pipelines",
       comingSoon: true,
     },
-    {
-      key: "datadog",
-      brand: "datadog",
-      name: "Datadog",
-      description: "Stream metrics and events",
-      comingSoon: true,
-    },
   ];
 
   return (
