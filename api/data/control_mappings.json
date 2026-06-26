@@ -82,6 +82,7 @@
       "ec2.security_group.default_allows_traffic",
       "s3.account.public_access_not_blocked",
       "s3.bucket.public_access_not_blocked",
+      "azure.storage.public_blob_access",
       "ec2.security_group.unrestricted_ssh",
       "ec2.security_group.unrestricted_rdp",
       "rds.instance.publicly_accessible",
@@ -99,6 +100,7 @@
       "eks.cluster.control_plane_logging_disabled",
       "eks.cluster.secrets_encryption_disabled",
       "ecs.service.public_ip_enabled",
+      "gcp.compute.instance_public_ip",
       "ecs.task_definition.privileged_container",
       "s3.bucket.no_default_encryption",
       "elb.load_balancer.weak_tls_policy",
@@ -150,6 +152,7 @@
     "guidance": "Evidence: CloudTrail enabled with log file validation and KMS encryption in all regions.",
     "checks": [
       "cloudtrail.trail.not_enabled",
+      "gcp.logging.not_enabled",
       "cloudtrail.trail.no_log_validation",
       "cloudtrail.trail.no_kms",
       "cloudtrail.trail.s3_bucket_public",
@@ -178,6 +181,7 @@
     "guidance": "Evidence: GuardDuty and Security Hub enabled in all regions. VPC Flow Logs enabled on all VPCs. Lambda functions have Dead Letter Queues configured so failed invocations are captured.",
     "checks": [
       "guardduty.detector.not_enabled",
+      "azure.defender.not_enabled",
       "guardduty.open_findings",
       "aws.securityhub.not_enabled",
       "aws.access_analyzer.not_enabled",
@@ -360,7 +364,8 @@
     "guidance": "Enable BlockPublicAcls, IgnorePublicAcls, BlockPublicPolicy, and RestrictPublicBuckets on every bucket and at the account level.",
     "checks": [
       "s3.account.public_access_not_blocked",
-      "s3.bucket.public_access_not_blocked"
+      "s3.bucket.public_access_not_blocked",
+      "azure.storage.public_blob_access"
     ]
   },
   {
@@ -411,7 +416,8 @@
     "description": "Ensure and verify that RDS database instances provisioned in your AWS account do restrict unauthorized access by disabling the public accessibility configuration.",
     "guidance": "Modify the RDS instance to set 'Publicly Accessible' to No. Also ensure the instance is in a private subnet and the security group does not allow unrestricted inbound access.",
     "checks": [
-      "rds.instance.publicly_accessible"
+      "rds.instance.publicly_accessible",
+      "gcp.compute.instance_public_ip"
     ]
   },
   {
@@ -519,7 +525,9 @@
     "description": "Event logs recording user activities, exceptions, faults and information security events shall be produced, kept and regularly reviewed.",
     "guidance": "Evidence: CloudTrail is enabled with multi-region logging. VPC flow logs are enabled. GuardDuty is active and detecting threats. Lambda functions have DLQs configured to capture silent failures.",
     "checks": [
+      "azure.defender.not_enabled",
       "cloudtrail.trail.not_enabled",
+      "gcp.logging.not_enabled",
       "cloudtrail.trail.no_log_validation",
       "vpc.flow_logs.not_enabled",
       "guardduty.detector.not_enabled",
@@ -588,6 +596,7 @@
       "eks.cluster.control_plane_logging_disabled",
       "eks.cluster.secrets_encryption_disabled",
       "ecs.service.public_ip_enabled",
+      "gcp.compute.instance_public_ip",
       "ecs.task_definition.privileged_container",
       "cloudtrail.event.security_group_open_to_world"
     ]
@@ -602,7 +611,8 @@
       "s3.bucket.no_https_policy",
       "elb.load_balancer.weak_tls_policy",
       "s3.account.public_access_not_blocked",
-      "s3.bucket.public_access_not_blocked"
+      "s3.bucket.public_access_not_blocked",
+      "azure.storage.public_blob_access"
     ]
   },
   {
@@ -652,7 +662,8 @@
     "description": "AWS CloudTrail records API activity for security monitoring and audit evidence.",
     "guidance": "Enable a multi-region trail with management events. Re-scan after enabling.",
     "checks": [
-      "cloudtrail.trail.not_enabled"
+      "cloudtrail.trail.not_enabled",
+      "gcp.logging.not_enabled"
     ]
   },
   {
