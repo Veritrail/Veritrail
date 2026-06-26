@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,19 +48,6 @@ type CloudAccountRow = {
   label: string;
   status: string;
   last_scan_at: string | null;
-};
-
-type CloudCoverageProvider = {
-  provider: string;
-  connected_count: number;
-  open_findings_count: number;
-  last_scan_at: string | null;
-};
-
-type CloudCoverage = {
-  providers: CloudCoverageProvider[];
-  total_connected: number;
-  total_open_findings: number;
 };
 
 type SettingsSlice = {
@@ -270,76 +257,6 @@ function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
   );
 }
 
-function formatCloudScanAt(iso: string | null | undefined): string {
-  if (!iso) return "Never";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Never";
-  return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-const PROVIDER_LABELS: Record<string, string> = {
-  aws: "AWS",
-  gcp: "Google Cloud",
-  azure: "Microsoft Azure",
-};
-
-function MultiCloudPostureCard({
-  coverage,
-  loading,
-}: {
-  coverage: CloudCoverage | undefined;
-  loading?: boolean;
-}) {
-  if (loading) {
-    return (
-      <section className="integrations-multicloud-card integrations-multicloud-card--loading">
-        <p className="text-sm text-slate-500">Loading multi-cloud posture…</p>
-      </section>
-    );
-  }
-  if (!coverage) return null;
-
-  return (
-    <section className="integrations-multicloud-card" aria-label="Multi-cloud posture">
-      <div className="integrations-multicloud-card__header">
-        <div>
-          <h2>Multi-cloud posture</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Connected accounts, open findings, and last scan across AWS, GCP, and Azure.
-          </p>
-        </div>
-        <div className="integrations-multicloud-card__totals">
-          <span className="integrations-multicloud-card__pill">{coverage.total_connected} connected</span>
-          <span className="integrations-multicloud-card__pill integrations-multicloud-card__pill--warn">
-            {coverage.total_open_findings} open findings
-          </span>
-        </div>
-      </div>
-      <div className="integrations-multicloud-card__grid">
-        {coverage.providers.map((row) => (
-          <article key={row.provider} className="integrations-multicloud-card__provider">
-            <div className="integrations-multicloud-card__provider-name">{PROVIDER_LABELS[row.provider] ?? row.provider}</div>
-            <dl className="integrations-multicloud-card__stats">
-              <div>
-                <dt>Connected</dt>
-                <dd>{row.connected_count}</dd>
-              </div>
-              <div>
-                <dt>Open findings</dt>
-                <dd>{row.open_findings_count}</dd>
-              </div>
-              <div>
-                <dt>Last scan</dt>
-                <dd>{formatCloudScanAt(row.last_scan_at)}</dd>
-              </div>
-            </dl>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function ScanProgressBanner() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
@@ -362,8 +279,6 @@ function ScanProgressBanner() {
 function IntegrationsContent() {
   const qc = useQueryClient();
   const prevScanStatus = useRef<string | null>(null);
-  const [cloudScanState, setCloudScanState] = useState<"idle" | "scanning" | "done" | "error">("idle");
-  const [cloudScanMessage, setCloudScanMessage] = useState("");
 
   const github = useQuery({ queryKey: ["github-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/github") });
   const gitlab = useQuery({ queryKey: ["gitlab-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/gitlab") });
@@ -375,10 +290,6 @@ function IntegrationsContent() {
   const cloudAccounts = useQuery({
     queryKey: ["cloud-accounts"],
     queryFn: () => api<CloudAccountRow[]>("/v1/integrations/cloud-accounts"),
-  });
-  const cloudCoverage = useQuery({
-    queryKey: ["cloud-coverage"],
-    queryFn: () => api<CloudCoverage>("/v1/integrations/cloud-coverage"),
   });
   const wizScanner = useQuery({ queryKey: ["scanner-wiz"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/wiz") });
   const tenableScanner = useQuery({ queryKey: ["scanner-tenable"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/tenable") });
@@ -416,7 +327,6 @@ function IntegrationsContent() {
 
   const awsConnected = awsAccount?.status === "connected";
   const cloudConnectedCount = accountsList.filter((a) => a.status === "connected").length;
-  const canScanAllCloud = cloudConnectedCount > 0;
   const githubConnected = !!github.data;
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
@@ -709,27 +619,6 @@ function IntegrationsContent() {
     },
   ];
 
-  async function handleScanAllCloud() {
-    setCloudScanState("scanning");
-    setCloudScanMessage("");
-    try {
-      const res = await api<{ message: string; queued: Record<string, number> }>("/v1/integrations/cloud-scan-all", {
-        method: "POST",
-        body: "{}",
-      });
-      setCloudScanState("done");
-      setCloudScanMessage(res.message);
-      qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
-      qc.invalidateQueries({ queryKey: ["cloud-coverage"] });
-      qc.invalidateQueries({ queryKey: ["accounts"] });
-      qc.invalidateQueries({ queryKey: ["gcp-projects"] });
-      qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
-    } catch {
-      setCloudScanState("error");
-      setCloudScanMessage("Could not queue cloud scans. Check permissions and try again.");
-    }
-  }
-
   return (
     <div className="integrations-page">
       <CompliancePageHeader
@@ -737,29 +626,6 @@ function IntegrationsContent() {
         title="Integrations"
         subtitle="Connect AWS, GCP, Azure, identity providers, and notification channels for scans and evidence collection."
       />
-
-      <div className="integrations-page__actions">
-        {canScanAllCloud ? (
-          <button
-            type="button"
-            className="integrations-scan-all-btn"
-            disabled={cloudScanState === "scanning" || awsScanRunning}
-            onClick={() => void handleScanAllCloud()}
-          >
-            {cloudScanState === "scanning" ? (
-              <>
-                <Spinner className="h-4 w-4" />
-                Scanning cloud…
-              </>
-            ) : (
-              "Scan all cloud"
-            )}
-          </button>
-        ) : null}
-        {cloudScanMessage ? (
-          <p className={`integrations-scan-all-msg integrations-scan-all-msg--${cloudScanState}`}>{cloudScanMessage}</p>
-        ) : null}
-      </div>
 
       <div className="workspace-summary workspace-summary--metrics">
         <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail="Active connectors" valueTone="ok" />
@@ -769,8 +635,6 @@ function IntegrationsContent() {
       </div>
 
       {awsScanRunning && <ScanProgressBanner />}
-
-      <MultiCloudPostureCard coverage={cloudCoverage.data} loading={cloudCoverage.isLoading} />
 
       <div className="integrations-page__body">
         <IntegrationsTable rows={activeRows} />
