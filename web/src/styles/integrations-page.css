@@ -332,6 +332,13 @@
 
 .integrations-explore-card__icon {
   flex-shrink: 0;
+  opacity: 1;
+  filter: none;
+}
+
+.integrations-explore-card--coming-soon .integrations-explore-card__icon {
+  opacity: 1;
+  filter: none;
 }
 
 .integrations-explore-card__body {
