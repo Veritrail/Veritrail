@@ -61,6 +61,7 @@ def write_external_evidence_to_pack(
             "period_start": row.period_start.isoformat() if row.period_start else None,
             "period_end": row.period_end.isoformat() if row.period_end else None,
             "note": row.note,
+            "policy_ref": row.policy_ref,
             "review_notes": row.review_notes,
             "uploaded_at": row.created_at.isoformat() if row.created_at else None,
             "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,

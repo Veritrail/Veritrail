@@ -50,6 +50,11 @@ EVIDENCE_SOURCE_CATEGORIES: list[dict[str, Any]] = [
         "label": "Endpoint security",
         "composite_ids": ["endpoint_security"],
     },
+    {
+        "key": "mdm_endpoint",
+        "label": "Device management (MDM)",
+        "composite_ids": ["endpoint_security"],
+    },
 ]
 
 ENDPOINT_SECURITY_TOOLS = [
@@ -61,10 +66,19 @@ ENDPOINT_SECURITY_TOOLS = [
     "Other",
 ]
 
+MDM_ENDPOINT_TOOLS = [
+    "Microsoft Intune",
+    "Jamf Pro",
+    "Jamf Protect",
+    "Kandji",
+    "Other",
+]
+
 _COMPOSITE_TO_CATEGORY: dict[str, str] = {}
 for _cat in EVIDENCE_SOURCE_CATEGORIES:
     for _cid in _cat["composite_ids"]:
-        _COMPOSITE_TO_CATEGORY[_cid] = _cat["key"]
+        if _cid not in _COMPOSITE_TO_CATEGORY:
+            _COMPOSITE_TO_CATEGORY[_cid] = _cat["key"]
 
 
 def category_for_composite(composite_id: str | None) -> str | None:

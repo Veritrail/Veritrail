@@ -125,6 +125,65 @@ class FindingPage(BaseModel):
     next_cursor: str | None
 
 
+class FindingSummaryOut(BaseModel):
+    total: int
+    by_status: dict[str, int]
+    by_severity: dict[str, int]
+    top_checks: list[dict[str, int | str]]
+
+
+@router.get("/summary", response_model=FindingSummaryOut)
+def findings_summary(
+    account_id: str | None = None,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org_id = uuid.UUID(p["org_id"])
+    org = db.get(Org, org_id)
+    hidden = hidden_check_ids(org.settings if org else {}) | RETIRED_FINDING_CHECKS
+    acc_uuid = uuid.UUID(account_id) if account_id else None
+
+    def _scoped(q):
+        q = q.where(Finding.org_id == org_id)
+        if hidden:
+            q = q.where(Finding.check_id.notin_(hidden))
+        if acc_uuid:
+            q = q.where(Finding.account_id == acc_uuid)
+        return q
+
+    total = db.scalar(select(func.count()).select_from(_scoped(select(Finding)).subquery())) or 0
+
+    by_status: dict[str, int] = {}
+    for st, ct in db.execute(
+        _scoped(select(Finding.status, func.count())).group_by(Finding.status)
+    ).all():
+        by_status[st] = int(ct)
+
+    by_severity: dict[str, int] = {}
+    for sev, ct in db.execute(
+        _scoped(select(Finding.severity, func.count()))
+        .where(Finding.status == "open")
+        .group_by(Finding.severity)
+    ).all():
+        by_severity[sev] = int(ct)
+
+    top_rows = db.execute(
+        _scoped(select(Finding.check_id, func.count().label("count")))
+        .where(Finding.status == "open")
+        .group_by(Finding.check_id)
+        .order_by(func.count().desc())
+        .limit(20)
+    ).all()
+    top_checks = [{"check_id": row[0], "count": int(row[1])} for row in top_rows]
+
+    return FindingSummaryOut(
+        total=total,
+        by_status=by_status,
+        by_severity=by_severity,
+        top_checks=top_checks,
+    )
+
+
 class ActivityMarkerOut(BaseModel):
     ts: datetime
     kind: str

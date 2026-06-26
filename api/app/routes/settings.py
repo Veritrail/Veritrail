@@ -35,6 +35,10 @@ from app.services.trust_logo_storage import TrustLogoError, delete_trust_logo, i
 from app.services.evidence_source_registry import EVIDENCE_SOURCE_CATEGORIES
 from app.services.evidence_source_store import apply_evidence_source_updates, load_evidence_sources
 from app.services.coverage_overrides import merge_coverage_overrides
+from app.services.custom_evidence_categories import (
+    get_custom_evidence_categories,
+    merge_custom_evidence_categories,
+)
 
 router = APIRouter()
 
@@ -104,6 +108,15 @@ class CoverageOverridesIn(BaseModel):
     entries: dict[str, Literal["out_of_scope", "not_applicable"] | None]
 
 
+class CustomEvidenceCategoryIn(BaseModel):
+    key: str
+    label: str
+
+
+class CustomEvidenceCategoriesIn(BaseModel):
+    entries: list[CustomEvidenceCategoryIn]
+
+
 class EvidenceSourceCategoryOut(BaseModel):
     key: str
     label: str
@@ -139,6 +152,7 @@ class SettingsPatch(BaseModel):
     features: FeaturesIn | None = None
     evidence_sources: EvidenceSourcesIn | None = None
     coverage_overrides: CoverageOverridesIn | None = None
+    custom_evidence_categories: CustomEvidenceCategoriesIn | None = None
 
 
 class OptionalCheckOut(BaseModel):
@@ -159,6 +173,7 @@ class SettingsOut(BaseModel):
     notifications: dict
     features: dict
     evidence_source_categories: list[EvidenceSourceCategoryOut] = []
+    custom_evidence_categories: list[dict[str, str]] = []
     scan_status: ScanStatusOut
     account_email: str | None = None
 
@@ -214,6 +229,7 @@ def get_settings(p=Depends(current_principal), db: Session = Depends(get_db)):
         evidence_classes=all_evidence_classes(),
         cis_benchmark_coverage=cis_benchmark_coverage(),
         evidence_source_categories=_evidence_source_categories_out(registry_sources),
+        custom_evidence_categories=get_custom_evidence_categories(org_settings),
         scan_status=_scan_status(org, db),
         account_email=user.email if user and user.email else None,
     )
@@ -267,6 +283,12 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
             body.coverage_overrides.entries,
         )
 
+    if body.custom_evidence_categories is not None:
+        current["custom_evidence_categories"] = merge_custom_evidence_categories(
+            current,
+            [e.model_dump() for e in body.custom_evidence_categories.entries],
+        )
+
     changed_sections = [
         name
         for name, val in (
@@ -301,6 +323,7 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
         evidence_classes=all_evidence_classes(),
         cis_benchmark_coverage=cis_benchmark_coverage(),
         evidence_source_categories=_evidence_source_categories_out(registry_sources),
+        custom_evidence_categories=get_custom_evidence_categories(org_settings),
         scan_status=_scan_status(org, db),
         account_email=user.email if user and user.email else None,
     )

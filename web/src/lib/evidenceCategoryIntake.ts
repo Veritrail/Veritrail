@@ -6,7 +6,14 @@ export const ENDPOINT_SECURITY_TOOLS = [
   "Microsoft Defender for Endpoint",
   "SentinelOne",
   "Jamf Protect",
-  "Intune",
+  "Other",
+] as const;
+
+export const MDM_ENDPOINT_TOOLS = [
+  "Microsoft Intune",
+  "Jamf Pro",
+  "Jamf Protect",
+  "Kandji",
   "Other",
 ] as const;
 
@@ -138,8 +145,8 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
   },
   endpoint_security: {
     wizardLead:
-      "Upload evidence that corporate endpoints are protected by EDR/MDM outside AWS, or remediate AWS-side detection gaps (GuardDuty, SSM coverage) in this account.",
-    toolLabel: "EDR or MDM platform",
+      "Upload evidence that corporate endpoints are protected by EDR outside AWS, or remediate AWS-side detection gaps (GuardDuty, SSM coverage) in this account.",
+    toolLabel: "EDR platform",
     toolPlaceholder: "Tool name",
     toolOptions: ENDPOINT_SECURITY_TOOLS,
     useToolPicker: true,
@@ -147,6 +154,19 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. All employee laptops, production servers",
     useScopePicker: false,
     cadenceLabel: "Coverage review cadence (optional)",
+    defaultEvidenceType: "Policy / attestation",
+  },
+  mdm_endpoint: {
+    wizardLead:
+      "Declare your MDM platform for device management evidence. Live Intune/Jamf API sync is not required — upload policy exports or attestation when prompted.",
+    toolLabel: "MDM platform",
+    toolPlaceholder: "Tool name",
+    toolOptions: MDM_ENDPOINT_TOOLS,
+    useToolPicker: true,
+    scopeLabel: "Managed device population",
+    scopePlaceholder: "e.g. Corporate laptops, mobile devices",
+    useScopePicker: false,
+    cadenceLabel: "Compliance review cadence (optional)",
     defaultEvidenceType: "Policy / attestation",
   },
 };

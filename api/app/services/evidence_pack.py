@@ -31,7 +31,9 @@ from app.services.cis_benchmark_coverage import cis_benchmark_coverage
 from app.models.github import CiPipeline, IdentityProvider, IdentityUser, PullRequest, Repo, RepoProtection, WorkflowRun
 from app.models.iam import IamUser
 from app.models.resources import IdentityCenterUser
+from app.services.access_review_summary import build_access_review_summary
 from app.services.evidence_coverage import compute_evidence_coverage
+from app.services.sdlc_evidence import build_sdlc_evidence
 from app.services.finding_history import (
     STATE_EXCEPTED,
     STATE_OPEN,
@@ -350,7 +352,11 @@ def build_evidence_pack(
         )
         _write(
             "sdlc_evidence.json",
-            json.dumps(_build_sdlc_evidence(db, org_id, since), indent=2, default=str),
+            json.dumps(build_sdlc_evidence(db, org_id, since), indent=2, default=str),
+        )
+        _write(
+            "access_review_summary.json",
+            json.dumps(build_access_review_summary(db, org_id), indent=2, default=str),
         )
         _write(
             "scanner_integrations.json",
@@ -821,72 +827,6 @@ def _build_cicd_snapshots(
                 })
 
     return {"workflow_run": workflow_snaps, "ci_pipeline": pipeline_snaps}
-
-
-def _build_sdlc_evidence(db: Session, org_id: uuid.UUID, since: datetime) -> dict[str, Any]:
-    """Aggregate SDLC + remediation ticket evidence for audit packs."""
-    providers = db.scalars(
-        select(IdentityProvider).where(IdentityProvider.org_id == org_id)
-    ).all()
-    provider_ids = [p.id for p in providers]
-    repo_ids: list[uuid.UUID] = []
-    if provider_ids:
-        repo_ids = list(
-            db.scalars(select(Repo.id).where(Repo.provider_id.in_(provider_ids))).all()
-        )
-
-    workflow_run_count = 0
-    ci_pipeline_count = 0
-    if repo_ids:
-        workflow_run_count = db.scalar(
-            select(func.count())
-            .select_from(WorkflowRun)
-            .where(WorkflowRun.repo_id.in_(repo_ids), WorkflowRun.run_started_at >= since)
-        ) or 0
-        ci_pipeline_count = db.scalar(
-            select(func.count())
-            .select_from(CiPipeline)
-            .where(CiPipeline.repo_id.in_(repo_ids), CiPipeline.created_at >= since)
-        ) or 0
-
-    protected_repos = 0
-    total_repos = len(repo_ids)
-    if repo_ids:
-        protected_repos = db.scalar(
-            select(func.count(func.distinct(RepoProtection.repo_id))).where(
-                RepoProtection.repo_id.in_(repo_ids)
-            )
-        ) or 0
-
-    open_with_tickets = db.scalars(
-        select(Finding).where(
-            Finding.org_id == org_id,
-            Finding.status == "open",
-            Finding.remediation_ticket_key.isnot(None),
-        )
-    ).all()
-    remediation_tickets = [
-        {
-            "finding_id": str(f.id),
-            "check_id": f.check_id,
-            "ticket_key": f.remediation_ticket_key,
-            "ticket_url": f.remediation_ticket_url,
-            "severity": f.severity,
-            "title": f.title,
-        }
-        for f in open_with_tickets
-    ]
-
-    return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "period_start": since.isoformat(),
-        "workflow_runs": workflow_run_count,
-        "ci_pipelines": ci_pipeline_count,
-        "repos_total": total_repos,
-        "repos_with_branch_protection": protected_repos,
-        "open_findings_with_remediation_tickets": len(remediation_tickets),
-        "remediation_tickets": remediation_tickets,
-    }
 
 
 def _build_scanner_integrations(db: Session, org_id: uuid.UUID) -> dict[str, Any]:

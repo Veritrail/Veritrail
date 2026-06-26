@@ -61,6 +61,15 @@ type CompositeControlRow = {
   open_finding_ids: string[];
   scan_errors?: { check_id: string; error_type?: string | null; error?: string | null }[];
   coverage_override?: "out_of_scope" | "not_applicable" | null;
+  sdlc_insights?: {
+    repos_total: number;
+    repos_with_branch_protection: number;
+    repos_without_branch_protection: number;
+    dependabot_enabled_repos: number;
+    code_scanning_enabled_repos: number;
+    secret_scanning_enabled_repos: number;
+    repos_with_security_gaps: number;
+  } | null;
 };
 
 type ControlRow = {
@@ -1099,6 +1108,38 @@ function CompositeRecommendedActionBanner({ action }: { action: RecommendedActio
   );
 }
 
+function CompositeSdlcInsights({
+  insights,
+}: {
+  insights: NonNullable<CompositeControlRow["sdlc_insights"]>;
+}) {
+  if (!insights.repos_total) return null;
+  return (
+    <div className="compliance-group-permission-gaps">
+      <p className="compliance-group-card-title">SDLC repository coverage</p>
+      <ul className="compliance-group-permission-gaps__list">
+        <li>
+          Branch protection: {insights.repos_with_branch_protection}/{insights.repos_total} repos
+          {insights.repos_without_branch_protection > 0 && (
+            <span className="compliance-group-permission-gaps__error">
+              {" "}
+              ({insights.repos_without_branch_protection} without protection)
+            </span>
+          )}
+        </li>
+        <li>Dependabot enabled: {insights.dependabot_enabled_repos} repos</li>
+        <li>Code scanning enabled: {insights.code_scanning_enabled_repos} repos</li>
+        <li>Secret scanning enabled: {insights.secret_scanning_enabled_repos} repos</li>
+        {insights.repos_with_security_gaps > 0 && (
+          <li className="compliance-group-permission-gaps__error">
+            {insights.repos_with_security_gaps} repos with security feature gaps
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 function CompositePermissionGaps({
   errors,
 }: {
@@ -1348,6 +1389,9 @@ function CompositeExpandedDetails({
           coverageOverride={ctrl.coverage_override}
         />
         {scanErrors.length > 0 && <CompositePermissionGaps errors={scanErrors} />}
+        {ctrl.id === "secure_sdlc" && ctrl.sdlc_insights && (
+          <CompositeSdlcInsights insights={ctrl.sdlc_insights} />
+        )}
         <ScanCollectorSummary accountId={accountId} />
         <div className="compliance-group-checks-card">
           {ctrl.finding_count > 0 ? (

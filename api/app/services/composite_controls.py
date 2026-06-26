@@ -227,6 +227,9 @@ def list_composite_controls(
         db, org_id, account_id, hidden
     )
     errors_by_check = {e["check_id"]: e for e in scan_check_errors}
+    from app.services.sdlc_evidence import sdlc_insights_for_org
+
+    sdlc_insights = sdlc_insights_for_org(db, org_id)
 
     result: list[dict[str, Any]] = []
     for entry in composite_control_definitions():
@@ -239,8 +242,7 @@ def list_composite_controls(
             has_scanned_account=has_scanned_account,
         )
         cov_tier = control_coverage_tier(check_ids)
-        result.append(
-            {
+        row: dict[str, Any] = {
                 "id": entry["id"],
                 "control_id": entry["control_id"],
                 "title": entry["title"],
@@ -259,5 +261,7 @@ def list_composite_controls(
                 "scan_errors": [errors_by_check[cid] for cid in check_ids if cid in errors_by_check],
                 "coverage_override": coverage_overrides.get(entry["id"]),
             }
-        )
+        if entry["id"] == "secure_sdlc":
+            row["sdlc_insights"] = sdlc_insights
+        result.append(row)
     return result

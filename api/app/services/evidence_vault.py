@@ -278,6 +278,41 @@ def generate_presigned_get(plan: VaultUploadPlan, *, ttl_seconds: int = 3600) ->
         return None
 
 
+def plan_from_stored_s3_uri(
+    *,
+    org_id: uuid.UUID,
+    account_id: uuid.UUID,
+    report_id: str,
+    framework: str,
+    vault_s3_uri: str,
+    content_sha256: str | None = None,
+) -> VaultUploadPlan | None:
+    """Rebuild a vault plan from a persisted export row for presigned auditor access."""
+    uri = (vault_s3_uri or "").strip()
+    if not uri.startswith("s3://"):
+        return None
+    match = _S3_URI_RE.match(uri)
+    if not match:
+        return None
+    bucket, key = match.group(1), match.group(2)
+    if not bucket or not key:
+        return None
+    cfg = vault_config()
+    mode = cfg["object_lock_mode"]
+    return VaultUploadPlan(
+        org_id=org_id,
+        account_id=account_id,
+        report_id=report_id or "unknown",
+        framework=framework,
+        object_key=key,
+        s3_uri=uri,
+        content_sha256=content_sha256,
+        retention_days=int(cfg["retention_days"]),
+        object_lock_mode=mode,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
 def org_vault_override(org_settings: dict | None) -> str | None:
     if not org_settings:
         return None

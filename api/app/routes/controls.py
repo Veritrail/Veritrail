@@ -104,6 +104,7 @@ class CompositeControlOut(BaseModel):
     open_finding_ids: list[str]
     scan_errors: list[CheckScanErrorOut] = []
     coverage_override: str | None = None
+    sdlc_insights: dict | None = None
 
 
 class CheckFrameworksOut(BaseModel):
@@ -139,6 +140,7 @@ class EvidenceArtifactOut(BaseModel):
     review_notes: str | None = None
     reviewed_at: str | None = None
     superseded_by: str | None = None
+    policy_ref: str | None = None
     suggested_mappings: list[dict] = []
     created_at: str | None = None
 
@@ -295,6 +297,7 @@ def _artifact_out(row: EvidenceArtifact) -> EvidenceArtifactOut:
         review_notes=row.review_notes,
         reviewed_at=row.reviewed_at.isoformat() if row.reviewed_at else None,
         superseded_by=str(row.superseded_by) if row.superseded_by else None,
+        policy_ref=row.policy_ref,
         suggested_mappings=row.suggested_mappings or [],
         created_at=row.created_at.isoformat() if row.created_at else None,
     )
@@ -433,6 +436,7 @@ async def upload_evidence_artifact(
     period_end = field("period_end")
     expires_at = field("expires_at")
     note = field("note")
+    policy_ref = (field("policy_ref") or "").strip() or None
 
     if framework not in FRAMEWORKS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(FRAMEWORKS)}")
@@ -532,6 +536,7 @@ async def upload_evidence_artifact(
         period_start=_parse_date(period_start),
         period_end=_parse_date(period_end),
         note=(note or "").strip() or None,
+        policy_ref=policy_ref[:200] if policy_ref else None,
         external_url=external_url[:500] if external_url else None,
         owner=owner[:200] if owner else None,
         status="submitted",

@@ -230,3 +230,155 @@ def verify_auditor_token(access_token: str, db: Session = Depends(get_db)):
         auditor_name=valid_grant.name,
         expires_at=valid_grant.expires_at.isoformat(),
     )
+
+
+class EvidenceExportOut(BaseModel):
+    id: str
+    account_id: str
+    framework: str
+    period_days: int
+    as_of: str | None
+    report_id: str | None
+    zip_sha256: str
+    file_size_bytes: int
+    vault_s3_uri: str | None
+    created_at: str
+
+
+class ScopedExportLinkIn(BaseModel):
+    auditor_access_id: str
+    ttl_hours: int = 168
+
+    @field_validator("ttl_hours")
+    @classmethod
+    def validate_ttl(cls, v: int) -> int:
+        if v < 1 or v > 720:
+            raise ValueError("ttl_hours must be 1-720")
+        return v
+
+
+class ScopedExportLinkOut(BaseModel):
+    export_id: str
+    report_id: str | None
+    link_type: str
+    url: str
+    expires_at: str
+    instructions: str | None = None
+
+
+@router.get("/exports", response_model=list[EvidenceExportOut])
+def list_evidence_exports(
+    limit: int = Query(default=20, ge=1, le=100),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.models import EvidenceExport
+
+    org = _get_org(p, db)
+    rows = db.scalars(
+        select(EvidenceExport)
+        .where(EvidenceExport.org_id == org.id)
+        .order_by(EvidenceExport.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        EvidenceExportOut(
+            id=str(r.id),
+            account_id=str(r.account_id),
+            framework=r.framework,
+            period_days=r.period_days,
+            as_of=r.as_of.isoformat() if r.as_of else None,
+            report_id=r.report_id,
+            zip_sha256=r.zip_sha256,
+            file_size_bytes=r.file_size_bytes,
+            vault_s3_uri=r.vault_s3_uri,
+            created_at=r.created_at.isoformat() if r.created_at else "",
+        )
+        for r in rows
+    ]
+
+
+@router.post("/exports/{export_id}/scoped-link", response_model=ScopedExportLinkOut)
+def create_scoped_export_link(
+    export_id: str,
+    body: ScopedExportLinkIn,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.models import EvidenceExport
+    from app.services.evidence_vault import (
+        AuditorAccessMode,
+        generate_presigned_get,
+        plan_auditor_access,
+        plan_from_stored_s3_uri,
+        vault_config,
+    )
+
+    org = _get_org(p, db)
+    settings = get_settings()
+    try:
+        exp_uuid = uuid.UUID(export_id)
+        auditor_uuid = uuid.UUID(body.auditor_access_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid id")
+
+    export_row = db.get(EvidenceExport, exp_uuid)
+    if not export_row or str(export_row.org_id) != str(org.id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "export not found")
+
+    grant = db.get(AuditorAccess, auditor_uuid)
+    if not grant or str(grant.org_id) != str(org.id) or not grant.is_active:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "auditor grant not found")
+
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=body.ttl_hours)
+
+    if export_row.vault_s3_uri and export_row.report_id:
+        plan = plan_from_stored_s3_uri(
+            org_id=org.id,
+            account_id=export_row.account_id,
+            report_id=export_row.report_id,
+            framework=export_row.framework,
+            vault_s3_uri=export_row.vault_s3_uri,
+            content_sha256=export_row.zip_sha256,
+        )
+        cfg = vault_config()
+        if plan and cfg["auditor_access_mode"] != AuditorAccessMode.NONE:
+            access = plan_auditor_access(plan, ttl_hours=body.ttl_hours)
+            if access and access.presigned_url:
+                return ScopedExportLinkOut(
+                    export_id=str(export_row.id),
+                    report_id=export_row.report_id,
+                    link_type="vault_presigned",
+                    url=access.presigned_url,
+                    expires_at=access.expires_at or expires_at.isoformat(),
+                    instructions="Time-limited download link for the immutable vault object. Share only with the approved auditor.",
+                )
+            presigned = generate_presigned_get(plan, ttl_seconds=body.ttl_hours * 3600)
+            if presigned:
+                return ScopedExportLinkOut(
+                    export_id=str(export_row.id),
+                    report_id=export_row.report_id,
+                    link_type="vault_presigned",
+                    url=presigned,
+                    expires_at=expires_at.isoformat(),
+                    instructions="Time-limited download link for the immutable vault object.",
+                )
+
+    portal_url = (
+        f"{settings.FRONTEND_URL.rstrip('/')}/auditor/export"
+        f"?framework={export_row.framework}"
+        f"&account_id={export_row.account_id}"
+        f"&period={export_row.period_days}"
+    )
+    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/auditor/verify/{grant.access_token}"
+    return ScopedExportLinkOut(
+        export_id=str(export_row.id),
+        report_id=export_row.report_id,
+        link_type="auditor_portal",
+        url=portal_url,
+        expires_at=grant.expires_at.isoformat(),
+        instructions=(
+            f"Auditor must verify access first ({verify_url}), then open the export page to download this pack."
+        ),
+    )

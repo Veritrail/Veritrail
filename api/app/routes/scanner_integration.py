@@ -147,8 +147,8 @@ def put_scanner(
 @router.post("/scanners/{vendor}/test")
 def test_scanner(
     vendor: str,
-    body: ScannerIntegrationIn = ScannerIntegrationIn(),
     _rbac: RequireAdmin,
+    body: ScannerIntegrationIn = ScannerIntegrationIn(),
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):

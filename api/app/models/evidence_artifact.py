@@ -47,6 +47,7 @@ class EvidenceArtifact(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    policy_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
     superseded_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("evidence_artifacts.id", ondelete="SET NULL"), nullable=True, index=True
     )
