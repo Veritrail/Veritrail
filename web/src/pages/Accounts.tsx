@@ -4812,8 +4812,8 @@ function AccountSplitDetailPane({
                   onClick={handleScan}
                   disabled={scanBusy}
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
                   </svg>
                   {scanBusy ? "Scanning…" : "Scan now"}
                 </button>
@@ -4823,7 +4823,9 @@ function AccountSplitDetailPane({
                   onClick={() => navigate(`/findings?account=${accountId}`)}
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75 19.5 7.5v5.25c0 4.25-3 7.1-7.5 8.25-4.5-1.15-7.5-4-7.5-8.25V7.5L12 3.75Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.5v4.25" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16h.01" />
                   </svg>
                   View findings
                 </button>
@@ -4835,7 +4837,7 @@ function AccountSplitDetailPane({
                       onClick={() => setShowConnectorUpdate(true)}
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
                       </svg>
                       Manage connection
                     </button>
@@ -4848,7 +4850,7 @@ function AccountSplitDetailPane({
                       }}
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487 19.5 7.125 8.25 18.375l-4.125 1.125 1.125-4.125L16.862 4.487Z" />
                       </svg>
                       Edit account
                     </button>
@@ -4860,7 +4862,7 @@ function AccountSplitDetailPane({
                     onClick={() => navigate(cloudIntegrationPath(cloud!.provider))}
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
                     </svg>
                     Manage connection
                   </button>
@@ -4894,9 +4896,18 @@ function AccountSplitDetailPane({
                       </div>
                       <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
                       <div className="accounts-detail-scan-row__findings">
-                        <span><i className="is-high" />{stats?.critHigh ?? 0}</span>
-                        <span><i className="is-medium" />{stats?.medium ?? 0}</span>
-                        <span><i className="is-low" />{stats?.low ?? 0}</span>
+                        <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--high">
+                          <i aria-hidden />
+                          <span className="accounts-detail-scan-row__finding-count">{stats?.critHigh ?? 0}</span>
+                        </span>
+                        <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--medium">
+                          <i aria-hidden />
+                          <span className="accounts-detail-scan-row__finding-count">{stats?.medium ?? 0}</span>
+                        </span>
+                        <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--low">
+                          <i aria-hidden />
+                          <span className="accounts-detail-scan-row__finding-count">{stats?.low ?? 0}</span>
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -4933,9 +4944,18 @@ function AccountSplitDetailPane({
                   </div>
                   <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
                   <div className="accounts-detail-scan-row__findings">
-                    <span><i className="is-high" />{stats?.critHigh ?? 0}</span>
-                    <span><i className="is-medium" />{stats?.medium ?? 0}</span>
-                    <span><i className="is-low" />{stats?.low ?? 0}</span>
+                    <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--high">
+                      <i aria-hidden />
+                      <span className="accounts-detail-scan-row__finding-count">{stats?.critHigh ?? 0}</span>
+                    </span>
+                    <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--medium">
+                      <i aria-hidden />
+                      <span className="accounts-detail-scan-row__finding-count">{stats?.medium ?? 0}</span>
+                    </span>
+                    <span className="accounts-detail-scan-row__finding-chip accounts-detail-scan-row__finding-chip--low">
+                      <i aria-hidden />
+                      <span className="accounts-detail-scan-row__finding-count">{stats?.low ?? 0}</span>
+                    </span>
                   </div>
                   <button
                     type="button"

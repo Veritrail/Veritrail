@@ -3321,6 +3321,10 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
   min-height: 9rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
@@ -3331,7 +3335,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-metric-card__top {
   display: flex;
-  min-height: 2.4rem;
+  min-height: auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.35rem;
@@ -3340,28 +3344,28 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card__label {
   min-width: 0;
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.25;
   color: #64748b;
 }
 
 .accounts-detail-metric-card__value {
-  margin: 0.45rem 0 0;
-  font-size: 1.5rem;
+  margin: 0.65rem 0 0;
+  font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #09090b;
 }
 
 .accounts-detail-metric-card__sub {
-  margin: 0.25rem 0 0;
-  font-size: 0.7rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.72rem;
   line-height: 1.35;
   color: #64748b;
 }
 
-.accounts-detail-metric-card__icon,
+.accounts-detail-metric-card__watermark,
 .accounts-detail-metric-card__sparkline {
   display: inline-flex;
   flex-shrink: 0;
@@ -3369,23 +3373,10 @@ button.accounts-flow-step:hover {
   justify-content: center;
 }
 
-.accounts-detail-metric-card__icon {
-  width: 2.15rem;
-  height: 2.15rem;
-  border-radius: 0.65rem;
-  border: 1px solid #dbeafe;
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.accounts-detail-metric-card__icon svg {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-
 .accounts-detail-metric-card__sparkline {
-  width: 4rem;
-  height: 2rem;
+  width: 100%;
+  height: 3.1rem;
+  margin-top: auto;
   color: #2563eb;
 }
 
@@ -3394,29 +3385,72 @@ button.accounts-flow-step:hover {
   height: 100%;
 }
 
+.accounts-detail-metric-card__findings {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+
 .accounts-detail-metric-card .accounts-findings-donut {
-  width: 2rem;
-  height: 2rem;
+  width: 3.15rem;
+  height: 3.15rem;
   box-shadow: none;
 }
 
 .accounts-detail-metric-card .accounts-findings-donut svg {
-  width: 2rem;
-  height: 2rem;
+  width: 3.15rem;
+  height: 3.15rem;
 }
 
 .accounts-detail-metric-card .accounts-findings-donut__empty {
-  width: 2rem;
-  height: 2rem;
-  border-width: 4px;
+  width: 3rem;
+  height: 3rem;
+  border-width: 6px;
 }
 
 .accounts-detail-metric-card .accounts-findings-donut__hub {
+  display: flex;
+}
+
+.accounts-detail-metric-card .accounts-findings-donut__count {
+  font-size: 0.75rem;
+}
+
+.accounts-detail-metric-card .accounts-findings-donut__label {
   display: none;
 }
 
+.accounts-detail-metric-card .accounts-findings-legend {
+  gap: 0.18rem;
+}
+
+.accounts-detail-metric-card .accounts-findings-legend__row {
+  font-size: 0.68rem;
+}
+
+.accounts-detail-metric-card .accounts-findings-legend__count {
+  min-width: 1.2rem;
+}
+
+.accounts-detail-metric-card__watermark {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.55rem;
+  width: 5.5rem;
+  height: 3.9rem;
+  color: #d1d5db;
+  opacity: 0.72;
+}
+
+.accounts-detail-metric-card__watermark svg {
+  width: 100%;
+  height: 100%;
+}
+
 .accounts-detail-metric-card__progress {
-  margin-top: 0.75rem;
+  margin-top: auto;
   height: 0.4rem;
   overflow: hidden;
   border-radius: 999px;
@@ -3540,9 +3574,6 @@ button.accounts-flow-step:hover {
   height: 100%;
   flex-direction: column;
   gap: 0.55rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-  padding: 1rem 1.05rem;
 }
 
 .accounts-detail-quick-actions__title {
@@ -3558,17 +3589,33 @@ button.accounts-flow-step:hover {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border: 1px solid #0f9f91;
+  border: 1px solid #102a5f;
   border-radius: 0.625rem;
-  background: #fff;
+  background: #102a5f;
   padding: 0 1rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #0f766e;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 42, 85, 0.2);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .accounts-detail-quick-actions__primary:hover:not(:disabled) {
-  background: #f0fdfa;
+  background: #1a3768;
+  border-color: #1a3768;
+  box-shadow:
+    0 2px 6px rgba(15, 42, 85, 0.22),
+    0 1px 3px rgba(15, 42, 85, 0.14);
+  transform: translateY(-1px);
+}
+
+.accounts-detail-quick-actions__primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(15, 42, 85, 0.2);
 }
 
 .accounts-detail-quick-actions__primary:disabled {
@@ -3580,21 +3627,27 @@ button.accounts-flow-step:hover {
   display: inline-flex;
   min-height: 2.35rem;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.4rem;
   border: 1px solid #e4e4e7;
   border-radius: 0.65rem;
   background: #fff;
-  padding: 0 0.9rem;
+  padding: 0 1rem;
   font-size: 0.8125rem;
   font-weight: 600;
   color: #334155;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .accounts-detail-quick-actions__secondary:hover:not(:disabled) {
-  border-color: #99f6e4;
-  background: #f0fdfa;
-  color: #0f766e;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #18181b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .accounts-detail-recent-scans {
@@ -3682,35 +3735,48 @@ button.accounts-flow-step:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.55rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: #52525b;
+  gap: 0.4rem;
 }
 
-.accounts-detail-scan-row__findings span {
+.accounts-detail-scan-row__finding-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  min-width: 2.65rem;
+  padding: 0.15rem 0.45rem 0.15rem 0.4rem;
+  border: 1px solid #eceef2;
+  border-radius: 999px;
+  background: #fafbfc;
+  line-height: 1;
 }
 
-.accounts-detail-scan-row__findings i {
+.accounts-detail-scan-row__finding-chip i {
   display: inline-flex;
-  width: 0.45rem;
-  height: 0.45rem;
+  flex-shrink: 0;
+  width: 0.4rem;
+  height: 0.4rem;
   border-radius: 999px;
 }
 
-.accounts-detail-scan-row__findings .is-high {
+.accounts-detail-scan-row__finding-chip--high i {
   background: #ef4444;
 }
 
-.accounts-detail-scan-row__findings .is-medium {
+.accounts-detail-scan-row__finding-chip--medium i {
   background: #f59e0b;
 }
 
-.accounts-detail-scan-row__findings .is-low {
+.accounts-detail-scan-row__finding-chip--low i {
   background: #22c55e;
+}
+
+.accounts-detail-scan-row__finding-count {
+  min-width: 1.15rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #3f3f46;
 }
 
 .accounts-detail-scan-row__view {
