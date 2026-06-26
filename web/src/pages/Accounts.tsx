@@ -841,7 +841,7 @@ function FindingsSeverityLegend({ stats, hasScanned }: { stats: FindingStats | u
         <div className="accounts-findings-legend__row" key={row.label}>
           <span className="accounts-findings-legend__dot" style={{ background: row.color }} aria-hidden />
           <span className="accounts-findings-legend__count">{hasScanned ? row.count : "—"}</span>
-          <span>{row.label}</span>
+          <span className="accounts-findings-legend__label">{row.label}</span>
         </div>
       ))}
     </div>
