@@ -18,13 +18,27 @@ __all__ = [
 ]
 
 
+def _resolve_platform_sa_json_path(path: str) -> Path:
+    """Resolve JSON path for cwd, repo root, or api dir (Docker mount at /app/veritrail.json)."""
+    p = Path(path).expanduser()
+    if p.is_file():
+        return p
+    if p.is_absolute():
+        raise FileNotFoundError(f"GCP platform SA JSON not found: {path}")
+    api_root = Path(__file__).resolve().parents[2]
+    for candidate in (Path.cwd() / p, api_root / p, api_root.parent / p):
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(f"GCP platform SA JSON not found: {path}")
+
+
 def _load_platform_sa_json() -> dict[str, Any]:
     settings = get_settings()
     raw = (settings.VERITRAIL_GCP_PLATFORM_SA_JSON or "").strip()
     if not raw:
         path = (settings.VERITRAIL_GCP_PLATFORM_SA_JSON_PATH or "").strip()
         if path:
-            raw = Path(path).read_text(encoding="utf-8").strip()
+            raw = _resolve_platform_sa_json_path(path).read_text(encoding="utf-8").strip()
     if not raw:
         return {}
     try:

@@ -50,6 +50,8 @@ services:
       - ./web:/web:ro
       - ./infra:/infra:ro
       - ./data/uploads:/app/data/uploads
+      # Platform SA key for GCP scanner impersonation (repo-root veritrail.json, gitignored).
+      - ./veritrail.json:/app/veritrail.json:ro
       # Mounted for SSO token cache. Omit this volume if using static keys only.
       - ${HOME}/.aws:/root/.aws:rw
 
@@ -70,6 +72,7 @@ services:
     command: watchfiles --filter python "celery -A app.worker.celery_app worker --loglevel=info --concurrency=4" app
     volumes:
       - ./api:/app
+      - ./veritrail.json:/app/veritrail.json:ro
       - ${HOME}/.aws:/root/.aws:rw
 
   beat:
