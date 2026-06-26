@@ -3374,12 +3374,50 @@ button.accounts-flow-step:hover {
   color: #64748b;
 }
 
+.accounts-detail-metric-card__value-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
 .accounts-detail-metric-card__value {
-  margin: 0.65rem 0 0;
+  margin: 0;
   font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #09090b;
+}
+
+.accounts-detail-metric-card__delta {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.accounts-detail-metric-card__delta--good {
+  background: #ecfdf5;
+  color: #047857;
+  box-shadow: inset 0 0 0 1px #a7f3d0;
+}
+
+.accounts-detail-metric-card__delta--bad {
+  background: #fff1f2;
+  color: #be123c;
+  box-shadow: inset 0 0 0 1px #fecdd3;
+}
+
+.accounts-detail-metric-card__delta--neutral {
+  background: #f8fafc;
+  color: #94a3b8;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
 }
 
 .accounts-detail-metric-card__sub {

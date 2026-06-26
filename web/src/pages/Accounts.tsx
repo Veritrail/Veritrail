@@ -4,6 +4,16 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
+import {
+  delta7d,
+  deltaImproved,
+  daysAgoIso,
+  formatMetricDelta,
+  openFindingsSeries,
+  postureTrendSeries,
+  valueAtOrBeforeDaysAgo,
+  type BetterWhen,
+} from "../lib/accountMetricDeltas";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
@@ -4361,6 +4371,33 @@ function VerifiedBadgeIcon() {
   );
 }
 
+function MetricCardDelta({
+  delta,
+  betterWhen,
+  format = "count",
+}: {
+  delta: number | null;
+  betterWhen: BetterWhen;
+  format?: "count" | "percent" | "points";
+}) {
+  if (delta == null) return null;
+  if (delta === 0) {
+    return <span className="accounts-detail-metric-card__delta accounts-detail-metric-card__delta--neutral">—</span>;
+  }
+  const improved = deltaImproved(delta, betterWhen);
+  return (
+    <span
+      className={`accounts-detail-metric-card__delta ${
+        improved
+          ? "accounts-detail-metric-card__delta--good"
+          : "accounts-detail-metric-card__delta--bad"
+      }`}
+    >
+      {formatMetricDelta(delta, format)}
+    </span>
+  );
+}
+
 function countAccountResources(
   items: Finding[] | undefined,
   accountKey: string,
@@ -4478,6 +4515,8 @@ function AccountSplitDetailPane({
       qc.invalidateQueries({ queryKey: ["controls"] });
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["accounts-scan-stats"] });
+      qc.invalidateQueries({ queryKey: ["accounts-detail-history", accountId] });
+      qc.invalidateQueries({ queryKey: ["evidence-coverage", accountId] });
     },
   });
 
@@ -4522,11 +4561,20 @@ function AccountSplitDetailPane({
     enabled: isAws && connected && hasScanned,
   });
 
+  const coveragePrevQ = useQuery({
+    queryKey: ["evidence-coverage", accountId, 7, "prev"],
+    queryFn: () =>
+      api<EvidenceCoverage>(
+        `/v1/accounts/${accountId}/evidence-coverage?period=7&as_of=${daysAgoIso(7)}`,
+      ),
+    enabled: isAws && connected && hasScanned,
+  });
+
   const historyQ = useQuery({
     queryKey: ["accounts-detail-history", accountId],
     queryFn: () =>
       api<ComplianceHistoryResponse>(
-        `/v1/accounts/${accountId}/compliance-timeline?framework=soc2&days=30&limit=10`,
+        `/v1/accounts/${accountId}/compliance-timeline?framework=soc2&days=14&limit=40`,
       ),
     enabled: isAws && connected && hasScanned,
     staleTime: 60_000,
@@ -4634,6 +4682,31 @@ function AccountSplitDetailPane({
     coverageQ.data != null ? Math.round(coverageQ.data.coverage_ratio * 100) : null;
   const compliancePct = controlsQ.data;
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
+
+  const openFindingsDelta = useMemo(() => {
+    if (!isAws || !hasScanned) return null;
+    const current = stats?.open;
+    const prior = valueAtOrBeforeDaysAgo(openFindingsSeries(historyQ.data, current), 7);
+    return delta7d(current, prior);
+  }, [isAws, hasScanned, stats?.open, historyQ.data]);
+
+  const complianceDelta = useMemo(() => {
+    if (!isAws || !hasScanned) return null;
+    const trend = postureTrendSeries(historyQ.data);
+    const current =
+      compliancePct ??
+      historyQ.data?.current_posture_score ??
+      (trend.length > 0 ? trend[trend.length - 1].value : null);
+    const prior = valueAtOrBeforeDaysAgo(trend, 7);
+    return delta7d(current, prior);
+  }, [isAws, hasScanned, compliancePct, historyQ.data]);
+
+  const coverageDelta = useMemo(() => {
+    if (!isAws || !hasScanned || coverageQ.data == null || coveragePrevQ.data == null) return null;
+    const current = Math.round(coverageQ.data.coverage_ratio * 100);
+    const prior = Math.round(coveragePrevQ.data.coverage_ratio * 100);
+    return delta7d(current, prior);
+  }, [isAws, hasScanned, coverageQ.data, coveragePrevQ.data]);
 
   const capabilityRows = isAws
     ? [
@@ -4764,8 +4837,19 @@ function AccountSplitDetailPane({
                 <div className="accounts-detail-metric-card__top">
                   <p className="accounts-detail-metric-card__label">Open findings</p>
                 </div>
-                <p className="accounts-detail-metric-card__value">{hasScanned ? stats?.open ?? 0 : "—"}</p>
-                <p className="accounts-detail-metric-card__sub">{hasScanned ? "Across severities" : "Run a scan first"}</p>
+                <div className="accounts-detail-metric-card__value-row">
+                  <p className="accounts-detail-metric-card__value">{hasScanned ? stats?.open ?? 0 : "—"}</p>
+                  {hasScanned && isAws ? (
+                    <MetricCardDelta delta={openFindingsDelta} betterWhen="down" />
+                  ) : null}
+                </div>
+                <p className="accounts-detail-metric-card__sub">
+                  {hasScanned
+                    ? isAws && openFindingsDelta != null
+                      ? "Across severities · last 7 days"
+                      : "Across severities"
+                    : "Run a scan first"}
+                </p>
                 {hasScanned ? (
                   <div className="accounts-detail-metric-card__findings">
                     <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
@@ -4778,9 +4862,11 @@ function AccountSplitDetailPane({
                   <div className="accounts-detail-metric-card__top">
                     <p className="accounts-detail-metric-card__label">Resources covered</p>
                   </div>
-                  <p className="accounts-detail-metric-card__value">
-                    {hasScanned ? resourceStats.resources.toLocaleString() : "—"}
-                  </p>
+                  <div className="accounts-detail-metric-card__value-row">
+                    <p className="accounts-detail-metric-card__value">
+                      {hasScanned ? resourceStats.resources.toLocaleString() : "—"}
+                    </p>
+                  </div>
                   <p className="accounts-detail-metric-card__sub">
                     {hasScanned
                       ? `Across ${resourceStats.regions || "—"} region${resourceStats.regions === 1 ? "" : "s"}`
@@ -4795,15 +4881,20 @@ function AccountSplitDetailPane({
                 <div className="accounts-detail-metric-card__top">
                   <p className="accounts-detail-metric-card__label">Compliance posture</p>
                 </div>
-                <p className="accounts-detail-metric-card__value">
-                  {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
-                </p>
+                <div className="accounts-detail-metric-card__value-row">
+                  <p className="accounts-detail-metric-card__value">
+                    {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
+                  </p>
+                  {hasScanned && isAws ? (
+                    <MetricCardDelta delta={complianceDelta} betterWhen="up" format="points" />
+                  ) : null}
+                </div>
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
                 <span className="accounts-detail-metric-card__sparkline" aria-hidden>
                   <svg viewBox="0 0 320 160" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="accounts-compliance-spark-fill" x1="160" y1="50" x2="160" y2="124" gradientUnits="userSpaceOnUse">
-                        <stop offset="0" stopColor="#3478F6" stopOpacity="0.14" />
+                        <stop offset="0" stopColor="#3478F6" stopOpacity="0.1" />
                         <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
                       </linearGradient>
                     </defs>
@@ -4815,12 +4906,12 @@ function AccountSplitDetailPane({
                       d="M34 101 C55 96 73 92 91 99 C111 106 122 87 142 78 C160 70 176 86 194 78 C214 69 225 55 243 61 C261 67 272 83 286 75"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="5"
+                      strokeWidth="4.25"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
-                    <circle cx="286" cy="75" r="5.5" fill="currentColor" />
-                    <circle cx="286" cy="75" r="11" fill="currentColor" opacity="0.12" />
+                    <circle cx="286" cy="75" r="4.75" fill="currentColor" />
+                    <circle cx="286" cy="75" r="9.5" fill="currentColor" opacity="0.09" />
                   </svg>
                 </span>
               </div>
@@ -4828,10 +4919,17 @@ function AccountSplitDetailPane({
                 <div className="accounts-detail-metric-card__top">
                   <p className="accounts-detail-metric-card__label">Coverage</p>
                 </div>
-                <p className="accounts-detail-metric-card__value">
-                  {coveragePct != null ? `${coveragePct}%` : hasScanned ? "—" : "—"}
+                <div className="accounts-detail-metric-card__value-row">
+                  <p className="accounts-detail-metric-card__value">
+                    {coveragePct != null ? `${coveragePct}%` : hasScanned ? "—" : "—"}
+                  </p>
+                  {hasScanned && isAws ? (
+                    <MetricCardDelta delta={coverageDelta} betterWhen="up" format="points" />
+                  ) : null}
+                </div>
+                <p className="accounts-detail-metric-card__sub">
+                  {isAws && coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
                 </p>
-                <p className="accounts-detail-metric-card__sub">Last scan</p>
                 {coveragePct != null ? (
                   <div className="accounts-detail-metric-card__progress" aria-hidden>
                     <span
