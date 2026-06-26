@@ -2,11 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { api, formatApiError, storeTokens } from "../api";
-import { useMe } from "../hooks/useMe";
-import { HeaderSlot } from "../context/HeaderSlot";
-import { WorkspaceSwitcher, type WorkspaceEntry } from "../components/WorkspaceSwitcher";
-import { workspaceListSchema } from "../lib/apiSchemas";
+import { api, formatApiError } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
@@ -4772,21 +4768,6 @@ export default function Accounts() {
     refetchOnMount: "always",
   });
 
-  const meQ = useMe();
-  const { data: workspaces = [] } = useQuery<WorkspaceEntry[]>({
-    queryKey: ["workspaces"],
-    queryFn: () => api("/v1/auth/workspaces", { schema: workspaceListSchema }),
-    enabled: !!meQ.data,
-  });
-  const switchWorkspace = useMutation({
-    mutationFn: (orgId: string) =>
-      api<{ access_token: string }>("/v1/auth/workspaces/switch", { method: "POST", body: JSON.stringify({ org_id: orgId }) }),
-    onSuccess: (data) => {
-      storeTokens(data.access_token);
-      window.location.reload();
-    },
-  });
-
   const create = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
       api<Account>("/v1/accounts", {
@@ -4935,15 +4916,6 @@ export default function Accounts() {
 
   return (
     <div className="accounts-page w-full space-y-6">
-      <HeaderSlot>
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          currentOrgId={meQ.data?.org_id ?? ""}
-          onSwitch={(id) => switchWorkspace.mutate(id)}
-          pending={switchWorkspace.isPending}
-        />
-      </HeaderSlot>
-
       {accounts.isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <p className="font-medium">Could not load accounts</p>
