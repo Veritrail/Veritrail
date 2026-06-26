@@ -2882,3 +2882,123 @@ button.accounts-flow-step:hover {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   white-space: pre;
 }
+
+.accounts-provider-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 9, 11, 0.4);
+  padding: 1rem;
+  backdrop-filter: blur(2px);
+}
+
+.accounts-provider-modal__panel {
+  width: min(40rem, 100%);
+  border: 1px solid #e4e4e7;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1.5rem;
+  box-shadow: 0 24px 48px -24px rgba(15, 23, 42, 0.35);
+}
+
+.accounts-provider-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.accounts-provider-modal__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.accounts-provider-modal__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #71717a;
+}
+
+.accounts-provider-modal__close {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #52525b;
+  transition: background 0.15s, color 0.15s;
+}
+
+.accounts-provider-modal__close:hover {
+  background: #f4f4f5;
+  color: #18181b;
+}
+
+.accounts-provider-modal__close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.accounts-provider-modal__grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .accounts-provider-modal__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.accounts-provider-modal__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.75rem;
+  background: #fafafa;
+  padding: 1rem;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.accounts-provider-modal__card:hover {
+  border-color: #a1a1aa;
+  background: #fff;
+  box-shadow: 0 8px 20px -16px rgba(15, 23, 42, 0.35);
+}
+
+.accounts-provider-modal__icon {
+  display: flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+}
+
+.accounts-provider-modal__name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.accounts-provider-modal__desc {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #71717a;
+}

@@ -26,6 +26,7 @@ import {
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { CompliancePageHeader } from "../components/CompliancePageHeader";
+import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
@@ -4576,6 +4577,89 @@ function AccountPremiumCard({
   );
 }
 
+type CloudProviderChoice = "aws" | "gcp" | "azure";
+
+const ADD_ACCOUNT_PROVIDERS: { id: CloudProviderChoice; name: string; description: string }[] = [
+  { id: "aws", name: "Amazon Web Services", description: "IAM role via CloudFormation" },
+  { id: "gcp", name: "Google Cloud", description: "Service account connector" },
+  { id: "azure", name: "Microsoft Azure", description: "Client credentials connector" },
+];
+
+function AddAccountProviderPicker({
+  open,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (provider: CloudProviderChoice) => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      className="accounts-provider-modal"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="accounts-provider-modal-title"
+        className="accounts-provider-modal__panel"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="accounts-provider-modal__head">
+          <div>
+            <h2 id="accounts-provider-modal-title" className="accounts-provider-modal__title">
+              Choose cloud provider
+            </h2>
+            <p className="accounts-provider-modal__subtitle">
+              Select where you want to connect an account. AWS uses this page; GCP and Azure use Integrations.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="accounts-provider-modal__close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="accounts-provider-modal__grid">
+          {ADD_ACCOUNT_PROVIDERS.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              className="accounts-provider-modal__card"
+              onClick={() => onSelect(provider.id)}
+            >
+              <span className="accounts-provider-modal__icon" aria-hidden>
+                <IntegrationBrandIcon brand={provider.id} size={40} variant="plain" />
+              </span>
+              <span className="accounts-provider-modal__name">{provider.name}</span>
+              <span className="accounts-provider-modal__desc">{provider.description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function PendingAccountSetupSurface({
   acc,
   initialStep,
@@ -4668,8 +4752,11 @@ function PendingAccountSetupSurface({
 
 export default function Accounts() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [setupInitialStep, setSetupInitialStep] = useState(1);
+  const [showProviderPicker, setShowProviderPicker] = useState(false);
+  const [addingAwsAccount, setAddingAwsAccount] = useState(false);
   const [accountSearch, setAccountSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -4713,6 +4800,7 @@ export default function Accounts() {
     onSuccess: (acc) => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
+      setAddingAwsAccount(false);
       setSetupInitialStep(2);
       setExpandedId(acc.id);
       setPendingConnectionOptions(accountConnectionOptions(acc));
@@ -4793,13 +4881,13 @@ export default function Accounts() {
     !!pendingAcc &&
     expandedId === pendingAcc.id;
   const showCapabilityOnboarding =
-    !hasConnectedAccount &&
     !accounts.isLoading &&
     !accounts.isError &&
-    (!pendingAcc || expandedId === null);
+    (addingAwsAccount ||
+      (!hasConnectedAccount && (!pendingAcc || expandedId === null)));
 
   const handleOnboardingContinue = () => {
-    if (pendingAcc) {
+    if (pendingAcc && !addingAwsAccount) {
       patchConnection.mutate(
         { accountId: pendingAcc.id, opts: pendingConnectionOptions },
         {
@@ -4812,6 +4900,25 @@ export default function Accounts() {
       return;
     }
     create.mutate(pendingConnectionOptions);
+  };
+
+  const handleAddAccountClick = () => {
+    setShowProviderPicker(true);
+  };
+
+  const handleProviderSelect = (provider: CloudProviderChoice) => {
+    setShowProviderPicker(false);
+    if (provider === "gcp") {
+      navigate("/integrations/gcp");
+      return;
+    }
+    if (provider === "azure") {
+      navigate("/integrations/azure");
+      return;
+    }
+    setPendingConnectionOptions(defaultOnboardingConnectionOptions());
+    setSetupInitialStep(1);
+    setAddingAwsAccount(true);
   };
 
   const continuingOnboarding = create.isPending || patchConnection.isPending;
@@ -4875,7 +4982,13 @@ export default function Accounts() {
         />
       )}
 
-      {!showPendingOnboarding && hasConnectedAccount && accs.length > 0 && (
+      <AddAccountProviderPicker
+        open={showProviderPicker}
+        onClose={() => setShowProviderPicker(false)}
+        onSelect={handleProviderSelect}
+      />
+
+      {!showPendingOnboarding && !addingAwsAccount && hasConnectedAccount && accs.length > 0 && (
         <div className="space-y-6">
           {hasConnectedAccount ? (
             <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} planUsage={planUsage.data} />
@@ -4925,8 +5038,8 @@ export default function Accounts() {
             />
             <button
               type="button"
-              onClick={() => create.mutate(pendingConnectionOptions)}
-              disabled={create.isPending || hasPending || atPlanCap}
+              onClick={handleAddAccountClick}
+              disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
               title={
                 atPlanCap
                   ? planCapMsg
@@ -4977,7 +5090,13 @@ export default function Accounts() {
                   stats={statsMap.get(acc.id)}
                   expanded={expandedId === acc.id}
                   setupInitialStep={expandedId === acc.id ? setupInitialStep : 1}
-                  onToggle={() => setExpandedId((id) => (id === acc.id ? null : acc.id))}
+                  onToggle={() => {
+                    setExpandedId((id) => {
+                      if (id === acc.id) return null;
+                      if (!isAccountConnected(acc)) setSetupInitialStep(2);
+                      return acc.id;
+                    });
+                  }}
                 />
               ))}
 
