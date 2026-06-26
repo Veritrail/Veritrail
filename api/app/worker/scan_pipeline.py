@@ -95,20 +95,29 @@ class ScanProgressTracker:
         }
         self.db.commit()
 
+    def _should_publish(self) -> bool:
+        """Publish every collector step (slow phase); batch check steps to limit DB writes."""
+        if self._step_counter <= _COLLECTOR_STEPS:
+            return True
+        return (
+            self._step_counter % self._commit_every == 0
+            or self._step_counter >= self._total - 1
+        )
+
     def step(self, name: str, fn: Callable[[], Any]) -> Any:
         """Execute fn, increment counter, publish progress."""
         result = fn()
         self._step_counter += 1
         if isinstance(result, dict):
             self._stats[name] = result
-        if self._step_counter % self._commit_every == 0 or self._step_counter >= self._total - 1:
+        if self._should_publish():
             self._publish()
         return result
 
     def bump(self, count: int = 1) -> None:
         """Bump counter without executing a function (used during check loop)."""
         self._step_counter += count
-        if self._step_counter % self._commit_every == 0 or self._step_counter >= self._total - 1:
+        if self._should_publish():
             self._publish()
 
     def finalize(self) -> None:

@@ -6,17 +6,35 @@ const DEFAULT_SCAN_DURATION_MS = 600_000;
 
 export type WorkerProgress = { step: number; total: number; phase?: number | null };
 
-/** Must match collector `_step()` count in `api/app/worker/tasks.py` run_scan. */
-export const WORKER_COLLECTOR_STEPS = 26;
+/** Must match `_COLLECTOR_STEPS` in `api/app/worker/scan_pipeline.py`. */
+export const WORKER_COLLECTOR_STEPS = 32;
 export const WORKER_FINALIZE_STEPS = 2;
+
+/** Weight collection (~55%) so the bar moves during the slow collector phase. */
+export function workerProgressRatio(step: number, total: number): number {
+  if (total <= 0 || step <= 0) return 0;
+  const collectors = WORKER_COLLECTOR_STEPS;
+  const finalize = WORKER_FINALIZE_STEPS;
+  const checkTotal = Math.max(0, total - collectors - finalize);
+  const collectionEnd = 0.55;
+  const checksEnd = 0.95;
+
+  if (step <= collectors) {
+    return (step / collectors) * collectionEnd;
+  }
+  if (step <= collectors + checkTotal) {
+    const checkStep = step - collectors;
+    return collectionEnd + (checkStep / Math.max(1, checkTotal)) * (checksEnd - collectionEnd);
+  }
+  const finalizeStep = step - collectors - checkTotal;
+  return checksEnd + (finalizeStep / Math.max(1, finalize)) * (1 - checksEnd);
+}
 
 /** Map fine-grained worker steps onto the 6 marketing phases in the Accounts UI. */
 export function mapWorkerStepToUiPhase(step: number, total: number): number {
   const UI_PHASE_COUNT = 6;
   if (total <= 0 || step <= 0) return 0;
-  // Derive the phase from the same step/total fraction the % bar uses, so the lit
-  // phase always tracks how full the bar is (scales to any worker step count).
-  const ratio = Math.min(1, step / total);
+  const ratio = workerProgressRatio(step, total);
   return Math.min(UI_PHASE_COUNT - 1, Math.floor(ratio * UI_PHASE_COUNT));
 }
 
@@ -88,7 +106,7 @@ export function useScanProgress(
 
   if (workerProgress && workerProgress.total > 0) {
     const step = Math.min(workerProgress.step, workerProgress.total);
-    const ratio = step / workerProgress.total;
+    const ratio = workerProgressRatio(step, workerProgress.total);
     // Cap below 100% until the run finishes — worker step can hit total while still committing.
     const progress = Math.min(99, Math.max(2, ratio * 100));
     const finishing = ratio >= 0.97;

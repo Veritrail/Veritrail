@@ -19,10 +19,27 @@ def test_tracker_bump_advances_and_publishes():
         tracker.bump(1)
 
     assert tracker._step_counter == 8
-    # Publishes every 4 steps → step 8 is written to run.stats and committed.
+    # Collection phase publishes every bump → step 8 is written to run.stats and committed.
     assert run.stats.get("_progress_step") == 8
     assert run.stats.get("_progress_total") == tracker._total
     assert db.commit.called
+
+
+def test_tracker_batches_check_phase_commits():
+    run = MagicMock()
+    run.stats = {}
+    db = MagicMock()
+    tracker = ScanProgressTracker(run, enabled_checks=[1, 2, 3, 4], db=db)
+    tracker._step_counter = 32  # end of collection phase
+
+    for _ in range(3):
+        tracker.bump(1)
+
+    assert tracker._step_counter == 35
+    # Check phase batches every 4 steps → no publish until step 36.
+    assert run.stats.get("_progress_step") is None
+    tracker.bump(1)
+    assert run.stats.get("_progress_step") == 36
 
 
 def test_collect_bumps_tracker_per_collector():
