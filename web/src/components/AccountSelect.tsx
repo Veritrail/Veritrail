@@ -80,6 +80,11 @@ export function accountDisplaySubtitle(account: AccountOption): string {
   return `${provider} · ${detail}`;
 }
 
+/** Account ID line — matches Accounts page list rows. */
+export function accountDisplayId(account: AccountOption): string {
+  return groupAccountId(account.account_id ?? account.label ?? "");
+}
+
 function relativeScan(iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return "just now";
