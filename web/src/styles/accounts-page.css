@@ -3227,7 +3227,14 @@ button.accounts-flow-step:hover {
   justify-content: space-between;
   gap: 1rem 1.35rem;
   border-bottom: 1px solid #f1f5f9;
-  padding: 1.5rem 1.6rem 1.25rem;
+  padding: 1rem 1.6rem 1rem;
+}
+
+@media (min-width: 1180px) {
+  .accounts-split .accounts-detail-pane__header {
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+  }
 }
 
 .accounts-detail-pane__identity {
@@ -3392,7 +3399,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-metric-card__sparkline {
   width: 100%;
-  height: 3.65rem;
+  height: 4.15rem;
   margin-top: auto;
   color: #3478f6;
 }
@@ -3465,7 +3472,7 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card__watermark--cloud {
   right: 1rem;
   bottom: 0.75rem;
-  width: 6rem;
+  width: 7.8rem;
   height: auto;
   opacity: 1;
 }
