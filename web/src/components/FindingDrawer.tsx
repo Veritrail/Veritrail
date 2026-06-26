@@ -60,6 +60,7 @@ import {
   severityPillClassName,
   formatIamServiceDisplayName,
   displayFindingTitle,
+  findingScopeProvider,
 } from "../lib/findingDisplay";
 import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
@@ -272,11 +273,13 @@ function RemediationModePicker({
   active,
   onSelect,
   hideTerraform,
+  hideAutomation,
   showSuggestedPolicy,
 }: {
   active: RemediationMode | null;
   onSelect: (mode: RemediationMode) => void;
   hideTerraform?: boolean;
+  hideAutomation?: boolean;
   showSuggestedPolicy?: boolean;
 }) {
   const modes: RemediationMode[] = [
@@ -284,7 +287,7 @@ function RemediationModePicker({
     ...(showSuggestedPolicy ? (["suggested_policy"] as RemediationMode[]) : []),
     "cli",
     ...(hideTerraform ? [] : (["terraform"] as RemediationMode[])),
-    "automation",
+    ...(hideAutomation ? [] : (["automation"] as RemediationMode[])),
   ];
   return (
     <div className={`${drawerPanel} overflow-hidden`}>
@@ -6531,6 +6534,12 @@ export function FindingDrawer({
     }
   }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
 
+  useEffect(() => {
+    if (finding && findingScopeProvider(finding) !== "aws" && remTab === "automation") {
+      onRemTabChange(defaultFindingRemediationMode(finding.check_id));
+    }
+  }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
+
   const showWhatIf = !!finding && showWhatIfTab(finding.check_id, accountId);
   const whatIfUnavailable = finding ? whatIfUnavailableReason(finding.check_id) : null;
 
@@ -6608,6 +6617,8 @@ export function FindingDrawer({
   const showPolicyGen = ROLE_POLICY_GEN_CHECKS.has(finding.check_id) && !!accountId;
   const showSuggestedPolicy =
     showPolicyGen || (finding.check_id === "s3.bucket.no_https_policy" && !!accountId);
+  const scopeProvider = findingScopeProvider(finding);
+  const hideAutomationRemediation = scopeProvider !== "aws";
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "resources", label: "Resources" },
@@ -6815,6 +6826,7 @@ export function FindingDrawer({
                     active={activeRemediationMode}
                     onSelect={openRemediationDetail}
                     hideTerraform={SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
+                    hideAutomation={hideAutomationRemediation}
                     showSuggestedPolicy={showSuggestedPolicy}
                   />
                   {!remDetailMode && (
@@ -6888,6 +6900,7 @@ export function FindingDrawer({
                     findingId={finding.id}
                     checkId={finding.check_id}
                     accountId={accountId}
+                    accountProvider={scopeProvider}
                     resourceArn={finding.resource_arn}
                     resourceRegion={resourceRegionForFinding(finding)}
                     resourceLabel={resourceDisplayName(finding)}

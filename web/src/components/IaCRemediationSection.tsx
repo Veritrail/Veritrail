@@ -2,6 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import {
+  automatedRemediationUnavailableCopy,
+  type FindingScopeProvider,
+} from "../lib/findingDisplay";
 import { refreshRemediationExecution, useRemediationExecution } from "../hooks/useRemediationExecution";
 import { ExceptionDocIcon } from "./ExceptionDocIcon";
 import {
@@ -995,6 +999,7 @@ export function IaCRemediationSection({
   checkId,
   embedMode,
   accountId,
+  accountProvider = "aws",
   resourceRegion,
   resourceArn,
   resourceLabel,
@@ -1006,6 +1011,7 @@ export function IaCRemediationSection({
   bucketName?: string;
   embedMode: "terraform" | "automation";
   accountId?: string | null;
+  accountProvider?: FindingScopeProvider;
   resourceRegion?: string | null;
   resourceArn?: string | null;
   resourceLabel?: string;
@@ -1079,10 +1085,18 @@ export function IaCRemediationSection({
     );
   }
 
+  if (accountProvider !== "aws") {
+    return (
+      <p className="text-[13px] leading-relaxed text-zinc-600">
+        {automatedRemediationUnavailableCopy(accountProvider)}
+      </p>
+    );
+  }
+
   if (!data.apply_paths?.customer_automation) {
     return (
       <p className="text-[13px] leading-relaxed text-zinc-600">
-        SSM remediation is not available for this check yet. Use Console or CLI above.
+        {automatedRemediationUnavailableCopy("aws")}
       </p>
     );
   }
@@ -1090,7 +1104,7 @@ export function IaCRemediationSection({
   if (!data.ssm_remediation) {
     return (
       <p className="text-[13px] leading-relaxed text-zinc-600">
-        Could not load SSM remediation metadata for this finding.
+        {automatedRemediationUnavailableCopy("aws", "metadata")}
       </p>
     );
   }
