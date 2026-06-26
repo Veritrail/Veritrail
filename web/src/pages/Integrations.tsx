@@ -566,17 +566,6 @@ function IntegrationsContent() {
           } satisfies ExploreCard,
         ]
       : []),
-    ...(!scannerConnected
-      ? [
-          {
-            key: "wiz-explore",
-            brand: "wiz",
-            name: "Wiz",
-            description: "Vulnerability scanner API",
-            href: "/integrations/scanners/wiz",
-          } satisfies ExploreCard,
-        ]
-      : []),
     {
       key: "jira",
       brand: "jira",
@@ -584,24 +573,6 @@ function IntegrationsContent() {
       description: "Sync issues and tickets",
       href: "/integrations/jira",
     },
-    ...(!scannerConnected
-      ? [
-          {
-            key: "tenable-explore",
-            brand: "tenable",
-            name: "Tenable",
-            description: "Vulnerability scanner API",
-            href: "/integrations/scanners/tenable",
-          } satisfies ExploreCard,
-          {
-            key: "qualys-explore",
-            brand: "qualys",
-            name: "Qualys",
-            description: "Vulnerability scanner API",
-            href: "/integrations/scanners/qualys",
-          } satisfies ExploreCard,
-        ]
-      : []),
     {
       key: "azure-devops",
       brand: "azure-devops",
