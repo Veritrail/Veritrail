@@ -7,6 +7,10 @@ from typing import Any
 import httpx
 
 from app.models.gcp_project import GcpProject
+from app.services.gcp_impersonation import (
+    AUTH_SERVICE_ACCOUNT_IMPERSONATION,
+    exchange_impersonation_access_token,
+)
 from app.services.gcp_wif import (
     AUTH_SERVICE_ACCOUNT_KEY,
     AUTH_WORKLOAD_IDENTITY,
@@ -42,6 +46,14 @@ class GcpClient:
             if not project.service_account_json:
                 raise ValueError("GCP service account JSON is required for service_account_key auth")
             return cls(project.service_account_json)
+        if method == AUTH_SERVICE_ACCOUNT_IMPERSONATION:
+            if not project.service_account_email:
+                raise ValueError("GCP scanner service account email is required for impersonation auth")
+            return cls(
+                _access_token_fn=lambda: exchange_impersonation_access_token(
+                    service_account_email=project.service_account_email,
+                ),
+            )
         if method != AUTH_WORKLOAD_IDENTITY:
             raise ValueError(f"Unsupported GCP auth_method: {method}")
         return cls(_access_token_fn=lambda: _wif_token_for_project(project))

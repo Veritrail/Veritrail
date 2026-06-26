@@ -5,6 +5,8 @@ import { api, formatApiError } from "../api";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/integration-setup.css";
 
+type GcpAuthMethod = "service_account_impersonation" | "workload_identity";
+
 type GcpProject = {
   id: string;
   project_id: string;
@@ -20,6 +22,7 @@ type GcpProject = {
   last_error: string | null;
   has_service_account: boolean;
   wif_configured: boolean;
+  impersonation_configured: boolean;
 };
 
 type GcpSetup = {
@@ -39,7 +42,32 @@ type GcpSetup = {
   gcloud_script_path: string;
 };
 
-const STEPS = ["Project", "Deploy trust", "Connect", "Verify"] as const;
+type GcpImpersonationSetup = {
+  auth_method: string;
+  project_id: string;
+  platform_sa_email: string;
+  scanner_sa_email: string;
+  terraform_path: string;
+  gcloud_script_path: string;
+  platform_sa_configured: boolean;
+};
+
+const WIF_STEPS = ["Project", "Deploy trust", "Connect", "Verify"] as const;
+const SA_STEPS = ["Project", "Deploy SA", "Connect", "Verify"] as const;
+
+const AUTH_OPTIONS: { id: GcpAuthMethod; title: string; description: string; recommended?: boolean }[] = [
+  {
+    id: "service_account_impersonation",
+    title: "Service account access",
+    description: "Deploy a scanner SA and grant Veritrail TokenCreator — simpler setup, like AWS role assumption.",
+    recommended: true,
+  },
+  {
+    id: "workload_identity",
+    title: "Workload Identity Federation",
+    description: "OIDC federation with per-connection subject binding — no Veritrail platform SA grant.",
+  },
+];
 
 function CopyField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -68,6 +96,12 @@ function terraformSnippet(setup: GcpSetup) {
   -var="veritrail_issuer_uri=${setup.issuer_uri}" \\
   -var="veritrail_token_audience=${setup.token_audience}" \\
   -var="wif_subject=${setup.wif_subject}"`;
+}
+
+function saTerraformSnippet(setup: GcpImpersonationSetup) {
+  return `terraform apply \\
+  -var="project_id=${setup.project_id}" \\
+  -var="veritrail_platform_sa_email=${setup.platform_sa_email}"`;
 }
 
 function CodeBlock({ value, label }: { value: string; label: string }) {
@@ -105,6 +139,17 @@ export WIF_SUBJECT=${setup.wif_subject}
 ./infra/gcp/wif-setup/setup.sh`;
 }
 
+function saGcloudSnippet(setup: GcpImpersonationSetup) {
+  return `export PROJECT_ID=${setup.project_id}
+export VERITRAIL_PLATFORM_SA_EMAIL=${setup.platform_sa_email}
+./infra/gcp/sa-setup/setup.sh`;
+}
+
+function authMethodLabel(method: string) {
+  if (method === "service_account_impersonation") return "service account access";
+  return method.replaceAll("_", " ");
+}
+
 export default function GcpIntegration() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -112,6 +157,7 @@ export default function GcpIntegration() {
     queryFn: () => api<GcpProject[]>("/v1/integrations/gcp/projects"),
   });
 
+  const [authMethod, setAuthMethod] = useState<GcpAuthMethod>("service_account_impersonation");
   const [step, setStep] = useState(0);
   const [projectId, setProjectId] = useState("");
   const [label, setLabel] = useState("");
@@ -126,6 +172,8 @@ export default function GcpIntegration() {
 
   const projects = data ?? [];
   const connected = projects.some((p) => p.status === "connected");
+  const isWif = authMethod === "workload_identity";
+  const steps = isWif ? WIF_STEPS : SA_STEPS;
 
   const setupQuery = useQuery({
     queryKey: ["gcp-wif-setup", draftProject?.project_id, draftProject?.wif_subject],
@@ -137,10 +185,20 @@ export default function GcpIntegration() {
       if (projectNumber.trim()) params.set("project_number", projectNumber.trim());
       return api<GcpSetup>(`/v1/integrations/gcp/wif/setup?${params}`);
     },
-    enabled: Boolean(draftProject?.project_id && draftProject?.wif_subject && step >= 1),
+    enabled: Boolean(isWif && draftProject?.project_id && draftProject?.wif_subject && step >= 1),
+  });
+
+  const impersonationSetupQuery = useQuery({
+    queryKey: ["gcp-impersonation-setup", draftProject?.project_id],
+    queryFn: () => {
+      const params = new URLSearchParams({ project_id: draftProject!.project_id });
+      return api<GcpImpersonationSetup>(`/v1/integrations/gcp/impersonation/setup?${params}`);
+    },
+    enabled: Boolean(!isWif && draftProject?.project_id && step >= 1),
   });
 
   const setup = setupQuery.data;
+  const impersonationSetup = impersonationSetupQuery.data;
 
   const create = useMutation({
     mutationFn: () =>
@@ -149,13 +207,14 @@ export default function GcpIntegration() {
         body: JSON.stringify({
           project_id: projectId.trim(),
           label: label.trim() || projectId.trim(),
-          auth_method: "workload_identity",
+          auth_method: authMethod,
         }),
       }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["gcp-projects"] });
       setSaveError("");
       setDraftProject(row);
+      setAuthMethod(row.auth_method === "workload_identity" ? "workload_identity" : "service_account_impersonation");
       setPoolId(row.pool_id ?? "veritrail");
       setProviderId(row.provider_id ?? "veritrail-oidc");
       setServiceAccountEmail(row.service_account_email ?? "");
@@ -185,6 +244,23 @@ export default function GcpIntegration() {
     onError: (e) => setSaveError(formatApiError(e)),
   });
 
+  const patchImpersonation = useMutation({
+    mutationFn: () =>
+      api<GcpProject>(`/v1/integrations/gcp/projects/${draftProject!.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          service_account_email: serviceAccountEmail.trim(),
+        }),
+      }),
+    onSuccess: (row) => {
+      qc.invalidateQueries({ queryKey: ["gcp-projects"] });
+      setDraftProject(row);
+      setSaveError("");
+      setStep(3);
+    },
+    onError: (e) => setSaveError(formatApiError(e)),
+  });
+
   const wifReady = useMemo(
     () =>
       Boolean(
@@ -195,6 +271,8 @@ export default function GcpIntegration() {
       ),
     [projectNumber, poolId, providerId, serviceAccountEmail],
   );
+
+  const impersonationReady = useMemo(() => Boolean(serviceAccountEmail.trim()), [serviceAccountEmail]);
 
   async function verifyProject(id: string) {
     setActionState(id);
@@ -231,6 +309,7 @@ export default function GcpIntegration() {
 
   function resetWizard() {
     setStep(0);
+    setAuthMethod("service_account_impersonation");
     setProjectId("");
     setLabel("");
     setDraftProject(null);
@@ -257,7 +336,7 @@ export default function GcpIntegration() {
               {connected && <span className="integration-setup__badge">Connected</span>}
             </div>
             <p className="integration-setup__subtitle">
-              Production connection via Workload Identity Federation — deploy trust in your project, then verify. No JSON keys.
+              Connect via service account access (recommended) or Workload Identity Federation. No customer JSON keys.
             </p>
           </div>
         </div>
@@ -269,7 +348,7 @@ export default function GcpIntegration() {
         <>
           <div className="integration-setup__card">
             <div className="integration-setup__steps">
-              {STEPS.map((name, i) => (
+              {steps.map((name, i) => (
                 <span
                   key={name}
                   className={`integration-setup__step${i === step ? " integration-setup__step--active" : i < step ? " integration-setup__step--done" : ""}`}
@@ -282,8 +361,25 @@ export default function GcpIntegration() {
             {step === 0 && (
               <>
                 <div className="integration-setup__section">
+                  <p className="integration-setup__section-label">Connection method</p>
+                  <div className="integration-setup__auth-choices">
+                    {AUTH_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`integration-setup__auth-choice${authMethod === opt.id ? " integration-setup__auth-choice--active" : ""}`}
+                        onClick={() => setAuthMethod(opt.id)}
+                      >
+                        {opt.recommended && <span className="integration-setup__auth-choice-badge">Recommended</span>}
+                        <div className="integration-setup__auth-choice-title">{opt.title}</div>
+                        <p className="integration-setup__auth-choice-desc">{opt.description}</p>
+                      </button>
+                    ))}
+                  </div>
                   <p className="integration-setup__callout">
-                    Enter the GCP project ID to scan. Veritrail will generate a unique federation subject (like AWS ExternalId).
+                    {isWif
+                      ? "Enter the GCP project ID to scan. Veritrail will generate a unique federation subject (like AWS ExternalId)."
+                      : "Enter the GCP project ID to scan. You will deploy a read-only scanner SA and grant Veritrail TokenCreator."}
                   </p>
                   <div className="integration-setup__grid integration-setup__grid--2">
                     <div>
@@ -321,7 +417,7 @@ export default function GcpIntegration() {
               </>
             )}
 
-            {step === 1 && draftProject && (
+            {step === 1 && draftProject && isWif && (
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
@@ -333,12 +429,12 @@ export default function GcpIntegration() {
                   )}
                   {setup && (
                     <>
-                    <div className="integration-setup__copy-fields">
-                      <CopyField label="WIF subject (bind in IAM)" value={setup.wif_subject} />
-                      <CopyField label="Veritrail issuer URI" value={setup.issuer_uri} />
-                      <CopyField label="Token audience" value={setup.token_audience} />
-                      <CopyField label="Principal member" value={setup.principal_member} />
-                    </div>
+                      <div className="integration-setup__copy-fields">
+                        <CopyField label="WIF subject (bind in IAM)" value={setup.wif_subject} />
+                        <CopyField label="Veritrail issuer URI" value={setup.issuer_uri} />
+                        <CopyField label="Token audience" value={setup.token_audience} />
+                        <CopyField label="Principal member" value={setup.principal_member} />
+                      </div>
                       <div className="integration-setup__tabs">
                         <button
                           type="button"
@@ -355,10 +451,10 @@ export default function GcpIntegration() {
                           gcloud
                         </button>
                       </div>
-                    <CodeBlock
-                      label={deployTab === "terraform" ? "Terraform (infra/gcp/wif-setup)" : "gcloud script"}
-                      value={deployTab === "terraform" ? terraformSnippet(setup) : gcloudSnippet(setup)}
-                    />
+                      <CodeBlock
+                        label={deployTab === "terraform" ? "Terraform (infra/gcp/wif-setup)" : "gcloud script"}
+                        value={deployTab === "terraform" ? terraformSnippet(setup) : gcloudSnippet(setup)}
+                      />
                     </>
                   )}
                   {saveError && <p className="integration-setup__error">{saveError}</p>}
@@ -372,7 +468,61 @@ export default function GcpIntegration() {
               </>
             )}
 
-            {step === 2 && draftProject && (
+            {step === 1 && draftProject && !isWif && (
+              <>
+                <div className="integration-setup__section">
+                  <p className="integration-setup__callout">
+                    Run Terraform or gcloud in your GCP project to create the scanner service account and grant Veritrail <code>roles/iam.serviceAccountTokenCreator</code>.
+                  </p>
+                  {impersonationSetupQuery.isLoading && <p className="integration-setup__loading">Loading setup parameters…</p>}
+                  {impersonationSetupQuery.isError && (
+                    <p className="integration-setup__error">{formatApiError(impersonationSetupQuery.error)}</p>
+                  )}
+                  {impersonationSetup && (
+                    <>
+                      <div className="integration-setup__copy-fields">
+                        <CopyField label="Veritrail platform SA (grant TokenCreator to this)" value={impersonationSetup.platform_sa_email} />
+                        <CopyField label="Expected scanner SA email" value={impersonationSetup.scanner_sa_email} />
+                      </div>
+                      {!impersonationSetup.platform_sa_configured && (
+                        <p className="integration-setup__callout">
+                          Veritrail platform SA is not configured in this environment — verify will fail until your operator sets <code>VERITRAIL_GCP_PLATFORM_SA_JSON</code>.
+                        </p>
+                      )}
+                      <div className="integration-setup__tabs">
+                        <button
+                          type="button"
+                          className={`integration-setup__tab${deployTab === "terraform" ? " integration-setup__tab--active" : ""}`}
+                          onClick={() => setDeployTab("terraform")}
+                        >
+                          Terraform
+                        </button>
+                        <button
+                          type="button"
+                          className={`integration-setup__tab${deployTab === "gcloud" ? " integration-setup__tab--active" : ""}`}
+                          onClick={() => setDeployTab("gcloud")}
+                        >
+                          gcloud
+                        </button>
+                      </div>
+                      <CodeBlock
+                        label={deployTab === "terraform" ? "Terraform (infra/gcp/sa-setup)" : "gcloud script"}
+                        value={deployTab === "terraform" ? saTerraformSnippet(impersonationSetup) : saGcloudSnippet(impersonationSetup)}
+                      />
+                    </>
+                  )}
+                  {saveError && <p className="integration-setup__error">{saveError}</p>}
+                </div>
+                <div className="integration-setup__actions">
+                  <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={() => setStep(0)}>Back</button>
+                  <button type="button" className="integration-setup__btn integration-setup__btn--primary" onClick={() => setStep(2)}>
+                    I&apos;ve deployed the scanner SA →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 2 && draftProject && isWif && (
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
@@ -412,7 +562,39 @@ export default function GcpIntegration() {
               </>
             )}
 
-            {step === 3 && draftProject && (
+            {step === 2 && draftProject && !isWif && (
+              <>
+                <div className="integration-setup__section">
+                  <p className="integration-setup__callout">
+                    Paste the scanner service account email from your Terraform/gcloud output, then continue to verify.
+                  </p>
+                  <div className="integration-setup__field--wide">
+                    <label className="integration-setup__field-label" htmlFor="gcp-sa-email-sa">Scanner service account email</label>
+                    <input
+                      id="gcp-sa-email-sa"
+                      className="integration-setup__input"
+                      value={serviceAccountEmail}
+                      onChange={(e) => setServiceAccountEmail(e.target.value)}
+                      placeholder={impersonationSetup?.scanner_sa_email ?? "veritrail-scanner@project.iam.gserviceaccount.com"}
+                    />
+                  </div>
+                  {saveError && <p className="integration-setup__error">{saveError}</p>}
+                </div>
+                <div className="integration-setup__actions">
+                  <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={() => setStep(1)}>Back</button>
+                  <button
+                    type="button"
+                    className="integration-setup__btn integration-setup__btn--primary"
+                    disabled={!impersonationReady || patchImpersonation.isPending}
+                    onClick={() => patchImpersonation.mutate()}
+                  >
+                    {patchImpersonation.isPending ? "Saving…" : "Save & verify →"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 3 && draftProject && isWif && (
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
@@ -420,6 +602,34 @@ export default function GcpIntegration() {
                   </p>
                   <CopyField label="Project ID" value={draftProject.project_id} />
                   <CopyField label="WIF subject" value={draftProject.wif_subject ?? ""} />
+                  {saveError && <p className="integration-setup__error">{saveError}</p>}
+                </div>
+                <div className="integration-setup__actions">
+                  <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={() => setStep(2)}>Back</button>
+                  <button
+                    type="button"
+                    className="integration-setup__btn integration-setup__btn--primary"
+                    disabled={actionState === draftProject.id}
+                    onClick={async () => {
+                      await verifyProject(draftProject.id);
+                      qc.invalidateQueries({ queryKey: ["gcp-projects"] });
+                      resetWizard();
+                    }}
+                  >
+                    {actionState === draftProject.id ? "Verifying…" : "Verify connection"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 3 && draftProject && !isWif && (
+              <>
+                <div className="integration-setup__section">
+                  <p className="integration-setup__callout">
+                    Veritrail impersonates your scanner service account and tests Cloud Resource Manager + Logging.
+                  </p>
+                  <CopyField label="Project ID" value={draftProject.project_id} />
+                  <CopyField label="Scanner service account" value={draftProject.service_account_email ?? serviceAccountEmail} />
                   {saveError && <p className="integration-setup__error">{saveError}</p>}
                 </div>
                 <div className="integration-setup__actions">
@@ -455,7 +665,7 @@ export default function GcpIntegration() {
                     <div>
                       <strong>{p.label}</strong>
                       <div className="integration-setup__list-meta">
-                        {p.project_id} · {p.auth_method.replaceAll("_", " ")} ·{" "}
+                        {p.project_id} · {authMethodLabel(p.auth_method)} ·{" "}
                         <span className={statusClass(p.status)}>{p.status}</span>
                       </div>
                       {p.last_error && <div className="integration-setup__list-error">{p.last_error}</div>}

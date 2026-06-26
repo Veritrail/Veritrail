@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     MAIL_FROM: str = ""
     # Legacy alias — falls back when MAIL_FROM is empty.
     DIGEST_FROM: str = "hygiene@example.com"
+    SUPPORT_EMAIL: str = "elazar.chodjayev@cloud-castles.com"
     RESEND_API_KEY: str = ""  # unused; kept so old .env files do not break load
 
     # Fernet key for encrypting role_arn + external_id at rest.
@@ -157,6 +158,11 @@ class Settings(BaseSettings):
     GCP_WIF_DEFAULT_PROVIDER_ID: str = "veritrail-oidc"
     GCP_WIF_DEFAULT_SA_NAME: str = "veritrail-scanner"
     ALLOW_GCP_SA_JSON: bool = False  # legacy dev-only service account key upload
+
+    # Veritrail platform SA — impersonates per-customer scanner SAs (service_account_impersonation auth).
+    VERITRAIL_GCP_PLATFORM_SA_EMAIL: str = ""
+    VERITRAIL_GCP_PLATFORM_SA_JSON: str = ""  # inline JSON; operator secret, not per-customer
+    VERITRAIL_GCP_PLATFORM_SA_JSON_PATH: str = ""  # alternative to inline JSON
 
 
     @model_validator(mode="after")

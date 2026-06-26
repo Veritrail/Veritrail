@@ -14,6 +14,7 @@ from app.core.config import get_settings
 GCP_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 AUTH_WORKLOAD_IDENTITY = "workload_identity"
 AUTH_SERVICE_ACCOUNT_KEY = "service_account_key"
+AUTH_SERVICE_ACCOUNT_IMPERSONATION = "service_account_impersonation"
 
 _DEV_SIGNING: tuple[str, str, str] | None = None
 

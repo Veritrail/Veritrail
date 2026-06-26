@@ -1,4 +1,4 @@
-"""GCP project integration routes — Workload Identity Federation (production)."""
+"""GCP project integration routes — Workload Identity Federation and SA impersonation."""
 from __future__ import annotations
 
 import uuid
@@ -16,6 +16,11 @@ from app.core.security import current_principal
 from app.models.gcp_project import GcpProject
 from app.models.org import Org
 from app.services.gcp_client import GcpClient
+from app.services.gcp_impersonation import (
+    AUTH_SERVICE_ACCOUNT_IMPERSONATION,
+    impersonation_setup_manifest,
+    platform_sa_config_error,
+)
 from app.services.gcp_wif import (
     AUTH_SERVICE_ACCOUNT_KEY,
     AUTH_WORKLOAD_IDENTITY,
@@ -45,6 +50,10 @@ class GcpWifConfigIn(BaseModel):
     wif_audience: str | None = None
 
 
+class GcpImpersonationConfigIn(BaseModel):
+    service_account_email: str
+
+
 class GcpProjectOut(BaseModel):
     id: str
     project_id: str
@@ -60,6 +69,7 @@ class GcpProjectOut(BaseModel):
     last_error: str | None = None
     has_service_account: bool = False
     wif_configured: bool = False
+    impersonation_configured: bool = False
 
     class Config:
         from_attributes = True
@@ -105,6 +115,16 @@ class GcpSetupOut(BaseModel):
     gcloud_script_path: str
 
 
+class GcpImpersonationSetupOut(BaseModel):
+    auth_method: str
+    project_id: str
+    platform_sa_email: str
+    scanner_sa_email: str
+    terraform_path: str
+    gcloud_script_path: str
+    platform_sa_configured: bool
+
+
 def _wif_configured(row: GcpProject) -> bool:
     return bool(
         row.project_number
@@ -113,6 +133,10 @@ def _wif_configured(row: GcpProject) -> bool:
         and row.service_account_email
         and row.wif_subject
     )
+
+
+def _impersonation_configured(row: GcpProject) -> bool:
+    return bool((row.service_account_email or "").strip())
 
 
 def _to_out(row: GcpProject) -> GcpProjectOut:
@@ -131,6 +155,7 @@ def _to_out(row: GcpProject) -> GcpProjectOut:
         last_error=row.last_error,
         has_service_account=bool(row.service_account_json),
         wif_configured=_wif_configured(row),
+        impersonation_configured=_impersonation_configured(row),
     )
 
 
@@ -146,6 +171,13 @@ def _apply_wif_fields(row: GcpProject, body: GcpWifConfigIn) -> None:
     row.provider_id = provider
     row.service_account_email = sa_email
     row.wif_audience = (body.wif_audience or "").strip() or build_wif_audience(pnum, pool, provider)
+
+
+def _apply_impersonation_fields(row: GcpProject, body: GcpImpersonationConfigIn) -> None:
+    sa_email = body.service_account_email.strip()
+    if not sa_email:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "service_account_email is required for impersonation auth")
+    row.service_account_email = sa_email
 
 
 @wif_router.get("/.well-known/openid-configuration")
@@ -172,6 +204,17 @@ def get_gcp_wif_setup(
     return GcpSetupOut(**setup_manifest(project_id=pid, wif_subject=subject, project_number=project_number))
 
 
+@router.get("/gcp/impersonation/setup", response_model=GcpImpersonationSetupOut)
+def get_gcp_impersonation_setup(
+    project_id: str,
+    _p=Depends(current_principal),
+):
+    pid = project_id.strip()
+    if not pid:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "project_id is required")
+    return GcpImpersonationSetupOut(**impersonation_setup_manifest(project_id=pid))
+
+
 @router.get("/gcp/projects", response_model=list[GcpProjectOut])
 def list_gcp_projects(p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
@@ -188,7 +231,7 @@ def create_gcp_project(body: GcpProjectIn, _rbac: RequireAdmin, p=Depends(curren
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "project_id is required")
 
     auth_method = (body.auth_method or AUTH_WORKLOAD_IDENTITY).strip()
-    if auth_method not in {AUTH_WORKLOAD_IDENTITY, AUTH_SERVICE_ACCOUNT_KEY}:
+    if auth_method not in {AUTH_WORKLOAD_IDENTITY, AUTH_SERVICE_ACCOUNT_KEY, AUTH_SERVICE_ACCOUNT_IMPERSONATION}:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unsupported auth_method: {auth_method}")
 
     sa_json = (body.service_account_json or "").strip() or None
@@ -196,7 +239,7 @@ def create_gcp_project(body: GcpProjectIn, _rbac: RequireAdmin, p=Depends(curren
         if not settings.ALLOW_GCP_SA_JSON:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                "service_account_key auth is disabled; use workload_identity",
+                "service_account_key auth is disabled; use workload_identity or service_account_impersonation",
             )
         if not sa_json:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "service_account_json is required for service_account_key auth")
@@ -227,6 +270,8 @@ def create_gcp_project(body: GcpProjectIn, _rbac: RequireAdmin, p=Depends(curren
             service_account_email=body.service_account_email,
             wif_audience=body.wif_audience,
         ))
+    elif auth_method == AUTH_SERVICE_ACCOUNT_IMPERSONATION and body.service_account_email:
+        _apply_impersonation_fields(row, GcpImpersonationConfigIn(service_account_email=body.service_account_email))
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -256,6 +301,8 @@ def patch_gcp_project(
             service_account_email=body.service_account_email,
             wif_audience=body.wif_audience,
         ))
+    elif body.service_account_email and row.auth_method == AUTH_SERVICE_ACCOUNT_IMPERSONATION:
+        _apply_impersonation_fields(row, GcpImpersonationConfigIn(service_account_email=body.service_account_email))
     if body.service_account_json is not None and body.service_account_json.strip():
         if not settings.ALLOW_GCP_SA_JSON:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "service_account_json upload is disabled")
@@ -296,9 +343,14 @@ def verify_gcp_project(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "GCP project not found")
     if row.auth_method == AUTH_WORKLOAD_IDENTITY and not _wif_configured(row):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Configure WIF pool, provider, and service account before verify")
+    if row.auth_method == AUTH_SERVICE_ACCOUNT_IMPERSONATION and not _impersonation_configured(row):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Configure scanner service account email before verify")
+    platform_err = platform_sa_config_error()
+    if row.auth_method == AUTH_SERVICE_ACCOUNT_IMPERSONATION and platform_err:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, platform_err)
     try:
         result = GcpClient.from_project(row).verify(row.project_id)
-        if row.auth_method == AUTH_WORKLOAD_IDENTITY:
+        if row.auth_method in {AUTH_WORKLOAD_IDENTITY, AUTH_SERVICE_ACCOUNT_IMPERSONATION}:
             GcpClient.from_project(row).list_logging_sinks(row.project_id)
     except ValueError as e:
         row.status = "error"

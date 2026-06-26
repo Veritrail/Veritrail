@@ -2,12 +2,24 @@
 
 Veritrail's GCP and Azure integrations collect baseline posture evidence via REST APIs, run registered checks, and persist findings scoped to cloud projects or subscriptions. Phase two adds normalized APIs and composite-control mapping so AWS, GCP, and Azure evidence surfaces consistently in the UI and audit packs.
 
-## GCP (production — Workload Identity Federation)
+## GCP
+
+### Service account access (recommended)
+
+- **Connect:** Integrations → Google Cloud → **Service account access**: project ID → deploy scanner SA (`infra/gcp/sa-setup` Terraform or `setup.sh`) → paste SA email → verify.
+- **Auth:** `service_account_impersonation`. Veritrail's platform SA impersonates the customer scanner SA via `roles/iam.serviceAccountTokenCreator`. No WIF pool, no JSON keys.
+- **Operator:** `VERITRAIL_GCP_PLATFORM_SA_JSON` (or `VERITRAIL_GCP_PLATFORM_SA_JSON_PATH`), optional `VERITRAIL_GCP_PLATFORM_SA_EMAIL`.
+- **Verify:** `POST /v1/integrations/gcp/projects/{id}/verify` — impersonation token + Cloud Resource Manager + Logging API smoke test.
+
+### Workload Identity Federation
 
 - **Connect:** Integrations → Google Cloud → WIF wizard: project ID → deploy customer trust (`infra/gcp/wif-setup` Terraform or `setup.sh`) → paste pool/provider/SA email → verify.
-- **Auth:** `workload_identity` (default). Veritrail issues short-lived OIDC tokens (`sub` = per-connection `wif_subject`), exchanges via Google STS, impersonates customer scanner SA. No long-lived JSON keys.
+- **Auth:** `workload_identity`. Veritrail issues short-lived OIDC tokens (`sub` = per-connection `wif_subject`), exchanges via Google STS, impersonates customer scanner SA. No long-lived JSON keys.
 - **Operator:** Configure `GCP_WIF_JWT_PRIVATE_KEY` (RSA PEM), optional `GCP_WIF_ISSUER_URI`, `GCP_WIF_VERITRAIL_AUDIENCE`. Public OIDC discovery: `/v1/integrations/gcp/wif/.well-known/openid-configuration` and `/jwks`.
-- **Verify:** `POST /v1/integrations/gcp/projects/{id}/verify` — WIF token exchange + Cloud Resource Manager + Logging API smoke test.
+- **Verify:** same endpoint as above.
+
+### Scans and data
+
 - **Scan:** Celery task `run_gcp_scan` collects logging sinks and compute instances, then runs:
   - `gcp.logging.not_enabled`
   - `gcp.compute.instance_public_ip`
