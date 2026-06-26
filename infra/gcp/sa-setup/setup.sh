@@ -2,7 +2,7 @@
 # Customer one-shot GCP scanner SA setup for Veritrail impersonation auth.
 # Usage:
 #   export PROJECT_ID=my-project
-#   export VERITRAIL_PLATFORM_SA_EMAIL=veritrail-platform@veritrail-prod.iam.gserviceaccount.com
+#   export VERITRAIL_PLATFORM_SA_EMAIL=scanner@veritrail.iam.gserviceaccount.com
 #   ./setup.sh
 
 set -euo pipefail

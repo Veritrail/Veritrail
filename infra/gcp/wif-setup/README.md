@@ -2,6 +2,8 @@
 
 Veritrail connects to your GCP project using **Workload Identity Federation (WIF)**. You deploy trust once in your project; Veritrail exchanges short-lived OIDC tokens for federated access and impersonates a read-only service account. **No long-lived JSON keys.**
 
+The **Integrations → Google Cloud** WIF wizard is the primary customer path: copy-paste **gcloud** commands from the UI. The `setup.sh` and Terraform modules below are optional for automation outside the wizard.
+
 ## Prerequisites
 
 1. Enable APIs: `iam.googleapis.com`, `iamcredentials.googleapis.com`, `cloudresourcemanager.googleapis.com`, `logging.googleapis.com`, `compute.googleapis.com`

@@ -4,6 +4,8 @@ Veritrail connects to your GCP project by **impersonating a read-only scanner se
 
 This is the recommended path — similar to AWS IAM role assumption.
 
+The **Integrations → Google Cloud** wizard is the primary customer path: it shows copy-paste **gcloud** commands (no Terraform in the UI). The `setup.sh` and Terraform modules below are optional for automation outside the wizard.
+
 ## Prerequisites
 
 1. Enable APIs: `iam.googleapis.com`, `iamcredentials.googleapis.com`, `cloudresourcemanager.googleapis.com`, `logging.googleapis.com`, `compute.googleapis.com`

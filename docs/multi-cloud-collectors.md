@@ -6,14 +6,14 @@ Veritrail's GCP and Azure integrations collect baseline posture evidence via RES
 
 ### Service account access (recommended)
 
-- **Connect:** Integrations → Google Cloud → **Service account access**: project ID → deploy scanner SA (`infra/gcp/sa-setup` Terraform or `setup.sh`) → paste SA email → verify.
+- **Connect:** Integrations → Google Cloud → **Service account access**: project ID → copy-paste **gcloud commands** from the wizard → paste scanner SA email → verify. Optional automation: `infra/gcp/sa-setup` (`setup.sh` or Terraform).
 - **Auth:** `service_account_impersonation`. Veritrail's platform SA impersonates the customer scanner SA via `roles/iam.serviceAccountTokenCreator`. No WIF pool, no JSON keys.
 - **Operator:** `VERITRAIL_GCP_PLATFORM_SA_JSON` (or `VERITRAIL_GCP_PLATFORM_SA_JSON_PATH`), optional `VERITRAIL_GCP_PLATFORM_SA_EMAIL`.
 - **Verify:** `POST /v1/integrations/gcp/projects/{id}/verify` — impersonation token + Cloud Resource Manager + Logging API smoke test.
 
 ### Workload Identity Federation
 
-- **Connect:** Integrations → Google Cloud → WIF wizard: project ID → deploy customer trust (`infra/gcp/wif-setup` Terraform or `setup.sh`) → paste pool/provider/SA email → verify.
+- **Connect:** Integrations → Google Cloud → WIF wizard: project ID → copy-paste **gcloud commands** from the wizard → paste pool/provider/SA email → verify. Optional automation: `infra/gcp/wif-setup` (`setup.sh` or Terraform).
 - **Auth:** `workload_identity`. Veritrail issues short-lived OIDC tokens (`sub` = per-connection `wif_subject`), exchanges via Google STS, impersonates customer scanner SA. No long-lived JSON keys.
 - **Operator:** Configure `GCP_WIF_JWT_PRIVATE_KEY` (RSA PEM), optional `GCP_WIF_ISSUER_URI`, `GCP_WIF_VERITRAIL_AUDIENCE`. Public OIDC discovery: `/v1/integrations/gcp/wif/.well-known/openid-configuration` and `/jwks`.
 - **Verify:** same endpoint as above.
