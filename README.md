@@ -140,6 +140,20 @@ Compose file roles:
 
 ---
 
+## Google Cloud (optional)
+
+Baseline posture checks (audit logging, compute public exposure). Connect under **Integrations → Google Cloud**.
+
+**Recommended — service account impersonation:** Run the wizard's copy-paste **gcloud** commands in your project, then paste the scanner SA email back into Veritrail. Veritrail's platform SA impersonates your read-only scanner SA (`roles/iam.serviceAccountTokenCreator` on your side). Optional automation: [`infra/gcp/sa-setup/`](infra/gcp/sa-setup/).
+
+**Alternative — Workload Identity Federation (WIF):** OIDC token exchange when impersonation is not feasible. [`infra/gcp/wif-setup/`](infra/gcp/wif-setup/).
+
+**Operator env (Veritrail host):** `VERITRAIL_GCP_PLATFORM_SA_JSON`, `VERITRAIL_GCP_PLATFORM_SA_JSON_PATH`, and/or `VERITRAIL_GCP_PLATFORM_SA_EMAIL` (e.g. `scanner@veritrail.iam.gserviceaccount.com`).
+
+Details: [docs/multi-cloud-collectors.md](docs/multi-cloud-collectors.md).
+
+---
+
 ## Evidence pack
 
 `GET /v1/exports/evidence-pack?framework=soc2&account_id=<id>&period=90`

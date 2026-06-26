@@ -12,6 +12,8 @@ Veritrail connects to cloud providers, identity directories, code hosts, vulnera
 
 **Unified APIs:** `GET /v1/integrations/cloud-accounts` and `GET /v1/integrations/cloud-coverage` normalize AWS/GCP/Azure account rows and posture summary. **Scan all cloud** on the Integrations page queues scans across connected providers.
 
+**Google Cloud auth:** Service account impersonation is recommended — connect via Integrations → Google Cloud, run the wizard **gcloud** commands, paste your scanner SA email, and verify. WIF is the alternative when impersonation is not feasible. Operator-side platform SA: `VERITRAIL_GCP_PLATFORM_SA_JSON` / `PATH` / `EMAIL`. See [multi-cloud-collectors.md](./multi-cloud-collectors.md).
+
 ## Identity & directory
 
 | Integration | Purpose |
