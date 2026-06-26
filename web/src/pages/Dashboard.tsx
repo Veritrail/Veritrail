@@ -134,7 +134,7 @@ export default function Dashboard() {
   const maxCount = Math.max(...checkBreakdown.map(([, v]) => v.count), 1);
 
   return (
-    <div className="space-y-5 max-w-6xl">
+    <div className="w-full space-y-5">
       <CompliancePageHeader
         kicker="Overview"
         title="Dashboard"

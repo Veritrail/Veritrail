@@ -938,7 +938,7 @@ export default function Findings() {
           </HeaderSlot>
         )}
 
-        <header className="compliance-page-header mb-4 px-1">
+        <header className="compliance-page-header mb-4">
           <h1 className="text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl">Findings</h1>
         </header>
 

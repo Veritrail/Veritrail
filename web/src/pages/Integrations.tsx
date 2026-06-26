@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { CompliancePageHeader } from "../components/CompliancePageHeader";
-import { ProductShell } from "../components/ProductShell";
 import { PostureMetricCell } from "./Workspace";
 
 // d-path icons for the Workspace-style KPI strip.
@@ -645,9 +644,5 @@ function IntegrationsContent() {
 }
 
 export default function Integrations() {
-  return (
-    <ProductShell className="flex flex-1 flex-col">
-      <IntegrationsContent />
-    </ProductShell>
-  );
+  return <IntegrationsContent />;
 }

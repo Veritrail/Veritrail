@@ -12,6 +12,7 @@ import SidebarUserCard from "./components/SidebarUserCard";
 import SidebarNavLink from "./components/SidebarNavLink";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
+import { ProductShell } from "./components/ProductShell";
 import "./styles/sidebar.css";
 import "./styles/user-menu.css";
 
@@ -189,7 +190,9 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className={`veritrail-app-main relative flex min-h-screen min-w-0 flex-col overflow-hidden transition-[margin-left] duration-200 ease-out ${sidebarCollapsed ? "ml-24" : "ml-80"}`}>
+      <main
+        className={`veritrail-app-main relative flex min-h-screen min-w-0 flex-col overflow-hidden transition-[margin-left,width] duration-200 ease-out ${sidebarCollapsed ? "ml-24 w-[calc(100%-6rem)]" : "ml-80 w-[calc(100%-20rem)]"}`}
+      >
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
             {/* App-wide header bar: help + bell on the right, a left slot pages fill via <HeaderSlot>. */}
@@ -203,7 +206,9 @@ export default function Layout() {
                   bottom content (e.g. Integrations "Explore") to the bottom
                   without leaving a scroll. */}
               <div className="flex w-full min-w-0 flex-1 flex-col px-8 pb-8">
-                <Outlet />
+                <ProductShell className="flex-1">
+                  <Outlet />
+                </ProductShell>
               </div>
             </HeaderSlotContext.Provider>
           </div>
