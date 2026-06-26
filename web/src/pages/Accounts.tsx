@@ -6,7 +6,6 @@ import { api, formatApiError } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
-import { HeaderSlot } from "../context/HeaderSlot";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
   ADVANCED_POLICY_RAW_ACTIONS,
@@ -852,6 +851,24 @@ function FindingsSeverityLegend({ stats, hasScanned }: { stats: FindingStats | u
       ))}
     </div>
   );
+}
+
+function scanDayLabel(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function scanSucceeded(evt: { type?: string; controls_failed_before?: number | null; controls_failed_after?: number }) {
+  if (evt.type === "compliance_regressed") return false;
+  if (
+    evt.controls_failed_before != null &&
+    evt.controls_failed_after != null &&
+    evt.controls_failed_after > evt.controls_failed_before
+  ) return false;
+  return true;
 }
 
 function FindingsMixDonut({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
@@ -4596,16 +4613,19 @@ function AccountSplitDetailPane({
   const capabilityRows = isAws
     ? [
         {
+          id: "core" as const,
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
           enabled: connected,
         },
         {
+          id: "iam" as const,
           name: "Policy generation",
           desc: "IAM least-privilege recommendations",
           enabled: acc!.enable_advanced_policy_generation,
         },
         {
+          id: "ssm" as const,
           name: "SSM remediation",
           desc: "Scoped automated fixes with approvals",
           enabled: anyRemediationEnabled(acc!.remediation_modules ?? DEFAULT_REMEDIATION_MODULES),
@@ -4613,6 +4633,7 @@ function AccountSplitDetailPane({
       ]
     : [
         {
+          id: "core" as const,
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
           enabled: connected,
@@ -4723,20 +4744,22 @@ function AccountSplitDetailPane({
           <>
             <div className="accounts-detail-overview__cards">
               <div className="accounts-detail-metric-card">
-                <p className="accounts-detail-metric-card__label">Open findings</p>
+                <div className="accounts-detail-metric-card__top">
+                  <p className="accounts-detail-metric-card__label">Open findings</p>
+                  <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
+                </div>
                 <p className="accounts-detail-metric-card__value">{hasScanned ? stats?.open ?? 0 : "—"}</p>
-                <p className="accounts-detail-metric-card__sub">
-                  {hasScanned ? "Across 3 severities" : "Run a scan first"}
-                </p>
-                {hasScanned ? (
-                  <div className="accounts-detail-metric-card__row">
-                    <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
-                    <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
-                  </div>
-                ) : null}
+                <p className="accounts-detail-metric-card__sub">{hasScanned ? "Across severities" : "Run a scan first"}</p>
               </div>
               <div className="accounts-detail-metric-card">
-                <p className="accounts-detail-metric-card__label">Resources covered</p>
+                <div className="accounts-detail-metric-card__top">
+                  <p className="accounts-detail-metric-card__label">Resources covered</p>
+                  <span className="accounts-detail-metric-card__icon accounts-detail-metric-card__icon--cloud" aria-hidden>
+                    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 18.5h10.8a4.2 4.2 0 0 0 .7-8.35 6.2 6.2 0 0 0-11.9-1.92A5.25 5.25 0 0 0 6.5 18.5Z" />
+                    </svg>
+                  </span>
+                </div>
                 <p className="accounts-detail-metric-card__value">
                   {hasScanned ? resourceStats.resources.toLocaleString() : "—"}
                 </p>
@@ -4747,14 +4770,31 @@ function AccountSplitDetailPane({
                 </p>
               </div>
               <div className="accounts-detail-metric-card">
-                <p className="accounts-detail-metric-card__label">Compliance posture</p>
+                <div className="accounts-detail-metric-card__top">
+                  <p className="accounts-detail-metric-card__label">Compliance posture</p>
+                  <span className="accounts-detail-metric-card__sparkline" aria-hidden>
+                    <svg viewBox="0 0 72 28" preserveAspectRatio="none">
+                      <polyline points="2,22 15,17 28,19 41,10 55,13 70,6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      {[["15", "17"], ["28", "19"], ["41", "10"], ["55", "13"], ["70", "6"]].map(([cx, cy]) => (
+                        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.6" fill="currentColor" />
+                      ))}
+                    </svg>
+                  </span>
+                </div>
                 <p className="accounts-detail-metric-card__value">
                   {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
                 </p>
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
               </div>
               <div className="accounts-detail-metric-card">
-                <p className="accounts-detail-metric-card__label">Coverage</p>
+                <div className="accounts-detail-metric-card__top">
+                  <p className="accounts-detail-metric-card__label">Coverage</p>
+                  <span className="accounts-detail-metric-card__icon accounts-detail-metric-card__icon--coverage" aria-hidden>
+                    <svg fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75 9.75 18 19.5 6" />
+                    </svg>
+                  </span>
+                </div>
                 <p className="accounts-detail-metric-card__value">
                   {coveragePct != null ? `${coveragePct}%` : hasScanned ? "—" : "—"}
                 </p>
@@ -4775,7 +4815,12 @@ function AccountSplitDetailPane({
                 <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
                 {capabilityRows.map((cap) => (
                   <div className="accounts-detail-capability-row" key={cap.name}>
-                    <div>
+                    <span className={`accounts-detail-capability-row__icon accounts-detail-capability-row__icon--${ONBOARDING_CAPS.find((c) => c.id === cap.id)?.tone ?? "teal"}`} aria-hidden>
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={ONBOARDING_CAPS.find((c) => c.id === cap.id)?.icon ?? ONBOARDING_CAPS[0].icon} />
+                      </svg>
+                    </span>
+                    <div className="min-w-0">
                       <p className="accounts-detail-capability-row__name">{cap.name}</p>
                       <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
                     </div>
@@ -4795,8 +4840,8 @@ function AccountSplitDetailPane({
                   onClick={handleScan}
                   disabled={scanBusy}
                 >
-                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path d="M8 5v14l11-7z" />
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7 7 0 1 0 6.76 6.76a7 7 0 0 0 9.89 9.89ZM13 10h-3v3" />
                   </svg>
                   {scanBusy ? "Scanning…" : "Scan now"}
                 </button>
@@ -4805,6 +4850,11 @@ function AccountSplitDetailPane({
                   className="accounts-detail-quick-actions__secondary"
                   onClick={() => navigate(`/findings?account=${accountId}`)}
                 >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75 19.5 7.5v5.25c0 4.25-3 7.1-7.5 8.25-4.5-1.15-7.5-4-7.5-8.25V7.5L12 3.75Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.5v4.25" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16h.01" />
+                  </svg>
                   View findings
                 </button>
                 {isAws ? (
@@ -4814,6 +4864,9 @@ function AccountSplitDetailPane({
                       className="accounts-detail-quick-actions__secondary"
                       onClick={() => setShowConnectorUpdate(true)}
                     >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
+                      </svg>
                       Manage connection
                     </button>
                     <button
@@ -4824,6 +4877,9 @@ function AccountSplitDetailPane({
                         setShowManageCapabilities(true);
                       }}
                     >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12M6 12h12" />
+                      </svg>
                       Edit account
                     </button>
                   </>
@@ -4833,6 +4889,9 @@ function AccountSplitDetailPane({
                     className="accounts-detail-quick-actions__secondary"
                     onClick={() => navigate(cloudIntegrationPath(cloud!.provider))}
                   >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
+                    </svg>
                     Manage connection
                   </button>
                 )}
@@ -4844,28 +4903,41 @@ function AccountSplitDetailPane({
                 <div className="accounts-detail-recent-scans__head">
                   <h3 className="accounts-detail-recent-scans__title">Recent scans</h3>
                 </div>
-                {recentScans.map((evt) => (
-                  <div className="accounts-detail-scan-row" key={evt.scan_run_id + evt.timestamp}>
-                    <div>
-                      <p className="accounts-detail-scan-row__when">{formatDetailDateTime(evt.timestamp)}</p>
-                      <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(evt.timestamp)}</p>
-                    </div>
-                    <div className="accounts-detail-scan-row__findings">
-                      <span>{resourceStats.resources.toLocaleString()} resources</span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden />
-                        {evt.snapshot.open_findings_count ?? evt.findings_discovered ?? "—"}
+                {recentScans.map((evt) => {
+                  const ok = scanSucceeded(evt);
+                  return (
+                    <div className="accounts-detail-scan-row" key={evt.scan_run_id + evt.timestamp}>
+                      <span className={`accounts-detail-scan-row__mark ${ok ? "is-success" : "is-failed"}`} aria-hidden>
+                        {ok ? (
+                          <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                          </svg>
+                        ) : (
+                          <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
+                          </svg>
+                        )}
                       </span>
+                      <div>
+                        <p className="accounts-detail-scan-row__when">{scanDayLabel(evt.timestamp)}</p>
+                        <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(evt.timestamp)}</p>
+                      </div>
+                      <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
+                      <div className="accounts-detail-scan-row__findings">
+                        <span><i className="is-high" />{stats?.critHigh ?? 0}</span>
+                        <span><i className="is-medium" />{stats?.medium ?? 0}</span>
+                        <span><i className="is-low" />{stats?.low ?? 0}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="accounts-detail-scan-row__view"
+                        onClick={() => navigate(`/history?account_id=${accountId}`)}
+                      >
+                        View
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      className="accounts-detail-scan-row__view"
-                      onClick={() => navigate(`/history?account_id=${accountId}`)}
-                    >
-                      View
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
                 <div className="accounts-detail-recent-scans__footer">
                   <button type="button" onClick={() => navigate(`/history?account_id=${accountId}`)}>
                     View all scans →
@@ -4878,14 +4950,22 @@ function AccountSplitDetailPane({
                   <h3 className="accounts-detail-recent-scans__title">Recent scans</h3>
                 </div>
                 <div className="accounts-detail-scan-row">
+                  <span className="accounts-detail-scan-row__mark is-success" aria-hidden>
+                    <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                    </svg>
+                  </span>
                   <div>
                     <p className="accounts-detail-scan-row__when">
-                      {lastScanAt ? formatDetailDateTime(lastScanAt) : "—"}
+                      {lastScanAt ? scanDayLabel(lastScanAt) : "—"}
                     </p>
                     <p className="accounts-detail-scan-row__ago">{scanAgo}</p>
                   </div>
+                  <p className="accounts-detail-scan-row__resources">{resourceStats.resources.toLocaleString()} resources scanned</p>
                   <div className="accounts-detail-scan-row__findings">
-                    <span>{resourceStats.resources.toLocaleString()} resources</span>
+                    <span><i className="is-high" />{stats?.critHigh ?? 0}</span>
+                    <span><i className="is-medium" />{stats?.medium ?? 0}</span>
+                    <span><i className="is-low" />{stats?.low ?? 0}</span>
                   </div>
                   <button
                     type="button"
@@ -6137,27 +6217,6 @@ export default function Accounts() {
 
   return (
     <div className="accounts-page w-full space-y-6">
-      <HeaderSlot>
-        <button
-          type="button"
-          onClick={handleAddAccountClick}
-          disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
-          title={
-            atPlanCap
-              ? planCapMsg
-              : hasPending
-                ? "Finish setting up the pending account first"
-                : undefined
-          }
-          className="accounts-header__add ml-auto"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          {create.isPending ? "Adding…" : "Add account"}
-        </button>
-      </HeaderSlot>
-
       {accounts.isLoading && cloudAccounts.isLoading && accs.length === 0 && integrationAccounts.length === 0 && (
         <p className="text-sm text-zinc-500">Loading accounts…</p>
       )}
@@ -6211,15 +6270,6 @@ export default function Accounts() {
 
       {!showPendingOnboarding && !addingAwsAccount && hasAnyAccounts && (
         <div className="space-y-5">
-          <div className="accounts-page__header">
-            <div className="accounts-page__header-copy">
-              <h1 className="accounts-page__title">Accounts</h1>
-              <p className="accounts-page__subtitle">
-                Monitor the security posture of your cloud accounts
-              </p>
-            </div>
-          </div>
-
           <div className="accounts-toolbar">
             <label className="accounts-toolbar__search">
               <span className="sr-only">Search accounts</span>
@@ -6238,13 +6288,13 @@ export default function Accounts() {
             </label>
             <button
               type="button"
-              className={`accounts-toolbar__icon-btn${showFilters ? " is-active" : ""}`}
+              className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
               aria-label="Filter accounts"
               aria-expanded={showFilters}
               onClick={() => setShowFilters((v) => !v)}
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m0 0a1.5 1.5 0 0 1 3 0m-3 0a1.5 1.5 0 0 0 3 0m0 0v12m0 0h9.75m-9.75 0a1.5 1.5 0 0 0 3 0m-3 0a1.5 1.5 0 0 1 3 0" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
               </svg>
             </button>
             <span className="accounts-toolbar__count">
@@ -6265,6 +6315,24 @@ export default function Accounts() {
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
               </svg>
+            </button>
+            <button
+              type="button"
+              onClick={handleAddAccountClick}
+              disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
+              title={
+                atPlanCap
+                  ? planCapMsg
+                  : hasPending
+                    ? "Finish setting up the pending account first"
+                    : undefined
+              }
+              className="accounts-toolbar__add"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {create.isPending ? "Adding…" : "Add account"}
             </button>
           </div>
 
