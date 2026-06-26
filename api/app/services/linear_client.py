@@ -31,6 +31,15 @@ query Issues($first: Int!) {
 }
 """
 
+_ISSUE_CREATE_MUTATION = """
+mutation IssueCreate($input: IssueCreateInput!) {
+  issueCreate(input: $input) {
+    success
+    issue { id identifier url }
+  }
+}
+"""
+
 
 def _auth_header(api_key: str) -> str:
     """Linear personal API keys go in the Authorization header verbatim.
@@ -104,3 +113,31 @@ class LinearClient:
             }
             for n in nodes
         ]
+
+    def create_issue(self, *, team_id: str, title: str, description: str) -> dict[str, str]:
+        """Create a Linear issue for remediation tracking."""
+        with self._client() as client:
+            payload = self._post(
+                client,
+                _ISSUE_CREATE_MUTATION,
+                {
+                    "input": {
+                        "teamId": team_id,
+                        "title": title[:255],
+                        "description": description,
+                    }
+                },
+            )
+        result = payload.get("issueCreate") or {}
+        if not result.get("success"):
+            raise ValueError("Linear issueCreate failed")
+        issue = result.get("issue") or {}
+        identifier = issue.get("identifier") or issue.get("id") or ""
+        url = issue.get("url") or ""
+        if not identifier:
+            raise ValueError("Linear issueCreate returned no identifier")
+        return {
+            "issue_key": identifier,
+            "issue_url": url,
+            "issue_id": issue.get("id") or "",
+        }

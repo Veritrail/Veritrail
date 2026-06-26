@@ -42,6 +42,29 @@ type AccountRow = {
   last_scan_at: string | null;
 };
 
+type GcpProjectRow = {
+  id: string;
+  status: string;
+  project_id: string;
+  label: string;
+  last_scan_at: string | null;
+};
+
+type AzureSubscriptionRow = {
+  id: string;
+  status: string;
+  subscription_id: string;
+  label: string;
+  last_scan_at: string | null;
+};
+
+type ScannerIntegrationRow = {
+  connected: boolean;
+  status: string;
+  vendor: string;
+  config: { last_synced_at?: string | null; open_findings_count?: number };
+};
+
 type SettingsSlice = {
   notifications: {
     slack_webhook_url: string | null;
@@ -280,6 +303,11 @@ function IntegrationsContent() {
   });
   const entra = useQuery({ queryKey: ["entra-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/entra") });
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => api<AccountRow[]>("/v1/accounts") });
+  const gcpProjects = useQuery({ queryKey: ["gcp-projects"], queryFn: () => api<GcpProjectRow[]>("/v1/integrations/gcp/projects") });
+  const azureSubs = useQuery({ queryKey: ["azure-subscriptions"], queryFn: () => api<AzureSubscriptionRow[]>("/v1/integrations/azure/subscriptions") });
+  const wizScanner = useQuery({ queryKey: ["scanner-wiz"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/wiz") });
+  const tenableScanner = useQuery({ queryKey: ["scanner-tenable"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/tenable") });
+  const qualysScanner = useQuery({ queryKey: ["scanner-qualys"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/qualys") });
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<SettingsSlice>("/v1/settings") });
 
   const awsAccount = accounts.data?.find((a) => a.status === "connected") ?? accounts.data?.[0];
@@ -300,13 +328,20 @@ function IntegrationsContent() {
 
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
 
+  const gcpConnected = (gcpProjects.data ?? []).some((p) => p.status === "connected");
+  const gcpProject = (gcpProjects.data ?? []).find((p) => p.status === "connected") ?? gcpProjects.data?.[0];
+  const azureConnected = (azureSubs.data ?? []).some((s) => s.status === "connected");
+  const azureSub = (azureSubs.data ?? []).find((s) => s.status === "connected") ?? azureSubs.data?.[0];
+  const scannerConnected = [wizScanner.data, tenableScanner.data, qualysScanner.data].some((s) => s?.connected);
+  const activeScanner = [wizScanner.data, tenableScanner.data, qualysScanner.data].find((s) => s?.connected);
+
   const awsConnected = awsAccount?.status === "connected";
   const githubConnected = !!github.data;
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
 
-  const connectedCount = [awsConnected, githubConnected, gitlabConnected, googleConnected, entraConnected, slackConnected].filter(
+  const connectedCount = [awsConnected, githubConnected, gitlabConnected, googleConnected, entraConnected, slackConnected, gcpConnected, azureConnected, scannerConnected].filter(
     Boolean,
   ).length;
   const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(
@@ -446,6 +481,63 @@ function IntegrationsContent() {
           } satisfies IntegrationRow,
         ]
       : []),
+    ...(gcpConnected
+      ? [
+          {
+            key: "gcp",
+            name: "Google Cloud",
+            description: "Audit logging and compute public IP posture checks",
+            icon: <IntegrationBrandIcon brand="gcp" size={48} />,
+            href: "/integrations/gcp",
+            connected: true,
+            loading: gcpProjects.isLoading,
+            lastSyncAt: gcpProject?.last_scan_at ?? null,
+            healthLabel: gcpProject?.last_scan_at ? "Healthy" : "Awaiting scan",
+            healthTone: (gcpProject?.last_scan_at ? "ok" : "idle") as Tone,
+            permissionsLabel: "Service account verified",
+            permissionsVerified: true,
+            capabilities: ["Logging", "Compute", "Findings"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(azureConnected
+      ? [
+          {
+            key: "azure",
+            name: "Microsoft Azure",
+            description: "Defender for Cloud and storage public access checks",
+            icon: <IntegrationBrandIcon brand="azure" size={48} />,
+            href: "/integrations/azure",
+            connected: true,
+            loading: azureSubs.isLoading,
+            lastSyncAt: azureSub?.last_scan_at ?? null,
+            healthLabel: azureSub?.last_scan_at ? "Healthy" : "Awaiting scan",
+            healthTone: (azureSub?.last_scan_at ? "ok" : "idle") as Tone,
+            permissionsLabel: "Client credentials verified",
+            permissionsVerified: true,
+            capabilities: ["Defender", "Storage", "Findings"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(scannerConnected && activeScanner
+      ? [
+          {
+            key: `scanner-${activeScanner.vendor}`,
+            name: `${activeScanner.vendor.charAt(0).toUpperCase()}${activeScanner.vendor.slice(1)} scanner`,
+            description: "External vulnerability scanner summary sync",
+            icon: <IntegrationBrandIcon brand={activeScanner.vendor as IntegrationBrandId} size={48} />,
+            href: `/integrations/scanners/${activeScanner.vendor}`,
+            connected: true,
+            loading: false,
+            lastSyncAt: activeScanner.config.last_synced_at ?? null,
+            healthLabel: "Healthy",
+            healthTone: "ok" as Tone,
+            permissionsLabel: "API connected",
+            permissionsVerified: true,
+            capabilities: ["Vuln summary", "Sync"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
   ];
 
   const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
@@ -462,13 +554,64 @@ function IntegrationsContent() {
           } satisfies ExploreCard,
         ]
       : []),
+    ...(!gcpConnected
+      ? [
+          {
+            key: "gcp-explore",
+            brand: "gcp",
+            name: "Google Cloud",
+            description: "Multi-cloud posture checks",
+            href: "/integrations/gcp",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!azureConnected
+      ? [
+          {
+            key: "azure-explore",
+            brand: "azure",
+            name: "Microsoft Azure",
+            description: "Defender and storage checks",
+            href: "/integrations/azure",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!scannerConnected
+      ? [
+          {
+            key: "wiz-explore",
+            brand: "wiz",
+            name: "Wiz",
+            description: "Vulnerability scanner API",
+            href: "/integrations/scanners/wiz",
+          } satisfies ExploreCard,
+        ]
+      : []),
     {
       key: "jira",
       brand: "jira",
       name: "Jira",
       description: "Sync issues and tickets",
-      comingSoon: true,
+      href: "/integrations/jira",
     },
+    ...(!scannerConnected
+      ? [
+          {
+            key: "tenable-explore",
+            brand: "tenable",
+            name: "Tenable",
+            description: "Vulnerability scanner API",
+            href: "/integrations/scanners/tenable",
+          } satisfies ExploreCard,
+          {
+            key: "qualys-explore",
+            brand: "qualys",
+            name: "Qualys",
+            description: "Vulnerability scanner API",
+            href: "/integrations/scanners/qualys",
+          } satisfies ExploreCard,
+        ]
+      : []),
     {
       key: "azure-devops",
       brand: "azure-devops",

@@ -23,7 +23,7 @@ router = APIRouter()
 
 class FindingOut(BaseModel):
     id: str
-    account_id: str
+    account_id: str | None = None
     aws_account_id: str | None = None
     account_label: str | None = None
     account_name: str | None = None
@@ -40,6 +40,8 @@ class FindingOut(BaseModel):
     exception_reason: str | None = None
     exception_approved_by: str | None = None
     exception_expires_at: datetime | None = None
+    remediation_ticket_key: str | None = None
+    remediation_ticket_url: str | None = None
 
     class Config:
         from_attributes = True
@@ -145,13 +147,38 @@ class ExceptionIn(BaseModel):
     expires_at: datetime | None = None
 
 
+def _cloud_provider(check_id: str) -> str | None:
+    if check_id.startswith("gcp."):
+        return "gcp"
+    if check_id.startswith("azure."):
+        return "azure"
+    return None
+
+
+def _cloud_scope_name(f: Finding) -> str:
+    evidence = f.evidence if isinstance(f.evidence, dict) else {}
+    for key in ("project_id", "subscription_id"):
+        raw = evidence.get(key)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    return "Cloud resource"
+
+
 def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> FindingOut:
     vcs = _vcs_provider(f.check_id)
+    cloud = _cloud_provider(f.check_id)
+    ticket_key = f.remediation_ticket_key
+    ticket_url = f.remediation_ticket_url
+    if not ticket_key:
+        jira = (f.evidence or {}).get("jira") if isinstance(f.evidence, dict) else None
+        if isinstance(jira, dict) and jira.get("issue_key"):
+            ticket_key = jira.get("issue_key")
+            ticket_url = jira.get("issue_url")
     if vcs:
         scope = _vcs_scope_name(f)
         return FindingOut(
             id=str(f.id),
-            account_id=str(f.account_id),
+            account_id=str(f.account_id) if f.account_id else None,
             aws_account_id=None,
             account_label=scope,
             account_name=scope,
@@ -168,11 +195,37 @@ def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> 
             exception_reason=f.exception_reason,
             exception_approved_by=f.exception_approved_by,
             exception_expires_at=f.exception_expires_at,
+            remediation_ticket_key=ticket_key,
+            remediation_ticket_url=ticket_url,
         )
-    acc = (accounts or {}).get(f.account_id)
+    if cloud:
+        scope = _cloud_scope_name(f)
+        return FindingOut(
+            id=str(f.id),
+            account_id=str(f.account_id) if f.account_id else None,
+            aws_account_id=None,
+            account_label=scope,
+            account_name=scope,
+            account_provider=cloud,
+            check_id=f.check_id,
+            resource_arn=f.resource_arn,
+            title=f.title,
+            severity=f.severity,
+            risk_score=f.risk_score,
+            status=f.status,
+            evidence=f.evidence,
+            first_seen=f.first_seen,
+            last_seen=f.last_seen,
+            exception_reason=f.exception_reason,
+            exception_approved_by=f.exception_approved_by,
+            exception_expires_at=f.exception_expires_at,
+            remediation_ticket_key=ticket_key,
+            remediation_ticket_url=ticket_url,
+        )
+    acc = (accounts or {}).get(f.account_id) if f.account_id else None
     return FindingOut(
         id=str(f.id),
-        account_id=str(f.account_id),
+        account_id=str(f.account_id) if f.account_id else None,
         aws_account_id=acc.account_id if acc else None,
         account_label=acc.label if acc else None,
         account_name=_account_display_name(acc) if acc else None,
@@ -189,6 +242,8 @@ def _to_out(f: Finding, accounts: dict[uuid.UUID, AwsAccount] | None = None) -> 
         exception_reason=f.exception_reason,
         exception_approved_by=f.exception_approved_by,
         exception_expires_at=f.exception_expires_at,
+        remediation_ticket_key=ticket_key,
+        remediation_ticket_url=ticket_url,
     )
 
 

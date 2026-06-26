@@ -469,6 +469,8 @@ type Finding = {
   account_label?: string | null;
   account_name?: string | null;
   account_provider?: string | null;
+  remediation_ticket_key?: string | null;
+  remediation_ticket_url?: string | null;
 };
 
 const sevHeaderBadge: Record<string, string> = {
@@ -6420,13 +6422,20 @@ export function FindingDrawer({
       setJiraIssue(null);
       return;
     }
+    if (finding.remediation_ticket_key && finding.remediation_ticket_url) {
+      setJiraIssue({
+        issue_key: finding.remediation_ticket_key,
+        issue_url: finding.remediation_ticket_url,
+      });
+      return;
+    }
     const stored = (finding.evidence as { jira?: { issue_key?: string; issue_url?: string } } | undefined)?.jira;
     if (stored?.issue_key && stored.issue_url) {
       setJiraIssue({ issue_key: stored.issue_key, issue_url: stored.issue_url });
     } else {
       setJiraIssue(null);
     }
-  }, [finding?.id, finding?.evidence]);
+  }, [finding?.id, finding?.evidence, finding?.remediation_ticket_key, finding?.remediation_ticket_url]);
 
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
@@ -6722,6 +6731,14 @@ export function FindingDrawer({
               Dismiss
             </button>
           )}
+        </div>
+      )}
+      {jiraIssue && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-[12px] text-sky-950">
+          <span className="font-semibold">Remediation ticket: </span>
+          <a href={jiraIssue.issue_url} target="_blank" rel="noreferrer" className="font-medium text-sky-800 underline">
+            {jiraIssue.issue_key}
+          </a>
         </div>
       )}
       {tab === "resources" && (

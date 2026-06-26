@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, DateTime, Integer, JSON, func, UniqueConstraint
+from sqlalchemy import ForeignKey, String, DateTime, Integer, JSON, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,11 +10,17 @@ from app.core.db import Base
 
 class Finding(Base):
     __tablename__ = "findings"
-    __table_args__ = (UniqueConstraint("account_id", "check_id", "resource_arn"),)
+    __table_args__ = ()  # uniqueness enforced via partial indexes (0073 migration)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orgs.id", ondelete="CASCADE"), index=True)
-    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("aws_accounts.id", ondelete="CASCADE"), index=True)
+    gcp_project_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("gcp_projects.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    azure_subscription_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("azure_subscriptions.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     check_id: Mapped[str] = mapped_column(String(120), index=True)
     resource_arn: Mapped[str] = mapped_column(String(400), index=True)
     title: Mapped[str] = mapped_column(String(300))
@@ -29,6 +35,8 @@ class Finding(Base):
     exception_reason: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     exception_approved_by: Mapped[str | None] = mapped_column(String(320), nullable=True)
     exception_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    remediation_ticket_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    remediation_ticket_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class FindingEvent(Base):

@@ -21,6 +21,9 @@ import GoogleWorkspaceIntegration from "./pages/GoogleWorkspaceIntegration";
 import EntraIntegration from "./pages/EntraIntegration";
 import SlackIntegration from "./pages/SlackIntegration";
 import JiraIntegration from "./pages/JiraIntegration";
+import GcpIntegration from "./pages/GcpIntegration";
+import AzureIntegration from "./pages/AzureIntegration";
+import VulnScannerIntegration from "./pages/VulnScannerIntegration";
 import Integrations from "./pages/Integrations";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
@@ -91,6 +94,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/entra" element={<EntraIntegration />} />
             <Route path="/integrations/slack" element={<SlackIntegration />} />
             <Route path="/integrations/jira" element={<JiraIntegration />} />
+            <Route path="/integrations/gcp" element={<GcpIntegration />} />
+            <Route path="/integrations/azure" element={<AzureIntegration />} />
+            <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
           </Route>
           <Route path="/auditor/verify/:token" element={<AuditorLogin />} />
           <Route path="/auditor/login" element={<AuditorLogin />} />

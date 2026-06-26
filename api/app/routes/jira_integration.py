@@ -189,6 +189,10 @@ def create_issue_from_finding(
     cfg = provider_config(provider)
     existing = (finding.evidence or {}).get("jira")
     if isinstance(existing, dict) and existing.get("issue_key"):
+        if not finding.remediation_ticket_key:
+            finding.remediation_ticket_key = existing["issue_key"]
+            finding.remediation_ticket_url = existing.get("issue_url")
+            db.commit()
         return JiraIssueOut(issue_key=existing["issue_key"], issue_url=existing["issue_url"])
 
     app_url = _findings_app_url().rstrip("/")
@@ -222,6 +226,8 @@ def create_issue_from_finding(
     evidence = dict(finding.evidence or {})
     evidence["jira"] = created
     finding.evidence = evidence
+    finding.remediation_ticket_key = created["issue_key"]
+    finding.remediation_ticket_url = created["issue_url"]
     flag_modified(finding, "evidence")
     db.add(
         FindingEvent(

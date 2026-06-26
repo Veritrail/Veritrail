@@ -278,7 +278,12 @@ class ScanPipeline:
         """Run the full pipeline."""
         org_obj = self.db.get(Org, self.account.org_id)
         org_settings = org_obj.settings if org_obj else {}
-        enabled_checks = [mod for mod in ALL_CHECKS if is_check_enabled(org_settings, mod.CHECK_ID)]
+        enabled_checks = [
+            mod
+            for mod in ALL_CHECKS
+            if is_check_enabled(org_settings, mod.CHECK_ID)
+            and not mod.CHECK_ID.startswith(("gcp.", "azure."))
+        ]
 
         tracker = ScanProgressTracker(self.run, enabled_checks, self.db)
         tracker.set_enabled_checks(enabled_checks)

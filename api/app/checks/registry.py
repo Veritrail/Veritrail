@@ -132,6 +132,10 @@ from app.checks import (
     sns_no_encryption,
     sqs_no_encryption,
     lambda_public_function_url,
+    gcp_logging_not_enabled,
+    gcp_compute_instance_public_ip,
+    azure_defender_not_enabled,
+    azure_storage_public_blob_access,
 )
 
 ALL_CHECKS = [
@@ -288,4 +292,9 @@ ALL_CHECKS = [
     inspector_active_critical,
     sns_no_encryption,
     sqs_no_encryption,
+    # GCP / Azure phase-one
+    gcp_logging_not_enabled,
+    gcp_compute_instance_public_ip,
+    azure_defender_not_enabled,
+    azure_storage_public_blob_access,
 ]

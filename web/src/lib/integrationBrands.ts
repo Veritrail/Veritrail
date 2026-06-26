@@ -9,7 +9,12 @@ export type IntegrationBrandId =
   | "slack"
   | "jira"
   | "azure-devops"
-  | "datadog";
+  | "datadog"
+  | "gcp"
+  | "azure"
+  | "wiz"
+  | "tenable"
+  | "qualys";
 
 type BrandAsset = {
   src: string;
@@ -33,4 +38,9 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   jira: { src: "https://jira.atlassian.com/favicon.ico" },
   "azure-devops": { src: "/integrations/azure-devops.png" },
   datadog: { src: "https://www.datadoghq.com/favicon.ico" },
+  gcp: { src: "https://www.gstatic.com/images/branding/product/2x/google_cloud_64dp.png" },
+  azure: { src: "https://azure.microsoft.com/favicon.ico" },
+  wiz: { src: "https://www.wiz.io/favicon.ico" },
+  tenable: { src: "https://www.tenable.com/favicon.ico" },
+  qualys: { src: "https://www.qualys.com/favicon.ico" },
 };

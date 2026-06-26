@@ -909,3 +909,117 @@ def alert_stale_scans() -> dict:
         return {"alerts_sent": sent}
     finally:
         db.close()
+
+
+@celery_app.task(
+    name="app.worker.tasks.run_gcp_scan",
+    soft_time_limit=600,
+    time_limit=900,
+)
+def run_gcp_scan(project_id: str) -> dict:
+    """Run GCP baseline collectors and checks for a connected project."""
+    from datetime import datetime, timezone
+
+    from app.collectors.gcp.compute import collect_compute_instances
+    from app.collectors.gcp.logging_audit import collect_logging_audit
+    from app.checks import gcp_compute_instance_public_ip, gcp_logging_not_enabled
+    from app.models.gcp_project import GcpProject
+    from app.worker.cloud_scan import execute_cloud_scan
+
+    db = SessionLocal()
+    try:
+        row = db.get(GcpProject, uuid.UUID(project_id))
+        if not row:
+            return {"ok": False, "error": "project not found"}
+
+        def _on_success() -> None:
+            row.status = "connected"
+            row.last_scan_at = datetime.now(timezone.utc)
+            row.last_error = None
+
+        def _on_error(err: str) -> None:
+            row.status = "error"
+            row.last_error = err[:1000]
+
+        result = execute_cloud_scan(
+            db,
+            org_id=row.org_id,
+            scope_column="gcp_project_id",
+            scope_id=row.id,
+            collectors=[
+                ("collect_logging_audit", collect_logging_audit),
+                ("collect_compute_instances", collect_compute_instances),
+            ],
+            checks=[
+                ("gcp_logging_not_enabled", gcp_logging_not_enabled.run),
+                ("gcp_compute_instance_public_ip", gcp_compute_instance_public_ip.run),
+            ],
+            target=row,
+            on_success=_on_success,
+            on_error=_on_error,
+        )
+        return {
+            "ok": result.ok,
+            "opened": result.opened,
+            "resolved": result.resolved,
+            "error": result.error,
+        }
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.worker.tasks.run_azure_scan",
+    soft_time_limit=600,
+    time_limit=900,
+)
+def run_azure_scan(subscription_id: str) -> dict:
+    """Run Azure baseline collectors and checks for a connected subscription."""
+    from datetime import datetime, timezone
+
+    from app.collectors.azure.defender import collect_defender
+    from app.collectors.azure.storage import collect_storage_accounts
+    from app.checks import azure_defender_not_enabled, azure_storage_public_blob_access
+    from app.models.azure_subscription import AzureSubscription
+    from app.worker.cloud_scan import execute_cloud_scan
+
+    db = SessionLocal()
+    try:
+        row = db.get(AzureSubscription, uuid.UUID(subscription_id))
+        if not row:
+            return {"ok": False, "error": "subscription not found"}
+
+        def _on_success() -> None:
+            row.status = "connected"
+            row.last_scan_at = datetime.now(timezone.utc)
+            row.last_error = None
+
+        def _on_error(err: str) -> None:
+            row.status = "error"
+            row.last_error = err[:1000]
+
+        result = execute_cloud_scan(
+            db,
+            org_id=row.org_id,
+            scope_column="azure_subscription_id",
+            scope_id=row.id,
+            collectors=[
+                ("collect_defender", collect_defender),
+                ("collect_storage_accounts", collect_storage_accounts),
+            ],
+            checks=[
+                ("azure_defender_not_enabled", azure_defender_not_enabled.run),
+                ("azure_storage_public_blob_access", azure_storage_public_blob_access.run),
+            ],
+            target=row,
+            on_success=_on_success,
+            on_error=_on_error,
+        )
+        return {
+            "ok": result.ok,
+            "opened": result.opened,
+            "resolved": result.resolved,
+            "error": result.error,
+        }
+    finally:
+        db.close()

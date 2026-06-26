@@ -87,5 +87,6 @@ See [README](../README.md#evidence-pack). Key external-evidence files:
 
 ## Related docs
 
+- [multi-cloud-collectors.md](./multi-cloud-collectors.md) — GCP/Azure phase-one collectors and scanner API sync
 - [evidence-vault.md](./evidence-vault.md) — WORM / immutable archive for finalized packs
 - [remediation.md](./remediation.md) — fixing findings in AWS (the other path)
