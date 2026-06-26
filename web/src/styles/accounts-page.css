@@ -3398,6 +3398,7 @@ button.accounts-flow-step:hover {
 }
 
 .metric-help-tip__trigger:hover,
+.metric-help-tip--open .metric-help-tip__trigger,
 .metric-help-tip:focus-within .metric-help-tip__trigger {
   color: #64748b;
   border-color: #b8c4d4;
@@ -3412,13 +3413,7 @@ button.accounts-flow-step:hover {
 
 .metric-help-tip__content {
   pointer-events: none;
-  position: absolute;
-  bottom: calc(100% + 0.45rem);
-  left: 50%;
-  z-index: 30;
-  display: none;
   width: min(16.5rem, 72vw);
-  transform: translateX(-50%);
   border: 1px solid #e2e8f0;
   border-radius: 0.55rem;
   background: #fff;
@@ -3433,9 +3428,10 @@ button.accounts-flow-step:hover {
     0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
-.metric-help-tip:hover .metric-help-tip__content,
-.metric-help-tip:focus-within .metric-help-tip__content {
-  display: block;
+.metric-help-tip__content--portal {
+  position: fixed;
+  z-index: 200;
+  transform: translate(-50%, calc(-100% - 0.45rem));
 }
 
 .accounts-detail-metric-card__value-row {
