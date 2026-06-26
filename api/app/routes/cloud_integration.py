@@ -15,7 +15,9 @@ from app.models import AwsAccount, ScanRun
 from app.models.azure_subscription import AzureSubscription
 from app.models.gcp_project import GcpProject
 from app.models.org import Org
+from app.routes.accounts_scan import ScanRunOut
 from app.services.cloud_normalization import build_cloud_coverage, list_cloud_accounts
+from app.services.cloud_scan_runs import cloud_scan_run_to_out, latest_cloud_scan, latest_running_cloud_scan
 
 router = APIRouter()
 
@@ -59,6 +61,28 @@ class CloudScanAllOut(BaseModel):
 def get_cloud_accounts(p=Depends(current_principal), db: Session = Depends(get_db)):
     org = _get_org(p, db)
     return [CloudAccountOut(**row) for row in list_cloud_accounts(db, org.id)]
+
+
+@router.get("/cloud-accounts/{provider}/{resource_id}/scan-runs/latest", response_model=ScanRunOut | None)
+def latest_cloud_scan_run(
+    provider: str,
+    resource_id: uuid.UUID,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    if provider not in {"gcp", "azure"}:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "cloud account not found")
+    if provider == "gcp":
+        row = db.get(GcpProject, resource_id)
+    else:
+        row = db.get(AzureSubscription, resource_id)
+    if not row or row.org_id != org.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "cloud account not found")
+    run = latest_cloud_scan(db, provider=provider, resource_id=resource_id)
+    if not run:
+        return None
+    return cloud_scan_run_to_out(run)
 
 
 @router.get("/cloud-coverage", response_model=CloudCoverageOut)
@@ -105,8 +129,11 @@ def trigger_cloud_scan_all(
         select(GcpProject).where(GcpProject.org_id == org_id, GcpProject.status == "connected")
     ).all()
     for proj in gcp_projects:
+        existing = latest_running_cloud_scan(db, provider="gcp", resource_id=proj.id)
+        if existing:
+            skipped["gcp"] += 1
+            continue
         run_gcp_scan.delay(str(proj.id))
-        proj.last_scan_at = datetime.now(timezone.utc)
         queued["gcp"] += 1
 
     azure_subs = db.scalars(
@@ -116,8 +143,11 @@ def trigger_cloud_scan_all(
         )
     ).all()
     for sub in azure_subs:
+        existing = latest_running_cloud_scan(db, provider="azure", resource_id=sub.id)
+        if existing:
+            skipped["azure"] += 1
+            continue
         run_azure_scan.delay(str(sub.id))
-        sub.last_scan_at = datetime.now(timezone.utc)
         queued["azure"] += 1
 
     if sum(queued.values()) == 0 and sum(skipped.values()) == 0:

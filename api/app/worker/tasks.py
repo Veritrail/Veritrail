@@ -364,6 +364,8 @@ def reap_stuck_scan_runs(max_age_minutes: int = 30) -> dict:
     Called on worker startup with max_age_minutes=0 (any in-flight scan from a
     prior process is dead) and periodically with the default to catch scans
     that hang silently (network stall, OOM, etc.)."""
+    from app.models.cloud_scan_run import CloudScanRun
+
     db = SessionLocal()
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
@@ -372,15 +374,29 @@ def reap_stuck_scan_runs(max_age_minutes: int = 30) -> dict:
             .where(ScanRun.status == "running")
             .where(ScanRun.started_at < cutoff)
         ).all()
+        cloud_stale = db.scalars(
+            select(CloudScanRun)
+            .where(CloudScanRun.status == "running")
+            .where(CloudScanRun.started_at < cutoff)
+        ).all()
         now = datetime.now(timezone.utc)
         for run in stale:
             run.status = "error"
             run.finished_at = now
             run.error = "scan interrupted (worker restart or timeout)"
-        if stale:
+        for run in cloud_stale:
+            run.status = "error"
+            run.finished_at = now
+            run.error = "scan interrupted (worker restart or timeout)"
+        if stale or cloud_stale:
             db.commit()
-            log.info("reap_stuck_scan_runs", count=len(stale), max_age_minutes=max_age_minutes)
-        return {"reaped": len(stale)}
+            log.info(
+                "reap_stuck_scan_runs",
+                count=len(stale),
+                cloud_count=len(cloud_stale),
+                max_age_minutes=max_age_minutes,
+            )
+        return {"reaped": len(stale), "cloud_reaped": len(cloud_stale)}
     finally:
         db.close()
 
@@ -923,14 +939,26 @@ def run_gcp_scan(project_id: str) -> dict:
     from app.collectors.gcp.compute import collect_compute_instances
     from app.collectors.gcp.logging_audit import collect_logging_audit
     from app.checks import gcp_compute_instance_public_ip, gcp_logging_not_enabled
+    from app.models.cloud_scan_run import CloudScanRun
     from app.models.gcp_project import GcpProject
     from app.worker.cloud_scan import execute_cloud_scan
 
     db = SessionLocal()
+    run: CloudScanRun | None = None
     try:
         row = db.get(GcpProject, uuid.UUID(project_id))
         if not row:
             return {"ok": False, "error": "project not found"}
+
+        run = CloudScanRun(
+            id=uuid.uuid4(),
+            org_id=row.org_id,
+            provider="gcp",
+            resource_id=row.id,
+            status="running",
+        )
+        db.add(run)
+        db.commit()
 
         def _on_success() -> None:
             row.status = "connected"
@@ -955,15 +983,35 @@ def run_gcp_scan(project_id: str) -> dict:
                 ("gcp_compute_instance_public_ip", gcp_compute_instance_public_ip.run),
             ],
             target=row,
+            scan_run=run,
             on_success=_on_success,
             on_error=_on_error,
         )
+        now = datetime.now(timezone.utc)
+        run.finished_at = now
+        if result.ok:
+            run.status = "ok"
+            run.findings_opened = result.opened
+            run.findings_resolved = result.resolved
+            run.error = None
+        else:
+            run.status = "error"
+            run.error = (result.error or "scan failed")[:2000]
+        db.commit()
         return {
             "ok": result.ok,
             "opened": result.opened,
             "resolved": result.resolved,
             "error": result.error,
+            "scan_run_id": str(run.id),
         }
+    except Exception:
+        if run is not None:
+            run.status = "error"
+            run.finished_at = datetime.now(timezone.utc)
+            run.error = "scan interrupted"
+            db.commit()
+        raise
     finally:
         db.close()
 
@@ -981,13 +1029,25 @@ def run_azure_scan(subscription_id: str) -> dict:
     from app.collectors.azure.storage import collect_storage_accounts
     from app.checks import azure_defender_not_enabled, azure_storage_public_blob_access
     from app.models.azure_subscription import AzureSubscription
+    from app.models.cloud_scan_run import CloudScanRun
     from app.worker.cloud_scan import execute_cloud_scan
 
     db = SessionLocal()
+    run: CloudScanRun | None = None
     try:
         row = db.get(AzureSubscription, uuid.UUID(subscription_id))
         if not row:
             return {"ok": False, "error": "subscription not found"}
+
+        run = CloudScanRun(
+            id=uuid.uuid4(),
+            org_id=row.org_id,
+            provider="azure",
+            resource_id=row.id,
+            status="running",
+        )
+        db.add(run)
+        db.commit()
 
         def _on_success() -> None:
             row.status = "connected"
@@ -1012,14 +1072,34 @@ def run_azure_scan(subscription_id: str) -> dict:
                 ("azure_storage_public_blob_access", azure_storage_public_blob_access.run),
             ],
             target=row,
+            scan_run=run,
             on_success=_on_success,
             on_error=_on_error,
         )
+        now = datetime.now(timezone.utc)
+        run.finished_at = now
+        if result.ok:
+            run.status = "ok"
+            run.findings_opened = result.opened
+            run.findings_resolved = result.resolved
+            run.error = None
+        else:
+            run.status = "error"
+            run.error = (result.error or "scan failed")[:2000]
+        db.commit()
         return {
             "ok": result.ok,
             "opened": result.opened,
             "resolved": result.resolved,
             "error": result.error,
+            "scan_run_id": str(run.id),
         }
+    except Exception:
+        if run is not None:
+            run.status = "error"
+            run.finished_at = datetime.now(timezone.utc)
+            run.error = "scan interrupted"
+            db.commit()
+        raise
     finally:
         db.close()

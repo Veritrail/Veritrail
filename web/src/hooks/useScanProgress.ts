@@ -187,7 +187,10 @@ export function useScanProgress(
       finishing,
       progressStep: step,
       progressTotal: workerProgress.total,
-      progressPhase: mapWorkerStepToUiPhase(step, workerProgress.total),
+      progressPhase:
+        workerProgress.phase != null
+          ? workerProgress.phase
+          : mapWorkerStepToUiPhase(step, workerProgress.total),
       progressStepName: workerProgress.stepName ?? null,
       progressCollectorIndex: workerProgress.collectorIndex ?? null,
       progressCollectorTotal: workerProgress.collectorTotal ?? null,

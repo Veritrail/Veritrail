@@ -393,9 +393,13 @@ def scan_gcp_project(
     if row.status != "connected":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Verify GCP connection before scanning")
 
+    from app.services.cloud_scan_runs import latest_running_cloud_scan
     from app.worker.tasks import run_gcp_scan
 
+    existing = latest_running_cloud_scan(db, provider="gcp", resource_id=row.id)
+    if existing:
+        return {"ok": True, "queued": True, "deduped": True, "scan_run_id": str(existing.id)}
+
     run_gcp_scan.delay(str(row.id))
-    row.last_scan_at = datetime.now(timezone.utc)
     db.commit()
     return {"ok": True, "queued": True, "project_id": str(row.id)}

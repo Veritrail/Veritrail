@@ -1,6 +1,7 @@
 from app.models.org import Org, User
 from app.models.user_session import UserSession
 from app.models.aws_account import AssumeRoleAudit, AwsAccount, ScanRun
+from app.models.cloud_scan_run import CloudScanRun
 from app.models.iam import IamUser, IamAccessKey, IamRole, IamPolicy, IamPermUsage
 from app.models.finding import Finding, FindingEvent
 from app.models.resources import (
@@ -29,7 +30,7 @@ from app.models.azure_subscription import AzureDefenderStatus, AzureStorageAccou
 
 __all__ = [
     "Org", "User",
-    "AssumeRoleAudit", "AwsAccount", "ScanRun",
+    "AssumeRoleAudit", "AwsAccount", "ScanRun", "CloudScanRun",
     "IamUser", "IamAccessKey", "IamRole", "IamPolicy", "IamPermUsage",
     "Finding", "FindingEvent",
     "S3Bucket", "S3AccountPublicAccessBlock", "KmsKey",

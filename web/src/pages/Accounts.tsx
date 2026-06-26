@@ -27,6 +27,7 @@ import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
+import { useTriggeredCloudScan } from "../hooks/useTriggeredCloudScan";
 import { isAccountConnected } from "../lib/accountConnection";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import {
@@ -4371,34 +4372,29 @@ function IntegrationCloudAccountCard({
 }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [scanPending, setScanPending] = useState(false);
-  const [actionMessage, setActionMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
   const connected = isCloudAccountConnected(cloud);
   const hasScanned = connected && !!cloud.last_scan_at;
   const scanAgo = hasScanned ? formatRelativeScanAgo(cloud.last_scan_at) : "Never";
-  const rowStatus = resolveAccountRowStatus(connected, scanPending, null, null);
 
-  const scan = useMutation({
-    mutationFn: () => api(cloudScanPath(cloud), { method: "POST", body: "{}" }),
-    onMutate: () => {
-      setScanPending(true);
-      setActionMessage(null);
-    },
-    onSuccess: () => {
-      setActionMessage({ tone: "ok", text: "Scan queued. Findings will update when the scan completes." });
+  const {
+    scanStatus,
+    isScanActive,
+    scanProgress,
+    triggerScan,
+    scan,
+  } = useTriggeredCloudScan(connected ? cloud.provider : undefined, connected ? cloud.id : undefined, {
+    backgroundPollMs: 5000,
+    onScanComplete: () => {
       qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
       qc.invalidateQueries({ queryKey: ["gcp-projects"] });
       qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
       qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
     },
-    onError: (e) => {
-      setActionMessage({ tone: "error", text: formatApiError(e) });
-    },
-    onSettled: () => {
-      setScanPending(false);
-    },
   });
+
+  const rowStatus = resolveAccountRowStatus(connected, isScanActive, scanStatus, null);
+  const scanError = scan.isError ? formatApiError(scan.error) : null;
 
   return (
     <div className={`accounts-list-item ${!connected ? "is-pending" : ""}`}>
@@ -4444,11 +4440,11 @@ function IntegrationCloudAccountCard({
             <div className="accounts-row-actions">
               <button
                 type="button"
-                onClick={() => scan.mutate()}
-                disabled={scanPending || !connected}
+                onClick={() => triggerScan(cloudScanPath(cloud))}
+                disabled={isScanActive || !connected}
                 className="accounts-scan-now-btn"
               >
-                {scanPending ? "Scanning…" : "Scan now"}
+                {isScanActive ? "Scanning…" : "Scan now"}
               </button>
               <CloudAccountMenu
                 provider={cloud.provider}
@@ -4469,15 +4465,24 @@ function IntegrationCloudAccountCard({
         )}
       </div>
 
-      {actionMessage ? (
-        <div
-          className={`border-t px-4 py-2.5 text-xs ${
-            actionMessage.tone === "error"
-              ? "border-red-100/80 bg-red-50/60 text-red-700"
-              : "border-emerald-100/80 bg-emerald-50/60 text-emerald-800"
-          }`}
-        >
-          {actionMessage.text}
+      {connected && isScanActive && (
+        <ScanPhaseBlock
+          progress={scanProgress.progress}
+          elapsedMs={scanProgress.elapsedMs}
+          progressStep={scanProgress.progressStep}
+          progressTotal={scanProgress.progressTotal}
+          progressPhase={scanProgress.progressPhase}
+          progressStepName={scanProgress.progressStepName}
+          progressCollectorIndex={scanProgress.progressCollectorIndex}
+          progressCollectorTotal={scanProgress.progressCollectorTotal}
+          indeterminate={scanProgress.indeterminate}
+          compact
+        />
+      )}
+
+      {scanError ? (
+        <div className="border-t border-red-100/80 bg-red-50/60 px-4 py-2.5 text-xs text-red-700">
+          {scanError}
         </div>
       ) : null}
     </div>
