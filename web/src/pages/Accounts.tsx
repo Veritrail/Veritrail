@@ -23,6 +23,7 @@ import {
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
+import { ProviderMark, type CloudProvider } from "../components/AccountSelect";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
@@ -4335,21 +4336,6 @@ function VerifiedBadgeIcon() {
   );
 }
 
-function ProviderCell({ provider }: { provider: "aws" | "gcp" | "azure" }) {
-  const label =
-    provider === "aws" ? "AWS" : provider === "gcp" ? "Google Cloud" : "Microsoft Azure";
-  return (
-    <div className="accounts-provider-cell">
-      {provider === "aws" ? (
-        <img src="/aws.png" alt="" aria-hidden />
-      ) : (
-        <IntegrationBrandIcon brand={provider} size={20} variant="plain" />
-      )}
-      <span>{label}</span>
-    </div>
-  );
-}
-
 function countAccountResources(
   items: Finding[] | undefined,
   accountKey: string,
@@ -4646,11 +4632,7 @@ function AccountSplitDetailPane({
         <div className="accounts-detail-pane__header">
           <div className="accounts-detail-pane__identity">
             <div className="accounts-account-cell__logo">
-              {provider === "aws" ? (
-                <img src="/aws.png" alt="" className="h-full w-full object-contain" aria-hidden />
-              ) : (
-                <IntegrationBrandIcon brand={provider} size={28} variant="plain" />
-              )}
+              <ProviderMark provider={provider} className="accounts-account-cell__provider" />
             </div>
             <div className="min-w-0">
               <h2 className="accounts-detail-pane__title">{displayName}</h2>
@@ -4696,11 +4678,7 @@ function AccountSplitDetailPane({
       <div className="accounts-detail-pane__header">
         <div className="accounts-detail-pane__identity">
           <div className="accounts-account-cell__logo">
-            {provider === "aws" ? (
-              <img src="/aws.png" alt="" className="h-full w-full object-contain" aria-hidden />
-            ) : (
-              <IntegrationBrandIcon brand={provider} size={28} variant="plain" />
-            )}
+            <ProviderMark provider={provider} className="accounts-account-cell__provider" />
           </div>
           <div className="min-w-0">
             <div className="accounts-account-cell__name-row">
@@ -5268,7 +5246,10 @@ function IntegrationCloudAccountCard({
       >
         <div className="accounts-account-cell">
           <div className="accounts-account-cell__logo">
-            <IntegrationBrandIcon brand={cloud.provider as "gcp" | "azure"} size={28} variant="plain" />
+            <ProviderMark
+              provider={cloud.provider as CloudProvider}
+              className="accounts-account-cell__provider"
+            />
           </div>
           <div className="min-w-0">
             <div className="accounts-account-cell__name-row">
@@ -5286,7 +5267,6 @@ function IntegrationCloudAccountCard({
 
         {connected ? (
           <>
-            <ProviderCell provider={cloud.provider as "gcp" | "azure"} />
             <div className="accounts-coverage">
               <p className="accounts-coverage__ago">
                 <span
@@ -5586,7 +5566,7 @@ function AccountPremiumCard({
         <div className="accounts-list-item__main" onClick={handleRowClick}>
           <div className="accounts-account-cell">
             <div className="accounts-account-cell__logo">
-              <img src="/aws.png" alt="AWS" className="h-full w-full object-contain" aria-hidden />
+              <ProviderMark provider="aws" className="accounts-account-cell__provider" />
             </div>
             <div className="min-w-0">
               <div className="accounts-account-cell__name-row">
@@ -5604,7 +5584,6 @@ function AccountPremiumCard({
 
           {connected ? (
             <>
-              <ProviderCell provider="aws" />
               <div className="accounts-coverage">
                 <p className="accounts-coverage__ago">
                   <span
@@ -6372,7 +6351,6 @@ export default function Accounts() {
                 <div className="accounts-list-shell">
                   <div className="accounts-list-head" aria-hidden>
                     <span className="accounts-col accounts-col--account">Account</span>
-                    <span className="accounts-col accounts-col--provider">Provider</span>
                     <span className="accounts-col accounts-col--coverage">Coverage</span>
                     <span className="accounts-col accounts-col--findings">Open findings</span>
                     <span className="accounts-col accounts-col--status">Status</span>
