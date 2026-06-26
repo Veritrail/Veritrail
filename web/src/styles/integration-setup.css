@@ -311,6 +311,17 @@
   text-underline-offset: 2px;
 }
 
+.integration-setup__callout--warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.integration-setup__input--placeholder {
+  color: #a16207;
+  font-style: italic;
+}
+
 .integration-setup__grid {
   display: grid;
   gap: 1rem;

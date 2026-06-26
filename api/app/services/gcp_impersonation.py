@@ -69,6 +69,19 @@ def platform_sa_config_error() -> str | None:
     )
 
 
+def platform_sa_setup_message() -> str | None:
+    """Customer-facing hint when the Veritrail service account email is unavailable."""
+    if platform_sa_email():
+        return None
+    settings = get_settings()
+    if settings.APP_ENV == "dev":
+        return (
+            "Veritrail service account is not configured in this dev environment. "
+            "Contact your Veritrail administrator before deploying — setup commands need the real email."
+        )
+    return "Contact your Veritrail administrator for the service account email to grant access."
+
+
 def exchange_impersonation_access_token(*, service_account_email: str) -> str:
     """Use Veritrail platform SA credentials to impersonate the customer scanner SA."""
     err = platform_sa_config_error()
@@ -111,13 +124,15 @@ def impersonation_setup_manifest(*, project_id: str) -> dict[str, Any]:
         if pid
         else f"{sa_name}@PROJECT_ID.iam.gserviceaccount.com"
     )
-    platform_email = platform_sa_email() or "VERITRAIL_PLATFORM_SA_EMAIL"
+    platform_email = platform_sa_email()
     return {
         "auth_method": AUTH_SERVICE_ACCOUNT_IMPERSONATION,
         "project_id": pid,
         "platform_sa_email": platform_email,
+        "veritrail_platform_sa_email": platform_email,
         "scanner_sa_email": scanner_email,
         "terraform_path": "infra/gcp/sa-setup",
         "gcloud_script_path": "infra/gcp/sa-setup/setup.sh",
         "platform_sa_configured": is_platform_sa_configured(),
+        "platform_sa_setup_message": platform_sa_setup_message(),
     }

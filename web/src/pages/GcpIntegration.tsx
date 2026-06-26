@@ -38,18 +38,16 @@ type GcpSetup = {
   service_account_email: string;
   wif_audience: string;
   principal_member: string;
-  terraform_path: string;
-  gcloud_script_path: string;
 };
 
 type GcpImpersonationSetup = {
   auth_method: string;
   project_id: string;
-  platform_sa_email: string;
+  platform_sa_email: string | null;
+  veritrail_platform_sa_email: string | null;
   scanner_sa_email: string;
-  terraform_path: string;
-  gcloud_script_path: string;
   platform_sa_configured: boolean;
+  platform_sa_setup_message: string | null;
 };
 
 const WIF_STEPS = ["Project", "Deploy trust", "Connect", "Verify"] as const;
@@ -65,13 +63,24 @@ const AUTH_OPTIONS: { id: GcpAuthMethod; title: string; description: string; rec
   {
     id: "workload_identity",
     title: "Workload Identity Federation",
-    description: "OIDC federation with per-connection subject binding — no Veritrail platform SA grant.",
+    description: "OIDC federation with per-connection subject binding — no Veritrail service account grant.",
   },
 ];
 
-function CopyField({ label, value }: { label: string; value: string }) {
+function CopyField({
+  label,
+  value,
+  emptyMessage,
+}: {
+  label: string;
+  value: string;
+  emptyMessage?: string;
+}) {
   const [copied, setCopied] = useState(false);
+  const canCopy = Boolean(value.trim());
+  const displayValue = canCopy ? value : (emptyMessage ?? "");
   async function copy() {
+    if (!canCopy) return;
     await navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -80,8 +89,17 @@ function CopyField({ label, value }: { label: string; value: string }) {
     <div className="integration-setup__copy-field">
       <label className="integration-setup__field-label">{label}</label>
       <div className="integration-setup__copy-row">
-        <input className="integration-setup__input" readOnly value={value} />
-        <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={copy}>
+        <input
+          className={`integration-setup__input${canCopy ? "" : " integration-setup__input--placeholder"}`}
+          readOnly
+          value={displayValue}
+        />
+        <button
+          type="button"
+          className="integration-setup__btn integration-setup__btn--secondary"
+          onClick={copy}
+          disabled={!canCopy}
+        >
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
@@ -89,22 +107,17 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function terraformSnippet(setup: GcpSetup) {
-  return `terraform apply \\
-  -var="project_id=${setup.project_id}" \\
-  -var="project_number=${setup.project_number ?? "PROJECT_NUMBER"}" \\
-  -var="veritrail_issuer_uri=${setup.issuer_uri}" \\
-  -var="veritrail_token_audience=${setup.token_audience}" \\
-  -var="wif_subject=${setup.wif_subject}"`;
-}
+const GCP_REQUIRED_APIS = [
+  "iam.googleapis.com",
+  "iamcredentials.googleapis.com",
+  "cloudresourcemanager.googleapis.com",
+  "logging.googleapis.com",
+  "compute.googleapis.com",
+] as const;
 
-function saTerraformSnippet(setup: GcpImpersonationSetup) {
-  return `terraform apply \\
-  -var="project_id=${setup.project_id}" \\
-  -var="veritrail_platform_sa_email=${setup.platform_sa_email}"`;
-}
+const GCP_WIF_APIS = [...GCP_REQUIRED_APIS, "sts.googleapis.com"] as const;
 
-function CodeBlock({ value, label }: { value: string; label: string }) {
+function CodeBlock({ value, label, rows = 8 }: { value: string; label: string; rows?: number }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
     await navigator.clipboard.writeText(value);
@@ -114,7 +127,7 @@ function CodeBlock({ value, label }: { value: string; label: string }) {
   return (
     <div className="integration-setup__code-block">
       <label className="integration-setup__field-label">{label}</label>
-      <textarea className="integration-setup__textarea" rows={8} readOnly value={value} />
+      <textarea className="integration-setup__textarea" rows={rows} readOnly value={value} />
       <div className="integration-setup__code-block-actions">
         <button type="button" className="integration-setup__btn integration-setup__btn--secondary" onClick={copy}>
           {copied ? "Copied" : "Copy command"}
@@ -136,13 +149,98 @@ export PROJECT_NUMBER=${setup.project_number ?? "PROJECT_NUMBER"}
 export VERITRAIL_ISSUER_URI=${setup.issuer_uri}
 export VERITRAIL_TOKEN_AUDIENCE=${setup.token_audience}
 export WIF_SUBJECT=${setup.wif_subject}
-./infra/gcp/wif-setup/setup.sh`;
+
+POOL_ID="${setup.pool_id}"
+PROVIDER_ID="${setup.provider_id}"
+SA_ID="veritrail-scanner"
+
+gcloud services enable ${GCP_WIF_APIS.join(" ")} \\
+  --project="$PROJECT_ID"
+
+gcloud iam workload-identity-pools create "$POOL_ID" \\
+  --project="$PROJECT_ID" \\
+  --location=global \\
+  --display-name="Veritrail" \\
+  --description="Federated access for Veritrail posture scans" \\
+  2>/dev/null || true
+
+gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \\
+  --project="$PROJECT_ID" \\
+  --location=global \\
+  --workload-identity-pool="$POOL_ID" \\
+  --display-name="Veritrail OIDC" \\
+  --issuer-uri="$VERITRAIL_ISSUER_URI" \\
+  --allowed-audiences="$VERITRAIL_TOKEN_AUDIENCE" \\
+  --attribute-mapping="google.subject=assertion.sub" \\
+  2>/dev/null || true
+
+gcloud iam service-accounts create "$SA_ID" \\
+  --project="$PROJECT_ID" \\
+  --display-name="Veritrail scanner (read-only)" \\
+  2>/dev/null || true
+
+SA_EMAIL="\${SA_ID}@\${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/viewer" \\
+  --condition=None
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/logging.viewer" \\
+  --condition=None
+
+PRINCIPAL="principal://iam.googleapis.com/projects/\${PROJECT_NUMBER}/locations/global/workloadIdentityPools/\${POOL_ID}/subject/\${WIF_SUBJECT}"
+
+gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \\
+  --project="$PROJECT_ID" \\
+  --role="roles/iam.workloadIdentityUser" \\
+  --member="$PRINCIPAL"
+
+echo "service_account_email=\${SA_EMAIL}"`;
+}
+
+function impersonationPlatformSaEmail(setup: GcpImpersonationSetup) {
+  return setup.veritrail_platform_sa_email?.trim() || setup.platform_sa_email?.trim() || "";
 }
 
 function saGcloudSnippet(setup: GcpImpersonationSetup) {
+  const veritrailSa = impersonationPlatformSaEmail(setup);
+  const veritrailSaExport = veritrailSa
+    ? `export VERITRAIL_PLATFORM_SA_EMAIL=${veritrailSa}`
+    : `# Contact your Veritrail administrator for this email
+# export VERITRAIL_PLATFORM_SA_EMAIL=<veritrail-service-account@project.iam.gserviceaccount.com>`;
+
   return `export PROJECT_ID=${setup.project_id}
-export VERITRAIL_PLATFORM_SA_EMAIL=${setup.platform_sa_email}
-./infra/gcp/sa-setup/setup.sh`;
+# Veritrail service account — grant TokenCreator on your scanner SA to this account
+${veritrailSaExport}
+
+SA_ID="veritrail-scanner"
+
+gcloud iam service-accounts create "$SA_ID" \\
+  --project="$PROJECT_ID" \\
+  --display-name="Veritrail scanner (read-only)" \\
+  2>/dev/null || true
+
+SA_EMAIL="\${SA_ID}@\${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/viewer" \\
+  --condition=None
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/logging.viewer" \\
+  --condition=None
+
+gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \\
+  --project="$PROJECT_ID" \\
+  --role="roles/iam.serviceAccountTokenCreator" \\
+  --member="serviceAccount:\${VERITRAIL_PLATFORM_SA_EMAIL}"
+
+echo "service_account_email=\${SA_EMAIL}"`;
 }
 
 function authMethodLabel(method: string) {
@@ -458,7 +556,8 @@ export default function GcpIntegration() {
                         </button>
                       </div>
                       <CodeBlock
-                        label={deployTab === "terraform" ? "Terraform (infra/gcp/wif-setup)" : "gcloud script"}
+                        label={deployTab === "terraform" ? "Terraform (infra/gcp/wif-setup)" : "gcloud commands (Cloud Shell)"}
+                        rows={deployTab === "gcloud" ? 24 : 8}
                         value={deployTab === "terraform" ? terraformSnippet(setup) : gcloudSnippet(setup)}
                       />
                     </>
@@ -487,12 +586,16 @@ export default function GcpIntegration() {
                   {impersonationSetup && (
                     <>
                       <div className="integration-setup__copy-fields">
-                        <CopyField label="Veritrail platform SA (grant TokenCreator to this)" value={impersonationSetup.platform_sa_email} />
-                        <CopyField label="Expected scanner SA email" value={impersonationSetup.scanner_sa_email} />
+                        <CopyField
+                          label="Veritrail service account (grant TokenCreator to this)"
+                          value={impersonationPlatformSaEmail(impersonationSetup)}
+                          emptyMessage={impersonationSetup.platform_sa_setup_message ?? "Contact your Veritrail administrator"}
+                        />
+                        <CopyField label="Scanner service account email" value={impersonationSetup.scanner_sa_email} />
                       </div>
-                      {!impersonationSetup.platform_sa_configured && (
-                        <p className="integration-setup__callout">
-                          Veritrail platform SA is not configured in this environment — verify will fail until your operator sets <code>VERITRAIL_GCP_PLATFORM_SA_JSON</code>.
+                      {!impersonationSetup.platform_sa_configured && impersonationSetup.platform_sa_setup_message && (
+                        <p className="integration-setup__callout integration-setup__callout--warning">
+                          {impersonationSetup.platform_sa_setup_message}
                         </p>
                       )}
                       <div className="integration-setup__tabs">
@@ -512,7 +615,8 @@ export default function GcpIntegration() {
                         </button>
                       </div>
                       <CodeBlock
-                        label={deployTab === "terraform" ? "Terraform (infra/gcp/sa-setup)" : "gcloud script"}
+                        label={deployTab === "terraform" ? "Terraform (infra/gcp/sa-setup)" : "gcloud commands (Cloud Shell)"}
+                        rows={deployTab === "gcloud" ? 18 : 6}
                         value={deployTab === "terraform" ? saTerraformSnippet(impersonationSetup) : saGcloudSnippet(impersonationSetup)}
                       />
                     </>

@@ -118,11 +118,13 @@ class GcpSetupOut(BaseModel):
 class GcpImpersonationSetupOut(BaseModel):
     auth_method: str
     project_id: str
-    platform_sa_email: str
+    platform_sa_email: str | None = None
+    veritrail_platform_sa_email: str | None = None
     scanner_sa_email: str
     terraform_path: str
     gcloud_script_path: str
     platform_sa_configured: bool
+    platform_sa_setup_message: str | None = None
 
 
 def _wif_configured(row: GcpProject) -> bool:

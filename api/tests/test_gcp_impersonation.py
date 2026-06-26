@@ -27,11 +27,37 @@ _PLATFORM_SA = {
 
 
 def test_impersonation_setup_manifest():
-    manifest = impersonation_setup_manifest(project_id="customer-proj")
+    with patch("app.services.gcp_impersonation.get_settings") as gs:
+        settings = MagicMock()
+        settings.GCP_WIF_DEFAULT_SA_NAME = "veritrail-scanner"
+        settings.VERITRAIL_GCP_PLATFORM_SA_EMAIL = _PLATFORM_SA["client_email"]
+        settings.VERITRAIL_GCP_PLATFORM_SA_JSON = json.dumps(_PLATFORM_SA)
+        settings.VERITRAIL_GCP_PLATFORM_SA_JSON_PATH = ""
+        settings.APP_ENV = "prod"
+        gs.return_value = settings
+        manifest = impersonation_setup_manifest(project_id="customer-proj")
     assert manifest["auth_method"] == AUTH_SERVICE_ACCOUNT_IMPERSONATION
     assert manifest["project_id"] == "customer-proj"
     assert manifest["scanner_sa_email"] == "veritrail-scanner@customer-proj.iam.gserviceaccount.com"
+    assert manifest["platform_sa_email"] == _PLATFORM_SA["client_email"]
+    assert manifest["platform_sa_setup_message"] is None
+    assert manifest["platform_sa_configured"] is True
     assert manifest["terraform_path"] == "infra/gcp/sa-setup"
+
+
+def test_impersonation_setup_manifest_unconfigured():
+    with patch("app.services.gcp_impersonation.get_settings") as gs:
+        settings = MagicMock()
+        settings.GCP_WIF_DEFAULT_SA_NAME = "veritrail-scanner"
+        settings.VERITRAIL_GCP_PLATFORM_SA_EMAIL = ""
+        settings.VERITRAIL_GCP_PLATFORM_SA_JSON = ""
+        settings.VERITRAIL_GCP_PLATFORM_SA_JSON_PATH = ""
+        settings.APP_ENV = "prod"
+        gs.return_value = settings
+        manifest = impersonation_setup_manifest(project_id="customer-proj")
+    assert manifest["platform_sa_email"] is None
+    assert manifest["platform_sa_setup_message"]
+    assert "VERITRAIL_PLATFORM_SA_EMAIL" not in str(manifest.values())
 
 
 def test_platform_sa_config_error_when_unset():
