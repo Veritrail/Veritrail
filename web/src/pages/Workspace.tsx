@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { settingsSchema, trustCenterSettingsSchema, auditorListSchema, memberListSchema } from "../lib/apiSchemas";
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
-import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { ProductShell } from "../components/ProductShell";
 import { InfoTip, Panel, PanelIcon, PANEL_ICONS, Toggle } from "../components/SettingsUi";
 import { DomainsSettings } from "../components/DomainsSettings";
@@ -1006,8 +1005,6 @@ export default function Workspace() {
     setHydrated(true);
   }, [data, canDaily]);
 
-  const workspaceName = meQ.data?.org_name ?? "Workspace";
-
   const optionalTotal = data?.optional_checks.length ?? 0;
   const enabledOptional = useMemo(
     () => (data?.optional_checks ?? []).filter((check) => optionalChecks[check.check_id] ?? check.enabled).length,
@@ -1127,11 +1124,6 @@ export default function Workspace() {
   return (
     <ProductShell>
       <div className="workspace-page">
-        <CompliancePageHeader
-          kicker="Workspace"
-          title={workspaceName}
-          subtitle="Members, scanning, notifications, and declared external evidence sources."
-        />
         {saveStatus !== "idle" && (
           <div className="mb-3 flex justify-end">
             <SaveIndicator status={saveStatus} error={saveError} />

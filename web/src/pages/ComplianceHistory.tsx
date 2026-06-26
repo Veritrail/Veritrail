@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
 
 import { api } from "../api";
-import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { HistoryDashboard } from "../components/HistoryDashboard";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
 import {
@@ -311,11 +310,6 @@ export default function ComplianceHistory() {
   return (
     <div className={`w-full ${drawer ? "xl:pr-[28rem]" : ""}`}>
       <header className="mb-5 border-b border-zinc-200/80 pb-5">
-        <CompliancePageHeader
-          kicker="Compliance"
-          title="History"
-          subtitle="Posture, findings, controls, and remediation movement over time."
-        />
         <HistoryFilters
           accounts={connected}
           accountId={effectiveAccountId}

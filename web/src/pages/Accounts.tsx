@@ -25,7 +25,6 @@ import {
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
-import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
@@ -4936,11 +4935,14 @@ export default function Accounts() {
 
   return (
     <div className="accounts-page w-full space-y-6">
-      <CompliancePageHeader
-        kicker="Infrastructure"
-        title="AWS accounts"
-        subtitle="Connect accounts, run scans, and manage connector capabilities."
-      />
+      <HeaderSlot>
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          currentOrgId={meQ.data?.org_id ?? ""}
+          onSwitch={(id) => switchWorkspace.mutate(id)}
+          pending={switchWorkspace.isPending}
+        />
+      </HeaderSlot>
 
       {accounts.isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

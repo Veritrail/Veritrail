@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { accountListSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
@@ -54,13 +53,6 @@ function daysAgo(iso: string): string {
   if (d < 30) return `${d}d`;
   if (d < 365) return `${Math.floor(d / 30)}mo`;
   return `${Math.floor(d / 365)}y`;
-}
-
-function lastScanLabel(iso: string): string {
-  const date = new Date(iso);
-  const sameDay = date.toDateString() === new Date().toDateString();
-  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return sameDay ? `today at ${time}` : `${date.toLocaleDateString()} at ${time}`;
 }
 
 function scoreColor(s: number) {
@@ -135,17 +127,8 @@ export default function Dashboard() {
 
   return (
     <div className="w-full space-y-5">
-      <CompliancePageHeader
-        kicker="Overview"
-        title="Dashboard"
-        subtitle={
-          scanRun.data?.finished_at
-            ? `IAM posture overview. Last scan ${lastScanLabel(scanRun.data.finished_at)}.`
-            : "IAM posture overview across your connected cloud accounts."
-        }
-      />
       {scanRun.data?.status === "error" && (
-        <p className="text-sm text-red-500 -mt-2">Last scan failed.</p>
+        <p className="text-sm text-red-500">Last scan failed.</p>
       )}
 
       {/* Top row: posture score + severity cards */}

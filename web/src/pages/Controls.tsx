@@ -25,7 +25,6 @@ import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import { EvidenceCoverageDashboard } from "../components/EvidenceCoverageDashboard";
-import { CompliancePageHeader } from "../components/CompliancePageHeader";
 import { ScanCollectorSummary } from "../components/ScanCollectorSummary";
 import {
   compositeRecommendedAction,
@@ -2743,18 +2742,6 @@ export default function Controls() {
       )}
 
       {controls.isLoading && <LoadingSkeleton />}
-
-      {!controls.isLoading && connectedAccount && (
-        <CompliancePageHeader
-          kicker="Compliance"
-          title={complianceView === "composite" ? "Compliance groups" : "Detailed criteria"}
-          subtitle={
-            complianceView === "composite"
-              ? "Auditor-facing roll-ups with automated checks, external evidence, and coverage status."
-              : "Individual framework criteria with mapped checks and attestation."
-          }
-        />
-      )}
 
       {!controls.isLoading && connectedAccount && (
         <ComplianceContentShell
