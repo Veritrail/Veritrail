@@ -4729,25 +4729,21 @@ function AccountSplitDetailPane({
                 ) : null}
               </div>
               <div className="accounts-detail-metric-card">
-                <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">Resources covered</p>
+                <div className="accounts-detail-metric-card__content">
+                  <div className="accounts-detail-metric-card__top">
+                    <p className="accounts-detail-metric-card__label">Resources covered</p>
+                  </div>
+                  <p className="accounts-detail-metric-card__value">
+                    {hasScanned ? resourceStats.resources.toLocaleString() : "—"}
+                  </p>
+                  <p className="accounts-detail-metric-card__sub">
+                    {hasScanned
+                      ? `Across ${resourceStats.regions || "—"} region${resourceStats.regions === 1 ? "" : "s"}`
+                      : "From latest scan"}
+                  </p>
                 </div>
-                <p className="accounts-detail-metric-card__value">
-                  {hasScanned ? resourceStats.resources.toLocaleString() : "—"}
-                </p>
-                <p className="accounts-detail-metric-card__sub">
-                  {hasScanned
-                    ? `Across ${resourceStats.regions || "—"} region${resourceStats.regions === 1 ? "" : "s"}`
-                    : "From latest scan"}
-                </p>
                 <span className="accounts-detail-metric-card__watermark accounts-detail-metric-card__watermark--cloud" aria-hidden>
-                  <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75z"
-                    />
-                  </svg>
+                  <img src="/icons/veritrail-cloud-watermark-cloud-only.svg" alt="" />
                 </span>
               </div>
               <div className="accounts-detail-metric-card">
@@ -4759,29 +4755,27 @@ function AccountSplitDetailPane({
                 </p>
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
                 <span className="accounts-detail-metric-card__sparkline" aria-hidden>
-                  <svg viewBox="0 0 128 46" preserveAspectRatio="none">
+                  <svg viewBox="0 0 320 160" preserveAspectRatio="none">
                     <defs>
-                      <linearGradient id="accounts-compliance-spark-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.22" />
-                        <stop offset="55%" stopColor="#3b82f6" stopOpacity="0.07" />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                      <linearGradient id="accounts-compliance-spark-fill" x1="160" y1="50" x2="160" y2="124" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stopColor="#3478F6" stopOpacity="0.14" />
+                        <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
                       </linearGradient>
                     </defs>
-                    <polygon
-                      points="2,30 18,28 33,31 48,29 63,33 78,28 93,14 108,10 125,22 125,46 2,46"
+                    <path
+                      d="M34 101 C55 96 73 92 91 99 C111 106 122 87 142 78 C160 70 176 86 194 78 C214 69 225 55 243 61 C261 67 272 83 286 75 L286 122 L34 122 Z"
                       fill="url(#accounts-compliance-spark-fill)"
                     />
-                    <polyline
-                      points="2,30 18,28 33,31 48,29 63,33 78,28 93,14 108,10 125,22"
+                    <path
+                      d="M34 101 C55 96 73 92 91 99 C111 106 122 87 142 78 C160 70 176 86 194 78 C214 69 225 55 243 61 C261 67 272 83 286 75"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="3"
+                      strokeWidth="5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
-                    {[["2", "30"], ["18", "28"], ["33", "31"], ["48", "29"], ["63", "33"], ["78", "28"], ["93", "14"], ["108", "10"], ["125", "22"]].map(([cx, cy]) => (
-                      <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.7" fill="currentColor" />
-                    ))}
+                    <circle cx="286" cy="75" r="5.5" fill="currentColor" />
+                    <circle cx="286" cy="75" r="11" fill="currentColor" opacity="0.12" />
                   </svg>
                 </span>
               </div>
