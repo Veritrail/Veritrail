@@ -198,7 +198,11 @@ gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \\
   --role="roles/iam.workloadIdentityUser" \\
   --member="$PRINCIPAL"
 
-echo "service_account_email=\${SA_EMAIL}"`;
+AUDIENCE="//iam.googleapis.com/projects/\${PROJECT_NUMBER}/locations/global/workloadIdentityPools/\${POOL_ID}/providers/\${PROVIDER_ID}"
+
+echo "service_account_email=\${SA_EMAIL}"
+echo "wif_audience=\${AUDIENCE}"
+echo "principal_member=\${PRINCIPAL}"`;
 }
 
 function impersonationPlatformSaEmail(setup: GcpImpersonationSetup) {
@@ -213,10 +217,13 @@ function saGcloudSnippet(setup: GcpImpersonationSetup) {
 # export VERITRAIL_PLATFORM_SA_EMAIL=<veritrail-service-account@project.iam.gserviceaccount.com>`;
 
   return `export PROJECT_ID=${setup.project_id}
-# Veritrail service account — grant TokenCreator on your scanner SA to this account
+# Veritrail connection account — grant TokenCreator on your scanner SA to this account
 ${veritrailSaExport}
 
 SA_ID="veritrail-scanner"
+
+gcloud services enable ${GCP_REQUIRED_APIS.join(" ")} \\
+  --project="$PROJECT_ID"
 
 gcloud iam service-accounts create "$SA_ID" \\
   --project="$PROJECT_ID" \\
@@ -266,7 +273,6 @@ export default function GcpIntegration() {
   const [serviceAccountEmail, setServiceAccountEmail] = useState("");
   const [saveError, setSaveError] = useState("");
   const [actionState, setActionState] = useState<string | null>(null);
-  const [deployTab, setDeployTab] = useState<"terraform" | "gcloud">("terraform");
 
   const projects = data ?? [];
   const connected = projects.some((p) => p.status === "connected");
@@ -525,7 +531,7 @@ export default function GcpIntegration() {
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
-                    Run Terraform or gcloud in your GCP project to create the workload identity pool, OIDC provider (trusting Veritrail), and scanner service account.
+                    Run these gcloud commands in your GCP project (Cloud Shell or local CLI) to create the workload identity pool, OIDC provider (trusting Veritrail), and scanner service account.
                   </p>
                   {setupQuery.isLoading && <p className="integration-setup__loading">Loading setup parameters…</p>}
                   {setupQuery.isError && (
@@ -539,26 +545,10 @@ export default function GcpIntegration() {
                         <CopyField label="Token audience" value={setup.token_audience} />
                         <CopyField label="Principal member" value={setup.principal_member} />
                       </div>
-                      <div className="integration-setup__tabs">
-                        <button
-                          type="button"
-                          className={`integration-setup__tab${deployTab === "terraform" ? " integration-setup__tab--active" : ""}`}
-                          onClick={() => setDeployTab("terraform")}
-                        >
-                          Terraform
-                        </button>
-                        <button
-                          type="button"
-                          className={`integration-setup__tab${deployTab === "gcloud" ? " integration-setup__tab--active" : ""}`}
-                          onClick={() => setDeployTab("gcloud")}
-                        >
-                          gcloud
-                        </button>
-                      </div>
                       <CodeBlock
-                        label={deployTab === "terraform" ? "Terraform (infra/gcp/wif-setup)" : "gcloud commands (Cloud Shell)"}
-                        rows={deployTab === "gcloud" ? 24 : 8}
-                        value={deployTab === "terraform" ? terraformSnippet(setup) : gcloudSnippet(setup)}
+                        label="gcloud commands (Cloud Shell)"
+                        rows={28}
+                        value={gcloudSnippet(setup)}
                       />
                     </>
                   )}
@@ -577,7 +567,7 @@ export default function GcpIntegration() {
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
-                    Run Terraform or gcloud in your GCP project to create the scanner service account and grant Veritrail <code>roles/iam.serviceAccountTokenCreator</code>.
+                    Run these gcloud commands in your GCP project (Cloud Shell or local CLI) to create the scanner service account and grant Veritrail <code>roles/iam.serviceAccountTokenCreator</code>.
                   </p>
                   {impersonationSetupQuery.isLoading && <p className="integration-setup__loading">Loading setup parameters…</p>}
                   {impersonationSetupQuery.isError && (
@@ -587,7 +577,7 @@ export default function GcpIntegration() {
                     <>
                       <div className="integration-setup__copy-fields">
                         <CopyField
-                          label="Veritrail service account (grant TokenCreator to this)"
+                          label="Veritrail connection account (grant TokenCreator to this)"
                           value={impersonationPlatformSaEmail(impersonationSetup)}
                           emptyMessage={impersonationSetup.platform_sa_setup_message ?? "Contact your Veritrail administrator"}
                         />
@@ -598,26 +588,10 @@ export default function GcpIntegration() {
                           {impersonationSetup.platform_sa_setup_message}
                         </p>
                       )}
-                      <div className="integration-setup__tabs">
-                        <button
-                          type="button"
-                          className={`integration-setup__tab${deployTab === "terraform" ? " integration-setup__tab--active" : ""}`}
-                          onClick={() => setDeployTab("terraform")}
-                        >
-                          Terraform
-                        </button>
-                        <button
-                          type="button"
-                          className={`integration-setup__tab${deployTab === "gcloud" ? " integration-setup__tab--active" : ""}`}
-                          onClick={() => setDeployTab("gcloud")}
-                        >
-                          gcloud
-                        </button>
-                      </div>
                       <CodeBlock
-                        label={deployTab === "terraform" ? "Terraform (infra/gcp/sa-setup)" : "gcloud commands (Cloud Shell)"}
-                        rows={deployTab === "gcloud" ? 18 : 6}
-                        value={deployTab === "terraform" ? saTerraformSnippet(impersonationSetup) : saGcloudSnippet(impersonationSetup)}
+                        label="gcloud commands (Cloud Shell)"
+                        rows={22}
+                        value={saGcloudSnippet(impersonationSetup)}
                       />
                     </>
                   )}
@@ -636,7 +610,7 @@ export default function GcpIntegration() {
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
-                    Paste values from your Terraform/gcloud outputs, then continue to verify.
+                    Paste values from your gcloud output, then continue to verify.
                   </p>
                   <div className="integration-setup__grid integration-setup__grid--2">
                     <div>
@@ -676,7 +650,7 @@ export default function GcpIntegration() {
               <>
                 <div className="integration-setup__section">
                   <p className="integration-setup__callout">
-                    Paste the scanner service account email from your Terraform/gcloud output, then continue to verify.
+                    Paste the scanner service account email from your gcloud output, then continue to verify.
                   </p>
                   <div className="integration-setup__field--wide">
                     <label className="integration-setup__field-label" htmlFor="gcp-sa-email-sa">Scanner service account email</label>
