@@ -6251,7 +6251,7 @@ export default function Accounts() {
   ]);
 
   return (
-    <div className="accounts-page w-full space-y-6">
+    <div className="accounts-page w-full space-y-4">
       {accounts.isLoading && cloudAccounts.isLoading && accs.length === 0 && integrationAccounts.length === 0 && (
         <p className="text-sm text-zinc-500">Loading accounts…</p>
       )}
@@ -6304,7 +6304,7 @@ export default function Accounts() {
       />
 
       {!showPendingOnboarding && !addingAwsAccount && hasAnyAccounts && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           <div className="accounts-toolbar">
             <div className="accounts-toolbar__start">
               <label className="accounts-toolbar__search">
