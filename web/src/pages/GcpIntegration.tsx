@@ -280,6 +280,7 @@ export default function GcpIntegration() {
   const [providerId, setProviderId] = useState("veritrail-oidc");
   const [serviceAccountEmail, setServiceAccountEmail] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [listActionMessage, setListActionMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [actionState, setActionState] = useState<string | null>(null);
 
   const projects = data ?? [];
@@ -422,11 +423,20 @@ export default function GcpIntegration() {
 
   async function scanProject(id: string) {
     setActionState(`scan-${id}`);
+    setListActionMessage(null);
     try {
       await api(`/v1/integrations/gcp/projects/${id}/scan`, { method: "POST", body: "{}" });
       qc.invalidateQueries({ queryKey: ["gcp-projects"] });
+      qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
+      setListActionMessage({
+        tone: "ok",
+        text: "Scan queued. Findings will update when the scan completes.",
+      });
+      setSaveError("");
     } catch (e) {
-      setSaveError(formatApiError(e));
+      const message = formatApiError(e);
+      setSaveError(message);
+      setListActionMessage({ tone: "error", text: message });
     } finally {
       setActionState(null);
     }
@@ -776,6 +786,17 @@ export default function GcpIntegration() {
                   Add project
                 </button>
               </div>
+              {listActionMessage && (
+                <p
+                  className={
+                    listActionMessage.tone === "error"
+                      ? "integration-setup__error"
+                      : "integration-setup__success"
+                  }
+                >
+                  {listActionMessage.text}
+                </p>
+              )}
               <ul className="integration-setup__list">
                 {projects.map((p) => (
                   <li key={p.id} className="integration-setup__list-item">
@@ -789,7 +810,7 @@ export default function GcpIntegration() {
                     </div>
                     <div className="integration-setup__actions">
                       <button type="button" className="integration-setup__btn integration-setup__btn--secondary" disabled={actionState === p.id} onClick={() => verifyProject(p.id)}>Verify</button>
-                      <button type="button" className="integration-setup__btn integration-setup__btn--secondary" disabled={p.status !== "connected" || actionState === `scan-${p.id}`} onClick={() => scanProject(p.id)}>Scan</button>
+                      <button type="button" className="integration-setup__btn integration-setup__btn--secondary" disabled={p.status !== "connected" || actionState === `scan-${p.id}`} onClick={() => scanProject(p.id)}>{actionState === `scan-${p.id}` ? "Scanning…" : "Scan"}</button>
                       <button type="button" className="integration-setup__btn integration-setup__btn--danger" onClick={() => remove.mutate(p.id)}>Remove</button>
                     </div>
                   </li>

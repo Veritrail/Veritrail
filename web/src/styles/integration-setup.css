@@ -449,6 +449,13 @@
   color: #b91c1c;
 }
 
+.integration-setup__success {
+  margin: 0.75rem 1.5rem 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #047857;
+}
+
 .integration-setup__section-title {
   margin: 0;
   padding: 1.25rem 1.5rem 0;

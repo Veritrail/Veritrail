@@ -400,6 +400,11 @@
   color: #3f3f46;
 }
 
+.accounts-row-chevron--spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .accounts-account-cell {
   display: flex;
   min-width: 0;

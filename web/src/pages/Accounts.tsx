@@ -587,12 +587,50 @@ function capabilityVerifyFeedback(
 
 type Finding = {
   id: string;
-  account_id: string;
+  account_id?: string | null;
+  account_label?: string | null;
+  account_provider?: string | null;
+  evidence?: Record<string, unknown>;
   severity: string;
   status: string;
 };
 
+type CloudAccountRow = {
+  provider: string;
+  id: string;
+  external_id: string | null;
+  label: string;
+  status: string;
+  last_scan_at: string | null;
+};
+
 type FindingStats = { critHigh: number; medium: number; low: number; info: number; open: number };
+
+type AccountListRow =
+  | { kind: "aws"; account: Account }
+  | { kind: "cloud"; cloud: CloudAccountRow };
+
+function isCloudAccountConnected(row: CloudAccountRow): boolean {
+  return row.status === "connected";
+}
+
+function cloudProviderLabel(provider: string): string {
+  if (provider === "gcp") return "Google Cloud";
+  if (provider === "azure") return "Microsoft Azure";
+  return provider.toUpperCase();
+}
+
+function cloudIntegrationPath(provider: string): string {
+  if (provider === "gcp") return "/integrations/gcp";
+  if (provider === "azure") return "/integrations/azure";
+  return "/integrations";
+}
+
+function cloudScanPath(cloud: CloudAccountRow): string {
+  if (cloud.provider === "gcp") return `/v1/integrations/gcp/projects/${cloud.id}/scan`;
+  if (cloud.provider === "azure") return `/v1/integrations/azure/subscriptions/${cloud.id}/scan`;
+  return "";
+}
 
 function formatShortScanDate(iso: string | null | undefined, opts?: { utc?: boolean }): string {
   if (!iso) return "—";
@@ -630,6 +668,35 @@ function matchesAccountStatusFilter(acc: Account, filter: string): boolean {
 function matchesAccountProviderFilter(_acc: Account, filter: string): boolean {
   if (filter === "all") return true;
   return filter === "aws";
+}
+
+function matchesCloudProviderFilter(cloud: CloudAccountRow, filter: string): boolean {
+  if (filter === "all") return true;
+  return cloud.provider === filter;
+}
+
+function matchesCloudAccountStatusFilter(cloud: CloudAccountRow, filter: string): boolean {
+  if (filter === "all") return true;
+  const connected = isCloudAccountConnected(cloud);
+  if (filter === "connected") return connected;
+  if (filter === "setup") return !connected;
+  if (filter === "action") return connected && cloud.status === "error";
+  return true;
+}
+
+function matchesCloudAccountSearch(cloud: CloudAccountRow, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const haystack = [
+    cloud.label,
+    cloud.external_id ?? "",
+    cloud.status,
+    cloud.provider,
+    cloudProviderLabel(cloud.provider),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
 }
 
 function matchesAccountSearch(acc: Account, query: string): boolean {
@@ -3151,17 +3218,55 @@ function resolveScanFreshness(lastScanAt: string | null | undefined): {
 const cardClass =
   "rounded-xl border border-zinc-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] transition-[box-shadow,border-color] duration-200 hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.07),0_8px_20px_rgba(0,0,0,0.05)]";
 
+function bumpFindingStats(map: Map<string, FindingStats>, key: string, severity: string) {
+  const cur = map.get(key) ?? { critHigh: 0, medium: 0, low: 0, info: 0, open: 0 };
+  cur.open += 1;
+  const sev = (severity || "").toLowerCase();
+  if (sev === "critical" || sev === "high") cur.critHigh += 1;
+  else if (sev === "medium") cur.medium += 1;
+  else if (sev === "low") cur.low += 1;
+  else if (sev === "info") cur.info += 1;
+  map.set(key, cur);
+}
+
 function buildStatsMap(items: Finding[] | undefined): Map<string, FindingStats> {
   const map = new Map<string, FindingStats>();
   for (const f of items ?? []) {
-    const cur = map.get(f.account_id) ?? { critHigh: 0, medium: 0, low: 0, info: 0, open: 0 };
-    cur.open += 1;
-    const sev = (f.severity || "").toLowerCase();
-    if (sev === "critical" || sev === "high") cur.critHigh += 1;
-    else if (sev === "medium") cur.medium += 1;
-    else if (sev === "low") cur.low += 1;
-    else if (sev === "info") cur.info += 1;
-    map.set(f.account_id, cur);
+    if (!f.account_id) continue;
+    bumpFindingStats(map, f.account_id, f.severity);
+  }
+  return map;
+}
+
+function buildIntegrationStatsMap(
+  items: Finding[] | undefined,
+  cloudAccounts: CloudAccountRow[],
+): Map<string, FindingStats> {
+  const byExternal = new Map<string, string>();
+  const byLabel = new Map<string, string>();
+  for (const cloud of cloudAccounts) {
+    if (cloud.provider === "aws") continue;
+    if (cloud.external_id) byExternal.set(`${cloud.provider}:${cloud.external_id}`, cloud.id);
+    byLabel.set(`${cloud.provider}:${cloud.label.toLowerCase()}`, cloud.id);
+  }
+
+  const map = new Map<string, FindingStats>();
+  for (const f of items ?? []) {
+    const provider = f.account_provider;
+    if (provider !== "gcp" && provider !== "azure") continue;
+    const evidence = f.evidence ?? {};
+    const externalId =
+      typeof evidence.project_id === "string"
+        ? evidence.project_id
+        : typeof evidence.subscription_id === "string"
+          ? evidence.subscription_id
+          : null;
+    let scopeId = externalId ? byExternal.get(`${provider}:${externalId}`) : undefined;
+    if (!scopeId && f.account_label) {
+      scopeId = byLabel.get(`${provider}:${f.account_label.toLowerCase()}`);
+    }
+    if (!scopeId) continue;
+    bumpFindingStats(map, scopeId, f.severity);
   }
   return map;
 }
@@ -3556,21 +3661,29 @@ function AccountCardActionBar({
 
 function AccountsStatsCards({
   accs,
+  integrationCount = 0,
   statsMap,
+  integrationStatsMap,
   scanStats,
   planUsage,
 }: {
   accs: Account[];
+  integrationCount?: number;
   statsMap: Map<string, FindingStats>;
+  integrationStatsMap?: Map<string, FindingStats>;
   scanStats?: { scans_last_7_days: number; scans_prev_7_days: number };
   planUsage?: { plan_label: string; max_accounts: number | null; used: number };
 }) {
-  const connected = accs.filter((a) => isAccountConnected(a)).length;
+  const connected = accs.filter((a) => isAccountConnected(a)).length + integrationCount;
   const scansLast7Days = scanStats?.scans_last_7_days ?? 0;
   const scansPrev7Days = scanStats?.scans_prev_7_days ?? 0;
   let openFindings = 0;
   let highSeverity = 0;
   for (const [, stats] of statsMap) {
+    openFindings += stats.open;
+    highSeverity += stats.critHigh;
+  }
+  for (const [, stats] of integrationStatsMap ?? []) {
     openFindings += stats.open;
     highSeverity += stats.critHigh;
   }
@@ -4161,6 +4274,133 @@ function CredentialAlert({
   );
 }
 
+function IntegrationCloudAccountCard({
+  cloud,
+  stats,
+}: {
+  cloud: CloudAccountRow;
+  stats: FindingStats | undefined;
+}) {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [scanPending, setScanPending] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+
+  const connected = isCloudAccountConnected(cloud);
+  const hasScanned = connected && !!cloud.last_scan_at;
+  const scanAgo = hasScanned ? formatRelativeScanAgo(cloud.last_scan_at) : "Never";
+  const rowStatus = resolveAccountRowStatus(connected, scanPending, null, null);
+
+  const scan = useMutation({
+    mutationFn: () => api(cloudScanPath(cloud), { method: "POST", body: "{}" }),
+    onMutate: () => {
+      setScanPending(true);
+      setActionMessage(null);
+    },
+    onSuccess: () => {
+      setActionMessage({ tone: "ok", text: "Scan queued. Findings will update when the scan completes." });
+      qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
+      qc.invalidateQueries({ queryKey: ["gcp-projects"] });
+      qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+    },
+    onError: (e) => {
+      setActionMessage({ tone: "error", text: formatApiError(e) });
+    },
+    onSettled: () => {
+      setScanPending(false);
+    },
+  });
+
+  return (
+    <div className={`accounts-list-item ${!connected ? "is-pending" : ""}`}>
+      <div className="accounts-list-item__main">
+        <span className="accounts-row-chevron accounts-row-chevron--spacer" aria-hidden />
+
+        <div className="accounts-account-cell">
+          <div className="accounts-account-cell__logo">
+            <IntegrationBrandIcon brand={cloud.provider as "gcp" | "azure"} size={28} variant="plain" />
+          </div>
+          <div className="min-w-0">
+            <div className="accounts-account-cell__name-row">
+              <p className="accounts-account-cell__name">{cloud.label}</p>
+              {connected ? <VerifiedBadgeIcon /> : null}
+            </div>
+            {cloud.external_id ? (
+              <div className="accounts-account-cell__id">
+                <span>{cloud.external_id}</span>
+                <CopyIdButton text={cloud.external_id} />
+              </div>
+            ) : null}
+            <p className="mt-0.5 text-xs text-zinc-500">{cloudProviderLabel(cloud.provider)}</p>
+          </div>
+        </div>
+
+        {connected ? (
+          <>
+            <div className="accounts-coverage">
+              <p className="accounts-coverage__ago">
+                <span
+                  className={`accounts-coverage__dot ${!hasScanned ? "is-none" : ""}`}
+                  aria-hidden
+                />
+                {hasScanned ? scanAgo : "Not scanned"}
+              </p>
+              <p className="accounts-coverage__next">On-demand scan</p>
+            </div>
+            <div className="accounts-findings-cell">
+              <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
+              <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
+            </div>
+            <span className={`accounts-status-pill accounts-status-pill--${rowStatus.tone}`}>
+              {rowStatus.label}
+            </span>
+            <div className="accounts-row-actions">
+              <button
+                type="button"
+                onClick={() => scan.mutate()}
+                disabled={scanPending || !connected}
+                className="accounts-scan-now-btn"
+              >
+                {scanPending ? "Scanning…" : "Scan now"}
+              </button>
+              <button
+                type="button"
+                className="accounts-scan-now-btn"
+                onClick={() => navigate(cloudIntegrationPath(cloud.provider))}
+              >
+                Manage
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="accounts-row-actions accounts-row-actions--pending">
+            <button
+              type="button"
+              className="accounts-scan-now-btn"
+              onClick={() => navigate(cloudIntegrationPath(cloud.provider))}
+            >
+              Continue setup
+            </button>
+          </div>
+        )}
+      </div>
+
+      {actionMessage ? (
+        <div
+          className={`border-t px-4 py-2.5 text-xs ${
+            actionMessage.tone === "error"
+              ? "border-red-100/80 bg-red-50/60 text-red-700"
+              : "border-emerald-100/80 bg-emerald-50/60 text-emerald-800"
+          }`}
+        >
+          {actionMessage.text}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AccountPremiumCard({
   acc,
   stats,
@@ -4647,7 +4887,7 @@ function AddAccountProviderPicker({
               Choose cloud provider
             </h2>
             <p className="accounts-provider-modal__subtitle">
-              Select where you want to connect an account. AWS uses this page; GCP and Azure use Integrations.
+              Select where you want to connect an account. All providers appear on this page once connected.
             </p>
           </div>
           <button
@@ -4796,6 +5036,12 @@ export default function Accounts() {
     refetchOnMount: "always",
   });
 
+  const cloudAccounts = useQuery({
+    queryKey: ["cloud-accounts"],
+    queryFn: () => api<CloudAccountRow[]>("/v1/integrations/cloud-accounts"),
+    refetchOnMount: "always",
+  });
+
   const create = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
       api<Account>("/v1/accounts", {
@@ -4829,14 +5075,14 @@ export default function Accounts() {
   const allFindings = useQuery({
     queryKey: ["findings-snapshot-all"],
     queryFn: () => fetchAllFindings<Finding>({ status: "open" }),
-    enabled: (accounts.data?.length ?? 0) > 0,
+    enabled: (accounts.data?.length ?? 0) > 0 || (cloudAccounts.data?.length ?? 0) > 0,
   });
 
   const scanStats = useQuery({
     queryKey: ["accounts-scan-stats"],
     queryFn: () =>
       api<{ scans_last_7_days: number; scans_prev_7_days: number }>("/v1/accounts/scan-stats"),
-    enabled: (accounts.data?.length ?? 0) > 0,
+    enabled: (accounts.data?.length ?? 0) > 0 || (cloudAccounts.data?.length ?? 0) > 0,
     staleTime: 60_000,
   });
 
@@ -4851,6 +5097,16 @@ export default function Accounts() {
 
   const statsMap = useMemo(() => buildStatsMap(allFindings.data?.items), [allFindings.data?.items]);
 
+  const integrationAccounts = useMemo(
+    () => (cloudAccounts.data ?? []).filter((row) => row.provider === "gcp" || row.provider === "azure"),
+    [cloudAccounts.data],
+  );
+
+  const integrationStatsMap = useMemo(
+    () => buildIntegrationStatsMap(allFindings.data?.items, integrationAccounts),
+    [allFindings.data?.items, integrationAccounts],
+  );
+
   const accs = useMemo(() => {
     const rows = accounts.data ?? [];
     const pending: Account[] = [];
@@ -4861,6 +5117,10 @@ export default function Accounts() {
     }
     return [...pending, ...connected];
   }, [accounts.data]);
+  const hasConnectedAws = accs.some((a) => isAccountConnected(a));
+  const hasConnectedIntegration = integrationAccounts.some((row) => isCloudAccountConnected(row));
+  const hasAnyConnectedCloud = hasConnectedAws || hasConnectedIntegration;
+  const hasAnyAccounts = accs.length > 0 || integrationAccounts.length > 0;
   const hasPending = accs.some((a) => !isAccountConnected(a));
   const atPlanCap = planUsage.data ? !planUsage.data.can_add : false;
   const planCapMsg = planUsage.data
@@ -4877,11 +5137,29 @@ export default function Accounts() {
     [accs, accountSearch, providerFilter, statusFilter],
   );
 
-  const effectivePageSize = showAllAccounts ? Math.max(filteredAccs.length, 1) : pageSize;
-  const totalPages = Math.max(1, Math.ceil(filteredAccs.length / effectivePageSize));
-  const paginatedAccs = filteredAccs.slice((page - 1) * effectivePageSize, page * effectivePageSize);
+  const filteredIntegrationAccs = useMemo(
+    () =>
+      integrationAccounts.filter(
+        (cloud) =>
+          matchesCloudAccountSearch(cloud, accountSearch) &&
+          matchesCloudProviderFilter(cloud, providerFilter) &&
+          matchesCloudAccountStatusFilter(cloud, statusFilter),
+      ),
+    [integrationAccounts, accountSearch, providerFilter, statusFilter],
+  );
 
-  const hasConnectedAccount = accs.some((a) => isAccountConnected(a));
+  const filteredRows = useMemo<AccountListRow[]>(
+    () => [
+      ...filteredAccs.map((account) => ({ kind: "aws" as const, account })),
+      ...filteredIntegrationAccs.map((cloud) => ({ kind: "cloud" as const, cloud })),
+    ],
+    [filteredAccs, filteredIntegrationAccs],
+  );
+
+  const effectivePageSize = showAllAccounts ? Math.max(filteredRows.length, 1) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / effectivePageSize));
+  const paginatedRows = filteredRows.slice((page - 1) * effectivePageSize, page * effectivePageSize);
+
   const pendingAcc = accs.find((a) => !isAccountConnected(a));
   const showPendingOnboarding =
     !accounts.isLoading &&
@@ -4890,9 +5168,10 @@ export default function Accounts() {
     expandedId === pendingAcc.id;
   const showCapabilityOnboarding =
     !accounts.isLoading &&
+    !cloudAccounts.isLoading &&
     !accounts.isError &&
-    (addingAwsAccount ||
-      (!hasConnectedAccount && (!pendingAcc || expandedId === null)));
+    !cloudAccounts.isError &&
+    (addingAwsAccount || (!hasAnyAccounts && (!pendingAcc || expandedId === null)));
 
   const handleOnboardingContinue = () => {
     if (pendingAcc && !addingAwsAccount) {
@@ -4944,22 +5223,27 @@ export default function Accounts() {
 
   return (
     <div className="accounts-page w-full space-y-6">
-      {accounts.isError && (
+      {accounts.isLoading && cloudAccounts.isLoading && accs.length === 0 && integrationAccounts.length === 0 && (
+        <p className="text-sm text-zinc-500">Loading accounts…</p>
+      )}
+
+      {(accounts.isError || cloudAccounts.isError) && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <p className="font-medium">Could not load accounts</p>
-          <p className="mt-1 text-red-700">{formatApiError(accounts.error)}</p>
+          <p className="mt-1 text-red-700">
+            {formatApiError(accounts.error ?? cloudAccounts.error)}
+          </p>
           <button
             type="button"
-            onClick={() => accounts.refetch()}
+            onClick={() => {
+              if (accounts.isError) accounts.refetch();
+              if (cloudAccounts.isError) cloudAccounts.refetch();
+            }}
             className="mt-3 text-sm font-semibold text-red-900 underline hover:no-underline"
           >
             Retry
           </button>
         </div>
-      )}
-
-      {accounts.isLoading && accs.length === 0 && (
-        <p className="text-sm text-zinc-500">Loading accounts…</p>
       )}
 
       {showCapabilityOnboarding && (
@@ -4990,10 +5274,17 @@ export default function Accounts() {
         onSelect={handleProviderSelect}
       />
 
-      {!showPendingOnboarding && !addingAwsAccount && hasConnectedAccount && accs.length > 0 && (
+      {!showPendingOnboarding && !addingAwsAccount && hasAnyAccounts && (
         <div className="space-y-6">
-          {hasConnectedAccount ? (
-            <AccountsStatsCards accs={accs} statsMap={statsMap} scanStats={scanStats.data} planUsage={planUsage.data} />
+          {hasAnyConnectedCloud ? (
+            <AccountsStatsCards
+              accs={accs}
+              integrationCount={integrationAccounts.filter((row) => isCloudAccountConnected(row)).length}
+              statsMap={statsMap}
+              integrationStatsMap={integrationStatsMap}
+              scanStats={scanStats.data}
+              planUsage={planUsage.data}
+            />
           ) : null}
 
           <div className="accounts-toolbar">
@@ -5022,6 +5313,8 @@ export default function Accounts() {
               options={[
                 { value: "all", label: "All providers" },
                 { value: "aws", label: "AWS" },
+                { value: "gcp", label: "Google Cloud" },
+                { value: "azure", label: "Microsoft Azure" },
               ]}
             />
             <Select
@@ -5068,14 +5361,14 @@ export default function Accounts() {
             </button>
           </div>
 
-          {filteredAccs.length === 0 ? (
+          {filteredRows.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-8 text-center text-sm text-zinc-500">
               No accounts match your filters
             </p>
           ) : (
             <div className="accounts-list-shell">
               <div className="accounts-list-shell__header">
-                <h2 className="accounts-list-shell__title">Cloud accounts ({filteredAccs.length})</h2>
+                <h2 className="accounts-list-shell__title">Cloud accounts ({filteredRows.length})</h2>
               </div>
               <div className="accounts-list-head" aria-hidden>
                 <span />
@@ -5085,29 +5378,37 @@ export default function Accounts() {
                 <span className="accounts-col accounts-col--status">Status</span>
                 <span className="accounts-col accounts-col--actions">Actions</span>
               </div>
-              {paginatedAccs.map((acc) => (
-                <AccountPremiumCard
-                  key={acc.id}
-                  acc={acc}
-                  stats={statsMap.get(acc.id)}
-                  expanded={expandedId === acc.id}
-                  setupInitialStep={expandedId === acc.id ? setupInitialStep : 1}
-                  onToggle={() => {
-                    setExpandedId((id) => {
-                      if (id === acc.id) return null;
-                      if (!isAccountConnected(acc)) setSetupInitialStep(2);
-                      return acc.id;
-                    });
-                  }}
-                />
-              ))}
+              {paginatedRows.map((row) =>
+                row.kind === "aws" ? (
+                  <AccountPremiumCard
+                    key={`aws-${row.account.id}`}
+                    acc={row.account}
+                    stats={statsMap.get(row.account.id)}
+                    expanded={expandedId === row.account.id}
+                    setupInitialStep={expandedId === row.account.id ? setupInitialStep : 1}
+                    onToggle={() => {
+                      setExpandedId((id) => {
+                        if (id === row.account.id) return null;
+                        if (!isAccountConnected(row.account)) setSetupInitialStep(2);
+                        return row.account.id;
+                      });
+                    }}
+                  />
+                ) : (
+                  <IntegrationCloudAccountCard
+                    key={`${row.cloud.provider}-${row.cloud.id}`}
+                    cloud={row.cloud}
+                    stats={integrationStatsMap.get(row.cloud.id)}
+                  />
+                ),
+              )}
 
-              {filteredAccs.length > pageSize && (
+              {filteredRows.length > pageSize && (
               <div className="accounts-list-footer">
                 {!showAllAccounts ? (
                   <>
                     <p className="accounts-list-footer__meta">
-                      Showing {paginatedAccs.length} of {filteredAccs.length} accounts
+                      Showing {paginatedRows.length} of {filteredRows.length} accounts
                     </p>
                     <button
                       type="button"
