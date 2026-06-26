@@ -233,24 +233,30 @@ function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
         <p className="mt-1 text-sm text-zinc-500">Optional destinations and alerts you can connect next.</p>
       </div>
       <div className="integrations-explore-grid">
-        {cards.map((card) => (
-          <article key={card.key} className="integrations-explore-card">
-            <IntegrationBrandIcon brand={card.brand} size={48} variant="plain" className="integrations-explore-card__icon" />
-            <div className="integrations-explore-card__body">
-              <div className="integrations-explore-card__name">{card.name}</div>
-              <p className="integrations-explore-card__desc">{card.description}</p>
-            </div>
-            {card.comingSoon || !card.href ? (
-              <button type="button" className="integrations-connect-btn" disabled>
-                Connect
-              </button>
-            ) : (
-              <Link to={card.href} className="integrations-connect-btn">
-                Connect
-              </Link>
-            )}
-          </article>
-        ))}
+        {cards.map((card) => {
+          const isComingSoon = card.comingSoon || !card.href;
+          return (
+            <article
+              key={card.key}
+              className={`integrations-explore-card${isComingSoon ? " integrations-explore-card--coming-soon" : ""}`}
+            >
+              <IntegrationBrandIcon brand={card.brand} size={48} variant="plain" className="integrations-explore-card__icon" />
+              <div className="integrations-explore-card__body">
+                <div className="integrations-explore-card__name">{card.name}</div>
+                <p className="integrations-explore-card__desc">{card.description}</p>
+              </div>
+              {isComingSoon ? (
+                <button type="button" className="integrations-connect-btn integrations-connect-btn--coming-soon" disabled>
+                  Coming soon
+                </button>
+              ) : (
+                <Link to={card.href!} className="integrations-connect-btn">
+                  Connect
+                </Link>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
