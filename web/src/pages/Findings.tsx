@@ -35,6 +35,9 @@ import { useRecheckNotifications, type RecheckResponse } from "../context/Rechec
 import { CloudProviderMark } from "../components/FindingResourceIcon";
 import "../styles/findings-v2.css";
 
+/** CloudTrail activity detections are informational only; hidden from Findings UI for now. */
+const SHOW_ACTIVITY_DETECTIONS_SECTION = false;
+
 type Finding = {
   id: string;
   account_id?: string;
@@ -1094,7 +1097,7 @@ export default function Findings() {
                       />
                   ) : null}
 
-                  {activityDisplayGroups.length > 0 ? (
+                  {SHOW_ACTIVITY_DETECTIONS_SECTION && activityDisplayGroups.length > 0 ? (
                     <div className={postureDisplayGroups.length > 0 ? "mt-8 border-t border-zinc-100 pt-6" : ""}>
                       <div className="mb-3 px-1">
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Activity detections</p>
