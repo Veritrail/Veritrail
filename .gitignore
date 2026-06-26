@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+veritrail.json
 upload-cfn.sh
 upload-cfn.credentials.sh
 __pycache__/
