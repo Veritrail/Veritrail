@@ -131,7 +131,26 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.7rem;
+}
+
+.accounts-toolbar__start,
+.accounts-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.accounts-toolbar__start {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.accounts-toolbar__actions {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .accounts-toolbar__search {
@@ -179,10 +198,6 @@
   font-weight: 500;
   color: #334155;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-.accounts-toolbar > .veritrail-select__btn.accounts-toolbar__select {
-  margin-left: auto;
 }
 
 .veritrail-select__btn.accounts-toolbar__select .veritrail-select__chev {
@@ -3008,21 +3023,6 @@ button.accounts-flow-step:hover {
   font-size: 0.75rem;
   line-height: 1.45;
   color: #71717a;
-}
-
-/* Toolbar — mock-aligned */
-.accounts-toolbar__count {
-  display: inline-flex;
-  height: 2.625rem;
-  align-items: center;
-  border: 1px solid #e4e4e7;
-  border-radius: 999px;
-  background: #f4f4f5;
-  padding: 0 0.85rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #52525b;
-  white-space: nowrap;
 }
 
 .accounts-toolbar__icon-btn {

@@ -4724,19 +4724,19 @@ function AccountSplitDetailPane({
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
                   <p className="accounts-detail-metric-card__label">Open findings</p>
-                  <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
                 </div>
                 <p className="accounts-detail-metric-card__value">{hasScanned ? stats?.open ?? 0 : "—"}</p>
                 <p className="accounts-detail-metric-card__sub">{hasScanned ? "Across severities" : "Run a scan first"}</p>
+                {hasScanned ? (
+                  <div className="accounts-detail-metric-card__findings">
+                    <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
+                    <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
+                  </div>
+                ) : null}
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
                   <p className="accounts-detail-metric-card__label">Resources covered</p>
-                  <span className="accounts-detail-metric-card__icon accounts-detail-metric-card__icon--cloud" aria-hidden>
-                    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 18.5h10.8a4.2 4.2 0 0 0 .7-8.35 6.2 6.2 0 0 0-11.9-1.92A5.25 5.25 0 0 0 6.5 18.5Z" />
-                    </svg>
-                  </span>
                 </div>
                 <p className="accounts-detail-metric-card__value">
                   {hasScanned ? resourceStats.resources.toLocaleString() : "—"}
@@ -4746,32 +4746,32 @@ function AccountSplitDetailPane({
                     ? `Across ${resourceStats.regions || "—"} region${resourceStats.regions === 1 ? "" : "s"}`
                     : "From latest scan"}
                 </p>
+                <span className="accounts-detail-metric-card__watermark accounts-detail-metric-card__watermark--cloud" aria-hidden>
+                  <svg fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 18.5h10.8a4.2 4.2 0 0 0 .7-8.35 6.2 6.2 0 0 0-11.9-1.92A5.25 5.25 0 0 0 6.5 18.5Z" />
+                  </svg>
+                </span>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
                   <p className="accounts-detail-metric-card__label">Compliance posture</p>
-                  <span className="accounts-detail-metric-card__sparkline" aria-hidden>
-                    <svg viewBox="0 0 72 28" preserveAspectRatio="none">
-                      <polyline points="2,22 15,17 28,19 41,10 55,13 70,6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                      {[["15", "17"], ["28", "19"], ["41", "10"], ["55", "13"], ["70", "6"]].map(([cx, cy]) => (
-                        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.6" fill="currentColor" />
-                      ))}
-                    </svg>
-                  </span>
                 </div>
                 <p className="accounts-detail-metric-card__value">
                   {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
                 </p>
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
+                <span className="accounts-detail-metric-card__sparkline" aria-hidden>
+                  <svg viewBox="0 0 128 46" preserveAspectRatio="none">
+                    <polyline points="2,30 18,28 33,31 48,29 63,33 78,28 93,14 108,10 125,22" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    {[["2", "30"], ["18", "28"], ["33", "31"], ["48", "29"], ["63", "33"], ["78", "28"], ["93", "14"], ["108", "10"], ["125", "22"]].map(([cx, cy]) => (
+                      <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.7" fill="currentColor" />
+                    ))}
+                  </svg>
+                </span>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
                   <p className="accounts-detail-metric-card__label">Coverage</p>
-                  <span className="accounts-detail-metric-card__icon accounts-detail-metric-card__icon--coverage" aria-hidden>
-                    <svg fill="none" stroke="currentColor" strokeWidth={1.9} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75 9.75 18 19.5 6" />
-                    </svg>
-                  </span>
                 </div>
                 <p className="accounts-detail-metric-card__value">
                   {coveragePct != null ? `${coveragePct}%` : hasScanned ? "—" : "—"}
@@ -6241,69 +6241,70 @@ export default function Accounts() {
       {!showPendingOnboarding && !addingAwsAccount && hasAnyAccounts && (
         <div className="space-y-5">
           <div className="accounts-toolbar">
-            <label className="accounts-toolbar__search">
-              <span className="sr-only">Search accounts</span>
-              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
-              </svg>
-              <input
-                type="search"
-                value={accountSearch}
-                onChange={(e) => {
-                  setAccountSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search by account name, ID, or provider…"
+            <div className="accounts-toolbar__start">
+              <label className="accounts-toolbar__search">
+                <span className="sr-only">Search accounts</span>
+                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
+                </svg>
+                <input
+                  type="search"
+                  value={accountSearch}
+                  onChange={(e) => {
+                    setAccountSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search by account name, ID, or provider…"
+                />
+              </label>
+              <button
+                type="button"
+                className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
+                aria-label="Filter accounts"
+                aria-expanded={showFilters}
+                onClick={() => setShowFilters((v) => !v)}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
+                </svg>
+              </button>
+              <Select
+                className="accounts-toolbar__select"
+                value={viewPreset}
+                onChange={handleViewPresetChange}
+                options={VIEW_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
               />
-            </label>
-            <button
-              type="button"
-              className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
-              aria-label="Filter accounts"
-              aria-expanded={showFilters}
-              onClick={() => setShowFilters((v) => !v)}
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
-              </svg>
-            </button>
-            <span className="accounts-toolbar__count">
-              {filteredRows.length} account{filteredRows.length === 1 ? "" : "s"}
-            </span>
-            <Select
-              className="accounts-toolbar__select"
-              value={viewPreset}
-              onChange={handleViewPresetChange}
-              options={VIEW_PRESETS.map((p) => ({ value: p.value, label: p.label }))}
-            />
-            <button
-              type="button"
-              className="accounts-toolbar__icon-btn"
-              aria-label="Refresh accounts"
-              onClick={refreshAccounts}
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={handleAddAccountClick}
-              disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
-              title={
-                atPlanCap
-                  ? planCapMsg
-                  : hasPending
-                    ? "Finish setting up the pending account first"
-                    : undefined
-              }
-              className="accounts-toolbar__add"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              {create.isPending ? "Adding…" : "Add account"}
-            </button>
+            </div>
+            <div className="accounts-toolbar__actions">
+              <button
+                type="button"
+                className="accounts-toolbar__icon-btn"
+                aria-label="Refresh accounts"
+                onClick={refreshAccounts}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={handleAddAccountClick}
+                disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
+                title={
+                  atPlanCap
+                    ? planCapMsg
+                    : hasPending
+                      ? "Finish setting up the pending account first"
+                      : undefined
+                }
+                className="accounts-toolbar__add"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                {create.isPending ? "Adding…" : "Add account"}
+              </button>
+            </div>
           </div>
 
           {showFilters ? (
