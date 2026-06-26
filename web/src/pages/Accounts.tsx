@@ -3494,6 +3494,94 @@ function AccountMenu({
   );
 }
 
+function CloudAccountMenu({
+  provider,
+  onOpenIntegration,
+}: {
+  provider: string;
+  onOpenIntegration: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+  const itemClass =
+    "block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50";
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setCoords({ top: r.bottom + 6, right: window.innerWidth - r.right });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onScrollResize() {
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScrollResize, true);
+    window.addEventListener("resize", onScrollResize);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScrollResize, true);
+      window.removeEventListener("resize", onScrollResize);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="More actions"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-800"
+      >
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="5" cy="12" r="2.25" />
+          <circle cx="12" cy="12" r="2.25" />
+          <circle cx="19" cy="12" r="2.25" />
+        </svg>
+      </button>
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ position: "fixed", top: coords.top, right: coords.right }}
+            className="z-[60] w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
+          >
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onOpenIntegration();
+              }}
+              className={itemClass}
+            >
+              {cloudProviderLabel(provider)} integration
+            </button>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 function ScanPhaseBlock({
   progress,
   elapsedMs,
@@ -4364,13 +4452,10 @@ function IntegrationCloudAccountCard({
               >
                 {scanPending ? "Scanning…" : "Scan now"}
               </button>
-              <button
-                type="button"
-                className="accounts-scan-now-btn"
-                onClick={() => navigate(cloudIntegrationPath(cloud.provider))}
-              >
-                Manage
-              </button>
+              <CloudAccountMenu
+                provider={cloud.provider}
+                onOpenIntegration={() => navigate(cloudIntegrationPath(cloud.provider))}
+              />
             </div>
           </>
         ) : (
