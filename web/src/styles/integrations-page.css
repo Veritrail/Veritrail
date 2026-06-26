@@ -354,12 +354,6 @@
 
 .integrations-explore-card--coming-soon {
   border-style: dashed;
-  opacity: 0.75;
-}
-
-.integrations-explore-card--coming-soon .integrations-explore-card__icon {
-  opacity: 0.5;
-  filter: grayscale(1);
 }
 
 .integrations-connect-btn--coming-soon {
