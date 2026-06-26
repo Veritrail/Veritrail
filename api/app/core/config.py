@@ -134,6 +134,8 @@ class Settings(BaseSettings):
     EVIDENCE_CLAMAV_ENABLED: bool = False
     EVIDENCE_CLAMAV_HOST: str = "127.0.0.1"
     EVIDENCE_CLAMAV_PORT: int = 3310
+    # When true, uploads are rejected until ClamAV returns clean (no dev skip on scan failure).
+    EVIDENCE_UPLOAD_QUARANTINE_ENABLED: bool = False
 
     # Go HCL patch binary (repo-aware Terraform PRs). Default: /usr/local/bin/hclpatch
     HCLPATCH_BIN: str = "/usr/local/bin/hclpatch"

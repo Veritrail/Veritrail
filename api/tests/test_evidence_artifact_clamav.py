@@ -47,6 +47,7 @@ def test_clamav_found_blocks_upload(monkeypatch):
 
 def test_clamav_unavailable_skips_in_dev(monkeypatch):
     monkeypatch.setenv("EVIDENCE_CLAMAV_ENABLED", "true")
+    monkeypatch.setenv("EVIDENCE_UPLOAD_QUARANTINE_ENABLED", "false")
     monkeypatch.setenv("APP_ENV", "dev")
     from app.core.config import get_settings
 
@@ -58,4 +59,31 @@ def test_clamav_unavailable_skips_in_dev(monkeypatch):
     ):
         scan_bytes(b"payload")
 
+    get_settings.cache_clear()
+
+
+def test_quarantine_requires_clamav_enabled(monkeypatch):
+    monkeypatch.setenv("EVIDENCE_CLAMAV_ENABLED", "false")
+    monkeypatch.setenv("EVIDENCE_UPLOAD_QUARANTINE_ENABLED", "true")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    with pytest.raises(EvidenceUploadRejected, match="quarantine"):
+        scan_bytes(b"payload")
+    get_settings.cache_clear()
+
+
+def test_quarantine_blocks_when_clamav_unavailable(monkeypatch):
+    monkeypatch.setenv("EVIDENCE_CLAMAV_ENABLED", "true")
+    monkeypatch.setenv("EVIDENCE_UPLOAD_QUARANTINE_ENABLED", "true")
+    monkeypatch.setenv("APP_ENV", "dev")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    with patch(
+        "app.services.evidence_artifact_clamav.socket.create_connection",
+        side_effect=OSError("connection refused"),
+    ):
+        with pytest.raises(EvidenceUploadRejected, match="quarantine"):
+            scan_bytes(b"payload")
     get_settings.cache_clear()

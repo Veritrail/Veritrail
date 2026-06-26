@@ -7,7 +7,7 @@ Veritrail treats customer-uploaded proof and declared external tools as first-cl
 1. **Never silently fail** because the customer does not use Veritrail's preferred AWS source (Inspector, GuardDuty, etc.).
 2. **Two paths** on every absence gap: upload external evidence **or** enable/fix the capability in AWS.
 3. **Reviewer gate**: engineers submit; admins accept or reject before evidence counts as coverage.
-4. **Integrity**: SHA-256 on uploads; optional ClamAV scan; signed download URLs; audit log on download.
+4. **Integrity**: SHA-256 on uploads; optional ClamAV scan (or strict quarantine mode); signed download URLs; audit log on download.
 
 ## Where to work in the UI
 
@@ -74,7 +74,18 @@ PATCH  /v1/settings                       { evidence_sources, coverage_overrides
 | `EVIDENCE_ARTIFACTS_S3_URI` | S3 prefix for uploaded files (local disk fallback) |
 | `EVIDENCE_ARTIFACTS_DEFAULT_EXPIRY_DAYS` | Default `expires_at` on upload |
 | `EVIDENCE_CLAMAV_ENABLED` | Optional INSTREAM scan before save |
+| `EVIDENCE_UPLOAD_QUARANTINE_ENABLED` | Reject uploads until ClamAV clean (no dev skip; requires ClamAV) |
 | `EVIDENCE_VAULT_*` | Immutable pack copy on export — see [evidence-vault.md](./evidence-vault.md) |
+
+### Enterprise AV + upload quarantine
+
+For production environments that require malware scanning before evidence is persisted:
+
+1. Run ClamAV (`clamd`) reachable from the API at `EVIDENCE_CLAMAV_HOST:EVIDENCE_CLAMAV_PORT`.
+2. Set `EVIDENCE_CLAMAV_ENABLED=true`.
+3. Set `EVIDENCE_UPLOAD_QUARANTINE_ENABLED=true` to **reject** any upload when the scan is unavailable or returns a threat (no graceful skip in dev).
+
+Uploaded artifacts land in `EVIDENCE_ARTIFACTS_S3_URI` (or local disk). **WORM / Object Lock** applies to finalized audit packs written to the evidence vault — not to in-flight uploads. See [evidence-vault.md](./evidence-vault.md) for immutable archive configuration.
 
 ## Audit pack contents
 

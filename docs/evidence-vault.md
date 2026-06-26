@@ -77,3 +77,12 @@ Org-level override (future): `org.settings["evidence_vault"]["customer_s3_uri"]`
 Enable only after bucket Object Lock, IAM, and retention policy review.
 
 For customer-uploaded external evidence (separate from pack vault), see [external-evidence.md](./external-evidence.md).
+
+### Upload quarantine (external evidence)
+
+Customer PDFs and exports uploaded via `POST /v1/controls/evidence` can be held until ClamAV reports clean:
+
+- `EVIDENCE_CLAMAV_ENABLED=true` — INSTREAM scan before `save_artifact_bytes`
+- `EVIDENCE_UPLOAD_QUARANTINE_ENABLED=true` — strict mode: reject when clamd is down or returns FOUND/ERROR (requires ClamAV)
+
+This is independent of vault Object Lock, which applies only when a finalized evidence pack ZIP is written via `upload_pack_to_vault`.

@@ -16,11 +16,17 @@ _CLAMAV_TIMEOUT = 30
 
 def scan_bytes(raw: bytes) -> None:
     settings = get_settings()
+    quarantine = settings.EVIDENCE_UPLOAD_QUARANTINE_ENABLED
     if not settings.EVIDENCE_CLAMAV_ENABLED:
+        if quarantine:
+            raise EvidenceUploadRejected(
+                "upload quarantine is enabled; set EVIDENCE_CLAMAV_ENABLED=true and ensure clamd is reachable"
+            )
         return
 
     host = settings.EVIDENCE_CLAMAV_HOST.strip() or "127.0.0.1"
     port = settings.EVIDENCE_CLAMAV_PORT
+    strict = quarantine or settings.APP_ENV != "dev"
 
     try:
         with socket.create_connection((host, port), timeout=_CLAMAV_TIMEOUT) as sock:
@@ -34,13 +40,13 @@ def scan_bytes(raw: bytes) -> None:
             sock.sendall(struct.pack("!I", 0))
             response = _read_clamd_response(sock)
     except OSError as exc:
-        if settings.APP_ENV == "dev":
+        if not strict:
             log.warning("evidence_clamav.unavailable", host=host, port=port, error=str(exc))
             return
-        raise EvidenceUploadRejected("malware scan unavailable; try again later") from exc
+        raise EvidenceUploadRejected("malware scan unavailable; upload held in quarantine") from exc
 
     if not response:
-        if settings.APP_ENV == "dev":
+        if not strict:
             log.warning("evidence_clamav.empty_response", host=host, port=port)
             return
         raise EvidenceUploadRejected("malware scan returned no response")
@@ -50,7 +56,7 @@ def scan_bytes(raw: bytes) -> None:
         raise EvidenceUploadRejected(f"upload blocked by malware scan ({threat or 'threat detected'})")
 
     if "OK" not in response and "ERROR" in response:
-        if settings.APP_ENV == "dev":
+        if not strict:
             log.warning("evidence_clamav.error_response", response=response[:200])
             return
         raise EvidenceUploadRejected("malware scan failed")
