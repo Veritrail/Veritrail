@@ -32,6 +32,7 @@ import {
   type RemediationModules,
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { MetricHelpTip } from "../components/MetricHelpTip";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { ProviderMark, type CloudProvider } from "../components/AccountSelect";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
@@ -4446,6 +4447,17 @@ function DetailTabStub({ title, body, action }: { title: string; body: string; a
   );
 }
 
+const ACCOUNT_OVERVIEW_METRIC_HELP = {
+  openFindings:
+    "Unresolved security findings from the latest scan, counted across all severity levels. Lower is generally better for remediation workload.",
+  resourcesCovered:
+    "Cloud resources evaluated in the most recent scan across connected regions—not the same as evidence window coverage.",
+  compliancePosture:
+    "Share of SOC 2 controls passing over the last 7 days based on collected evidence. Tracks audit readiness trend, not a certification score.",
+  coverage:
+    "Share of days in the last 7 days with scan or snapshot evidence. Higher means more continuous monitoring for audit readiness—not how many cloud resources were scanned.",
+} as const;
+
 function AccountSplitDetailPane({
   row,
   stats,
@@ -4835,7 +4847,10 @@ function AccountSplitDetailPane({
             <div className="accounts-detail-overview__cards">
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">Open findings</p>
+                  <div className="accounts-detail-metric-card__label-row">
+                    <p className="accounts-detail-metric-card__label">Open findings</p>
+                    <MetricHelpTip metric="Open findings" text={ACCOUNT_OVERVIEW_METRIC_HELP.openFindings} />
+                  </div>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">{hasScanned ? stats?.open ?? 0 : "—"}</p>
@@ -4860,7 +4875,10 @@ function AccountSplitDetailPane({
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__content">
                   <div className="accounts-detail-metric-card__top">
-                    <p className="accounts-detail-metric-card__label">Resources covered</p>
+                    <div className="accounts-detail-metric-card__label-row">
+                      <p className="accounts-detail-metric-card__label">Resources covered</p>
+                      <MetricHelpTip metric="Resources covered" text={ACCOUNT_OVERVIEW_METRIC_HELP.resourcesCovered} />
+                    </div>
                   </div>
                   <div className="accounts-detail-metric-card__value-row">
                     <p className="accounts-detail-metric-card__value">
@@ -4879,7 +4897,10 @@ function AccountSplitDetailPane({
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">Compliance posture</p>
+                  <div className="accounts-detail-metric-card__label-row">
+                    <p className="accounts-detail-metric-card__label">Compliance posture</p>
+                    <MetricHelpTip metric="Compliance posture" text={ACCOUNT_OVERVIEW_METRIC_HELP.compliancePosture} />
+                  </div>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">
@@ -4891,33 +4912,37 @@ function AccountSplitDetailPane({
                 </div>
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
                 <span className="accounts-detail-metric-card__sparkline" aria-hidden>
-                  <svg viewBox="0 0 320 160" preserveAspectRatio="none">
+                  <svg viewBox="24 48 272 84" preserveAspectRatio="none">
                     <defs>
-                      <linearGradient id="accounts-compliance-spark-fill" x1="160" y1="50" x2="160" y2="124" gradientUnits="userSpaceOnUse">
-                        <stop offset="0" stopColor="#3478F6" stopOpacity="0.1" />
+                      <linearGradient id="accounts-compliance-spark-fill" x1="160" y1="42" x2="160" y2="126" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stopColor="#2F75FF" stopOpacity="0.11" />
                         <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
                       </linearGradient>
                     </defs>
+                    <path d="M34 122H286" stroke="#E8EDF5" strokeWidth="2.25" strokeLinecap="round" />
                     <path
-                      d="M34 101 C55 96 73 92 91 99 C111 106 122 87 142 78 C160 70 176 86 194 78 C214 69 225 55 243 61 C261 67 272 83 286 75 L286 122 L34 122 Z"
+                      d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74 L286 122 L34 122 Z"
                       fill="url(#accounts-compliance-spark-fill)"
                     />
                     <path
-                      d="M34 101 C55 96 73 92 91 99 C111 106 122 87 142 78 C160 70 176 86 194 78 C214 69 225 55 243 61 C261 67 272 83 286 75"
+                      d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="4.25"
+                      strokeWidth="4.75"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
-                    <circle cx="286" cy="75" r="4.75" fill="currentColor" />
-                    <circle cx="286" cy="75" r="9.5" fill="currentColor" opacity="0.09" />
+                    <circle cx="286" cy="74" r="4.75" fill="currentColor" />
+                    <circle cx="286" cy="74" r="9.5" fill="currentColor" opacity="0.08" />
                   </svg>
                 </span>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">Coverage</p>
+                  <div className="accounts-detail-metric-card__label-row">
+                    <p className="accounts-detail-metric-card__label">Coverage</p>
+                    <MetricHelpTip metric="Coverage" text={ACCOUNT_OVERVIEW_METRIC_HELP.coverage} />
+                  </div>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">
