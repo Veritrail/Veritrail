@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError } from "../api";
@@ -11,6 +11,7 @@ import {
   formatMetricDelta,
   openFindingsSeries,
   postureTrendSeries,
+  type TimestampedValue,
   valueAtOrBeforeDaysAgo,
   type BetterWhen,
 } from "../lib/accountMetricDeltas";
@@ -4399,6 +4400,134 @@ function MetricCardDelta({
   );
 }
 
+function formatSparklinePointLabel(point: TimestampedValue): string {
+  const date = new Date(point.timestamp);
+  const dateLabel = Number.isNaN(date.getTime())
+    ? point.timestamp
+    : date.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+  return `${dateLabel}: ${point.value}%`;
+}
+
+function changedPosturePoints(points: TimestampedValue[]): TimestampedValue[] {
+  const sorted = [...points]
+    .filter((point) => Number.isFinite(point.value))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const changed: TimestampedValue[] = [];
+  for (const point of sorted) {
+    const value = Math.max(0, Math.min(100, Math.round(point.value)));
+    const last = changed[changed.length - 1];
+    if (!last || last.value !== value) {
+      changed.push({ timestamp: point.timestamp, value });
+    }
+  }
+  return changed;
+}
+
+function smoothPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  const parts = [`M ${points[0].x} ${points[0].y}`];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    parts.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`);
+  }
+  return parts.join(" ");
+}
+
+function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) {
+  const gradientId = useId().replace(/:/g, "");
+  const changed = changedPosturePoints(points);
+  const hasRealTrend = changed.length >= 2;
+  const xMin = 34;
+  const xMax = 286;
+  const yMin = 52;
+  const yMax = 122;
+  const chartPoints = hasRealTrend
+    ? changed.map((point, idx) => {
+        const values = changed.map((p) => p.value);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const spread = Math.max(12, max - min);
+        const center = (min + max) / 2;
+        const low = Math.max(0, center - spread / 2);
+        const high = Math.min(100, center + spread / 2);
+        const normalized = high === low ? 0.5 : (point.value - low) / (high - low);
+        return {
+          ...point,
+          x: xMin + (idx / (changed.length - 1)) * (xMax - xMin),
+          y: yMax - Math.max(0, Math.min(1, normalized)) * (yMax - yMin),
+        };
+      })
+    : [];
+  const linePath = hasRealTrend ? smoothPath(chartPoints) : "";
+  const areaPath =
+    hasRealTrend && chartPoints.length > 0
+      ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${yMax} L ${chartPoints[0].x} ${yMax} Z`
+      : "";
+
+  return (
+    <span className="accounts-detail-metric-card__sparkline" aria-hidden>
+      <svg viewBox="0 0 320 160" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={`${gradientId}-fill`} x1="160" y1="42" x2="160" y2="126" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#2F75FF" stopOpacity={hasRealTrend ? 0.11 : 0.1} />
+            <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d="M34 122H286" stroke="#E8EDF5" strokeWidth="2.25" strokeLinecap="round" />
+        {hasRealTrend ? (
+          <>
+            <path d={areaPath} fill={`url(#${gradientId}-fill)`} />
+            <path
+              d={linePath}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {chartPoints.map((point, idx) => (
+              <g key={`${point.timestamp}-${point.value}-${idx}`}>
+                <title>{formatSparklinePointLabel(point)}</title>
+                <circle className="accounts-detail-metric-card__spark-dot-halo" cx={point.x} cy={point.y} r="8.75" />
+                <circle className="accounts-detail-metric-card__spark-dot" cx={point.x} cy={point.y} r={idx === chartPoints.length - 1 ? 4.75 : 3.25} />
+              </g>
+            ))}
+          </>
+        ) : (
+          <>
+            <path
+              d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74 L286 122 L34 122 Z"
+              fill={`url(#${gradientId}-fill)`}
+            />
+            <path
+              d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="4.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="286" cy="74" r="4.75" fill="currentColor" />
+            <circle cx="286" cy="74" r="9.5" fill="currentColor" opacity="0.08" />
+          </>
+        )}
+      </svg>
+    </span>
+  );
+}
+
 function countAccountResources(
   items: Finding[] | undefined,
   accountKey: string,
@@ -4686,6 +4815,7 @@ function AccountSplitDetailPane({
     coverageQ.data != null ? Math.round(coverageQ.data.coverage_ratio * 100) : null;
   const compliancePct = controlsQ.data;
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
+  const complianceTrendPoints = useMemo(() => postureTrendSeries(historyQ.data), [historyQ.data]);
 
   const openFindingsDelta = useMemo(() => {
     if (!isAws || !hasScanned) return null;
@@ -4696,14 +4826,14 @@ function AccountSplitDetailPane({
 
   const complianceDelta = useMemo(() => {
     if (!isAws || !hasScanned) return null;
-    const trend = postureTrendSeries(historyQ.data);
+    const trend = complianceTrendPoints;
     const current =
       compliancePct ??
       historyQ.data?.current_posture_score ??
       (trend.length > 0 ? trend[trend.length - 1].value : null);
     const prior = valueAtOrBeforeDaysAgo(trend, 7);
     return delta7d(current, prior);
-  }, [isAws, hasScanned, compliancePct, historyQ.data]);
+  }, [isAws, hasScanned, compliancePct, historyQ.data, complianceTrendPoints]);
 
   const coverageDelta = useMemo(() => {
     if (!isAws || !hasScanned || coverageQ.data == null || coveragePrevQ.data == null) return null;
@@ -4894,31 +5024,7 @@ function AccountSplitDetailPane({
                   ) : null}
                 </div>
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
-                <span className="accounts-detail-metric-card__sparkline" aria-hidden>
-                  <svg viewBox="24 48 272 84" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="accounts-compliance-spark-fill" x1="160" y1="42" x2="160" y2="126" gradientUnits="userSpaceOnUse">
-                        <stop offset="0" stopColor="#2F75FF" stopOpacity="0.11" />
-                        <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <path d="M34 122H286" stroke="#E8EDF5" strokeWidth="2.25" strokeLinecap="round" />
-                    <path
-                      d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74 L286 122 L34 122 Z"
-                      fill="url(#accounts-compliance-spark-fill)"
-                    />
-                    <path
-                      d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="4.75"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="286" cy="74" r="4.75" fill="currentColor" />
-                    <circle cx="286" cy="74" r="9.5" fill="currentColor" opacity="0.08" />
-                  </svg>
-                </span>
+                <CompliancePostureSparkline points={complianceTrendPoints} />
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
@@ -6411,96 +6517,178 @@ export default function Accounts() {
 
       {!showPendingOnboarding && !addingAwsAccount && hasAnyAccounts && (
         <div className="space-y-3">
-          <div className="accounts-toolbar">
-            <div className="accounts-toolbar__start">
-              <label className="accounts-toolbar__search">
-                <span className="sr-only">Search accounts</span>
-                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
-                </svg>
-                <input
-                  type="search"
-                  value={accountSearch}
-                  onChange={(e) => {
-                    setAccountSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Search by account name, ID, or provider…"
-                />
-              </label>
-              <button
-                type="button"
-                className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
-                aria-label="Filter accounts"
-                aria-expanded={showFilters}
-                onClick={() => setShowFilters((v) => !v)}
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleAddAccountClick}
-                disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
-                title={
-                  atPlanCap
-                    ? planCapMsg
-                    : hasPending
-                      ? "Finish setting up the pending account first"
-                      : undefined
-                }
-                className="accounts-toolbar__add"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                {create.isPending ? "Adding…" : "Add account"}
-              </button>
-            </div>
-          </div>
-
-          {showFilters ? (
-            <div className="accounts-toolbar__filters">
-              <Select
-                className="accounts-toolbar__select"
-                value={providerFilter}
-                onChange={(v) => {
-                  setProviderFilter(v);
-                  setPage(1);
-                }}
-                options={[
-                  { value: "all", label: "All providers" },
-                  { value: "aws", label: "AWS" },
-                  { value: "gcp", label: "Google Cloud" },
-                  { value: "azure", label: "Microsoft Azure" },
-                ]}
-              />
-              <Select
-                className="accounts-toolbar__select"
-                value={statusFilter}
-                onChange={(v) => {
-                  setStatusFilter(v);
-                  setPage(1);
-                }}
-                options={[
-                  { value: "all", label: "All statuses" },
-                  { value: "connected", label: "Connected" },
-                  { value: "setup", label: "Setup required" },
-                  { value: "action", label: "Action required" },
-                ]}
-              />
-            </div>
-          ) : null}
-
           {filteredRows.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-8 text-center text-sm text-zinc-500">
-              No accounts match your filters
-            </p>
+            <div className="accounts-list-shell">
+              <div className="accounts-list-shell__header">
+                <div className="accounts-toolbar">
+                  <div className="accounts-toolbar__start">
+                    <label className="accounts-toolbar__search">
+                      <span className="sr-only">Search accounts</span>
+                      <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
+                      </svg>
+                      <input
+                        type="search"
+                        value={accountSearch}
+                        onChange={(e) => {
+                          setAccountSearch(e.target.value);
+                          setPage(1);
+                        }}
+                        placeholder="Search by account name, ID, or provider…"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
+                      aria-label="Filter accounts"
+                      aria-expanded={showFilters}
+                      onClick={() => setShowFilters((v) => !v)}
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddAccountClick}
+                      disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
+                      title={
+                        atPlanCap
+                          ? planCapMsg
+                          : hasPending
+                            ? "Finish setting up the pending account first"
+                            : undefined
+                      }
+                      className="accounts-toolbar__add"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      {create.isPending ? "Adding…" : "Add account"}
+                    </button>
+                  </div>
+                </div>
+                {showFilters ? (
+                  <div className="accounts-toolbar__filters">
+                    <Select
+                      className="accounts-toolbar__select"
+                      value={providerFilter}
+                      onChange={(v) => {
+                        setProviderFilter(v);
+                        setPage(1);
+                      }}
+                      options={[
+                        { value: "all", label: "All providers" },
+                        { value: "aws", label: "AWS" },
+                        { value: "gcp", label: "Google Cloud" },
+                        { value: "azure", label: "Microsoft Azure" },
+                      ]}
+                    />
+                    <Select
+                      className="accounts-toolbar__select"
+                      value={statusFilter}
+                      onChange={(v) => {
+                        setStatusFilter(v);
+                        setPage(1);
+                      }}
+                      options={[
+                        { value: "all", label: "All statuses" },
+                        { value: "connected", label: "Connected" },
+                        { value: "setup", label: "Setup required" },
+                        { value: "action", label: "Action required" },
+                      ]}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <p className="accounts-list-empty">No accounts match your filters</p>
+            </div>
           ) : (
             <div className="accounts-split">
               <div className="accounts-split__list">
                 <div className="accounts-list-shell">
+                  <div className="accounts-list-shell__header">
+                    <div className="accounts-toolbar">
+                      <div className="accounts-toolbar__start">
+                        <label className="accounts-toolbar__search">
+                          <span className="sr-only">Search accounts</span>
+                          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
+                          </svg>
+                          <input
+                            type="search"
+                            value={accountSearch}
+                            onChange={(e) => {
+                              setAccountSearch(e.target.value);
+                              setPage(1);
+                            }}
+                            placeholder="Search by account name, ID, or provider…"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
+                          aria-label="Filter accounts"
+                          aria-expanded={showFilters}
+                          onClick={() => setShowFilters((v) => !v)}
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddAccountClick}
+                          disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
+                          title={
+                            atPlanCap
+                              ? planCapMsg
+                              : hasPending
+                                ? "Finish setting up the pending account first"
+                                : undefined
+                          }
+                          className="accounts-toolbar__add"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                          {create.isPending ? "Adding…" : "Add account"}
+                        </button>
+                      </div>
+                    </div>
+                    {showFilters ? (
+                      <div className="accounts-toolbar__filters">
+                        <Select
+                          className="accounts-toolbar__select"
+                          value={providerFilter}
+                          onChange={(v) => {
+                            setProviderFilter(v);
+                            setPage(1);
+                          }}
+                          options={[
+                            { value: "all", label: "All providers" },
+                            { value: "aws", label: "AWS" },
+                            { value: "gcp", label: "Google Cloud" },
+                            { value: "azure", label: "Microsoft Azure" },
+                          ]}
+                        />
+                        <Select
+                          className="accounts-toolbar__select"
+                          value={statusFilter}
+                          onChange={(v) => {
+                            setStatusFilter(v);
+                            setPage(1);
+                          }}
+                          options={[
+                            { value: "all", label: "All statuses" },
+                            { value: "connected", label: "Connected" },
+                            { value: "setup", label: "Setup required" },
+                            { value: "action", label: "Action required" },
+                          ]}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="accounts-list-head" aria-hidden>
                     <span className="accounts-col accounts-col--account">Account</span>
                     <span className="accounts-col accounts-col--coverage">Coverage</span>
@@ -6508,6 +6696,7 @@ export default function Accounts() {
                     <span className="accounts-col accounts-col--status">Status</span>
                     <span className="accounts-col accounts-col--actions" />
                   </div>
+                  <div className="accounts-list-body">
                   {paginatedRows.map((row) => {
                     const key = accountListRowKey(row);
                     const isSelected = selectedRowKey === key;
@@ -6542,6 +6731,7 @@ export default function Accounts() {
                       />
                     );
                   })}
+                  </div>
 
                   <div className="accounts-list-pagination">
                     <p className="accounts-list-pagination__meta">
