@@ -4756,7 +4756,25 @@ function AccountSplitDetailPane({
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
                 <span className="accounts-detail-metric-card__sparkline" aria-hidden>
                   <svg viewBox="0 0 128 46" preserveAspectRatio="none">
-                    <polyline points="2,30 18,28 33,31 48,29 63,33 78,28 93,14 108,10 125,22" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <defs>
+                      <linearGradient id="accounts-compliance-spark-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.22" />
+                        <stop offset="55%" stopColor="#3b82f6" stopOpacity="0.07" />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <polygon
+                      points="2,30 18,28 33,31 48,29 63,33 78,28 93,14 108,10 125,22 125,46 2,46"
+                      fill="url(#accounts-compliance-spark-fill)"
+                    />
+                    <polyline
+                      points="2,30 18,28 33,31 48,29 63,33 78,28 93,14 108,10 125,22"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                     {[["2", "30"], ["18", "28"], ["33", "31"], ["48", "29"], ["63", "33"], ["78", "28"], ["93", "14"], ["108", "10"], ["125", "22"]].map(([cx, cy]) => (
                       <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.7" fill="currentColor" />
                     ))}
