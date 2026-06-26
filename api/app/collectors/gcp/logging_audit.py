@@ -30,7 +30,7 @@ def _audit_enabled(sinks: list[dict]) -> bool:
 
 
 def collect_logging_audit(db: Session, project: GcpProject) -> int:
-    client = GcpClient(project.service_account_json)
+    client = GcpClient.from_project(project)
     sinks = client.list_logging_sinks(project.project_id)
     enabled = _audit_enabled(sinks)
     stmt = pg_insert(GcpLoggingAudit).values(

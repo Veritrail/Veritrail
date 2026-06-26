@@ -180,6 +180,7 @@ app.include_router(slack_integration.router, prefix="/v1/integrations", tags=["i
 app.include_router(jira_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(linear_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(gcp_integration.router, prefix="/v1/integrations", tags=["integrations"])
+app.include_router(gcp_integration.wif_router, prefix="/v1/integrations/gcp/wif", tags=["integrations"])
 app.include_router(azure_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(scanner_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(cloud_integration.router, prefix="/v1/integrations", tags=["integrations"])

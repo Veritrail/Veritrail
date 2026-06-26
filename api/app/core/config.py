@@ -148,6 +148,16 @@ class Settings(BaseSettings):
     AI_TRIAGE_API_KEY: str = ""
     AI_TRIAGE_MODEL: str = "gpt-4o-mini"
 
+    # GCP Workload Identity Federation (production cross-cloud access — no customer JSON keys).
+    GCP_WIF_ISSUER_URI: str = ""  # defaults to {API_PUBLIC_URL}/v1/integrations/gcp/wif
+    GCP_WIF_VERITRAIL_AUDIENCE: str = "veritrail-gcp"
+    GCP_WIF_JWT_PRIVATE_KEY: str = ""  # PEM PKCS8 RSA; required when APP_ENV != dev
+    GCP_WIF_JWT_KEY_ID: str = "veritrail-wif-1"
+    GCP_WIF_DEFAULT_POOL_ID: str = "veritrail"
+    GCP_WIF_DEFAULT_PROVIDER_ID: str = "veritrail-oidc"
+    GCP_WIF_DEFAULT_SA_NAME: str = "veritrail-scanner"
+    ALLOW_GCP_SA_JSON: bool = False  # legacy dev-only service account key upload
+
 
     @model_validator(mode="after")
     def _validate_secrets_not_default(self):

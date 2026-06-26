@@ -44,10 +44,10 @@ def test_collect_logging_audit_upserts(mock_db):
     project = MagicMock()
     project.id = uuid.uuid4()
     project.project_id = "demo-project"
-    project.service_account_json = json.dumps(_SA)
+    project.auth_method = "workload_identity"
 
     with patch("app.collectors.gcp.logging_audit.GcpClient") as client_cls:
-        client_cls.return_value.list_logging_sinks.return_value = [
+        client_cls.from_project.return_value.list_logging_sinks.return_value = [
             {"name": "audit-sink", "destination": "logging.googleapis.com/projects/demo-project/audit"}
         ]
         count = collect_logging_audit(mock_db, project)
@@ -59,7 +59,7 @@ def test_collect_compute_instances_flags_public_ip(mock_db):
     project = MagicMock()
     project.id = uuid.uuid4()
     project.project_id = "demo-project"
-    project.service_account_json = json.dumps(_SA)
+    project.auth_method = "workload_identity"
 
     instance = {
         "id": "123",
@@ -69,7 +69,7 @@ def test_collect_compute_instances_flags_public_ip(mock_db):
         "networkInterfaces": [{"accessConfigs": [{"natIP": "203.0.113.10"}]}],
     }
     with patch("app.collectors.gcp.compute.GcpClient") as client_cls:
-        client_cls.return_value.list_compute_instances.return_value = [instance]
+        client_cls.from_project.return_value.list_compute_instances.return_value = [instance]
         count = collect_compute_instances(mock_db, project)
     assert count == 1
     mock_db.execute.assert_called()

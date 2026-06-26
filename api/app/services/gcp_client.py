@@ -1,4 +1,4 @@
-"""GCP API client using service account JSON and google-auth."""
+"""GCP API client — Workload Identity Federation (production) or legacy SA JSON."""
 from __future__ import annotations
 
 import json
@@ -6,23 +6,51 @@ from typing import Any
 
 import httpx
 
-GCP_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+from app.models.gcp_project import GcpProject
+from app.services.gcp_wif import (
+    AUTH_SERVICE_ACCOUNT_KEY,
+    AUTH_WORKLOAD_IDENTITY,
+    GCP_SCOPE,
+    build_wif_audience,
+    exchange_wif_access_token,
+)
+
+__all__ = ["GcpClient", "GCP_SCOPE"]
 
 
 class GcpClient:
-    def __init__(self, service_account_json: str):
-        raw = (service_account_json or "").strip()
-        if not raw:
-            raise ValueError("GCP service account JSON is required")
-        try:
-            self._info = json.loads(raw)
-        except json.JSONDecodeError as e:
-            raise ValueError("GCP service account JSON is invalid") from e
-        if not self._info.get("client_email") or not self._info.get("private_key"):
-            raise ValueError("GCP service account JSON must include client_email and private_key")
-        self.project_id = self._info.get("project_id") or ""
+    def __init__(self, service_account_json: str | None = None, *, _access_token_fn=None):
+        self._access_token_fn = _access_token_fn
+        self._info: dict[str, Any] | None = None
+        self.project_id = ""
+        if service_account_json:
+            raw = service_account_json.strip()
+            if not raw:
+                raise ValueError("GCP service account JSON is required")
+            try:
+                self._info = json.loads(raw)
+            except json.JSONDecodeError as e:
+                raise ValueError("GCP service account JSON is invalid") from e
+            if not self._info.get("client_email") or not self._info.get("private_key"):
+                raise ValueError("GCP service account JSON must include client_email and private_key")
+            self.project_id = self._info.get("project_id") or ""
+
+    @classmethod
+    def from_project(cls, project: GcpProject) -> GcpClient:
+        method = (project.auth_method or AUTH_WORKLOAD_IDENTITY).strip()
+        if method == AUTH_SERVICE_ACCOUNT_KEY:
+            if not project.service_account_json:
+                raise ValueError("GCP service account JSON is required for service_account_key auth")
+            return cls(project.service_account_json)
+        if method != AUTH_WORKLOAD_IDENTITY:
+            raise ValueError(f"Unsupported GCP auth_method: {method}")
+        return cls(_access_token_fn=lambda: _wif_token_for_project(project))
 
     def _access_token(self) -> str:
+        if self._access_token_fn is not None:
+            return self._access_token_fn()
+        if not self._info:
+            raise ValueError("GCP credentials are not configured")
         try:
             from google.auth.transport.requests import Request
             from google.oauth2 import service_account
@@ -87,3 +115,22 @@ class GcpClient:
             for inst in scoped.get("instances") or []:
                 instances.append(inst)
         return instances
+
+
+def _wif_token_for_project(project: GcpProject) -> str:
+    if not project.wif_subject:
+        raise ValueError("GCP WIF subject is not configured")
+    if not project.service_account_email:
+        raise ValueError("GCP service account email is required for WIF")
+    if not project.project_number or not project.pool_id or not project.provider_id:
+        raise ValueError("GCP WIF pool, provider, and project number are required")
+    audience = project.wif_audience or build_wif_audience(
+        project.project_number,
+        project.pool_id,
+        project.provider_id,
+    )
+    return exchange_wif_access_token(
+        wif_subject=project.wif_subject,
+        audience=audience,
+        service_account_email=project.service_account_email,
+    )

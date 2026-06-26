@@ -2,18 +2,22 @@
 
 Veritrail's GCP and Azure integrations collect baseline posture evidence via REST APIs, run registered checks, and persist findings scoped to cloud projects or subscriptions. Phase two adds normalized APIs and composite-control mapping so AWS, GCP, and Azure evidence surfaces consistently in the UI and audit packs.
 
-## GCP
+## GCP (production — Workload Identity Federation)
 
-- **Connect:** Integrations → Google Cloud → add project with service account JSON (encrypted at rest).
-- **Verify:** `POST /v1/integrations/gcp/projects/{id}/verify` — validates credentials against Cloud Resource Manager.
+- **Connect:** Integrations → Google Cloud → WIF wizard: project ID → deploy customer trust (`infra/gcp/wif-setup` Terraform or `setup.sh`) → paste pool/provider/SA email → verify.
+- **Auth:** `workload_identity` (default). Veritrail issues short-lived OIDC tokens (`sub` = per-connection `wif_subject`), exchanges via Google STS, impersonates customer scanner SA. No long-lived JSON keys.
+- **Operator:** Configure `GCP_WIF_JWT_PRIVATE_KEY` (RSA PEM), optional `GCP_WIF_ISSUER_URI`, `GCP_WIF_VERITRAIL_AUDIENCE`. Public OIDC discovery: `/v1/integrations/gcp/wif/.well-known/openid-configuration` and `/jwks`.
+- **Verify:** `POST /v1/integrations/gcp/projects/{id}/verify` — WIF token exchange + Cloud Resource Manager + Logging API smoke test.
 - **Scan:** Celery task `run_gcp_scan` collects logging sinks and compute instances, then runs:
   - `gcp.logging.not_enabled`
   - `gcp.compute.instance_public_ip`
-- **Tables:** `gcp_projects`, `gcp_logging_audit`, `gcp_compute_instances`
+- **Tables:** `gcp_projects` (WIF fields: `auth_method`, `project_number`, `pool_id`, `provider_id`, `service_account_email`, `wif_audience`, `wif_subject`), `gcp_logging_audit`, `gcp_compute_instances`
+- **Legacy:** `service_account_key` + JSON upload disabled unless `ALLOW_GCP_SA_JSON=true` (dev only).
 
 ## Azure
 
 - **Connect:** Integrations → Microsoft Azure → subscription + Entra app client credentials (encrypted).
+- **Note:** Client secrets are convenient for phase one but not ideal for production; federated workload identity for Azure is planned as phase two (similar to GCP WIF / AWS role assumption).
 - **Verify:** `POST /v1/integrations/azure/subscriptions/{id}/verify`
 - **Scan:** Celery task `run_azure_scan` collects Defender pricing/secure score and storage accounts, then runs:
   - `azure.defender.not_enabled`

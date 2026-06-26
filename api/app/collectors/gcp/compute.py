@@ -31,7 +31,7 @@ def _zone_from_url(zone_url: str) -> str:
 
 
 def collect_compute_instances(db: Session, project: GcpProject) -> int:
-    client = GcpClient(project.service_account_json)
+    client = GcpClient.from_project(project)
     instances = client.list_compute_instances(project.project_id)
     count = 0
     for inst in instances:
