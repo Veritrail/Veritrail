@@ -4457,53 +4457,101 @@ function changedPosturePoints(points: TimestampedValue[]): TimestampedValue[] {
   return changed;
 }
 
-function smoothPath(points: Array<{ x: number; y: number }>): string {
-  if (points.length === 0) return "";
-  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-  const parts = [`M ${points[0].x} ${points[0].y}`];
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const p0 = points[Math.max(0, i - 1)];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[Math.min(points.length - 1, i + 2)];
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
-    parts.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`);
+const SPARK_VB_W = 320;
+const SPARK_VB_H = 160;
+const SPARK_DOT_HALO_R = 8.75;
+const SPARK_X_INSET = 0.1;
+const SPARK_Y_TOP = 52;
+const SPARK_Y_BASE = 122;
+
+/** Monotone cubic (Fritsch–Carlson) — smooth curve without overshoot at endpoints. */
+function monotoneSparkPath(pts: Array<{ x: number; y: number }>): string {
+  const n = pts.length;
+  if (n === 0) return "";
+  if (n === 1) return `M ${pts[0].x} ${pts[0].y}`;
+  if (n === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
+
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i += 1) {
+    const h = pts[i + 1].x - pts[i].x;
+    dx.push(h);
+    slope.push((pts[i + 1].y - pts[i].y) / h);
+  }
+
+  const m: number[] = new Array(n);
+  m[0] = slope[0];
+  m[n - 1] = slope[n - 2];
+  for (let i = 1; i < n - 1; i += 1) {
+    m[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i += 1) {
+    if (slope[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const a = m[i] / slope[i];
+      const b = m[i + 1] / slope[i];
+      const s = a * a + b * b;
+      if (s > 9) {
+        const t = 3 / Math.sqrt(s);
+        m[i] = t * a * slope[i];
+        m[i + 1] = t * b * slope[i];
+      }
+    }
+  }
+
+  const parts = [`M ${pts[0].x} ${pts[0].y}`];
+  for (let i = 0; i < n - 1; i += 1) {
+    const c1x = pts[i].x + dx[i] / 3;
+    const c1y = pts[i].y + (m[i] * dx[i]) / 3;
+    const c2x = pts[i + 1].x - dx[i] / 3;
+    const c2y = pts[i + 1].y - (m[i + 1] * dx[i]) / 3;
+    parts.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${pts[i + 1].x} ${pts[i + 1].y}`);
   }
   return parts.join(" ");
+}
+
+function buildComplianceSparkCoords(
+  changed: TimestampedValue[],
+): Array<TimestampedValue & { x: number; y: number }> {
+  const xEdge = SPARK_VB_W * SPARK_X_INSET;
+  const xMin = xEdge + SPARK_DOT_HALO_R;
+  const xMax = SPARK_VB_W - xEdge - SPARK_DOT_HALO_R;
+  const plotH = SPARK_Y_BASE - SPARK_Y_TOP;
+
+  const values = changed.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min;
+  const yPad = range === 0 ? 8 : Math.max(range * 0.12, 2);
+  const low = Math.max(0, min - yPad);
+  const high = Math.min(100, max + yPad);
+  const span = high - low || 1;
+
+  return changed.map((point, idx) => {
+    const t = idx / (changed.length - 1);
+    const normalized = (point.value - low) / span;
+    return {
+      ...point,
+      x: xMin + t * (xMax - xMin),
+      y: SPARK_Y_BASE - Math.max(0, Math.min(1, normalized)) * plotH,
+    };
+  });
 }
 
 function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) {
   const gradientId = useId().replace(/:/g, "");
   const changed = changedPosturePoints(points);
   const hasRealTrend = changed.length >= 2;
-  const xMin = 34;
-  const xMax = 286;
-  const yMin = 52;
-  const yMax = 122;
-  const chartPoints = hasRealTrend
-    ? changed.map((point, idx) => {
-        const values = changed.map((p) => p.value);
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const spread = Math.max(12, max - min);
-        const center = (min + max) / 2;
-        const low = Math.max(0, center - spread / 2);
-        const high = Math.min(100, center + spread / 2);
-        const normalized = high === low ? 0.5 : (point.value - low) / (high - low);
-        return {
-          ...point,
-          x: xMin + (idx / (changed.length - 1)) * (xMax - xMin),
-          y: yMax - Math.max(0, Math.min(1, normalized)) * (yMax - yMin),
-        };
-      })
-    : [];
-  const linePath = hasRealTrend ? smoothPath(chartPoints) : "";
+  const chartPoints = hasRealTrend ? buildComplianceSparkCoords(changed) : [];
+  const xEdge = SPARK_VB_W * SPARK_X_INSET;
+  const xMin = xEdge + SPARK_DOT_HALO_R;
+  const xMax = SPARK_VB_W - xEdge - SPARK_DOT_HALO_R;
+  const linePath = hasRealTrend ? monotoneSparkPath(chartPoints) : "";
   const areaPath =
     hasRealTrend && chartPoints.length > 0
-      ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${yMax} L ${chartPoints[0].x} ${yMax} Z`
+      ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${SPARK_Y_BASE} L ${chartPoints[0].x} ${SPARK_Y_BASE} Z`
       : "";
 
   return (
@@ -4512,18 +4560,18 @@ function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) 
       role="img"
       aria-label={
         hasRealTrend
-          ? "Compliance posture trend over time. Hover points for date and score."
+          ? "Compliance posture trend over time."
           : "Compliance posture trend placeholder."
       }
     >
-      <svg viewBox="0 0 320 160" preserveAspectRatio="none">
+      <svg viewBox={`0 0 ${SPARK_VB_W} ${SPARK_VB_H}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id={`${gradientId}-fill`} x1="160" y1="42" x2="160" y2="126" gradientUnits="userSpaceOnUse">
             <stop offset="0" stopColor="#2F75FF" stopOpacity={hasRealTrend ? 0.11 : 0.1} />
             <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d="M34 122H286" stroke="#E8EDF5" strokeWidth="2.25" strokeLinecap="round" />
+        <path d={`M${xMin} ${SPARK_Y_BASE}H${xMax}`} stroke="#E8EDF5" strokeWidth="2.25" strokeLinecap="round" />
         {hasRealTrend ? (
           <>
             <path d={areaPath} fill={`url(#${gradientId}-fill)`} />
@@ -4535,13 +4583,17 @@ function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) 
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            {chartPoints.map((point, idx) => (
-              <g key={`${point.timestamp}-${point.value}-${idx}`}>
-                <title>{formatSparklinePointLabel(point)}</title>
-                <circle className="accounts-detail-metric-card__spark-dot-halo" cx={point.x} cy={point.y} r="8.75" />
-                <circle className="accounts-detail-metric-card__spark-dot" cx={point.x} cy={point.y} r={idx === chartPoints.length - 1 ? 4.75 : 3.25} />
-              </g>
-            ))}
+            {chartPoints.map((point, idx) => {
+              const isLast = idx === chartPoints.length - 1;
+              if (!isLast) return null;
+              return (
+                <g key={`${point.timestamp}-${point.value}-${idx}`}>
+                  <title>{formatSparklinePointLabel(point)}</title>
+                  <circle className="accounts-detail-metric-card__spark-dot-halo" cx={point.x} cy={point.y} r={SPARK_DOT_HALO_R} />
+                  <circle className="accounts-detail-metric-card__spark-dot" cx={point.x} cy={point.y} r="4.75" />
+                </g>
+              );
+            })}
           </>
         ) : (
           <>
@@ -4623,12 +4675,14 @@ function AccountSplitDetailPane({
   findingsItems,
   setupInitialStep,
   onManageSetup,
+  onDismissSetup,
 }: {
   row: AccountListRow;
   stats: FindingStats | undefined;
   findingsItems: Finding[] | undefined;
   setupInitialStep?: number;
   onManageSetup?: () => void;
+  onDismissSetup?: () => void;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
