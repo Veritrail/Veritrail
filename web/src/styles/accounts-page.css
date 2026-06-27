@@ -3271,17 +3271,18 @@ button.accounts-flow-step:hover {
 .accounts-detail-pane__header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem 1.35rem;
   border-bottom: 1px solid #f1f5f9;
-  padding: 1rem 1.6rem 1rem;
+  padding: 1.25rem 1.6rem 1.2rem;
+  min-height: 4.5rem;
 }
 
 @media (min-width: 1180px) {
   .accounts-split .accounts-detail-pane__header {
-    padding-top: 0.85rem;
-    padding-bottom: 0.85rem;
+    padding-top: 1.2rem;
+    padding-bottom: 1rem;
   }
 }
 
@@ -3314,9 +3315,7 @@ button.accounts-flow-step:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  justify-content: center;
-  gap: 0.15rem;
-  flex-shrink: 0;
+  gap: 0.2rem;
   text-align: right;
 }
 
