@@ -3466,7 +3466,7 @@ button.accounts-flow-step:hover {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  min-height: clamp(9rem, 38cqw, 11.5rem);
+  min-height: clamp(9rem, 42cqw, 12rem);
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #fff;
@@ -3604,12 +3604,12 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card:has(.accounts-detail-metric-card__sparkline) {
-  min-height: clamp(11.25rem, 52cqw, 14.5rem);
+  min-height: clamp(11.25rem, 58cqw, 15rem);
 }
 
 .accounts-detail-metric-card__sparkline {
   width: 100%;
-  height: clamp(4.5rem, 32cqw, 8.5rem);
+  height: clamp(6.25rem, 38cqw, 9.5rem);
   margin-top: auto;
   color: #3478f6;
 }
@@ -3621,20 +3621,20 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card:has(.accounts-detail-metric-card__findings) {
-  min-height: clamp(11.25rem, 52cqw, 14.5rem);
+  min-height: clamp(11.25rem, 58cqw, 15rem);
 }
 
 .accounts-detail-metric-card__findings {
   display: flex;
   align-items: center;
-  gap: clamp(0.5rem, 3.5cqw, 1rem);
+  gap: clamp(0.65rem, 4cqw, 1rem);
   margin-top: auto;
-  padding-top: clamp(0.35rem, 2cqw, 0.5rem);
+  padding-top: clamp(0.4rem, 2.2cqw, 0.5rem);
 }
 
 .accounts-detail-metric-card .accounts-findings-donut {
-  width: clamp(4rem, 28cqw, 7.5rem);
-  height: clamp(4rem, 28cqw, 7.5rem);
+  width: clamp(5rem, 30cqw, 8rem);
+  height: clamp(5rem, 30cqw, 8rem);
   flex-shrink: 0;
   box-shadow: none;
 }
@@ -3655,7 +3655,7 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card .accounts-findings-donut__count {
-  font-size: clamp(0.85rem, 5cqw, 1.25rem);
+  font-size: clamp(1.15rem, 5.5cqw, 1.35rem);
 }
 
 .accounts-detail-metric-card .accounts-findings-donut__label {
@@ -3665,17 +3665,17 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card .accounts-findings-legend {
   flex: 1;
   min-width: 0;
-  gap: clamp(0.28rem, 1.5cqw, 0.45rem);
+  gap: clamp(0.35rem, 1.8cqw, 0.45rem);
 }
 
 .accounts-detail-metric-card .accounts-findings-legend__row {
-  gap: clamp(0.28rem, 1.5cqw, 0.45rem);
-  font-size: clamp(0.72rem, 3.2cqw, 0.95rem);
+  gap: clamp(0.35rem, 1.8cqw, 0.45rem);
+  font-size: clamp(0.85rem, 3.6cqw, 1rem);
 }
 
 .accounts-detail-metric-card .accounts-findings-legend__dot {
-  width: clamp(0.5rem, 2.2cqw, 0.7rem);
-  height: clamp(0.5rem, 2.2cqw, 0.7rem);
+  width: clamp(0.6rem, 2.5cqw, 0.75rem);
+  height: clamp(0.6rem, 2.5cqw, 0.75rem);
 }
 
 .accounts-detail-metric-card__watermark {
@@ -3683,7 +3683,7 @@ button.accounts-flow-step:hover {
   right: clamp(0.5rem, 4cqw, 1rem);
   bottom: clamp(0.4rem, 3cqw, 0.75rem);
   z-index: 0;
-  width: clamp(4.5rem, 38cqw, 9rem);
+  width: clamp(5.5rem, 42cqw, 10rem);
   height: auto;
   color: #d1d5db;
   opacity: 0.72;
@@ -3693,7 +3693,7 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card__watermark--cloud {
   right: clamp(0.5rem, 4cqw, 1rem);
   bottom: clamp(0.5rem, 3.5cqw, 0.85rem);
-  width: clamp(5.5rem, 45cqw, 11rem);
+  width: clamp(7.8rem, 48cqw, 12rem);
   height: auto;
   opacity: 1;
 }
@@ -3706,7 +3706,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-metric-card__progress {
   margin-top: auto;
-  height: clamp(0.35rem, 1.4cqw, 0.6rem);
+  height: clamp(0.4rem, 1.5cqw, 0.6rem);
   overflow: hidden;
   border-radius: 999px;
   background: #eef2f6;
