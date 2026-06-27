@@ -3717,17 +3717,17 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-capability-row__icon--teal {
   background: #f0fdfa;
-  color: #0f9f91;
+  color: #0d9488;
 }
 
 .accounts-detail-capability-row__icon--blue {
   background: #eff6ff;
-  color: #3b82f6;
+  color: #2563eb;
 }
 
 .accounts-detail-capability-row__icon--amber {
   background: #fffbeb;
-  color: #f59e0b;
+  color: #ea580c;
 }
 
 .accounts-detail-capability-row__status-dot {

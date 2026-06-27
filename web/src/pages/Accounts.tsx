@@ -2174,6 +2174,31 @@ const ONBOARDING_CAPS = [
   },
 ] as const;
 
+const ONBOARDING_CAP_BY_ID = Object.fromEntries(ONBOARDING_CAPS.map((c) => [c.id, c])) as Record<
+  (typeof ONBOARDING_CAPS)[number]["id"],
+  (typeof ONBOARDING_CAPS)[number]
+>;
+
+function OnboardingCapIcon({
+  cap,
+  className,
+  strokeWidth = 1.6,
+  title,
+}: {
+  cap: (typeof ONBOARDING_CAPS)[number];
+  className?: string;
+  strokeWidth?: number;
+  title?: string;
+}) {
+  return (
+    <span className={className} title={title} aria-hidden={title ? undefined : true}>
+      <svg fill="none" stroke="currentColor" strokeWidth={strokeWidth} viewBox="0 0 24 24" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d={cap.icon} />
+      </svg>
+    </span>
+  );
+}
+
 const ONBOARDING_ROLE_PERMISSIONS: Record<(typeof ONBOARDING_CAPS)[number]["id"], string[]> = {
   core: [
     "Read AWS resource configuration",
@@ -2545,15 +2570,12 @@ function FirstAccountOnboarding({
                 <p className="accounts-connect-shell__footer-label">Selected capabilities</p>
                 <div className="accounts-connect-shell__cap-icons">
                   {selected.map((c) => (
-                    <span
+                    <OnboardingCapIcon
                       key={c.id}
+                      cap={c}
                       className={`accounts-connect-shell__cap-icon accounts-connect-shell__cap-icon--${c.tone}`}
                       title={c.title}
-                    >
-                      <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d={c.icon} />
-                      </svg>
-                    </span>
+                    />
                   ))}
                 </div>
               </div>
@@ -5071,13 +5093,15 @@ function AccountSplitDetailPane({
             <div className="accounts-detail-overview__lower">
               <div className="accounts-detail-capabilities">
                 <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
-                {capabilityRows.map((cap) => (
+                {capabilityRows.map((cap) => {
+                  const onboardingCap = ONBOARDING_CAP_BY_ID[cap.id] ?? ONBOARDING_CAPS[0];
+                  return (
                   <div className="accounts-detail-capability-row" key={cap.name}>
-                    <span className={`accounts-detail-capability-row__icon accounts-detail-capability-row__icon--${ONBOARDING_CAPS.find((c) => c.id === cap.id)?.tone ?? "teal"}`} aria-hidden>
-                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d={ONBOARDING_CAPS.find((c) => c.id === cap.id)?.icon ?? ONBOARDING_CAPS[0].icon} />
-                      </svg>
-                    </span>
+                    <OnboardingCapIcon
+                      cap={onboardingCap}
+                      className={`accounts-detail-capability-row__icon accounts-detail-capability-row__icon--${onboardingCap.tone}`}
+                      strokeWidth={1.7}
+                    />
                     <div className="min-w-0">
                       <p className="accounts-detail-capability-row__name">{cap.name}</p>
                       <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
@@ -5087,7 +5111,8 @@ function AccountSplitDetailPane({
                       {cap.enabled ? "Enabled" : "Off"}
                     </span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="accounts-detail-quick-actions">
