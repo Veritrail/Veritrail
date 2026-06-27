@@ -3151,6 +3151,8 @@ button.accounts-flow-step:hover {
 
   .accounts-split .accounts-list-shell,
   .accounts-split .accounts-detail-pane {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
     height: 100%;
     min-height: 0;
@@ -3160,6 +3162,12 @@ button.accounts-flow-step:hover {
   }
 
   .accounts-split .accounts-list-body {
+    overflow-y: auto;
+  }
+
+  .accounts-split .accounts-detail-pane__body {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
   }
 }
@@ -3753,9 +3761,6 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-quick-actions {
-  display: flex;
-  height: 100%;
-  flex-direction: column;
   gap: 0.55rem;
 }
 
