@@ -5041,33 +5041,52 @@ function AccountSplitDetailPane({
     return delta7d(current, prior);
   }, [isAws, hasScanned, coverageQ.data, coveragePrevQ.data]);
 
-  const capabilityRows = isAws
+  const capabilityRows: {
+    id: "core" | "iam" | "ssm";
+    name: string;
+    desc: string;
+    status: "enabled" | "disabled" | "coming-soon";
+  }[] = isAws
     ? [
         {
-          id: "core" as const,
+          id: "core",
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
-          enabled: connected,
+          status: connected ? "enabled" : "disabled",
         },
         {
-          id: "iam" as const,
+          id: "iam",
           name: "Policy generation",
           desc: "IAM least-privilege recommendations",
-          enabled: acc!.enable_advanced_policy_generation,
+          status: acc!.enable_advanced_policy_generation ? "enabled" : "disabled",
         },
         {
-          id: "ssm" as const,
+          id: "ssm",
           name: "SSM remediation",
           desc: "Scoped automated fixes with approvals",
-          enabled: anyRemediationEnabled(acc!.remediation_modules ?? DEFAULT_REMEDIATION_MODULES),
+          status: anyRemediationEnabled(acc!.remediation_modules ?? DEFAULT_REMEDIATION_MODULES)
+            ? "enabled"
+            : "disabled",
         },
       ]
     : [
         {
-          id: "core" as const,
+          id: "core",
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
-          enabled: connected,
+          status: connected ? "enabled" : "disabled",
+        },
+        {
+          id: "iam",
+          name: "Policy generation",
+          desc: "IAM least-privilege recommendations",
+          status: "coming-soon",
+        },
+        {
+          id: "ssm",
+          name: "Automated",
+          desc: "Scoped automated fixes with approvals",
+          status: "coming-soon",
         },
       ];
 
@@ -5255,9 +5274,15 @@ function AccountSplitDetailPane({
                         <p className="accounts-detail-capability-row__name">{cap.name}</p>
                         <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
                       </div>
-                      <span className="accounts-detail-capability-row__status">
+                      <span
+                        className={`accounts-detail-capability-row__status accounts-detail-capability-row__status--${cap.status}`}
+                      >
                         <span className="accounts-detail-capability-row__status-dot" aria-hidden />
-                        {cap.enabled ? "Enabled" : "Off"}
+                        {cap.status === "enabled"
+                          ? "Enabled"
+                          : cap.status === "coming-soon"
+                            ? "Coming soon"
+                            : "Off"}
                       </span>
                     </div>
                   );

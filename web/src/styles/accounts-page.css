@@ -3802,7 +3802,6 @@ button.accounts-flow-step:hover {
   gap: 0.3rem;
   font-size: 0.68rem;
   font-weight: 400;
-  color: #16a34a;
   white-space: nowrap;
 }
 
@@ -3810,7 +3809,30 @@ button.accounts-flow-step:hover {
   width: 0.36rem;
   height: 0.36rem;
   border-radius: 999px;
+}
+
+.accounts-detail-capability-row__status--enabled {
+  color: #16a34a;
+}
+
+.accounts-detail-capability-row__status--enabled .accounts-detail-capability-row__status-dot {
   background: #22c55e;
+}
+
+.accounts-detail-capability-row__status--disabled {
+  color: #dc2626;
+}
+
+.accounts-detail-capability-row__status--disabled .accounts-detail-capability-row__status-dot {
+  background: #ef4444;
+}
+
+.accounts-detail-capability-row__status--coming-soon {
+  color: #a16207;
+}
+
+.accounts-detail-capability-row__status--coming-soon .accounts-detail-capability-row__status-dot {
+  background: #d4d4d8;
 }
 
 .accounts-detail-quick-actions {
