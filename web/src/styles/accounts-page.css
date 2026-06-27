@@ -3699,35 +3699,8 @@ button.accounts-flow-step:hover {
   white-space: nowrap;
 }
 
-.accounts-detail-capability-row__icon {
-  display: inline-flex;
-  width: 2.25rem;
-  height: 2.25rem;
+.accounts-detail-capability-row .accounts-connect-shell__cap-icon {
   flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.7rem;
-  border: 1px solid currentColor;
-}
-
-.accounts-detail-capability-row__icon svg {
-  width: 1.1rem;
-  height: 1.1rem;
-}
-
-.accounts-detail-capability-row__icon--teal {
-  background: #f0fdfa;
-  color: #0d9488;
-}
-
-.accounts-detail-capability-row__icon--blue {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.accounts-detail-capability-row__icon--amber {
-  background: #fffbeb;
-  color: #ea580c;
 }
 
 .accounts-detail-capability-row__status-dot {

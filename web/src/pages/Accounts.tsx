@@ -5099,8 +5099,8 @@ function AccountSplitDetailPane({
                   <div className="accounts-detail-capability-row" key={cap.name}>
                     <OnboardingCapIcon
                       cap={onboardingCap}
-                      className={`accounts-detail-capability-row__icon accounts-detail-capability-row__icon--${onboardingCap.tone}`}
-                      strokeWidth={1.7}
+                      className={`accounts-connect-shell__cap-icon accounts-connect-shell__cap-icon--${onboardingCap.tone}`}
+                      title={onboardingCap.title}
                     />
                     <div className="min-w-0">
                       <p className="accounts-detail-capability-row__name">{cap.name}</p>
