@@ -785,7 +785,7 @@ function FindingsMixDonutSvg({
   let cumulative = 0;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0" aria-hidden>
+    <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%" className="shrink-0" aria-hidden>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={premium ? "#e8eaee" : "#f0f1f3"} strokeWidth={stroke} />
       {segments.map((seg) => {
         const fraction = seg.value / total;
