@@ -5084,7 +5084,7 @@ function AccountSplitDetailPane({
         },
         {
           id: "ssm",
-          name: "Automated",
+          name: "Automated remediation",
           desc: "Scoped automated fixes with approvals",
           status: "coming-soon",
         },
