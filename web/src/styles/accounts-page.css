@@ -3314,7 +3314,9 @@ button.accounts-flow-step:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.2rem;
+  justify-content: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
   text-align: right;
 }
 
@@ -3326,10 +3328,17 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-pane__tabs {
   display: flex;
+  flex-shrink: 0;
   gap: 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   border-bottom: 1px solid #f1f5f9;
-  padding: 0 1.6rem;
+  padding: 0.2rem 1.6rem 0;
+}
+
+.accounts-detail-pane__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .accounts-detail-pane__tab {
