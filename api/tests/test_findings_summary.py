@@ -62,6 +62,7 @@ def test_findings_summary_scoped_to_gcp_project(db_session):
     org, user = _seed_org_user(db_session)
     project = GcpProject(org_id=org.id, project_id="carwiz-prod", label="carwiz", status="connected")
     db_session.add(project)
+    db_session.flush()
     db_session.add(_finding(org.id, severity="high"))
     db_session.add(
         _finding(

@@ -24,12 +24,13 @@ def run(db: Session, gcp_project_id) -> list[FindingDraft]:
         FindingDraft(
             check_id=CHECK_ID,
             resource_arn=f"gcp://project/{project.project_id}/logging",
-            title="GCP audit logging is not enabled",
+            title="GCP audit log export is not configured",
             severity="medium",
             risk_score=score("medium"),
             evidence={
                 "project_id": project.project_id,
                 "sink_count": row.sink_count if row else 0,
+                "expectation": "At least one logging sink routes Cloud Audit Logs for retention or review.",
             },
         )
     ]

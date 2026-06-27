@@ -143,7 +143,7 @@ export const checkLabels: Record<string, string> = {
   "google_workspace.user.inactive_90d": "Google Workspace inactive user",
   "google_workspace.admin.unreviewed": "Google Workspace admin unreviewed",
   "gcp.compute.instance_public_ip": "GCP compute instance public IP",
-  "gcp.logging.not_enabled": "GCP audit logging not enabled",
+  "gcp.logging.not_enabled": "GCP audit log export not configured",
   "entra.org.mfa_not_enforced": "Entra MFA not enforced",
   "entra.user.inactive_90d": "Entra inactive user",
   "entra.admin.unreviewed": "Entra admin unreviewed",

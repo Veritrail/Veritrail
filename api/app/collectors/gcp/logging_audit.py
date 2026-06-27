@@ -1,4 +1,8 @@
-"""Collect GCP logging sinks for audit evidence."""
+"""Collect GCP audit-log export sink evidence.
+
+Admin Activity audit logs are written by GCP by default. This collector only
+checks whether audit logs appear to be routed/exported for retention/review.
+"""
 from __future__ import annotations
 
 import uuid
@@ -22,11 +26,12 @@ def _audit_enabled(sinks: list[dict]) -> bool:
     for sink in sinks:
         name = (sink.get("name") or "").lower()
         destination = (sink.get("destination") or "").lower()
+        filt = str(sink.get("filter") or "").lower()
         if "audit" in name or "audit" in destination:
             return True
-        if sink.get("filter") and "log_name" in str(sink.get("filter")).lower():
+        if "cloudaudit.googleapis.com" in filt:
             return True
-    return len(sinks) > 0
+    return False
 
 
 def collect_logging_audit(db: Session, project: GcpProject) -> int:

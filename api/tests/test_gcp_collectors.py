@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.collectors.gcp.compute import collect_compute_instances
-from app.collectors.gcp.logging_audit import collect_logging_audit
+from app.collectors.gcp.logging_audit import _audit_enabled, collect_logging_audit
 from app.services.gcp_client import GcpClient
 
 _SA = {
@@ -53,6 +53,18 @@ def test_collect_logging_audit_upserts(mock_db):
         count = collect_logging_audit(mock_db, project)
     assert count == 1
     mock_db.execute.assert_called()
+
+
+def test_generic_logging_sink_does_not_count_as_audit_export():
+    assert not _audit_enabled([
+        {"name": "all-logs", "destination": "storage.googleapis.com/generic-logs"}
+    ])
+    assert _audit_enabled([
+        {
+            "name": "security-audit",
+            "filter": 'logName:"cloudaudit.googleapis.com%2Factivity"',
+        }
+    ])
 
 
 def test_collect_compute_instances_flags_public_ip(mock_db):

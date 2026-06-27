@@ -20,7 +20,7 @@ Veritrail's GCP and Azure integrations collect baseline posture evidence via RES
 
 ### Scans and data
 
-- **Scan:** Celery task `run_gcp_scan` collects logging sinks and compute instances, then runs:
+- **Scan:** Celery task `run_gcp_scan` collects audit-log export sinks and compute instances, then runs:
   - `gcp.logging.not_enabled`
   - `gcp.compute.instance_public_ip`
 - **Tables:** `gcp_projects` (WIF fields: `auth_method`, `project_number`, `pool_id`, `provider_id`, `service_account_email`, `wif_audience`, `wif_subject`), `gcp_logging_audit`, `gcp_compute_instances`
@@ -63,6 +63,33 @@ GCP and Azure baseline checks are mapped into existing composites in `api/data/c
 
 - **Per-provider:** GCP and Azure integration pages expose **Scan** on each connected project/subscription (unchanged).
 - **Integrations hub:** **Scan all cloud** calls `POST /v1/integrations/cloud-scan-all` when any cloud account is connected. AWS scans respect the same 30-minute running-scan dedup as `POST /v1/accounts/scan-all`.
+
+## Coverage comparison (AWS vs GCP vs Azure)
+
+Phase-one GCP and Azure are **intentionally thin baselines**. A connected project with many resources can still show only a handful of findings if the two baseline checks pass. This is expected, not a scan failure.
+
+| Dimension | AWS | GCP (phase one) | Azure (phase one) |
+|---|---|---|---|
+| Collectors | 32 (`api/app/collectors/` — IAM, S3, CloudTrail, VPC, RDS, EC2, EKS, GuardDuty, Config, Security Hub, …) | 2 (`logging_audit`, `compute`) | 2 (`defender`, `storage`) |
+| Registered checks | ~100 (`ALL_CHECKS` minus `gcp.*` / `azure.*`) | 2 | 2 |
+| Scan pipeline | `run_scan` → `ScanPipeline` (collectors + checks + evidence snapshots) | `run_gcp_scan` → `execute_cloud_scan` | `run_azure_scan` → `execute_cloud_scan` |
+| Finding scope | `account_id` | `gcp_project_id` | `azure_subscription_id` |
+
+**Why a GCP project can show 1 finding while AWS shows hundreds:** AWS runs dozens of collectors and checks across IAM, networking, storage, logging, databases, containers, and more. GCP phase one only evaluates (1) whether Cloud Audit Logs are routed/exported by an audit-specific logging sink and (2) whether any Compute Engine VM has an external IP. Admin Activity audit logs are written by GCP by default; this phase-one check is about retention/review routing, not whether GCP globally "enables" audit logging. Resources such as GKE, Cloud SQL, GCS buckets, firewall rules, service accounts, and Secret Manager are **not scanned yet**.
+
+**Interpreting low GCP finding counts:** Verify `cloud_scan_runs.status = ok` and inspect collected rows in `gcp_logging_audit` / `gcp_compute_instances`. A healthy scan with few findings means the baseline checks passed or only a small subset of resources matched (e.g. one VM with a public IP).
+
+### GCP phase-two expansion candidates
+
+High-value additions that mirror existing AWS/Azure patterns:
+
+| Area | Collector target | Example check |
+|---|---|---|
+| Storage | GCS buckets (`storage.googleapis.com`) | Public bucket / uniform access disabled |
+| Networking | VPC firewall rules (`compute.firewalls`) | `0.0.0.0/0` ingress on sensitive ports |
+| Databases | Cloud SQL instances | Public IP enabled |
+| Containers | GKE clusters | Public control-plane endpoint |
+| Identity | Service account keys (`iam.serviceAccountKeys`) | User-managed keys present |
 
 ## Vulnerability scanners
 
