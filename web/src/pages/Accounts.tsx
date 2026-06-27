@@ -2533,8 +2533,9 @@ function OnboardingValueProps() {
 function useOnboardingEscapeDismiss(onDismiss: (() => void) | undefined) {
   useEffect(() => {
     if (!onDismiss) return;
+    const dismiss = onDismiss;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onDismiss();
+      if (e.key === "Escape") dismiss();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
