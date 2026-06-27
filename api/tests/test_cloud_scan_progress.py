@@ -1,6 +1,7 @@
 """Cloud scan progress publishing for GCP/Azure."""
 from unittest.mock import MagicMock
 
+from app.checks import gcp_compute_instance_public_ip, gcp_logging_not_enabled
 from app.worker.cloud_scan import CloudScanProgressTracker, execute_cloud_scan
 
 
@@ -31,16 +32,16 @@ def test_execute_cloud_scan_with_tracker_runs_collectors_and_checks():
     def collector(_db, _target):
         return 1
 
-    def check(_db, _scope_id):
-        return []
-
     result = execute_cloud_scan(
         db,
         org_id="org",
         scope_column="gcp_project_id",
         scope_id="scope",
         collectors=[("collect_logging_audit", collector), ("collect_compute_instances", collector)],
-        checks=[("gcp_logging_not_enabled", check), ("gcp_compute_instance_public_ip", check)],
+        checks=[
+            ("gcp_logging_not_enabled", gcp_logging_not_enabled.run),
+            ("gcp_compute_instance_public_ip", gcp_compute_instance_public_ip.run),
+        ],
         target=target,
         scan_run=run,
     )
@@ -48,3 +49,5 @@ def test_execute_cloud_scan_with_tracker_runs_collectors_and_checks():
     assert result.ok is True
     assert run.stats.get("_progress_step") == 5
     assert run.stats.get("checks_run_count") == 2
+    assert "gcp.logging.not_enabled" in run.stats.get("checks_run", [])
+    assert "gcp.compute.instance_public_ip" in run.stats.get("checks_run", [])

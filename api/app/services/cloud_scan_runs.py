@@ -85,4 +85,6 @@ def cloud_scan_run_to_out(run: CloudScanRun) -> ScanRunOut:
         duration_seconds=duration_seconds,
         checks_run_count=stats.get("checks_run_count"),
         check_error_count=stats.get("check_error_count"),
+        resources_collected=stats.get("resources_collected"),
+        regions_collected=stats.get("regions_collected"),
     )

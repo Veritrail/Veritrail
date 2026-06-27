@@ -164,9 +164,17 @@ def execute_cloud_scan(
                 tracker.publish_check_start(mod_name)
             try:
                 rows = check_fn(db, scope_id)
+                check_id = getattr(
+                    __import__(check_fn.__module__, fromlist=["CHECK_ID"]),
+                    "CHECK_ID",
+                    None,
+                )
+                if check_id:
+                    check_ids_run.add(str(check_id))
+                elif rows:
+                    check_ids_run.add(rows[0].check_id)
                 if rows:
                     drafts.extend(rows)
-                    check_ids_run.add(rows[0].check_id)
             except Exception:
                 check_errors.append(mod_name)
                 log.exception("cloud_scan.check_failed", check=mod_name)

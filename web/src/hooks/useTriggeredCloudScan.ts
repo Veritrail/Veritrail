@@ -17,6 +17,8 @@ export type ScanRunLatest = {
   progress_step_name?: string | null;
   progress_collector_index?: number | null;
   progress_collector_total?: number | null;
+  resources_collected?: number | null;
+  regions_collected?: number | null;
 };
 
 const STARTING_TIMEOUT_MS = 5 * 60 * 1000;

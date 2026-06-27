@@ -3712,19 +3712,23 @@ button.accounts-flow-step:hover {
   width: 0 !important;
 }
 
-.accounts-detail-scan-row__findings--placeholder {
-  min-height: 1.35rem;
+.accounts-detail-metric-card__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
 }
 
-.accounts-detail-scan-row__resources {
-  margin: 0;
-  min-height: 1.15rem;
-  font-size: 0.78rem;
+.accounts-detail-overview__lower {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
   align-items: start;
   margin-top: 1rem;
+}
+
+.accounts-detail-scan-row__findings--placeholder {
+  min-height: 1.35rem;
 }
 
 @media (min-width: 900px) {
@@ -3991,6 +3995,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-scan-row__resources {
   margin: 0;
+  min-height: 1.15rem;
   font-size: 0.78rem;
   font-weight: 600;
   color: #475569;

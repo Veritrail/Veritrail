@@ -34,6 +34,8 @@ class ScanRunOut(BaseModel):
     duration_seconds: float | None = None
     checks_run_count: int | None = None
     check_error_count: int | None = None
+    resources_collected: int | None = None
+    regions_collected: int | None = None
 
 
 class ScanStatsOut(BaseModel):

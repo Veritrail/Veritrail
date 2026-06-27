@@ -631,6 +631,14 @@ type CloudAccountOverview = {
 
 type FindingStats = { critHigh: number; medium: number; low: number; info: number; open: number };
 
+const EMPTY_FINDING_STATS: FindingStats = {
+  critHigh: 0,
+  medium: 0,
+  low: 0,
+  info: 0,
+  open: 0,
+};
+
 type AccountListRow =
   | { kind: "aws"; account: Account }
   | { kind: "cloud"; cloud: CloudAccountRow };
@@ -900,7 +908,14 @@ type RecentScanDisplayRow = {
   key: string;
   timestamp: string;
   succeeded: boolean;
+  resourcesScanned?: number | null;
 };
+
+function scanResourcesLabel(resources: number | null | undefined, hasScanned: boolean): string {
+  if (!hasScanned) return "— resources scanned";
+  const count = resources ?? 0;
+  return `${count.toLocaleString()} resource${count === 1 ? "" : "s"} scanned`;
+}
 
 function buildRecentScanRows(
   isAws: boolean,
@@ -908,6 +923,7 @@ function buildRecentScanRows(
   lastScanAt: string | null,
   awsEvents: ComplianceHistoryResponse["events"],
   cloudRuns: ScanRunLatest[] | undefined,
+  fallbackResources?: number | null,
 ): RecentScanDisplayRow[] {
   if (isAws) {
     if (awsEvents.length > 0) {
@@ -915,10 +931,16 @@ function buildRecentScanRows(
         key: evt.scan_run_id + evt.timestamp,
         timestamp: evt.timestamp,
         succeeded: scanSucceeded(evt),
+        resourcesScanned: fallbackResources ?? null,
       }));
     }
     if (hasScanned && lastScanAt) {
-      return [{ key: "fallback", timestamp: lastScanAt, succeeded: true }];
+      return [{
+        key: "fallback",
+        timestamp: lastScanAt,
+        succeeded: true,
+        resourcesScanned: fallbackResources ?? null,
+      }];
     }
     return [];
   }
@@ -930,10 +952,16 @@ function buildRecentScanRows(
       key: run.id,
       timestamp: run.finished_at ?? run.started_at,
       succeeded: run.status === "ok",
+      resourcesScanned: run.resources_collected ?? fallbackResources ?? null,
     }));
   }
   if (hasScanned && lastScanAt) {
-    return [{ key: "fallback", timestamp: lastScanAt, succeeded: true }];
+    return [{
+      key: "fallback",
+      timestamp: lastScanAt,
+      succeeded: true,
+      resourcesScanned: fallbackResources ?? null,
+    }];
   }
   return [];
 }
@@ -4906,6 +4934,24 @@ function AccountSplitDetailPane({
     enabled: isAws && connected && hasScanned,
   });
 
+  const cloudOverviewQ = useQuery({
+    queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7],
+    queryFn: () =>
+      api<CloudAccountOverview>(
+        `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7`,
+      ),
+    enabled: !isAws && connected && hasScanned,
+  });
+
+  const cloudOverviewPrevQ = useQuery({
+    queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7, "prev"],
+    queryFn: () =>
+      api<CloudAccountOverview>(
+        `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7&as_of=${daysAgoIso(7)}`,
+      ),
+    enabled: !isAws && connected && hasScanned,
+  });
+
   const historyQ = useQuery({
     queryKey: ["accounts-detail-history", accountId],
     queryFn: () =>
@@ -4926,35 +4972,21 @@ function AccountSplitDetailPane({
     staleTime: 60_000,
   });
 
-  const cloudOverviewQ = useQuery({
-    queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7],
-    queryFn: () =>
-      api<CloudAccountOverview>(
-        `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7`,
-      ),
-    enabled: !isAws && connected && hasScanned,
-    staleTime: 60_000,
-  });
+  const resourceStats = useMemo(() => {
+    if (!isAws && cloudOverviewQ.data) {
+      return {
+        resources: cloudOverviewQ.data.resources_covered,
+        regions: cloudOverviewQ.data.regions_count,
+      };
+    }
+    return countAccountResources(
+      findingsItems,
+      isAws ? accountId : (cloud!.external_id ?? cloud!.id),
+      isAws ? "aws" : "cloud",
+    );
+  }, [findingsItems, accountId, cloud, isAws, cloudOverviewQ.data]);
 
-  const cloudOverviewPrevQ = useQuery({
-    queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7, "prev"],
-    queryFn: () =>
-      api<CloudAccountOverview>(
-        `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7&as_of=${daysAgoIso(7)}`,
-      ),
-    enabled: !isAws && connected && hasScanned,
-    staleTime: 60_000,
-  });
-
-  const resourceStats = useMemo(
-    () =>
-      countAccountResources(
-        findingsItems,
-        isAws ? accountId : (cloud!.external_id ?? cloud!.id),
-        isAws ? "aws" : "cloud",
-      ),
-    [findingsItems, accountId, cloud, isAws],
-  );
+  const displayStats = stats ?? EMPTY_FINDING_STATS;
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -5053,8 +5085,9 @@ function AccountSplitDetailPane({
         lastScanAt,
         historyQ.data?.events ?? [],
         cloudScanHistoryQ.data,
+        hasScanned ? resourceCount : null,
       ).slice(0, 3),
-    [isAws, hasScanned, lastScanAt, historyQ.data?.events, cloudScanHistoryQ.data],
+    [isAws, hasScanned, lastScanAt, historyQ.data?.events, cloudScanHistoryQ.data, resourceCount],
   );
   const cloudScanTabRows = useMemo(
     () =>
@@ -5064,8 +5097,9 @@ function AccountSplitDetailPane({
         lastScanAt,
         [],
         cloudScanHistoryQ.data,
+        hasScanned ? resourceCount : null,
       ),
-    [hasScanned, lastScanAt, cloudScanHistoryQ.data],
+    [hasScanned, lastScanAt, cloudScanHistoryQ.data, resourceCount],
   );
   const complianceTrendPoints = useMemo(() => {
     if (isAws) return postureTrendSeries(historyQ.data);
@@ -5246,7 +5280,7 @@ function AccountSplitDetailPane({
                   <p className="accounts-detail-metric-card__label">Open findings</p>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
-                  <p className="accounts-detail-metric-card__value">{hasScanned ? stats?.open ?? 0 : "—"}</p>
+                  <p className="accounts-detail-metric-card__value">{hasScanned ? displayStats.open : "—"}</p>
                 </div>
                 <p className="accounts-detail-metric-card__sub">
                   {hasScanned
@@ -5255,10 +5289,12 @@ function AccountSplitDetailPane({
                       : "Across severities"
                     : "Run a scan first"}
                 </p>
-                <div className="accounts-detail-metric-card__findings">
-                  <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} size={96} stroke={5.25} />
-                  <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
-                </div>
+                {hasScanned ? (
+                  <div className="accounts-detail-metric-card__findings">
+                    <FindingsMixDonutCompact stats={displayStats} hasScanned={hasScanned} size={96} stroke={5.25} />
+                    <FindingsSeverityLegend stats={displayStats} hasScanned={hasScanned} />
+                  </div>
+                ) : null}
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__content">
@@ -5438,29 +5474,27 @@ function AccountSplitDetailPane({
                       <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
                       <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
                     </div>
-                    {hasScanned && resourceStats.resources > 0 ? (
-                      <p className="accounts-detail-scan-row__resources">
-                        {resourceStats.resources.toLocaleString()} resources scanned
-                      </p>
-                    ) : (
-                      <p className="accounts-detail-scan-row__resources">Scan complete</p>
-                    )}
-                    {hasScanned && stats ? (
+                    <p className="accounts-detail-scan-row__resources">
+                      {scanResourcesLabel(row.resourcesScanned, hasScanned)}
+                    </p>
+                    {hasScanned ? (
                       <div className="accounts-detail-scan-row__findings">
                         <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
                           <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{stats.critHigh ?? 0}</span>
+                          <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
                         </span>
                         <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
                           <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{stats.medium ?? 0}</span>
+                          <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
                         </span>
                         <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
                           <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{stats.low ?? 0}</span>
+                          <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
                         </span>
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
+                    )}
                     <button
                       type="button"
                       className="accounts-detail-scan-row__view"
@@ -5549,29 +5583,27 @@ function AccountSplitDetailPane({
                     <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
                     <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
                   </div>
-                  {hasScanned && resourceStats.resources > 0 ? (
-                    <p className="accounts-detail-scan-row__resources">
-                      {resourceStats.resources.toLocaleString()} resources scanned
-                    </p>
-                  ) : (
-                    <p className="accounts-detail-scan-row__resources">Scan complete</p>
-                  )}
-                  {hasScanned && stats ? (
+                  <p className="accounts-detail-scan-row__resources">
+                    {scanResourcesLabel(row.resourcesScanned, hasScanned)}
+                  </p>
+                  {hasScanned ? (
                     <div className="accounts-detail-scan-row__findings">
                       <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
                         <i aria-hidden />
-                        <span className="accounts-detail-scan-row__finding-count">{stats.critHigh ?? 0}</span>
+                        <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
                       </span>
                       <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
                         <i aria-hidden />
-                        <span className="accounts-detail-scan-row__finding-count">{stats.medium ?? 0}</span>
+                        <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
                       </span>
                       <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
                         <i aria-hidden />
-                        <span className="accounts-detail-scan-row__finding-count">{stats.low ?? 0}</span>
+                        <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
                       </span>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
+                  )}
                 </div>
               ))}
             </div>
