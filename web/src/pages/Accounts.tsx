@@ -6572,7 +6572,7 @@ export default function Accounts() {
   ]);
 
   return (
-    <div className="accounts-page w-full space-y-2">
+    <div className="accounts-page w-full space-y-4">
       {accounts.isLoading && cloudAccounts.isLoading && accs.length === 0 && integrationAccounts.length === 0 && (
         <p className="text-sm text-zinc-500">Loading accounts…</p>
       )}
@@ -6625,7 +6625,7 @@ export default function Accounts() {
       />
 
       {!showPendingOnboarding && !addingAwsAccount && hasAnyAccounts && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {filteredRows.length === 0 ? (
             <div className="accounts-list-shell">
               <div className="accounts-list-shell__header">
