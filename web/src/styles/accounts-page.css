@@ -3710,7 +3710,7 @@ button.accounts-flow-step:hover {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
-  align-items: stretch;
+  align-items: start;
   margin-top: 1rem;
 }
 
@@ -3725,10 +3725,7 @@ button.accounts-flow-step:hover {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  height: 17.5rem;
-  min-height: 17.5rem;
-  max-height: 17.5rem;
-  overflow-y: auto;
+  min-height: 0;
   border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   padding: 1rem 1.05rem;
