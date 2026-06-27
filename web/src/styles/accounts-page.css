@@ -1055,8 +1055,90 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-connect-shell__header {
+  position: relative;
   padding: 1rem 2rem 0;
   text-align: center;
+}
+
+.accounts-connect-shell__close {
+  position: absolute;
+  top: 0.85rem;
+  right: 1.25rem;
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #52525b;
+  transition: background 0.15s, color 0.15s;
+}
+
+.accounts-connect-shell__close:hover {
+  background: #f4f4f5;
+  color: #18181b;
+}
+
+.accounts-connect-shell__close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.accounts-connect-shell__footer-cta {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.accounts-connect-shell__cancel {
+  border: 0;
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #71717a;
+  transition: color 0.15s ease;
+}
+
+.accounts-connect-shell__cancel:hover:not(:disabled) {
+  color: #18181b;
+}
+
+.accounts-connect-shell__cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.accounts-onboarding-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  background: rgba(9, 9, 11, 0.4);
+  padding: 1rem;
+  backdrop-filter: blur(2px);
+}
+
+.accounts-onboarding-modal__panel {
+  width: min(88rem, 100%);
+  margin: auto;
+}
+
+.accounts-onboarding-modal__panel .accounts-connect-shell {
+  min-height: auto;
+  max-height: calc(100vh - 2rem);
+}
+
+@media (min-width: 1100px) {
+  .accounts-connect-shell__close {
+    right: 2rem;
+  }
 }
 
 @media (min-width: 1100px) {
@@ -3686,6 +3768,22 @@ button.accounts-flow-step:hover {
   font-size: 0.75rem;
   line-height: 1.4;
   color: #71717a;
+}
+
+.accounts-detail-capability-row__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.accounts-detail-capability-row__icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.accounts-detail-capability-row__icon--neutral {
+  color: #94a3b8;
 }
 
 .accounts-detail-capability-row__status {

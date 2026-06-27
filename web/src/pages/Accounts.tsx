@@ -2174,6 +2174,11 @@ const ONBOARDING_CAPS = [
   },
 ] as const;
 
+const ONBOARDING_CAP_BY_ID = Object.fromEntries(ONBOARDING_CAPS.map((c) => [c.id, c])) as Record<
+  (typeof ONBOARDING_CAPS)[number]["id"],
+  (typeof ONBOARDING_CAPS)[number]
+>;
+
 function OnboardingCapIcon({
   cap,
   className,
@@ -2525,18 +2530,89 @@ function OnboardingValueProps() {
   );
 }
 
+function useOnboardingEscapeDismiss(onDismiss: (() => void) | undefined) {
+  useEffect(() => {
+    if (!onDismiss) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onDismiss();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+}
+
+function ConnectShellHeader({
+  title,
+  subtitle,
+  onDismiss,
+  className,
+}: {
+  title: string;
+  subtitle: string;
+  onDismiss?: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={`accounts-connect-shell__header${className ? ` ${className}` : ""}`}>
+      {onDismiss ? (
+        <button
+          type="button"
+          className="accounts-connect-shell__close"
+          onClick={onDismiss}
+          aria-label="Close setup"
+        >
+          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      ) : null}
+      <h2 className="accounts-connect-shell__title">{title}</h2>
+      <p className="accounts-connect-shell__subtitle">{subtitle}</p>
+    </div>
+  );
+}
+
+function AccountOnboardingOverlay({
+  onDismiss,
+  children,
+  ariaLabelledBy,
+}: {
+  onDismiss: () => void;
+  children: ReactNode;
+  ariaLabelledBy?: string;
+}) {
+  useOnboardingEscapeDismiss(onDismiss);
+
+  return createPortal(
+    <div className="accounts-onboarding-modal" onClick={onDismiss} role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={ariaLabelledBy}
+        className="accounts-onboarding-modal__panel"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function FirstAccountOnboarding({
   value,
   onChange,
   disabled,
   onContinue,
   continuing,
+  onDismiss,
 }: {
   value: ConnectionOptions;
   onChange: (next: ConnectionOptions) => void;
   disabled?: boolean;
   onContinue: () => void;
   continuing: boolean;
+  onDismiss?: () => void;
 }) {
   const selected = selectedOnboardingCaps(value);
   const accessTypes = [...new Set(selected.map((c) => c.accessType))];
@@ -2549,12 +2625,11 @@ function FirstAccountOnboarding({
 
       <div className="accounts-connect-shell__layout">
         <div className="accounts-connect-shell__main">
-          <div className="accounts-connect-shell__header">
-            <h2 className="accounts-connect-shell__title">Connect a cloud account</h2>
-            <p className="accounts-connect-shell__subtitle">
-              Choose the capabilities to enable for this connection.
-            </p>
-          </div>
+          <ConnectShellHeader
+            title="Connect a cloud account"
+            subtitle="Choose the capabilities to enable for this connection."
+            onDismiss={onDismiss}
+          />
 
           <OnboardingCapabilityCards value={value} onChange={onChange} disabled={disabled} />
           <OnboardingValueProps />
@@ -2600,17 +2675,29 @@ function FirstAccountOnboarding({
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onContinue}
-              disabled={disabled || continuing}
-              className="accounts-connect-shell__cta"
-            >
-              {continuing ? "Setting up…" : "Continue"}
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </button>
+            <div className="accounts-connect-shell__footer-cta">
+              {onDismiss ? (
+                <button
+                  type="button"
+                  onClick={onDismiss}
+                  disabled={disabled || continuing}
+                  className="accounts-connect-shell__cancel"
+                >
+                  Cancel
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onContinue}
+                disabled={disabled || continuing}
+                className="accounts-connect-shell__cta"
+              >
+                {continuing ? "Setting up…" : "Continue"}
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2832,6 +2919,7 @@ function PendingAccountOnboarding({
   verify,
   onVerifyConnection,
   onBackToCapabilities,
+  onDismiss,
   embedded = false,
   initialStep = 2,
 }: {
@@ -2842,6 +2930,7 @@ function PendingAccountOnboarding({
   verify: { mutate: () => void; isPending: boolean; isError: boolean; isSuccess: boolean; error: unknown };
   onVerifyConnection: () => void;
   onBackToCapabilities: () => void;
+  onDismiss?: () => void;
   embedded?: boolean;
   initialStep?: number;
 }) {
@@ -2869,12 +2958,11 @@ function PendingAccountOnboarding({
         <div className="accounts-connect-shell__main">
           {activeStep === 2 ? (
             <>
-              <div className="accounts-connect-shell__header">
-                <h2 className="accounts-connect-shell__title">Review access and deploy</h2>
-                <p className="accounts-connect-shell__subtitle">
-                  These IAM roles will be created by the CloudFormation stack.
-                </p>
-              </div>
+              <ConnectShellHeader
+                title="Review access and deploy"
+                subtitle="These IAM roles will be created by the CloudFormation stack."
+                onDismiss={onDismiss}
+              />
 
               <div className="accounts-review-stage">
                 <main className="accounts-review-stage__main">
@@ -2900,12 +2988,12 @@ function PendingAccountOnboarding({
             </>
           ) : (
             <>
-              <div className="accounts-connect-shell__header accounts-connect-shell__header--verify">
-                <h2 className="accounts-connect-shell__title">Confirm stack output</h2>
-                <p className="accounts-connect-shell__subtitle">
-                  Paste the RoleArn output from CloudFormation. Veritrail will test the trust policy and connect the account.
-                </p>
-              </div>
+              <ConnectShellHeader
+                title="Confirm stack output"
+                subtitle="Paste the RoleArn output from CloudFormation. Veritrail will test the trust policy and connect the account."
+                onDismiss={onDismiss}
+                className="accounts-connect-shell__header--verify"
+              />
 
               <div className="accounts-connect-step accounts-connect-step--verify">
                 <div className="accounts-output-panel">
@@ -4945,16 +5033,19 @@ function AccountSplitDetailPane({
   const capabilityRows = isAws
     ? [
         {
+          id: "core" as const,
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
           enabled: connected,
         },
         {
+          id: "iam" as const,
           name: "Policy generation",
           desc: "IAM least-privilege recommendations",
           enabled: acc!.enable_advanced_policy_generation,
         },
         {
+          id: "ssm" as const,
           name: "SSM remediation",
           desc: "Scoped automated fixes with approvals",
           enabled: anyRemediationEnabled(acc!.remediation_modules ?? DEFAULT_REMEDIATION_MODULES),
@@ -4962,6 +5053,7 @@ function AccountSplitDetailPane({
       ]
     : [
         {
+          id: "core" as const,
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
           enabled: connected,
@@ -4992,6 +5084,7 @@ function AccountSplitDetailPane({
               verify={verify}
               onVerifyConnection={() => verify.mutate()}
               onBackToCapabilities={onManageSetup ?? (() => undefined)}
+              onDismiss={onDismissSetup ?? onManageSetup}
               embedded
               initialStep={setupInitialStep ?? 2}
             />
@@ -5138,18 +5231,26 @@ function AccountSplitDetailPane({
             <div className="accounts-detail-overview__lower">
               <div className="accounts-detail-capabilities">
                 <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
-                {capabilityRows.map((cap) => (
-                  <div className="accounts-detail-capability-row" key={cap.name}>
-                    <div className="min-w-0">
-                      <p className="accounts-detail-capability-row__name">{cap.name}</p>
-                      <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
+                {capabilityRows.map((cap) => {
+                  const onboardingCap = ONBOARDING_CAP_BY_ID[cap.id] ?? ONBOARDING_CAPS[0];
+                  return (
+                    <div className="accounts-detail-capability-row" key={cap.name}>
+                      <OnboardingCapIcon
+                        cap={onboardingCap}
+                        className="accounts-detail-capability-row__icon accounts-detail-capability-row__icon--neutral"
+                        title={onboardingCap.title}
+                      />
+                      <div className="min-w-0">
+                        <p className="accounts-detail-capability-row__name">{cap.name}</p>
+                        <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
+                      </div>
+                      <span className="accounts-detail-capability-row__status">
+                        <span className="accounts-detail-capability-row__status-dot" aria-hidden />
+                        {cap.enabled ? "Enabled" : "Off"}
+                      </span>
                     </div>
-                    <span className="accounts-detail-capability-row__status">
-                      <span className="accounts-detail-capability-row__status-dot" aria-hidden />
-                      {cap.enabled ? "Enabled" : "Off"}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="accounts-detail-quick-actions">
@@ -6505,11 +6606,6 @@ export default function Accounts() {
   }, [page, totalPages]);
 
   const pendingAcc = accs.find((a) => !isAccountConnected(a));
-  const showPendingOnboarding =
-    !accounts.isLoading &&
-    !accounts.isError &&
-    !!pendingAcc &&
-    expandedId === pendingAcc.id;
   const showCapabilityOnboarding =
     !accounts.isLoading &&
     !cloudAccounts.isLoading &&
@@ -6525,6 +6621,7 @@ export default function Accounts() {
           onSuccess: () => {
             setSetupInitialStep(2);
             setExpandedId(pendingAcc.id);
+            setSelectedRowKey(accountListRowKey({ kind: "aws", account: pendingAcc }));
           },
         },
       );
@@ -6532,6 +6629,40 @@ export default function Accounts() {
     }
     create.mutate(pendingConnectionOptions);
   };
+
+  const handleDismissAddAccount = () => {
+    setAddingAwsAccount(false);
+    setPendingConnectionOptions(defaultOnboardingConnectionOptions());
+  };
+
+  const handleDismissEmbeddedSetup = () => {
+    setExpandedId(null);
+    setSetupInitialStep(1);
+    if (pendingAcc) {
+      setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
+      const pendingKey = accountListRowKey({ kind: "aws", account: pendingAcc });
+      if (selectedRowKey === pendingKey) {
+        const other =
+          filteredRows.find(
+            (row) =>
+              accountListRowKey(row) !== pendingKey &&
+              (row.kind === "aws"
+                ? isAccountConnected(row.account)
+                : isCloudAccountConnected(row.cloud)),
+          ) ?? filteredRows.find((row) => accountListRowKey(row) !== pendingKey);
+        setSelectedRowKey(other ? accountListRowKey(other) : null);
+      }
+    }
+  };
+
+  const showFirstTimeCapabilityOnboarding = showCapabilityOnboarding && !addingAwsAccount;
+  const showAccountList =
+    !accounts.isLoading &&
+    !cloudAccounts.isLoading &&
+    !accounts.isError &&
+    !cloudAccounts.isError &&
+    hasAnyAccounts &&
+    !showFirstTimeCapabilityOnboarding;
 
   const handleAddAccountClick = () => {
     setShowProviderPicker(true);
@@ -6591,7 +6722,7 @@ export default function Accounts() {
         </div>
       )}
 
-      {showCapabilityOnboarding && (
+      {showFirstTimeCapabilityOnboarding && (
         <FirstAccountOnboarding
           value={pendingConnectionOptions}
           onChange={setPendingConnectionOptions}
@@ -6601,16 +6732,17 @@ export default function Accounts() {
         />
       )}
 
-      {showPendingOnboarding && pendingAcc && (
-        <PendingAccountSetupSurface
-          acc={pendingAcc}
-          initialStep={setupInitialStep}
-          onBackToCapabilities={() => {
-            setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
-            setSetupInitialStep(1);
-            setExpandedId(null);
-          }}
-        />
+      {addingAwsAccount && (
+        <AccountOnboardingOverlay onDismiss={handleDismissAddAccount}>
+          <FirstAccountOnboarding
+            value={pendingConnectionOptions}
+            onChange={setPendingConnectionOptions}
+            disabled={continuingOnboarding}
+            continuing={continuingOnboarding}
+            onContinue={handleOnboardingContinue}
+            onDismiss={handleDismissAddAccount}
+          />
+        </AccountOnboardingOverlay>
       )}
 
       <AddAccountProviderPicker
@@ -6619,7 +6751,7 @@ export default function Accounts() {
         onSelect={handleProviderSelect}
       />
 
-      {!showPendingOnboarding && !addingAwsAccount && hasAnyAccounts && (
+      {showAccountList && (
         <div className="space-y-3">
           {filteredRows.length === 0 ? (
             <div className="accounts-list-shell">
@@ -6879,7 +7011,11 @@ export default function Accounts() {
                     }
                     findingsItems={allFindings.data?.items}
                     setupInitialStep={setupInitialStep}
-                    onManageSetup={() => setExpandedId(null)}
+                    onManageSetup={() => {
+                      setExpandedId(null);
+                      setSetupInitialStep(1);
+                    }}
+                    onDismissSetup={handleDismissEmbeddedSetup}
                   />
                 ) : (
                   <div className="accounts-detail-empty">
