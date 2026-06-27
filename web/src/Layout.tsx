@@ -9,7 +9,6 @@ import { HeaderSlotContext } from "./context/HeaderSlot";
 import NotificationsBell from "./components/NotificationsBell";
 import HelpMenu from "./components/HelpMenu";
 import SidebarUserCard from "./components/SidebarUserCard";
-import SidebarPanelFooter from "./components/SidebarPanelFooter";
 import SidebarNavLink from "./components/SidebarNavLink";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
@@ -184,7 +183,6 @@ export default function Layout() {
           {meQ.data?.email ? (
             <SidebarUserCard email={meQ.data.email} orgName={meQ.data.org_name ?? "Workspace"} />
           ) : null}
-          <SidebarPanelFooter collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((v) => !v)} />
         </div>
       </aside>
 
