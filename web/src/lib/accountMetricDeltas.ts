@@ -58,16 +58,27 @@ export function delta7d(current: number | null | undefined, prior: number | null
   return current - prior;
 }
 
+/** Relative percent change for count metrics, e.g. 500 → 531 → +6. */
+export function relativePercentChange(
+  current: number | null | undefined,
+  prior: number | null,
+): number | null {
+  if (current == null || prior == null || prior === 0) return null;
+  const change = ((current - prior) / prior) * 100;
+  if (!Number.isFinite(change)) return null;
+  const rounded = Math.round(change);
+  return rounded === 0 ? null : rounded;
+}
+
 export type BetterWhen = "up" | "down";
 
 export function deltaImproved(delta: number, betterWhen: BetterWhen): boolean {
   return betterWhen === "up" ? delta > 0 : delta < 0;
 }
 
-export function formatMetricDelta(delta: number, format: "count" | "percent" | "points"): string {
+/** Compact label for KPI change: `+5% ↑` or `−2% ↓`. */
+export function formatPercentDelta(delta: number): string {
   const sign = delta > 0 ? "+" : "−";
-  const magnitude = Math.abs(delta);
-  if (format === "percent") return `${sign}${magnitude}%`;
-  if (format === "points") return `${sign}${magnitude} pts`;
-  return `${sign}${magnitude.toLocaleString()}`;
+  const arrow = delta > 0 ? "↑" : "↓";
+  return `${sign}${Math.abs(delta)}% ${arrow}`;
 }

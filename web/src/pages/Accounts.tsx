@@ -6,9 +6,13 @@ import { api, formatApiError } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import {
   delta7d,
+  deltaImproved,
   daysAgoIso,
+  formatPercentDelta,
   openFindingsSeries,
   postureTrendSeries,
+  relativePercentChange,
+  type BetterWhen,
   type TimestampedValue,
   valueAtOrBeforeDaysAgo,
 } from "../lib/accountMetricDeltas";
@@ -4755,6 +4759,28 @@ function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) 
   );
 }
 
+function MetricCardDelta({
+  delta,
+  betterWhen,
+}: {
+  delta: number | null;
+  betterWhen: BetterWhen;
+}) {
+  if (delta == null || delta === 0) return null;
+  const improved = deltaImproved(delta, betterWhen);
+  return (
+    <span
+      className={`accounts-detail-metric-card__change${
+        improved
+          ? " accounts-detail-metric-card__change--good"
+          : " accounts-detail-metric-card__change--bad"
+      }`}
+    >
+      {formatPercentDelta(delta)}
+    </span>
+  );
+}
+
 function countAccountResources(
   items: Finding[] | undefined,
   accountKey: string,
@@ -5113,21 +5139,71 @@ function AccountSplitDetailPane({
     if (!isAws || !hasScanned) return null;
     const current = stats?.open;
     const prior = valueAtOrBeforeDaysAgo(openFindingsSeries(historyQ.data, current), 7);
-    return delta7d(current, prior);
+    return relativePercentChange(current, prior);
   }, [isAws, hasScanned, stats?.open, historyQ.data]);
+
+  const resourcesDelta = useMemo(() => {
+    if (!hasScanned || isAws) return null;
+    if (cloudOverviewQ.data == null || cloudOverviewPrevQ.data == null) return null;
+    return relativePercentChange(
+      cloudOverviewQ.data.resources_covered,
+      cloudOverviewPrevQ.data.resources_covered,
+    );
+  }, [hasScanned, isAws, cloudOverviewQ.data, cloudOverviewPrevQ.data]);
+
+  const complianceDelta = useMemo(() => {
+    if (!hasScanned) return null;
+    if (isAws) {
+      const trend = postureTrendSeries(historyQ.data);
+      const current =
+        compliancePct ??
+        historyQ.data?.current_posture_score ??
+        (trend.length > 0 ? trend[trend.length - 1].value : null);
+      const prior = valueAtOrBeforeDaysAgo(trend, 7);
+      const delta = delta7d(current, prior);
+      return delta != null && delta !== 0 ? delta : null;
+    }
+    if (
+      cloudOverviewQ.data?.compliance_posture_pct != null &&
+      cloudOverviewPrevQ.data?.compliance_posture_pct != null
+    ) {
+      const delta = delta7d(
+        cloudOverviewQ.data.compliance_posture_pct,
+        cloudOverviewPrevQ.data.compliance_posture_pct,
+      );
+      return delta != null && delta !== 0 ? delta : null;
+    }
+    const trend = complianceTrendPoints;
+    const current =
+      compliancePct ?? (trend.length > 0 ? trend[trend.length - 1].value : null);
+    const prior = valueAtOrBeforeDaysAgo(trend, 7);
+    const delta = delta7d(current, prior);
+    return delta != null && delta !== 0 ? delta : null;
+  }, [
+    isAws,
+    hasScanned,
+    compliancePct,
+    historyQ.data,
+    cloudOverviewQ.data,
+    cloudOverviewPrevQ.data,
+    complianceTrendPoints,
+  ]);
 
   const coverageDelta = useMemo(() => {
     if (!hasScanned) return null;
+    let delta: number | null = null;
     if (isAws) {
       if (coverageQ.data == null || coveragePrevQ.data == null) return null;
       const current = Math.round(coverageQ.data.coverage_ratio * 100);
       const prior = Math.round(coveragePrevQ.data.coverage_ratio * 100);
-      return delta7d(current, prior);
+      delta = delta7d(current, prior);
+    } else {
+      if (cloudOverviewQ.data == null || cloudOverviewPrevQ.data == null) return null;
+      const current = Math.round(cloudOverviewQ.data.coverage.coverage_ratio * 100);
+      const prior = Math.round(cloudOverviewPrevQ.data.coverage.coverage_ratio * 100);
+      delta = delta7d(current, prior);
     }
-    if (cloudOverviewQ.data == null || cloudOverviewPrevQ.data == null) return null;
-    const current = Math.round(cloudOverviewQ.data.coverage.coverage_ratio * 100);
-    const prior = Math.round(cloudOverviewPrevQ.data.coverage.coverage_ratio * 100);
-    return delta7d(current, prior);
+    return delta != null && delta !== 0 ? delta : null;
   }, [
     isAws,
     hasScanned,
@@ -5281,10 +5357,13 @@ function AccountSplitDetailPane({
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">{hasScanned ? displayStats.open : "—"}</p>
+                  {hasScanned ? (
+                    <MetricCardDelta delta={openFindingsDelta} betterWhen="down" />
+                  ) : null}
                 </div>
                 <p className="accounts-detail-metric-card__sub">
                   {hasScanned
-                    ? isAws && openFindingsDelta != null
+                    ? openFindingsDelta != null
                       ? "Across severities · last 7 days"
                       : "Across severities"
                     : "Run a scan first"}
@@ -5305,10 +5384,15 @@ function AccountSplitDetailPane({
                     <p className="accounts-detail-metric-card__value">
                       {hasScanned ? resourceCount.toLocaleString() : "—"}
                     </p>
+                    {hasScanned ? (
+                      <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
+                    ) : null}
                   </div>
                   <p className="accounts-detail-metric-card__sub">
                     {hasScanned
-                      ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
+                      ? resourcesDelta != null
+                        ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
+                        : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
                       : "From latest scan"}
                   </p>
                 </div>
@@ -5324,6 +5408,9 @@ function AccountSplitDetailPane({
                   <p className="accounts-detail-metric-card__value">
                     {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
                   </p>
+                  {hasScanned && compliancePct != null ? (
+                    <MetricCardDelta delta={complianceDelta} betterWhen="up" />
+                  ) : null}
                 </div>
                 <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
                 <CompliancePostureSparkline points={complianceTrendPoints} />
@@ -5339,6 +5426,9 @@ function AccountSplitDetailPane({
                   <p className="accounts-detail-metric-card__value">
                     {coveragePct != null ? `${coveragePct}%` : hasScanned ? "—" : "—"}
                   </p>
+                  {hasScanned && coveragePct != null ? (
+                    <MetricCardDelta delta={coverageDelta} betterWhen="up" />
+                  ) : null}
                 </div>
                 <p className="accounts-detail-metric-card__sub">
                   {coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
