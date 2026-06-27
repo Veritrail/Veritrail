@@ -3466,7 +3466,7 @@ button.accounts-flow-step:hover {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  min-height: clamp(11.25rem, 58cqw, 15rem);
+  min-height: clamp(9.75rem, 50cqw, 13rem);
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #fff;
@@ -3605,7 +3605,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-metric-card__sparkline {
   width: 100%;
-  height: clamp(6.25rem, 38cqw, 9.5rem);
+  height: clamp(5.5rem, 33cqw, 8.25rem);
   margin-top: auto;
   color: #3478f6;
 }
@@ -3620,7 +3620,7 @@ button.accounts-flow-step:hover {
   display: flex;
   align-items: center;
   gap: clamp(0.65rem, 4cqw, 1rem);
-  min-height: clamp(5rem, 30cqw, 8rem);
+  min-height: clamp(4.35rem, 26cqw, 7rem);
   margin-top: auto;
   padding-top: clamp(0.4rem, 2.2cqw, 0.5rem);
 }
@@ -3685,6 +3685,10 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card__watermark--cloud {
+  top: auto;
+  bottom: clamp(0.35rem, 5cqw, 0.75rem);
+  left: 50%;
+  transform: translateX(-50%);
   width: clamp(7.8rem, 48cqw, 12rem);
   height: auto;
   opacity: 1;
@@ -3704,18 +3708,18 @@ button.accounts-flow-step:hover {
   background: #eef2f6;
 }
 
-.accounts-detail-metric-card__progress.is-empty {
-  visibility: hidden;
+.accounts-detail-metric-card__progress.is-empty .accounts-detail-metric-card__progress-fill {
+  width: 0 !important;
 }
 
-.accounts-detail-metric-card__progress-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #22c55e, #16a34a);
+.accounts-detail-scan-row__findings--placeholder {
+  min-height: 1.35rem;
 }
 
-.accounts-detail-overview__lower {
+.accounts-detail-scan-row__resources {
+  margin: 0;
+  min-height: 1.15rem;
+  font-size: 0.78rem;
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
