@@ -3602,9 +3602,13 @@ button.accounts-flow-step:hover {
   justify-content: center;
 }
 
+.accounts-detail-metric-card:has(.accounts-detail-metric-card__sparkline) {
+  min-height: 11.25rem;
+}
+
 .accounts-detail-metric-card__sparkline {
   width: 100%;
-  height: 4.15rem;
+  height: 6.25rem;
   margin-top: auto;
   color: #3478f6;
 }
@@ -3712,7 +3716,7 @@ button.accounts-flow-step:hover {
 
 @media (min-width: 900px) {
   .accounts-detail-overview__lower {
-    grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.72fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -3720,19 +3724,14 @@ button.accounts-flow-step:hover {
 .accounts-detail-quick-actions {
   display: flex;
   flex-direction: column;
-  align-self: stretch;
-  min-height: 100%;
   box-sizing: border-box;
+  height: 17.5rem;
+  min-height: 17.5rem;
+  max-height: 17.5rem;
+  overflow-y: auto;
   border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   padding: 1rem 1.05rem;
-}
-
-.accounts-detail-capabilities::after,
-.accounts-detail-quick-actions::after {
-  content: "";
-  flex: 1 1 auto;
-  min-height: 0;
 }
 
 .accounts-detail-capabilities__title {
