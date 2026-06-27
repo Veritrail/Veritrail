@@ -7,14 +7,16 @@ import { userDisplayName, userInitials } from "../lib/displayNames";
 const SUPPORT_EMAIL = "elazar.chodjayev@cloud-castles.com";
 const PLACEHOLDER_PLAN = "Enterprise Plan";
 
-function BuildingIcon() {
+function WorkspaceIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"
+        d="m12.83 2.18 8 4.86a1 1 0 0 1 0 1.73l-8 4.86a1 1 0 0 1-1.66 0l-8-4.86a1 1 0 0 1 0-1.73l8-4.86a1 1 0 0 1 1.66 0Z"
       />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m22 12.58-8 4.86a1 1 0 0 1-1 0l-8-4.86" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m22 17.58-8 4.86a1 1 0 0 1-1 0l-8-4.86" />
     </svg>
   );
 }
@@ -117,13 +119,10 @@ export default function SidebarUserCard({
           >
             <span className="sidebar-user-panel__row">
               <span className="sidebar-user-panel__workspace-icon" aria-hidden>
-                <BuildingIcon />
+                <WorkspaceIcon />
               </span>
               <span className="sidebar-user-panel__copy">
-                <span className="sidebar-user-panel__workspace-name-row">
-                  <span className="sidebar-user-panel__name">{orgName}</span>
-                  <span className="sidebar-user-panel__status" aria-label="Active" />
-                </span>
+                <span className="sidebar-user-panel__name">{orgName}</span>
                 <span className="sidebar-user-panel__subtitle">{planLabel}</span>
               </span>
               <span className="sidebar-user-panel__chevron sidebar-user-panel__chevron--right">

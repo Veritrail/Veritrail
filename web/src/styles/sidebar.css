@@ -594,7 +594,7 @@
   width: 100%;
   border: 0;
   background: transparent;
-  padding: 0.85rem 1rem 0.85rem 1.15rem;
+  padding: 0.7rem 1rem 0.7rem 1.15rem;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -605,16 +605,6 @@
 .sidebar-user-panel__section:focus-visible {
   background: rgba(255, 255, 255, 0.04);
   outline: none;
-}
-
-.sidebar-user-panel__label {
-  display: block;
-  margin-bottom: 0.55rem;
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.88);
 }
 
 .sidebar-user-panel__row {
@@ -654,7 +644,7 @@
   border-radius: 0.65rem;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: rgba(15, 23, 42, 0.72);
-  color: rgba(226, 232, 240, 0.92);
+  color: #94a3b8;
 }
 
 .sidebar-user-panel__workspace-icon svg {
@@ -679,27 +669,6 @@
   line-height: 1.25;
   letter-spacing: -0.01em;
   color: #fff;
-}
-
-.sidebar-user-panel__workspace-name-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.sidebar-user-panel__workspace-name-row .sidebar-user-panel__name {
-  flex: 1;
-  min-width: 0;
-}
-
-.sidebar-user-panel__status {
-  width: 0.45rem;
-  height: 0.45rem;
-  flex-shrink: 0;
-  border-radius: 999px;
-  background: #34d399;
-  box-shadow: 0 0 8px rgba(52, 211, 153, 0.75);
 }
 
 .sidebar-user-panel__subtitle {
