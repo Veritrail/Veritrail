@@ -3680,8 +3680,9 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-metric-card__watermark {
   position: absolute;
-  right: clamp(0.5rem, 4cqw, 1rem);
-  bottom: clamp(0.4rem, 3cqw, 0.75rem);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 0;
   width: clamp(5.5rem, 42cqw, 10rem);
   height: auto;
@@ -3691,8 +3692,6 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card__watermark--cloud {
-  right: clamp(0.5rem, 4cqw, 1rem);
-  bottom: clamp(0.5rem, 3.5cqw, 0.85rem);
   width: clamp(7.8rem, 48cqw, 12rem);
   height: auto;
   opacity: 1;
