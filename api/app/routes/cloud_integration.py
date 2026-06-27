@@ -17,6 +17,7 @@ from app.models.gcp_project import GcpProject
 from app.models.org import Org
 from app.routes.accounts_scan import ScanRunOut
 from app.services.cloud_normalization import build_cloud_coverage, list_cloud_accounts
+from app.services.cloud_account_overview import build_cloud_account_overview
 from app.services.cloud_scan_runs import (
     cloud_scan_run_to_out,
     latest_cloud_scan,
@@ -60,6 +61,16 @@ class CloudScanAllOut(BaseModel):
     queued: dict[str, int]
     skipped: dict[str, int]
     message: str
+
+
+class CloudAccountOverviewOut(BaseModel):
+    provider: str
+    resource_id: str
+    resources_covered: int
+    regions_count: int
+    compliance_posture_pct: int | None = None
+    coverage: dict
+    posture_trend: list[dict]
 
 
 @router.get("/cloud-accounts", response_model=list[CloudAccountOut])
@@ -109,6 +120,36 @@ def latest_cloud_scan_run(
     if not run:
         return None
     return cloud_scan_run_to_out(run)
+
+
+@router.get("/cloud-accounts/{provider}/{resource_id}/overview", response_model=CloudAccountOverviewOut)
+def get_cloud_account_overview(
+    provider: str,
+    resource_id: uuid.UUID,
+    period: int = Query(default=7, ge=7, le=365),
+    as_of: str | None = Query(default=None, description="End of audit period (YYYY-MM-DD)"),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    if provider not in {"gcp", "azure"}:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "cloud account not found")
+    if provider == "gcp":
+        row = db.get(GcpProject, resource_id)
+    else:
+        row = db.get(AzureSubscription, resource_id)
+    if not row or row.org_id != org.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "cloud account not found")
+
+    payload = build_cloud_account_overview(
+        db,
+        org.id,
+        provider,
+        resource_id,
+        period=period,
+        as_of=as_of,
+    )
+    return CloudAccountOverviewOut(**payload)
 
 
 @router.get("/cloud-coverage", response_model=CloudCoverageOut)

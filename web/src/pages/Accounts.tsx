@@ -619,6 +619,16 @@ type CloudAccountRow = {
   last_scan_at: string | null;
 };
 
+type CloudAccountOverview = {
+  provider: string;
+  resource_id: string;
+  resources_covered: number;
+  regions_count: number;
+  compliance_posture_pct: number | null;
+  coverage: EvidenceCoverage;
+  posture_trend: Array<{ timestamp: string; posture_score: number }>;
+};
+
 type FindingStats = { critHigh: number; medium: number; low: number; info: number; open: number };
 
 type AccountListRow =
@@ -4853,6 +4863,7 @@ function AccountSplitDetailPane({
         qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
         qc.invalidateQueries({ queryKey: ["cloud-scan-runs", cloud!.provider, accountId] });
         qc.invalidateQueries({ queryKey: ["cloud-scan-run-latest", cloud!.provider, accountId] });
+        qc.invalidateQueries({ queryKey: ["cloud-account-overview", cloud!.provider, accountId] });
       },
     },
   );
@@ -4910,6 +4921,26 @@ function AccountSplitDetailPane({
     queryFn: () =>
       api<ScanRunLatest[]>(
         `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/scan-runs?limit=10`,
+      ),
+    enabled: !isAws && connected && hasScanned,
+    staleTime: 60_000,
+  });
+
+  const cloudOverviewQ = useQuery({
+    queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7],
+    queryFn: () =>
+      api<CloudAccountOverview>(
+        `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7`,
+      ),
+    enabled: !isAws && connected && hasScanned,
+    staleTime: 60_000,
+  });
+
+  const cloudOverviewPrevQ = useQuery({
+    queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7, "prev"],
+    queryFn: () =>
+      api<CloudAccountOverview>(
+        `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7&as_of=${daysAgoIso(7)}`,
       ),
     enabled: !isAws && connected && hasScanned,
     staleTime: 60_000,
@@ -4999,9 +5030,20 @@ function AccountSplitDetailPane({
   };
 
   const scanBusy = isAws ? isScanActive : cloudScan.isScanActive;
-  const coveragePct =
-    coverageQ.data != null ? Math.round(coverageQ.data.coverage_ratio * 100) : null;
-  const compliancePct = controlsQ.data;
+  const coveragePct = isAws
+    ? coverageQ.data != null
+      ? Math.round(coverageQ.data.coverage_ratio * 100)
+      : null
+    : cloudOverviewQ.data != null
+      ? Math.round(cloudOverviewQ.data.coverage.coverage_ratio * 100)
+      : null;
+  const compliancePct = isAws ? controlsQ.data : cloudOverviewQ.data?.compliance_posture_pct ?? null;
+  const resourceCount = isAws
+    ? resourceStats.resources
+    : cloudOverviewQ.data?.resources_covered ?? resourceStats.resources;
+  const resourceRegions = isAws
+    ? resourceStats.regions
+    : cloudOverviewQ.data?.regions_count ?? resourceStats.regions;
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
   const recentScanRows = useMemo(
     () =>
@@ -5025,7 +5067,13 @@ function AccountSplitDetailPane({
       ),
     [hasScanned, lastScanAt, cloudScanHistoryQ.data],
   );
-  const complianceTrendPoints = useMemo(() => postureTrendSeries(historyQ.data), [historyQ.data]);
+  const complianceTrendPoints = useMemo(() => {
+    if (isAws) return postureTrendSeries(historyQ.data);
+    return (cloudOverviewQ.data?.posture_trend ?? []).map((p) => ({
+      timestamp: p.timestamp,
+      value: p.posture_score,
+    }));
+  }, [isAws, historyQ.data, cloudOverviewQ.data?.posture_trend]);
 
   const openFindingsDelta = useMemo(() => {
     if (!isAws || !hasScanned) return null;
@@ -5035,11 +5083,25 @@ function AccountSplitDetailPane({
   }, [isAws, hasScanned, stats?.open, historyQ.data]);
 
   const coverageDelta = useMemo(() => {
-    if (!isAws || !hasScanned || coverageQ.data == null || coveragePrevQ.data == null) return null;
-    const current = Math.round(coverageQ.data.coverage_ratio * 100);
-    const prior = Math.round(coveragePrevQ.data.coverage_ratio * 100);
+    if (!hasScanned) return null;
+    if (isAws) {
+      if (coverageQ.data == null || coveragePrevQ.data == null) return null;
+      const current = Math.round(coverageQ.data.coverage_ratio * 100);
+      const prior = Math.round(coveragePrevQ.data.coverage_ratio * 100);
+      return delta7d(current, prior);
+    }
+    if (cloudOverviewQ.data == null || cloudOverviewPrevQ.data == null) return null;
+    const current = Math.round(cloudOverviewQ.data.coverage.coverage_ratio * 100);
+    const prior = Math.round(cloudOverviewPrevQ.data.coverage.coverage_ratio * 100);
     return delta7d(current, prior);
-  }, [isAws, hasScanned, coverageQ.data, coveragePrevQ.data]);
+  }, [
+    isAws,
+    hasScanned,
+    coverageQ.data,
+    coveragePrevQ.data,
+    cloudOverviewQ.data,
+    cloudOverviewPrevQ.data,
+  ]);
 
   const capabilityRows: {
     id: "core" | "iam" | "ssm";
@@ -5193,12 +5255,10 @@ function AccountSplitDetailPane({
                       : "Across severities"
                     : "Run a scan first"}
                 </p>
-                {hasScanned ? (
-                  <div className="accounts-detail-metric-card__findings">
-                    <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} size={96} stroke={5.25} />
-                    <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
-                  </div>
-                ) : null}
+                <div className="accounts-detail-metric-card__findings">
+                  <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} size={96} stroke={5.25} />
+                  <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
+                </div>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__content">
@@ -5207,12 +5267,12 @@ function AccountSplitDetailPane({
                   </div>
                   <div className="accounts-detail-metric-card__value-row">
                     <p className="accounts-detail-metric-card__value">
-                      {hasScanned ? resourceStats.resources.toLocaleString() : "—"}
+                      {hasScanned ? resourceCount.toLocaleString() : "—"}
                     </p>
                   </div>
                   <p className="accounts-detail-metric-card__sub">
                     {hasScanned
-                      ? `Across ${resourceStats.regions || "—"} region${resourceStats.regions === 1 ? "" : "s"}`
+                      ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
                       : "From latest scan"}
                   </p>
                 </div>
@@ -5245,16 +5305,17 @@ function AccountSplitDetailPane({
                   </p>
                 </div>
                 <p className="accounts-detail-metric-card__sub">
-                  {isAws && coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
+                  {coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
                 </p>
-                {coveragePct != null ? (
-                  <div className="accounts-detail-metric-card__progress" aria-hidden>
-                    <span
-                      className="accounts-detail-metric-card__progress-fill"
-                      style={{ width: `${coveragePct}%` }}
-                    />
-                  </div>
-                ) : null}
+                <div
+                  className={`accounts-detail-metric-card__progress${coveragePct == null ? " is-empty" : ""}`}
+                  aria-hidden={coveragePct == null}
+                >
+                  <span
+                    className="accounts-detail-metric-card__progress-fill"
+                    style={{ width: `${coveragePct ?? 0}%` }}
+                  />
+                </div>
               </div>
             </div>
 

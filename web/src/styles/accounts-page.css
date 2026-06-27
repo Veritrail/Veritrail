@@ -3466,7 +3466,7 @@ button.accounts-flow-step:hover {
   display: flex;
   overflow: hidden;
   flex-direction: column;
-  min-height: clamp(9rem, 42cqw, 12rem);
+  min-height: clamp(11.25rem, 58cqw, 15rem);
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #fff;
@@ -3603,10 +3603,6 @@ button.accounts-flow-step:hover {
   justify-content: center;
 }
 
-.accounts-detail-metric-card:has(.accounts-detail-metric-card__sparkline) {
-  min-height: clamp(11.25rem, 58cqw, 15rem);
-}
-
 .accounts-detail-metric-card__sparkline {
   width: 100%;
   height: clamp(6.25rem, 38cqw, 9.5rem);
@@ -3620,14 +3616,11 @@ button.accounts-flow-step:hover {
   overflow: visible;
 }
 
-.accounts-detail-metric-card:has(.accounts-detail-metric-card__findings) {
-  min-height: clamp(11.25rem, 58cqw, 15rem);
-}
-
 .accounts-detail-metric-card__findings {
   display: flex;
   align-items: center;
   gap: clamp(0.65rem, 4cqw, 1rem);
+  min-height: clamp(5rem, 30cqw, 8rem);
   margin-top: auto;
   padding-top: clamp(0.4rem, 2.2cqw, 0.5rem);
 }
@@ -3709,6 +3702,10 @@ button.accounts-flow-step:hover {
   overflow: hidden;
   border-radius: 999px;
   background: #eef2f6;
+}
+
+.accounts-detail-metric-card__progress.is-empty {
+  visibility: hidden;
 }
 
 .accounts-detail-metric-card__progress-fill {

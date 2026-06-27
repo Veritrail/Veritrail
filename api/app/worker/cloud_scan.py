@@ -145,6 +145,17 @@ def execute_cloud_scan(
                 if tracker:
                     tracker.collector_done()
 
+        if scan_run and scope_column in {"gcp_project_id", "azure_subscription_id"}:
+            from app.services.cloud_account_overview import count_cloud_resources
+
+            provider = "gcp" if scope_column == "gcp_project_id" else "azure"
+            resources, regions = count_cloud_resources(db, provider, scope_id)
+            stats = dict(scan_run.stats or {})
+            stats["resources_collected"] = resources
+            stats["regions_collected"] = regions
+            scan_run.stats = stats
+            db.commit()
+
         drafts: list = []
         check_ids_run: set[str] = set()
         check_errors: list[str] = []
@@ -168,6 +179,9 @@ def execute_cloud_scan(
             stats = dict(scan_run.stats or {})
             stats["checks_run_count"] = len(checks)
             stats["check_error_count"] = len(check_errors)
+            stats["checks_run"] = sorted(check_ids_run)
+            if check_errors:
+                stats["check_errors"] = [{"check_id": cid} for cid in check_errors]
             scan_run.stats = stats
 
         opened, resolved = persist_scope_findings(
@@ -178,6 +192,15 @@ def execute_cloud_scan(
             drafts=drafts,
             check_ids_run=check_ids_run,
         )
+        if scan_run and scope_column in {"gcp_project_id", "azure_subscription_id"}:
+            from app.services.cloud_account_overview import compute_cloud_compliance_posture
+
+            provider = "gcp" if scope_column == "gcp_project_id" else "azure"
+            posture = compute_cloud_compliance_posture(db, org_id, provider, scope_id)
+            if posture is not None:
+                stats = dict(scan_run.stats or {})
+                stats["posture_score"] = posture
+                scan_run.stats = stats
         if on_success:
             on_success()
         db.commit()
