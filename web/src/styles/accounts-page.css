@@ -6,15 +6,13 @@
   --accounts-surface: #ffffff;
   --accounts-radius: 1rem;
   --accounts-row-grid: minmax(230px, 1.35fr) minmax(148px, 0.72fr) minmax(190px, 0.92fr) minmax(102px, 0.46fr) 2.25rem;
-  min-width: 0;
-  padding-top: 0.5rem;
-}
 
-/* Accounts keeps search/toolbar in-page (no HeaderSlot) — compact the empty header band without pulling content under the sticky bar. */
-body:has(.accounts-page) .veritrail-app-header {
-  align-items: center;
-  padding-top: 0.75rem;
-  padding-bottom: 0.5rem;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  padding-bottom: 0;
 }
 
 /* Top metrics — one segmented strip, matching the Workspace health strip. */

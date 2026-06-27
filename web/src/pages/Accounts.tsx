@@ -33,6 +33,7 @@ import {
   type RemediationModules,
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { ProductShell } from "../components/ProductShell";
 import { MetricHelpTip } from "../components/MetricHelpTip";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { ProviderMark, type CloudProvider } from "../components/AccountSelect";
@@ -6553,7 +6554,8 @@ export default function Accounts() {
   ]);
 
   return (
-    <div className="accounts-page w-full space-y-4">
+    <ProductShell className="flex flex-1 flex-col">
+    <div className="accounts-page">
       {accounts.isLoading && cloudAccounts.isLoading && accs.length === 0 && integrationAccounts.length === 0 && (
         <p className="text-sm text-zinc-500">Loading accounts…</p>
       )}
@@ -6891,5 +6893,6 @@ export default function Accounts() {
         </div>
       )}
     </div>
+    </ProductShell>
   );
 }
