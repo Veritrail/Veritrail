@@ -2,10 +2,24 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { logout } from "../api";
 import { formatOrgRole } from "../hooks/useMe";
+import {
+  formatAccountLimitText,
+  formatPlanDisplayLabel,
+} from "../hooks/useAccountsPlanUsage";
 import { userDisplayName, userInitials } from "../lib/displayNames";
 
 const SUPPORT_EMAIL = "elazar.chodjayev@cloud-castles.com";
-const PLACEHOLDER_PLAN = "Enterprise Plan";
+
+function planUsageSubline(
+  planLabel: string | undefined,
+  used: number,
+  maxAccounts: number | null,
+): string | null {
+  const plan = formatPlanDisplayLabel(planLabel);
+  const usage = formatAccountLimitText(used, maxAccounts);
+  if (plan && usage) return `${plan} · ${usage}`;
+  return plan ?? usage ?? null;
+}
 
 function WorkspaceIcon() {
   return (
@@ -44,6 +58,9 @@ type SidebarUserCardProps = {
   role?: string;
   /** Workspace plan from GET /v1/accounts/plan-usage (`plan_label`). */
   planLabel?: string;
+  used?: number;
+  maxAccounts?: number | null;
+  planLoading?: boolean;
 };
 
 /**
@@ -54,13 +71,21 @@ export default function SidebarUserCard({
   email,
   orgName,
   role,
-  planLabel = PLACEHOLDER_PLAN,
+  planLabel,
+  used = 0,
+  maxAccounts = null,
+  planLoading = false,
 }: SidebarUserCardProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const name = userDisplayName(email);
   const initials = userInitials(email);
   const roleLabel = formatOrgRole(role);
+  const planDisplay = formatPlanDisplayLabel(planLabel);
+  const accountUsage = formatAccountLimitText(used, maxAccounts);
+  const collapsedSubline = planLoading
+    ? "Loading plan…"
+    : planUsageSubline(planLabel, used, maxAccounts);
 
   useEffect(() => {
     if (!open) return;
@@ -123,7 +148,13 @@ export default function SidebarUserCard({
               </span>
               <span className="sidebar-user-panel__copy">
                 <span className="sidebar-user-panel__name">{orgName}</span>
-                <span className="sidebar-user-panel__subtitle">{planLabel}</span>
+                <span className="sidebar-user-panel__subtitle">
+                  {planLoading
+                    ? "Loading plan…"
+                    : planDisplay && accountUsage
+                      ? `${planDisplay} · ${accountUsage}`
+                      : (planDisplay ?? accountUsage ?? "Workspace")}
+                </span>
               </span>
               <span className="sidebar-user-panel__chevron sidebar-user-panel__chevron--right">
                 <ChevronRightIcon />
@@ -199,8 +230,8 @@ export default function SidebarUserCard({
         </span>
         <span className="app-sidebar__workspace-copy">
           <span className="app-sidebar__workspace-name">{name}</span>
-          <span className="app-sidebar__workspace-plan" title={email}>
-            {orgName}
+          <span className="app-sidebar__workspace-plan" title={collapsedSubline ?? email}>
+            {collapsedSubline ?? orgName}
           </span>
         </span>
         <svg

@@ -9,7 +9,7 @@ import { HeaderSlotContext } from "./context/HeaderSlot";
 import NotificationsBell from "./components/NotificationsBell";
 import HelpMenu from "./components/HelpMenu";
 import SidebarUserCard from "./components/SidebarUserCard";
-import { formatPlanDisplayLabel, useAccountsPlanUsage } from "./hooks/useAccountsPlanUsage";
+import { useAccountsPlanUsage } from "./hooks/useAccountsPlanUsage";
 import SidebarNavLink from "./components/SidebarNavLink";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
@@ -56,7 +56,6 @@ export default function Layout() {
 
   const meQ = useMe();
   const planUsageQ = useAccountsPlanUsage();
-  const sidebarPlanLabel = formatPlanDisplayLabel(planUsageQ.data?.plan_label) ?? undefined;
   const canManageAccounts = roleAtLeast(meQ.data?.role, "admin");
 
   const accountsQ = useQuery({
@@ -188,7 +187,10 @@ export default function Layout() {
               email={meQ.data.email}
               orgName={meQ.data.org_name ?? "Workspace"}
               role={meQ.data.role}
-              planLabel={sidebarPlanLabel}
+              planLabel={planUsageQ.data?.plan_label}
+              used={planUsageQ.data?.used ?? 0}
+              maxAccounts={planUsageQ.data?.max_accounts ?? null}
+              planLoading={planUsageQ.isLoading && !planUsageQ.data}
             />
           ) : null}
         </div>
