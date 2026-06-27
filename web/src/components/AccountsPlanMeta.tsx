@@ -17,8 +17,22 @@ function usageProgressPercent(used: number, maxAccounts: number | null): number 
   return Math.min(100, Math.round((used / maxAccounts) * 100));
 }
 
+function planInitial(planLabel: string | undefined): string | null {
+  const badge = formatPlanBadgeLabel(planLabel);
+  if (!badge) return null;
+  return badge.charAt(0).toUpperCase();
+}
+
+function accountUsageSubtitle(used: number, maxAccounts: number | null): string | null {
+  const limitText = formatAccountLimitText(used, maxAccounts);
+  if (!limitText) return null;
+  if (maxAccounts == null) return limitText;
+  return `${limitText} connected`;
+}
+
 /**
- * Compact workspace plan + account limit chip for the Accounts list toolbar.
+ * Workspace plan + account limit card for the Accounts list header.
+ * Mirrors the sidebar collapsed workspace identity card (dark compact card).
  */
 export default function AccountsPlanMeta({
   planLabel,
@@ -27,57 +41,53 @@ export default function AccountsPlanMeta({
   loading = false,
   className = "",
 }: AccountsPlanMetaProps) {
-  const rootClass = ["accounts-plan-chip", className].filter(Boolean).join(" ");
+  const rootClass = ["accounts-plan-card", className].filter(Boolean).join(" ");
 
   if (loading) {
     return (
-      <div className={`${rootClass} accounts-plan-chip--loading`} aria-busy="true">
-        <span className="accounts-plan-chip__skeleton" />
+      <div className={`${rootClass} accounts-plan-card--loading`} aria-busy="true">
+        <span className="accounts-plan-card__badge accounts-plan-card__badge--skeleton" aria-hidden />
+        <span className="accounts-plan-card__copy">
+          <span className="accounts-plan-card__skeleton-line accounts-plan-card__skeleton-line--title" />
+          <span className="accounts-plan-card__skeleton-line accounts-plan-card__skeleton-line--subtitle" />
+        </span>
       </div>
     );
   }
 
   const plan = formatPlanDisplayLabel(planLabel);
-  const badge = formatPlanBadgeLabel(planLabel);
-  const limitText = formatAccountLimitText(used, maxAccounts);
-  if (!plan && !limitText) return null;
+  const initial = planInitial(planLabel);
+  const subtitle = accountUsageSubtitle(used, maxAccounts);
+  if (!plan && !subtitle) return null;
 
   const progress = usageProgressPercent(used, maxAccounts);
   const atCap = maxAccounts != null && used >= maxAccounts;
+  const ariaLabel = subtitle ? `${plan ?? "Workspace plan"}, ${subtitle}` : plan ?? undefined;
 
   return (
     <div
-      className={`${rootClass}${atCap ? " accounts-plan-chip--at-cap" : ""}`}
-      aria-label={limitText ? `${plan ?? "Workspace plan"}, ${limitText}` : plan ?? undefined}
+      className={`${rootClass}${atCap ? " accounts-plan-card--at-cap" : ""}`}
+      aria-label={ariaLabel}
     >
-      <div className="accounts-plan-chip__row">
-        {badge ? <span className="accounts-plan-chip__badge">{badge}</span> : null}
-        <div className="accounts-plan-chip__usage">
-          <span className="accounts-plan-chip__count">{used}</span>
-          {maxAccounts != null ? (
-            <>
-              <span className="accounts-plan-chip__sep" aria-hidden>
-                /
-              </span>
-              <span className="accounts-plan-chip__max">{maxAccounts}</span>
-            </>
-          ) : (
-            <span className="accounts-plan-chip__unlimited">unlimited</span>
-          )}
-        </div>
-      </div>
-      {progress != null ? (
-        <div
-          className="accounts-plan-chip__progress"
-          role="progressbar"
-          aria-valuenow={used}
-          aria-valuemin={0}
-          aria-valuemax={maxAccounts ?? undefined}
-          aria-label={`${used} of ${maxAccounts} accounts used`}
-        >
-          <span className="accounts-plan-chip__progress-fill" style={{ width: `${progress}%` }} />
-        </div>
-      ) : null}
+      <span className="accounts-plan-card__badge" aria-hidden>
+        {initial ?? "P"}
+      </span>
+      <span className="accounts-plan-card__copy">
+        {plan ? <span className="accounts-plan-card__title">{plan}</span> : null}
+        {subtitle ? <span className="accounts-plan-card__subtitle">{subtitle}</span> : null}
+        {progress != null ? (
+          <span
+            className="accounts-plan-card__progress"
+            role="progressbar"
+            aria-valuenow={used}
+            aria-valuemin={0}
+            aria-valuemax={maxAccounts ?? undefined}
+            aria-label={`${used} of ${maxAccounts} accounts used`}
+          >
+            <span className="accounts-plan-card__progress-fill" style={{ width: `${progress}%` }} />
+          </span>
+        ) : null}
+      </span>
     </div>
   );
 }

@@ -133,120 +133,146 @@
   background: linear-gradient(90deg, #14b8a6, #0d9488);
 }
 
-/* Workspace plan + account limit — compact chip in the list toolbar. */
-.accounts-plan-chip {
+/* Workspace plan + account limit — sidebar-style identity card above list toolbar. */
+.accounts-plan-card {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  min-height: 4.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 0.95rem;
+  background: rgba(8, 15, 30, 0.72);
+  padding: 0.75rem 1rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 28px -24px rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(12px);
+}
+
+.accounts-plan-card--loading {
+  pointer-events: none;
+}
+
+.accounts-plan-card__badge {
+  display: inline-flex;
+  width: 2.625rem;
+  height: 2.625rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.26), transparent 30%),
+    linear-gradient(145deg, #7585ff 0%, #4c74f4 50%, #3157db 100%);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(191, 219, 254, 0.18),
+    0 9px 20px -10px rgba(59, 130, 246, 0.85);
+}
+
+.accounts-plan-card__badge--skeleton {
+  background: rgba(148, 163, 184, 0.18);
+  box-shadow: none;
+}
+
+.accounts-plan-card__copy {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
-  gap: 0.35rem;
-  border: 1px solid var(--accounts-border);
-  border-radius: 0.625rem;
-  background: #fafafa;
-  padding: 0.4rem 0.7rem 0.45rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  gap: 0.2rem;
 }
 
-.accounts-plan-chip--loading {
-  width: 7.5rem;
-  min-height: 2.625rem;
-  justify-content: center;
+.accounts-plan-card__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #fff;
 }
 
-.accounts-plan-chip__skeleton {
+.accounts-plan-card__subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: rgba(203, 213, 225, 0.8);
+}
+
+.accounts-plan-card__progress {
   display: block;
-  height: 0.5rem;
   width: 100%;
+  max-width: 12rem;
+  height: 0.2rem;
+  margin-top: 0.25rem;
+  overflow: hidden;
   border-radius: 999px;
-  background: linear-gradient(90deg, #e4e4e7 0%, #f4f4f5 50%, #e4e4e7 100%);
-  background-size: 200% 100%;
-  animation: accounts-plan-chip-shimmer 1.2s ease-in-out infinite;
+  background: rgba(148, 163, 184, 0.22);
 }
 
-@keyframes accounts-plan-chip-shimmer {
+.accounts-plan-card__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7585ff, #4c74f4);
+  transition: width 0.2s ease;
+}
+
+.accounts-plan-card__skeleton-line {
+  display: block;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.14) 0%,
+    rgba(148, 163, 184, 0.28) 50%,
+    rgba(148, 163, 184, 0.14) 100%
+  );
+  background-size: 200% 100%;
+  animation: accounts-plan-card-shimmer 1.2s ease-in-out infinite;
+}
+
+.accounts-plan-card__skeleton-line--title {
+  width: 6.5rem;
+}
+
+.accounts-plan-card__skeleton-line--subtitle {
+  width: 9.5rem;
+  height: 0.45rem;
+}
+
+@keyframes accounts-plan-card-shimmer {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
 
-.accounts-plan-chip__row {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
+.accounts-plan-card--at-cap {
+  border-color: rgba(251, 191, 36, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 28px -24px rgba(180, 83, 9, 0.35);
 }
 
-.accounts-plan-chip__badge {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid #e4e4e7;
-  border-radius: 0.375rem;
-  background: #fff;
-  padding: 0.1rem 0.45rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #3f3f46;
+.accounts-plan-card--at-cap .accounts-plan-card__subtitle {
+  color: #fcd34d;
 }
 
-.accounts-plan-chip__usage {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.12rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.accounts-plan-chip__count {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1;
-  color: #18181b;
-}
-
-.accounts-plan-chip__sep,
-.accounts-plan-chip__max {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1;
-  color: #a1a1aa;
-}
-
-.accounts-plan-chip__unlimited {
-  margin-left: 0.15rem;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: #a1a1aa;
-}
-
-.accounts-plan-chip__progress {
-  height: 0.25rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e4e4e7;
-}
-
-.accounts-plan-chip__progress-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #14b8a6, #0d9488);
-  transition: width 0.2s ease;
-}
-
-.accounts-plan-chip--at-cap {
-  border-color: #fde68a;
-  background: #fffbeb;
-}
-
-.accounts-plan-chip--at-cap .accounts-plan-chip__count {
-  color: #b45309;
-}
-
-.accounts-plan-chip--at-cap .accounts-plan-chip__progress-fill {
+.accounts-plan-card--at-cap .accounts-plan-card__progress-fill {
   background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.accounts-list-shell__plan {
+  width: 100%;
 }
 
 /* Toolbar */
@@ -256,11 +282,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.7rem;
-}
-
-.accounts-toolbar__plan {
-  flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .accounts-toolbar__start {

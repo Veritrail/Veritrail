@@ -6961,6 +6961,13 @@ export default function Accounts() {
           {filteredRows.length === 0 ? (
             <div className="accounts-list-shell">
               <div className="accounts-list-shell__header">
+                <AccountsPlanMeta
+                  className="accounts-list-shell__plan"
+                  planLabel={planUsage.data?.plan_label}
+                  used={connectedAccountCount}
+                  maxAccounts={planUsage.data?.max_accounts ?? null}
+                  loading={planUsage.isLoading && !planUsage.data}
+                />
                 <div className="accounts-toolbar">
                   <div className="accounts-toolbar__start">
                     <label className="accounts-toolbar__search">
@@ -7008,13 +7015,6 @@ export default function Accounts() {
                       {create.isPending ? "Adding…" : "Add account"}
                     </button>
                   </div>
-                  <AccountsPlanMeta
-                    className="accounts-toolbar__plan"
-                    planLabel={planUsage.data?.plan_label}
-                    used={connectedAccountCount}
-                    maxAccounts={planUsage.data?.max_accounts ?? null}
-                    loading={planUsage.isLoading && !planUsage.data}
-                  />
                 </div>
                 {showFilters ? (
                   <div className="accounts-toolbar__filters">
@@ -7056,6 +7056,13 @@ export default function Accounts() {
               <div className="accounts-split__list">
                 <div className="accounts-list-shell">
                   <div className="accounts-list-shell__header">
+                    <AccountsPlanMeta
+                      className="accounts-list-shell__plan"
+                      planLabel={planUsage.data?.plan_label}
+                      used={connectedAccountCount}
+                      maxAccounts={planUsage.data?.max_accounts ?? null}
+                      loading={planUsage.isLoading && !planUsage.data}
+                    />
                     <div className="accounts-toolbar">
                       <div className="accounts-toolbar__start">
                         <label className="accounts-toolbar__search">
@@ -7103,13 +7110,6 @@ export default function Accounts() {
                           {create.isPending ? "Adding…" : "Add account"}
                         </button>
                       </div>
-                      <AccountsPlanMeta
-                        className="accounts-toolbar__plan"
-                        planLabel={planUsage.data?.plan_label}
-                        used={connectedAccountCount}
-                        maxAccounts={planUsage.data?.max_accounts ?? null}
-                        loading={planUsage.isLoading && !planUsage.data}
-                      />
                     </div>
                     {showFilters ? (
                       <div className="accounts-toolbar__filters">
