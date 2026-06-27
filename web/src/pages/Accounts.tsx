@@ -823,7 +823,7 @@ function FindingsMixDonutCompact({ stats, hasScanned }: { stats: FindingStats | 
     <div className="accounts-findings-donut">
       <div className="accounts-findings-donut__ring">
         {showChart ? (
-          <FindingsMixDonutSvg segments={segments} size={76} stroke={6} premium gapPx={2} />
+          <FindingsMixDonutSvg segments={segments} size={64} stroke={3.5} premium gapPx={1.5} />
         ) : (
           <div className="accounts-findings-donut__empty" aria-hidden />
         )}
