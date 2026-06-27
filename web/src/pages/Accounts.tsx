@@ -5021,9 +5021,6 @@ function AccountSplitDetailPane({
                 <CopyIdButton text={displayId} />
               </div>
             ) : null}
-            {isAws && acc ? (
-              <CapabilityBadges acc={acc} variant="table" capabilityVerify={capabilityVerify} />
-            ) : null}
           </div>
         </div>
         <div className="accounts-detail-pane__status-col">
