@@ -3315,7 +3315,9 @@ button.accounts-flow-step:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.2rem;
+  justify-content: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
   text-align: right;
 }
 
