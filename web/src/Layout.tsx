@@ -181,7 +181,11 @@ export default function Layout() {
 
         <div className="app-sidebar__footer">
           {meQ.data?.email ? (
-            <SidebarUserCard email={meQ.data.email} orgName={meQ.data.org_name ?? "Workspace"} />
+            <SidebarUserCard
+              email={meQ.data.email}
+              orgName={meQ.data.org_name ?? "Workspace"}
+              role={meQ.data.role}
+            />
           ) : null}
         </div>
       </aside>

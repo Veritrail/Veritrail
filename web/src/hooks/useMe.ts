@@ -16,6 +16,19 @@ export function roleAtLeast(role: OrgRole | undefined, minimum: OrgRole): boolea
   return (ROLE_RANK[role] ?? 0) >= (ROLE_RANK[minimum] ?? 0);
 }
 
+/** Human-readable workspace role for UI (e.g. admin → Admin, security_engineer → Security Engineer). */
+export function formatOrgRole(role: string | undefined | null): string | null {
+  const trimmed = role?.trim();
+  if (!trimmed) return null;
+  if (/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(trimmed)) {
+    return trimmed
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 export function useMe() {
   return useQuery<Me>({
     queryKey: ["me"],

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { logout } from "../api";
+import { formatOrgRole } from "../hooks/useMe";
 import { userDisplayName, userInitials } from "../lib/displayNames";
 
 const SUPPORT_EMAIL = "elazar.chodjayev@cloud-castles.com";
-const PLACEHOLDER_JOB_TITLE = "Security Engineer";
 const PLACEHOLDER_PLAN = "Enterprise Plan";
 
 function BuildingIcon() {
@@ -38,8 +38,8 @@ function ChevronRightIcon() {
 type SidebarUserCardProps = {
   email: string;
   orgName: string;
-  /** Placeholder until profile API exposes job title. */
-  jobTitle?: string;
+  /** Workspace role from GET /v1/auth/me (`role`). */
+  role?: string;
   /** Placeholder until billing/plan API exists. */
   planLabel?: string;
 };
@@ -51,13 +51,14 @@ type SidebarUserCardProps = {
 export default function SidebarUserCard({
   email,
   orgName,
-  jobTitle = PLACEHOLDER_JOB_TITLE,
+  role,
   planLabel = PLACEHOLDER_PLAN,
 }: SidebarUserCardProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const name = userDisplayName(email);
   const initials = userInitials(email);
+  const roleLabel = formatOrgRole(role);
 
   useEffect(() => {
     if (!open) return;
@@ -92,14 +93,13 @@ export default function SidebarUserCard({
             onClick={close}
             aria-label="Close user menu"
           >
-            <span className="sidebar-user-panel__label">Signed in as</span>
             <span className="sidebar-user-panel__row">
               <span className="sidebar-user-panel__avatar" aria-hidden>
                 {initials}
               </span>
               <span className="sidebar-user-panel__copy">
                 <span className="sidebar-user-panel__name">{name}</span>
-                <span className="sidebar-user-panel__subtitle">{jobTitle}</span>
+                {roleLabel ? <span className="sidebar-user-panel__subtitle">{roleLabel}</span> : null}
               </span>
               <span className="sidebar-user-panel__chevron sidebar-user-panel__chevron--up">
                 <ChevronUpIcon />
@@ -115,7 +115,6 @@ export default function SidebarUserCard({
             className="sidebar-user-panel__section sidebar-user-panel__section--workspace"
             onClick={close}
           >
-            <span className="sidebar-user-panel__label">Current workspace</span>
             <span className="sidebar-user-panel__row">
               <span className="sidebar-user-panel__workspace-icon" aria-hidden>
                 <BuildingIcon />
