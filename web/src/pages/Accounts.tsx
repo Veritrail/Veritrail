@@ -5411,44 +5411,33 @@ function AccountSplitDetailPane({
                   </svg>
                   View findings
                 </button>
-                {isAws ? (
-                  <>
-                    <button
-                      type="button"
-                      className="accounts-detail-quick-actions__secondary"
-                      onClick={() => setShowConnectorUpdate(true)}
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
-                      </svg>
-                      Manage connection
-                    </button>
-                    <button
-                      type="button"
-                      className="accounts-detail-quick-actions__secondary"
-                      onClick={() => {
-                        setTab("settings");
-                        setShowManageCapabilities(true);
-                      }}
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487 19.5 7.125 8.25 18.375l-4.125 1.125 1.125-4.125L16.862 4.487Z" />
-                      </svg>
-                      Edit account
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="accounts-detail-quick-actions__secondary"
-                    onClick={() => navigate(cloudIntegrationPath(cloud!.provider))}
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
-                    </svg>
-                    Manage connection
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() =>
+                    isAws
+                      ? setShowConnectorUpdate(true)
+                      : navigate(cloudIntegrationPath(cloud!.provider))
+                  }
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
+                  </svg>
+                  Manage connection
+                </button>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() => {
+                    setTab("settings");
+                    if (isAws) setShowManageCapabilities(true);
+                  }}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487 19.5 7.125 8.25 18.375l-4.125 1.125 1.125-4.125L16.862 4.487Z" />
+                  </svg>
+                  Edit account
+                </button>
               </div>
             </div>
 
