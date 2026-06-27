@@ -4652,7 +4652,6 @@ function AccountSplitDetailPane({
   const connected = isAws ? isAccountConnected(acc!) : isCloudAccountConnected(cloud!);
   const hasScanned = connected && !!(isAws ? acc!.last_scan_at : cloud!.last_scan_at);
   const lastScanAt = isAws ? acc!.last_scan_at : cloud!.last_scan_at;
-  const scanAgo = hasScanned ? formatRelativeScanAgo(lastScanAt) : null;
   const accountId = isAws ? acc!.id : cloud!.id;
   const displayName = isAws ? acc!.label : cloud!.label;
   const displayId = isAws ? acc!.account_id : cloud!.external_id;
@@ -4858,20 +4857,6 @@ function AccountSplitDetailPane({
     else if (cloud) cloudScan.triggerScan(cloudScanPath(cloud));
   };
 
-  const detailScanActive = isAws ? isScanActive : cloudScan.isScanActive;
-  const detailScanStatus = isAws ? scanStatus : cloudScan.scanStatus;
-  const detailScanError =
-    detailScanStatus === "error"
-      ? (isAws ? scanRun.data?.error : cloudScan.scanRun.data?.error) ?? null
-      : null;
-  const detailStatus = resolveAccountRowStatus(
-    connected,
-    detailScanActive,
-    detailScanStatus,
-    detailScanError,
-    isAws ? acc!.status : cloud!.status,
-  );
-
   const scanBusy = isAws ? isScanActive : cloudScan.isScanActive;
   const coveragePct =
     coverageQ.data != null ? Math.round(coverageQ.data.coverage_ratio * 100) : null;
@@ -5022,10 +5007,6 @@ function AccountSplitDetailPane({
               </div>
             ) : null}
           </div>
-        </div>
-        <div className="accounts-detail-pane__status-col">
-          <AccountStatusIndicator label={detailStatus.label} tone={detailStatus.tone} />
-          {scanAgo ? <p className="accounts-detail-pane__connected-ago">Connected {scanAgo}</p> : null}
         </div>
       </div>
 

@@ -3313,22 +3313,6 @@ button.accounts-flow-step:hover {
   color: #71717a;
 }
 
-.accounts-detail-pane__status-col {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.15rem;
-  flex-shrink: 0;
-  text-align: right;
-}
-
-.accounts-detail-pane__connected-ago {
-  margin: 0;
-  font-size: 0.75rem;
-  color: #71717a;
-}
-
 .accounts-detail-pane__tabs {
   display: flex;
   flex-shrink: 0;
