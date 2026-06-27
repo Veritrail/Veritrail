@@ -812,7 +812,17 @@ function FindingsMixDonutSvg({
   );
 }
 
-function FindingsMixDonutCompact({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
+function FindingsMixDonutCompact({
+  stats,
+  hasScanned,
+  size = 64,
+  stroke = 3.5,
+}: {
+  stats: FindingStats | undefined;
+  hasScanned: boolean;
+  size?: number;
+  stroke?: number;
+}) {
   const total = stats?.open ?? 0;
   const segments = getMixSegments(stats);
   const showChart = hasScanned && segments.length > 0;
@@ -821,7 +831,7 @@ function FindingsMixDonutCompact({ stats, hasScanned }: { stats: FindingStats | 
     <div className="accounts-findings-donut">
       <div className="accounts-findings-donut__ring">
         {showChart ? (
-          <FindingsMixDonutSvg segments={segments} size={64} stroke={3.5} premium gapPx={1.5} />
+          <FindingsMixDonutSvg segments={segments} size={size} stroke={stroke} premium gapPx={1.5} />
         ) : (
           <div className="accounts-findings-donut__empty" aria-hidden />
         )}
@@ -5166,7 +5176,7 @@ function AccountSplitDetailPane({
                 </p>
                 {hasScanned ? (
                   <div className="accounts-detail-metric-card__findings">
-                    <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
+                    <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} size={96} stroke={5.25} />
                     <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
                   </div>
                 ) : null}
