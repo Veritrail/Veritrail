@@ -133,6 +133,36 @@
   background: linear-gradient(90deg, #14b8a6, #0d9488);
 }
 
+/* Workspace plan + account limit — subtle meta above the account list. */
+.accounts-plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: #71717a;
+}
+
+.accounts-plan-meta--loading {
+  color: #a1a1aa;
+}
+
+.accounts-plan-meta__plan {
+  font-weight: 600;
+  color: #52525b;
+}
+
+.accounts-plan-meta__sep {
+  color: #d4d4d8;
+}
+
+.accounts-plan-meta__limit {
+  color: #71717a;
+}
+
 /* Toolbar */
 .accounts-toolbar {
   display: flex;

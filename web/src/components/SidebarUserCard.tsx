@@ -42,7 +42,7 @@ type SidebarUserCardProps = {
   orgName: string;
   /** Workspace role from GET /v1/auth/me (`role`). */
   role?: string;
-  /** Placeholder until billing/plan API exists. */
+  /** Workspace plan from GET /v1/accounts/plan-usage (`plan_label`). */
   planLabel?: string;
 };
 

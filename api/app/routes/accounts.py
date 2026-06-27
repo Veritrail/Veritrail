@@ -12,6 +12,8 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.security import current_principal
 from app.models import AwsAccount
+from app.models.azure_subscription import AzureSubscription
+from app.models.gcp_project import GcpProject
 from app.data.remediation_modules import (
     REMEDIATION_MODULES,
     any_remediation_enabled,
@@ -336,7 +338,7 @@ def create_account(body: AccountIn, _rbac: RequireAdmin, p=Depends(current_princ
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session expired — please sign in again")
     limit = plan_account_limit(org.plan)
     if limit is not None:
-        used = db.scalar(select(func.count()).select_from(AwsAccount).where(AwsAccount.org_id == org_id)) or 0
+        used = _org_connected_account_count(db, org_id)
         if used >= limit:
             tier = get_plan(org.plan)
             raise HTTPException(
@@ -444,12 +446,23 @@ class PlanUsageOut(BaseModel):
     can_add: bool
 
 
+def _org_connected_account_count(db: Session, org_id: uuid.UUID) -> int:
+    """Total cloud accounts across AWS, GCP, and Azure for plan-cap display."""
+    aws = db.scalar(select(func.count()).select_from(AwsAccount).where(AwsAccount.org_id == org_id)) or 0
+    gcp = db.scalar(select(func.count()).select_from(GcpProject).where(GcpProject.org_id == org_id)) or 0
+    azure = (
+        db.scalar(select(func.count()).select_from(AzureSubscription).where(AzureSubscription.org_id == org_id))
+        or 0
+    )
+    return aws + gcp + azure
+
+
 @router.get("/plan-usage", response_model=PlanUsageOut)
 def plan_usage(p=Depends(current_principal), db: Session = Depends(get_db)):
     org_id = uuid.UUID(p["org_id"])
     org = db.get(Org, org_id)
     tier = get_plan(org.plan if org else None)
-    used = db.scalar(select(func.count()).select_from(AwsAccount).where(AwsAccount.org_id == org_id)) or 0
+    used = _org_connected_account_count(db, org_id)
     limit = plan_account_limit(org.plan if org else None)
     return PlanUsageOut(
         plan=tier.slug,

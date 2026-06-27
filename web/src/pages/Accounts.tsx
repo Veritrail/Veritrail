@@ -33,6 +33,7 @@ import {
   type RemediationModuleId,
   type RemediationModules,
 } from "../data/remediationModules";
+import AccountsPlanMeta from "../components/AccountsPlanMeta";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ProductShell } from "../components/ProductShell";
 import { MetricHelpTip } from "../components/MetricHelpTip";
@@ -41,6 +42,7 @@ import { ProviderMark, type CloudProvider } from "../components/AccountSelect";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
+import { useAccountsPlanUsage } from "../hooks/useAccountsPlanUsage";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
@@ -6715,14 +6717,7 @@ export default function Accounts() {
     staleTime: 60_000,
   });
 
-  const planUsage = useQuery({
-    queryKey: ["accounts-plan-usage"],
-    queryFn: () =>
-      api<{ plan: string; plan_label: string; max_accounts: number | null; used: number; can_add: boolean }>(
-        "/v1/accounts/plan-usage",
-      ),
-    staleTime: 60_000,
-  });
+  const planUsage = useAccountsPlanUsage();
 
   const statsMap = useMemo(() => buildStatsMap(allFindings.data?.items), [allFindings.data?.items]);
 
@@ -6751,6 +6746,9 @@ export default function Accounts() {
   const hasAnyConnectedCloud = hasConnectedAws || hasConnectedIntegration;
   const hasAnyAccounts = accs.length > 0 || integrationAccounts.length > 0;
   const hasPending = accs.some((a) => !isAccountConnected(a));
+  const connectedAccountCount =
+    accs.filter((a) => isAccountConnected(a)).length +
+    integrationAccounts.filter((row) => isCloudAccountConnected(row)).length;
   const atPlanCap = planUsage.data ? !planUsage.data.can_add : false;
   const planCapMsg = planUsage.data
     ? `Your ${planUsage.data.plan_label} plan includes ${planUsage.data.max_accounts} account${planUsage.data.max_accounts === 1 ? "" : "s"}. Upgrade to connect more.`
@@ -6961,6 +6959,13 @@ export default function Accounts() {
 
       {showAccountList && (
         <div className="space-y-3">
+          <AccountsPlanMeta
+            planLabel={planUsage.data?.plan_label}
+            used={connectedAccountCount}
+            maxAccounts={planUsage.data?.max_accounts ?? null}
+            loading={planUsage.isLoading && !planUsage.data}
+          />
+
           {filteredRows.length === 0 ? (
             <div className="accounts-list-shell">
               <div className="accounts-list-shell__header">
