@@ -153,8 +153,9 @@ body:has(.accounts-page) .veritrail-app-header {
 
 .accounts-toolbar__search {
   position: relative;
-  min-width: min(100%, 25rem);
-  flex: 0 1 25rem;
+  min-width: 0;
+  flex: 1 1 10rem;
+  max-width: 25rem;
 }
 
 .accounts-toolbar__search svg {
@@ -3669,11 +3670,23 @@ button.accounts-flow-step:hover {
   }
 }
 
-.accounts-detail-capabilities {
-  height: 100%;
+.accounts-detail-capabilities,
+.accounts-detail-quick-actions {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-height: 100%;
+  box-sizing: border-box;
   border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   padding: 1rem 1.05rem;
+}
+
+.accounts-detail-capabilities::after,
+.accounts-detail-quick-actions::after {
+  content: "";
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .accounts-detail-capabilities__title {
