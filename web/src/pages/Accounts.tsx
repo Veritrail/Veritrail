@@ -4710,7 +4710,7 @@ function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) 
       <svg viewBox={`0 0 ${SPARK_VB_W} ${SPARK_VB_H}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id={`${gradientId}-fill`} x1="160" y1="42" x2="160" y2="126" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#2F75FF" stopOpacity={hasRealTrend ? 0.11 : 0.1} />
+	            <stop offset="0" stopColor="#2F75FF" stopOpacity={hasRealTrend ? 0.11 : 0.09} />
             <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -4741,19 +4741,18 @@ function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) 
         ) : (
           <>
             <path
-              d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74 L286 122 L34 122 Z"
+              d="M38 101 C56 96 72 97 88 99 C105 101 112 99 126 86 C138 75 153 78 166 84 C181 91 190 88 204 77 C220 64 233 50 250 60 C263 68 273 78 286 74 L286 122 L38 122 Z"
               fill={`url(#${gradientId}-fill)`}
             />
             <path
-              d="M34 100 C52 96 63 93 78 97 C94 101 104 104 118 92 C132 80 145 68 160 75 C175 82 184 86 198 78 C214 68 226 52 242 60 C258 68 270 82 286 74"
+              d="M38 101 C56 96 72 97 88 99 C105 101 112 99 126 86 C138 75 153 78 166 84 C181 91 190 88 204 77 C220 64 233 50 250 60 C263 68 273 78 286 74"
               fill="none"
               stroke="currentColor"
-              strokeWidth="4.75"
+              strokeWidth="4.25"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <circle cx="286" cy="74" r="4.75" fill="currentColor" />
-            <circle cx="286" cy="74" r="9.5" fill="currentColor" opacity="0.08" />
+            <circle cx="286" cy="74" r="4.15" fill="currentColor" />
           </>
         )}
       </svg>
@@ -6958,14 +6957,7 @@ export default function Accounts() {
       />
 
       {showAccountList && (
-        <div className="space-y-3">
-          <AccountsPlanMeta
-            planLabel={planUsage.data?.plan_label}
-            used={connectedAccountCount}
-            maxAccounts={planUsage.data?.max_accounts ?? null}
-            loading={planUsage.isLoading && !planUsage.data}
-          />
-
+        <>
           {filteredRows.length === 0 ? (
             <div className="accounts-list-shell">
               <div className="accounts-list-shell__header">
@@ -7016,6 +7008,13 @@ export default function Accounts() {
                       {create.isPending ? "Adding…" : "Add account"}
                     </button>
                   </div>
+                  <AccountsPlanMeta
+                    className="accounts-toolbar__plan"
+                    planLabel={planUsage.data?.plan_label}
+                    used={connectedAccountCount}
+                    maxAccounts={planUsage.data?.max_accounts ?? null}
+                    loading={planUsage.isLoading && !planUsage.data}
+                  />
                 </div>
                 {showFilters ? (
                   <div className="accounts-toolbar__filters">
@@ -7104,6 +7103,13 @@ export default function Accounts() {
                           {create.isPending ? "Adding…" : "Add account"}
                         </button>
                       </div>
+                      <AccountsPlanMeta
+                        className="accounts-toolbar__plan"
+                        planLabel={planUsage.data?.plan_label}
+                        used={connectedAccountCount}
+                        maxAccounts={planUsage.data?.max_accounts ?? null}
+                        loading={planUsage.isLoading && !planUsage.data}
+                      />
                     </div>
                     {showFilters ? (
                       <div className="accounts-toolbar__filters">
@@ -7245,7 +7251,7 @@ export default function Accounts() {
           {hasPending && (
             <p className="text-xs text-zinc-500">Finish pending setup before adding another account.</p>
           )}
-        </div>
+        </>
       )}
 
       {create.error && (

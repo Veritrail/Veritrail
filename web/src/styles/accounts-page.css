@@ -133,34 +133,120 @@
   background: linear-gradient(90deg, #14b8a6, #0d9488);
 }
 
-/* Workspace plan + account limit — subtle meta above the account list. */
-.accounts-plan-meta {
+/* Workspace plan + account limit — compact chip in the list toolbar. */
+.accounts-plan-chip {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.65rem;
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
-  color: #71717a;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid var(--accounts-border);
+  border-radius: 0.625rem;
+  background: #fafafa;
+  padding: 0.4rem 0.7rem 0.45rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.accounts-plan-meta--loading {
+.accounts-plan-chip--loading {
+  width: 7.5rem;
+  min-height: 2.625rem;
+  justify-content: center;
+}
+
+.accounts-plan-chip__skeleton {
+  display: block;
+  height: 0.5rem;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e4e4e7 0%, #f4f4f5 50%, #e4e4e7 100%);
+  background-size: 200% 100%;
+  animation: accounts-plan-chip-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes accounts-plan-chip-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.accounts-plan-chip__row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.accounts-plan-chip__badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.375rem;
+  background: #fff;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3f3f46;
+}
+
+.accounts-plan-chip__usage {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.12rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.accounts-plan-chip__count {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1;
+  color: #18181b;
+}
+
+.accounts-plan-chip__sep,
+.accounts-plan-chip__max {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
   color: #a1a1aa;
 }
 
-.accounts-plan-meta__plan {
+.accounts-plan-chip__unlimited {
+  margin-left: 0.15rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: #52525b;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #a1a1aa;
 }
 
-.accounts-plan-meta__sep {
-  color: #d4d4d8;
+.accounts-plan-chip__progress {
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e4e4e7;
 }
 
-.accounts-plan-meta__limit {
-  color: #71717a;
+.accounts-plan-chip__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #14b8a6, #0d9488);
+  transition: width 0.2s ease;
+}
+
+.accounts-plan-chip--at-cap {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.accounts-plan-chip--at-cap .accounts-plan-chip__count {
+  color: #b45309;
+}
+
+.accounts-plan-chip--at-cap .accounts-plan-chip__progress-fill {
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
 }
 
 /* Toolbar */
@@ -168,7 +254,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.7rem;
+}
+
+.accounts-toolbar__plan {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .accounts-toolbar__start {
