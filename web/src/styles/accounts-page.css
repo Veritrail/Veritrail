@@ -3699,10 +3699,6 @@ button.accounts-flow-step:hover {
   white-space: nowrap;
 }
 
-.accounts-detail-capability-row .accounts-connect-shell__cap-icon {
-  flex-shrink: 0;
-}
-
 .accounts-detail-capability-row__status-dot {
   width: 0.36rem;
   height: 0.36rem;

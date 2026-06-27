@@ -2174,11 +2174,6 @@ const ONBOARDING_CAPS = [
   },
 ] as const;
 
-const ONBOARDING_CAP_BY_ID = Object.fromEntries(ONBOARDING_CAPS.map((c) => [c.id, c])) as Record<
-  (typeof ONBOARDING_CAPS)[number]["id"],
-  (typeof ONBOARDING_CAPS)[number]
->;
-
 function OnboardingCapIcon({
   cap,
   className,
@@ -4896,19 +4891,16 @@ function AccountSplitDetailPane({
   const capabilityRows = isAws
     ? [
         {
-          id: "core" as const,
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
           enabled: connected,
         },
         {
-          id: "iam" as const,
           name: "Policy generation",
           desc: "IAM least-privilege recommendations",
           enabled: acc!.enable_advanced_policy_generation,
         },
         {
-          id: "ssm" as const,
           name: "SSM remediation",
           desc: "Scoped automated fixes with approvals",
           enabled: anyRemediationEnabled(acc!.remediation_modules ?? DEFAULT_REMEDIATION_MODULES),
@@ -4916,7 +4908,6 @@ function AccountSplitDetailPane({
       ]
     : [
         {
-          id: "core" as const,
           name: "Core scanner",
           desc: "Continuous security and compliance scanning",
           enabled: connected,
@@ -5093,15 +5084,8 @@ function AccountSplitDetailPane({
             <div className="accounts-detail-overview__lower">
               <div className="accounts-detail-capabilities">
                 <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
-                {capabilityRows.map((cap) => {
-                  const onboardingCap = ONBOARDING_CAP_BY_ID[cap.id] ?? ONBOARDING_CAPS[0];
-                  return (
+                {capabilityRows.map((cap) => (
                   <div className="accounts-detail-capability-row" key={cap.name}>
-                    <OnboardingCapIcon
-                      cap={onboardingCap}
-                      className={`accounts-connect-shell__cap-icon accounts-connect-shell__cap-icon--${onboardingCap.tone}`}
-                      title={onboardingCap.title}
-                    />
                     <div className="min-w-0">
                       <p className="accounts-detail-capability-row__name">{cap.name}</p>
                       <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
@@ -5111,8 +5095,7 @@ function AccountSplitDetailPane({
                       {cap.enabled ? "Enabled" : "Off"}
                     </span>
                   </div>
-                  );
-                })}
+                ))}
               </div>
 
               <div className="accounts-detail-quick-actions">
