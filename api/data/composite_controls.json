@@ -143,6 +143,7 @@
     "checks": [
       "acm.certificate.expiring",
       "cloudtrail.event.kms_key_disabled_or_deleted",
+      "cloudtrail.trail.no_kms",
       "cloudtrail.event.s3_bucket_policy_change",
       "cloudtrail.event.s3_public_access_block_disabled",
       "cloudtrail.event.security_group_open_to_world",
@@ -238,7 +239,6 @@
       "cloudtrail.event.security_group_open_to_world",
       "cloudtrail.event.trail_tampering",
       "cloudtrail.trail.no_cloudwatch_logs",
-      "cloudtrail.trail.no_kms",
       "cloudtrail.trail.no_log_validation",
       "cloudtrail.trail.not_enabled",
       "cloudtrail.trail.s3_bucket_no_logging",

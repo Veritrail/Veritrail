@@ -8,7 +8,7 @@ type ControlSlice = {
   id: string;
   control_id: string;
   check_ids: string[];
-  status: "pass" | "fail" | "no_data";
+  status: "pass" | "fail" | "at_risk" | "no_data";
 };
 
 /** Compact row affordance — opens the slide-over drawer. */

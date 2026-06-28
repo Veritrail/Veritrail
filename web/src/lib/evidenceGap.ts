@@ -84,6 +84,32 @@ export function openAbsenceGapChecks(
   return checkIds.filter((id) => isAbsenceGapCheck(id) && (findingCountByCheck.get(id) ?? 0) > 0);
 }
 
+/**
+ * Absence gaps that a *different* AWS account can legitimately satisfy AND that
+ * we can't auto-detect from this member account — so "covered in another AWS
+ * account" is a real option worth offering.
+ *
+ * Deliberately narrow. Org CloudTrail, GuardDuty, Config and Security Hub are
+ * already detected from the member (the org trail shows in DescribeTrails;
+ * delegated-admin coverage enables the member resource), so a remaining gap on
+ * those is genuine — not something another account covers. Per-account controls
+ * (VPC flow logs, backups) can't be covered elsewhere at all. IAM Access
+ * Analyzer's org analyzer lives only in the admin account and is invisible from
+ * a member, so it's the one case left.
+ */
+export const CROSS_ACCOUNT_COVERABLE_CHECKS = new Set<string>([
+  "aws.access_analyzer.not_enabled",
+]);
+
+export function openCrossAccountCoverableChecks(
+  checkIds: string[],
+  findingCountByCheck: Map<string, number>,
+): string[] {
+  return openAbsenceGapChecks(checkIds, findingCountByCheck).filter((id) =>
+    CROSS_ACCOUNT_COVERABLE_CHECKS.has(id),
+  );
+}
+
 export function absenceGapCapabilityName(checkId: string): string {
   if (ABSENCE_GAP_CAPABILITY[checkId]) return ABSENCE_GAP_CAPABILITY[checkId];
   const label = labelForCheck(checkId);
@@ -126,7 +152,7 @@ export function findingsHrefForAbsenceGaps(
 }
 
 export function compositeNeedsExternalEvidence(
-  groupStatus: "pass" | "fail" | "no_data",
+  groupStatus: "pass" | "fail" | "at_risk" | "no_data",
   checkIds: string[],
   findingCountByCheck: Map<string, number>,
   acceptedCount: number,

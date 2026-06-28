@@ -42,8 +42,27 @@ def collect_access_analyzer(db: Session, account: AwsAccount) -> int:
 
             active = next((a for a in analyzers if a.get("status") == "ACTIVE"), None)
 
+            # Org-level analyzer covers every member account but is only listable
+            # from the org's analyzer admin / management account. When present and
+            # active, the account is covered — count it as ACTIVE so we don't
+            # falsely flag the admin account (which often has no account analyzer).
+            org_active = None
+            if not active:
+                try:
+                    org_analyzers = client.list_analyzers(type="ORGANIZATION").get(
+                        "analyzers", []
+                    )
+                    org_active = next(
+                        (a for a in org_analyzers if a.get("status") == "ACTIVE"), None
+                    )
+                except ClientError:
+                    org_active = None
+
             if active:
                 name = active["name"]
+                status = "ACTIVE"
+            elif org_active:
+                name = org_active["name"]
                 status = "ACTIVE"
             elif analyzers:
                 name = analyzers[0]["name"]

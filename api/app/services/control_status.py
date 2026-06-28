@@ -1,8 +1,30 @@
-"""Shared pass/fail/no_data logic for controls and composite roll-ups."""
+"""Shared status logic for controls and composite roll-ups.
+
+A control is graded by the *materiality* of its open findings, not "any finding
+fails." For SOC 2 Type II an auditor cares whether the control operates
+effectively and exceptions are remediated by severity within SLA:
+
+  - fail    : the control is absent (an absence gap), or has open findings at or
+              above the configured fail threshold (default critical/high).
+  - at_risk : the control is present; only sub-threshold *medium* findings are
+              open (tracked / within SLA).
+  - pass    : present, no material or medium findings (low = noted, not failing).
+  - no_data : not scanned / not mapped.
+"""
 from __future__ import annotations
 
 from app.models import Finding
 from app.services.finding_history import finding_open_for_control
+
+# Severities that fail a control by default. Org-configurable (e.g. add
+# "medium") via settings → compliance_thresholds.fail_severities.
+DEFAULT_FAIL_SEVERITIES = frozenset({"critical", "high"})
+
+_ABSENCE_SUFFIXES = (".not_detected", ".not_enabled", ".missing")
+
+
+def _is_absence_gap(check_id: str) -> bool:
+    return check_id.endswith(_ABSENCE_SUFFIXES)
 
 
 def compute_control_status(
@@ -12,11 +34,27 @@ def compute_control_status(
     latest_failed_checks: set[str],
     *,
     has_scanned_account: bool,
+    fail_severities: frozenset[str] = DEFAULT_FAIL_SEVERITIES,
 ) -> tuple[str, list[Finding], int]:
-    """Return (status, open findings, finding_count) for a set of mapped check IDs."""
+    """Return (status, open findings, finding_count) for a set of mapped checks."""
     hits: list[Finding] = []
     for cid in check_ids:
         hits.extend(open_by_check.get(cid, []))
+
+    open_hits = [f for f in hits if finding_open_for_control(f, f.status)]
+
+    # An absent control (service off) is always material, regardless of the
+    # check's severity. Everything else is graded by configured threshold.
+    material = [
+        f
+        for f in open_hits
+        if (f.severity or "").lower() in fail_severities or _is_absence_gap(f.check_id)
+    ]
+    warn = [
+        f
+        for f in open_hits
+        if f not in material and (f.severity or "").lower() == "medium"
+    ]
 
     check_id_set = set(check_ids)
     all_mapped_checks_ran = bool(check_id_set) and check_id_set.issubset(latest_checks_run)
@@ -24,12 +62,23 @@ def compute_control_status(
 
     if not check_ids:
         status = "no_data"
-    elif any(finding_open_for_control(f, f.status) for f in hits):
+    elif material:
         status = "fail"
+    elif warn:
+        status = "at_risk"
     elif has_scanned_account and all_mapped_checks_ran and not any_mapped_check_failed:
         status = "pass"
     else:
         status = "no_data"
 
-    open_hits = [f for f in hits if finding_open_for_control(f, f.status)]
     return status, open_hits, len(open_hits)
+
+
+def severity_breakdown(open_hits: list[Finding]) -> dict[str, int]:
+    """Open-finding counts by severity, for the graded UI + audit context."""
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for f in open_hits:
+        sev = (f.severity or "").lower()
+        if sev in counts:
+            counts[sev] += 1
+    return counts

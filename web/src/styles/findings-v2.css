@@ -374,6 +374,10 @@
   background: #f59e0b;
 }
 
+.compliance-coverage-hero__dot--atrisk {
+  background: #f59e0b;
+}
+
 .compliance-coverage-hero__dot--fail {
   background: #fb7185;
 }
@@ -2511,9 +2515,32 @@
   padding: 1.35rem 1.5rem 1.25rem;
 }
 
+/* split list is narrower than the full table. Zero the list's side padding and
+   inset each child instead, so every full-width row's hover/selected background
+   bleeds the entire width (no clipped gutter before the status pill). Columns
+   shrink (minmax(0,…)) so the row never overflows its container. */
+.compliance-category-split__list {
+  padding-inline: 0;
+}
+
+.compliance-category-split__list .compliance-category-card__header {
+  padding-inline: 1.5rem;
+}
+
+.compliance-category-split__list .compliance-group-list-header,
+.compliance-category-split__list .compliance-group-row {
+  grid-template-columns:
+    minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 0.45fr) minmax(0, 1fr);
+  column-gap: 0.85rem;
+  padding-inline: 1.5rem;
+}
+
+.compliance-category-split__list .compliance-group-row {
+  cursor: pointer;
+}
+
 .compliance-group-row.is-selected {
-  background: #ffffff !important;
-  box-shadow: inset 3px 0 0 #7c3aed;
+  background: #f5f6ff;
 }
 
 .compliance-category-detail {
@@ -2757,8 +2784,525 @@
   line-height: 1;
 }
 
+/* --- severity breakdown chip --------------------------------------- */
+.compliance-category-detail__sevbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin-top: 0.6rem;
+}
+
+.compliance-category-detail__sevbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.compliance-category-detail__sevbar-dot {
+  display: inline-block;
+  height: 0.5rem;
+  width: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #94a3b8;
+}
+
+.compliance-category-detail__sevbar-item.is-critical .compliance-category-detail__sevbar-dot {
+  background: #dc2626;
+}
+
+.compliance-category-detail__sevbar-item.is-high .compliance-category-detail__sevbar-dot {
+  background: #f97316;
+}
+
+.compliance-category-detail__sevbar-item.is-medium .compliance-category-detail__sevbar-dot {
+  background: #f59e0b;
+}
+
+.compliance-category-detail__sevbar-item.is-low .compliance-category-detail__sevbar-dot {
+  background: #94a3b8;
+}
+
+/* --- "Next best action" card ---------------------------------------- */
+.compliance-category-detail__nba {
+  margin-bottom: 1.25rem;
+  padding: 1.1rem 1.15rem 1rem;
+  border: 1px solid #eef0f4;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
+}
+
+.compliance-category-detail__nba-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.compliance-category-detail__nba-spark {
+  display: flex;
+  height: 1.4rem;
+  width: 1.4rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: #6366f1;
+}
+
+.compliance-category-detail__nba-spark svg {
+  height: 1.2rem;
+  width: 1.2rem;
+}
+
+.compliance-category-detail__nba-head h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.compliance-category-detail__nba-head p {
+  margin: 0.12rem 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.compliance-category-detail__nba-help {
+  margin-top: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #64748b;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.compliance-category-detail__nba-help span {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.compliance-category-detail__nba-help:hover span {
+  text-decoration: underline;
+}
+
+/* tinted action cards (mock palette) */
+.compliance-category-detail__action-card--aws {
+  border-color: #f4e0ce;
+  background: #fef6ef;
+}
+
+.compliance-category-detail__action-card--aws:hover:not(:disabled) {
+  border-color: #eccfb2;
+  background: #fcefe2;
+}
+
+.compliance-category-detail__action-card--evidence {
+  border-color: #e0e7f8;
+  background: #f2f6ff;
+}
+
+.compliance-category-detail__action-card--evidence:hover:not(:disabled) {
+  border-color: #cdd9f4;
+  background: #eaf0ff;
+}
+
+/* white icon tiles on tinted cards */
+.compliance-category-detail__action-card--aws .compliance-category-detail__action-icon,
+.compliance-category-detail__action-card--evidence .compliance-category-detail__action-icon {
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.compliance-category-detail__action-card--evidence .compliance-category-detail__action-icon {
+  color: #2563eb;
+}
+
+/* count badges */
+.compliance-category-detail__action-copy span.compliance-category-detail__action-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  margin-top: 0.45rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.compliance-category-detail__action-badge--warn {
+  background: #fde4dd;
+  color: #d6491f;
+}
+
+.compliance-category-detail__action-badge--info {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.compliance-category-detail__action-badge--neutral {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* "Covered in another AWS account" card (teal) */
+.compliance-category-detail__action-card--account {
+  border-color: #cdeae6;
+  background: #f0faf8;
+}
+
+.compliance-category-detail__action-card--account:hover:not(:disabled) {
+  border-color: #b6ddd7;
+  background: #e8f6f3;
+}
+
+.compliance-category-detail__action-card--account .compliance-category-detail__action-icon {
+  background: #ffffff;
+  color: #0d9488;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.compliance-category-detail__action-badge--account {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+/* verified / account / ok sparks */
+.compliance-category-detail__nba-spark--account {
+  color: #0d9488;
+}
+
+.compliance-category-detail__nba-spark--ok {
+  color: #059669;
+}
+
+.compliance-category-detail__nba--ok {
+  border-color: #cdeccd;
+  background: #f6fdf8;
+}
+
+/* cross-account read-only + form bits (reuse scope styles) */
+.compliance-category-detail__scope-badge.is-ok {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.compliance-category-detail__scope-badge.is-pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.compliance-category-detail__scope-actions--start {
+  justify-content: flex-start;
+}
+
+.compliance-category-detail__account-id {
+  margin: 0.1rem 0 0;
+  color: #334155;
+  font-size: 0.8125rem;
+}
+
+.compliance-category-detail__account-id strong {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.compliance-category-detail__account-hint {
+  margin: 0 0 0.6rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.compliance-category-detail__account-input {
+  width: 100%;
+  margin-bottom: 0.55rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.compliance-category-detail__account-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px #e0e7ff;
+}
+
+.compliance-category-detail__account-expiry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.compliance-category-detail__account-expiry input {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.75rem;
+  outline: none;
+}
+
+.compliance-category-detail__account-expiry input:focus {
+  border-color: #6366f1;
+}
+
+/* --- "Doesn't apply to us" scope control ----------------------------- */
+.compliance-category-detail__scope {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed #e8ecf1;
+}
+
+.compliance-category-detail__scope-prompt {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.compliance-category-detail__scope-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: #cbd5e1;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+
+.compliance-category-detail__scope-link:hover {
+  color: #1e293b;
+  text-decoration-color: #94a3b8;
+}
+
+/* editing state */
+.compliance-category-detail__scope.is-editing,
+.compliance-category-detail__scope.is-set {
+  display: block;
+  border-top: 0;
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e8ecf1;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+
+.compliance-category-detail__scope-title {
+  margin: 0 0 0.65rem;
+  color: #0f172a;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.compliance-category-detail__scope-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.compliance-category-detail__scope-options button {
+  display: block;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  background: #ffffff;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.compliance-category-detail__scope-options button:hover {
+  border-color: #cbd5e1;
+}
+
+.compliance-category-detail__scope-options button.is-active {
+  border-color: #6366f1;
+  background: #eef2ff;
+  box-shadow: 0 0 0 1px #6366f1;
+}
+
+.compliance-category-detail__scope-options strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.compliance-category-detail__scope-options span {
+  display: block;
+  margin-top: 0.15rem;
+  color: #64748b;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+
+.compliance-category-detail__scope-reason-input {
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.compliance-category-detail__scope-reason-input::placeholder {
+  color: #94a3b8;
+}
+
+.compliance-category-detail__scope-reason-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px #e0e7ff;
+}
+
+.compliance-category-detail__scope-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.compliance-category-detail__scope-cancel,
+.compliance-category-detail__scope-confirm {
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.compliance-category-detail__scope-cancel {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+}
+
+.compliance-category-detail__scope-cancel:hover {
+  background: #f1f5f9;
+}
+
+.compliance-category-detail__scope-confirm {
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.compliance-category-detail__scope-confirm:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.compliance-category-detail__scope-confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* applied (read-only) state */
+.compliance-category-detail__scope-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.compliance-category-detail__scope-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.compliance-category-detail__scope-restore {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: #cbd5e1;
+  text-underline-offset: 2px;
+}
+
+.compliance-category-detail__scope-restore:hover {
+  color: #1e293b;
+}
+
+.compliance-category-detail__scope-reason {
+  margin: 0.55rem 0 0;
+  color: #334155;
+  font-size: 0.8125rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.compliance-category-detail__scope-meta {
+  margin: 0.35rem 0 0;
+  color: #94a3b8;
+  font-size: 0.6875rem;
+}
+
+.compliance-category-detail__scope-error {
+  margin: 0.5rem 0 0;
+  color: #dc2626;
+  font-size: 0.6875rem;
+}
+
 .compliance-category-detail__checks-section {
   margin-bottom: 0.5rem;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid #eef0f4;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
 }
 
 .compliance-category-detail__checks-heading {

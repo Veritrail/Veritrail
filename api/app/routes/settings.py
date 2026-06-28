@@ -35,6 +35,7 @@ from app.services.trust_logo_storage import TrustLogoError, delete_trust_logo, i
 from app.services.evidence_source_registry import EVIDENCE_SOURCE_CATEGORIES
 from app.services.evidence_source_store import apply_evidence_source_updates, load_evidence_sources
 from app.services.coverage_overrides import merge_coverage_overrides
+from app.services.cross_account_coverage import merge_cross_account_coverage
 from app.services.custom_evidence_categories import (
     get_custom_evidence_categories,
     merge_custom_evidence_categories,
@@ -104,8 +105,36 @@ class EvidenceSourcesIn(BaseModel):
     entries: dict[str, EvidenceSourceEntryIn]
 
 
+class CoverageOverrideEntryIn(BaseModel):
+    status: Literal["out_of_scope", "not_applicable"] | None = None
+    reason: str | None = None
+
+
 class CoverageOverridesIn(BaseModel):
-    entries: dict[str, Literal["out_of_scope", "not_applicable"] | None]
+    # Accepts a bare status string (legacy), null to clear, or an object
+    # carrying a justification for the audit trail.
+    entries: dict[
+        str,
+        CoverageOverrideEntryIn | Literal["out_of_scope", "not_applicable"] | None,
+    ]
+
+
+class CrossAccountCoverageEntryIn(BaseModel):
+    account_id: str | None = None
+    reason: str | None = None
+    expires_at: str | None = None
+
+
+class CrossAccountCoverageIn(BaseModel):
+    # Per composite: an object to attest coverage in another AWS account, or
+    # null to clear.
+    entries: dict[str, CrossAccountCoverageEntryIn | None]
+
+
+class ComplianceThresholdsIn(BaseModel):
+    # Severities that fail a control. Default (when unset) is critical + high;
+    # medium becomes "at risk", low is noted.
+    fail_severities: list[Literal["critical", "high", "medium", "low"]] | None = None
 
 
 class CustomEvidenceCategoryIn(BaseModel):
@@ -152,6 +181,8 @@ class SettingsPatch(BaseModel):
     features: FeaturesIn | None = None
     evidence_sources: EvidenceSourcesIn | None = None
     coverage_overrides: CoverageOverridesIn | None = None
+    cross_account_coverage: CrossAccountCoverageIn | None = None
+    compliance_thresholds: ComplianceThresholdsIn | None = None
     custom_evidence_categories: CustomEvidenceCategoriesIn | None = None
 
 
@@ -292,11 +323,37 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
         patches = {k: v.model_dump() for k, v in body.evidence_sources.entries.items()}
         apply_evidence_source_updates(db, org.id, patches, user_id=p.get("sub"))
 
+    if body.coverage_overrides is not None or body.cross_account_coverage is not None:
+        actor_user = db.get(User, uuid.UUID(p["sub"])) if p.get("sub") else None
+        actor_label = actor_user.email if actor_user and actor_user.email else p.get("sub")
+
     if body.coverage_overrides is not None:
+        patches = {
+            k: (v.model_dump() if isinstance(v, CoverageOverrideEntryIn) else v)
+            for k, v in body.coverage_overrides.entries.items()
+        }
         current["coverage_overrides"] = merge_coverage_overrides(
             current,
-            body.coverage_overrides.entries,
+            patches,
+            actor=actor_label,
         )
+
+    if body.cross_account_coverage is not None:
+        patches = {
+            k: (v.model_dump() if isinstance(v, CrossAccountCoverageEntryIn) else None)
+            for k, v in body.cross_account_coverage.entries.items()
+        }
+        current["cross_account_coverage"] = merge_cross_account_coverage(
+            current,
+            patches,
+            actor=actor_label,
+        )
+
+    if body.compliance_thresholds is not None:
+        fail_sev = body.compliance_thresholds.fail_severities
+        current["compliance_thresholds"] = {
+            "fail_severities": fail_sev if fail_sev else ["critical", "high"],
+        }
 
     if body.custom_evidence_categories is not None:
         current["custom_evidence_categories"] = merge_custom_evidence_categories(
@@ -313,6 +370,8 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
             ("features", body.features),
             ("evidence_sources", body.evidence_sources),
             ("coverage_overrides", body.coverage_overrides),
+            ("cross_account_coverage", body.cross_account_coverage),
+            ("compliance_thresholds", body.compliance_thresholds),
             ("custom_evidence_categories", body.custom_evidence_categories),
         )
         if val is not None

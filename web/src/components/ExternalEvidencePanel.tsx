@@ -69,7 +69,7 @@ export function ExternalEvidencePanel({
   compositeId: string;
   compositeTitle: string;
   framework: string;
-  groupStatus: "pass" | "fail" | "no_data";
+  groupStatus: "pass" | "fail" | "at_risk" | "no_data";
   checkIds: string[];
   findingCountByCheck: Map<string, number>;
   underlyingCriteria: UnderlyingCriterion[];

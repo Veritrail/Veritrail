@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api, token } from "../api";
+import { api, formatApiError, token } from "../api";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS } from "../data/frameworks";
@@ -37,8 +37,10 @@ import {
 import type { ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import { evidenceIsStale } from "../lib/externalEvidence";
 import {
+  absenceGapCapabilityName,
   findingsHrefForAbsenceGaps,
   openAbsenceGapChecks,
+  openCrossAccountCoverableChecks,
 } from "../lib/evidenceGap";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
@@ -68,8 +70,9 @@ type CompositeControlRow = {
   check_evidence_classes?: Record<string, string>;
   coverage_tier?: "core" | "extended" | "mixed" | "no_data";
   check_tiers?: Record<string, string>;
-  status: "pass" | "fail" | "no_data";
+  status: "pass" | "fail" | "at_risk" | "no_data";
   finding_count: number;
+  severity_counts?: { critical: number; high: number; medium: number; low: number };
   open_finding_ids: string[];
   scan_errors?: {
     check_id: string;
@@ -77,6 +80,20 @@ type CompositeControlRow = {
     error?: string | null;
   }[];
   coverage_override?: "out_of_scope" | "not_applicable" | null;
+  coverage_override_detail?: {
+    status: "out_of_scope" | "not_applicable";
+    reason: string | null;
+    set_by: string | null;
+    set_at: string | null;
+  } | null;
+  cross_account_coverage_detail?: {
+    account_id: string;
+    reason: string | null;
+    expires_at: string | null;
+    set_by: string | null;
+    set_at: string | null;
+    verified: boolean;
+  } | null;
   sdlc_insights?: {
     repos_total: number;
     repos_with_branch_protection: number;
@@ -106,7 +123,7 @@ type ControlRow = {
   extended_check_ids?: string[];
   check_tiers?: Record<string, string>;
   check_evidence_classes?: Record<string, string>;
-  status: "pass" | "fail" | "no_data";
+  status: "pass" | "fail" | "at_risk" | "no_data";
   finding_count: number;
   open_finding_ids: string[];
   kind?: "auto" | "manual";
@@ -205,7 +222,12 @@ function compositeDisplayStatus(
 ): ComplianceDisplayStatus {
   if (ctrl.coverage_override === "out_of_scope") return "out_of_scope";
   if (ctrl.coverage_override === "not_applicable") return "not_applicable";
+  // Verified coverage in another connected account closes the gap. Attested
+  // (not yet verified) cross-account coverage stays a gap until confirmed.
+  if (ctrl.cross_account_coverage_detail?.verified) return "externally_covered";
   if (ctrl.status === "pass") return "passing";
+  // Control present, only sub-threshold (medium) findings open — tracked, not a gap.
+  if (ctrl.status === "at_risk") return "at_risk";
   if (ctrl.status === "no_data") return "unevaluated";
   if (hasExpiredEvidence && !hasAcceptedExternalEvidence) return "expired";
   if (ctrl.status === "fail" && hasAcceptedExternalEvidence)
@@ -1310,6 +1332,7 @@ function ComplianceCoverageHero({
   passing,
   needsEvidence,
   failing,
+  atRisk = 0,
   riskAccepted,
   coveragePercent,
   auditExport,
@@ -1319,6 +1342,7 @@ function ComplianceCoverageHero({
   passing: number;
   needsEvidence: number;
   failing: number;
+  atRisk?: number;
   riskAccepted: number;
   coveragePercent?: number | null;
   auditExport: ReactNode;
@@ -1333,6 +1357,7 @@ function ComplianceCoverageHero({
   const metrics = [
     { label: "Passing", value: passing, tone: "pass" },
     { label: "Needs evidence", value: needsEvidence, tone: "evidence" },
+    { label: "At risk", value: atRisk, tone: "atrisk" },
     { label: "Failing", value: failing, tone: "fail" },
     { label: "Risk accepted", value: riskAccepted, tone: "risk" },
   ];
@@ -2323,6 +2348,394 @@ function TopFailingChecksSeverityTable({
   );
 }
 
+type CoverageOverrideDetail = {
+  status: "out_of_scope" | "not_applicable";
+  reason: string | null;
+  set_by: string | null;
+  set_at: string | null;
+};
+
+/** Quiet "this doesn't apply to us" affordance inside the gap section. Out of
+ *  scope = outside the audit boundary; not applicable = control can't apply to
+ *  this stack. Both record a justification for the audit trail. Distinct from
+ *  "managed externally", which is the upload-external-evidence path. */
+function GapScopeControl({
+  compositeId,
+  compositeTitle,
+  detail,
+}: {
+  compositeId: string;
+  compositeTitle: string;
+  detail?: CoverageOverrideDetail | null;
+}) {
+  const meQ = useMe();
+  const qc = useQueryClient();
+  const canEdit = roleAtLeast(meQ.data?.role, "admin");
+  const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState<"out_of_scope" | "not_applicable">("out_of_scope");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(next: "out_of_scope" | "not_applicable" | null, why?: string) {
+    setSaving(true);
+    setError("");
+    try {
+      await api("/v1/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          coverage_overrides: {
+            entries: { [compositeId]: { status: next, reason: why ?? null } },
+          },
+        }),
+      });
+      await qc.invalidateQueries({ queryKey: ["controls", "composites"] });
+      setOpen(false);
+      setReason("");
+    } catch (err) {
+      setError(formatApiError(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (detail) {
+    const label = detail.status === "out_of_scope" ? "Out of scope" : "Not applicable";
+    const when = detail.set_at ? new Date(detail.set_at).toLocaleDateString() : null;
+    return (
+      <div className="compliance-category-detail__scope is-set">
+        <div className="compliance-category-detail__scope-head">
+          <span className="compliance-category-detail__scope-badge">{label}</span>
+          {canEdit ? (
+            <button
+              type="button"
+              className="compliance-category-detail__scope-restore"
+              disabled={saving}
+              onClick={() => void submit(null)}
+            >
+              Restore to scope
+            </button>
+          ) : null}
+        </div>
+        {detail.reason ? (
+          <p className="compliance-category-detail__scope-reason">“{detail.reason}”</p>
+        ) : null}
+        {detail.set_by || when ? (
+          <p className="compliance-category-detail__scope-meta">
+            Marked{detail.set_by ? ` by ${detail.set_by}` : ""}
+            {when ? ` · ${when}` : ""}
+          </p>
+        ) : null}
+        {error ? <p className="compliance-category-detail__scope-error">{error}</p> : null}
+      </div>
+    );
+  }
+
+  if (!canEdit) return null;
+
+  if (!open) {
+    return (
+      <div className="compliance-category-detail__scope">
+        <span className="compliance-category-detail__scope-prompt">
+          Doesn’t apply to your environment?
+        </span>
+        <button
+          type="button"
+          className="compliance-category-detail__scope-link"
+          onClick={() => setOpen(true)}
+        >
+          Mark out of scope
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="compliance-category-detail__scope is-editing">
+      <p className="compliance-category-detail__scope-title">
+        Exclude {compositeTitle} from this audit
+      </p>
+      <div className="compliance-category-detail__scope-options" role="radiogroup">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={status === "out_of_scope"}
+          className={status === "out_of_scope" ? "is-active" : ""}
+          onClick={() => setStatus("out_of_scope")}
+        >
+          <strong>Out of scope</strong>
+          <span>Outside this audit’s boundary</span>
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={status === "not_applicable"}
+          className={status === "not_applicable" ? "is-active" : ""}
+          onClick={() => setStatus("not_applicable")}
+        >
+          <strong>Not applicable</strong>
+          <span>Control can’t apply to your stack</span>
+        </button>
+      </div>
+      <textarea
+        className="compliance-category-detail__scope-reason-input"
+        placeholder="Reason (recorded for your auditor) — e.g. handled by an external vulnerability scanner"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={2}
+      />
+      {error ? <p className="compliance-category-detail__scope-error">{error}</p> : null}
+      <div className="compliance-category-detail__scope-actions">
+        <button
+          type="button"
+          className="compliance-category-detail__scope-cancel"
+          disabled={saving}
+          onClick={() => {
+            setOpen(false);
+            setError("");
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="compliance-category-detail__scope-confirm"
+          disabled={saving || reason.trim() === ""}
+          onClick={() => void submit(status, reason.trim())}
+        >
+          {saving ? "Saving…" : "Mark out of scope"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Open-finding counts by severity — shows *why* a category is graded the way
+ *  it is (crit/high fail, medium = at risk, low = noted). */
+function SeverityBreakdownChip({
+  counts,
+}: {
+  counts?: { critical: number; high: number; medium: number; low: number };
+}) {
+  if (!counts) return null;
+  const items = (
+    [
+      ["critical", counts.critical],
+      ["high", counts.high],
+      ["medium", counts.medium],
+      ["low", counts.low],
+    ] as const
+  ).filter(([, n]) => n > 0);
+  if (items.length === 0) return null;
+  return (
+    <div className="compliance-category-detail__sevbar" aria-label="Open findings by severity">
+      {items.map(([sev, n]) => (
+        <span key={sev} className={`compliance-category-detail__sevbar-item is-${sev}`}>
+          <span className="compliance-category-detail__sevbar-dot" aria-hidden />
+          {n} {sev}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+type CrossAccountCoverageDetail = {
+  account_id: string;
+  reason: string | null;
+  expires_at: string | null;
+  set_by: string | null;
+  set_at: string | null;
+  verified: boolean;
+};
+
+/** "Covered in another AWS account" — leads with connect-and-verify (we scan
+ *  that account and confirm automatically); attest is the fallback when the
+ *  account can't be connected yet. Writes the cross_account_coverage rail. */
+function CrossAccountCoverageControl({
+  compositeId,
+  detail,
+  open,
+  onClose,
+  onConnect,
+}: {
+  compositeId: string;
+  detail?: CrossAccountCoverageDetail | null;
+  open: boolean;
+  onClose: () => void;
+  onConnect: () => void;
+}) {
+  const meQ = useMe();
+  const qc = useQueryClient();
+  const canEdit = roleAtLeast(meQ.data?.role, "admin");
+  const [accountId, setAccountId] = useState("");
+  const [reason, setReason] = useState("");
+  const [expires, setExpires] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const validId = /^\d{12}$/.test(accountId.trim());
+
+  async function save(opts: { withExpiry: boolean; thenConnect: boolean }) {
+    setSaving(true);
+    setError("");
+    try {
+      await api("/v1/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          cross_account_coverage: {
+            entries: {
+              [compositeId]: {
+                account_id: accountId.trim(),
+                reason: reason.trim() || null,
+                expires_at: opts.withExpiry ? expires || null : null,
+              },
+            },
+          },
+        }),
+      });
+      await qc.invalidateQueries({ queryKey: ["controls", "composites"] });
+      onClose();
+      if (opts.thenConnect) onConnect();
+    } catch (err) {
+      setError(formatApiError(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    setSaving(true);
+    setError("");
+    try {
+      await api("/v1/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          cross_account_coverage: { entries: { [compositeId]: null } },
+        }),
+      });
+      await qc.invalidateQueries({ queryKey: ["controls", "composites"] });
+    } catch (err) {
+      setError(formatApiError(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (detail) {
+    const when = detail.set_at ? new Date(detail.set_at).toLocaleDateString() : null;
+    const expDate = detail.expires_at
+      ? new Date(detail.expires_at).toLocaleDateString()
+      : null;
+    return (
+      <div className="compliance-category-detail__scope is-set">
+        <div className="compliance-category-detail__scope-head">
+          <span
+            className={`compliance-category-detail__scope-badge ${detail.verified ? "is-ok" : "is-pending"}`}
+          >
+            {detail.verified ? "Verified" : "Pending verification"}
+          </span>
+          {canEdit ? (
+            <button
+              type="button"
+              className="compliance-category-detail__scope-restore"
+              disabled={saving}
+              onClick={() => void remove()}
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+        <p className="compliance-category-detail__account-id">
+          AWS account <strong>{detail.account_id}</strong>
+        </p>
+        {detail.reason ? (
+          <p className="compliance-category-detail__scope-reason">“{detail.reason}”</p>
+        ) : null}
+        {!detail.verified && expDate ? (
+          <p className="compliance-category-detail__scope-meta">Attested · expires {expDate}</p>
+        ) : null}
+        {detail.set_by || when ? (
+          <p className="compliance-category-detail__scope-meta">
+            Added{detail.set_by ? ` by ${detail.set_by}` : ""}
+            {when ? ` · ${when}` : ""}
+          </p>
+        ) : null}
+        {!detail.verified && canEdit ? (
+          <div className="compliance-category-detail__scope-actions compliance-category-detail__scope-actions--start">
+            <button
+              type="button"
+              className="compliance-category-detail__scope-confirm"
+              onClick={onConnect}
+            >
+              Connect &amp; verify →
+            </button>
+          </div>
+        ) : null}
+        {error ? <p className="compliance-category-detail__scope-error">{error}</p> : null}
+      </div>
+    );
+  }
+
+  if (!open || !canEdit) return null;
+
+  return (
+    <div className="compliance-category-detail__scope is-editing">
+      <p className="compliance-category-detail__scope-title">Covered in another AWS account</p>
+      <p className="compliance-category-detail__account-hint">
+        Connect that account and we’ll verify this control automatically on the next scan. Attest in
+        the meantime if you can’t connect it yet.
+      </p>
+      <input
+        className="compliance-category-detail__account-input"
+        inputMode="numeric"
+        placeholder="AWS account ID (12 digits)"
+        value={accountId}
+        onChange={(e) => setAccountId(e.target.value)}
+      />
+      <textarea
+        className="compliance-category-detail__scope-reason-input"
+        placeholder="How is it covered there? e.g. GuardDuty via delegated admin in the security account"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={2}
+      />
+      <label className="compliance-category-detail__account-expiry">
+        Attestation expiry (optional)
+        <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
+      </label>
+      {error ? <p className="compliance-category-detail__scope-error">{error}</p> : null}
+      <div className="compliance-category-detail__scope-actions">
+        <button
+          type="button"
+          className="compliance-category-detail__scope-cancel"
+          disabled={saving}
+          onClick={() => {
+            onClose();
+            setError("");
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="compliance-category-detail__scope-cancel"
+          disabled={saving || !validId}
+          onClick={() => void save({ withExpiry: true, thenConnect: false })}
+        >
+          Attest for now
+        </button>
+        <button
+          type="button"
+          className="compliance-category-detail__scope-confirm"
+          disabled={saving || !validId}
+          onClick={() => void save({ withExpiry: false, thenConnect: true })}
+        >
+          {saving ? "Saving…" : "Connect & verify →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CompositeCategoryDetailPanel({
   ctrl,
   findingCountByCheck,
@@ -2346,23 +2759,14 @@ function CompositeCategoryDetailPanel({
 }) {
   const navigate = useNavigate();
   const evidenceRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
   const [showEvidencePanel, setShowEvidencePanel] = useState(false);
+  const [accountFormOpen, setAccountFormOpen] = useState(false);
   const displayStatus = compositeDisplayStatus(
     ctrl,
     findingCountByCheck,
     acceptedCompositeIds.has(ctrl.id),
     expiredCompositeIds?.has(ctrl.id),
-  );
-  const automated = compositeAutomatedSummary(ctrl, displayStatus);
-  const external = compositeExternalSummary(
-    ctrl,
-    acceptedCompositeIds,
-    new Map([[ctrl.id, submittedCount]]),
-  );
-  const coverage = compositeCoveragePercent(
-    ctrl,
-    findingCountByCheck,
-    acceptedCompositeIds,
   );
   const findingsHref = findingsHrefForChecks(
     ctrl.check_ids,
@@ -2371,6 +2775,29 @@ function CompositeCategoryDetailPanel({
   const awsFixHref =
     findingsHrefForAbsenceGaps(ctrl.check_ids, findingCountByCheck) ??
     findingsHref;
+  const overrideDetail = ctrl.coverage_override_detail ?? null;
+  const crossAccountDetail = ctrl.cross_account_coverage_detail ?? null;
+  const failingCheckCount = ctrl.check_ids.filter(
+    (c) => (findingCountByCheck.get(c) ?? 0) > 0,
+  ).length;
+  const criteriaCount = underlyingCriteriaForComposite(ctrl, frameworkRows).length;
+  // Absence gaps = an AWS service is simply off (…not_enabled/.not_detected/.missing).
+  // Those can be closed by enabling the service, by central coverage in another
+  // account, or by external evidence. Everything else is a real failing check
+  // that must be remediated in AWS — no evidence shortcut.
+  const absenceChecks = openAbsenceGapChecks(ctrl.check_ids, findingCountByCheck);
+  const absenceCapabilities = Array.from(
+    new Set(absenceChecks.map((id) => absenceGapCapabilityName(id))),
+  );
+  const hasAbsenceGaps = absenceChecks.length > 0;
+  // "Covered in another AWS account" only applies to gaps a different account
+  // can satisfy that we can't auto-detect from this member (IAM Access Analyzer).
+  const crossAccountEligible =
+    openCrossAccountCoverableChecks(ctrl.check_ids, findingCountByCheck).length > 0;
+  const regularFailing = Math.max(0, failingCheckCount - absenceChecks.length);
+  const isExternalOnly = ctrl.check_ids.length === 0;
+  const isVerified = displayStatus === "passing";
+  const isAtRisk = ctrl.status === "at_risk";
 
   return (
     <aside className="compliance-category-detail" aria-label={ctrl.title}>
@@ -2380,6 +2807,7 @@ function CompositeCategoryDetailPanel({
           <div className="min-w-0">
             <h3>{ctrl.title}</h3>
             <p>{ctrl.description}</p>
+            <SeverityBreakdownChip counts={ctrl.severity_counts} />
           </div>
         </div>
         <ComplianceRowSummary
@@ -2389,93 +2817,234 @@ function CompositeCategoryDetailPanel({
         />
       </div>
 
-      {coverage < 100 ? (
-        <p className="compliance-category-detail__coverage-hint">
-          Add evidence to improve coverage in this account.
-        </p>
-      ) : null}
-
-      <div className="compliance-category-detail__metrics">
-        <div>
-          <span>Automated</span>
-          <strong>{automated}</strong>
-        </div>
-        <div>
-          <span>External evidence</span>
-          <strong>{external}</strong>
-        </div>
-        <div>
-          <span>Coverage</span>
-          <div className="compliance-category-detail__coverage-value">
-            <strong>{coverage}%</strong>
-            <span className="compliance-category-detail__coverage-bar">
-              <span style={{ width: `${coverage}%` }} />
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <section className="compliance-category-detail__gap">
-        <h4>Close this gap</h4>
-        <p>Choose how you want to address this requirement.</p>
-        <div className="compliance-category-detail__actions">
-          <button
-            type="button"
-            className="compliance-category-detail__action-card"
-            onClick={() => {
-              if (awsFixHref) navigate(awsFixHref);
-            }}
-            disabled={!awsFixHref}
-          >
-            <span className="compliance-category-detail__action-icon compliance-category-detail__action-icon--aws">
-              <img src={AWS_LOGO_LIGHT} alt="" />
-            </span>
-            <span className="compliance-category-detail__action-copy">
-              <strong>Fix in AWS</strong>
-              <span>Enable services or update your environment</span>
-            </span>
-            <span className="compliance-category-detail__action-chevron" aria-hidden>
-              ›
-            </span>
-          </button>
-          <button
-            type="button"
-            className="compliance-category-detail__action-card"
-            onClick={() => {
-              setShowEvidencePanel(true);
-              requestAnimationFrame(() =>
-                evidenceRef.current?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                }),
-              );
-            }}
-          >
-            <span className="compliance-category-detail__action-icon compliance-category-detail__action-icon--evidence">
-              <svg
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.75}
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32a2.25 2.25 0 0 0 3.182 3.182l7.693-7.693"
-                />
+      {overrideDetail ? (
+        <section className="compliance-category-detail__nba">
+          <div className="compliance-category-detail__nba-head">
+            <span className="compliance-category-detail__nba-spark" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.5l1.5 4.1 4.1 1.5-4.1 1.5L12 13.7l-1.5-4.1L6.4 8.1l4.1-1.5L12 2.5zM18.6 14l.85 2.3 2.3.85-2.3.85-.85 2.3-.85-2.3-2.3-.85 2.3-.85L18.6 14z" />
               </svg>
             </span>
-            <span className="compliance-category-detail__action-copy">
-              <strong>Provide external evidence</strong>
-              <span>Upload documents or add external links</span>
+            <div>
+              <h4>Audit scope</h4>
+              <p>Excluded from your compliance score — won’t count as a gap.</p>
+            </div>
+          </div>
+          <GapScopeControl
+            compositeId={ctrl.id}
+            compositeTitle={ctrl.title}
+            detail={overrideDetail}
+          />
+        </section>
+      ) : crossAccountDetail ? (
+        <section className="compliance-category-detail__nba">
+          <div className="compliance-category-detail__nba-head">
+            <span className="compliance-category-detail__nba-spark compliance-category-detail__nba-spark--account" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
+              </svg>
             </span>
-            <span className="compliance-category-detail__action-chevron" aria-hidden>
-              ›
+            <div>
+              <h4>Covered in another AWS account</h4>
+              <p>
+                {crossAccountDetail.verified
+                  ? "Verified from a connected account on the latest scan."
+                  : "Pending — connect that account and we’ll confirm it automatically."}
+              </p>
+            </div>
+          </div>
+          <CrossAccountCoverageControl
+            compositeId={ctrl.id}
+            detail={crossAccountDetail}
+            open={false}
+            onClose={() => setAccountFormOpen(false)}
+            onConnect={() => navigate("/accounts")}
+          />
+        </section>
+      ) : isVerified ? (
+        <section className="compliance-category-detail__nba compliance-category-detail__nba--ok">
+          <div className="compliance-category-detail__nba-head">
+            <span className="compliance-category-detail__nba-spark compliance-category-detail__nba-spark--ok" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7" />
+              </svg>
             </span>
-          </button>
-        </div>
-      </section>
+            <div>
+              <h4>All automated checks pass</h4>
+              <p>Veritrail verifies this category directly from your AWS account. Nothing to do.</p>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="compliance-category-detail__nba">
+          <div className="compliance-category-detail__nba-head">
+            <span className="compliance-category-detail__nba-spark" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2.5l1.5 4.1 4.1 1.5-4.1 1.5L12 13.7l-1.5-4.1L6.4 8.1l4.1-1.5L12 2.5zM18.6 14l.85 2.3 2.3.85-2.3.85-.85 2.3-.85-2.3-2.3-.85 2.3-.85L18.6 14z" />
+              </svg>
+            </span>
+            <div>
+              <h4>{isAtRisk ? "Reduce risk" : "Close this gap"}</h4>
+              <p>
+                {isAtRisk
+                  ? "Only medium-severity findings are open — tracked and within tolerance. Remediate to clear them."
+                  : isExternalOnly
+                    ? "AWS can’t check this — add your own proof."
+                    : hasAbsenceGaps
+                      ? "A required AWS service isn’t active. Close it one of these ways:"
+                      : "Fix the failing checks in your AWS environment."}
+              </p>
+            </div>
+          </div>
+          <div className="compliance-category-detail__actions">
+            {!isExternalOnly ? (
+              <button
+                type="button"
+                className="compliance-category-detail__action-card compliance-category-detail__action-card--aws"
+                onClick={() => {
+                  if (awsFixHref) navigate(awsFixHref);
+                }}
+                disabled={!awsFixHref}
+              >
+                <span className="compliance-category-detail__action-icon compliance-category-detail__action-icon--aws">
+                  <img src={AWS_LOGO_LIGHT} alt="" />
+                </span>
+                <span className="compliance-category-detail__action-copy">
+                  <strong>
+                    {hasAbsenceGaps && regularFailing === 0
+                      ? "Enable in AWS & re-scan"
+                      : "Remediate in AWS"}
+                  </strong>
+                  <span>
+                    {hasAbsenceGaps && regularFailing === 0
+                      ? `Turn on ${absenceCapabilities.join(", ")} and re-scan.`
+                      : "Address the failing checks directly in your AWS environment."}
+                  </span>
+                  {regularFailing > 0 ? (
+                    <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--warn">
+                      {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
+                    </span>
+                  ) : hasAbsenceGaps ? (
+                    <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--warn">
+                      {absenceCapabilities.length} service{absenceCapabilities.length === 1 ? "" : "s"} off
+                    </span>
+                  ) : (
+                    <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--neutral">
+                      Re-scan needed
+                    </span>
+                  )}
+                </span>
+                <span className="compliance-category-detail__action-chevron" aria-hidden>
+                  ›
+                </span>
+              </button>
+            ) : null}
+            {crossAccountEligible ? (
+              <button
+                type="button"
+                className="compliance-category-detail__action-card compliance-category-detail__action-card--account"
+                onClick={() => {
+                  setAccountFormOpen(true);
+                  requestAnimationFrame(() =>
+                    accountRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "nearest",
+                    }),
+                  );
+                }}
+              >
+                <span className="compliance-category-detail__action-icon compliance-category-detail__action-icon--account">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
+                  </svg>
+                </span>
+                <span className="compliance-category-detail__action-copy">
+                  <strong>Covered in another AWS account</strong>
+                  <span>Managed centrally in an account we don’t scan yet — connect it to verify.</span>
+                  <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--account">
+                    Auto-verified
+                  </span>
+                </span>
+                <span className="compliance-category-detail__action-chevron" aria-hidden>
+                  ›
+                </span>
+              </button>
+            ) : null}
+            {hasAbsenceGaps || isExternalOnly ? (
+              <button
+                type="button"
+                className="compliance-category-detail__action-card compliance-category-detail__action-card--evidence"
+                onClick={() => {
+                  setShowEvidencePanel(true);
+                  requestAnimationFrame(() =>
+                    evidenceRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "nearest",
+                    }),
+                  );
+                }}
+              >
+                <span className="compliance-category-detail__action-icon compliance-category-detail__action-icon--evidence">
+                  <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25"
+                    />
+                  </svg>
+                </span>
+                <span className="compliance-category-detail__action-copy">
+                  <strong>Upload external evidence</strong>
+                  <span>Provide documentation or proof for checks managed outside of AWS.</span>
+                  {criteriaCount > 0 ? (
+                    <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--info">
+                      {criteriaCount} criteri{criteriaCount === 1 ? "on" : "a"}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="compliance-category-detail__action-chevron" aria-hidden>
+                  ›
+                </span>
+              </button>
+            ) : null}
+          </div>
+          {hasAbsenceGaps || isExternalOnly ? (
+            <button
+              type="button"
+              className="compliance-category-detail__nba-help"
+              onClick={() => {
+                setShowEvidencePanel(true);
+                requestAnimationFrame(() =>
+                  evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                );
+              }}
+            >
+              Need help? Review our <span>evidence guide</span>
+            </button>
+          ) : null}
+          {accountFormOpen ? (
+            <div ref={accountRef}>
+              <CrossAccountCoverageControl
+                compositeId={ctrl.id}
+                detail={null}
+                open
+                onClose={() => setAccountFormOpen(false)}
+                onConnect={() => navigate("/accounts")}
+              />
+            </div>
+          ) : null}
+          <GapScopeControl
+            compositeId={ctrl.id}
+            compositeTitle={ctrl.title}
+            detail={overrideDetail}
+          />
+        </section>
+      )}
 
       <section className="compliance-category-detail__checks-section">
         <div className="compliance-category-detail__checks-heading">
@@ -3099,6 +3668,13 @@ function ControlStatusPill({
       dot: "bg-amber-500",
       icon: "text-amber-600",
     },
+    at_risk: {
+      pill: compact
+        ? "bg-amber-50/80 text-amber-800 ring-amber-200/60"
+        : "bg-amber-50 text-amber-800 ring-amber-200/70",
+      dot: "bg-amber-500",
+      icon: "text-amber-600",
+    },
     no_data: {
       pill: compact
         ? "bg-zinc-100 text-zinc-600 ring-zinc-200/70"
@@ -3113,7 +3689,9 @@ function ControlStatusPill({
       ? "Passing"
       : status === "fail"
         ? "Failing"
-        : "Not evaluated";
+        : status === "at_risk"
+          ? "At risk"
+          : "Not evaluated";
 
   if (compact) {
     return (
@@ -3889,6 +4467,7 @@ export default function Controls() {
   }, [rows, compositeControls.data]);
   const passed = rows.filter((r) => r.status === "pass").length;
   const failed = rows.filter((r) => r.status === "fail").length;
+  const atRisk = rows.filter((r) => r.status === "at_risk").length;
   const noData = rows.filter((r) => r.status === "no_data").length;
   const total = rows.length;
   const filteredRows = useMemo(
@@ -3945,6 +4524,7 @@ export default function Controls() {
     let needsEvidence = 0;
     let externallyCovered = 0;
     let failing = 0;
+    let atRisk = 0;
     let pendingReview = 0;
     let staleEvidence = 0;
     let expiredEvidence = 0;
@@ -3957,7 +4537,8 @@ export default function Controls() {
       );
       if (display === "needs_evidence") needsEvidence++;
       if (display === "externally_covered") externallyCovered++;
-      if (display === "failing" || display === "at_risk") failing++;
+      if (display === "failing") failing++;
+      if (display === "at_risk") atRisk++;
       if ((submittedCountByComposite.get(c.id) ?? 0) > 0) pendingReview++;
       if (staleCompositeIds.has(c.id)) staleEvidence++;
       if (expiredCompositeIds.has(c.id)) expiredEvidence++;
@@ -3966,6 +4547,7 @@ export default function Controls() {
       needsEvidence,
       externallyCovered,
       failing,
+      atRisk,
       pendingReview,
       staleEvidence,
       expiredEvidence,
@@ -4158,6 +4740,7 @@ export default function Controls() {
             passing={passed}
             needsEvidence={noData}
             failing={failed}
+            atRisk={atRisk}
             riskAccepted={heroRiskAccepted}
             coveragePercent={activeFrameworkStats?.passRate}
             auditExport={auditPackageExport}

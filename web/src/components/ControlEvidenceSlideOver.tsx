@@ -27,7 +27,7 @@ type ControlSlice = {
   title: string;
   description?: string;
   check_ids: string[];
-  status: "pass" | "fail" | "no_data";
+  status: "pass" | "fail" | "at_risk" | "no_data";
   finding_count: number;
 };
 

@@ -101,9 +101,12 @@ class CompositeControlOut(BaseModel):
     check_evidence_classes: dict[str, str] = {}
     status: str
     finding_count: int
+    severity_counts: dict[str, int] = {}
     open_finding_ids: list[str]
     scan_errors: list[CheckScanErrorOut] = []
     coverage_override: str | None = None
+    coverage_override_detail: dict | None = None
+    cross_account_coverage_detail: dict | None = None
     sdlc_insights: dict | None = None
 
 

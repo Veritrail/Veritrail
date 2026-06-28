@@ -14,8 +14,20 @@ from app.models import AwsAccount, Finding, Org, ScanRun
 from app.services.check_coverage import control_coverage_tier, extended_checks_in_list, tier_display_label, tier_for_check
 from app.services.check_evidence import evidence_class_for_check
 from app.services.check_settings import hidden_check_ids
-from app.services.control_status import compute_control_status
-from app.services.coverage_overrides import get_coverage_overrides
+from app.services.control_status import (
+    DEFAULT_FAIL_SEVERITIES,
+    compute_control_status,
+    severity_breakdown,
+)
+from app.services.coverage_overrides import (
+    get_coverage_override_details,
+    get_coverage_overrides,
+)
+from app.services.cross_account_coverage import (
+    absence_checks,
+    cross_account_coverable_checks,
+    get_cross_account_coverage,
+)
 
 _DEFINITIONS_PATH = Path(__file__).parent.parent.parent / "data" / "composite_controls.json"
 
@@ -215,14 +227,89 @@ def _scan_context(
     return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors
 
 
+_VALID_SEVERITIES = frozenset({"critical", "high", "medium", "low"})
+
+
+def _fail_severities(settings: dict[str, Any] | None) -> frozenset[str]:
+    """Org-configurable severities that fail a control. Defaults to crit/high."""
+    raw = (settings or {}).get("compliance_thresholds")
+    if isinstance(raw, dict):
+        sev = raw.get("fail_severities")
+        if isinstance(sev, list):
+            valid = {str(s).lower() for s in sev if str(s).lower() in _VALID_SEVERITIES}
+            if valid:
+                return frozenset(valid)
+    return DEFAULT_FAIL_SEVERITIES
+
+
+def _cross_account_scan_contexts(
+    db: Session,
+    org_id: uuid.UUID,
+    hidden: set[str],
+    coverage: dict[str, dict[str, Any]],
+) -> dict[str, tuple[dict[str, list[Finding]], set[str]] | None]:
+    """For each AWS account referenced by cross-account coverage, return its
+    latest (open-finding map, executed-check set), or None if it isn't a
+    connected, scanned account in this org. Used to auto-verify that the
+    capability is actually on in that account — no manual step."""
+    out: dict[str, tuple[dict[str, list[Finding]], set[str]] | None] = {}
+    referenced = {d.get("account_id") for d in coverage.values() if d.get("account_id")}
+    for acct_num in referenced:
+        if not acct_num:
+            continue
+        acct = db.execute(
+            select(AwsAccount).where(
+                AwsAccount.org_id == org_id,
+                AwsAccount.account_id == acct_num,
+                AwsAccount.status == "connected",
+            )
+        ).scalar_one_or_none()
+        if acct is not None and acct.last_scan_at is not None:
+            open_by_check, ran, _failed, has_scanned, _errors = _scan_context(
+                db, org_id, acct.id, hidden
+            )
+            out[acct_num] = (open_by_check, ran) if has_scanned else None
+        else:
+            out[acct_num] = None
+    return out
+
+
+def _cross_account_detail(
+    coverage_entry: dict[str, Any] | None,
+    check_ids: list[str],
+    contexts: dict[str, tuple[dict[str, list[Finding]], set[str]] | None],
+) -> dict[str, Any] | None:
+    """Augment a stored cross-account entry with a live ``verified`` flag: True
+    when the referenced account's latest scan ran the capability's checks and
+    found them clean (i.e. the service really is on there)."""
+    if not coverage_entry:
+        return None
+    detail = dict(coverage_entry)
+    ctx = contexts.get(detail.get("account_id"))
+    verified = False
+    if ctx is not None:
+        open_by_check, ran = ctx
+        # Verify the capability that's actually cross-account coverable.
+        targets = cross_account_coverable_checks(check_ids) or absence_checks(check_ids)
+        verified = bool(targets) and all(
+            (c in ran) and not open_by_check.get(c) for c in targets
+        )
+    detail["verified"] = verified
+    return detail
+
+
 def list_composite_controls(
     db: Session,
     org_id: uuid.UUID,
     account_id: uuid.UUID | None,
 ) -> list[dict[str, Any]]:
     org = db.get(Org, org_id)
+    fail_severities = _fail_severities(org.settings if org else {})
     hidden = hidden_check_ids(org.settings if org else {})
     coverage_overrides = get_coverage_overrides(org.settings if org else {})
+    coverage_override_details = get_coverage_override_details(org.settings if org else {})
+    cross_account_coverage = get_cross_account_coverage(org.settings if org else {})
+    cross_account_ctx = _cross_account_scan_contexts(db, org_id, hidden, cross_account_coverage)
     open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors = _scan_context(
         db, org_id, account_id, hidden
     )
@@ -240,6 +327,7 @@ def list_composite_controls(
             latest_checks_run,
             latest_failed_checks,
             has_scanned_account=has_scanned_account,
+            fail_severities=fail_severities,
         )
         cov_tier = control_coverage_tier(check_ids)
         row: dict[str, Any] = {
@@ -257,9 +345,14 @@ def list_composite_controls(
                 "check_evidence_classes": {cid: evidence_class_for_check(cid) for cid in check_ids},
                 "status": status,
                 "finding_count": finding_count,
+                "severity_counts": severity_breakdown(open_hits),
                 "open_finding_ids": [str(f.id) for f in open_hits],
                 "scan_errors": [errors_by_check[cid] for cid in check_ids if cid in errors_by_check],
                 "coverage_override": coverage_overrides.get(entry["id"]),
+                "coverage_override_detail": coverage_override_details.get(entry["id"]),
+                "cross_account_coverage_detail": _cross_account_detail(
+                    cross_account_coverage.get(entry["id"]), check_ids, cross_account_ctx
+                ),
             }
         if entry["id"] == "secure_sdlc":
             row["sdlc_insights"] = sdlc_insights
