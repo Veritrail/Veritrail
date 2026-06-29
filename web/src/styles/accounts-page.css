@@ -3868,28 +3868,6 @@ button.accounts-flow-step:hover {
   color: #09090b;
 }
 
-/* Scan now — reuse blast-radius "Analyze impact" teal outline (impact-analyze-button--secondary).
-   IA tokens are scoped to .impact-analysis; define them here so var(--ia-primary) resolves. */
-.accounts-detail-quick-actions__scan {
-  --ia-primary: #439385;
-  --ia-primary-hover: #367a6f;
-  margin-top: 0;
-  border-color: #439385;
-  background: #ffffff;
-  color: #439385;
-}
-
-.accounts-detail-quick-actions__scan:hover:not(:disabled) {
-  border-color: #367a6f;
-  background: rgba(67, 147, 133, 0.08);
-  color: #367a6f;
-}
-
-.accounts-detail-quick-actions__scan:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .accounts-detail-quick-actions__primary {
   display: inline-flex;
   width: 100%;
