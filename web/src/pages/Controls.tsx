@@ -2649,9 +2649,12 @@ function CompositeCategoryDetailPanel({
         </section>
       ) : (
         <section className="compliance-category-detail__nextsteps">
-          <div className="compliance-category-detail__nextsteps-head">
-            <div>
-              <h4>Next steps</h4>
+          <div
+            className={`compliance-category-detail__workflow compliance-category-detail__workflow--cols-${workflowCols}`}
+          >
+            <div className="compliance-category-detail__nextsteps-head">
+              <div>
+                <h4>Next steps</h4>
               <p>
                 {isAtRisk
                   ? "Only medium-severity findings are open. Remediate them to clear the category."
@@ -2661,11 +2664,8 @@ function CompositeCategoryDetailPanel({
                       ? "A required AWS service isn’t active. Choose the cleanest path to satisfy it."
                       : "Fix the failing checks in your AWS environment."}
               </p>
+              </div>
             </div>
-          </div>
-          <div
-            className={`compliance-category-detail__workflow compliance-category-detail__workflow--cols-${workflowCols}`}
-          >
             {!isExternalOnly ? (
               <div className="compliance-category-detail__workflow-card compliance-category-detail__workflow-card--fix">
                 <span className="compliance-category-detail__step-index">1</span>

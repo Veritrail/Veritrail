@@ -3109,6 +3109,12 @@
   margin-bottom: 0.65rem;
 }
 
+.compliance-category-detail__workflow > .compliance-category-detail__nextsteps-head {
+  grid-row: 1;
+  grid-column: 1;
+  margin-bottom: 0;
+}
+
 .compliance-category-detail__nextsteps-head h4 {
   margin: 0;
   color: #0f172a;
@@ -3278,7 +3284,7 @@
   grid-template-rows: auto auto;
   gap: 0.35rem 1.35rem;
   align-items: start;
-  margin-top: 0.35rem;
+  margin-top: 0;
 }
 
 .compliance-category-detail__workflow--cols-3 {
@@ -3305,10 +3311,22 @@
   grid-row: 2;
 }
 
+.compliance-category-detail__workflow-card--fix {
+  grid-column: 1;
+}
+
+.compliance-category-detail__workflow-card--enable {
+  grid-column: 2;
+}
+
 .compliance-category-detail__other-label {
   grid-row: 1;
   grid-column: -1;
-  align-self: end;
+  align-self: start;
+}
+
+.compliance-category-detail__workflow--cols-1 .compliance-category-detail__other-label {
+  display: none;
 }
 
 .compliance-category-detail__workflow-card {
@@ -3632,11 +3650,16 @@
     gap: 0.65rem;
   }
 
+  .compliance-category-detail__workflow > .compliance-category-detail__nextsteps-head,
   .compliance-category-detail__workflow-card,
   .compliance-category-detail__workflow-other,
   .compliance-category-detail__other-label {
     grid-row: auto;
     grid-column: auto;
+  }
+
+  .compliance-category-detail__workflow--cols-1 .compliance-category-detail__other-label {
+    display: block;
   }
 
   .compliance-category-detail__workflow-card--fix::after,
