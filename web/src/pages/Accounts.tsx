@@ -17,6 +17,7 @@ import {
   valueAtOrBeforeDaysAgo,
 } from "../lib/accountMetricDeltas";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
+import { controlPostureScore } from "../lib/controlPostureScore";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
@@ -4937,11 +4938,7 @@ function AccountSplitDetailPane({
       `/v1/controls?framework=soc2&account_id=${accountId}`,
     ),
     enabled: isAws && connected && hasScanned,
-    select: (rows) => {
-      const total = rows.length;
-      const passed = rows.filter((r) => r.status === "pass").length;
-      return total > 0 ? Math.round((passed / total) * 100) : null;
-    },
+    select: (rows) => controlPostureScore(rows),
   });
 
   const coverageQ = useQuery({

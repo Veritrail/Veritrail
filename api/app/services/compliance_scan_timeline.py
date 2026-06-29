@@ -12,6 +12,7 @@ from app.core.sensitive_display import mask_sensitive_text
 from app.models import Finding, FindingEvent, ScanRun
 from app.models.cloudtrail import CloudTrailEvent
 from app.models.control import Control, CheckControl
+from app.services.compliance_posture import posture_score_from_counts
 from app.services.compliance_timeline import _control_status_at
 from app.services.finding_history import (
     finding_open_for_control,
@@ -74,10 +75,7 @@ def _counts(snap: dict[str, dict[str, Any]]) -> dict[str, int]:
 
 
 def _posture_score(counts: dict[str, int]) -> int | None:
-    scored = counts["controls_passed"] + counts["controls_failed"]
-    if scored == 0:
-        return None
-    return round(100 * counts["controls_passed"] / scored)
+    return posture_score_from_counts(counts)
 
 
 def _scan_control_diff(

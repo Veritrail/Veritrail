@@ -12,6 +12,7 @@ import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
+import { controlPostureScore } from "../lib/controlPostureScore";
 import {
   controlEvidenceSectionTitle,
   controlEvidenceUsesType2Bar,
@@ -3925,7 +3926,7 @@ function useFrameworkStats(
       const failed = rows.filter((r) => r.status === "fail").length;
       const openFindings = rows.reduce((sum, r) => sum + r.finding_count, 0);
       return {
-        passRate: total > 0 ? Math.round((passed / total) * 100) : null,
+        passRate: controlPostureScore(rows),
         failed,
         passed,
         total,

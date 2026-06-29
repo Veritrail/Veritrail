@@ -14,6 +14,7 @@ from app.models.cloud_scan_run import CloudScanRun
 from app.models.control import CheckControl
 from app.models.gcp_project import GcpComputeInstance, GcpLoggingAudit, GcpProject
 from app.services.check_settings import hidden_check_ids
+from app.services.compliance_posture import posture_score
 from app.services.control_status import compute_control_status
 from app.services.evidence_coverage import _dates_in_period, parse_as_of
 
@@ -249,6 +250,7 @@ def compute_cloud_compliance_posture(
         return None
 
     passed = 0
+    failed = 0
     for _ctrl, check_ids in catalog:
         visible = [cid for cid in check_ids if cid not in hidden]
         if not visible:
@@ -262,9 +264,10 @@ def compute_cloud_compliance_posture(
         )
         if status == "pass":
             passed += 1
+        elif status == "fail":
+            failed += 1
 
-    total = len(catalog)
-    return round((passed / total) * 100) if total else None
+    return posture_score(passed=passed, failed=failed)
 
 
 def build_cloud_posture_trend(

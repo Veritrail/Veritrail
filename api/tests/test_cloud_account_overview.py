@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 from app.services.cloud_account_overview import (
     _gcp_region_from_zone,
+    compute_cloud_compliance_posture,
     compute_cloud_evidence_coverage,
     count_cloud_resources,
 )
@@ -55,3 +56,33 @@ def test_compute_cloud_evidence_coverage_counts_scan_days():
     assert payload["days_with_data"] == 1
     assert payload["coverage_ratio"] == round(1 / 7, 4)
     assert payload["snapshot_days_in_period"] == 0
+
+
+def test_compute_cloud_compliance_posture_ignores_no_data_controls(monkeypatch):
+    org_id = uuid.uuid4()
+    resource_id = uuid.uuid4()
+    ctrl = SimpleNamespace(id=uuid.uuid4(), control_id="CC1.1", title="")
+    catalog = [(ctrl, ["gcp.test.check"])]
+    db = MagicMock()
+    db.get.return_value = SimpleNamespace(settings={})
+
+    monkeypatch.setattr(
+        "app.services.cloud_account_overview._cloud_scan_context",
+        lambda *args, **kwargs: ({}, {}, set(), True),
+    )
+    monkeypatch.setattr(
+        "app.services.cloud_account_overview._soc2_controls_for_provider",
+        lambda *args, **kwargs: catalog,
+    )
+    monkeypatch.setattr(
+        "app.services.cloud_account_overview.compute_control_status",
+        lambda *args, **kwargs: ("pass", None, None),
+    )
+
+    assert compute_cloud_compliance_posture(db, org_id, "gcp", resource_id) == 100
+
+    monkeypatch.setattr(
+        "app.services.cloud_account_overview.compute_control_status",
+        lambda *args, **kwargs: ("no_data", None, None),
+    )
+    assert compute_cloud_compliance_posture(db, org_id, "gcp", resource_id) is None
