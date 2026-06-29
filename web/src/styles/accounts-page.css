@@ -3868,6 +3868,16 @@ button.accounts-flow-step:hover {
   color: #09090b;
 }
 
+/* Scan now — reuse blast-radius "Analyze impact" teal outline (impact-analyze-button--secondary). */
+.accounts-detail-quick-actions__scan {
+  margin-top: 0;
+}
+
+.accounts-detail-quick-actions__scan:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .accounts-detail-quick-actions__primary {
   display: inline-flex;
   width: 100%;

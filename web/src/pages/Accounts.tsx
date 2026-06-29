@@ -55,6 +55,7 @@ import {
   scannerRoleArnExample,
 } from "../lib/connectionPosture";
 import "../styles/accounts-page.css";
+import "../styles/impact-analysis.css";
 
 type ConnectionOptions = {
   enable_advanced_policy_generation: boolean;
@@ -5477,11 +5478,11 @@ function AccountSplitDetailPane({
                 <h3 className="accounts-detail-quick-actions__title">Quick actions</h3>
                 <button
                   type="button"
-                  className="accounts-detail-quick-actions__primary"
+                  className="impact-analyze-button impact-analyze-button--secondary accounts-detail-quick-actions__scan"
                   onClick={handleScan}
                   disabled={scanBusy}
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                  <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
                   </svg>
                   {scanBusy ? "Scanning…" : "Scan now"}
