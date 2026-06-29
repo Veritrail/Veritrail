@@ -46,6 +46,7 @@ import {
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
 import { ControlEvidenceSlideOver } from "../components/ControlEvidenceSlideOver";
 import { HeaderSlot } from "../context/HeaderSlot";
+import { FrameworkMark } from "../components/FrameworkMark";
 import "../styles/findings-v2.css";
 
 const BASE =
@@ -1114,48 +1115,6 @@ function underlyingCriteriaForComposite(
     );
 }
 
-function ControlGroupsIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-      />
-    </svg>
-  );
-}
-
-function DetailedCriteriaIcon({
-  className = "h-4 w-4",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-      />
-    </svg>
-  );
-}
-
 function ComplianceStatusFilterBar({
   total,
   passed,
@@ -1240,64 +1199,41 @@ function ComplianceFamilyNav({
   );
 }
 
-function ComplianceViewSwitcher({
-  view,
-  onChange,
+function ComplianceDetailBreadcrumb({
+  framework,
+  controlId,
+  compositeTitle,
+  onBack,
 }: {
-  view: ComplianceView;
-  onChange: (view: ComplianceView) => void;
+  framework: string;
+  controlId: string | null;
+  compositeTitle?: string | null;
+  onBack: () => void;
 }) {
-  const options = [
-    {
-      id: "composite" as const,
-      label: "Groups",
-      title: "Control groups — higher-level rollups",
-      Icon: ControlGroupsIcon,
-    },
-    {
-      id: "detailed" as const,
-      label: "Criteria",
-      title: "Detailed criteria — per framework control",
-      Icon: DetailedCriteriaIcon,
-    },
-  ];
+  if (!controlId) return null;
 
   return (
-    <div
-      className="inline-flex h-9 shrink-0 items-center gap-0.5 rounded-lg border border-[#dce3ec] bg-[#f8fafc]/90 p-0.5"
-      role="tablist"
-      aria-label="Compliance view"
-    >
-      {options.map((opt) => {
-        const isActive = view === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            title={opt.title}
-            onClick={() => onChange(opt.id)}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#1f4e79]/25 ${
-              isActive
-                ? "bg-white text-[#1f4e79] shadow-sm shadow-zinc-950/[0.04] ring-1 ring-[#dce3ec]"
-                : "text-[#6b7280] hover:bg-white/80 hover:text-[#111827]"
-            }`}
-          >
-            <opt.Icon
-              className={`h-4 w-4 shrink-0 ${isActive ? "text-[#1f4e79]/80" : "text-[#98a2b3]"}`}
-            />
-            {opt.label}
-          </button>
-        );
-      })}
+    <div className="compliance-detail-breadcrumb">
+      <button
+        type="button"
+        onClick={onBack}
+        className="compliance-detail-breadcrumb__back"
+      >
+        <span aria-hidden="true">&larr;</span>
+        Back to categories
+      </button>
+      <div className="compliance-detail-breadcrumb__trail" aria-label="Breadcrumb">
+        <span>Compliance</span>
+        <span aria-hidden="true">/</span>
+        <span className="truncate">{compositeTitle ?? "All controls"}</span>
+        <span aria-hidden="true">/</span>
+        <strong>{frameworkControlLabel(framework, controlId)}</strong>
+      </div>
     </div>
   );
 }
 
 function ComplianceUnifiedToolbar({
-  complianceView,
-  onComplianceViewChange,
   framework,
   frameworkStatsById,
   onFrameworkChange,
@@ -1309,8 +1245,6 @@ function ComplianceUnifiedToolbar({
   auditExport,
   showAuditExport,
 }: {
-  complianceView: ComplianceView;
-  onComplianceViewChange: (view: ComplianceView) => void;
   framework: string;
   frameworkStatsById: Record<string, FrameworkStats | undefined>;
   onFrameworkChange: (id: string) => void;
@@ -1358,16 +1292,6 @@ function ComplianceUnifiedToolbar({
         />
       </div>
       <div className="findings-v2-control-cluster">
-        <div
-          className="findings-v2-toolbar-group findings-v2-toolbar-group--divider"
-          role="group"
-          aria-label="Compliance view"
-        >
-          <ComplianceViewSwitcher
-            view={complianceView}
-            onChange={onComplianceViewChange}
-          />
-        </div>
         {showAuditExport && (
           <div
             className="findings-v2-toolbar-group findings-v2-actions-group"
@@ -2578,7 +2502,8 @@ function CompositeCategoryDetailPanel({
   const failingCheckCount = ctrl.check_ids.filter(
     (c) => (findingCountByCheck.get(c) ?? 0) > 0,
   ).length;
-  const criteriaCount = underlyingCriteriaForComposite(ctrl, frameworkRows).length;
+  const underlyingCriteria = underlyingCriteriaForComposite(ctrl, frameworkRows);
+  const criteriaCount = underlyingCriteria.length;
   // Absence gaps = an AWS service is simply off (…not_enabled/.not_detected/.missing).
   // Those can be closed by enabling the service, by central coverage in another
   // account, or by external evidence. Everything else is a real failing check
@@ -2594,26 +2519,15 @@ function CompositeCategoryDetailPanel({
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
   const isAtRisk = ctrl.status === "at_risk";
+  // Step columns present (Fix in AWS + each absence-gap "enable" card); the
+  // "Other ways" column is always rendered. Drives the grid template so it never
+  // leaves empty columns when there's nothing beyond step 1.
+  const workflowCols = (isExternalOnly ? 0 : 1) + (enableItems.length > 0 ? 1 : 0) + 1;
   const detailCoveragePct =
     isVerified || acceptedCompositeIds.has(ctrl.id) || overrideDetail ? 100 : 0;
 
   return (
     <aside className="compliance-category-detail" aria-label={ctrl.title}>
-      <div className="compliance-category-detail__header">
-        <div className="compliance-category-detail__title-row">
-          <CompositeCategoryDetailIcon id={ctrl.id} />
-          <div className="min-w-0">
-            <h3>{ctrl.title}</h3>
-            <p>{ctrl.description}</p>
-          </div>
-        </div>
-        <ComplianceRowSummary
-          displayStatus={displayStatus}
-          href={findingsHref}
-          onNavigate={(href) => navigate(href)}
-        />
-      </div>
-
       <div className="compliance-category-detail__severity-row">
         <SeverityBreakdownChip counts={ctrl.severity_counts} />
       </div>
@@ -2640,6 +2554,55 @@ function CompositeCategoryDetailPanel({
           severityByCheck={severityByCheck}
         />
       </section>
+
+      {underlyingCriteria.length > 0 ? (
+        <section className="compliance-category-detail__criteria">
+          <div className="compliance-category-detail__checks-heading">
+            <div>
+              <h4>Controls</h4>
+              <p>Framework criteria mapped to this category.</p>
+            </div>
+          </div>
+          <div className="compliance-category-detail__criteria-list">
+            {underlyingCriteria.slice(0, 10).map((criterion) => {
+              const params = new URLSearchParams({
+                framework,
+                control: criterion.control_id,
+                composite: ctrl.id,
+                view: "detailed",
+              });
+              if (accountId) params.set("account_id", accountId);
+              const openFindings = criterion.check_ids.reduce(
+                (sum, checkId) => sum + (findingCountByCheck.get(checkId) ?? 0),
+                0,
+              );
+              return (
+                <Link
+                  key={criterion.id}
+                  to={`/controls?${params}`}
+                  className="compliance-category-detail__criteria-link"
+                >
+                  <FrameworkMark
+                    framework={framework}
+                    className="compliance-category-detail__criteria-mark"
+                  />
+                  <span className="compliance-category-detail__criteria-code">
+                    {frameworkControlLabel(framework, criterion.control_id)}
+                  </span>
+                  <span className="compliance-category-detail__criteria-title">
+                    {shortControlTitle(criterion.title)}
+                  </span>
+                  {openFindings > 0 ? (
+                    <span className="compliance-category-detail__criteria-count">
+                      {openFindings}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       {overrideDetail ? (
         <section className="compliance-category-detail__nextsteps">
@@ -2700,16 +2663,19 @@ function CompositeCategoryDetailPanel({
               </p>
             </div>
           </div>
-          <div className="compliance-category-detail__actions">
+          <div
+            className={`compliance-category-detail__workflow compliance-category-detail__workflow--cols-${workflowCols}`}
+          >
             {!isExternalOnly ? (
-              <div className="compliance-category-detail__resolve-card">
+              <div className="compliance-category-detail__workflow-card compliance-category-detail__workflow-card--fix">
+                <span className="compliance-category-detail__step-index">1</span>
                 <button
                   type="button"
                   className="compliance-category-detail__resolve-main"
                   onClick={() => {
-                    if (awsFixHref) navigate(awsFixHref);
+                    if (findingsHref) navigate(findingsHref);
                   }}
-                  disabled={!awsFixHref}
+                  disabled={!findingsHref}
                 >
                   <span className="compliance-category-detail__action-icon compliance-category-detail__action-icon--aws">
                     <svg
@@ -2742,45 +2708,97 @@ function CompositeCategoryDetailPanel({
                       </span>
                     ) : null}
                   </span>
-                  <span className="compliance-category-detail__action-chevron" aria-hidden>
-                    ›
-                  </span>
                 </button>
-                {enableItems.length > 0 ? (
-                  <div className="compliance-category-detail__services">
-                    <p className="compliance-category-detail__services-label">
-                      Turn these on — we re-check automatically
-                    </p>
-                    {enableItems.map((item) =>
-                      item.consoleUrl ? (
-                        <a
-                          key={item.checkId}
-                          href={item.consoleUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="compliance-category-detail__service"
-                        >
-                          <span>{item.capability}</span>
-                          <span className="compliance-category-detail__service-ext" aria-hidden>
-                            ↗
-                          </span>
-                        </a>
-                      ) : (
-                        <span
-                          key={item.checkId}
-                          className="compliance-category-detail__service is-static"
-                        >
-                          <span>{item.capability}</span>
-                        </span>
-                      ),
-                    )}
-                  </div>
-                ) : null}
               </div>
             ) : null}
+
+            {enableItems.length > 0 ? (
+              <div className="compliance-category-detail__workflow-card compliance-category-detail__workflow-card--enable">
+                <span className="compliance-category-detail__step-index">2</span>
+                <p className="compliance-category-detail__services-label">
+                  Turn these on — we re-check automatically
+                </p>
+                {enableItems.map((item) => (
+                  <div key={item.checkId} className="compliance-category-detail__service-row">
+                    <span className="compliance-category-detail__service-name">
+                      {item.capability}
+                    </span>
+                    <button
+                      type="button"
+                      className="compliance-category-detail__service-cta"
+                      onClick={() => {
+                        if (item.consoleUrl) {
+                          window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
+                          return;
+                        }
+                        navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
+                      }}
+                    >
+                      Enable & Re-check
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="compliance-category-detail__workflow-other">
+              <p className="compliance-category-detail__other-label">Other ways to satisfy</p>
+              {crossAccountEligible ? (
+                <button
+                  type="button"
+                  className="compliance-category-detail__alt-row"
+                  onClick={() => {
+                    setAccountFormOpen(true);
+                    requestAnimationFrame(() =>
+                      accountRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                    );
+                  }}
+                >
+                  <span className="compliance-category-detail__alt-icon" aria-hidden>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
+                    </svg>
+                  </span>
+                  <span className="compliance-category-detail__alt-text">
+                    <strong>Covered in another AWS account</strong>
+                    <span>Managed centrally in an account we don’t scan yet — auto-verified.</span>
+                  </span>
+                  <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
+                </button>
+              ) : null}
+              {hasAbsenceGaps || isExternalOnly ? (
+                <button
+                  type="button"
+                  className="compliance-category-detail__alt-row"
+                  onClick={() => {
+                    setShowEvidencePanel(true);
+                    requestAnimationFrame(() =>
+                      evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                    );
+                  }}
+                >
+                  <span className="compliance-category-detail__alt-icon" aria-hidden>
+                    <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
+                    </svg>
+                  </span>
+                  <span className="compliance-category-detail__alt-text">
+                    <strong>Upload external evidence</strong>
+                    <span>Proof for checks managed outside of AWS{criteriaCount > 0 ? ` · ${criteriaCount} criteria` : ""}.</span>
+                  </span>
+                  <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
+                </button>
+              ) : null}
+              <GapScopeControl
+                compositeId={ctrl.id}
+                compositeTitle={ctrl.title}
+                detail={overrideDetail}
+              />
+            </div>
           </div>
           {accountFormOpen ? (
-            <div ref={accountRef}>
+            <div ref={accountRef} className="compliance-category-detail__inline-form">
               <CrossAccountCoverageControl
                 compositeId={ctrl.id}
                 detail={null}
@@ -2790,71 +2808,7 @@ function CompositeCategoryDetailPanel({
               />
             </div>
           ) : null}
-          <div className="compliance-category-detail__other">
-            <p className="compliance-category-detail__other-label">Other ways to satisfy</p>
-            {crossAccountEligible ? (
-              <button
-                type="button"
-                className="compliance-category-detail__alt-row"
-                onClick={() => {
-                  setAccountFormOpen(true);
-                  requestAnimationFrame(() =>
-                    accountRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-                  );
-                }}
-              >
-                <span className="compliance-category-detail__alt-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
-                  </svg>
-                </span>
-                <span className="compliance-category-detail__alt-text">
-                  <strong>Covered in another AWS account</strong>
-                  <span>Managed centrally in an account we don’t scan yet — auto-verified.</span>
-                </span>
-                <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-              </button>
-            ) : null}
-            {hasAbsenceGaps || isExternalOnly ? (
-              <button
-                type="button"
-                className="compliance-category-detail__alt-row"
-                onClick={() => {
-                  setShowEvidencePanel(true);
-                  requestAnimationFrame(() =>
-                    evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-                  );
-                }}
-              >
-                <span className="compliance-category-detail__alt-icon" aria-hidden>
-                  <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
-                  </svg>
-                </span>
-                <span className="compliance-category-detail__alt-text">
-                  <strong>Upload external evidence</strong>
-                  <span>Proof for checks managed outside of AWS{criteriaCount > 0 ? ` · ${criteriaCount} criteria` : ""}.</span>
-                </span>
-                <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-              </button>
-            ) : null}
-            <GapScopeControl
-              compositeId={ctrl.id}
-              compositeTitle={ctrl.title}
-              detail={overrideDetail}
-            />
-          </div>
-          <button
-            type="button"
-            className="compliance-category-detail__help"
-            onClick={() => {
-              setShowEvidencePanel(true);
-              requestAnimationFrame(() =>
-                evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-              );
-            }}
-          >
+          <div className="compliance-category-detail__help">
             <span className="compliance-category-detail__help-icon" aria-hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                 <circle cx="12" cy="12" r="9" />
@@ -2865,8 +2819,13 @@ function CompositeCategoryDetailPanel({
               <strong>Need help with this control?</strong>
               <span>Review our guidance and remediation best practices.</span>
             </span>
-            <span className="compliance-category-detail__help-cta">View guidance</span>
-          </button>
+            <span className="compliance-category-detail__help-cta" aria-disabled="true">
+              View guidance
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
+              </svg>
+            </span>
+          </div>
         </section>
       )}
 
@@ -2879,10 +2838,7 @@ function CompositeCategoryDetailPanel({
             groupStatus={ctrl.status}
             checkIds={ctrl.check_ids}
             findingCountByCheck={findingCountByCheck}
-            underlyingCriteria={underlyingCriteriaForComposite(
-              ctrl,
-              frameworkRows,
-            )}
+            underlyingCriteria={underlyingCriteria}
             frameworkControlLabel={(controlId) =>
               frameworkControlLabel(framework, controlId)
             }
@@ -3609,6 +3565,85 @@ function ControlStatusPill({
   );
 }
 
+function ControlDetailHeader({
+  control,
+  coverage,
+  periodDays,
+}: {
+  control: ControlRow;
+  coverage?: EvidenceCoverage;
+  periodDays: number;
+}) {
+  const coveragePct = coverage
+    ? Math.min(100, Math.round(coverage.coverage_ratio * 100))
+    : null;
+  const scans = coverage?.successful_scans_in_period ?? null;
+  const findings =
+    control.status === "fail"
+      ? control.finding_count
+      : control.status === "pass"
+        ? 0
+        : null;
+
+  return (
+    <div className="control-detail-header">
+      <div className="control-detail-header__copy">
+        <div className="control-detail-header__eyebrow">
+          {control.control_id}
+        </div>
+        <h3>{shortControlTitle(control.title)}</h3>
+        {control.description ? <p>{control.description}</p> : null}
+      </div>
+      <div className="control-detail-header__metrics">
+        <ControlStatusPill status={control.status} compact />
+        {findings != null ? (
+          <span>
+            <strong>{findings}</strong>
+            {findings === 1 ? " finding" : " findings"}
+          </span>
+        ) : null}
+        {scans != null ? (
+          <span>
+            <strong>{scans}</strong>
+            {scans === 1 ? " scan" : " scans"}
+          </span>
+        ) : null}
+        {coveragePct != null ? (
+          <span>
+            <strong>{coveragePct}%</strong>
+            evidence
+          </span>
+        ) : (
+          <span>
+            <strong>{periodDays}</strong>
+            day window
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ControlDetailSection({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="control-detail-section">
+      <div className="control-detail-section__head">
+        <h4>{title}</h4>
+        {subtitle ? <p>{subtitle}</p> : null}
+      </div>
+      <div className="control-detail-section__body">{children}</div>
+    </section>
+  );
+}
+
 function ControlStatusBlock({
   control,
   periodDays,
@@ -3682,7 +3717,7 @@ function ControlStatusBlock({
   const compactStatus = framework !== "soc2";
 
   return (
-    <div className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white">
+    <div className="control-status-panel">
       <div
         className={`grid grid-cols-1 ${showEvidence ? "lg:grid-cols-2 lg:divide-x lg:divide-zinc-100" : ""}`}
       >
@@ -3768,7 +3803,7 @@ function ControlStatusBlock({
                     coverageTotal={coverageTotal}
                     coveragePct={coveragePct}
                     barFillClass={barFillClass}
-                    className="h-2"
+                    className="h-3"
                   />
                   {coverageGuidance ? (
                     <p className="text-sm leading-relaxed text-zinc-500">
@@ -3814,28 +3849,30 @@ function ControlEvaluationBlock({ checkIds }: { checkIds: string[] }) {
   const grouped = groupCheckIds(checkIds);
 
   return (
-    <div>
-      <p className="text-base font-semibold text-zinc-950">
-        Mapped checks ({checkIds.length})
-      </p>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="control-integrations-list">
+      <div className="control-integrations-list__head">
+        <span>Source</span>
+        <span>Checks</span>
+      </div>
+      <div className="control-integrations-list__rows">
         {grouped.map(([group, ids]) => (
-          <div
-            key={group}
-            className="rounded-lg border border-zinc-200/80 bg-white px-4 py-3.5"
-          >
-            <p className="text-sm font-bold text-zinc-900">
-              {group}{" "}
-              <span className="font-normal text-zinc-500">({ids.length})</span>
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-sm leading-snug text-zinc-800">
+          <details key={group} className="control-integrations-list__row">
+            <summary>
+              <span className="control-integrations-list__source">
+                {group}
+              </span>
+              <span className="control-integrations-list__count">
+                {ids.length}
+              </span>
+            </summary>
+            <ul>
               {ids.map((cid) => (
                 <li key={cid} title={cid}>
                   {labelForCheck(cid)}
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         ))}
       </div>
     </div>
@@ -3863,9 +3900,8 @@ function ControlFindingsBlock({
 
   if (control.status === "pass" && openTotal === 0) {
     return (
-      <div>
-        <p className="text-sm font-semibold text-zinc-900">Findings</p>
-        <p className="mt-1 text-sm text-zinc-500">
+      <div className="control-findings-empty">
+        <p>
           No open findings on mapped checks.
         </p>
       </div>
@@ -3873,8 +3909,7 @@ function ControlFindingsBlock({
   }
 
   return (
-    <div>
-      <p className="text-sm font-semibold text-zinc-900">Top failing checks</p>
+    <div className="control-findings-panel">
       <TopFailingChecksTable
         checkIds={checkIds}
         findingCountByCheck={findingCountByCheck}
@@ -4150,13 +4185,13 @@ export default function Controls() {
   }, [framework, urlControl]);
 
   useEffect(() => {
-    if (!urlComposite || !compositeControls.data?.length) return;
+    if (urlControl || !urlComposite || !compositeControls.data?.length) return;
     const match = compositeControls.data.find((r) => r.id === urlComposite);
     if (match) {
       setComplianceView("composite");
       setExpandedComposite(match.id);
     }
-  }, [compositeControls.data, urlComposite]);
+  }, [compositeControls.data, urlComposite, urlControl]);
 
   const checkFrameworksQ = useQuery({
     queryKey: ["check-frameworks"],
@@ -4446,10 +4481,37 @@ export default function Controls() {
     ],
   );
 
+  const breadcrumbCompositeTitle = useMemo(() => {
+    if (!urlComposite) return null;
+    return (
+      compositeControls.data?.find((row) => row.id === urlComposite)?.title ??
+      null
+    );
+  }, [compositeControls.data, urlComposite]);
+
   function handleStatusFilterChange(filter: StatusFilter) {
     setStatusFilter(filter);
     setExpanded(null);
     setExpandedComposite(null);
+  }
+
+  function handleBackToCategories() {
+    setComplianceView("composite");
+    setExpanded(null);
+    setSelectedFamilyKey(null);
+    setStatusFilter("all");
+    if (urlComposite) setExpandedComposite(urlComposite);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("view");
+        next.delete("control");
+        next.delete("status");
+        if (urlComposite) next.set("composite", urlComposite);
+        return next;
+      },
+      { replace: true },
+    );
   }
 
   async function downloadPack(opts?: {
@@ -4596,8 +4658,6 @@ export default function Controls() {
           <ComplianceContentShell
             toolbar={
               <ComplianceUnifiedToolbar
-                complianceView={complianceView}
-                onComplianceViewChange={setComplianceViewWithUrl}
                 framework={framework}
                 frameworkStatsById={frameworkStatsById}
                 onFrameworkChange={(id) => {
@@ -4635,17 +4695,25 @@ export default function Controls() {
               />
             }
             section={
-              complianceView === "detailed" &&
-              groupedRows.length > 1 &&
-              selectedGroup ? (
-                <ComplianceFamilyNav
-                  groups={groupedRows}
-                  selectedKey={selectedGroup.key}
-                  onSelect={(key) => {
-                    setSelectedFamilyKey(key);
-                    setExpanded(null);
-                  }}
-                />
+              complianceView === "detailed" ? (
+                <div className="compliance-detail-shell-nav">
+                  <ComplianceDetailBreadcrumb
+                    framework={framework}
+                    controlId={urlControl}
+                    compositeTitle={breadcrumbCompositeTitle}
+                    onBack={handleBackToCategories}
+                  />
+                  {groupedRows.length > 1 && selectedGroup ? (
+                    <ComplianceFamilyNav
+                      groups={groupedRows}
+                      selectedKey={selectedGroup.key}
+                      onSelect={(key) => {
+                        setSelectedFamilyKey(key);
+                        setExpanded(null);
+                      }}
+                    />
+                  ) : null}
+                </div>
               ) : undefined
             }
           >
@@ -4683,15 +4751,15 @@ export default function Controls() {
               primaryComposites.length === 0 &&
               total > 0 && (
                 <div className="px-5 py-4 text-sm text-zinc-600">
-                  No control groups map to this framework yet. Switch to{" "}
+                  No control groups map to this framework yet. Open{" "}
                   <button
                     type="button"
                     onClick={() => setComplianceViewWithUrl("detailed")}
                     className="font-semibold text-indigo-700 hover:text-indigo-900"
                   >
-                    Detailed criteria
+                    all controls
                   </button>{" "}
-                  for the full control list.
+                  for the full framework list.
                 </div>
               )}
 
@@ -4785,25 +4853,41 @@ export default function Controls() {
                       className={`veritrail-accordion-panel ${isExpanded ? "is-open" : ""}`}
                     >
                       <div className="veritrail-accordion-panel__inner">
-                        <div className="veritrail-expand-in space-y-4 border-t border-zinc-100 px-5 pb-5 pt-4">
-                          <ControlStatusBlock
+                        <div className="control-detail-content veritrail-expand-in">
+                          <ControlDetailHeader
                             control={ctrl}
-                            periodDays={exportWindow.period}
                             coverage={evidenceCoverage.data}
-                            controlId={ctrl.control_id}
-                            framework={framework}
-                            accountId={activeAccount?.id ?? ""}
+                            periodDays={exportWindow.period}
                           />
 
-                          {ctrl.kind === "manual" ? (
-                            <ManualAttestation
-                              status={ctrl.attestation_status ?? "pending"}
-                              canEdit={canAttest}
-                              saving={attest.isPending}
-                              onChange={(status) =>
-                                attest.mutate({ id: ctrl.id, status })
-                              }
+                          <ControlDetailSection
+                            title="Status & evidence"
+                            subtitle="Current posture and collected audit evidence."
+                          >
+                            <ControlStatusBlock
+                              control={ctrl}
+                              periodDays={exportWindow.period}
+                              coverage={evidenceCoverage.data}
+                              controlId={ctrl.control_id}
+                              framework={framework}
+                              accountId={activeAccount?.id ?? ""}
                             />
+                          </ControlDetailSection>
+
+                          {ctrl.kind === "manual" ? (
+                            <ControlDetailSection
+                              title="Manual attestation"
+                              subtitle="Record your internal review result."
+                            >
+                              <ManualAttestation
+                                status={ctrl.attestation_status ?? "pending"}
+                                canEdit={canAttest}
+                                saving={attest.isPending}
+                                onChange={(status) =>
+                                  attest.mutate({ id: ctrl.id, status })
+                                }
+                              />
+                            </ControlDetailSection>
                           ) : ctrl.check_ids.length === 0 ? (
                             <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
                               No automated Veritrail checks map to this control
@@ -4812,14 +4896,24 @@ export default function Controls() {
                             </p>
                           ) : (
                             <>
-                              <ControlEvaluationBlock
-                                checkIds={ctrl.check_ids}
-                              />
-                              <ControlFindingsBlock
-                                control={ctrl}
-                                checkIds={ctrl.check_ids}
-                                findingCountByCheck={findingCountByCheck}
-                              />
+                              <ControlDetailSection
+                                title="Mapped integrations"
+                                subtitle="Sources and checks that evaluate this criterion."
+                              >
+                                <ControlEvaluationBlock
+                                  checkIds={ctrl.check_ids}
+                                />
+                              </ControlDetailSection>
+                              <ControlDetailSection
+                                title="Blocking gaps"
+                                subtitle="Highest-volume checks to resolve first."
+                              >
+                                <ControlFindingsBlock
+                                  control={ctrl}
+                                  checkIds={ctrl.check_ids}
+                                  findingCountByCheck={findingCountByCheck}
+                                />
+                              </ControlDetailSection>
                             </>
                           )}
                         </div>
