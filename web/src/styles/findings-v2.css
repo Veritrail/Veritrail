@@ -3280,23 +3280,25 @@
 .compliance-category-detail__workflow {
   --workflow-connector: 1.35rem;
   display: grid;
-  grid-template-columns: minmax(11.5rem, 1fr) minmax(12.5rem, 1.05fr) minmax(13rem, 1.1fr);
+  grid-template-columns: minmax(11.5rem, max-content) minmax(12.5rem, max-content) minmax(13rem, max-content);
   grid-template-rows: auto auto;
   gap: 0.35rem 1.35rem;
   align-items: start;
+  width: fit-content;
+  max-width: 100%;
   margin-top: 0;
 }
 
 .compliance-category-detail__workflow--cols-3 {
-  grid-template-columns: minmax(11.5rem, 1fr) minmax(12.5rem, 1.05fr) minmax(13rem, 1.1fr);
+  grid-template-columns: minmax(11.5rem, max-content) minmax(12.5rem, max-content) minmax(13rem, max-content);
 }
 
 .compliance-category-detail__workflow--cols-2 {
-  grid-template-columns: minmax(11.5rem, 1fr) minmax(13rem, 1.15fr);
+  grid-template-columns: minmax(11.5rem, max-content) minmax(13rem, max-content);
 }
 
 .compliance-category-detail__workflow--cols-1 {
-  grid-template-columns: minmax(13rem, 1fr);
+  grid-template-columns: minmax(13rem, max-content);
 }
 
 .compliance-category-detail__workflow-card,
@@ -3648,6 +3650,7 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
     gap: 0.65rem;
+    width: 100%;
   }
 
   .compliance-category-detail__workflow > .compliance-category-detail__nextsteps-head,
