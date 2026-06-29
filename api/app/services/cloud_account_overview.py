@@ -250,7 +250,6 @@ def compute_cloud_compliance_posture(
         return None
 
     passed = 0
-    failed = 0
     for _ctrl, check_ids in catalog:
         visible = [cid for cid in check_ids if cid not in hidden]
         if not visible:
@@ -264,10 +263,8 @@ def compute_cloud_compliance_posture(
         )
         if status == "pass":
             passed += 1
-        elif status == "fail":
-            failed += 1
 
-    return posture_score(passed=passed, failed=failed)
+    return posture_score(passed=passed, total=len(catalog))
 
 
 def build_cloud_posture_trend(

@@ -31,3 +31,15 @@ deepsearch/
 todo.txt
 direction/
 design/
+# Agent/browser verification artifacts (do not commit)
+.cursor-controls-verify*.png
+*-verify*.png
+**/.playwright-mcp/
+web/.playwright-mcp/
+controls-verify-temp.mjs
+*-verify-temp.mjs
+compliance-controls-preview.png
+controls-detail-panel.png
+workflow-*.png
+compliance-pills-*.png
+wide-workflow-*.png

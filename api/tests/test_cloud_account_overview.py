@@ -58,7 +58,7 @@ def test_compute_cloud_evidence_coverage_counts_scan_days():
     assert payload["snapshot_days_in_period"] == 0
 
 
-def test_compute_cloud_compliance_posture_ignores_no_data_controls(monkeypatch):
+def test_compute_cloud_compliance_posture_counts_no_data_in_denominator(monkeypatch):
     org_id = uuid.uuid4()
     resource_id = uuid.uuid4()
     ctrl = SimpleNamespace(id=uuid.uuid4(), control_id="CC1.1", title="")
@@ -85,4 +85,4 @@ def test_compute_cloud_compliance_posture_ignores_no_data_controls(monkeypatch):
         "app.services.cloud_account_overview.compute_control_status",
         lambda *args, **kwargs: ("no_data", None, None),
     )
-    assert compute_cloud_compliance_posture(db, org_id, "gcp", resource_id) is None
+    assert compute_cloud_compliance_posture(db, org_id, "gcp", resource_id) == 0

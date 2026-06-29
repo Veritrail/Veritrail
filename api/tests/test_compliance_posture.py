@@ -2,14 +2,14 @@
 from app.services.compliance_posture import posture_score, posture_score_from_counts
 
 
-def test_posture_score_excludes_no_data_controls():
-    assert posture_score(passed=1, failed=1) == 50
-    assert posture_score(passed=1, failed=0) == 100
-    assert posture_score(passed=0, failed=1) == 0
+def test_posture_score_uses_total_controls():
+    assert posture_score(passed=1, total=2) == 50
+    assert posture_score(passed=1, total=10) == 10
+    assert posture_score(passed=0, total=1) == 0
 
 
 def test_posture_score_none_when_nothing_evaluated():
-    assert posture_score(passed=0, failed=0) is None
+    assert posture_score(passed=0, total=0) is None
 
 
 def test_posture_score_from_counts_matches_timeline_shape():
@@ -19,7 +19,7 @@ def test_posture_score_from_counts_matches_timeline_shape():
         "controls_no_data": 100,
         "controls_total": 133,
     }
-    assert posture_score_from_counts(counts) == 3
+    assert posture_score_from_counts(counts) == 1
 
     all_no_data = {
         "controls_passed": 0,
@@ -27,4 +27,4 @@ def test_posture_score_from_counts_matches_timeline_shape():
         "controls_no_data": 50,
         "controls_total": 50,
     }
-    assert posture_score_from_counts(all_no_data) is None
+    assert posture_score_from_counts(all_no_data) == 0

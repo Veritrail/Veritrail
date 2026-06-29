@@ -329,18 +329,18 @@ function ComplianceRowSummary({
     not_applicable: "bg-sky-400",
   };
 
-  const textClass: Record<ComplianceDisplayStatus, string> = {
-    passing: "text-emerald-700",
-    failing: "text-rose-700",
-    at_risk: "text-amber-700",
-    unevaluated: "text-zinc-500",
-    externally_covered: "text-indigo-700",
-    needs_evidence: "text-orange-700",
-    expired: "text-zinc-600",
-    out_of_scope: "text-sky-700",
-    not_applicable: "text-sky-700",
+  const chipToneClass: Record<ComplianceDisplayStatus, string> = {
+    passing: "bg-emerald-50 text-emerald-800 ring-emerald-200/80",
+    failing: "bg-rose-50 text-rose-800 ring-rose-200/70",
+    at_risk: "bg-amber-50 text-amber-800 ring-amber-200/70",
+    unevaluated: "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
+    externally_covered: "bg-indigo-50 text-indigo-800 ring-indigo-200/70",
+    needs_evidence: "bg-orange-50 text-orange-800 ring-orange-200/70",
+    expired: "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
+    out_of_scope: "bg-sky-50 text-sky-800 ring-sky-200/70",
+    not_applicable: "bg-sky-50 text-sky-700 ring-sky-200/70",
   };
-  const summaryClass = `compliance-status-text ${textClass[displayStatus]}`;
+  const chipClass = `inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ring-1 ${chipToneClass[displayStatus]}`;
   const content = (
     <>
       <span
@@ -360,14 +360,14 @@ function ComplianceRowSummary({
           e.stopPropagation();
           onNavigate(href);
         }}
-        className={`${summaryClass} transition hover:opacity-80`}
+        className={`${chipClass} transition hover:opacity-90`}
       >
         {content}
       </button>
     );
   }
 
-  return <span className={summaryClass}>{content}</span>;
+  return <span className={chipClass}>{content}</span>;
 }
 
 function CompliancePanelShell({
@@ -1981,6 +1981,7 @@ function compositeAutomatedSummary(
   ctrl: CompositeControlRow,
   displayStatus: ComplianceDisplayStatus,
 ) {
+  if (ctrl.check_ids.length === 0) return "Not available from AWS";
   if (displayStatus === "passing") return "Verified";
   if (displayStatus === "needs_evidence" || ctrl.status === "no_data")
     return "Not connected";
@@ -1992,10 +1993,9 @@ function compositeAutomatedSummary(
 function compositeExternalSummary(
   ctrl: CompositeControlRow,
   acceptedCompositeIds: Set<string>,
-  submittedCountByComposite: Map<string, number>,
+  submittedCount: number,
 ) {
   if (acceptedCompositeIds.has(ctrl.id)) return "Accepted evidence";
-  const submittedCount = submittedCountByComposite.get(ctrl.id) ?? 0;
   if (submittedCount > 0) return `${submittedCount} pending review`;
   return "None";
 }
@@ -2234,29 +2234,73 @@ function GapScopeControl({
 
 /** Open-finding counts by severity — shows *why* a category is graded the way
  *  it is (crit/high fail, medium = at risk, low = noted). */
-function SeverityBreakdownChip({
-  counts,
+function CategoryDetailSummaryBar({
+  ctrl,
+  displayStatus,
+  findingCountByCheck,
+  acceptedCompositeIds,
+  submittedCount,
+  findingsHref,
+  onNavigate,
 }: {
-  counts?: { critical: number; high: number; medium: number; low: number };
+  ctrl: CompositeControlRow;
+  displayStatus: ComplianceDisplayStatus;
+  findingCountByCheck: Map<string, number>;
+  acceptedCompositeIds: Set<string>;
+  submittedCount: number;
+  findingsHref: string | null;
+  onNavigate: (href: string) => void;
 }) {
-  if (!counts) return null;
-  const items = (
-    [
-      ["critical", counts.critical],
-      ["high", counts.high],
-      ["medium", counts.medium],
-      ["low", counts.low],
-    ] as const
-  ).filter(([, n]) => n > 0);
-  if (items.length === 0) return null;
+  const counts = ctrl.severity_counts;
+  const severityItems = counts
+    ? (
+        [
+          ["high", counts.high, "High"],
+          ["medium", counts.medium, "Medium"],
+          ["low", counts.low, "Low"],
+        ] as const
+      ).filter(([, n]) => n > 0)
+    : [];
+  const blockingCount = ctrl.check_ids.filter(
+    (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
+  ).length;
+
   return (
-    <div className="compliance-category-detail__sevbar" aria-label="Open findings by severity">
-      {items.map(([sev, n]) => (
-        <span key={sev} className={`compliance-category-detail__sevbar-item is-${sev}`}>
-          <span className="compliance-category-detail__sevbar-dot" aria-hidden />
-          {n} {sev}
-        </span>
-      ))}
+    <div className="compliance-category-detail__summary-bar" aria-label="Category summary">
+      <div className="compliance-category-detail__summary-severity">
+        {severityItems.length > 0 ? (
+          severityItems.map(([sev, n, label]) => (
+            <div
+              key={sev}
+              className={`compliance-category-detail__severity-badge is-${sev}`}
+            >
+              <span className="compliance-category-detail__severity-badge-count">{n}</span>
+              <span className="compliance-category-detail__severity-badge-label">{label}</span>
+            </div>
+          ))
+        ) : (
+          <span className="compliance-category-detail__summary-empty">No open findings</span>
+        )}
+      </div>
+      <div className="compliance-category-detail__summary-metrics">
+        <div>
+          <span>Automated</span>
+          <strong>{compositeAutomatedSummary(ctrl, displayStatus)}</strong>
+        </div>
+        <div>
+          <span>External</span>
+          <strong>{compositeExternalSummary(ctrl, acceptedCompositeIds, submittedCount)}</strong>
+        </div>
+        <div>
+          <span>Blocking</span>
+          <strong>{blockingCount}</strong>
+        </div>
+      </div>
+      <ComplianceRowSummary
+        displayStatus={displayStatus}
+        href={findingsHref}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
@@ -2403,8 +2447,8 @@ function CrossAccountCoverageControl({
     <div className="compliance-category-detail__scope is-editing">
       <p className="compliance-category-detail__scope-title">Covered in another AWS account</p>
       <p className="compliance-category-detail__account-hint">
-        Connect that account and we’ll verify this control automatically on the next scan. Attest in
-        the meantime if you can’t connect it yet.
+        Connect that account, then run a scan to verify this control. Attest in the meantime if you
+        can’t connect it yet.
       </p>
       <input
         className="compliance-category-detail__account-input"
@@ -2494,9 +2538,6 @@ function CompositeCategoryDetailPanel({
     ctrl.check_ids,
     findingCountByCheck,
   );
-  const awsFixHref =
-    findingsHrefForAbsenceGaps(ctrl.check_ids, findingCountByCheck) ??
-    findingsHref;
   const overrideDetail = ctrl.coverage_override_detail ?? null;
   const crossAccountDetail = ctrl.cross_account_coverage_detail ?? null;
   const failingCheckCount = ctrl.check_ids.filter(
@@ -2518,19 +2559,22 @@ function CompositeCategoryDetailPanel({
   const regularFailing = Math.max(0, failingCheckCount - absenceChecks.length);
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
-  const isAtRisk = ctrl.status === "at_risk";
-  // Step columns present (Fix in AWS + each absence-gap "enable" card); the
-  // "Other ways" column is always rendered. Drives the grid template so it never
-  // leaves empty columns when there's nothing beyond step 1.
   const workflowCols = (isExternalOnly ? 0 : 1) + (enableItems.length > 0 ? 1 : 0) + 1;
-  const detailCoveragePct =
-    isVerified || acceptedCompositeIds.has(ctrl.id) || overrideDetail ? 100 : 0;
+  const showFixColumn = !isExternalOnly;
+  const showEnableColumn = enableItems.length > 0;
+  const enableStepIndex = showFixColumn ? 2 : 1;
 
   return (
     <aside className="compliance-category-detail" aria-label={ctrl.title}>
-      <div className="compliance-category-detail__severity-row">
-        <SeverityBreakdownChip counts={ctrl.severity_counts} />
-      </div>
+      <CategoryDetailSummaryBar
+        ctrl={ctrl}
+        displayStatus={displayStatus}
+        findingCountByCheck={findingCountByCheck}
+        acceptedCompositeIds={acceptedCompositeIds}
+        submittedCount={submittedCount}
+        findingsHref={findingsHref}
+        onNavigate={(href) => navigate(href)}
+      />
 
       <section className="compliance-category-detail__checks-section">
         <div className="compliance-category-detail__checks-heading">
@@ -2626,7 +2670,7 @@ function CompositeCategoryDetailPanel({
               <p>
                 {crossAccountDetail.verified
                   ? "Verified from a connected account on the latest scan."
-                  : "Pending — connect that account and we’ll confirm it automatically."}
+                  : "Pending — connect that account, then run a scan to verify."}
               </p>
             </div>
           </div>
@@ -2650,34 +2694,12 @@ function CompositeCategoryDetailPanel({
       ) : (
         <section className="compliance-category-detail__nextsteps">
           <div
-            className={`compliance-category-detail__workflow compliance-category-detail__workflow--cols-${workflowCols}`}
+            className={`compliance-category-detail__columns compliance-category-detail__columns--count-${workflowCols}`}
           >
-            <div className="compliance-category-detail__nextsteps-head">
-              <div>
-                <h4>Next steps</h4>
-              <p>
-                {isAtRisk
-                  ? "Only medium-severity findings are open. Remediate them to clear the category."
-                  : isExternalOnly
-                    ? "AWS can’t check this — add your own proof."
-                  : hasAbsenceGaps
-                      ? "A required AWS service isn’t active. Choose the cleanest path to satisfy it."
-                      : "Fix the failing checks in your AWS environment."}
-              </p>
-              </div>
-            </div>
-            {!isExternalOnly ? (
-              <div className="compliance-category-detail__workflow-card compliance-category-detail__workflow-card--fix">
-                <span className="compliance-category-detail__step-index">1</span>
-                <button
-                  type="button"
-                  className="compliance-category-detail__resolve-main"
-                  onClick={() => {
-                    if (findingsHref) navigate(findingsHref);
-                  }}
-                  disabled={!findingsHref}
-                >
-                  <span className="compliance-category-detail__action-icon compliance-category-detail__action-icon--aws">
+            {showFixColumn ? (
+              <div className="compliance-category-detail__column">
+                <div className="compliance-category-detail__column-head">
+                  <span className="compliance-category-detail__column-icon" aria-hidden>
                     <svg
                       fill="none"
                       stroke="currentColor"
@@ -2685,116 +2707,162 @@ function CompositeCategoryDetailPanel({
                       strokeLinejoin="round"
                       strokeWidth={1.75}
                       viewBox="0 0 24 24"
-                      aria-hidden
                     >
                       <path d="M14.7 6.3a4.3 4.3 0 0 0-6.08 5.55L4 16.48V20h3.52l4.63-4.62A4.3 4.3 0 1 0 14.7 6.3Z" />
                       <path d="m14.5 8.5 1 1" />
                     </svg>
                   </span>
-                  <span className="compliance-category-detail__action-copy">
-                    <strong>
-                      {hasAbsenceGaps && regularFailing === 0
-                        ? "Enable in AWS"
-                        : "Fix in AWS"}
-                    </strong>
-                    <span>Address the failing checks directly in your AWS environment.</span>
-                    {regularFailing > 0 ? (
-                      <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--warn">
-                        {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
-                      </span>
-                    ) : !hasAbsenceGaps ? (
-                      <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--neutral">
-                        Re-scan needed
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              </div>
-            ) : null}
-
-            {enableItems.length > 0 ? (
-              <div className="compliance-category-detail__workflow-card compliance-category-detail__workflow-card--enable">
-                <span className="compliance-category-detail__step-index">2</span>
-                <p className="compliance-category-detail__services-label">
-                  Turn these on — we re-check automatically
-                </p>
-                {enableItems.map((item) => (
-                  <div key={item.checkId} className="compliance-category-detail__service-row">
-                    <span className="compliance-category-detail__service-name">
-                      {item.capability}
+                  <h4>Recommended action</h4>
+                </div>
+                <div className="compliance-category-detail__column-card">
+                  <span className="compliance-category-detail__step-index">1</span>
+                  <button
+                    type="button"
+                    className="compliance-category-detail__resolve-main"
+                    onClick={() => {
+                      if (findingsHref) navigate(findingsHref);
+                    }}
+                    disabled={!findingsHref}
+                  >
+                    <span className="compliance-category-detail__resolve-copy">
+                      <strong>
+                        {hasAbsenceGaps && regularFailing === 0
+                          ? "Enable in AWS"
+                          : "Fix in AWS"}
+                      </strong>
+                      <span>Address the failing checks directly in your AWS environment.</span>
+                      {regularFailing > 0 ? (
+                        <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--warn">
+                          {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
+                        </span>
+                      ) : !hasAbsenceGaps ? (
+                        <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--neutral">
+                          Re-scan needed
+                        </span>
+                      ) : null}
                     </span>
-                    <button
-                      type="button"
-                      className="compliance-category-detail__service-cta"
-                      onClick={() => {
-                        if (item.consoleUrl) {
-                          window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
-                          return;
-                        }
-                        navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
-                      }}
-                    >
-                      Enable & Re-check
-                    </button>
-                  </div>
-                ))}
+                    <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
+                  </button>
+                </div>
               </div>
             ) : null}
 
-            <p className="compliance-category-detail__other-label">Other ways to satisfy</p>
-            <div className="compliance-category-detail__workflow-other">
-              {crossAccountEligible ? (
-                <button
-                  type="button"
-                  className="compliance-category-detail__alt-row"
-                  onClick={() => {
-                    setAccountFormOpen(true);
-                    requestAnimationFrame(() =>
-                      accountRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-                    );
-                  }}
-                >
-                  <span className="compliance-category-detail__alt-icon" aria-hidden>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
+            {showEnableColumn ? (
+              <div className="compliance-category-detail__column">
+                <div className="compliance-category-detail__column-head">
+                  <span className="compliance-category-detail__column-icon" aria-hidden>
+                    <svg
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.75}
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M4 4v5h5M20 20v-5h-5M5 19a9 9 0 0 0 14-2M19 5a9 9 0 0 0-14 2" />
                     </svg>
                   </span>
-                  <span className="compliance-category-detail__alt-text">
-                    <strong>Covered in another AWS account</strong>
-                    <span>Managed centrally in an account we don’t scan yet — auto-verified.</span>
-                  </span>
-                  <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-                </button>
-              ) : null}
-              {hasAbsenceGaps || isExternalOnly ? (
-                <button
-                  type="button"
-                  className="compliance-category-detail__alt-row"
-                  onClick={() => {
-                    setShowEvidencePanel(true);
-                    requestAnimationFrame(() =>
-                      evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-                    );
-                  }}
-                >
-                  <span className="compliance-category-detail__alt-icon" aria-hidden>
-                    <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
-                    </svg>
-                  </span>
-                  <span className="compliance-category-detail__alt-text">
-                    <strong>Upload external evidence</strong>
-                    <span>Proof for checks managed outside of AWS{criteriaCount > 0 ? ` · ${criteriaCount} criteria` : ""}.</span>
-                  </span>
-                  <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-                </button>
-              ) : null}
-              <GapScopeControl
-                compositeId={ctrl.id}
-                compositeTitle={ctrl.title}
-                detail={overrideDetail}
-              />
+                  <h4>Enable in AWS</h4>
+                </div>
+                <div className="compliance-category-detail__column-card compliance-category-detail__column-card--enable">
+                  <span className="compliance-category-detail__step-index">{enableStepIndex}</span>
+                  <p className="compliance-category-detail__services-label">
+                    Turn these on, then scan to verify
+                  </p>
+                  {enableItems.map((item) => (
+                    <div key={item.checkId} className="compliance-category-detail__service-row">
+                      <span className="compliance-category-detail__service-name">
+                        {item.capability}
+                      </span>
+                      <button
+                        type="button"
+                        className="compliance-category-detail__service-cta"
+                        onClick={() => {
+                          if (item.consoleUrl) {
+                            window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
+                            return;
+                          }
+                          navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
+                        }}
+                      >
+                        Enable
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="compliance-category-detail__column">
+              <div className="compliance-category-detail__column-head">
+                <span className="compliance-category-detail__column-icon" aria-hidden>
+                  <svg
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 3v18M7 8h10M7 16h10M9 8l-2 4h4l-2-4M15 8l-2 4h4l-2-4" />
+                  </svg>
+                </span>
+                <h4>Alternative satisfaction</h4>
+              </div>
+              <div className="compliance-category-detail__column-alts">
+                {crossAccountEligible ? (
+                  <button
+                    type="button"
+                    className="compliance-category-detail__alt-row"
+                    onClick={() => {
+                      setAccountFormOpen(true);
+                      requestAnimationFrame(() =>
+                        accountRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                      );
+                    }}
+                  >
+                    <span className="compliance-category-detail__alt-icon" aria-hidden>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
+                      </svg>
+                    </span>
+                    <span className="compliance-category-detail__alt-text">
+                      <strong>Covered in another AWS account</strong>
+                      <span>
+                        Managed centrally in an account we don't scan yet — auto-verified.
+                      </span>
+                    </span>
+                    <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
+                  </button>
+                ) : null}
+                {hasAbsenceGaps || isExternalOnly ? (
+                  <button
+                    type="button"
+                    className="compliance-category-detail__alt-row"
+                    onClick={() => {
+                      setShowEvidencePanel(true);
+                      requestAnimationFrame(() =>
+                        evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                      );
+                    }}
+                  >
+                    <span className="compliance-category-detail__alt-icon" aria-hidden>
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
+                      </svg>
+                    </span>
+                    <span className="compliance-category-detail__alt-text">
+                      <strong>Upload external evidence</strong>
+                      <span>
+                        Proof for checks managed outside of AWS
+                        {criteriaCount > 0 ? ` — ${criteriaCount} criteria` : ""}.
+                      </span>
+                    </span>
+                    <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
           {accountFormOpen ? (
@@ -2808,7 +2876,7 @@ function CompositeCategoryDetailPanel({
               />
             </div>
           ) : null}
-          <div className="compliance-category-detail__help">
+          <footer className="compliance-category-detail__footer">
             <span className="compliance-category-detail__help-icon" aria-hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                 <circle cx="12" cy="12" r="9" />
@@ -2819,13 +2887,20 @@ function CompositeCategoryDetailPanel({
               <strong>Need help with this control?</strong>
               <span>Review our guidance and remediation best practices.</span>
             </span>
-            <span className="compliance-category-detail__help-cta" aria-disabled="true">
-              View guidance
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
-              </svg>
-            </span>
-          </div>
+            <div className="compliance-category-detail__help-actions">
+              <span className="compliance-category-detail__help-cta" aria-disabled="true">
+                View guidance
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
+                </svg>
+              </span>
+              <GapScopeControl
+                compositeId={ctrl.id}
+                compositeTitle={ctrl.title}
+                detail={overrideDetail}
+              />
+            </div>
+          </footer>
         </section>
       )}
 
@@ -2956,10 +3031,6 @@ function CompositeControlsPanel({
             ctrl.check_ids,
             findingCountByCheck,
           );
-          const failingChecks = ctrl.check_ids.filter(
-            (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
-          ).length;
-
           return (
             <div
               key={ctrl.id}
@@ -2983,27 +3054,6 @@ function CompositeControlsPanel({
                     <h3>{ctrl.title}</h3>
                     <p>{ctrl.description}</p>
                   </div>
-                </div>
-
-                <div className="compliance-control-card__facts" aria-label="Category summary">
-                  <span>
-                    <small>Automated</small>
-                    <strong>{compositeAutomatedSummary(ctrl, displayStatus)}</strong>
-                  </span>
-                  <span>
-                    <small>External</small>
-                    <strong>
-                      {compositeExternalSummary(
-                        ctrl,
-                        acceptedCompositeIds,
-                        submittedCountByComposite,
-                      )}
-                    </strong>
-                  </span>
-                  <span>
-                    <small>Blocking</small>
-                    <strong>{failingChecks}</strong>
-                  </span>
                 </div>
 
                 <div className="compliance-control-card__state">
@@ -3047,10 +3097,6 @@ function CompositeControlsPanel({
                       findingCountByCheck,
                     );
                     const childDisplay = NESTED_COMPOSITE_DISPLAY[child.id];
-                    const childFailingChecks = child.check_ids.filter(
-                      (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
-                    ).length;
-
                     return (
                       <div className={`compliance-control-card compliance-control-card--child${childSelected ? " is-expanded" : ""}`}>
                         <button
@@ -3071,26 +3117,6 @@ function CompositeControlsPanel({
                               <h3>{childDisplay?.title ?? child.title}</h3>
                               <p>{childDisplay?.hint ?? child.description}</p>
                             </div>
-                          </div>
-                          <div className="compliance-control-card__facts" aria-label="Category summary">
-                            <span>
-                              <small>Automated</small>
-                              <strong>{compositeAutomatedSummary(child, childDisplayStatus)}</strong>
-                            </span>
-                            <span>
-                              <small>External</small>
-                              <strong>
-                                {compositeExternalSummary(
-                                  child,
-                                  acceptedCompositeIds,
-                                  submittedCountByComposite,
-                                )}
-                              </strong>
-                            </span>
-                            <span>
-                              <small>Blocking</small>
-                              <strong>{childFailingChecks}</strong>
-                            </span>
                           </div>
                           <div className="compliance-control-card__state">
                             <ComplianceRowSummary
@@ -3153,20 +3179,6 @@ function CompositeControlsPanel({
                     <h3>{row.title}</h3>
                     <p>{row.description}</p>
                   </div>
-                </div>
-                <div className="compliance-control-card__facts" aria-label="Category summary">
-                  <span>
-                    <small>Automated</small>
-                    <strong>Not available from AWS</strong>
-                  </span>
-                  <span>
-                    <small>External</small>
-                    <strong>None</strong>
-                  </span>
-                  <span>
-                    <small>Blocking</small>
-                    <strong>0</strong>
-                  </span>
                 </div>
                 <div className="compliance-control-card__state">
                   <ComplianceRowSummary
