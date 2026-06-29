@@ -264,7 +264,6 @@ export function AccountFilterDropdown({
         </span>
         <span className="account-filter__text">
           <span className="account-filter__name">{accountDisplayName(current)}</span>
-          <span className="account-filter__meta">{accountDisplaySubtitle(current)}</span>
         </span>
         <FilterChevron open={open} />
       </button>

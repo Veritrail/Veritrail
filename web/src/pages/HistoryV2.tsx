@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { HistoryFilterDropdown } from "../components/HistoryFilterDropdown";
@@ -30,7 +31,6 @@ import {
   postureSeries,
   scanCoverageDays,
 } from "../lib/historyEvidence";
-import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import "../styles/history-page.css";
 
 interface Account {
@@ -177,6 +177,10 @@ export default function HistoryV2() {
   const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
   const connected = accountsQ.data?.filter((a) => a.status === "connected") ?? [];
   const effectiveAccountId = accountId || connected[0]?.id || "";
+  const connectedAccountOptions = useMemo(
+    () => connected.map((account) => ({ ...account, provider: "aws" as const })),
+    [connected],
+  );
 
   const compositesQ = useQuery({
     queryKey: ["controls", "composites", effectiveAccountId],
@@ -302,28 +306,15 @@ export default function HistoryV2() {
     <div className="history-page history-page--fill px-1 pb-8 pt-2 sm:px-0">
       <HeaderSlot>
         <div className="history-filter-bar w-full" style={{ marginBottom: 0 }}>
-          <HistoryFilterDropdown
-            label="Account"
-            boxClassName="history-filter-box--account"
-            ariaLabel="Account"
+          <AccountFilterDropdown
+            accounts={connectedAccountOptions}
             value={effectiveAccountId}
-            options={connected.map((a) => ({ value: a.id, label: a.label }))}
             onChange={(id) => {
               setAccountId(id);
               setPageSize(DEFAULT_VISIBLE_EVENTS);
               setPage(1);
               patchSearchParams({ account_id: id });
             }}
-            valueIcon={<img src={AWS_LOGO_LIGHT} alt="" className="history-filter-box__aws" width={30} height={19} />}
-            optionIcon={() => (
-              <img
-                src={AWS_LOGO_LIGHT}
-                alt=""
-                className="history-filter-menu__icon history-filter-menu__aws"
-                width={30}
-                height={19}
-              />
-            )}
           />
 
           <HistoryFilterDropdown

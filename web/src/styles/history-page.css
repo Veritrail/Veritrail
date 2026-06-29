@@ -258,24 +258,25 @@
   object-position: left center;
 }
 
-/* Account filter — premium acc-card (neutral, refined type & elevation) */
+/* Account filter — same scale as the history filter cards */
 .account-filter {
   position: relative;
   flex: 0 0 auto;
   min-width: 16rem;
-  max-width: 22rem;
+  max-width: min(20rem, calc(100vw - 2rem));
 }
 
 .account-filter__trigger {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 0.875rem;
-  padding: 0.6875rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid #ebebef;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(9 9 11 / 0.03);
+  gap: 1.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.9375rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgb(228 231 236 / 0.9);
+  background: rgb(255 255 255 / 0.78);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -288,25 +289,22 @@
 }
 
 .account-filter__trigger:hover {
-  border-color: #e4e4e7;
-  background: #fafafa;
-  box-shadow: 0 1px 3px rgb(9 9 11 / 0.04);
+  border-color: #d1d5db;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
 .account-filter__trigger:focus-visible {
   outline: none;
-  border-color: #d4d4d8;
-  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.06);
+  border-color: #a1a1aa;
+  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.08);
 }
 
 .account-filter__trigger[aria-expanded="true"],
 .account-filter__trigger--open {
-  border-color: #e4e4e7;
-  border-bottom-color: transparent;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  border-color: #d1d5db;
   background: #fff;
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
 }
 
 .account-filter__icon-box,
@@ -317,7 +315,7 @@
   justify-content: center;
   width: 2.375rem;
   height: 2.375rem;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   border: 1px solid #f0f0f2;
   background: #fff;
   padding: 0.3125rem;
@@ -333,6 +331,26 @@
   object-position: center;
 }
 
+.account-filter__icon-box {
+  position: relative;
+  width: 1.625rem;
+  height: 1.625rem;
+  box-sizing: border-box;
+  border-radius: 0.5rem;
+  padding: 0.1875rem;
+}
+
+.account-filter__icon-box::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -0.9rem;
+  bottom: 0;
+  width: 1px;
+  border-radius: 9999px;
+  background: #d1d5db;
+}
+
 .account-filter__text,
 .account-filter-card__text {
   display: flex;
@@ -340,6 +358,10 @@
   flex: 1;
   flex-direction: column;
   gap: 0.0625rem;
+}
+
+.account-filter__text {
+  justify-content: center;
 }
 
 .account-filter__name,
@@ -354,6 +376,13 @@
   color: #09090b;
 }
 
+.account-filter__name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #111827;
+}
+
 .account-filter__meta,
 .account-filter-card__meta {
   overflow: hidden;
@@ -366,8 +395,9 @@
 }
 
 .account-filter__chevron {
+  margin-left: auto;
   flex-shrink: 0;
-  color: #a1a1aa;
+  color: #6b7280;
   transition: transform 0.15s ease, color 0.15s ease;
 }
 
@@ -377,6 +407,22 @@
 
 .account-filter__chevron--open {
   transform: rotate(180deg);
+}
+
+@media (max-width: 520px) {
+  .account-filter {
+    min-width: min(100%, 16rem);
+    width: 100%;
+  }
+
+  .account-filter__trigger {
+    min-height: 2.75rem;
+    padding: 0.625rem 0.875rem;
+  }
+
+  .account-filter__name {
+    font-size: 0.875rem;
+  }
 }
 
 .account-filter-menu {

@@ -408,18 +408,19 @@
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 4.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 0.95rem;
-  background: rgba(8, 15, 30, 0.72);
-  padding: 0.85rem 1rem;
+  gap: 1.05rem;
+  min-height: 5.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(16, 28, 52, 0.72), rgba(9, 18, 35, 0.76));
+  padding: 0.9rem 1.05rem;
   text-align: left;
   cursor: pointer;
   outline: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 14px 28px -24px rgba(15, 23, 42, 0.9);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 32px -26px rgba(0, 0, 0, 0.86);
   backdrop-filter: blur(12px);
   transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   -webkit-tap-highlight-color: transparent;
@@ -431,32 +432,50 @@
 
 .app-sidebar__workspace-card:hover,
 .app-sidebar__workspace-card:focus-visible {
-  border-color: rgba(147, 197, 253, 0.18);
-  background: rgba(12, 23, 45, 0.78);
+  border-color: rgba(148, 163, 184, 0.28);
+  background:
+    linear-gradient(180deg, rgba(20, 34, 61, 0.78), rgba(10, 21, 40, 0.82));
   outline: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 34px -26px rgba(37, 99, 235, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 36px -28px rgba(0, 0, 0, 0.9);
 }
 
 .app-sidebar__workspace-avatar {
+  position: relative;
   display: inline-flex;
-  width: 2.625rem;
-  height: 2.625rem;
+  width: 3.35rem;
+  height: 3.35rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.26), transparent 30%),
-    linear-gradient(145deg, #7585ff 0%, #4c74f4 50%, #3157db 100%);
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #fff;
+    radial-gradient(circle at 34% 22%, rgba(255, 255, 255, 0.1), transparent 32%),
+    linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.96));
+  color: rgba(226, 232, 240, 0.86);
   box-shadow:
-    0 0 0 1px rgba(191, 219, 254, 0.18),
-    0 9px 20px -10px rgba(59, 130, 246, 0.85);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(148, 163, 184, 0.12),
+    0 12px 24px -18px rgba(0, 0, 0, 0.9);
+}
+
+.app-sidebar__workspace-avatar svg {
+  width: 1.65rem;
+  height: 1.65rem;
+}
+
+.app-sidebar__workspace-status {
+  position: absolute;
+  right: 0.18rem;
+  bottom: 0.28rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow:
+    0 0 0 2px #071020,
+    0 0 0 3px rgba(96, 165, 250, 0.28);
 }
 
 .app-sidebar__workspace-copy {
@@ -464,17 +483,17 @@
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .app-sidebar__workspace-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   color: #fff;
 }
 
@@ -482,10 +501,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8125rem;
+  font-size: 0.925rem;
   font-weight: 500;
   line-height: 1.2;
-  color: rgba(148, 163, 184, 0.92);
+  color: rgba(148, 163, 184, 0.95);
 }
 
 .app-sidebar__workspace-card:hover .app-sidebar__user-chevron,
@@ -540,10 +559,10 @@
 }
 
 .app-sidebar__user-chevron {
-  width: 1rem;
-  height: 1rem;
+  width: 1.25rem;
+  height: 1.25rem;
   flex-shrink: 0;
-  color: rgba(203, 213, 225, 0.82);
+  color: rgba(203, 213, 225, 0.74);
   transition: color 0.18s ease;
 }
 
@@ -577,16 +596,7 @@
 }
 
 .sidebar-user-panel::before {
-  content: "";
-  pointer-events: none;
-  position: absolute;
-  inset: 0.65rem auto 0.65rem 0;
-  width: 0.22rem;
-  border-radius: 999px;
-  background: #3b82ff;
-  box-shadow:
-    0 0 16px rgba(59, 130, 246, 0.95),
-    0 0 32px rgba(37, 99, 235, 0.55);
+  display: none;
 }
 
 .sidebar-user-panel__section {

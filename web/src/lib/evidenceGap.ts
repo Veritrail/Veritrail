@@ -110,6 +110,40 @@ export function openCrossAccountCoverableChecks(
   );
 }
 
+/** AWS console deep-link for the service behind an absence gap, so the user
+ *  can jump straight to enabling it. */
+const ABSENCE_GAP_CONSOLE_URL: Record<string, string> = {
+  "aws.access_analyzer.not_enabled": "https://console.aws.amazon.com/access-analyzer/home",
+  "guardduty.detector.not_enabled": "https://console.aws.amazon.com/guardduty/home",
+  "aws.config.not_enabled": "https://console.aws.amazon.com/config/home",
+  "aws.securityhub.not_enabled": "https://console.aws.amazon.com/securityhub/home",
+  "cloudtrail.trail.not_enabled": "https://console.aws.amazon.com/cloudtrail/home",
+  "vpc.flow_logs.not_enabled": "https://console.aws.amazon.com/vpc/home#vpcs:",
+  "backup.plan.missing": "https://console.aws.amazon.com/backup/home",
+  "aws.vulnerability_monitoring.not_detected": "https://console.aws.amazon.com/inspector/v2/home",
+};
+
+export function absenceGapConsoleUrl(checkId: string): string | null {
+  return ABSENCE_GAP_CONSOLE_URL[checkId] ?? null;
+}
+
+/** Deduped list of the AWS capabilities to enable for a composite's open
+ *  absence gaps: { checkId, capability, consoleUrl }. */
+export function absenceGapEnableItems(
+  checkIds: string[],
+  findingCountByCheck: Map<string, number>,
+): { checkId: string; capability: string; consoleUrl: string | null }[] {
+  const seen = new Set<string>();
+  const out: { checkId: string; capability: string; consoleUrl: string | null }[] = [];
+  for (const id of openAbsenceGapChecks(checkIds, findingCountByCheck)) {
+    const capability = absenceGapCapabilityName(id);
+    if (seen.has(capability)) continue;
+    seen.add(capability);
+    out.push({ checkId: id, capability, consoleUrl: absenceGapConsoleUrl(id) });
+  }
+  return out;
+}
+
 export function absenceGapCapabilityName(checkId: string): string {
   if (ABSENCE_GAP_CAPABILITY[checkId]) return ABSENCE_GAP_CAPABILITY[checkId];
   const label = labelForCheck(checkId);
