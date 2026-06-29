@@ -48,7 +48,7 @@ export default function UserMenu({ email }: { email: string }) {
             onClick={() => {
               setOpen(false);
               void logout().finally(() => {
-                window.location.href = "/login?signed_out=1";
+                window.location.href = "/login";
               });
             }}
           >

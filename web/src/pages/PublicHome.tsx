@@ -1,7 +1,44 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { restoreSession, token } from "../api";
+import { postAuthPath } from "../lib/postAuthRedirect";
 
 /** Public marketing home — no auth. Required for Google OAuth app branding verification. */
 export default function PublicHome() {
+  const nav = useNavigate();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (window.location.search || window.location.hash) {
+      window.history.replaceState(null, "", "/");
+    }
+    void (async () => {
+      if (token()) {
+        nav(await postAuthPath(), { replace: true });
+        return;
+      }
+      const ok = await restoreSession();
+      if (cancelled) return;
+      if (ok) {
+        nav(await postAuthPath(), { replace: true });
+        return;
+      }
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nav]);
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F6F8FB] text-sm text-zinc-500">
+        Loading…
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F6F8FB] text-zinc-800">
       <header className="border-b border-zinc-200 bg-white">

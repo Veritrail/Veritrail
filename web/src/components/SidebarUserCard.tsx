@@ -102,7 +102,7 @@ export default function SidebarUserCard({
   const signOut = () => {
     close();
     void logout().finally(() => {
-      window.location.href = "/login?signed_out=1";
+      window.location.href = "/login";
     });
   };
 

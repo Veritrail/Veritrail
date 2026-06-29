@@ -304,6 +304,12 @@ export default function Login() {
     const oauthErr = params.get("error");
     const next = new URLSearchParams(params);
 
+    if (params.get("signed_out") === "1") {
+      next.delete("signed_out");
+      setParams(next, { replace: true });
+      return;
+    }
+
     if (token) {
       beginMfa(token);
       next.delete("mfa_token");
