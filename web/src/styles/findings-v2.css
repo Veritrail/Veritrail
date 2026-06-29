@@ -3275,7 +3275,8 @@
   --workflow-connector: 1.35rem;
   display: grid;
   grid-template-columns: minmax(11.5rem, 1fr) minmax(12.5rem, 1.05fr) minmax(13rem, 1.1fr);
-  gap: 1.35rem;
+  grid-template-rows: auto auto;
+  gap: 0.35rem 1.35rem;
   align-items: start;
   margin-top: 0.35rem;
 }
@@ -3293,9 +3294,21 @@
 }
 
 .compliance-category-detail__workflow-card,
-.compliance-category-detail__workflow-other {
+.compliance-category-detail__workflow-other,
+.compliance-category-detail__other-label {
   position: relative;
   min-width: 0;
+}
+
+.compliance-category-detail__workflow-card,
+.compliance-category-detail__workflow-other {
+  grid-row: 2;
+}
+
+.compliance-category-detail__other-label {
+  grid-row: 1;
+  grid-column: -1;
+  align-self: end;
 }
 
 .compliance-category-detail__workflow-card {
@@ -3450,15 +3463,17 @@
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  grid-column: -1;
   align-self: start;
 }
 
 .compliance-category-detail__other-label {
-  margin: 0 0 0.15rem;
+  margin: 0;
   color: #64748b;
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0;
+  line-height: 1.2;
   text-transform: none;
 }
 
@@ -3613,7 +3628,15 @@
 @media (max-width: 1180px) {
   .compliance-category-detail__workflow {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
     gap: 0.65rem;
+  }
+
+  .compliance-category-detail__workflow-card,
+  .compliance-category-detail__workflow-other,
+  .compliance-category-detail__other-label {
+    grid-row: auto;
+    grid-column: auto;
   }
 
   .compliance-category-detail__workflow-card--fix::after,

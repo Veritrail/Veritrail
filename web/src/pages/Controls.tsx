@@ -2741,8 +2741,8 @@ function CompositeCategoryDetailPanel({
               </div>
             ) : null}
 
+            <p className="compliance-category-detail__other-label">Other ways to satisfy</p>
             <div className="compliance-category-detail__workflow-other">
-              <p className="compliance-category-detail__other-label">Other ways to satisfy</p>
               {crossAccountEligible ? (
                 <button
                   type="button"
