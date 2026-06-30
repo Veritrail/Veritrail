@@ -6864,7 +6864,12 @@ export default function Accounts() {
   const statsMap = useMemo(() => buildStatsMap(allFindings.data?.items), [allFindings.data?.items]);
 
   const integrationAccounts = useMemo(
-    () => (cloudAccounts.data ?? []).filter((row) => row.provider === "gcp" || row.provider === "azure"),
+    () =>
+      (cloudAccounts.data ?? []).filter(
+        (row) =>
+          (row.provider === "gcp" || row.provider === "azure") &&
+          isCloudAccountConnected(row),
+      ),
     [cloudAccounts.data],
   );
 
@@ -6873,21 +6878,15 @@ export default function Accounts() {
     [allFindings.data?.items, integrationAccounts],
   );
 
-  const accs = useMemo(() => {
-    const rows = accounts.data ?? [];
-    const pending: Account[] = [];
-    const connected: Account[] = [];
-    for (const row of rows) {
-      if (isAccountConnected(row)) connected.push(row);
-      else pending.push(row);
-    }
-    return [...pending, ...connected];
-  }, [accounts.data]);
-  const hasConnectedAws = accs.some((a) => isAccountConnected(a));
-  const hasConnectedIntegration = integrationAccounts.some((row) => isCloudAccountConnected(row));
+  const allAccs = useMemo(() => accounts.data ?? [], [accounts.data]);
+  const accs = useMemo(
+    () => allAccs.filter((row) => isAccountConnected(row)),
+    [allAccs],
+  );
+  const hasConnectedAws = accs.length > 0;
+  const hasConnectedIntegration = integrationAccounts.length > 0;
   const hasAnyConnectedCloud = hasConnectedAws || hasConnectedIntegration;
   const hasAnyAccounts = accs.length > 0 || integrationAccounts.length > 0;
-  const hasPending = accs.some((a) => !isAccountConnected(a));
   const connectedAccountCount =
     accs.filter((a) => isAccountConnected(a)).length +
     integrationAccounts.filter((row) => isCloudAccountConnected(row)).length;
@@ -6953,9 +6952,9 @@ export default function Accounts() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  const pendingAcc = accs.find((a) => !isAccountConnected(a));
+  const pendingAcc = allAccs.find((a) => !isAccountConnected(a));
   const activeOnboardingAccount = onboardingAccount
-    ? accs.find((a) => a.id === onboardingAccount.id) ?? onboardingAccount
+    ? allAccs.find((a) => a.id === onboardingAccount.id) ?? onboardingAccount
     : null;
   const showCapabilityOnboarding =
     !accounts.isLoading &&
@@ -7179,14 +7178,8 @@ export default function Accounts() {
                     <button
                       type="button"
                       onClick={handleAddAccountClick}
-                      disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
-                      title={
-                        atPlanCap
-                          ? planCapMsg
-                          : hasPending
-                            ? "Finish setting up the pending account first"
-                            : undefined
-                      }
+                      disabled={create.isPending || atPlanCap || addingAwsAccount}
+                      title={atPlanCap ? planCapMsg : undefined}
                       className="accounts-toolbar__add"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
@@ -7267,14 +7260,8 @@ export default function Accounts() {
                         <button
                           type="button"
                           onClick={handleAddAccountClick}
-                          disabled={create.isPending || hasPending || atPlanCap || addingAwsAccount}
-                          title={
-                            atPlanCap
-                              ? planCapMsg
-                              : hasPending
-                                ? "Finish setting up the pending account first"
-                                : undefined
-                          }
+                          disabled={create.isPending || atPlanCap || addingAwsAccount}
+                          title={atPlanCap ? planCapMsg : undefined}
                           className="accounts-toolbar__add"
                         >
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
@@ -7438,9 +7425,6 @@ export default function Accounts() {
             </div>
           )}
 
-          {hasPending && (
-            <p className="text-xs text-zinc-500">Finish pending setup before adding another account.</p>
-          )}
         </>
       )}
 
