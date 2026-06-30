@@ -3129,10 +3129,9 @@ function OnboardingDeployPanel({
 }) {
   const column = layout === "column";
   const [copied, setCopied] = useState(false);
-  const [cliExpanded, setCliExpanded] = useState(false);
-  const [terraformExpanded, setTerraformExpanded] = useState(false);
+  const [cliExpanded, setCliExpanded] = useState(true);
+  const [terraformExpanded, setTerraformExpanded] = useState(true);
   const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
-  const trustPrincipalArn = parseCfnLaunchMeta(acc.cfn_launch_url).trustPrincipalArn;
   const terraformCode = terraformForConnection(acc, connectionOptions);
   const copy = DEPLOY_METHOD_COPY[tab];
 
@@ -3144,8 +3143,8 @@ function OnboardingDeployPanel({
 
   function selectTab(next: DeployTab) {
     onTabChange(next);
-    setCliExpanded(false);
-    setTerraformExpanded(false);
+    setCliExpanded(true);
+    setTerraformExpanded(true);
   }
 
   return (
@@ -3158,7 +3157,6 @@ function OnboardingDeployPanel({
       )}
 
       <div className="accounts-deploy-rail__method">
-        <p className="accounts-deploy-rail__method-label">Deploy method</p>
         <div className="accounts-deploy-tabs">
           {(["console", "cli", "terraform"] as DeployTab[]).map((t) => (
             <button key={t} type="button" className={tab === t ? "is-active" : ""} onClick={() => selectTab(t)}>
@@ -3228,22 +3226,12 @@ function OnboardingDeployPanel({
           ) : tab === "cli" ? (
             <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
           ) : (
-            <>
-              <div className="accounts-terraform-note">
-                <p>Terraform deployment</p>
-                <span>
-                  {trustPrincipalArn
-                    ? "Apply this module, then continue with the scanner role ARN output. veritrail_principal_arn is pre-filled from your Veritrail deployment."
-                    : "Set veritrail_principal_arn, apply this module, then continue with the scanner role ARN output."}
-                </span>
-              </div>
-              <TerraformCodeBlock
-                code={terraformCode}
-                compact
-                expanded={terraformExpanded}
-                onExpandedChange={setTerraformExpanded}
-              />
-            </>
+            <TerraformCodeBlock
+              code={terraformCode}
+              compact
+              expanded={terraformExpanded}
+              onExpandedChange={setTerraformExpanded}
+            />
           )}
         </div>
       </div>
@@ -3383,7 +3371,7 @@ function PendingAccountOnboarding({
               />
 
               <div className="accounts-connect-stage">
-                <section className="accounts-connect-col">
+                <section className="accounts-connect-col accounts-connect-col--scroll">
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">1</span>
                     <h3 className="accounts-connect-col__title">Deploy stack</h3>
@@ -3464,14 +3452,6 @@ function PendingAccountOnboarding({
                 </section>
               </div>
 
-              <div className="accounts-connect-assurance">
-                <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                </svg>
-                <div>
-                  <p className="accounts-connect-assurance__title">Veritrail never stores your credentials.</p>
-                </div>
-              </div>
 
               <div className="accounts-connect-shell__footer accounts-connect-shell__footer--verify">
                 <button type="button" onClick={() => setActiveStep(2)} className="accounts-connect-shell__back">
