@@ -47,8 +47,14 @@ app = FastAPI(title="Veritrail API", version="0.1.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = [settings.FRONTEND_URL]
-if settings.APP_ENV == "dev" and settings.FRONTEND_URL not in ("http://localhost:5173",):
+_cors_origins = [
+    origin.strip()
+    for origin in settings.CORS_ORIGINS.split(",")
+    if origin.strip()
+]
+if not _cors_origins:
+    _cors_origins = [settings.FRONTEND_URL]
+if settings.APP_ENV == "dev" and "http://localhost:5173" not in _cors_origins:
     _cors_origins.append("http://localhost:5173")
 
 app.add_middleware(

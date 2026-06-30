@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     TRUST_PRINCIPAL_ARN: str = "arn:aws:iam::000000000000:root"
     API_PUBLIC_URL: str = "http://localhost:8000"
     FRONTEND_URL: str = "http://localhost:5173"
+    # Comma-separated browser origins allowed for CORS (prod: https://app.veritrail.io).
+    # When empty, FRONTEND_URL is used.
+    CORS_ORIGINS: str = ""
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

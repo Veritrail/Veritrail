@@ -97,7 +97,8 @@ http {
             return 404;
         }
 
-        include /etc/nginx/iap/iap.oauth2.conf;
+        # No IAP on the API subdomain — JWT auth only. oauth2-proxy auth_request on
+        # cross-origin OPTIONS preflight returns 302, which browsers reject as CORS.
 
         location /healthz {
             limit_req zone=veritrail_general burst=60 nodelay;
@@ -109,29 +110,7 @@ http {
             proxy_set_header   X-Forwarded-Proto $scheme;
         }
 
-        location /v1/auth/ {
-            limit_req zone=veritrail_general burst=60 nodelay;
-            proxy_pass         http://api:8000;
-            proxy_http_version 1.1;
-            proxy_set_header   Host $host;
-            proxy_set_header   X-Real-IP $remote_addr;
-            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header   X-Forwarded-Proto $scheme;
-            proxy_read_timeout 120s;
-        }
-
-        location /v1/integrations/ {
-            limit_req zone=veritrail_general burst=60 nodelay;
-            proxy_pass         http://api:8000;
-            proxy_http_version 1.1;
-            proxy_set_header   Host $host;
-            proxy_set_header   X-Real-IP $remote_addr;
-            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header   X-Forwarded-Proto $scheme;
-            proxy_read_timeout 120s;
-        }
-
-        location /v1/public/ {
+        location /v1/ {
             limit_req zone=veritrail_general burst=60 nodelay;
             proxy_pass         http://api:8000;
             proxy_http_version 1.1;
@@ -143,7 +122,6 @@ http {
         }
 
         location / {
-            include /etc/nginx/iap/iap.auth.conf;
             limit_req zone=veritrail_general burst=60 nodelay;
             proxy_pass         http://api:8000;
             proxy_http_version 1.1;
