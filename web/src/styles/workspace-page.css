@@ -5152,3 +5152,78 @@
 .sharing-trust-logo-upload__actions .sharing-btn {
   align-self: flex-start;
 }
+
+/* Workspace Activity — card + footer pagination (matches History events table) */
+.workspace-activity-panel {
+  border-radius: 0.75rem;
+  border: 1px solid #e8ecf1;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.05);
+  overflow: hidden;
+}
+
+.workspace-activity-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-activity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+}
+
+.workspace-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.8125rem 1rem 0.8125rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  min-height: 3.25rem;
+}
+
+.workspace-activity-item:last-child {
+  border-bottom: none;
+}
+
+.workspace-activity-item__dot {
+  margin-top: 0.375rem;
+  height: 0.5rem;
+  width: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+}
+
+.workspace-activity-item__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.workspace-activity-item__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #27272a;
+}
+
+.workspace-activity-item__meta {
+  margin: 0.125rem 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #71717a;
+}
+
+.workspace-activity-item__time {
+  flex-shrink: 0;
+  padding-left: 1rem;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: #a1a1aa;
+}

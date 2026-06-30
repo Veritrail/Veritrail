@@ -98,34 +98,37 @@ export function WorkspaceActivity() {
   }
 
   return (
-    <div className="space-y-4">
-      <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
-        {entries.map((e) => {
-          const sub = secondaryLine(e);
-          return (
-            <li key={e.id} className="flex items-start gap-3 py-3.5 pl-4 pr-6">
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneFor(e.action)}`} aria-hidden />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-zinc-800">{actionLabel(e.action)}</p>
-                <p className="mt-0.5 truncate text-xs text-zinc-500">
-                  {e.actor_email ?? "System"}
-                  {sub ? ` · ${sub}` : ""}
-                </p>
-              </div>
-              <span className="shrink-0 whitespace-nowrap pl-4 text-xs text-zinc-400">{relativeTime(e.created_at)}</span>
-            </li>
-          );
-        })}
-      </ul>
+    <div className="workspace-activity-panel">
+      <div className="workspace-activity-body">
+        <ul className="workspace-activity-list">
+          {entries.map((e) => {
+            const sub = secondaryLine(e);
+            return (
+              <li key={e.id} className="workspace-activity-item">
+                <span className={`workspace-activity-item__dot ${toneFor(e.action)}`} aria-hidden />
+                <div className="workspace-activity-item__copy">
+                  <p className="workspace-activity-item__title">{actionLabel(e.action)}</p>
+                  <p className="workspace-activity-item__meta">
+                    {e.actor_email ?? "System"}
+                    {sub ? ` · ${sub}` : ""}
+                  </p>
+                </div>
+                <span className="workspace-activity-item__time">{relativeTime(e.created_at)}</span>
+              </li>
+            );
+          })}
+        </ul>
 
-      <ListPagination
-        page={page}
-        totalPages={totalPages}
-        totalItems={total}
-        pageSize={PAGE_SIZE}
-        onPage={setPage}
-        itemLabel="activities"
-      />
+        <ListPagination
+          variant="card"
+          page={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={PAGE_SIZE}
+          onPage={setPage}
+          itemLabel="activities"
+        />
+      </div>
     </div>
   );
 }
