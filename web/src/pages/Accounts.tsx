@@ -2150,16 +2150,40 @@ function terraformForConnection(acc: Account, connectionOptions: ConnectionOptio
 function TerraformCodeBlock({
   code,
   compact = false,
+  expanded: expandedProp,
+  onExpandedChange,
+  defaultExpanded = false,
 }: {
   code: string;
   compact?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (open: boolean) => void;
+  defaultExpanded?: boolean;
 }) {
+  const [expandedInternal, setExpandedInternal] = useState(defaultExpanded);
+  const expanded = expandedProp ?? expandedInternal;
+  const setExpanded = onExpandedChange ?? setExpandedInternal;
   const [copied, setCopied] = useState(false);
 
   async function copy() {
     await navigator.clipboard.writeText(code);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+  }
+
+  if (compact && !expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="accounts-deploy-rail__expand"
+      >
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+        Show full template
+      </button>
+    );
   }
 
   return (
@@ -2169,9 +2193,16 @@ function TerraformCodeBlock({
           <span>main.tf</span>
           <p>Creates the selected IAM role policies with external ID trust.</p>
         </div>
-        <button type="button" onClick={() => void copy()}>
-          {copied ? "Copied" : "Copy"}
-        </button>
+        <div className="accounts-terraform-code__actions">
+          {compact ? (
+            <button type="button" onClick={() => setExpanded(false)}>
+              Collapse
+            </button>
+          ) : null}
+          <button type="button" onClick={() => void copy()}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
       </div>
       <pre>
         <code>{code}</code>
@@ -2181,6 +2212,47 @@ function TerraformCodeBlock({
 }
 
 type DeployTab = "console" | "cli" | "terraform";
+
+const DEPLOY_METHOD_COPY: Record<
+  DeployTab,
+  {
+    reviewSubtitle: string;
+    deployDescription: string;
+    whatHappensNext: readonly [string, string, string];
+    consoleLaunchLabel: string;
+  }
+> = {
+  console: {
+    reviewSubtitle: "These IAM roles will be created by the CloudFormation stack.",
+    deployDescription: "Launch the CloudFormation stack with the selected roles in the AWS Console.",
+    whatHappensNext: [
+      "CloudFormation stack is created in your AWS account",
+      "IAM roles are provisioned with the selected permissions",
+      "Continue with the RoleArn output to connect Veritrail",
+    ],
+    consoleLaunchLabel: "Launch CloudFormation",
+  },
+  cli: {
+    reviewSubtitle: "These IAM roles will be created by the CloudFormation stack deployment.",
+    deployDescription: "Deploy the connector using the AWS CLI and the template parameters below.",
+    whatHappensNext: [
+      "CLI creates or updates the CloudFormation stack",
+      "IAM roles are provisioned with the selected permissions",
+      "Continue with the RoleArn output to connect Veritrail",
+    ],
+    consoleLaunchLabel: "Launch CloudFormation",
+  },
+  terraform: {
+    reviewSubtitle: "These IAM roles will be created when you apply the Terraform configuration.",
+    deployDescription: "Apply the Terraform module to provision IAM roles in your AWS account.",
+    whatHappensNext: [
+      "Terraform creates IAM roles with external ID trust",
+      "Role outputs include the scanner RoleArn for verification",
+      "Continue with the RoleArn output to connect Veritrail",
+    ],
+    consoleLaunchLabel: "Launch CloudFormation",
+  },
+};
 
 const ONBOARDING_FLOW_STEPS = [
   { n: 1, label: "Choose capabilities" },
@@ -2982,16 +3054,21 @@ function OnboardingRoleReview({
 function OnboardingDeployPanel({
   acc,
   connectionOptions,
+  tab,
+  onTabChange,
 }: {
   acc: Account;
   connectionOptions: ConnectionOptions;
+  tab: DeployTab;
+  onTabChange: (tab: DeployTab) => void;
 }) {
-  const [tab, setTab] = useState<DeployTab>("console");
   const [copied, setCopied] = useState(false);
   const [cliExpanded, setCliExpanded] = useState(false);
+  const [terraformExpanded, setTerraformExpanded] = useState(false);
   const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
   const trustPrincipalArn = parseCfnLaunchMeta(acc.cfn_launch_url).trustPrincipalArn;
   const terraformCode = terraformForConnection(acc, connectionOptions);
+  const copy = DEPLOY_METHOD_COPY[tab];
 
   async function copyExternalId() {
     await navigator.clipboard.writeText(acc.external_id);
@@ -2999,10 +3076,29 @@ function OnboardingDeployPanel({
     window.setTimeout(() => setCopied(false), 1600);
   }
 
+  function selectTab(next: DeployTab) {
+    onTabChange(next);
+    setCliExpanded(false);
+    setTerraformExpanded(false);
+  }
+
   return (
     <aside className="accounts-deploy-rail">
-      <h3>Deploy</h3>
-      <p>Launch the CloudFormation stack with the selected roles.</p>
+      <div className="accounts-deploy-rail__intro">
+        <h3>Deploy</h3>
+        <p>{copy.deployDescription}</p>
+      </div>
+
+      <div className="accounts-deploy-rail__method">
+        <p className="accounts-deploy-rail__method-label">Deploy method</p>
+        <div className="accounts-deploy-tabs">
+          {(["console", "cli", "terraform"] as DeployTab[]).map((t) => (
+            <button key={t} type="button" className={tab === t ? "is-active" : ""} onClick={() => selectTab(t)}>
+              {t === "console" ? "Console" : t === "cli" ? "CLI" : "Terraform"}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="accounts-deploy-rail__params">
         <p>Deployment parameters</p>
@@ -3028,51 +3124,29 @@ function OnboardingDeployPanel({
       <div className="accounts-deploy-rail__next">
         <p>What happens next?</p>
         <ul>
-          <li>
-            <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            CloudFormation stack is created
-          </li>
-          <li>
-            <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            IAM roles are provisioned
-          </li>
-          <li>
-            <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            You&apos;ll continue with account verification
-          </li>
+          {copy.whatHappensNext.map((item) => (
+            <li key={item}>
+              <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              {item}
+            </li>
+          ))}
         </ul>
       </div>
 
-      <div className="accounts-deploy-rail__method">
-        <p className="accounts-deploy-rail__method-label">Deploy method</p>
-        <div className="accounts-deploy-tabs">
-          {(["console", "cli", "terraform"] as DeployTab[]).map((t) => (
-            <button key={t} type="button" className={tab === t ? "is-active" : ""} onClick={() => setTab(t)}>
-              {t === "console" ? "Console" : t === "cli" ? "CLI" : "Terraform"}
-            </button>
-          ))}
-        </div>
+      <div className="accounts-deploy-rail__action">
         {tab === "console" ? (
-          <div className="accounts-deploy-rail__section">
-            <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
-              Launch CloudFormation
-              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
-              </svg>
-            </a>
-          </div>
+          <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
+            {copy.consoleLaunchLabel}
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
+            </svg>
+          </a>
         ) : tab === "cli" ? (
-          <div className="accounts-deploy-rail__section">
-            <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
-          </div>
+          <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
         ) : (
-          <div className="accounts-deploy-rail__section">
+          <>
             <div className="accounts-terraform-note">
               <p>Terraform deployment</p>
               <span>
@@ -3081,11 +3155,15 @@ function OnboardingDeployPanel({
                   : "Set veritrail_principal_arn, apply this module, then continue with the scanner role ARN output."}
               </span>
             </div>
-            <TerraformCodeBlock code={terraformCode} compact />
-          </div>
+            <TerraformCodeBlock
+              code={terraformCode}
+              compact
+              expanded={terraformExpanded}
+              onExpandedChange={setTerraformExpanded}
+            />
+          </>
         )}
       </div>
-
     </aside>
   );
 }
@@ -3114,15 +3192,17 @@ function PendingAccountOnboarding({
   initialStep?: number;
 }) {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(initialStep === 3 ? 3 : 2);
+  const [deployTab, setDeployTab] = useState<DeployTab>("console");
   const roleArnValid = isValidIamRoleArn(roleArn);
   const roleArnValidation = roleArnFieldValidation(roleArn, verify);
+  const deployCopy = DEPLOY_METHOD_COPY[deployTab];
 
   useEffect(() => {
     setActiveStep(initialStep === 3 ? 3 : 2);
   }, [initialStep, acc.id]);
 
   return (
-    <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}`}>
+    <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}${activeStep === 2 ? " accounts-connect-shell--deploy-review" : ""}`}>
       <div className="accounts-connect-shell__progress" aria-label="Setup progress">
         <OnboardingFlowProgress
           activeStep={activeStep}
@@ -3139,7 +3219,7 @@ function PendingAccountOnboarding({
             <>
               <ConnectShellHeader
                 title="Review access and deploy"
-                subtitle="These IAM roles will be created by the CloudFormation stack."
+                subtitle={deployCopy.reviewSubtitle}
                 onDismiss={onDismiss}
               />
 
@@ -3147,7 +3227,12 @@ function PendingAccountOnboarding({
                 <main className="accounts-review-stage__main">
                   <OnboardingRoleReview acc={acc} value={connectionOptions} />
                 </main>
-                <OnboardingDeployPanel acc={acc} connectionOptions={connectionOptions} />
+                <OnboardingDeployPanel
+                  acc={acc}
+                  connectionOptions={connectionOptions}
+                  tab={deployTab}
+                  onTabChange={setDeployTab}
+                />
               </div>
 
               <div className="accounts-connect-shell__footer">

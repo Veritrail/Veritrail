@@ -1141,6 +1141,36 @@ button.accounts-flow-step:hover {
   overflow-y: auto;
 }
 
+.accounts-connect-shell--deploy-review {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.accounts-connect-shell--deploy-review .accounts-connect-shell__layout,
+.accounts-connect-shell--deploy-review .accounts-connect-shell__main {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.accounts-connect-shell--deploy-review .accounts-review-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  align-items: start;
+}
+
+.accounts-connect-shell--deploy-review .accounts-connect-shell__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex-shrink: 0;
+  margin-top: 0;
+  box-shadow: 0 -1px 0 #f4f4f5;
+}
+
 @media (min-width: 1100px) {
   .accounts-connect-shell__close {
     right: 2rem;
@@ -2065,6 +2095,9 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-deploy-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   border: 1px solid #e4e4e7;
   border-radius: 0.75rem;
   background: #fff;
@@ -2072,6 +2105,7 @@ button.accounts-flow-step:hover {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
+.accounts-deploy-rail__intro h3,
 .accounts-deploy-rail h3 {
   margin: 0;
   font-size: 1.125rem;
@@ -2079,6 +2113,7 @@ button.accounts-flow-step:hover {
   color: #18181b;
 }
 
+.accounts-deploy-rail__intro > p,
 .accounts-deploy-rail > p {
   margin: 0.35rem 0 0;
   font-size: 0.8125rem;
@@ -2089,7 +2124,7 @@ button.accounts-flow-step:hover {
 .accounts-deploy-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 1.25rem -1.25rem 1rem;
+  margin: 0.75rem 0 0;
   border-bottom: 1px solid #e4e4e7;
 }
 
@@ -2123,6 +2158,42 @@ button.accounts-flow-step:hover {
   align-content: start;
   gap: 0.8rem;
   min-height: 4rem;
+}
+
+.accounts-deploy-rail__action {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  border-top: 1px solid #f4f4f5;
+  padding-top: 1rem;
+  min-height: 0;
+}
+
+.accounts-deploy-rail__expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.55rem;
+  background: #fafafa;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #3f3f46;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.accounts-deploy-rail__expand:hover {
+  border-color: #d4d4d8;
+  background: #f4f4f5;
+  color: #18181b;
+}
+
+.accounts-deploy-rail__expand svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: #71717a;
 }
 
 .accounts-deploy-rail__field {
@@ -2275,6 +2346,28 @@ button.accounts-flow-step:hover {
   padding: 0.7rem 0.8rem;
 }
 
+.accounts-terraform-code__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.accounts-terraform-code__actions button {
+  flex-shrink: 0;
+  border: 1px solid #3f3f46;
+  border-radius: 0.45rem;
+  background: #27272a;
+  color: #e4e4e7;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.6875rem;
+  font-weight: 750;
+}
+
+.accounts-terraform-code__actions button:hover {
+  background: #3f3f46;
+}
+
 .accounts-terraform-code__head span {
   display: block;
   color: #e4e4e7;
@@ -2290,23 +2383,8 @@ button.accounts-flow-step:hover {
   line-height: 1.35;
 }
 
-.accounts-terraform-code__head button {
-  flex-shrink: 0;
-  border: 1px solid #3f3f46;
-  border-radius: 0.45rem;
-  background: #27272a;
-  color: #e4e4e7;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.6875rem;
-  font-weight: 750;
-}
-
-.accounts-terraform-code__head button:hover {
-  background: #3f3f46;
-}
-
 .accounts-terraform-code pre {
-  max-height: 24rem;
+  max-height: min(14rem, 32vh);
   margin: 0;
   overflow: auto;
   padding: 0.9rem;
@@ -2316,7 +2394,7 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-terraform-code--compact pre {
-  max-height: 16rem;
+  max-height: min(12rem, 28vh);
 }
 
 .accounts-terraform-code code {
@@ -2327,9 +2405,9 @@ button.accounts-flow-step:hover {
 .accounts-deploy-rail__params {
   display: grid;
   gap: 0.65rem;
-  margin-top: 1.4rem;
+  margin-top: 1rem;
   border-top: 1px solid #e4e4e7;
-  padding-top: 1.25rem;
+  padding-top: 1rem;
 }
 
 .accounts-deploy-rail__params label {
@@ -2385,9 +2463,7 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-deploy-rail__method {
-  margin-top: 1.35rem;
-  border-top: 1px solid #e4e4e7;
-  padding-top: 1.2rem;
+  margin-top: 1rem;
 }
 
 .accounts-deploy-rail__method-label {
@@ -2402,9 +2478,9 @@ button.accounts-flow-step:hover {
 .accounts-deploy-rail__next {
   display: grid;
   gap: 0.75rem;
-  margin-top: 1.35rem;
+  margin-top: 1rem;
   border-top: 1px solid #e4e4e7;
-  padding-top: 1.2rem;
+  padding-top: 1rem;
 }
 
 .accounts-deploy-rail__next p {
