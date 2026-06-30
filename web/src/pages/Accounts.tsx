@@ -6605,7 +6605,7 @@ function AccountPremiumCard({
 type CloudProviderChoice = "aws" | "gcp" | "azure";
 
 const ADD_ACCOUNT_PROVIDERS: { id: CloudProviderChoice; name: string; description: string }[] = [
-  { id: "aws", name: "Amazon Web Services", description: "IAM role via CloudFormation" },
+  { id: "aws", name: "Amazon Web Services", description: "Role-based access via CloudFormation" },
   { id: "gcp", name: "Google Cloud", description: "Service account connector" },
   { id: "azure", name: "Microsoft Azure", description: "Client credentials connector" },
 ];
@@ -6649,7 +6649,7 @@ function AddAccountProviderPicker({
               Choose cloud provider
             </h2>
             <p className="accounts-provider-modal__subtitle">
-              Select where you want to connect an account. All providers appear on this page once connected.
+              Choose a provider to start the connection flow. You can add more cloud accounts later.
             </p>
           </div>
           <button
@@ -6676,9 +6676,17 @@ function AddAccountProviderPicker({
               </span>
               <span className="accounts-provider-modal__name">{provider.name}</span>
               <span className="accounts-provider-modal__desc">{provider.description}</span>
+              <span className="accounts-provider-modal__arrow" aria-hidden>
+                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </span>
             </button>
           ))}
         </div>
+        <p className="accounts-provider-modal__footer">
+          Connections are read-only unless explicitly configured otherwise.
+        </p>
       </div>
     </div>,
     document.body,
