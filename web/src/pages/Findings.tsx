@@ -12,7 +12,6 @@ import {
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { api, token } from "../api";
-import { findingSummarySchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
@@ -29,7 +28,7 @@ import { VirtualizedFindingsGroups } from "../components/VirtualizedFindingsGrou
 import { CHECK_FRAMEWORK_MAP } from "../data/checkFrameworkMap";
 import type { FrameworkId } from "../data/frameworks";
 import { resourceDisplayName as shortArn } from "../lib/timelineDisplay";
-import { assetTypeLabel } from "../lib/findingDisplay";
+import { assetTypeLabel, findingScopeProvider } from "../lib/findingDisplay";
 import { vcsResourceWebUrl } from "../lib/findingDisplay";
 import { useRecheckNotifications, type RecheckResponse } from "../context/RecheckNotificationsContext";
 import { CloudProviderMark } from "../components/FindingResourceIcon";
@@ -57,6 +56,23 @@ type Finding = {
   exception_approved_by?: string | null;
   exception_expires_at?: string | null;
 };
+
+function findingBelongsToAccount(finding: Finding, account: { id: string; account_id?: string | null; provider?: string | null } | undefined): boolean {
+  if (!account) return true;
+  const accountProvider = (account.provider ?? "aws").toLowerCase();
+  const findingProvider = findingScopeProvider(finding);
+  if (findingProvider !== accountProvider) return false;
+
+  const accountIds = new Set([account.id, account.account_id].filter((v): v is string => !!v));
+  if (accountIds.size === 0) return true;
+  return !finding.account_id || accountIds.has(finding.account_id);
+}
+
+type SourceProviderScope = "github" | "gitlab";
+
+function parseSourceProviderScope(value: string | null): SourceProviderScope | null {
+  return value === "github" || value === "gitlab" ? value : null;
+}
 
 type Account = {
   id: string;
@@ -589,6 +605,7 @@ export default function Findings() {
   const [selectedFrameworks, setSelectedFrameworks] = useState<FrameworkId[]>(() =>
     parseFrameworkParam(searchParams.get("framework")),
   );
+  const providerScope = parseSourceProviderScope(searchParams.get("provider"));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get("account") ?? "");
@@ -603,7 +620,9 @@ export default function Findings() {
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
   const effectiveAccountId =
-    (selectedAccountId && connectedAccounts.some((a) => a.id === selectedAccountId)
+    providerScope
+      ? ""
+      : (selectedAccountId && connectedAccounts.some((a) => a.id === selectedAccountId)
       ? selectedAccountId
       : connectedAccounts[0]?.id) || "";
   const activeAccount = connectedAccounts.find((a) => a.id === effectiveAccountId);
@@ -612,27 +631,14 @@ export default function Findings() {
   const awsScanAccountId =
     activeAccount?.provider === "aws" || !activeAccount?.provider ? effectiveAccountId || undefined : undefined;
 
-  const summaryQuery = useQuery({
-    queryKey: ["findings-summary", status, effectiveAccountId, scopeParams],
-    queryFn: () => {
-      const qs = new URLSearchParams();
-      if (scopeParams.account_id) qs.set("account_id", scopeParams.account_id);
-      if (scopeParams.gcp_project_id) qs.set("gcp_project_id", scopeParams.gcp_project_id);
-      if (scopeParams.azure_subscription_id) qs.set("azure_subscription_id", scopeParams.azure_subscription_id);
-      return api(`/v1/findings/summary?${qs.toString()}`, { schema: findingSummarySchema });
-    },
-    enabled: !!effectiveAccountId || connectedAccounts.length > 0,
-  });
-
   const findingsQuery = useQuery({
-    queryKey: ["findings", status, effectiveAccountId, scopeParams, severityFilter],
+    queryKey: ["findings", status, effectiveAccountId, scopeParams],
     queryFn: () =>
       fetchAllFindings<Finding>({
         status,
         ...scopeParams,
-        severity: severityFilter !== "all" ? severityFilter : undefined,
       }),
-    enabled: !!effectiveAccountId || connectedAccounts.length > 0,
+    enabled: !!providerScope || !!effectiveAccountId || connectedAccounts.length > 0,
     refetchInterval: pendingRecheck ? 3000 : false,
   });
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
@@ -677,6 +683,13 @@ export default function Findings() {
   });
 
   const findings = findingsQuery.data?.items ?? [];
+  const scopedFindings = useMemo(
+    () =>
+      providerScope
+        ? findings.filter((finding) => findingScopeProvider(finding) === providerScope)
+        : findings.filter((finding) => findingBelongsToAccount(finding, activeAccount)),
+    [activeAccount, findings, providerScope],
+  );
   const hasActiveFilters =
     searchTags.length > 0 ||
     !!searchText.trim() ||
@@ -687,7 +700,7 @@ export default function Findings() {
   // Keep drawer + resource list in sync when findings refetch (e.g. after Resources refresh).
   useEffect(() => {
     if (!selected) return;
-    const byId = new Map(findings.map((f) => [f.id, f]));
+    const byId = new Map(scopedFindings.map((f) => [f.id, f]));
 
     const nextGroup =
       selectedGroup.length > 0
@@ -724,14 +737,14 @@ export default function Findings() {
 
     if (groupChanged) setSelectedGroup(nextGroup);
     if (nextSelected !== selected) setSelected(nextSelected);
-  }, [findings, selected, selectedGroup]);
+  }, [scopedFindings, selected, selectedGroup]);
   const verifying = !!(selected && pendingRecheck?.findingId === selected.id);
   const verified = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "verified");
   const verifyUnchanged = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "unchanged");
 
   const benchmarkScopedFindings = useMemo(
-    () => findings.filter((f) => matchesBenchmarkFilter(f, selectedFrameworks, checkFrameworksApi)),
-    [findings, selectedFrameworks, checkFrameworksApi],
+    () => scopedFindings.filter((f) => matchesBenchmarkFilter(f, selectedFrameworks, checkFrameworksApi)),
+    [scopedFindings, selectedFrameworks, checkFrameworksApi],
   );
 
   const rows = useMemo(() => {
@@ -810,16 +823,6 @@ export default function Findings() {
 
   const severityCounts = useMemo(() => {
     const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-    if (selectedFrameworks.length === 0 && summaryQuery.data && status === "open") {
-      const bySev = summaryQuery.data.by_severity;
-      counts.all = Object.values(bySev).reduce((a, b) => a + b, 0);
-      counts.critical = bySev.critical ?? 0;
-      counts.high = bySev.high ?? 0;
-      counts.medium = bySev.medium ?? 0;
-      counts.low = bySev.low ?? 0;
-      counts.info = bySev.info ?? 0;
-      return counts;
-    }
     for (const f of benchmarkScopedFindings) {
       counts.all += 1;
       if (f.severity === "critical") counts.critical += 1;
@@ -829,7 +832,7 @@ export default function Findings() {
       else if (f.severity === "info") counts.info += 1;
     }
     return counts;
-  }, [benchmarkScopedFindings, selectedFrameworks.length, summaryQuery.data, status]);
+  }, [benchmarkScopedFindings]);
 
   function openReview(items: Finding[], focus?: Finding, tab: FindingDrawerTab = "resources") {
     if (items.length === 0) return;
@@ -876,6 +879,7 @@ export default function Findings() {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
+        next.delete("provider");
         if (id) next.set("account", id);
         else next.delete("account");
         return next;
@@ -921,7 +925,12 @@ export default function Findings() {
   const downloadCsv = useCallback(async () => {
     const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
     const t = token();
-    const res = await fetch(`${BASE}/v1/exports/findings.csv?status=${status}`, {
+    const qs = new URLSearchParams({ status });
+    if (scopeParams.account_id) qs.set("account_id", scopeParams.account_id);
+    if (scopeParams.gcp_project_id) qs.set("gcp_project_id", scopeParams.gcp_project_id);
+    if (scopeParams.azure_subscription_id) qs.set("azure_subscription_id", scopeParams.azure_subscription_id);
+    if (providerScope) qs.set("provider", providerScope);
+    const res = await fetch(`${BASE}/v1/exports/findings.csv?${qs.toString()}`, {
       headers: t ? { Authorization: `Bearer ${t}` } : {},
     });
     if (!res.ok) return;
@@ -932,13 +941,13 @@ export default function Findings() {
     a.download = "veritrail-findings.csv";
     a.click();
     URL.revokeObjectURL(url);
-  }, [status]);
+  }, [providerScope, scopeParams.account_id, scopeParams.azure_subscription_id, scopeParams.gcp_project_id, status]);
 
   if (accountsReady && !accountsLoading && connectedAccounts.length === 0) return <ConnectAwsEmptyState />;
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-        {connectedAccounts.length > 0 && (
+        {connectedAccounts.length > 0 && !providerScope && (
           <HeaderSlot>
             <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
           </HeaderSlot>

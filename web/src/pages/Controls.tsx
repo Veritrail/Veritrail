@@ -1344,7 +1344,54 @@ function findingsHrefForChecks(
     (id) => (findingCountByCheck.get(id) ?? 0) > 0,
   );
   if (active.length === 0) return null;
-  return `/findings?checks=${encodeURIComponent(active.join(","))}`;
+  const params = new URLSearchParams({ checks: active.join(",") });
+  const providerScope = providerScopeForChecks(active);
+  if (providerScope) params.set("provider", providerScope);
+  return `/findings?${params.toString()}`;
+}
+
+function providerScopeForChecks(checkIds: string[]): "github" | "gitlab" | null {
+  const providers = new Set(
+    checkIds
+      .map((id) => {
+        if (id.startsWith("github.")) return "github";
+        if (id.startsWith("gitlab.")) return "gitlab";
+        return null;
+      })
+      .filter((provider): provider is "github" | "gitlab" => provider !== null),
+  );
+  return providers.size === 1 ? [...providers][0] : null;
+}
+
+function remediationActionForChecks(
+  checkIds: string[],
+  findingCountByCheck: Map<string, number>,
+  opts: { hasAbsenceGaps: boolean; regularFailing: number },
+): { title: string; detail: string } {
+  const active = checkIds.filter((id) => (findingCountByCheck.get(id) ?? 0) > 0);
+  const providerScope = providerScopeForChecks(active);
+  if (providerScope === "github") {
+    return {
+      title: "Fix in GitHub",
+      detail: "Review the affected repositories and update branch protection, reviews, or CI/CD safeguards.",
+    };
+  }
+  if (providerScope === "gitlab") {
+    return {
+      title: "Fix in GitLab",
+      detail: "Review the affected projects and update protected branches, merge approvals, or CI/CD safeguards.",
+    };
+  }
+  if (active.some((id) => id.startsWith("github.") || id.startsWith("gitlab."))) {
+    return {
+      title: "Fix in source control",
+      detail: "Review the affected repositories and update the missing change-management safeguards.",
+    };
+  }
+  return {
+    title: opts.hasAbsenceGaps && opts.regularFailing === 0 ? "Enable in AWS" : "Fix in AWS",
+    detail: "Address the failing checks directly in your AWS environment.",
+  };
 }
 
 function sortedTopFailingChecks(
@@ -2548,6 +2595,10 @@ function CompositeCategoryDetailPanel({
   const crossAccountEligible =
     openCrossAccountCoverableChecks(ctrl.check_ids, findingCountByCheck).length > 0;
   const regularFailing = Math.max(0, failingCheckCount - absenceChecks.length);
+  const primaryAction = remediationActionForChecks(ctrl.check_ids, findingCountByCheck, {
+    hasAbsenceGaps,
+    regularFailing,
+  });
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
   const showFixColumn = !isExternalOnly;
@@ -2721,12 +2772,8 @@ function CompositeCategoryDetailPanel({
                   >
                     <span className="compliance-category-detail__step-index">1</span>
                     <span className="compliance-category-detail__resolve-copy">
-                      <strong>
-                        {hasAbsenceGaps && regularFailing === 0
-                          ? "Enable in AWS"
-                          : "Fix in AWS"}
-                      </strong>
-                      <span>Address the failing checks directly in your AWS environment.</span>
+                      <strong>{primaryAction.title}</strong>
+                      <span>{primaryAction.detail}</span>
                       {regularFailing > 0 ? (
                         <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--warn">
                           {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
