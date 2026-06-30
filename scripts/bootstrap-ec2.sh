@@ -91,11 +91,11 @@ compose_iap_args() {
 compose() {
   local -a iap_args=()
   while IFS= read -r -d '' arg; do iap_args+=("$arg"); done < <(compose_iap_args)
-  (cd "$REPO_DIR" && export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
 }
 
 compose_no_profile() {
-  (cd "$REPO_DIR" && export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
 }
 
 install_system_packages() {
