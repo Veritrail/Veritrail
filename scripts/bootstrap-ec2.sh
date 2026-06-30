@@ -9,6 +9,7 @@ API_DOMAIN="${API_DOMAIN:-api.veritrail.io}"
 EMAIL="${EMAIL:-}"
 FORCE_CERT=0
 DEPLOY_ONLY=0
+HOT_RELOAD="${HOT_RELOAD:-0}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -35,6 +36,7 @@ Environment variables:
 Options:
   --deploy-only  Skip Docker/TLS/cron install; sync env + migrate + compose up (for redeploys)
   --force-cert   Re-obtain certificates even if valid certs already exist
+  --hot-reload   Run API/web/worker from bind-mounted source with reload watchers
   -h, --help     Show this help
 
 Prerequisites:
@@ -60,6 +62,7 @@ parse_args() {
     case "$1" in
       --deploy-only) DEPLOY_ONLY=1; shift ;;
       --force-cert) FORCE_CERT=1; shift ;;
+      --hot-reload) HOT_RELOAD=1; shift ;;
       -h|--help) usage; exit 0 ;;
       *) die "Unknown argument: $1 (see --help)" ;;
     esac
@@ -88,14 +91,24 @@ compose_iap_args() {
   fi
 }
 
+compose_hot_args() {
+  if [[ "$HOT_RELOAD" == "1" || "$HOT_RELOAD" == "true" || "$HOT_RELOAD" == "yes" ]]; then
+    printf '%s\0%s\0' "-f" "$REPO_DIR/compose.prod-hot.yml"
+  fi
+}
+
 compose() {
   local -a iap_args=()
+  local -a hot_args=()
+  while IFS= read -r -d '' arg; do hot_args+=("$arg"); done < <(compose_hot_args)
   while IFS= read -r -d '' arg; do iap_args+=("$arg"); done < <(compose_iap_args)
-  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${hot_args[@]}" "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
 }
 
 compose_no_profile() {
-  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
+  local -a hot_args=()
+  while IFS= read -r -d '' arg; do hot_args+=("$arg"); done < <(compose_hot_args)
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${hot_args[@]}" --env-file "$ENV_FILE" "$@")
 }
 
 install_system_packages() {
@@ -533,6 +546,9 @@ wait_for_redis() {
 }
 
 deploy_compose() {
+  if [[ "$HOT_RELOAD" == "1" || "$HOT_RELOAD" == "true" || "$HOT_RELOAD" == "yes" ]]; then
+    warn "Hot reload mode enabled — this uses bind-mounted source and dev servers behind prod nginx."
+  fi
   log "Starting db and redis..."
   compose_no_profile up -d db redis
   wait_for_db
@@ -611,14 +627,19 @@ health_check() {
 
 print_checklist() {
   local iap_suffix=""
+  local hot_suffix=""
+  if [[ "$HOT_RELOAD" == "1" || "$HOT_RELOAD" == "true" || "$HOT_RELOAD" == "yes" ]]; then
+    hot_suffix=" -f compose.prod-hot.yml"
+  fi
   if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
     iap_suffix=" -f compose.iap.yml --profile iap"
   fi
-  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
+  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml${hot_suffix}${iap_suffix} --env-file $ENV_FILE --profile prod"
   cat <<EOF
 
 ================================================================================
 Veritrail production bootstrap complete.
+$(if [[ "$HOT_RELOAD" == "1" || "$HOT_RELOAD" == "true" || "$HOT_RELOAD" == "yes" ]]; then printf '\nHOT RELOAD MODE IS ENABLED: source files are bind-mounted into running app containers.\n'; fi)
 
 Post-deploy checklist:
   1. Open https://${DOMAIN} and confirm the UI loads.
