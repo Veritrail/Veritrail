@@ -6854,7 +6854,7 @@ function AddAccountProviderPicker({
         <hr className="accounts-provider-modal__divider" aria-hidden />
         <p className="accounts-provider-modal__footnote">
           <IconShield className="accounts-provider-modal__footnote-icon" aria-hidden />
-          Read-only access. We never make changes to your cloud environment.
+          Read-only by default. Veritrail won't act on your cloud unless you explicitly allow it.
         </p>
       </div>
     </div>,
