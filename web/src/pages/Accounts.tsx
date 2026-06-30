@@ -50,6 +50,7 @@ import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useTriggeredCloudScan, type ScanRunLatest } from "../hooks/useTriggeredCloudScan";
+import { IconShield } from "../components/IntegrationsUi";
 import { isAccountConnected } from "../lib/accountConnection";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import {
@@ -6750,10 +6751,30 @@ function AccountPremiumCard({
 
 type CloudProviderChoice = "aws" | "gcp" | "azure";
 
-const ADD_ACCOUNT_PROVIDERS: { id: CloudProviderChoice; name: string; ariaLabel: string }[] = [
-  { id: "aws", name: "AWS", ariaLabel: "Amazon Web Services" },
-  { id: "gcp", name: "Google Cloud", ariaLabel: "Google Cloud" },
-  { id: "azure", name: "Microsoft Azure", ariaLabel: "Microsoft Azure" },
+const ADD_ACCOUNT_PROVIDERS: {
+  id: CloudProviderChoice;
+  name: string;
+  description: string;
+  ariaLabel: string;
+}[] = [
+  {
+    id: "aws",
+    name: "Amazon Web Services",
+    description: "IAM role via CloudFormation",
+    ariaLabel: "Amazon Web Services",
+  },
+  {
+    id: "gcp",
+    name: "Google Cloud",
+    description: "Service account connector",
+    ariaLabel: "Google Cloud",
+  },
+  {
+    id: "azure",
+    name: "Microsoft Azure",
+    description: "Client credentials connector",
+    ariaLabel: "Microsoft Azure",
+  },
 ];
 
 const ADD_ACCOUNT_PROVIDER_ICONS: Record<CloudProviderChoice, string> = {
@@ -6801,7 +6822,7 @@ function AddAccountProviderPicker({
               Choose cloud provider
             </h2>
             <p className="accounts-provider-modal__subtitle">
-              Choose a provider to start the connection flow. You can add more cloud accounts later.
+              Connect an account to start the connection flow.
             </p>
           </div>
           <button
@@ -6820,7 +6841,7 @@ function AddAccountProviderPicker({
             <button
               key={provider.id}
               type="button"
-              className="accounts-provider-modal__card"
+              className={`accounts-provider-modal__card accounts-provider-modal__card--${provider.id}`}
               aria-label={`Connect ${provider.ariaLabel}`}
               onClick={() => onSelect(provider.id)}
             >
@@ -6831,9 +6852,14 @@ function AddAccountProviderPicker({
                 <img src={ADD_ACCOUNT_PROVIDER_ICONS[provider.id]} alt="" decoding="async" />
               </span>
               <span className="accounts-provider-modal__name">{provider.name}</span>
+              <span className="accounts-provider-modal__description">{provider.description}</span>
             </button>
           ))}
         </div>
+        <p className="accounts-provider-modal__footnote">
+          <IconShield className="accounts-provider-modal__footnote-icon" aria-hidden />
+          Read-only access. We never make changes to your cloud environment.
+        </p>
       </div>
     </div>,
     document.body,

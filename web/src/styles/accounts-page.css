@@ -3419,11 +3419,11 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-provider-modal__panel {
-  width: min(35rem, 100%);
+  width: min(42rem, 100%);
   border: 1px solid #d4d4d8;
   border-radius: 1.25rem;
   background: #ffffff;
-  padding: 1.5rem 1.625rem 1.375rem;
+  padding: 1.5rem 1.625rem 1.25rem;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.08),
     0 1px 2px rgba(15, 23, 42, 0.08),
@@ -3481,34 +3481,88 @@ button.accounts-flow-step:hover {
 .accounts-provider-modal__grid {
   display: grid;
   gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-@media (min-width: 640px) {
+@media (max-width: 639px) {
   .accounts-provider-modal__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
 .accounts-provider-modal__card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.5rem;
-  border: 1px solid #dfe6ef;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.625rem;
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
   border-radius: 0.9375rem;
   background: #ffffff;
-  padding: 0.875rem 1rem;
-  text-align: left;
+  padding: 1.25rem 0.875rem 1.375rem;
+  text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.accounts-provider-modal__card::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  pointer-events: none;
+  transition: height 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+
+.accounts-provider-modal__card--aws::after {
+  background: linear-gradient(90deg, #fcd34d, #f59e0b 45%, #ea580c 55%, #fcd34d);
+  box-shadow:
+    0 -2px 14px rgba(245, 158, 11, 0.42),
+    0 0 20px rgba(234, 88, 12, 0.22);
+}
+
+.accounts-provider-modal__card--gcp::after {
+  background: linear-gradient(90deg, #93c5fd, #3b82f6 45%, #2563eb 55%, #93c5fd);
+  box-shadow:
+    0 -2px 14px rgba(59, 130, 246, 0.42),
+    0 0 20px rgba(37, 99, 235, 0.22);
+}
+
+.accounts-provider-modal__card--azure::after {
+  background: linear-gradient(90deg, #7dd3fc, #0ea5e9 45%, #0284c7 55%, #7dd3fc);
+  box-shadow:
+    0 -2px 14px rgba(14, 165, 233, 0.42),
+    0 0 20px rgba(2, 132, 199, 0.22);
 }
 
 .accounts-provider-modal__card:hover {
-  border-color: rgba(37, 99, 235, 0.35);
+  border-color: #d4d4d8;
+  transform: translateY(-1px);
+}
+
+.accounts-provider-modal__card--aws:hover::after {
+  height: 4px;
   box-shadow:
-    0 1px 2px rgba(37, 99, 235, 0.06),
-    0 8px 20px -10px rgba(37, 99, 235, 0.18);
+    0 -3px 18px rgba(245, 158, 11, 0.55),
+    0 0 28px rgba(234, 88, 12, 0.32);
+}
+
+.accounts-provider-modal__card--gcp:hover::after {
+  height: 4px;
+  box-shadow:
+    0 -3px 18px rgba(59, 130, 246, 0.55),
+    0 0 28px rgba(37, 99, 235, 0.32);
+}
+
+.accounts-provider-modal__card--azure:hover::after {
+  height: 4px;
+  box-shadow:
+    0 -3px 18px rgba(14, 165, 233, 0.55),
+    0 0 28px rgba(2, 132, 199, 0.32);
 }
 
 .accounts-provider-modal__icon {
@@ -3516,6 +3570,7 @@ button.accounts-flow-step:hover {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  min-height: 2.5rem;
   line-height: 0;
 }
 
@@ -3525,27 +3580,50 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-provider-modal__icon--aws img {
-  width: 2rem;
+  width: 2.25rem;
   height: auto;
 }
 
 .accounts-provider-modal__icon--gcp img {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 .accounts-provider-modal__icon--azure img {
-  width: 1.625rem;
-  height: 1.625rem;
+  width: 1.875rem;
+  height: 1.875rem;
 }
 
 .accounts-provider-modal__name {
   font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: 1.25;
   color: #18181b;
-  white-space: nowrap;
+}
+
+.accounts-provider-modal__description {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #71717a;
+}
+
+.accounts-provider-modal__footnote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  margin: 1rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #a1a1aa;
+  text-align: center;
+}
+
+.accounts-provider-modal__footnote-icon {
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .accounts-toolbar__icon-btn {
