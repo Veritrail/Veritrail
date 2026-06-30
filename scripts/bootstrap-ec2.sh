@@ -455,8 +455,10 @@ ensure_env_prod() {
     iap_client="$(get_env_value IAP_GOOGLE_CLIENT_ID "$env_path")"
     iap_secret_val="$(get_env_value IAP_GOOGLE_CLIENT_SECRET "$env_path")"
     if [[ -z "$iap_client" || -z "$iap_secret_val" ]]; then
-      warn "IAP enabled but IAP_GOOGLE_CLIENT_ID/SECRET missing — set them in $ENV_FILE"
+      warn "IAP_ENABLED=true but IAP_GOOGLE_CLIENT_ID or IAP_GOOGLE_CLIENT_SECRET is empty"
+      warn "Disabling IAP so nginx and the app can start — set credentials and IAP_ENABLED=true to re-enable"
       warn "Google OAuth redirect URI: https://${DOMAIN}/oauth2/callback"
+      set_env_value "IAP_ENABLED" "false" "$env_path"
     fi
   fi
 }
@@ -540,6 +542,32 @@ deploy_compose() {
 
   log "Building and starting production stack..."
   compose up -d --build
+
+  log "Ensuring nginx is up (must run even if oauth2-proxy is unhealthy)..."
+  compose up -d nginx --force-recreate
+  verify_nginx_running || true
+}
+
+verify_nginx_running() {
+  local cid status
+  cid="$(compose ps -q nginx 2>/dev/null | head -1 || true)"
+  if [[ -z "$cid" ]]; then
+    warn "nginx container not found after deploy"
+    warn "Inspect logs: compose logs nginx"
+    return 1
+  fi
+
+  status="$(docker_cmd inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo unknown)"
+  if [[ "$status" != "running" ]]; then
+    warn "nginx container status is '$status' (expected: running)"
+    warn "Inspect logs: compose logs nginx"
+    warn "Last 20 lines of nginx logs:"
+    compose logs --tail=20 nginx 2>&1 || true
+    return 1
+  fi
+
+  log "nginx container is running"
+  return 0
 }
 
 health_check() {

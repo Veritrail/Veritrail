@@ -135,7 +135,10 @@ Prod stack reset complete.
 
 Next steps:
   1. Ensure $ENV_FILE has COMPOSE_PROJECT_NAME=veritrail (bootstrap sets this).
-  2. Redeploy:
+  2. If oauth2-proxy was crash-looping (Restarting), IAP creds are likely missing:
+       set IAP_GOOGLE_CLIENT_ID and IAP_GOOGLE_CLIENT_SECRET in $ENV_FILE, or
+       set IAP_ENABLED=false to bring nginx + app up without the edge gate.
+  3. Redeploy:
        cd $REPO_DIR && git pull --ff-only
        ./scripts/launch-prod.sh --deploy-only
      — or —

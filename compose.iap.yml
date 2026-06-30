@@ -1,7 +1,7 @@
 # IAP edge gate — use with --profile iap when IAP_ENABLED=true in .env
 #   docker compose -f compose.yml -f compose.prod.yml -f compose.iap.yml --profile prod --profile iap up -d
+#
+# nginx must NOT depend_on oauth2-proxy: if oauth2 crashes (missing IAP creds),
+# nginx still serves /healthz and /login; auth_request fails gracefully on gated routes.
 
-services:
-  nginx:
-    depends_on:
-      - oauth2-proxy
+services: {}
