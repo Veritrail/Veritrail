@@ -1,5 +1,3 @@
-import { AWS_LOGO_LIGHT } from "./awsBrand";
-
 export type IntegrationBrandId =
   | "aws"
   | "github"
@@ -27,7 +25,7 @@ type BrandAsset = {
 
 /** Official brand marks / favicons for integration UI. */
 export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
-  aws: { src: "/aws-account-icon.png", fallback: AWS_LOGO_LIGHT },
+  aws: { src: "/aws-logo-light.svg", fallback: "/aws-account-icon.png" },
   github: { src: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" },
   gitlab: { src: "/integrations/gitlab.png", tileScale: 1.32, tilePadding: 4 },
   "google-workspace": { src: "https://www.google.com/favicon.ico" },
@@ -38,7 +36,7 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   jira: { src: "https://jira.atlassian.com/favicon.ico" },
   "azure-devops": { src: "/integrations/azure-devops.png" },
   datadog: { src: "https://www.datadoghq.com/favicon.ico" },
-  gcp: { src: "https://www.gstatic.com/images/branding/product/2x/google_cloud_64dp.png" },
+  gcp: { src: "/integrations/gcp.svg" },
   azure: { src: "https://azure.microsoft.com/favicon.ico" },
   wiz: { src: "https://www.wiz.io/favicon.ico" },
   tenable: { src: "https://www.tenable.com/favicon.ico" },

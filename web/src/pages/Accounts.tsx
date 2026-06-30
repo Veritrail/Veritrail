@@ -6831,7 +6831,7 @@ function AddAccountProviderPicker({
                   className={`accounts-provider-modal__icon accounts-provider-modal__icon--${provider.id}`}
                   aria-hidden
                 >
-                  <IntegrationBrandIcon brand={provider.id} size={26} variant="plain" />
+                  <IntegrationBrandIcon brand={provider.id} size={32} variant="plain" />
                 </span>
                 <span className="accounts-provider-modal__copy">
                   <span className="accounts-provider-modal__name">{provider.name}</span>
