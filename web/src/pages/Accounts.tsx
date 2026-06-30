@@ -43,7 +43,6 @@ import { ProductShell } from "../components/ProductShell";
 import { MetricHelpTip } from "../components/MetricHelpTip";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { ProviderMark, type CloudProvider } from "../components/AccountSelect";
-import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { useAccountsPlanUsage } from "../hooks/useAccountsPlanUsage";
@@ -6757,6 +6756,12 @@ const ADD_ACCOUNT_PROVIDERS: { id: CloudProviderChoice; name: string; ariaLabel:
   { id: "azure", name: "Microsoft Azure", ariaLabel: "Microsoft Azure" },
 ];
 
+const ADD_ACCOUNT_PROVIDER_ICONS: Record<CloudProviderChoice, string> = {
+  aws: "/integrations/aws.png",
+  gcp: "/integrations/gcp.png",
+  azure: "/integrations/azure.png",
+};
+
 function AddAccountProviderPicker({
   open,
   onClose,
@@ -6823,7 +6828,7 @@ function AddAccountProviderPicker({
                 className={`accounts-provider-modal__icon accounts-provider-modal__icon--${provider.id}`}
                 aria-hidden
               >
-                <IntegrationBrandIcon brand={provider.id} size={32} variant="plain" />
+                <img src={ADD_ACCOUNT_PROVIDER_ICONS[provider.id]} alt="" decoding="async" />
               </span>
               <span className="accounts-provider-modal__name">{provider.name}</span>
             </button>
