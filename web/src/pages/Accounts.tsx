@@ -3224,6 +3224,7 @@ function OnboardingDeployPanel({
   const [cliExpanded, setCliExpanded] = useState(true);
   const [terraformExpanded, setTerraformExpanded] = useState(true);
   const [cliCopied, setCliCopied] = useState(false);
+  const [terraformCopied, setTerraformCopied] = useState(false);
   const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
   const terraformCode = terraformForConnection(acc, connectionOptions);
   const copy = DEPLOY_METHOD_COPY[tab];
@@ -3232,6 +3233,12 @@ function OnboardingDeployPanel({
     await navigator.clipboard.writeText(cliCommand);
     setCliCopied(true);
     window.setTimeout(() => setCliCopied(false), 2000);
+  }
+
+  async function copyTerraformModule() {
+    await navigator.clipboard.writeText(terraformCode);
+    setTerraformCopied(true);
+    window.setTimeout(() => setTerraformCopied(false), 2000);
   }
 
   function selectTab(next: DeployTab) {
@@ -3312,14 +3319,23 @@ function OnboardingDeployPanel({
               />
             </>
           ) : (
-            <TerraformCodeBlock
-              code={terraformCode}
-              compact={column}
-              expanded={column ? true : terraformExpanded}
-              onExpandedChange={setTerraformExpanded}
-              showDownload={column}
-              copyLabel={column ? "Copy module" : "Copy"}
-            />
+            <>
+              <button
+                type="button"
+                onClick={() => void copyTerraformModule()}
+                className={`accounts-deploy-rail__primary${terraformCopied ? " is-copied" : ""}`}
+              >
+                {terraformCopied ? "Copied" : "Copy Terraform module"}
+              </button>
+              <TerraformCodeBlock
+                code={terraformCode}
+                compact={column}
+                expanded={column ? true : terraformExpanded}
+                onExpandedChange={setTerraformExpanded}
+                showDownload={column}
+                copyLabel={column ? "Copy module" : "Copy"}
+              />
+            </>
           )}
         </div>
       </div>
