@@ -12,8 +12,6 @@ import { AuditorManagement } from "../components/AuditorManagement";
 import { TrustCenterSettings } from "../components/TrustCenterSettings";
 import { AccessCard } from "../components/accessUi";
 import { WorkspaceActivity } from "../components/WorkspaceActivity";
-import { EvidenceSourceRegistrySettings } from "../components/EvidenceSourceRegistrySettings";
-import { CustomEvidenceCategoriesSettings } from "../components/CustomEvidenceCategoriesSettings";
 import { AuditorScopedExportPanel } from "../components/AuditorScopedExportPanel";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
@@ -24,7 +22,7 @@ import "../styles/workspace-page.css";
 type ScanInterval = "daily" | "weekly" | "custom" | "manual";
 type FreqMode = "daily" | "weekly" | "custom";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type TabId = "overview" | "access" | "sharing" | "scanning" | "notifications" | "evidence" | "activity";
+type TabId = "overview" | "access" | "sharing" | "scanning" | "notifications" | "activity";
 export type Tone = "ok" | "warn" | "danger" | "idle" | "info";
 
 type OptionalCheck = {
@@ -85,7 +83,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "sharing", label: "Sharing" },
   { id: "scanning", label: "Scanning" },
   { id: "notifications", label: "Notifications" },
-  { id: "evidence", label: "Evidence" },
   { id: "activity", label: "Activity" },
 ];
 
@@ -1505,30 +1502,6 @@ export default function Workspace() {
                 </section>
               </div>
             </section>
-          </WorkspaceDetailSection>
-        )}
-
-        {tab === "evidence" && (
-          <WorkspaceDetailSection
-            icon={<Icon d={ICONS.evidence} />}
-            eyebrow="Evidence"
-            title="External evidence sources"
-            description="Systems your team uses when Veritrail cannot verify coverage through AWS alone. Included in audit packages."
-          >
-            <EvidenceSourceRegistrySettings
-              canEdit={canEditWorkspace}
-              onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })}
-            />
-            <div className="mt-8 border-t border-zinc-100 pt-8">
-              <h3 className="text-sm font-semibold text-zinc-900">Custom evidence categories</h3>
-              <p className="mt-1 text-sm text-zinc-500">Org-specific categories for intake and registry (max 5).</p>
-              <div className="mt-4">
-                <CustomEvidenceCategoriesSettings
-                  canEdit={canEditWorkspace}
-                  onSaved={() => qc.invalidateQueries({ queryKey: ["settings"] })}
-                />
-              </div>
-            </div>
           </WorkspaceDetailSection>
         )}
 

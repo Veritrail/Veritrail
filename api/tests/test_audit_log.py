@@ -6,6 +6,7 @@ from app.models import User
 from app.models.org import Org
 from app.models.org_team import OrgActivityLog
 from app.services.org_activity import (
+    count_org_activity,
     list_org_activity,
     log_org_activity,
     log_org_activity_for_actor,
@@ -101,6 +102,20 @@ def test_actor_email_survives_user_deletion(db_session):
     rows = list_org_activity(db_session, org.id)
     assert len(rows) == 1
     assert rows[0]["actor_email"] == email  # from detail fallback, not the (now null) FK
+
+
+def test_list_supports_offset(db_session):
+    org, user = _org_and_admin(db_session)
+    for i in range(5):
+        log_org_activity_for_actor(db_session, actor=user, action=f"action.{i}")
+    db_session.flush()
+
+    assert count_org_activity(db_session, org.id) == 5
+    page1 = list_org_activity(db_session, org.id, limit=2, offset=0)
+    page2 = list_org_activity(db_session, org.id, limit=2, offset=2)
+    assert len(page1) == 2
+    assert len(page2) == 2
+    assert {r["action"] for r in page1}.isdisjoint({r["action"] for r in page2})
 
 
 def test_log_org_activity_returns_entry_without_actor(db_session):

@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -74,11 +74,24 @@ def log_org_activity_for_actor(
     )
 
 
+def count_org_activity(db: Session, org_id: uuid.UUID | str) -> int:
+    oid = org_id if isinstance(org_id, uuid.UUID) else uuid.UUID(str(org_id))
+    return int(
+        db.scalar(
+            select(func.count())
+            .select_from(OrgActivityLog)
+            .where(OrgActivityLog.org_id == oid)
+        )
+        or 0
+    )
+
+
 def list_org_activity(
     db: Session,
     org_id: uuid.UUID | str,
     *,
     limit: int = 50,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Recent activity for an org, newest first, joined to the actor's email."""
     oid = org_id if isinstance(org_id, uuid.UUID) else uuid.UUID(str(org_id))
@@ -87,6 +100,7 @@ def list_org_activity(
         .outerjoin(User, User.id == OrgActivityLog.actor_user_id)
         .where(OrgActivityLog.org_id == oid)
         .order_by(OrgActivityLog.created_at.desc(), OrgActivityLog.id.desc())
+        .offset(max(offset, 0))
         .limit(min(max(limit, 1), 200))
     )
     out: list[dict[str, Any]] = []

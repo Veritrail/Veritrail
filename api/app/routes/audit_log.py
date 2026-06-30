@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.rbac import require_min_role
 from app.models import User
-from app.services.org_activity import list_org_activity
+from app.services.org_activity import count_org_activity, list_org_activity
 
 router = APIRouter()
 
@@ -24,11 +24,24 @@ class AuditLogEntry(BaseModel):
     created_at: str | None = None
 
 
-@router.get("", response_model=list[AuditLogEntry])
+class AuditLogPage(BaseModel):
+    items: list[AuditLogEntry]
+    total: int
+    offset: int
+    limit: int
+
+
+@router.get("", response_model=AuditLogPage)
 def list_audit_log(
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=25, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     user: User = Depends(require_min_role("admin")),
     db: Session = Depends(get_db),
 ):
     """Recent privileged actions for the caller's org (admin+ only)."""
-    return list_org_activity(db, user.org_id, limit=limit)
+    return AuditLogPage(
+        items=list_org_activity(db, user.org_id, limit=limit, offset=offset),
+        total=count_org_activity(db, user.org_id),
+        offset=offset,
+        limit=limit,
+    )

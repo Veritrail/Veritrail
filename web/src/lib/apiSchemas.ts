@@ -299,7 +299,15 @@ export const auditLogEntrySchema = z.object({
 
 export const auditLogSchema = z.array(auditLogEntrySchema);
 
+export const auditLogPageSchema = z.object({
+  items: z.array(auditLogEntrySchema),
+  total: z.number(),
+  offset: z.number(),
+  limit: z.number(),
+});
+
 export type AuditLogEntry = z.infer<typeof auditLogEntrySchema>;
+export type AuditLogPage = z.infer<typeof auditLogPageSchema>;
 
 export const scanRunSchema = z.object({
   id: z.string(),

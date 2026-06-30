@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { api } from "../api";
-import { auditLogSchema, type AuditLogEntry } from "../lib/apiSchemas";
+import { auditLogPageSchema, type AuditLogEntry } from "../lib/apiSchemas";
+
+const PAGE_SIZE = 25;
 
 /** Human label per audit action. Falls back to a de-slugged version. */
 const ACTION_LABELS: Record<string, string> = {
@@ -64,9 +67,13 @@ function secondaryLine(e: AuditLogEntry): string {
 }
 
 export function WorkspaceActivity() {
+  const [page, setPage] = useState(1);
+  const offset = (page - 1) * PAGE_SIZE;
+
   const q = useQuery({
-    queryKey: ["audit-log"],
-    queryFn: () => api("/v1/audit-log?limit=50", { schema: auditLogSchema }),
+    queryKey: ["audit-log", page],
+    queryFn: () =>
+      api(`/v1/audit-log?limit=${PAGE_SIZE}&offset=${offset}`, { schema: auditLogPageSchema }),
     staleTime: 30_000,
   });
 
@@ -80,29 +87,59 @@ export function WorkspaceActivity() {
       </p>
     );
   }
-  const entries = q.data ?? [];
-  if (entries.length === 0) {
+
+  const entries = q.data?.items ?? [];
+  const total = q.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  if (total === 0) {
     return <p className="text-sm text-zinc-500">No privileged activity recorded yet.</p>;
   }
 
   return (
-    <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
-      {entries.map((e) => {
-        const sub = secondaryLine(e);
-        return (
-          <li key={e.id} className="flex items-start gap-3 py-3.5 pl-4 pr-6">
-            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneFor(e.action)}`} aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-zinc-800">{actionLabel(e.action)}</p>
-              <p className="mt-0.5 truncate text-xs text-zinc-500">
-                {e.actor_email ?? "System"}
-                {sub ? ` · ${sub}` : ""}
-              </p>
-            </div>
-            <span className="shrink-0 whitespace-nowrap pl-4 text-xs text-zinc-400">{relativeTime(e.created_at)}</span>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="space-y-4">
+      <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
+        {entries.map((e) => {
+          const sub = secondaryLine(e);
+          return (
+            <li key={e.id} className="flex items-start gap-3 py-3.5 pl-4 pr-6">
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneFor(e.action)}`} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-zinc-800">{actionLabel(e.action)}</p>
+                <p className="mt-0.5 truncate text-xs text-zinc-500">
+                  {e.actor_email ?? "System"}
+                  {sub ? ` · ${sub}` : ""}
+                </p>
+              </div>
+              <span className="shrink-0 whitespace-nowrap pl-4 text-xs text-zinc-400">{relativeTime(e.created_at)}</span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-zinc-500">
+          Page {page} of {totalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
