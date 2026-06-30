@@ -3602,10 +3602,10 @@ button.accounts-flow-step:hover {
   color: #18181b;
 }
 
-.accounts-provider-modal__description {
-  font-size: 0.75rem;
-  line-height: 1.35;
-  color: #71717a;
+.accounts-provider-modal__divider {
+  margin: 1rem 0 0;
+  border: 0;
+  border-top: 1px solid #e4e4e7;
 }
 
 .accounts-provider-modal__footnote {
@@ -3613,7 +3613,7 @@ button.accounts-flow-step:hover {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  margin: 1rem 0 0;
+  margin: 0.875rem 0 0;
   font-size: 0.75rem;
   line-height: 1.4;
   color: #a1a1aa;

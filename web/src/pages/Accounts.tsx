@@ -6754,25 +6754,21 @@ type CloudProviderChoice = "aws" | "gcp" | "azure";
 const ADD_ACCOUNT_PROVIDERS: {
   id: CloudProviderChoice;
   name: string;
-  description: string;
   ariaLabel: string;
 }[] = [
   {
     id: "aws",
     name: "Amazon Web Services",
-    description: "IAM role via CloudFormation",
     ariaLabel: "Amazon Web Services",
   },
   {
     id: "gcp",
     name: "Google Cloud",
-    description: "Service account connector",
     ariaLabel: "Google Cloud",
   },
   {
     id: "azure",
     name: "Microsoft Azure",
-    description: "Client credentials connector",
     ariaLabel: "Microsoft Azure",
   },
 ];
@@ -6852,10 +6848,10 @@ function AddAccountProviderPicker({
                 <img src={ADD_ACCOUNT_PROVIDER_ICONS[provider.id]} alt="" decoding="async" />
               </span>
               <span className="accounts-provider-modal__name">{provider.name}</span>
-              <span className="accounts-provider-modal__description">{provider.description}</span>
             </button>
           ))}
         </div>
+        <hr className="accounts-provider-modal__divider" aria-hidden />
         <p className="accounts-provider-modal__footnote">
           <IconShield className="accounts-provider-modal__footnote-icon" aria-hidden />
           Read-only access. We never make changes to your cloud environment.
