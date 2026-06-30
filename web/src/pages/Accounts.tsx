@@ -45,6 +45,7 @@ import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { ProviderMark, type CloudProvider } from "../components/AccountSelect";
 import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
+import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import { useAccountsPlanUsage } from "../hooks/useAccountsPlanUsage";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
@@ -4850,6 +4851,15 @@ function VerifiedBadgeIcon() {
   );
 }
 
+function AccountRowProviderMark({ provider }: { provider: CloudProvider }) {
+  return (
+    <ProviderMark
+      provider={provider}
+      className={`accounts-account-cell__provider accounts-account-cell__provider--${provider}`}
+    />
+  );
+}
+
 function formatSparklinePointLabel(point: TimestampedValue): string {
   const date = new Date(point.timestamp);
   const dateLabel = Number.isNaN(date.getTime())
@@ -5542,7 +5552,7 @@ function AccountSplitDetailPane({
         <div className="accounts-detail-pane__header">
           <div className="accounts-detail-pane__identity">
             <div className="accounts-account-cell__logo">
-              <ProviderMark provider={provider} className="accounts-account-cell__provider" />
+              <AccountRowProviderMark provider={provider} />
             </div>
             <div className="min-w-0">
               <h2 className="accounts-detail-pane__title">{displayName}</h2>
@@ -5590,7 +5600,7 @@ function AccountSplitDetailPane({
       <div className="accounts-detail-pane__header">
         <div className="accounts-detail-pane__identity">
           <div className="accounts-account-cell__logo">
-            <ProviderMark provider={provider} className="accounts-account-cell__provider" />
+            <AccountRowProviderMark provider={provider} />
           </div>
           <div className="min-w-0">
             <div className="accounts-account-cell__name-row">
@@ -6226,10 +6236,7 @@ function IntegrationCloudAccountCard({
       >
         <div className="accounts-account-cell">
           <div className="accounts-account-cell__logo">
-            <ProviderMark
-              provider={cloud.provider as CloudProvider}
-              className="accounts-account-cell__provider"
-            />
+            <AccountRowProviderMark provider={cloud.provider as CloudProvider} />
           </div>
           <div className="min-w-0">
             <div className="accounts-account-cell__name-row">
@@ -6552,7 +6559,7 @@ function AccountPremiumCard({
         <div className="accounts-list-item__main" onClick={handleRowClick}>
           <div className="accounts-account-cell">
             <div className="accounts-account-cell__logo">
-              <ProviderMark provider="aws" className="accounts-account-cell__provider" />
+              <AccountRowProviderMark provider="aws" />
             </div>
             <div className="min-w-0">
               <div className="accounts-account-cell__name-row">
@@ -6773,12 +6780,6 @@ const ADD_ACCOUNT_PROVIDERS: {
   },
 ];
 
-const ADD_ACCOUNT_PROVIDER_ICONS: Record<CloudProviderChoice, string> = {
-  aws: "/integrations/aws.png",
-  gcp: "/integrations/gcp.png",
-  azure: "/integrations/azure.png",
-};
-
 function AddAccountProviderPicker({
   open,
   onClose,
@@ -6845,7 +6846,7 @@ function AddAccountProviderPicker({
                 className={`accounts-provider-modal__icon accounts-provider-modal__icon--${provider.id}`}
                 aria-hidden
               >
-                <img src={ADD_ACCOUNT_PROVIDER_ICONS[provider.id]} alt="" decoding="async" />
+                <img src={INTEGRATION_BRAND[provider.id].src} alt="" decoding="async" />
               </span>
               <span className="accounts-provider-modal__name">{provider.name}</span>
             </button>

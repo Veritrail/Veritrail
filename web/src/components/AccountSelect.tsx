@@ -16,11 +16,14 @@ const CONTEXT_PILL =
 
 function ProviderBrandImg({ provider, className }: { provider: CloudProvider; className?: string }) {
   const brand = INTEGRATION_BRAND[provider];
+  const imgClass = className
+    ? `${className} shrink-0 object-contain`
+    : "h-[1.125rem] w-[2.25rem] shrink-0 object-contain object-left";
   return (
     <img
       src={brand.src}
       alt=""
-      className={`${className ?? "h-[1.125rem] w-[2.25rem]"} shrink-0 object-contain object-left`}
+      className={imgClass}
       aria-hidden
       decoding="async"
       onError={

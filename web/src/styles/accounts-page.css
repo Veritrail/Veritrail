@@ -472,6 +472,23 @@
   object-position: center;
 }
 
+/* Match add-account picker proportions — centered PNG marks, no edge clipping. */
+.accounts-account-cell__logo .accounts-account-cell__provider--aws {
+  width: 90%;
+  height: auto;
+  max-height: 100%;
+}
+
+.accounts-account-cell__logo .accounts-account-cell__provider--gcp {
+  width: 84%;
+  height: 84%;
+}
+
+.accounts-account-cell__logo .accounts-account-cell__provider--azure {
+  width: 79%;
+  height: 79%;
+}
+
 .accounts-account-cell__name-row {
   display: flex;
   min-width: 0;
