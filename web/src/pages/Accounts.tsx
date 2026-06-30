@@ -2255,6 +2255,12 @@ function TerraformCodeBlock({
 
 type DeployTab = "console" | "cli" | "terraform";
 
+const DEPLOY_METHOD_ICON: Record<DeployTab, string> = {
+  console: "/deploy-methods/console.png",
+  cli: "/deploy-methods/cli.png",
+  terraform: "/deploy-methods/terraform.png",
+};
+
 const DEPLOY_METHOD_COPY: Record<
   DeployTab,
   {
@@ -3113,12 +3119,15 @@ function OnboardingDeployPanel({
   connectionOptions,
   tab,
   onTabChange,
+  layout = "rail",
 }: {
   acc: Account;
   connectionOptions: ConnectionOptions;
   tab: DeployTab;
   onTabChange: (tab: DeployTab) => void;
+  layout?: "rail" | "column";
 }) {
+  const column = layout === "column";
   const [copied, setCopied] = useState(false);
   const [cliExpanded, setCliExpanded] = useState(false);
   const [terraformExpanded, setTerraformExpanded] = useState(false);
@@ -3140,17 +3149,20 @@ function OnboardingDeployPanel({
   }
 
   return (
-    <aside className="accounts-deploy-rail">
-      <div className="accounts-deploy-rail__intro">
-        <h3>Deploy</h3>
-        <p>{copy.deployDescription}</p>
-      </div>
+    <aside className={`accounts-deploy-rail${column ? " accounts-deploy-rail--column" : ""}`}>
+      {column ? null : (
+        <div className="accounts-deploy-rail__intro">
+          <h3>Deploy</h3>
+          <p>{copy.deployDescription}</p>
+        </div>
+      )}
 
       <div className="accounts-deploy-rail__method">
         <p className="accounts-deploy-rail__method-label">Deploy method</p>
         <div className="accounts-deploy-tabs">
           {(["console", "cli", "terraform"] as DeployTab[]).map((t) => (
             <button key={t} type="button" className={tab === t ? "is-active" : ""} onClick={() => selectTab(t)}>
+              <img src={DEPLOY_METHOD_ICON[t]} alt="" aria-hidden decoding="async" />
               {t === "console" ? "Console" : t === "cli" ? "CLI" : "Terraform"}
             </button>
           ))}
@@ -3178,29 +3190,41 @@ function OnboardingDeployPanel({
         </label>
       </div>
 
-      <div className="accounts-deploy-rail__next">
-        <p>What happens next?</p>
-        <ul>
-          {copy.whatHappensNext.map((item) => (
-            <li key={item}>
-              <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              {item}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {column ? null : (
+        <div className="accounts-deploy-rail__next">
+          <p>What happens next?</p>
+          <ul>
+            {copy.whatHappensNext.map((item) => (
+              <li key={item}>
+                <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="accounts-deploy-rail__action">
         <div className="accounts-deploy-rail__tab-body">
           {tab === "console" ? (
-            <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
-              {copy.consoleLaunchLabel}
-              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
-              </svg>
-            </a>
+            <>
+              <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
+                {copy.consoleLaunchLabel}
+                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
+                </svg>
+              </a>
+              {column ? (
+                <p className="accounts-deploy-rail__lock-note">
+                  <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6.75a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6.75a2.25 2.25 0 0 1 2.25-2.25Z" />
+                  </svg>
+                  This action opens the AWS CloudFormation console in a new tab.
+                </p>
+              ) : null}
+            </>
           ) : tab === "cli" ? (
             <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
           ) : (
@@ -3226,6 +3250,30 @@ function OnboardingDeployPanel({
     </aside>
   );
 }
+
+/** "We will validate" checklist shown in the Test connection column (step 3). */
+const CONNECT_VALIDATE_ITEMS: readonly { title: string; desc: string; d: string }[] = [
+  {
+    title: "Trust relationship",
+    desc: "Verify the RoleArn can be assumed by Veritrail.",
+    d: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  },
+  {
+    title: "Permissions",
+    desc: "Confirm required permissions are available.",
+    d: "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 19.5a7.5 7.5 0 0 1 15 0v.75H4.5v-.75Z",
+  },
+  {
+    title: "Access",
+    desc: "Test connectivity to AWS APIs.",
+    d: "M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z",
+  },
+  {
+    title: "Readiness",
+    desc: "Confirm the account is ready for monitoring.",
+    d: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z",
+  },
+];
 
 function PendingAccountOnboarding({
   acc,
@@ -3334,14 +3382,32 @@ function PendingAccountOnboarding({
                 className="accounts-connect-shell__header--verify"
               />
 
-              <div className="accounts-deploy-stage">
-                <OnboardingDeployPanel
-                  acc={acc}
-                  connectionOptions={connectionOptions}
-                  tab={deployTab}
-                  onTabChange={setDeployTab}
-                />
-                <aside className="accounts-deploy-stage__confirm">
+              <div className="accounts-connect-stage">
+                <section className="accounts-connect-col">
+                  <header className="accounts-connect-col__head">
+                    <span className="accounts-connect-col__num">1</span>
+                    <h3 className="accounts-connect-col__title">Deploy stack</h3>
+                  </header>
+                  <p className="accounts-connect-col__lede">
+                    Launch the CloudFormation stack with the selected roles in the AWS Console.
+                  </p>
+                  <OnboardingDeployPanel
+                    acc={acc}
+                    connectionOptions={connectionOptions}
+                    tab={deployTab}
+                    onTabChange={setDeployTab}
+                    layout="column"
+                  />
+                </section>
+
+                <section className="accounts-connect-col">
+                  <header className="accounts-connect-col__head">
+                    <span className="accounts-connect-col__num">2</span>
+                    <h3 className="accounts-connect-col__title">Copy output</h3>
+                  </header>
+                  <p className="accounts-connect-col__lede">
+                    After the stack is created, copy the RoleArn output value and paste it when ready.
+                  </p>
                   <div className="accounts-output-panel">
                     <CopyInputField
                       label="CloudFormation RoleArn output"
@@ -3351,23 +3417,60 @@ function PendingAccountOnboarding({
                       onChange={setRoleArn}
                       validation={roleArnValidation}
                     />
-                    <p className="accounts-output-panel__note" role="note">
-                      <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
-                        />
+                    <div className="accounts-trust-callout" role="note">
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
                       </svg>
-                      This RoleArn is used to establish a secure trust relationship with Veritrail.
-                    </p>
+                      <div>
+                        <p className="accounts-trust-callout__title">Secure trust relationship</p>
+                        <p className="accounts-trust-callout__body">
+                          This RoleArn is used to establish a secure trust relationship with Veritrail. It grants
+                          least-privilege access defined in your stack.
+                        </p>
+                      </div>
+                    </div>
                     {verify.error ? (
                       <div className="accounts-output-panel__error" role="alert">
                         {formatApiError(verify.error)}
                       </div>
                     ) : null}
                   </div>
-                </aside>
+                </section>
+
+                <section className="accounts-connect-col">
+                  <header className="accounts-connect-col__head">
+                    <span className="accounts-connect-col__num">3</span>
+                    <h3 className="accounts-connect-col__title">Test connection</h3>
+                  </header>
+                  <p className="accounts-connect-col__lede">
+                    Veritrail will validate the configuration and confirm connectivity to your AWS account.
+                  </p>
+                  <p className="accounts-validate__label">We will validate</p>
+                  <ul className="accounts-validate">
+                    {CONNECT_VALIDATE_ITEMS.map((item) => (
+                      <li key={item.title} className="accounts-validate__item">
+                        <span className="accounts-validate__icon" aria-hidden>
+                          <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d={item.d} />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className="accounts-validate__title">{item.title}</p>
+                          <p className="accounts-validate__desc">{item.desc}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </div>
+
+              <div className="accounts-connect-assurance">
+                <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                </svg>
+                <div>
+                  <p className="accounts-connect-assurance__title">Veritrail never stores your credentials.</p>
+                </div>
               </div>
 
               <div className="accounts-connect-shell__footer accounts-connect-shell__footer--verify">

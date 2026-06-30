@@ -1251,49 +1251,234 @@ button.accounts-flow-step:hover {
   box-shadow: 0 -1px 0 #f4f4f5;
 }
 
-/* Step 3 — deploy + confirm-output two-column stage. */
-.accounts-deploy-stage {
+/* Step 3 — three-column guided connect stage (Deploy / Copy / Test). */
+.accounts-connect-stage {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.5rem;
+  gap: 1.25rem;
   padding: 0.75rem 2rem 1rem;
 }
 
-.accounts-connect-shell--deploy-review .accounts-deploy-stage {
+.accounts-connect-shell--deploy-review .accounts-connect-stage {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  align-items: start;
+  align-items: stretch;
 }
 
 @media (min-width: 1100px) {
-  .accounts-deploy-stage {
-    grid-template-columns: minmax(0, 32rem) minmax(0, 21rem);
-    justify-content: center;
-    gap: 2.5rem;
-    padding: 0.75rem 2.5rem 1rem;
+  .accounts-connect-stage {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    padding: 0.5rem 2.5rem 1rem;
   }
 }
 
-/* Deploy card spans the full stage column here; let the stage scroll, not the card. */
-.accounts-deploy-stage .accounts-deploy-rail {
+.accounts-connect-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.9rem;
+  background: #fff;
+  padding: 1.15rem 1.2rem 1.3rem;
+}
+
+.accounts-connect-col__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.accounts-connect-col__num {
+  display: inline-flex;
+  height: 1.45rem;
+  width: 1.45rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f0fdf9;
+  box-shadow: inset 0 0 0 1px #ccfbef;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.accounts-connect-col__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.accounts-connect-col__lede {
+  margin: 0.55rem 0 0.95rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #71717a;
+}
+
+/* Deploy panel sits inside a column card — drop its own card chrome. */
+.accounts-connect-shell--deploy-review .accounts-deploy-rail--column,
+.accounts-deploy-rail--column {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
   max-height: none;
   overflow: visible;
 }
 
-.accounts-deploy-stage__confirm {
-  min-width: 0;
+.accounts-deploy-rail__lock-note {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.7rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #71717a;
+}
+
+.accounts-deploy-rail__lock-note svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+  color: #a1a1aa;
+}
+
+.accounts-connect-stage .accounts-output-panel {
+  max-width: none;
+  gap: 0.95rem;
+}
+
+/* Secure trust callout (Copy output column). */
+.accounts-trust-callout {
+  display: flex;
+  gap: 0.65rem;
+  border: 1px solid #dbeafe;
+  border-radius: 0.65rem;
+  background: #eff6ff;
+  padding: 0.85rem 0.95rem;
+}
+
+.accounts-trust-callout svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #3b82f6;
+}
+
+.accounts-trust-callout__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: #1e3a8a;
+}
+
+.accounts-trust-callout__body {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #1e40af;
+}
+
+/* "We will validate" checklist (Test connection column). */
+.accounts-validate__label {
+  margin: 0 0 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.accounts-validate {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accounts-validate__item {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.accounts-validate__icon {
+  display: inline-flex;
+  height: 1.85rem;
+  width: 1.85rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f0fdf9;
+  color: #0f766e;
+}
+
+.accounts-validate__icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.accounts-validate__title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: #18181b;
+}
+
+.accounts-validate__desc {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #71717a;
+}
+
+/* Credential-reassurance banner under the stage. */
+.accounts-connect-assurance {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-shrink: 0;
+  margin: 0 2rem 0.4rem;
+  border: 1px solid #d1fae5;
+  border-radius: 0.8rem;
+  background: #f0fdf9;
+  padding: 0.95rem 1.1rem;
 }
 
 @media (min-width: 1100px) {
-  .accounts-deploy-stage__confirm {
-    position: sticky;
-    top: 0;
+  .accounts-connect-assurance {
+    margin: 0 2.5rem 0.4rem;
   }
 }
 
-.accounts-deploy-stage .accounts-output-panel {
-  max-width: none;
+.accounts-connect-assurance > svg {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+  color: #0f766e;
+}
+
+.accounts-connect-assurance__title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: #064e3b;
+}
+
+.accounts-connect-assurance__body {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #047857;
 }
 
 @media (min-width: 1100px) {
@@ -2271,12 +2456,28 @@ button.accounts-flow-step:hover {
 
 .accounts-deploy-tabs button {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   border: 0;
   background: transparent;
   padding: 0.8rem 0.5rem;
   font-size: 0.8125rem;
   font-weight: 700;
   color: #71717a;
+}
+
+.accounts-deploy-tabs button img {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.accounts-deploy-tabs button:not(.is-active) img {
+  filter: grayscale(1);
+  opacity: 0.65;
 }
 
 .accounts-deploy-tabs button.is-active {
