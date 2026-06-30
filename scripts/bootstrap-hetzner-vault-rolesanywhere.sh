@@ -3,19 +3,12 @@ set -euo pipefail
 
 # Bootstrap Veritrail on a non-AWS VPS with HashiCorp Vault PKI + AWS IAM Roles Anywhere.
 #
-# This installs Docker, Docker Compose, certbot, Vault OSS, AWS CLI v2, and the
-# IAM Roles Anywhere credential helper. It creates a local Vault PKI CA, issues
-# a client certificate, creates IAM Roles Anywhere resources, writes an AWS
-# credential_process profile, and updates the Veritrail env file with
-# AWS_PROFILE + TRUST_PRINCIPAL_ARN.
+# Installs Docker, Docker Compose, certbot, Vault OSS, AWS CLI v2, and the AWS
+# IAM Roles Anywhere credential helper. Then it configures local Vault PKI,
+# creates/reuses IAM Roles Anywhere resources, writes an AWS credential_process
+# profile, and updates the Veritrail env file with AWS_PROFILE + TRUST_PRINCIPAL_ARN.
 #
 # No HashiCorp Cloud/signup is required.
-#
-# Full setup:
-#   sudo AWS_REGION=eu-west-1 ./scripts/bootstrap-hetzner-vault-rolesanywhere.sh
-#
-# Local host tooling + Vault/cert/helper only:
-#   sudo ./scripts/bootstrap-hetzner-vault-rolesanywhere.sh --skip-aws
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -25,7 +18,11 @@ AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 AWS_PROFILE_NAME="${AWS_PROFILE_NAME:-veritrail-ra}"
 ENV_FILE="${ENV_FILE:-.env}"
 
+# Vault CLI defaults to https://127.0.0.1:8200 when VAULT_ADDR is unset. This
+# bootstrap uses a local HTTP-only listener, so force and export it everywhere.
 VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}"
+export VAULT_ADDR
+
 VAULT_PKI_PATH="${VAULT_PKI_PATH:-pki}"
 VAULT_PKI_ROLE="${VAULT_PKI_ROLE:-veritrail-hetzner}"
 CA_CN="${CA_CN:-Veritrail Hetzner Roles Anywhere Root CA}"
@@ -58,17 +55,10 @@ usage() {
 Usage: sudo [ENV=VALUE ...] $0 [OPTIONS]
 
 Options:
-  --skip-aws       Install/configure host tooling + Vault + client cert only. Do not create AWS resources.
-  --skip-env       Do not update Veritrail ENV_FILE with AWS_PROFILE/TRUST_PRINCIPAL_ARN.
+  --skip-aws       Install/configure host tooling + Vault + client cert only.
+  --skip-env       Do not update Veritrail ENV_FILE.
   --force-cert     Re-issue the VPS client certificate even if one already exists.
   -h, --help       Show this help.
-
-Installs:
-  - Docker Engine + Docker Compose plugin
-  - certbot
-  - Vault OSS
-  - AWS CLI v2
-  - AWS IAM Roles Anywhere credential helper
 
 Important env vars:
   AWS_REGION                 Default: eu-west-1
@@ -79,7 +69,8 @@ Important env vars:
   ASSUMABLE_ROLE_RESOURCE    Default: *  Tighten in production.
   CERT_TTL                   Default: 720h
 
-The AWS creation step requires temporary bootstrap AWS credentials allowed to create IAM role/policy and IAM Roles Anywhere trust-anchor/profile resources.
+The AWS step requires temporary bootstrap AWS credentials that can create IAM
+roles/policies and IAM Roles Anywhere trust-anchor/profile resources.
 EOF
 }
 
@@ -95,9 +86,7 @@ parse_args() {
   done
 }
 
-require_root() {
-  [[ "$(id -u)" -eq 0 ]] || die "Run with sudo/root"
-}
+require_root() { [[ "$(id -u)" -eq 0 ]] || die "Run with sudo/root"; }
 
 install_base_packages() {
   command -v apt-get >/dev/null 2>&1 || die "Ubuntu/Debian with apt-get is required"
@@ -115,10 +104,7 @@ install_docker() {
     curl -fsSL https://get.docker.com | sh
   fi
 
-  if ! docker compose version >/dev/null 2>&1; then
-    die "Docker installed but compose plugin is missing"
-  fi
-
+  docker compose version >/dev/null 2>&1 || die "Docker installed but compose plugin is missing"
   systemctl enable docker >/dev/null 2>&1 || true
   systemctl start docker >/dev/null 2>&1 || true
 
@@ -134,7 +120,6 @@ install_certbot() {
     log "certbot already installed"
     return 0
   fi
-
   log "Installing certbot"
   apt-get update -qq
   apt-get install -y -qq certbot
@@ -221,42 +206,72 @@ EOF
   systemctl enable vault >/dev/null
   systemctl restart vault
 
+  log "Waiting for Vault listener at $VAULT_ADDR"
   for _ in {1..30}; do
-    if VAULT_ADDR="$VAULT_ADDR" vault status >/dev/null 2>&1 || VAULT_ADDR="$VAULT_ADDR" vault status 2>&1 | grep -q 'Initialized'; then
+    if curl -sS --max-time 2 "$VAULT_ADDR/v1/sys/health" >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
   done
-  die "Vault did not start on $VAULT_ADDR"
+
+  journalctl -u vault -n 60 --no-pager >&2 || true
+  die "Vault listener did not become reachable at $VAULT_ADDR"
+}
+
+vault_status_json() {
+  vault status -format=json 2>/dev/null || true
 }
 
 vault_initialized() {
-  VAULT_ADDR="$VAULT_ADDR" vault status -format=json 2>/dev/null | jq -e '.initialized == true' >/dev/null
+  local status
+  status="$(vault_status_json)"
+  [[ -n "$status" ]] && jq -e '.initialized == true' >/dev/null <<<"$status"
 }
 
 vault_sealed() {
-  VAULT_ADDR="$VAULT_ADDR" vault status -format=json 2>/dev/null | jq -e '.sealed == true' >/dev/null
+  local status
+  status="$(vault_status_json)"
+  [[ -n "$status" ]] && jq -e '.sealed == true' >/dev/null <<<"$status"
+}
+
+vault_init_file_valid() {
+  [[ -s "$VAULT_INIT_FILE" ]] || return 1
+  jq -e '.unseal_keys_b64[0] and .root_token' "$VAULT_INIT_FILE" >/dev/null 2>&1
 }
 
 init_and_unseal_vault() {
+  log "Ensuring Vault is initialized and unsealed"
+
   if ! vault_initialized; then
+    if [[ -e "$VAULT_INIT_FILE" ]] && ! vault_init_file_valid; then
+      warn "Removing invalid Vault init file: $VAULT_INIT_FILE"
+      rm -f "$VAULT_INIT_FILE"
+    fi
+
     log "Initializing Vault"
-    VAULT_ADDR="$VAULT_ADDR" vault operator init -key-shares=1 -key-threshold=1 -format=json >"$VAULT_INIT_FILE"
+    vault operator init -key-shares=1 -key-threshold=1 -format=json >"$VAULT_INIT_FILE"
     chmod 0600 "$VAULT_INIT_FILE"
     warn "Vault recovery material written to $VAULT_INIT_FILE. Back it up securely."
   fi
 
-  [[ -f "$VAULT_INIT_FILE" ]] || die "Vault initialized but $VAULT_INIT_FILE is missing. Unseal manually and export VAULT_TOKEN."
+  vault_init_file_valid || die "Missing/invalid $VAULT_INIT_FILE. Cannot unseal Vault automatically."
+
   local unseal_key root_token
   unseal_key="$(jq -r '.unseal_keys_b64[0]' "$VAULT_INIT_FILE")"
   root_token="$(jq -r '.root_token' "$VAULT_INIT_FILE")"
 
   if vault_sealed; then
     log "Unsealing Vault"
-    VAULT_ADDR="$VAULT_ADDR" vault operator unseal "$unseal_key" >/dev/null
+    vault operator unseal "$unseal_key" >/dev/null
   fi
-  export VAULT_ADDR
+
   export VAULT_TOKEN="$root_token"
+
+  if vault_sealed; then
+    die "Vault is still sealed after unseal attempt"
+  fi
+
+  log "Vault is initialized and unsealed"
 }
 
 configure_pki() {
