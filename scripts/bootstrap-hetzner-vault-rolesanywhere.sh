@@ -3,16 +3,18 @@ set -euo pipefail
 
 # Bootstrap Veritrail on a non-AWS VPS with HashiCorp Vault PKI + AWS IAM Roles Anywhere.
 #
-# This installs Vault OSS, creates a local PKI CA, issues a client certificate,
-# creates IAM Roles Anywhere resources, writes an AWS credential_process profile,
-# and updates the Veritrail env file with AWS_PROFILE + TRUST_PRINCIPAL_ARN.
+# This installs Docker, Docker Compose, certbot, Vault OSS, AWS CLI v2, and the
+# IAM Roles Anywhere credential helper. It creates a local Vault PKI CA, issues
+# a client certificate, creates IAM Roles Anywhere resources, writes an AWS
+# credential_process profile, and updates the Veritrail env file with
+# AWS_PROFILE + TRUST_PRINCIPAL_ARN.
 #
 # No HashiCorp Cloud/signup is required.
 #
 # Full setup:
 #   sudo AWS_REGION=eu-west-1 ./scripts/bootstrap-hetzner-vault-rolesanywhere.sh
 #
-# Local Vault/cert/helper only:
+# Local host tooling + Vault/cert/helper only:
 #   sudo ./scripts/bootstrap-hetzner-vault-rolesanywhere.sh --skip-aws
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,10 +58,17 @@ usage() {
 Usage: sudo [ENV=VALUE ...] $0 [OPTIONS]
 
 Options:
-  --skip-aws       Install/configure Vault + client cert only. Do not create AWS resources.
+  --skip-aws       Install/configure host tooling + Vault + client cert only. Do not create AWS resources.
   --skip-env       Do not update Veritrail ENV_FILE with AWS_PROFILE/TRUST_PRINCIPAL_ARN.
   --force-cert     Re-issue the VPS client certificate even if one already exists.
   -h, --help       Show this help.
+
+Installs:
+  - Docker Engine + Docker Compose plugin
+  - certbot
+  - Vault OSS
+  - AWS CLI v2
+  - AWS IAM Roles Anywhere credential helper
 
 Important env vars:
   AWS_REGION                 Default: eu-west-1
@@ -95,7 +104,40 @@ install_base_packages() {
   export DEBIAN_FRONTEND=noninteractive
   log "Installing base packages"
   apt-get update -qq
-  apt-get install -y -qq ca-certificates curl gnupg lsb-release jq unzip openssl python3
+  apt-get install -y -qq ca-certificates curl gnupg lsb-release jq unzip openssl python3 psmisc sed
+}
+
+install_docker() {
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    log "Docker and Compose plugin already installed"
+  else
+    log "Installing Docker Engine and Compose plugin"
+    curl -fsSL https://get.docker.com | sh
+  fi
+
+  if ! docker compose version >/dev/null 2>&1; then
+    die "Docker installed but compose plugin is missing"
+  fi
+
+  systemctl enable docker >/dev/null 2>&1 || true
+  systemctl start docker >/dev/null 2>&1 || true
+
+  local target_user="${SUDO_USER:-${USER:-}}"
+  if [[ -n "$target_user" && "$target_user" != "root" ]]; then
+    usermod -aG docker "$target_user" 2>/dev/null || true
+    log "Added $target_user to docker group. Log out/in if docker without sudo fails."
+  fi
+}
+
+install_certbot() {
+  if command -v certbot >/dev/null 2>&1; then
+    log "certbot already installed"
+    return 0
+  fi
+
+  log "Installing certbot"
+  apt-get update -qq
+  apt-get install -y -qq certbot
 }
 
 install_vault() {
@@ -428,6 +470,13 @@ print_done() {
 ================================================================================
 Hetzner/Vault/IAM Roles Anywhere bootstrap complete.
 
+Installed:
+  Docker Engine + Docker Compose plugin
+  certbot
+  Vault OSS
+  AWS CLI v2
+  aws_signing_helper
+
 Files:
   CA certificate:       $STATE_DIR/ca.pem
   VPS certificate:      $STATE_DIR/client.pem
@@ -454,6 +503,8 @@ main() {
   [[ -f "$REPO_DIR/compose.yml" ]] || warn "REPO_DIR does not look like Veritrail root: $REPO_DIR"
 
   install_base_packages
+  install_docker
+  install_certbot
   install_vault
   install_aws_cli_v2
   install_rolesanywhere_helper
