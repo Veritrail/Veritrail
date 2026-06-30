@@ -2231,13 +2231,17 @@ function TerraformCodeBlock({
           <span>main.tf</span>
           <p>Creates the selected IAM role policies with external ID trust.</p>
         </div>
-        <div className="accounts-terraform-code__actions">
+        <div className="accounts-cli-code__actions">
           {compact ? (
-            <button type="button" onClick={() => setExpanded(false)}>
+            <button type="button" onClick={() => setExpanded(false)} className="accounts-cli-code__action">
               Collapse
             </button>
           ) : null}
-          <button type="button" onClick={() => void copy()}>
+          <button
+            type="button"
+            onClick={() => void copy()}
+            className={`accounts-cli-code__copy${copied ? " accounts-cli-code__copy--copied" : ""}`}
+          >
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
@@ -2958,7 +2962,7 @@ function FirstAccountOnboarding({
                       key={t}
                       className={`accounts-connect-shell__footer-badge${
                         t === "Scoped write"
-                          ? " accounts-connect-shell__footer-badge--muted"
+                          ? " accounts-connect-shell__footer-badge--amber"
                           : t === "Analysis"
                             ? " accounts-connect-shell__footer-badge--blue"
                             : ""
@@ -3256,11 +3260,30 @@ function PendingAccountOnboarding({
   }, [initialStep, acc.id]);
 
   return (
-    <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}${activeStep === 2 ? " accounts-connect-shell--deploy-review" : ""}`}>
-      <div
-        className={`accounts-connect-shell__progress${activeStep === 2 ? " accounts-connect-shell__progress--with-close" : ""}`}
-        aria-label="Setup progress"
-      >
+    <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}${activeStep === 2 || activeStep === 3 ? " accounts-connect-shell--deploy-review" : ""}`}>
+      {verify.isSuccess && (
+        <div
+          className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-gradient-to-b from-emerald-50 via-emerald-50/95 to-white px-8 text-center"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="relative mb-6 flex h-24 w-24 items-center justify-center">
+            <span
+              className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping"
+              style={{ animationDuration: "1.4s" }}
+              aria-hidden
+            />
+            <span className="relative flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/35 ring-4 ring-emerald-100">
+              <svg className="h-11 w-11" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+          </div>
+          <p className="text-2xl font-bold tracking-tight text-emerald-950">Connected</p>
+          <p className="mt-2 text-sm leading-relaxed text-emerald-900/75">Account verified and connected to Veritrail.</p>
+        </div>
+      )}
+      <div className="accounts-connect-shell__progress" aria-label="Setup progress">
         <OnboardingFlowProgress
           activeStep={activeStep}
           onStepClick={(step) => {
@@ -3268,34 +3291,23 @@ function PendingAccountOnboarding({
             else setActiveStep(step);
           }}
         />
-        {activeStep === 2 && onDismiss ? (
-          <button
-            type="button"
-            className="accounts-connect-shell__close"
-            onClick={onDismiss}
-            aria-label="Close setup"
-          >
-            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        ) : null}
       </div>
 
       <div className="accounts-connect-shell__layout">
         <div className="accounts-connect-shell__main">
           {activeStep === 2 ? (
             <>
-              <div className="accounts-review-stage">
+              <ConnectShellHeader
+                title="Review the access you're granting"
+                subtitle="These are the IAM roles the connector will create in your account."
+                onDismiss={onDismiss}
+                className="accounts-connect-shell__header--verify"
+              />
+
+              <div className="accounts-review-stage accounts-review-stage--solo">
                 <main className="accounts-review-stage__main">
                   <OnboardingRoleReview acc={acc} value={connectionOptions} />
                 </main>
-                <OnboardingDeployPanel
-                  acc={acc}
-                  connectionOptions={connectionOptions}
-                  tab={deployTab}
-                  onTabChange={setDeployTab}
-                />
               </div>
 
               <div className="accounts-connect-shell__footer">
@@ -3316,39 +3328,46 @@ function PendingAccountOnboarding({
           ) : (
             <>
               <ConnectShellHeader
-                title="Confirm stack output"
-                subtitle="Paste the RoleArn output from CloudFormation. Veritrail will test the trust policy and connect the account."
+                title="Deploy & connect"
+                subtitle="Deploy the connector, then paste the RoleArn output. Veritrail will test the trust policy and connect the account."
                 onDismiss={onDismiss}
                 className="accounts-connect-shell__header--verify"
               />
 
-              <div className="accounts-connect-step accounts-connect-step--verify">
-                <div className="accounts-output-panel">
-                  <CopyInputField label="External ID" value={acc.external_id} />
-                  <CopyInputField
-                    label="CloudFormation RoleArn output"
-                    value={roleArn}
-                    readOnly={false}
-                    accountId={acc.account_id}
-                    onChange={setRoleArn}
-                    validation={roleArnValidation}
-                  />
-                  <p className="accounts-output-panel__note" role="note">
-                    <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
-                      />
-                    </svg>
-                    This RoleArn is used to establish a secure trust relationship with Veritrail.
-                  </p>
-                  {verify.error ? (
-                    <div className="accounts-output-panel__error" role="alert">
-                      {formatApiError(verify.error)}
-                    </div>
-                  ) : null}
-                </div>
+              <div className="accounts-deploy-stage">
+                <OnboardingDeployPanel
+                  acc={acc}
+                  connectionOptions={connectionOptions}
+                  tab={deployTab}
+                  onTabChange={setDeployTab}
+                />
+                <aside className="accounts-deploy-stage__confirm">
+                  <div className="accounts-output-panel">
+                    <CopyInputField
+                      label="CloudFormation RoleArn output"
+                      value={roleArn}
+                      readOnly={false}
+                      accountId={acc.account_id}
+                      onChange={setRoleArn}
+                      validation={roleArnValidation}
+                    />
+                    <p className="accounts-output-panel__note" role="note">
+                      <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+                        />
+                      </svg>
+                      This RoleArn is used to establish a secure trust relationship with Veritrail.
+                    </p>
+                    {verify.error ? (
+                      <div className="accounts-output-panel__error" role="alert">
+                        {formatApiError(verify.error)}
+                      </div>
+                    ) : null}
+                  </div>
+                </aside>
               </div>
 
               <div className="accounts-connect-shell__footer accounts-connect-shell__footer--verify">
@@ -6917,7 +6936,8 @@ function PendingAccountSetupSurface({
       qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
       setRoleArn("");
       if (isAccountConnected(updated)) {
-        onCompleteSetup?.();
+        // Hold the success overlay briefly so it's seen, then close the modal.
+        window.setTimeout(() => onCompleteSetup?.(), 1600);
       }
     },
     onError: () => {

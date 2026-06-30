@@ -1000,6 +1000,7 @@
 
 /* Connect account — capability picker (no connected accounts) */
 .accounts-connect-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   margin: 0 auto;
@@ -1168,22 +1169,6 @@ button.accounts-flow-step:hover {
   overflow: hidden;
 }
 
-.accounts-connect-shell__progress--with-close {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.accounts-connect-shell__progress--with-close > ol {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.accounts-connect-shell__progress--with-close .accounts-connect-shell__close {
-  position: static;
-  flex-shrink: 0;
-}
-
 .accounts-connect-shell--deploy-review {
   display: flex;
   flex-direction: column;
@@ -1264,6 +1249,51 @@ button.accounts-flow-step:hover {
   flex-shrink: 0;
   margin-top: 0;
   box-shadow: 0 -1px 0 #f4f4f5;
+}
+
+/* Step 3 — deploy + confirm-output two-column stage. */
+.accounts-deploy-stage {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  padding: 0.75rem 2rem 1rem;
+}
+
+.accounts-connect-shell--deploy-review .accounts-deploy-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .accounts-deploy-stage {
+    grid-template-columns: minmax(0, 32rem) minmax(0, 21rem);
+    justify-content: center;
+    gap: 2.5rem;
+    padding: 0.75rem 2.5rem 1rem;
+  }
+}
+
+/* Deploy card spans the full stage column here; let the stage scroll, not the card. */
+.accounts-deploy-stage .accounts-deploy-rail {
+  max-height: none;
+  overflow: visible;
+}
+
+.accounts-deploy-stage__confirm {
+  min-width: 0;
+}
+
+@media (min-width: 1100px) {
+  .accounts-deploy-stage__confirm {
+    position: sticky;
+    top: 0;
+  }
+}
+
+.accounts-deploy-stage .accounts-output-panel {
+  max-width: none;
 }
 
 @media (min-width: 1100px) {
@@ -1606,6 +1636,11 @@ button.accounts-flow-step:hover {
   color: #1d4ed8;
 }
 
+.accounts-connect-shell__footer-badge--amber {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
 .accounts-connect-shell__cta {
   display: inline-flex;
   align-items: center;
@@ -1662,6 +1697,14 @@ button.accounts-flow-step:hover {
     align-items: start;
     padding: 0.75rem 2.5rem;
   }
+
+  .accounts-review-stage--solo {
+    grid-template-columns: 1fr;
+  }
+}
+
+.accounts-review-stage--solo {
+  grid-template-columns: 1fr;
 }
 
 .accounts-review-stage__main {
@@ -2353,6 +2396,8 @@ button.accounts-flow-step:hover {
 
 .accounts-cli-code__body {
   margin: 0;
+  max-height: min(22rem, 50vh);
+  overflow-y: auto;
   padding: 0.75rem 1rem;
   color: #d4d4d8;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
@@ -2368,9 +2413,8 @@ button.accounts-flow-step:hover {
 
 .accounts-deploy-rail .accounts-terraform-code pre,
 .accounts-deploy-rail .accounts-terraform-code--compact pre {
-  max-height: none;
-  overflow-x: auto;
-  overflow-y: visible;
+  max-height: min(22rem, 50vh);
+  overflow: auto;
 }
 
 .accounts-deploy-rail__expand-row {
@@ -2554,28 +2598,6 @@ button.accounts-flow-step:hover {
   border-bottom: 1px solid #27272a;
   background: #18181b;
   padding: 0.7rem 0.8rem;
-}
-
-.accounts-terraform-code__actions {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.accounts-terraform-code__actions button {
-  flex-shrink: 0;
-  border: 1px solid #3f3f46;
-  border-radius: 0.45rem;
-  background: #27272a;
-  color: #e4e4e7;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.6875rem;
-  font-weight: 750;
-}
-
-.accounts-terraform-code__actions button:hover {
-  background: #3f3f46;
 }
 
 .accounts-terraform-code__head span {
@@ -3514,72 +3536,87 @@ button.accounts-flow-step:hover {
   align-items: center;
   justify-content: flex-start;
   gap: 0.625rem;
-  overflow: hidden;
   border: 1px solid #e4e4e7;
   border-radius: 0.9375rem;
   background: #ffffff;
   padding: 1.25rem 0.875rem 1.375rem;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition: border-color 0.18s ease, transform 0.18s ease;
 }
 
+.accounts-provider-modal__card--aws {
+  --provider-accent: #f59e0b;
+  --provider-glow: 245, 158, 11;
+}
+
+.accounts-provider-modal__card--gcp {
+  --provider-accent: #3b82f6;
+  --provider-glow: 59, 130, 246;
+}
+
+.accounts-provider-modal__card--azure {
+  --provider-accent: #0ea5e9;
+  --provider-glow: 14, 165, 233;
+}
+
+/* Accent line — edges fade to transparent so corners never poke past the card radius. */
 .accounts-provider-modal__card::after {
   content: "";
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
+  left: 50%;
+  width: calc(100% - 2.25rem);
+  height: 2px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--provider-accent) 30%,
+    var(--provider-accent) 70%,
+    transparent
+  );
+  opacity: 0.85;
   pointer-events: none;
-  transition: height 0.15s, box-shadow 0.15s, opacity 0.15s;
+  transition: width 0.18s ease, opacity 0.18s ease;
 }
 
-.accounts-provider-modal__card--aws::after {
-  background: linear-gradient(90deg, #fcd34d, #f59e0b 45%, #ea580c 55%, #fcd34d);
-  box-shadow:
-    0 -2px 14px rgba(245, 158, 11, 0.42),
-    0 0 20px rgba(234, 88, 12, 0.22);
-}
-
-.accounts-provider-modal__card--gcp::after {
-  background: linear-gradient(90deg, #93c5fd, #3b82f6 45%, #2563eb 55%, #93c5fd);
-  box-shadow:
-    0 -2px 14px rgba(59, 130, 246, 0.42),
-    0 0 20px rgba(37, 99, 235, 0.22);
-}
-
-.accounts-provider-modal__card--azure::after {
-  background: linear-gradient(90deg, #7dd3fc, #0ea5e9 45%, #0284c7 55%, #7dd3fc);
-  box-shadow:
-    0 -2px 14px rgba(14, 165, 233, 0.42),
-    0 0 20px rgba(2, 132, 199, 0.22);
+/* Soft bloom that sits just below the card — the actual glow. */
+.accounts-provider-modal__card::before {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 62%;
+  height: 16px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(var(--provider-glow), 0.5),
+    rgba(var(--provider-glow), 0) 70%
+  );
+  filter: blur(7px);
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.18s ease, width 0.18s ease, transform 0.18s ease;
 }
 
 .accounts-provider-modal__card:hover {
   border-color: #d4d4d8;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
-.accounts-provider-modal__card--aws:hover::after {
-  height: 4px;
-  box-shadow:
-    0 -3px 18px rgba(245, 158, 11, 0.55),
-    0 0 28px rgba(234, 88, 12, 0.32);
+.accounts-provider-modal__card:hover::after {
+  width: calc(100% - 1.5rem);
+  opacity: 1;
 }
 
-.accounts-provider-modal__card--gcp:hover::after {
-  height: 4px;
-  box-shadow:
-    0 -3px 18px rgba(59, 130, 246, 0.55),
-    0 0 28px rgba(37, 99, 235, 0.32);
-}
-
-.accounts-provider-modal__card--azure:hover::after {
-  height: 4px;
-  box-shadow:
-    0 -3px 18px rgba(14, 165, 233, 0.55),
-    0 0 28px rgba(2, 132, 199, 0.32);
+.accounts-provider-modal__card:hover::before {
+  width: 74%;
+  opacity: 0.85;
+  transform: translateX(-50%) translateY(2px);
 }
 
 .accounts-provider-modal__icon {
@@ -3697,7 +3734,7 @@ button.accounts-flow-step:hover {
   align-items: start;
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1440px) {
   .accounts-split {
     grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
     min-width: 0;
@@ -3721,7 +3758,7 @@ button.accounts-flow-step:hover {
   min-width: 0;
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1440px) {
   .accounts-split__list,
   .accounts-split__detail {
     min-height: 50rem;
@@ -3754,7 +3791,7 @@ button.accounts-flow-step:hover {
   }
 }
 
-@media (max-width: 1179px) {
+@media (max-width: 1439px) {
   .accounts-split__detail {
     order: -1;
   }
@@ -3860,7 +3897,7 @@ button.accounts-flow-step:hover {
   min-height: 4.5rem;
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1440px) {
   .accounts-split .accounts-detail-pane__header {
     padding-top: 1.2rem;
     padding-bottom: 1rem;
@@ -3943,20 +3980,8 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-overview__cards {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
   gap: 0.75rem;
-}
-
-@media (min-width: 720px) {
-  .accounts-detail-overview__cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1180px) {
-  .accounts-detail-overview__cards {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 }
 
 .accounts-detail-metric-card {
@@ -4237,7 +4262,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-overview__lower {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: 1rem;
   align-items: start;
   margin-top: 1rem;
@@ -4245,12 +4270,6 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-scan-row__findings--placeholder {
   min-height: 1.35rem;
-}
-
-@media (min-width: 900px) {
-  .accounts-detail-overview__lower {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .accounts-detail-capabilities,
@@ -4581,6 +4600,77 @@ button.accounts-flow-step:hover {
   .accounts-detail-scan-row__resources,
   .accounts-detail-scan-row__findings {
     grid-column: 2 / -1;
+  }
+}
+
+@container (max-width: 42rem) {
+  .accounts-detail-scan-row {
+    grid-template-columns: 1.65rem minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.55rem 0.8rem;
+  }
+
+  .accounts-detail-scan-row__resources,
+  .accounts-detail-scan-row__findings {
+    grid-column: 2 / -1;
+  }
+
+  .accounts-detail-scan-row__view {
+    align-self: start;
+    justify-self: end;
+    margin-top: -0.1rem;
+  }
+}
+
+@container (max-width: 34rem) {
+  .accounts-detail-pane__header {
+    padding: 1rem 1rem 0.95rem;
+  }
+
+  .accounts-detail-pane__tabs {
+    padding-inline: 1rem;
+  }
+
+  .accounts-detail-pane__body {
+    padding: 1rem;
+  }
+
+  .accounts-detail-metric-card__value {
+    font-size: 1.55rem;
+  }
+
+  .accounts-detail-capability-row {
+    align-items: flex-start;
+  }
+
+  .accounts-detail-capability-row__status {
+    margin-top: 0.15rem;
+  }
+
+  .accounts-detail-scan-row {
+    grid-template-columns: 1.65rem minmax(0, 1fr);
+  }
+
+  .accounts-detail-scan-row__resources,
+  .accounts-detail-scan-row__findings,
+  .accounts-detail-scan-row__view {
+    grid-column: 2 / -1;
+  }
+
+  .accounts-detail-scan-row__view {
+    justify-self: start;
+  }
+}
+
+@container (max-width: 28rem) {
+  .accounts-detail-scan-row {
+    grid-template-columns: 1.65rem minmax(0, 1fr);
+  }
+
+  .accounts-detail-scan-row__view {
+    grid-column: 2 / -1;
+    justify-self: start;
+    margin-top: 0.1rem;
   }
 }
 
