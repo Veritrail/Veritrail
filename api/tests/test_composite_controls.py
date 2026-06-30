@@ -138,6 +138,7 @@ def test_compute_control_status_fail_on_open_finding():
     f = MagicMock()
     f.check_id = "iam.user.no_mfa"
     f.status = "open"
+    f.severity = "high"
     status, hits, count = compute_control_status(
         ["iam.user.no_mfa"],
         {"iam.user.no_mfa": [f]},
