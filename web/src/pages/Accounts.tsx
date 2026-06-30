@@ -1057,6 +1057,9 @@ function CopyInputField({
   onChange,
   validation,
   accountId,
+  helper,
+  formatHint,
+  variant = "default",
 }: {
   label: string;
   value: string;
@@ -1065,6 +1068,9 @@ function CopyInputField({
   onChange?: (v: string) => void;
   validation?: "idle" | "pending" | "success" | "error" | "invalid-format";
   accountId?: string | null;
+  helper?: string;
+  formatHint?: string;
+  variant?: "default" | "connect";
 }) {
   const [copied, setCopied] = useState(false);
   const roleArnExample = scannerRoleArnExample(accountId, value);
@@ -1083,6 +1089,67 @@ function CopyInputField({
         : validation === "pending"
           ? "ring-teal-500/30 focus-within:ring-teal-500/40"
           : "ring-zinc-200/80 focus-within:ring-teal-500/30";
+
+  const validationState =
+    validation === "success"
+      ? "is-success"
+      : validation === "error" || validation === "invalid-format"
+        ? "is-error"
+        : validation === "pending"
+          ? "is-pending"
+          : "";
+
+  if (variant === "connect") {
+    return (
+      <div className="accounts-connect-field">
+        <label className="accounts-connect-field__label">{label}</label>
+        {helper ? <p className="accounts-connect-field__helper">{helper}</p> : null}
+        <div className={`accounts-connect-field__input${validationState ? ` ${validationState}` : ""}`}>
+          <input
+            type="text"
+            readOnly={readOnly}
+            value={value}
+            placeholder={placeholder ?? roleArnExample}
+            onChange={
+              readOnly
+                ? undefined
+                : (e) => onChange?.(sanitizeIamRoleArnInput(e.target.value))
+            }
+            onPaste={
+              readOnly || !onChange
+                ? undefined
+                : (e) => {
+                    e.preventDefault();
+                    onChange(sanitizeIamRoleArnInput(e.clipboardData.getData("text/plain")));
+                  }
+            }
+          />
+          {readOnly ? (
+            <button type="button" onClick={() => void copy()} className={copied ? "is-copied" : ""}>
+              {copied ? "Copied" : "Copy"}
+            </button>
+          ) : null}
+        </div>
+        {formatHint ? <p className="accounts-connect-field__format">{formatHint}</p> : null}
+        {validation === "success" && (
+          <p className="accounts-connect-field__status accounts-connect-field__status--success">Verified</p>
+        )}
+        {validation === "invalid-format" && (
+          <p className="accounts-connect-field__status accounts-connect-field__status--error">
+            Enter a valid IAM role ARN (e.g. {roleArnExample})
+          </p>
+        )}
+        {validation === "error" && (
+          <p className="accounts-connect-field__status accounts-connect-field__status--error">
+            Could not assume role — check stack Outputs and try again
+          </p>
+        )}
+        {validation === "pending" && (
+          <p className="accounts-connect-field__status accounts-connect-field__status--pending">Verifying connection…</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -2051,11 +2118,13 @@ function CliCodeBlock({
   expanded: expandedProp,
   onExpandedChange,
   defaultExpanded = false,
+  compact = false,
 }: {
   command: string;
   expanded?: boolean;
   onExpandedChange?: (open: boolean) => void;
   defaultExpanded?: boolean;
+  compact?: boolean;
 }) {
   const [expandedInternal, setExpandedInternal] = useState(defaultExpanded);
   const expanded = expandedProp ?? expandedInternal;
@@ -2088,13 +2157,15 @@ function CliCodeBlock({
   }
 
   return (
-    <div className="accounts-cli-code">
+    <div className={`accounts-cli-code${compact ? " accounts-cli-code--compact" : ""}`}>
       <div className="accounts-cli-code__head">
         <span className="accounts-cli-code__label">bash</span>
         <div className="accounts-cli-code__actions">
-          <button type="button" onClick={() => setExpanded(false)} className="accounts-cli-code__action">
-            Collapse
-          </button>
+          {!compact ? (
+            <button type="button" onClick={() => setExpanded(false)} className="accounts-cli-code__action">
+              Collapse
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={copy}
@@ -2186,18 +2257,32 @@ function terraformForConnection(acc: Account, connectionOptions: ConnectionOptio
   }\nvariable "tags" {\n  description = "Tags applied to IAM roles."\n  type        = map(string)\n  default = {\n    ManagedBy = "Terraform"\n    Vendor    = "Veritrail"\n  }\n}\n\n${roleBlocks}\n\n${outputs}\n`;
 }
 
+function downloadTerraformModule(code: string, filename = "veritrail-connector.tf") {
+  const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function TerraformCodeBlock({
   code,
   compact = false,
   expanded: expandedProp,
   onExpandedChange,
   defaultExpanded = false,
+  showDownload = false,
+  copyLabel = "Copy",
 }: {
   code: string;
   compact?: boolean;
   expanded?: boolean;
   onExpandedChange?: (open: boolean) => void;
   defaultExpanded?: boolean;
+  showDownload?: boolean;
+  copyLabel?: string;
 }) {
   const [expandedInternal, setExpandedInternal] = useState(defaultExpanded);
   const expanded = expandedProp ?? expandedInternal;
@@ -2219,7 +2304,7 @@ function TerraformCodeBlock({
           </svg>
           Show full template
         </button>
-        <DeployRailCopyIconButton text={code} ariaLabel="Copy Terraform template" />
+        <DeployRailCopyIconButton text={code} ariaLabel="Copy Terraform module" />
       </div>
     );
   }
@@ -2230,19 +2315,28 @@ function TerraformCodeBlock({
         <div>
           <span>main.tf</span>
         </div>
-        <div className="accounts-cli-code__actions">
+        <div className="accounts-terraform-code__actions">
           {compact ? (
-            <button type="button" onClick={() => setExpanded(false)} className="accounts-cli-code__action">
+            <button type="button" onClick={() => setExpanded(false)} className="accounts-terraform-code__action">
               Collapse
             </button>
           ) : null}
           <button
             type="button"
             onClick={() => void copy()}
-            className={`accounts-cli-code__copy${copied ? " accounts-cli-code__copy--copied" : ""}`}
+            className={`accounts-terraform-code__btn${copied ? " is-copied" : ""}`}
           >
-            {copied ? "Copied" : "Copy"}
+            {copied ? "Copied" : copyLabel}
           </button>
+          {showDownload ? (
+            <button
+              type="button"
+              onClick={() => downloadTerraformModule(code)}
+              className="accounts-terraform-code__btn accounts-terraform-code__btn--download"
+            >
+              Download .tf
+            </button>
+          ) : null}
         </div>
       </div>
       <pre className="accounts-code-scroll" onWheel={containCodeBlockWheel}>
@@ -3127,17 +3221,17 @@ function OnboardingDeployPanel({
   layout?: "rail" | "column";
 }) {
   const column = layout === "column";
-  const [copied, setCopied] = useState(false);
   const [cliExpanded, setCliExpanded] = useState(true);
   const [terraformExpanded, setTerraformExpanded] = useState(true);
+  const [cliCopied, setCliCopied] = useState(false);
   const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
   const terraformCode = terraformForConnection(acc, connectionOptions);
   const copy = DEPLOY_METHOD_COPY[tab];
 
-  async function copyExternalId() {
-    await navigator.clipboard.writeText(acc.external_id);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+  async function copyCliCommand() {
+    await navigator.clipboard.writeText(cliCommand);
+    setCliCopied(true);
+    window.setTimeout(() => setCliCopied(false), 2000);
   }
 
   function selectTab(next: DeployTab) {
@@ -3166,27 +3260,6 @@ function OnboardingDeployPanel({
         </div>
       </div>
 
-      <div className="accounts-deploy-rail__params">
-        <p>Deployment parameters</p>
-        <label>
-          <span>External ID</span>
-          <div>
-            <code>{acc.external_id}</code>
-            <button type="button" onClick={() => void copyExternalId()} aria-label="Copy external ID">
-              {copied ? (
-                <svg fill="none" stroke="currentColor" strokeWidth={2.3} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </label>
-      </div>
-
       {column ? null : (
         <div className="accounts-deploy-rail__next">
           <p>What happens next?</p>
@@ -3207,8 +3280,8 @@ function OnboardingDeployPanel({
         <div className="accounts-deploy-rail__tab-body">
           {tab === "console" ? (
             <>
-              <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
-                {copy.consoleLaunchLabel}
+              <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__primary accounts-deploy-rail__launch">
+                Launch CloudFormation
                 <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
                 </svg>
@@ -3218,18 +3291,34 @@ function OnboardingDeployPanel({
                   <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6.75a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6.75a2.25 2.25 0 0 1 2.25-2.25Z" />
                   </svg>
-                  This action opens the AWS CloudFormation console in a new tab.
+                  Opens in a new tab. No credentials are shared with Veritrail.
                 </p>
               ) : null}
             </>
           ) : tab === "cli" ? (
-            <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
+            <>
+              <button
+                type="button"
+                onClick={() => void copyCliCommand()}
+                className={`accounts-deploy-rail__primary${cliCopied ? " is-copied" : ""}`}
+              >
+                {cliCopied ? "Copied" : "Copy CLI command"}
+              </button>
+              <CliCodeBlock
+                command={cliCommand}
+                expanded={cliExpanded}
+                onExpandedChange={setCliExpanded}
+                compact={column}
+              />
+            </>
           ) : (
             <TerraformCodeBlock
               code={terraformCode}
-              compact
-              expanded={terraformExpanded}
+              compact={column}
+              expanded={column ? true : terraformExpanded}
               onExpandedChange={setTerraformExpanded}
+              showDownload={column}
+              copyLabel={column ? "Copy module" : "Copy"}
             />
           )}
         </div>
@@ -3238,27 +3327,22 @@ function OnboardingDeployPanel({
   );
 }
 
-/** "We will validate" checklist shown in the Test connection column (step 3). */
+/** Checklist shown in the Verify access column (step 3). Matches POST /v1/accounts/{id}/verify. */
 const CONNECT_VALIDATE_ITEMS: readonly { title: string; desc: string; d: string }[] = [
   {
     title: "Trust relationship",
-    desc: "Verify the RoleArn can be assumed by Veritrail.",
+    desc: "Confirms the RoleArn can be assumed securely.",
+    d: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z",
+  },
+  {
+    title: "Required permissions",
+    desc: "Checks the selected IAM permissions are available.",
     d: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   },
   {
-    title: "Permissions",
-    desc: "Confirm required permissions are available.",
-    d: "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 19.5a7.5 7.5 0 0 1 15 0v.75H4.5v-.75Z",
-  },
-  {
-    title: "Access",
-    desc: "Test connectivity to AWS APIs.",
+    title: "AWS account access",
+    desc: "Confirms the account ID and saves the connection.",
     d: "M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z",
-  },
-  {
-    title: "Readiness",
-    desc: "Confirm the account is ready for monitoring.",
-    d: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z",
   },
 ];
 
@@ -3364,7 +3448,7 @@ function PendingAccountOnboarding({
             <>
               <ConnectShellHeader
                 title="Deploy & connect"
-                subtitle="Deploy the connector, then paste the RoleArn output. Veritrail will test the trust policy and connect the account."
+                subtitle="Deploy the AWS connector, paste the RoleArn output, and Veritrail will verify the trust relationship before saving the account."
                 onDismiss={onDismiss}
                 className="accounts-connect-shell__header--verify"
               />
@@ -3373,10 +3457,10 @@ function PendingAccountOnboarding({
                 <section className="accounts-connect-col accounts-connect-col--scroll">
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">1</span>
-                    <h3 className="accounts-connect-col__title">Deploy stack</h3>
+                    <h3 className="accounts-connect-col__title">Deploy connector</h3>
                   </header>
                   <p className="accounts-connect-col__lede">
-                    Launch the CloudFormation stack with the selected roles in the AWS Console.
+                    Create the IAM role in your AWS account using one of the methods below.
                   </p>
                   <OnboardingDeployPanel
                     acc={acc}
@@ -3390,29 +3474,39 @@ function PendingAccountOnboarding({
                 <section className="accounts-connect-col">
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">2</span>
-                    <h3 className="accounts-connect-col__title">Copy output</h3>
+                    <h3 className="accounts-connect-col__title">Paste RoleArn output</h3>
                   </header>
                   <p className="accounts-connect-col__lede">
-                    After the stack is created, copy the RoleArn output value and paste it when ready.
+                    Paste the RoleArn from your CloudFormation stack Outputs tab to link the connector.
                   </p>
                   <div className="accounts-output-panel">
                     <CopyInputField
-                      label="CloudFormation RoleArn output"
+                      variant="connect"
+                      label="External ID"
+                      value={acc.external_id}
+                      helper="Use this value in the connector template to protect the trust relationship."
+                    />
+                    <CopyInputField
+                      variant="connect"
+                      label="RoleArn"
                       value={roleArn}
                       readOnly={false}
+                      placeholder="Paste arn:aws:iam::123456789012:role/VeritrailConnector"
                       accountId={acc.account_id}
                       onChange={setRoleArn}
                       validation={roleArnValidation}
+                      helper="You'll find this in the CloudFormation stack Outputs tab."
+                      formatHint="Expected format: arn:aws:iam::account-id:role/name"
                     />
                     <div className="accounts-trust-callout" role="note">
                       <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
                       </svg>
                       <div>
-                        <p className="accounts-trust-callout__title">Secure trust relationship</p>
+                        <p className="accounts-trust-callout__title">Least-privilege trust relationship</p>
                         <p className="accounts-trust-callout__body">
-                          This RoleArn is used to establish a secure trust relationship with Veritrail. It grants
-                          least-privilege access defined in your stack.
+                          External ID and RoleArn are used together to establish secure, scoped access. Veritrail does
+                          not store AWS credentials.
                         </p>
                       </div>
                     </div>
@@ -3427,12 +3521,11 @@ function PendingAccountOnboarding({
                 <section className="accounts-connect-col">
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">3</span>
-                    <h3 className="accounts-connect-col__title">Test connection</h3>
+                    <h3 className="accounts-connect-col__title">Verify access</h3>
                   </header>
                   <p className="accounts-connect-col__lede">
-                    Veritrail will validate the configuration and confirm connectivity to your AWS account.
+                    Veritrail validates the trust relationship and permissions before saving the connection.
                   </p>
-                  <p className="accounts-validate__label">We will validate</p>
                   <ul className="accounts-validate">
                     {CONNECT_VALIDATE_ITEMS.map((item) => (
                       <li key={item.title} className="accounts-validate__item">
@@ -3448,6 +3541,7 @@ function PendingAccountOnboarding({
                       </li>
                     ))}
                   </ul>
+                  <p className="accounts-connect-col__foot-note">Veritrail does not store AWS credentials.</p>
                 </section>
               </div>
 
@@ -3465,12 +3559,11 @@ function PendingAccountOnboarding({
                   disabled={verify.isPending || !roleArnValid}
                   className="accounts-connect-shell__cta"
                 >
-                  {verify.isPending ? "Testing connection..." : "Test and connect"}
-                  {!verify.isPending ? (
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  ) : null}
+                  {verify.isPending
+                    ? "Testing connection..."
+                    : roleArnValid
+                      ? "Test and connect →"
+                      : "Paste RoleArn to continue"}
                 </button>
               </div>
             </>

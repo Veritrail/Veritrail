@@ -1251,12 +1251,12 @@ button.accounts-flow-step:hover {
   box-shadow: 0 -1px 0 #f4f4f5;
 }
 
-/* Step 3 — three-column guided connect stage (Deploy / Copy / Test). */
+/* Step 3 — three-column guided connect stage (Deploy / Paste / Verify). */
 .accounts-connect-stage {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.25rem;
-  padding: 0.75rem 2rem 1rem;
+  gap: 1rem;
+  padding: 0.5rem 2rem 0.85rem;
 }
 
 .accounts-connect-shell--deploy-review .accounts-connect-stage {
@@ -1269,8 +1269,8 @@ button.accounts-flow-step:hover {
 @media (min-width: 1100px) {
   .accounts-connect-stage {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5rem;
-    padding: 0.5rem 2.5rem 1rem;
+    gap: 1.15rem;
+    padding: 0.35rem 2.5rem 0.85rem;
   }
 }
 
@@ -1279,14 +1279,16 @@ button.accounts-flow-step:hover {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border: 1px solid #e4e4e7;
-  border-radius: 0.9rem;
+  border: 1px solid #e8eaed;
+  border-radius: 1rem;
   background: #fff;
-  padding: 1.15rem 1.2rem 1.3rem;
+  padding: 1rem 1.1rem 1.1rem;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 14px -6px rgba(15, 23, 42, 0.06);
 }
 
-/* Deploy stack column keeps a fixed height; the code block inside scrolls
-   instead of the whole column, so switching tabs never resizes it. */
+/* Deploy connector column — code previews scroll internally, not the whole card. */
 .accounts-connect-col--scroll {
   overflow: hidden;
 }
@@ -1296,7 +1298,7 @@ button.accounts-flow-step:hover {
 .accounts-connect-col--scroll .accounts-deploy-rail__tab-body {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   min-width: 0;
 }
@@ -1304,36 +1306,150 @@ button.accounts-flow-step:hover {
 .accounts-connect-col__head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 
 .accounts-connect-col__num {
   display: inline-flex;
-  height: 1.5rem;
-  width: 1.5rem;
+  height: 1.375rem;
+  width: 1.375rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: #0d9488;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: #fff;
 }
 
 .accounts-connect-col__title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.9375rem;
+  font-weight: 650;
   color: #18181b;
 }
 
 .accounts-connect-col__lede {
-  margin: 0.55rem 0 0.95rem;
+  margin: 0.4rem 0 0.75rem;
   font-size: 0.8125rem;
-  line-height: 1.5;
+  line-height: 1.45;
   color: #71717a;
 }
+
+.accounts-connect-col__foot-note {
+  margin: auto 0 0;
+  padding-top: 0.85rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #a1a1aa;
+}
+
+/* Connect-stage input fields — quiet labels, monospace values only. */
+.accounts-connect-field + .accounts-connect-field {
+  margin-top: 0.15rem;
+}
+
+.accounts-connect-field__label {
+  display: block;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 550;
+  color: #71717a;
+}
+
+.accounts-connect-field__helper {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #a1a1aa;
+}
+
+.accounts-connect-field__input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.55rem;
+  background: #fafafa;
+  padding: 0.55rem 0.65rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.accounts-connect-field__input:focus-within {
+  border-color: #99f6e4;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  background: #fff;
+}
+
+.accounts-connect-field__input.is-success {
+  border-color: #6ee7b7;
+}
+
+.accounts-connect-field__input.is-error {
+  border-color: #fca5a5;
+}
+
+.accounts-connect-field__input.is-pending {
+  border-color: #99f6e4;
+}
+
+.accounts-connect-field__input input {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+  color: #18181b;
+  outline: none;
+}
+
+.accounts-connect-field__input input::placeholder {
+  color: #a1a1aa;
+}
+
+.accounts-connect-field__input button {
+  flex-shrink: 0;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.4rem;
+  background: #fff;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #52525b;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.accounts-connect-field__input button:hover {
+  border-color: #d4d4d8;
+  background: #fafafa;
+  color: #18181b;
+}
+
+.accounts-connect-field__input button.is-copied {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.accounts-connect-field__format {
+  margin: 0.35rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: #a1a1aa;
+}
+
+.accounts-connect-field__status {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.accounts-connect-field__status--success { color: #047857; }
+.accounts-connect-field__status--error { color: #dc2626; }
+.accounts-connect-field__status--pending { color: #0f766e; }
 
 /* Deploy panel sits inside a column card — drop its own card chrome. */
 .accounts-connect-shell--deploy-review .accounts-deploy-rail--column,
@@ -1347,20 +1463,20 @@ button.accounts-flow-step:hover {
   overflow: visible;
 }
 
-/* Code block fills the column's leftover height and scrolls on its own. */
+/* Code block in connect column — compact preview, no vertical stretch. */
 .accounts-deploy-rail--column.accounts-deploy-rail .accounts-cli-code,
 .accounts-deploy-rail--column.accounts-deploy-rail .accounts-terraform-code {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
 .accounts-deploy-rail--column.accounts-deploy-rail .accounts-cli-code__body,
 .accounts-deploy-rail--column.accounts-deploy-rail .accounts-terraform-code pre {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  max-height: none;
+  max-height: 13.75rem;
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -1384,55 +1500,46 @@ button.accounts-flow-step:hover {
 
 .accounts-connect-stage .accounts-output-panel {
   max-width: none;
-  gap: 0.95rem;
+  gap: 0.75rem;
 }
 
-/* Secure trust callout (Copy output column). */
+/* Quiet trust callout (Paste RoleArn column). */
 .accounts-trust-callout {
   display: flex;
-  gap: 0.65rem;
-  border: 1px solid #dbeafe;
-  border-radius: 0.65rem;
-  background: #eff6ff;
-  padding: 0.85rem 0.95rem;
+  gap: 0.55rem;
+  border: 1px solid #ccfbf1;
+  border-radius: 0.55rem;
+  background: #f0fdfa;
+  padding: 0.65rem 0.75rem;
 }
 
 .accounts-trust-callout svg {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 0.95rem;
+  height: 0.95rem;
   flex-shrink: 0;
-  margin-top: 0.1rem;
-  color: #3b82f6;
+  margin-top: 0.08rem;
+  color: #0f766e;
 }
 
 .accounts-trust-callout__title {
   margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 650;
-  color: #1e3a8a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #134e4a;
 }
 
 .accounts-trust-callout__body {
-  margin: 0.2rem 0 0;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  color: #1e40af;
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #3f3f46;
 }
 
-/* "We will validate" checklist (Test connection column). */
-.accounts-validate__label {
-  margin: 0 0 0.7rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #71717a;
-}
-
+/* Verify access checklist (step 3). */
 .accounts-validate {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.7rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1440,37 +1547,37 @@ button.accounts-flow-step:hover {
 
 .accounts-validate__item {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .accounts-validate__icon {
   display: inline-flex;
-  height: 1.85rem;
-  width: 1.85rem;
+  height: 1.65rem;
+  width: 1.65rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #f0fdf9;
+  background: #f0fdfa;
   color: #0f766e;
 }
 
 .accounts-validate__icon svg {
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .accounts-validate__title {
   margin: 0;
-  font-size: 0.85rem;
-  font-weight: 650;
+  font-size: 0.8125rem;
+  font-weight: 600;
   color: #18181b;
 }
 
 .accounts-validate__desc {
-  margin: 0.1rem 0 0;
-  font-size: 0.8rem;
-  line-height: 1.45;
+  margin: 0.08rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
   color: #71717a;
 }
 
@@ -2497,11 +2604,16 @@ button.accounts-flow-step:hover {
 
 .accounts-deploy-rail__action {
   display: grid;
-  gap: 0.75rem;
-  margin-top: 1rem;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
   border-top: 1px solid #f4f4f5;
-  padding-top: 1rem;
+  padding-top: 0.75rem;
   min-height: 0;
+}
+
+.accounts-deploy-rail--column .accounts-deploy-rail__action {
+  margin-top: 0.55rem;
+  padding-top: 0.65rem;
 }
 
 .accounts-deploy-rail__tab-body {
@@ -2528,25 +2640,31 @@ button.accounts-flow-step:hover {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  border-radius: 0.5rem;
-  background: #09090b;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  border-radius: 0.55rem;
+  border: 1px solid #2a3344;
+  background: #1a2332;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.accounts-cli-code--compact .accounts-cli-code__body {
+  max-height: 13.75rem;
 }
 
 .accounts-cli-code__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #27272a;
-  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #151c28;
+  padding: 0.45rem 0.65rem;
 }
 
 .accounts-cli-code__label {
   font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #71717a;
+  color: #94a3b8;
 }
 
 .accounts-cli-code__actions {
@@ -2590,13 +2708,13 @@ button.accounts-flow-step:hover {
 
 .accounts-cli-code__body {
   margin: 0;
-  max-height: min(22rem, 50vh);
+  max-height: min(13.75rem, 32vh);
   overflow-y: auto;
-  padding: 0.75rem 1rem;
-  color: #d4d4d8;
+  padding: 0.65rem 0.85rem;
+  color: #cbd5e1;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.75rem;
-  line-height: 1.625;
+  line-height: 1.55;
 }
 
 .accounts-deploy-rail .accounts-terraform-code {
@@ -2607,7 +2725,7 @@ button.accounts-flow-step:hover {
 
 .accounts-deploy-rail .accounts-terraform-code pre,
 .accounts-deploy-rail .accounts-terraform-code--compact pre {
-  max-height: min(22rem, 50vh);
+  max-height: min(13.75rem, 32vh);
   overflow: auto;
 }
 
@@ -2677,14 +2795,16 @@ button.accounts-flow-step:hover {
 .accounts-deploy-rail__primary,
 .accounts-deploy-rail__secondary {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
   border-radius: 0.55rem;
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 650;
   text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .accounts-deploy-rail__primary {
@@ -2696,6 +2816,13 @@ button.accounts-flow-step:hover {
 .accounts-deploy-rail__primary:hover {
   border-color: #0f766e;
   background: #0f766e;
+  color: #fff;
+}
+
+.accounts-deploy-rail__primary.is-copied {
+  border-color: #6ee7b7;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .accounts-deploy-rail__secondary {
@@ -2749,50 +2876,77 @@ button.accounts-flow-step:hover {
 
 .accounts-terraform-code {
   overflow: hidden;
-  border: 1px solid #27272a;
-  border-radius: 0.75rem;
-  background: #09090b;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border: 1px solid #2a3344;
+  border-radius: 0.55rem;
+  background: #1a2332;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .accounts-terraform-code__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  border-bottom: 1px solid #27272a;
-  background: #18181b;
-  padding: 0.7rem 0.8rem;
+  gap: 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #151c28;
+  padding: 0.45rem 0.65rem;
 }
 
 .accounts-terraform-code__head span {
   display: block;
-  color: #e4e4e7;
+  color: #cbd5e1;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.75rem;
-  font-weight: 750;
+  font-size: 0.6875rem;
+  font-weight: 600;
 }
 
-.accounts-terraform-code__head p {
-  margin: 0.15rem 0 0;
-  color: #a1a1aa;
+.accounts-terraform-code__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.accounts-terraform-code__action,
+.accounts-terraform-code__btn {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.15rem 0.5rem;
   font-size: 0.6875rem;
-  line-height: 1.35;
+  font-weight: 600;
+  color: #94a3b8;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.accounts-terraform-code__action:hover,
+.accounts-terraform-code__btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.accounts-terraform-code__btn.is-copied {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+}
+
+.accounts-terraform-code__btn--download {
+  color: #99f6e4;
 }
 
 .accounts-terraform-code pre {
-  max-height: min(14rem, 32vh);
+  max-height: min(13.75rem, 32vh);
   margin: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 0.9rem;
-  color: #e4e4e7;
-  font-size: 0.75rem;
-  line-height: 1.55;
+  padding: 0.65rem 0.85rem;
+  color: #cbd5e1;
+  font-size: 0.6875rem;
+  line-height: 1.5;
 }
 
 .accounts-terraform-code--compact pre {
-  max-height: min(12rem, 28vh);
+  max-height: min(13.75rem, 30vh);
 }
 
 .accounts-terraform-code code {
