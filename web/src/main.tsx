@@ -27,7 +27,6 @@ import VulnScannerIntegration from "./pages/VulnScannerIntegration";
 import Integrations from "./pages/Integrations";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
-import PublicHome from "./pages/PublicHome";
 import Layout from "./Layout";
 import AuditorLogin from "./pages/AuditorLogin";
 import AuditorLayout from "./pages/AuditorLayout";
@@ -58,7 +57,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
-          <Route path="/" element={<PublicHome />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
