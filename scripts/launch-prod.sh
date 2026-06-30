@@ -17,7 +17,6 @@ set -euo pipefail
 #   ./scripts/launch-prod.sh
 #   ./scripts/launch-prod.sh --force-cert
 #   ./scripts/launch-prod.sh --deploy-only   # redeploy on an already-bootstrapped host
-#   ./scripts/launch-prod.sh --deploy-only --hot-reload  # bind-mounted prod dev mode
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -28,15 +27,13 @@ export API_DOMAIN="${API_DOMAIN:-api.veritrail.io}"
 export COMPOSE_DISABLE_GIT_TRACKING="${COMPOSE_DISABLE_GIT_TRACKING:-1}"
 export BUILDX_NO_DEFAULT_ATTESTATIONS="${BUILDX_NO_DEFAULT_ATTESTATIONS:-1}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-veritrail}"
-export HOT_RELOAD="${HOT_RELOAD:-0}"
 
 if [[ "$(id -u)" -eq 0 ]]; then
   exec "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"
 fi
 
-exec sudo EMAIL="$EMAIL" ENV_FILE="$ENV_FILE" DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" \
+exec sudo -E EMAIL="$EMAIL" ENV_FILE="$ENV_FILE" DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" \
   COMPOSE_DISABLE_GIT_TRACKING="$COMPOSE_DISABLE_GIT_TRACKING" \
   BUILDX_NO_DEFAULT_ATTESTATIONS="$BUILDX_NO_DEFAULT_ATTESTATIONS" \
-  HOT_RELOAD="$HOT_RELOAD" \
   COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" \
   "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"
