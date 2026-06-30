@@ -6738,10 +6738,30 @@ function AccountPremiumCard({
 
 type CloudProviderChoice = "aws" | "gcp" | "azure";
 
-const ADD_ACCOUNT_PROVIDERS: { id: CloudProviderChoice; name: string }[] = [
-  { id: "aws", name: "Amazon Web Services" },
-  { id: "gcp", name: "Google Cloud" },
-  { id: "azure", name: "Microsoft Azure" },
+const ADD_ACCOUNT_PROVIDERS: {
+  id: CloudProviderChoice;
+  name: string;
+  description: string;
+  ariaLabel: string;
+}[] = [
+  {
+    id: "aws",
+    name: "AWS",
+    description: "Role-based CloudFormation setup",
+    ariaLabel: "Amazon Web Services",
+  },
+  {
+    id: "gcp",
+    name: "Google Cloud",
+    description: "Service account connector",
+    ariaLabel: "Google Cloud",
+  },
+  {
+    id: "azure",
+    name: "Microsoft Azure",
+    description: "Client credentials connector",
+    ariaLabel: "Microsoft Azure",
+  },
 ];
 
 function AddAccountProviderPicker({
@@ -6797,29 +6817,43 @@ function AddAccountProviderPicker({
             </svg>
           </button>
         </div>
-        <div className="accounts-provider-modal__grid">
-          {ADD_ACCOUNT_PROVIDERS.map((provider) => (
-            <button
-              key={provider.id}
-              type="button"
-              className="accounts-provider-modal__card"
-              onClick={() => onSelect(provider.id)}
-            >
-              <span className="accounts-provider-modal__icon" aria-hidden>
-                <IntegrationBrandIcon brand={provider.id} size={40} variant="plain" />
-              </span>
-              <span className="accounts-provider-modal__name">{provider.name}</span>
-              <span className="accounts-provider-modal__arrow" aria-hidden>
-                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </span>
-            </button>
-          ))}
+        <div className="accounts-provider-modal__body">
+          <div className="accounts-provider-modal__grid">
+            {ADD_ACCOUNT_PROVIDERS.map((provider) => (
+              <button
+                key={provider.id}
+                type="button"
+                className="accounts-provider-modal__card"
+                aria-label={`Connect ${provider.ariaLabel}: ${provider.description}`}
+                onClick={() => onSelect(provider.id)}
+              >
+                <span
+                  className={`accounts-provider-modal__icon accounts-provider-modal__icon--${provider.id}`}
+                  aria-hidden
+                >
+                  <IntegrationBrandIcon brand={provider.id} size={26} variant="plain" />
+                </span>
+                <span className="accounts-provider-modal__copy">
+                  <span className="accounts-provider-modal__name">{provider.name}</span>
+                  <span className="accounts-provider-modal__desc">{provider.description}</span>
+                </span>
+                <span className="accounts-provider-modal__connect" aria-hidden>
+                  Connect →
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="accounts-provider-modal__trust">
+            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+              />
+            </svg>
+            Read-only by default. Permissions are shown before connection.
+          </p>
         </div>
-        <p className="accounts-provider-modal__footer">
-          Connections are read-only unless explicitly configured otherwise.
-        </p>
       </div>
     </div>,
     document.body,
