@@ -5,6 +5,7 @@ import uuid
 from unittest.mock import MagicMock, patch
 
 from botocore.exceptions import ClientError
+from sqlalchemy.sql.dml import Delete
 
 from app.services.fast_recheck import try_fast_finding_recheck
 
@@ -116,6 +117,69 @@ def test_s3_public_access_fast_unchanged_when_still_open(mock_session):
     assert out["checked"] is True
     assert out["resolved"] is False
     assert out["reason"] == "resource_still_failing"
+
+
+@patch("app.services.fast_recheck.targeted_refresh._session")
+def test_s3_fast_refresh_removes_deleted_bucket(mock_session):
+    from app.services.fast_recheck.targeted_refresh import refresh_resource_for_finding
+
+    db = MagicMock()
+    finding = _finding(check_id="s3.bucket.public_access_not_blocked", bucket_name="deleted-bucket")
+    account = _account()
+
+    mock_s3 = MagicMock()
+    mock_s3.get_bucket_logging.side_effect = _client_error("NoSuchBucket")
+    mock_sess = MagicMock()
+    mock_sess.client.return_value = mock_s3
+    mock_session.return_value = mock_sess
+
+    assert refresh_resource_for_finding(db, account, finding) is True
+    delete_stmt = db.execute.call_args.args[0]
+    assert isinstance(delete_stmt, Delete)
+
+
+@patch("app.services.fast_recheck.targeted_refresh._session")
+def test_security_group_fast_refresh_removes_deleted_group(mock_session):
+    from app.services.fast_recheck.targeted_refresh import refresh_resource_for_finding
+
+    db = MagicMock()
+    account = _account()
+    finding = MagicMock()
+    finding.check_id = "ec2.security_group.unrestricted_ssh"
+    finding.resource_arn = "arn:aws:ec2:us-east-1:123456789012:security-group/sg-deleted"
+    finding.evidence = {"region": "us-east-1", "group_id": "sg-deleted"}
+
+    mock_ec2 = MagicMock()
+    mock_ec2.describe_security_groups.side_effect = _client_error("InvalidGroup.NotFound")
+    mock_sess = MagicMock()
+    mock_sess.client.return_value = mock_ec2
+    mock_session.return_value = mock_sess
+
+    assert refresh_resource_for_finding(db, account, finding) is True
+    delete_stmt = db.execute.call_args.args[0]
+    assert isinstance(delete_stmt, Delete)
+
+
+@patch("app.services.fast_recheck.targeted_refresh._session")
+def test_iam_access_key_fast_refresh_removes_deleted_key(mock_session):
+    from app.services.fast_recheck.targeted_refresh import refresh_resource_for_finding
+
+    db = MagicMock()
+    account = _account()
+    finding = MagicMock()
+    finding.check_id = "iam.access_key.unused"
+    finding.resource_arn = "arn:aws:iam::123456789012:user/alice#AKIADELETED"
+    finding.evidence = {"user_arn": "arn:aws:iam::123456789012:user/alice", "key_id": "AKIADELETED"}
+
+    mock_iam = MagicMock()
+    mock_iam.list_access_keys.return_value = {"AccessKeyMetadata": []}
+    mock_sess = MagicMock()
+    mock_sess.client.return_value = mock_iam
+    mock_session.return_value = mock_sess
+
+    assert refresh_resource_for_finding(db, account, finding) is True
+    delete_stmt = db.execute.call_args.args[0]
+    assert isinstance(delete_stmt, Delete)
 
 
 @patch("app.services.fast_recheck.batch.refresh_resource_for_finding", return_value=True)

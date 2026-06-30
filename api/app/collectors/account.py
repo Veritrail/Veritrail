@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import structlog
 from botocore.exceptions import ClientError
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -14,10 +15,15 @@ from app.models import AwsAccount
 from app.models.resources import KmsKey, S3AccountPublicAccessBlock, S3Bucket
 
 log = structlog.get_logger()
+_S3_BUCKET_MISSING_CODES = frozenset({"NoSuchBucket", "NotFound", "404"})
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _is_s3_bucket_missing(exc: ClientError) -> bool:
+    return str(exc.response.get("Error", {}).get("Code", "")) in _S3_BUCKET_MISSING_CODES
 
 
 def collect_s3(db: Session, account: AwsAccount) -> int:
@@ -26,15 +32,20 @@ def collect_s3(db: Session, account: AwsAccount) -> int:
     count = 0
 
     buckets = s3.list_buckets().get("Buckets", [])
+    seen_arns: set[str] = set()
     for b in buckets:
         name = b["Name"]
         arn = f"arn:aws:s3:::{name}"
+        seen_arns.add(arn)
 
         # logging
         try:
             log_cfg = s3.get_bucket_logging(Bucket=name).get("LoggingEnabled")
             logging_enabled = log_cfg is not None
-        except ClientError:
+        except ClientError as exc:
+            if _is_s3_bucket_missing(exc):
+                seen_arns.discard(arn)
+                continue
             logging_enabled = False
 
         # encryption
@@ -44,7 +55,10 @@ def collect_s3(db: Session, account: AwsAccount) -> int:
             sse_algo = rules[0]["ApplyServerSideEncryptionByDefault"]["SSEAlgorithm"]
             kms_encrypted = sse_algo == "aws:kms"
             encrypted = True
-        except ClientError:
+        except ClientError as exc:
+            if _is_s3_bucket_missing(exc):
+                seen_arns.discard(arn)
+                continue
             kms_encrypted = False
             encrypted = False
 
@@ -53,7 +67,10 @@ def collect_s3(db: Session, account: AwsAccount) -> int:
             ver = s3.get_bucket_versioning(Bucket=name)
             versioning_enabled = ver.get("Status") == "Enabled"
             mfa_delete_enabled = ver.get("MFADelete") == "Enabled"
-        except ClientError:
+        except ClientError as exc:
+            if _is_s3_bucket_missing(exc):
+                seen_arns.discard(arn)
+                continue
             versioning_enabled = False
             mfa_delete_enabled = False
 
@@ -66,14 +83,20 @@ def collect_s3(db: Session, account: AwsAccount) -> int:
                 pab.get("BlockPublicPolicy", False),
                 pab.get("RestrictPublicBuckets", False),
             ])
-        except ClientError:
+        except ClientError as exc:
+            if _is_s3_bucket_missing(exc):
+                seen_arns.discard(arn)
+                continue
             public_access_blocked = False
 
         # https-only policy
         try:
             policy_str = s3.get_bucket_policy(Bucket=name).get("Policy", "")
             https_only = "aws:SecureTransport" in policy_str
-        except ClientError:
+        except ClientError as exc:
+            if _is_s3_bucket_missing(exc):
+                seen_arns.discard(arn)
+                continue
             https_only = False
 
         stmt = pg_insert(S3Bucket).values(
@@ -105,6 +128,12 @@ def collect_s3(db: Session, account: AwsAccount) -> int:
         db.execute(stmt)
         count += 1
 
+    db.execute(
+        delete(S3Bucket).where(
+            S3Bucket.account_id == account.id,
+            S3Bucket.arn.notin_(seen_arns),
+        )
+    )
 
     log.info("collect_s3.done", account_id=str(account.id), buckets=count)
     return count

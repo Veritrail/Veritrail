@@ -6,6 +6,7 @@ from typing import Any
 
 import structlog
 from botocore.exceptions import ClientError
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -21,6 +22,7 @@ from app.collectors.sg_ingress import build_public_exposure, has_public_port
 from app.core.aws import assume_role
 from app.core.aws_trust import parse_role_name
 from app.models import AwsAccount, Finding
+from app.models.iam import IamAccessKey, IamRole, IamUser
 from app.models.resources import (
     EbsEncryptionDefault,
     EbsSnapshot,
@@ -50,6 +52,143 @@ UNSUPPORTED_CHECKS = frozenset({
     "iam.access_inventory_gap",
     "iam.cloudshell_full_access_granted",
 })
+_S3_BUCKET_MISSING_CODES = frozenset({"NoSuchBucket", "NotFound", "404"})
+_EC2_NOT_FOUND_CODES = frozenset({
+    "InvalidGroup.NotFound",
+    "InvalidInstanceID.NotFound",
+    "InvalidVolume.NotFound",
+    "InvalidSnapshot.NotFound",
+    "InvalidVpcID.NotFound",
+})
+_RDS_NOT_FOUND_CODES = frozenset({"DBInstanceNotFound", "DBInstanceNotFoundFault"})
+_SSM_NOT_FOUND_CODES = frozenset({"ParameterNotFound"})
+_IAM_NOT_FOUND_CODES = frozenset({"NoSuchEntity", "NoSuchEntityException"})
+_KMS_NOT_FOUND_CODES = frozenset({"NotFoundException", "KMSInvalidStateException"})
+_LAMBDA_NOT_FOUND_CODES = frozenset({"ResourceNotFoundException"})
+
+
+def _is_s3_bucket_missing(exc: ClientError) -> bool:
+    return str(exc.response.get("Error", {}).get("Code", "")) in _S3_BUCKET_MISSING_CODES
+
+
+def _error_code(exc: ClientError) -> str:
+    return str(exc.response.get("Error", {}).get("Code", ""))
+
+
+def _delete_security_group(db: Session, account: AwsAccount, *, region: str, group_id: str) -> None:
+    db.execute(
+        delete(SecurityGroup).where(
+            SecurityGroup.account_id == account.id,
+            SecurityGroup.region == region,
+            SecurityGroup.group_id == group_id,
+        )
+    )
+
+
+def _delete_ec2_instance(db: Session, account: AwsAccount, *, region: str, instance_id: str) -> None:
+    db.execute(
+        delete(Ec2Instance).where(
+            Ec2Instance.account_id == account.id,
+            Ec2Instance.region == region,
+            Ec2Instance.instance_id == instance_id,
+        )
+    )
+
+
+def _delete_ebs_volume(db: Session, account: AwsAccount, *, region: str, volume_id: str) -> None:
+    db.execute(
+        delete(EbsVolume).where(
+            EbsVolume.account_id == account.id,
+            EbsVolume.region == region,
+            EbsVolume.volume_id == volume_id,
+        )
+    )
+
+
+def _delete_ebs_snapshot(db: Session, account: AwsAccount, *, region: str, snapshot_id: str) -> None:
+    db.execute(
+        delete(EbsSnapshot).where(
+            EbsSnapshot.account_id == account.id,
+            EbsSnapshot.region == region,
+            EbsSnapshot.snapshot_id == snapshot_id,
+        )
+    )
+
+
+def _delete_vpc(db: Session, account: AwsAccount, *, region: str, vpc_id: str) -> None:
+    db.execute(
+        delete(Vpc).where(
+            Vpc.account_id == account.id,
+            Vpc.region == region,
+            Vpc.vpc_id == vpc_id,
+        )
+    )
+
+
+def _delete_rds_instance(db: Session, account: AwsAccount, *, arn: str | None, db_id: str | None) -> None:
+    stmt = delete(RdsInstance).where(RdsInstance.account_id == account.id)
+    if arn:
+        stmt = stmt.where(RdsInstance.arn == arn)
+    elif db_id:
+        stmt = stmt.where(RdsInstance.db_instance_id == db_id)
+    else:
+        return
+    db.execute(stmt)
+
+
+def _delete_ssm_parameter(db: Session, account: AwsAccount, *, region: str, name: str) -> None:
+    db.execute(
+        delete(SsmParameter).where(
+            SsmParameter.account_id == account.id,
+            SsmParameter.region == region,
+            SsmParameter.parameter_name == name,
+        )
+    )
+
+
+def _delete_iam_access_key(db: Session, account: AwsAccount, *, key_id: str) -> None:
+    db.execute(
+        delete(IamAccessKey).where(
+            IamAccessKey.account_id == account.id,
+            IamAccessKey.key_id == key_id,
+        )
+    )
+
+
+def _delete_iam_user(db: Session, account: AwsAccount, *, arn: str | None, user_name: str) -> None:
+    stmt = delete(IamUser).where(IamUser.account_id == account.id)
+    if arn:
+        stmt = stmt.where(IamUser.arn == arn)
+    else:
+        stmt = stmt.where(IamUser.name == user_name)
+    db.execute(stmt)
+
+
+def _delete_iam_role(db: Session, account: AwsAccount, *, arn: str | None, role_name: str) -> None:
+    stmt = delete(IamRole).where(IamRole.account_id == account.id)
+    if arn:
+        stmt = stmt.where(IamRole.arn == arn)
+    else:
+        stmt = stmt.where(IamRole.name == role_name)
+    db.execute(stmt)
+
+
+def _delete_kms_key(db: Session, account: AwsAccount, *, key_id: str, arn: str | None) -> None:
+    stmt = delete(KmsKey).where(KmsKey.account_id == account.id)
+    if arn:
+        stmt = stmt.where(KmsKey.arn == arn)
+    else:
+        stmt = stmt.where(KmsKey.key_id == key_id)
+    db.execute(stmt)
+
+
+def _delete_lambda_function(db: Session, account: AwsAccount, *, arn: str | None, fn_name: str, region: str) -> None:
+    stmt = delete(LambdaFunction).where(LambdaFunction.account_id == account.id)
+    if arn:
+        stmt = stmt.where(LambdaFunction.arn == arn)
+    else:
+        stmt = stmt.where(LambdaFunction.region == region, LambdaFunction.function_name == fn_name)
+    db.execute(stmt)
 
 
 def _session(account: AwsAccount, purpose: str):
@@ -67,7 +206,9 @@ def _upsert_s3_bucket(db: Session, account: AwsAccount, s3, name: str) -> None:
     try:
         log_cfg = s3.get_bucket_logging(Bucket=name).get("LoggingEnabled")
         logging_enabled = log_cfg is not None
-    except ClientError:
+    except ClientError as exc:
+        if _is_s3_bucket_missing(exc):
+            raise
         logging_enabled = False
     try:
         enc = s3.get_bucket_encryption(Bucket=name)
@@ -75,14 +216,18 @@ def _upsert_s3_bucket(db: Session, account: AwsAccount, s3, name: str) -> None:
         sse_algo = rules[0]["ApplyServerSideEncryptionByDefault"]["SSEAlgorithm"]
         kms_encrypted = sse_algo == "aws:kms"
         encrypted = True
-    except ClientError:
+    except ClientError as exc:
+        if _is_s3_bucket_missing(exc):
+            raise
         kms_encrypted = False
         encrypted = False
     try:
         ver = s3.get_bucket_versioning(Bucket=name)
         versioning_enabled = ver.get("Status") == "Enabled"
         mfa_delete_enabled = ver.get("MFADelete") == "Enabled"
-    except ClientError:
+    except ClientError as exc:
+        if _is_s3_bucket_missing(exc):
+            raise
         versioning_enabled = False
         mfa_delete_enabled = False
     try:
@@ -95,12 +240,16 @@ def _upsert_s3_bucket(db: Session, account: AwsAccount, s3, name: str) -> None:
                 pab.get("RestrictPublicBuckets", False),
             ]
         )
-    except ClientError:
+    except ClientError as exc:
+        if _is_s3_bucket_missing(exc):
+            raise
         public_access_blocked = False
     try:
         policy_str = s3.get_bucket_policy(Bucket=name).get("Policy", "")
         https_only = "aws:SecureTransport" in policy_str
-    except ClientError:
+    except ClientError as exc:
+        if _is_s3_bucket_missing(exc):
+            raise
         https_only = False
 
     stmt = pg_insert(S3Bucket).values(
@@ -140,7 +289,13 @@ def _refresh_s3_bucket(db: Session, account: AwsAccount, finding: Finding) -> bo
     try:
         _upsert_s3_bucket(db, account, s3, name)
     except ClientError as exc:
-        if exc.response.get("Error", {}).get("Code") == "NoSuchBucket":
+        if _is_s3_bucket_missing(exc):
+            db.execute(
+                delete(S3Bucket).where(
+                    S3Bucket.account_id == account.id,
+                    S3Bucket.arn == f"arn:aws:s3:::{name}",
+                )
+            )
             return True
         raise
     return True
@@ -154,7 +309,10 @@ def _refresh_security_group(db: Session, account: AwsAccount, finding: Finding) 
     ec2 = _session(account, "fast_recheck_sg").client("ec2", region_name=region)
     try:
         sg = ec2.describe_security_groups(GroupIds=[group_id])["SecurityGroups"][0]
-    except ClientError:
+    except ClientError as exc:
+        if _error_code(exc) in _EC2_NOT_FOUND_CODES:
+            _delete_security_group(db, account, region=region, group_id=group_id)
+            return True
         return True
     ingress = sg.get("IpPermissions", [])
     egress = sg.get("IpPermissionsEgress", [])
@@ -197,7 +355,13 @@ def _refresh_ec2_instance(db: Session, account: AwsAccount, finding: Finding) ->
     ec2 = _session(account, "fast_recheck_ec2").client("ec2", region_name=region)
     try:
         res = ec2.describe_instances(InstanceIds=[instance_id])["Reservations"][0]["Instances"][0]
-    except (ClientError, IndexError, KeyError):
+    except ClientError as exc:
+        if _error_code(exc) in _EC2_NOT_FOUND_CODES:
+            _delete_ec2_instance(db, account, region=region, instance_id=instance_id)
+            return True
+        return True
+    except (IndexError, KeyError):
+        _delete_ec2_instance(db, account, region=region, instance_id=instance_id)
         return True
     metadata_options = res.get("MetadataOptions", {})
     stmt = pg_insert(Ec2Instance).values(
@@ -232,7 +396,13 @@ def _refresh_ebs_volume(db: Session, account: AwsAccount, finding: Finding) -> b
     ec2 = _session(account, "fast_recheck_ebs").client("ec2", region_name=region)
     try:
         volume = ec2.describe_volumes(VolumeIds=[volume_id])["Volumes"][0]
-    except (ClientError, IndexError, KeyError):
+    except ClientError as exc:
+        if _error_code(exc) in _EC2_NOT_FOUND_CODES:
+            _delete_ebs_volume(db, account, region=region, volume_id=volume_id)
+            return True
+        return True
+    except (IndexError, KeyError):
+        _delete_ebs_volume(db, account, region=region, volume_id=volume_id)
         return True
     arn = f"arn:aws:ec2:{region}:{account.account_id or 'unknown'}:volume/{volume_id}"
     stmt = pg_insert(EbsVolume).values(
@@ -265,7 +435,13 @@ def _refresh_ebs_snapshot(db: Session, account: AwsAccount, finding: Finding) ->
     ec2 = _session(account, "fast_recheck_ebs").client("ec2", region_name=region)
     try:
         snap = ec2.describe_snapshots(SnapshotIds=[snapshot_id])["Snapshots"][0]
-    except (ClientError, IndexError, KeyError):
+    except ClientError as exc:
+        if _error_code(exc) in _EC2_NOT_FOUND_CODES:
+            _delete_ebs_snapshot(db, account, region=region, snapshot_id=snapshot_id)
+            return True
+        return True
+    except (IndexError, KeyError):
+        _delete_ebs_snapshot(db, account, region=region, snapshot_id=snapshot_id)
         return True
     arn = f"arn:aws:ec2:{region}:{account.account_id or 'unknown'}:snapshot/{snapshot_id}"
     stmt = pg_insert(EbsSnapshot).values(
@@ -316,6 +492,13 @@ def _refresh_vpc(db: Session, account: AwsAccount, finding: Finding) -> bool:
         return False
     region = resource_region(finding)
     ec2 = _session(account, "fast_recheck_vpc").client("ec2", region_name=region)
+    try:
+        ec2.describe_vpcs(VpcIds=[vpc_id])
+    except ClientError as exc:
+        if _error_code(exc) in _EC2_NOT_FOUND_CODES:
+            _delete_vpc(db, account, region=region, vpc_id=vpc_id)
+            return True
+        return True
     flow_log_vpc_ids: set[str] = set()
     try:
         for fl in ec2.describe_flow_logs(Filters=[{"Name": "resource-type", "Values": ["VPC"]}]).get(
@@ -352,7 +535,13 @@ def _refresh_rds_instance(db: Session, account: AwsAccount, finding: Finding) ->
             inst = rds.describe_db_instances(DBInstanceIdentifier=arn.split(":")[-1])["DBInstances"][0]
         else:
             return False
-    except (ClientError, IndexError, KeyError):
+    except ClientError as exc:
+        if _error_code(exc) in _RDS_NOT_FOUND_CODES:
+            _delete_rds_instance(db, account, arn=arn, db_id=db_id)
+            return True
+        return True
+    except (IndexError, KeyError):
+        _delete_rds_instance(db, account, arn=arn, db_id=db_id)
         return True
     arn = inst["DBInstanceArn"]
     stmt = pg_insert(RdsInstance).values(
@@ -393,7 +582,10 @@ def _refresh_ssm_parameter(db: Session, account: AwsAccount, finding: Finding) -
     ssm = _session(account, "fast_recheck_ssm").client("ssm", region_name=region)
     try:
         param = ssm.get_parameter(Name=name, WithDecryption=False)["Parameter"]
-    except ClientError:
+    except ClientError as exc:
+        if _error_code(exc) in _SSM_NOT_FOUND_CODES:
+            _delete_ssm_parameter(db, account, region=region, name=name)
+            return True
         return True
     stmt = pg_insert(SsmParameter).values(
         id=uuid.uuid5(uuid.NAMESPACE_URL, f"{account.id}:{region}:{name}"),
@@ -423,10 +615,14 @@ def _refresh_iam_access_key(db: Session, account: AwsAccount, finding: Finding) 
     iam = _session(account, "fast_recheck_iam_key").client("iam")
     try:
         keys = iam.list_access_keys(UserName=user_name).get("AccessKeyMetadata", [])
-    except ClientError:
+    except ClientError as exc:
+        if _error_code(exc) in _IAM_NOT_FOUND_CODES:
+            _delete_iam_access_key(db, account, key_id=key_id)
+            return True
         return True
     match = next((k for k in keys if k.get("AccessKeyId") == key_id), None)
     if not match:
+        _delete_iam_access_key(db, account, key_id=key_id)
         return True
     from app.collectors.iam import _upsert_key
 
@@ -457,7 +653,10 @@ def _refresh_iam_user(db: Session, account: AwsAccount, finding: Finding) -> boo
     iam = _session(account, "fast_recheck_iam_user").client("iam")
     try:
         u = iam.get_user(UserName=user_name)["User"]
-    except ClientError:
+    except ClientError as exc:
+        if _error_code(exc) in _IAM_NOT_FOUND_CODES:
+            _delete_iam_user(db, account, arn=arn or None, user_name=user_name)
+            return True
         return True
     attached, inline = _user_policies(iam, user_name)
     _upsert_user(
@@ -487,7 +686,15 @@ def _refresh_iam_role(db: Session, account: AwsAccount, finding: Finding) -> boo
     iam = _session(account, "fast_recheck_iam_role").client("iam")
     try:
         r = iam.get_role(RoleName=role_name)["Role"]
-    except ClientError:
+    except ClientError as exc:
+        if _error_code(exc) in _IAM_NOT_FOUND_CODES:
+            _delete_iam_role(
+                db,
+                account,
+                arn=evidence_str(finding, "role_arn") or finding.resource_arn or None,
+                role_name=role_name,
+            )
+            return True
         return True
     inline_policies: dict = {}
     for pname in iam.list_role_policies(RoleName=role_name).get("PolicyNames", []):
@@ -644,7 +851,10 @@ def refresh_resource_for_finding(db: Session, account: AwsAccount, finding: Find
                 )
                 db.execute(stmt)
                 return True
-            except ClientError:
+            except ClientError as exc:
+                if _error_code(exc) in _KMS_NOT_FOUND_CODES:
+                    _delete_kms_key(db, account, key_id=key_id, arn=finding.resource_arn or None)
+                    return True
                 return True
         return _mini_collect(db, account, collect_kms)
 
@@ -699,7 +909,16 @@ def refresh_resource_for_finding(db: Session, account: AwsAccount, finding: Find
                 )
                 db.execute(stmt)
                 return True
-            except ClientError:
+            except ClientError as exc:
+                if _error_code(exc) in _LAMBDA_NOT_FOUND_CODES:
+                    _delete_lambda_function(
+                        db,
+                        account,
+                        arn=finding.resource_arn or None,
+                        fn_name=fn_name,
+                        region=region,
+                    )
+                    return True
                 return True
         from app.collectors.extended import collect_lambda
 

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import boto3
 import pytest
 from botocore.stub import Stubber
+from sqlalchemy.sql.dml import Delete
 
 from tests.conftest import make_account
 
@@ -260,6 +261,8 @@ class TestCollectS3:
             count = collect_s3(db, acc)
 
         assert count == 0
+        delete_stmt = db.execute.call_args.args[0]
+        assert isinstance(delete_stmt, Delete)
 
 
 class TestCollectIdentityCenter:
