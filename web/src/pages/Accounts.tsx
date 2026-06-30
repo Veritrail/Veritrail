@@ -2077,7 +2077,7 @@ function hclString(value: string): string {
 }
 
 function terraformList(values: readonly string[], indent = "    "): string {
-  if (values.length === 1) return hclString(values[0]);
+  if (values.length === 0) return "[]";
   return `[\n${values.map((value) => `${indent}${hclString(value)},`).join("\n")}\n${indent.slice(0, -2)}]`;
 }
 
@@ -6690,11 +6690,13 @@ function PendingAccountSetupSurface({
   initialStep,
   onBackToCapabilities,
   onDismiss,
+  onCompleteSetup,
 }: {
   acc: Account;
   initialStep: number;
   onBackToCapabilities: () => void;
   onDismiss?: () => void;
+  onCompleteSetup?: () => void;
 }) {
   const qc = useQueryClient();
   const [roleArn, setRoleArn] = useState("");
@@ -6736,6 +6738,9 @@ function PendingAccountSetupSurface({
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
       setRoleArn("");
+      if (isAccountConnected(updated)) {
+        onCompleteSetup?.();
+      }
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
@@ -6993,6 +6998,14 @@ export default function Accounts() {
     create.mutate(pendingConnectionOptions);
   };
 
+  const resetAddAccountFlow = () => {
+    setAddingAwsAccount(false);
+    setOnboardingAccount(null);
+    setDiscardOnboardingAccountId(null);
+    setSetupInitialStep(1);
+    setPendingConnectionOptions(defaultOnboardingConnectionOptions());
+  };
+
   const handleDismissAddAccount = () => {
     if (
       activeOnboardingAccount &&
@@ -7008,11 +7021,7 @@ export default function Accounts() {
         qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
       });
     }
-    setAddingAwsAccount(false);
-    setOnboardingAccount(null);
-    setDiscardOnboardingAccountId(null);
-    setSetupInitialStep(1);
-    setPendingConnectionOptions(defaultOnboardingConnectionOptions());
+    resetAddAccountFlow();
   };
 
   const handleDismissEmbeddedSetup = () => {
@@ -7138,6 +7147,7 @@ export default function Accounts() {
               initialStep={setupInitialStep}
               onBackToCapabilities={() => setSetupInitialStep(1)}
               onDismiss={handleDismissAddAccount}
+              onCompleteSetup={resetAddAccountFlow}
             />
           ) : (
             <FirstAccountOnboarding
