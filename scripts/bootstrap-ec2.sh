@@ -303,8 +303,14 @@ random_fernet_key() {
   python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
 }
 
+# oauth2-proxy v7 uses len(cookie_secret) as the AES key size — must be 16, 24, or 32 bytes.
+iap_cookie_secret_valid() {
+  local len="${#1}"
+  [[ "$len" -eq 16 || "$len" -eq 24 || "$len" -eq 32 ]]
+}
+
 random_iap_cookie_secret() {
-  openssl rand -base64 32 | tr -d '\n'
+  openssl rand -hex 16
 }
 
 detect_instance_role_arn() {
@@ -436,7 +442,11 @@ ensure_env_prod() {
     iap_secret="$(get_env_value IAP_COOKIE_SECRET "$env_path")"
     if [[ -z "$iap_secret" ]]; then
       set_env_value "IAP_COOKIE_SECRET" "$(random_iap_cookie_secret)" "$env_path"
-      log "Generated IAP_COOKIE_SECRET"
+      log "Generated IAP_COOKIE_SECRET (32-byte hex string for oauth2-proxy)"
+    elif ! iap_cookie_secret_valid "$iap_secret"; then
+      warn "IAP_COOKIE_SECRET length is ${#iap_secret} bytes — oauth2-proxy requires exactly 16, 24, or 32"
+      warn "Regenerating IAP_COOKIE_SECRET (invalidates existing IAP sessions)"
+      set_env_value "IAP_COOKIE_SECRET" "$(random_iap_cookie_secret)" "$env_path"
     fi
 
     iap_client="$(get_env_value IAP_GOOGLE_CLIENT_ID "$env_path")"
@@ -549,25 +559,37 @@ deploy_compose() {
 }
 
 verify_nginx_running() {
-  local cid status
-  cid="$(compose ps -q nginx 2>/dev/null | head -1 || true)"
-  if [[ -z "$cid" ]]; then
-    warn "nginx container not found after deploy"
-    warn "Inspect logs: compose logs nginx"
-    return 1
-  fi
+  local cid status stable=0 tries=10
 
-  status="$(docker_cmd inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo unknown)"
-  if [[ "$status" != "running" ]]; then
-    warn "nginx container status is '$status' (expected: running)"
-    warn "Inspect logs: compose logs nginx"
-    warn "Last 20 lines of nginx logs:"
-    compose logs --tail=20 nginx 2>&1 || true
-    return 1
-  fi
+  log "Verifying nginx stays running (oauth2-proxy may still be crash-looping)..."
+  while [[ $tries -gt 0 ]]; do
+    cid="$(compose ps --status running -q nginx 2>/dev/null | head -1 || true)"
+    if [[ -n "$cid" ]]; then
+      status="$(docker_cmd inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo unknown)"
+      if [[ "$status" == "running" ]]; then
+        stable=$((stable + 1))
+        if [[ $stable -ge 2 ]]; then
+          log "nginx container is running"
+          return 0
+        fi
+      else
+        stable=0
+      fi
+    else
+      stable=0
+    fi
+    tries=$((tries - 1))
+    sleep 2
+  done
 
-  log "nginx container is running"
-  return 0
+  warn "nginx is not running after deploy"
+  warn "Inspect logs: compose logs nginx"
+  warn "Last 30 lines of nginx logs:"
+  compose logs --tail=30 nginx 2>&1 || true
+  if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
+    warn "If oauth2-proxy is crash-looping, fix IAP_COOKIE_SECRET (16/24/32 bytes) then: compose up -d oauth2-proxy nginx --force-recreate"
+  fi
+  return 1
 }
 
 health_check() {

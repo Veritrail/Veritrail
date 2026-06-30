@@ -55,3 +55,9 @@ services:
       - daemon off;
     ports: !reset []
     volumes: !reset []
+
+  nginx:
+    restart: unless-stopped
+
+  oauth2-proxy:
+    restart: unless-stopped
