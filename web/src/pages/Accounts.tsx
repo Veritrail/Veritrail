@@ -6689,10 +6689,10 @@ function AccountPremiumCard({
 
 type CloudProviderChoice = "aws" | "gcp" | "azure";
 
-const ADD_ACCOUNT_PROVIDERS: { id: CloudProviderChoice; name: string; description: string }[] = [
-  { id: "aws", name: "Amazon Web Services", description: "Role-based access via CloudFormation" },
-  { id: "gcp", name: "Google Cloud", description: "Service account connector" },
-  { id: "azure", name: "Microsoft Azure", description: "Client credentials connector" },
+const ADD_ACCOUNT_PROVIDERS: { id: CloudProviderChoice; name: string }[] = [
+  { id: "aws", name: "Amazon Web Services" },
+  { id: "gcp", name: "Google Cloud" },
+  { id: "azure", name: "Microsoft Azure" },
 ];
 
 function AddAccountProviderPicker({
@@ -6760,7 +6760,6 @@ function AddAccountProviderPicker({
                 <IntegrationBrandIcon brand={provider.id} size={40} variant="plain" />
               </span>
               <span className="accounts-provider-modal__name">{provider.name}</span>
-              <span className="accounts-provider-modal__desc">{provider.description}</span>
               <span className="accounts-provider-modal__arrow" aria-hidden>
                 <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
