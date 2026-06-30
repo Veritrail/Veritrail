@@ -13,6 +13,7 @@ REPO_DIR="${REPO_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 export ENV_FILE="${ENV_FILE:-.env.prod}"
 export DOMAIN="${DOMAIN:-app.veritrail.io}"
 export API_DOMAIN="${API_DOMAIN:-api.veritrail.io}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-veritrail}"
 
 cd "$REPO_DIR"
 
@@ -26,4 +27,5 @@ if [[ "$(id -u)" -eq 0 ]]; then
 fi
 
 exec sudo -E ENV_FILE="$ENV_FILE" DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" \
+  COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" \
   "$SCRIPT_DIR/bootstrap-ec2.sh" --deploy-only "$@"

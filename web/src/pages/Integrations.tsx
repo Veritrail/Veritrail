@@ -375,7 +375,7 @@ function IntegrationsContent() {
     {
       key: "aws",
       name: "AWS",
-      description: "Posture scans, audit evidence, and automated remediation.",
+      description: "Cloud posture, audit evidence, and automated remediation across connected accounts.",
       icon: <IntegrationBrandIcon brand="aws" size={48} />,
       href: "/accounts",
       connected: awsConnected,
@@ -386,12 +386,12 @@ function IntegrationsContent() {
       healthTone: awsScanRunning ? "sync" : awsAccount?.last_scan_at ? "ok" : "idle",
       permissionsLabel: awsConnected ? "Connector verified" : "Not connected",
       permissionsVerified: awsConnected,
-      capabilities: ["IAM", "S3", "KMS", "CloudTrail", "Remediation"],
+      capabilities: ["Cloud posture", "Audit evidence", "Remediation"],
     },
     {
       key: "github",
       name: "GitHub",
-      description: "Repository controls, branch protection, pull request reviews, and change evidence.",
+      description: "Repository governance, branch protection, review evidence, and change history.",
       icon: <IntegrationBrandIcon brand="github" size={48} />,
       href: "/integrations/github",
       connected: githubConnected,
@@ -408,12 +408,12 @@ function IntegrationsContent() {
       healthTone: githubSync.isSyncing ? "sync" : github.data?.status === "error" ? "danger" : githubConnected ? "ok" : "idle",
       permissionsLabel: githubConnected ? "OAuth connected" : "Not connected",
       permissionsVerified: githubConnected,
-      capabilities: ["Branch protection", "Reviews", "Repositories"],
+      capabilities: ["Repositories", "Branch protection", "Review evidence"],
     },
     {
       key: "gitlab",
       name: "GitLab",
-      description: "Merge-request controls, protected branches, and change-management evidence.",
+      description: "Repository governance, branch protection, review evidence, and change history.",
       icon: <IntegrationBrandIcon brand="gitlab" size={48} />,
       href: "/integrations/gitlab",
       connected: gitlabConnected,
@@ -430,7 +430,7 @@ function IntegrationsContent() {
       healthTone: gitlabSync.isSyncing ? "sync" : gitlab.data?.status === "error" ? "danger" : gitlabConnected ? "ok" : "idle",
       permissionsLabel: gitlabConnected ? "OAuth connected" : "Not connected",
       permissionsVerified: gitlabConnected,
-      capabilities: ["Protected branches", "MR approvals", "Projects"],
+      capabilities: ["Repositories", "Branch protection", "Review evidence"],
     },
     ...(googleConnected
       ? [
@@ -497,7 +497,7 @@ function IntegrationsContent() {
           {
             key: "gcp",
             name: "Google Cloud",
-            description: "Audit logging and compute public IP posture checks",
+            description: "Cloud posture, audit evidence, and security findings across connected projects.",
             icon: <IntegrationBrandIcon brand="gcp" size={48} />,
             href: "/integrations/gcp",
             connected: true,
@@ -507,7 +507,7 @@ function IntegrationsContent() {
             healthTone: (gcpProject?.last_scan_at ? "ok" : "idle") as Tone,
             permissionsLabel: "Service account verified",
             permissionsVerified: true,
-            capabilities: ["Logging", "Compute", "Findings"],
+            capabilities: ["Cloud posture", "Audit evidence", "Findings"],
           } satisfies IntegrationRow,
         ]
       : []),

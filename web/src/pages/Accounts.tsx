@@ -23,7 +23,11 @@ import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
   ADVANCED_POLICY_RAW_ACTIONS,
 } from "../data/capabilityCopy";
-import { resolveDeployArtifacts, type CfnConnectionOptions } from "../lib/cfnDeployCommands";
+import {
+  parseCfnLaunchMeta,
+  resolveDeployArtifacts,
+  type CfnConnectionOptions,
+} from "../lib/cfnDeployCommands";
 import { isValidIamRoleArn, sanitizeIamRoleArnInput } from "../lib/awsArn";
 import {
   DEFAULT_REMEDIATION_MODULES,
@@ -93,10 +97,8 @@ const DEFAULT_CONNECTION_OPTIONS: ConnectionOptions = {
 
 function defaultOnboardingConnectionOptions(): ConnectionOptions {
   return {
-    enable_advanced_policy_generation: true,
-    remediation_modules: Object.fromEntries(
-      Object.keys(DEFAULT_REMEDIATION_MODULES).map((k) => [k, true]),
-    ) as RemediationModules,
+    enable_advanced_policy_generation: false,
+    remediation_modules: { ...DEFAULT_REMEDIATION_MODULES },
   };
 }
 
@@ -2070,6 +2072,114 @@ function CliCodeBlock({
   );
 }
 
+function hclString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function terraformList(values: readonly string[], indent = "    "): string {
+  if (values.length === 1) return hclString(values[0]);
+  return `[\n${values.map((value) => `${indent}${hclString(value)},`).join("\n")}\n${indent.slice(0, -2)}]`;
+}
+
+function terraformPolicyDocumentForStatements(
+  statements: readonly PolicyStatementSummary[],
+  resourceOverrides: Partial<Record<string, string>> = {},
+): string {
+  return statements
+    .map((statement) => {
+      const resource =
+        resourceOverrides[statement.sid] ??
+        (statement.resource === "Veritrail-hosted SSM handler scripts"
+          ? "var.veritrail_ssm_handler_scripts_arn"
+          : hclString(statement.resource));
+      const condition =
+        statement.sid === "PassRemediationAutomationRole"
+          ? `\n\n  condition {\n    test     = "StringEquals"\n    variable = "iam:PassedToService"\n    values   = ["ssm.amazonaws.com"]\n  }`
+          : statement.sid === "PassAccessAnalyzerMonitorRole"
+            ? `\n\n  condition {\n    test     = "StringEquals"\n    variable = "iam:PassedToService"\n    values   = ["access-analyzer.amazonaws.com"]\n  }`
+            : "";
+      return `  statement {\n    sid       = ${hclString(statement.sid)}\n    effect    = "Allow"\n    actions   = ${terraformList(statement.actions, "      ")}\n    resources = [${resource}]${condition}\n  }`;
+    })
+    .join("\n\n");
+}
+
+function terraformForConnection(acc: Account, connectionOptions: ConnectionOptions): string {
+  const trustPrincipalArn = parseCfnLaunchMeta(acc.cfn_launch_url).trustPrincipalArn;
+  const veritrailPrincipalArnVar = trustPrincipalArn
+    ? `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n  default     = ${hclString(trustPrincipalArn)}\n}`
+    : `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n}`;
+  const remediationSelected = anyRemediationEnabled(connectionOptions.remediation_modules);
+  const selectedRemediationStatements = REMEDIATION_MODULE_SPECS.filter(
+    (spec) => connectionOptions.remediation_modules[spec.id],
+  ).map((spec) => REMEDIATION_MODULE_STATEMENTS[spec.id]);
+  const scannerStatements = [
+    ...CORE_SCANNER_STATEMENTS,
+    ...(connectionOptions.enable_advanced_policy_generation ? ADVANCED_POLICY_STATEMENTS : []),
+    ...(remediationSelected ? REMEDIATION_START_STATEMENTS : []),
+  ];
+  const roleBlocks = [
+    `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
+      PassAccessAnalyzerMonitorRole: "aws_iam_role.veritrail_core_scanner_role.arn",
+      PassRemediationAutomationRole: "aws_iam_role.veritrail_remediation_automation_role.arn",
+    })}\n}\n\nresource "aws_iam_role" "veritrail_core_scanner_role" {\n  name = var.veritrail_core_scanner_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_core_scanner_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_core_scanner_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_core_scanner_role" {\n  name   = "VeritrailScannerAccess"\n  role   = aws_iam_role.veritrail_core_scanner_role.id\n  policy = data.aws_iam_policy_document.veritrail_core_scanner_role_policy.json\n}`,
+    ...(remediationSelected
+      ? [
+          `data "aws_iam_policy_document" "veritrail_remediation_automation_role_trust" {\n  statement {\n    sid     = "AllowSsmAutomationAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "Service"\n      identifiers = ["ssm.amazonaws.com"]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_remediation_automation_role_policy" {\n${terraformPolicyDocumentForStatements([
+            { sid: "SsmHandlerScriptsFromS3", actions: ["s3:GetObject"], resource: "Veritrail-hosted SSM handler scripts" },
+            ...selectedRemediationStatements,
+          ])}\n}\n\nresource "aws_iam_role" "veritrail_remediation_automation_role" {\n  name = var.veritrail_remediation_automation_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_remediation_automation_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_remediation_automation_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_remediation_automation_role" {\n  name   = "VeritrailRemediationAutomation"\n  role   = aws_iam_role.veritrail_remediation_automation_role.id\n  policy = data.aws_iam_policy_document.veritrail_remediation_automation_role_policy.json\n}`,
+        ]
+      : []),
+  ].join("\n\n");
+  const outputs = [
+    `output "veritrail_core_scanner_role_arn" {\n  description = "ARN of the Veritrail core scanner role. Paste this back into Veritrail during verification."\n  value       = aws_iam_role.veritrail_core_scanner_role.arn\n}`,
+    ...(remediationSelected
+      ? [
+          `output "veritrail_remediation_automation_role_arn" {\n  description = "ARN of the optional Veritrail remediation automation role."\n  value       = aws_iam_role.veritrail_remediation_automation_role.arn\n}`,
+        ]
+      : []),
+  ].join("\n\n");
+
+  return `terraform {\n  required_version = ">= 1.5.0"\n\n  required_providers {\n    aws = {\n      source  = "hashicorp/aws"\n      version = ">= 5.0"\n    }\n  }\n}\n\nprovider "aws" {\n  region = var.aws_region\n}\n\nvariable "aws_region" {\n  description = "AWS region used by the AWS provider. IAM roles are global, but the provider still requires a region."\n  type        = string\n  default     = "us-east-1"\n}\n\nvariable "external_id" {\n  description = "External ID generated by Veritrail for this account connection."\n  type        = string\n  default     = ${hclString(acc.external_id)}\n}\n\n${veritrailPrincipalArnVar}\n\nvariable "veritrail_core_scanner_role_name" {\n  description = "Name of the Veritrail read-only scanner role."\n  type        = string\n  default     = ${hclString(SCANNER_ROLE_NAME)}\n}\n${
+    remediationSelected
+      ? `\nvariable "veritrail_remediation_automation_role_name" {\n  description = "Name of the optional Veritrail remediation automation role."\n  type        = string\n  default     = "VeritrailRemediationAutomationRole"\n}\n\nvariable "veritrail_ssm_handler_scripts_arn" {\n  description = "S3 object ARN pattern for Veritrail-hosted SSM automation handler scripts."\n  type        = string\n  default     = "arn:aws:s3:::veritrail-automation-*/*"\n}\n`
+      : ""
+  }\nvariable "tags" {\n  description = "Tags applied to IAM roles."\n  type        = map(string)\n  default = {\n    ManagedBy = "Terraform"\n    Vendor    = "Veritrail"\n  }\n}\n\n${roleBlocks}\n\n${outputs}\n`;
+}
+
+function TerraformCodeBlock({
+  code,
+  compact = false,
+}: {
+  code: string;
+  compact?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className={`accounts-terraform-code${compact ? " accounts-terraform-code--compact" : ""}`}>
+      <div className="accounts-terraform-code__head">
+        <div>
+          <span>main.tf</span>
+          <p>Creates the selected IAM role policies with external ID trust.</p>
+        </div>
+        <button type="button" onClick={() => void copy()}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre>
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
 type DeployTab = "console" | "cli" | "terraform";
 
 const ONBOARDING_FLOW_STEPS = [
@@ -2539,13 +2649,18 @@ function OnboardingCapabilityCards({
             aria-pressed={on}
             className={`accounts-cap-card accounts-cap-card--${c.tone}${on ? " is-selected" : ""}${c.required ? " is-required" : ""}`}
           >
-            {on ? (
-              <span className={`accounts-cap-card__check accounts-cap-card__check--${c.tone}`} aria-hidden>
+            <span
+              className={`accounts-cap-card__check accounts-cap-card__check--${c.tone}${
+                on ? " is-checked" : ""
+              }`}
+              aria-hidden
+            >
+              {on ? (
                 <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-              </span>
-            ) : null}
+              ) : null}
+            </span>
 
             <span className={`accounts-cap-card__icon-ring accounts-cap-card__icon-ring--${c.tone}`}>
               <svg className="accounts-cap-card__icon" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
@@ -2875,6 +2990,8 @@ function OnboardingDeployPanel({
   const [copied, setCopied] = useState(false);
   const [cliExpanded, setCliExpanded] = useState(false);
   const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
+  const trustPrincipalArn = parseCfnLaunchMeta(acc.cfn_launch_url).trustPrincipalArn;
+  const terraformCode = terraformForConnection(acc, connectionOptions);
 
   async function copyExternalId() {
     await navigator.clipboard.writeText(acc.external_id);
@@ -2955,9 +3072,16 @@ function OnboardingDeployPanel({
             <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
           </div>
         ) : (
-          <div className="accounts-deploy-rail__section accounts-deploy-rail__empty">
-            <p>Terraform module</p>
-            <span>Coming soon. Use Console or CLI for this deployment.</span>
+          <div className="accounts-deploy-rail__section">
+            <div className="accounts-terraform-note">
+              <p>Terraform deployment</p>
+              <span>
+                {trustPrincipalArn
+                  ? "Apply this module, then continue with the scanner role ARN output. veritrail_principal_arn is pre-filled from your Veritrail deployment."
+                  : "Set veritrail_principal_arn, apply this module, then continue with the scanner role ARN output."}
+              </span>
+            </div>
+            <TerraformCodeBlock code={terraformCode} compact />
           </div>
         )}
       </div>
@@ -3135,6 +3259,8 @@ function DeployMethodTabs({
     deployOptions,
     isUpdate ? "update" : "create",
   );
+  const trustPrincipalArn = parseCfnLaunchMeta(acc.cfn_launch_url).trustPrincipalArn;
+  const terraformCode = terraformForConnection(acc, deployOptions ?? accountConnectionOptions(acc));
   const consoleLabel = isUpdate ? "Open stack in console" : "Launch CloudFormation";
 
   async function copyTemplateUrl() {
@@ -3231,9 +3357,13 @@ function DeployMethodTabs({
           />
         )}
         {tab === "terraform" && (
-          <div className="rounded-lg bg-zinc-50 px-4 py-6 text-center">
-            <p className="text-sm font-medium text-zinc-700">Terraform module</p>
-            <p className="mt-1 text-sm text-zinc-500">Coming soon — use Console or CLI for now.</p>
+          <div className="space-y-3">
+            <p className="text-[11px] leading-relaxed text-zinc-600">
+              {trustPrincipalArn
+                ? "Copy this into a Terraform module and apply. veritrail_principal_arn is pre-filled from your Veritrail deployment. Use the scanner role ARN output when verifying the account."
+                : "Copy this into a Terraform module, set veritrail_principal_arn, then apply. Use the scanner role ARN output when verifying the account."}
+            </p>
+            <TerraformCodeBlock code={terraformCode} compact />
           </div>
         )}
       </div>
@@ -5275,17 +5405,18 @@ function AccountSplitDetailPane({
         </div>
         <div className="accounts-detail-pane__body">
           {isAws && acc ? (
-            <PendingAccountOnboarding
-              acc={acc}
-              connectionOptions={setupConnectionOptions}
-              roleArn={roleArn}
-              setRoleArn={setRoleArn}
-              verify={verify}
-              onVerifyConnection={() => verify.mutate()}
-              onBackToCapabilities={onManageSetup ?? (() => undefined)}
-              onDismiss={onDismissSetup ?? onManageSetup}
-              embedded
-              initialStep={setupInitialStep ?? 2}
+            <DetailTabStub
+              title="Finish account setup"
+              body="Resume the onboarding window to review access, deploy the stack, and connect this AWS account."
+              action={
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__primary"
+                  onClick={onManageSetup}
+                >
+                  Continue setup
+                </button>
+              }
             />
           ) : (
             <DetailTabStub
@@ -6047,6 +6178,7 @@ function AccountPremiumCard({
   selected = false,
   splitLayout = false,
   onSelect,
+  onContinueSetup,
 }: {
   acc: Account;
   stats: FindingStats | undefined;
@@ -6056,6 +6188,7 @@ function AccountPremiumCard({
   selected?: boolean;
   splitLayout?: boolean;
   onSelect?: () => void;
+  onContinueSetup?: () => void;
 }) {
   const qc = useQueryClient();
   const [roleArn, setRoleArn] = useState("");
@@ -6326,7 +6459,11 @@ function AccountPremiumCard({
           ) : (
             <>
               <div className="accounts-row-actions accounts-row-actions--pending">
-                <button type="button" className="accounts-scan-now-btn" onClick={onToggle}>
+                <button
+                  type="button"
+                  className="accounts-scan-now-btn"
+                  onClick={onContinueSetup ?? onToggle}
+                >
                   Continue setup
                 </button>
                 <button
@@ -6552,10 +6689,12 @@ function PendingAccountSetupSurface({
   acc,
   initialStep,
   onBackToCapabilities,
+  onDismiss,
 }: {
   acc: Account;
   initialStep: number;
   onBackToCapabilities: () => void;
+  onDismiss?: () => void;
 }) {
   const qc = useQueryClient();
   const [roleArn, setRoleArn] = useState("");
@@ -6633,6 +6772,7 @@ function PendingAccountSetupSurface({
       verify={verify}
       onVerifyConnection={handleVerifyConnection}
       onBackToCapabilities={onBackToCapabilities}
+      onDismiss={onDismiss}
       initialStep={initialStep}
     />
   );
@@ -6646,6 +6786,8 @@ export default function Accounts() {
   const [setupInitialStep, setSetupInitialStep] = useState(1);
   const [showProviderPicker, setShowProviderPicker] = useState(false);
   const [addingAwsAccount, setAddingAwsAccount] = useState(false);
+  const [onboardingAccount, setOnboardingAccount] = useState<Account | null>(null);
+  const [discardOnboardingAccountId, setDiscardOnboardingAccountId] = useState<string | null>(null);
   const [accountSearch, setAccountSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -6678,11 +6820,16 @@ export default function Accounts() {
         }),
       }),
     onSuccess: (acc) => {
+      qc.setQueryData<Account[]>(["accounts"], (rows) =>
+        rows ? [...rows.filter((row) => row.id !== acc.id), acc] : [acc],
+      );
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
-      setAddingAwsAccount(false);
+      setAddingAwsAccount(true);
+      setOnboardingAccount(acc);
+      setDiscardOnboardingAccountId(acc.id);
       setSetupInitialStep(2);
-      setExpandedId(acc.id);
+      setExpandedId(null);
       setPendingConnectionOptions(accountConnectionOptions(acc));
     },
   });
@@ -6807,6 +6954,9 @@ export default function Accounts() {
   }, [page, totalPages]);
 
   const pendingAcc = accs.find((a) => !isAccountConnected(a));
+  const activeOnboardingAccount = onboardingAccount
+    ? accs.find((a) => a.id === onboardingAccount.id) ?? onboardingAccount
+    : null;
   const showCapabilityOnboarding =
     !accounts.isLoading &&
     !cloudAccounts.isLoading &&
@@ -6815,6 +6965,19 @@ export default function Accounts() {
     (addingAwsAccount || (!hasAnyAccounts && (!pendingAcc || expandedId === null)));
 
   const handleOnboardingContinue = () => {
+    if (activeOnboardingAccount) {
+      patchConnection.mutate(
+        { accountId: activeOnboardingAccount.id, opts: pendingConnectionOptions },
+        {
+          onSuccess: (updated) => {
+            setOnboardingAccount(updated);
+            setSetupInitialStep(2);
+            setExpandedId(null);
+          },
+        },
+      );
+      return;
+    }
     if (pendingAcc && !addingAwsAccount) {
       patchConnection.mutate(
         { accountId: pendingAcc.id, opts: pendingConnectionOptions },
@@ -6832,7 +6995,24 @@ export default function Accounts() {
   };
 
   const handleDismissAddAccount = () => {
+    if (
+      activeOnboardingAccount &&
+      discardOnboardingAccountId === activeOnboardingAccount.id &&
+      !isAccountConnected(activeOnboardingAccount)
+    ) {
+      const discardId = activeOnboardingAccount.id;
+      qc.setQueryData<Account[]>(["accounts"], (rows) =>
+        rows ? rows.filter((row) => row.id !== discardId) : rows,
+      );
+      void api(`/v1/accounts/${discardId}`, { method: "DELETE" }).finally(() => {
+        qc.invalidateQueries({ queryKey: ["accounts"] });
+        qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
+      });
+    }
     setAddingAwsAccount(false);
+    setOnboardingAccount(null);
+    setDiscardOnboardingAccountId(null);
+    setSetupInitialStep(1);
     setPendingConnectionOptions(defaultOnboardingConnectionOptions());
   };
 
@@ -6880,6 +7060,8 @@ export default function Accounts() {
       return;
     }
     setPendingConnectionOptions(defaultOnboardingConnectionOptions());
+    setOnboardingAccount(null);
+    setDiscardOnboardingAccountId(null);
     setSetupInitialStep(1);
     setAddingAwsAccount(true);
   };
@@ -6935,14 +7117,23 @@ export default function Accounts() {
 
       {addingAwsAccount && (
         <AccountOnboardingOverlay onDismiss={handleDismissAddAccount}>
-          <FirstAccountOnboarding
-            value={pendingConnectionOptions}
-            onChange={setPendingConnectionOptions}
-            disabled={continuingOnboarding}
-            continuing={continuingOnboarding}
-            onContinue={handleOnboardingContinue}
-            onDismiss={handleDismissAddAccount}
-          />
+          {activeOnboardingAccount && setupInitialStep !== 1 ? (
+            <PendingAccountSetupSurface
+              acc={activeOnboardingAccount}
+              initialStep={setupInitialStep}
+              onBackToCapabilities={() => setSetupInitialStep(1)}
+              onDismiss={handleDismissAddAccount}
+            />
+          ) : (
+            <FirstAccountOnboarding
+              value={pendingConnectionOptions}
+              onChange={setPendingConnectionOptions}
+              disabled={continuingOnboarding}
+              continuing={continuingOnboarding}
+              onContinue={handleOnboardingContinue}
+              onDismiss={handleDismissAddAccount}
+            />
+          )}
         </AccountOnboardingOverlay>
       )}
 
@@ -7134,40 +7325,48 @@ export default function Accounts() {
                     <span className="accounts-col accounts-col--actions" />
                   </div>
                   <div className="accounts-list-body">
-                  {paginatedRows.map((row) => {
-                    const key = accountListRowKey(row);
-                    const isSelected = selectedRowKey === key;
-                    const onSelect = () => setSelectedRowKey(key);
-                    return row.kind === "aws" ? (
-                      <AccountPremiumCard
-                        key={`aws-${row.account.id}`}
-                        acc={row.account}
-                        stats={statsMap.get(row.account.id)}
-                        expanded={expandedId === row.account.id}
-                        setupInitialStep={expandedId === row.account.id ? setupInitialStep : 1}
-                        selected={isSelected}
-                        splitLayout
-                        onSelect={onSelect}
-                        onToggle={() => {
-                          setSelectedRowKey(key);
-                          setExpandedId((id) => {
-                            if (id === row.account.id) return null;
-                            if (!isAccountConnected(row.account)) setSetupInitialStep(2);
-                            return row.account.id;
-                          });
-                        }}
-                      />
-                    ) : (
-                      <IntegrationCloudAccountCard
-                        key={`${row.cloud.provider}-${row.cloud.id}`}
-                        cloud={row.cloud}
-                        stats={integrationStatsMap.get(row.cloud.id)}
-                        selected={isSelected}
-                        splitLayout
-                        onSelect={onSelect}
-                      />
-                    );
-                  })}
+                    {paginatedRows.map((row) => {
+                      const key = accountListRowKey(row);
+                      const isSelected = selectedRowKey === key;
+                      const onSelect = () => setSelectedRowKey(key);
+                      return row.kind === "aws" ? (
+                        <AccountPremiumCard
+                          key={`aws-${row.account.id}`}
+                          acc={row.account}
+                          stats={statsMap.get(row.account.id)}
+                          expanded={expandedId === row.account.id}
+                          setupInitialStep={expandedId === row.account.id ? setupInitialStep : 1}
+                          selected={isSelected}
+                          splitLayout
+                          onSelect={onSelect}
+                          onContinueSetup={() => {
+                            setOnboardingAccount(row.account);
+                            setDiscardOnboardingAccountId(null);
+                            setPendingConnectionOptions(accountConnectionOptions(row.account));
+                            setSetupInitialStep(2);
+                            setAddingAwsAccount(true);
+                            setExpandedId(null);
+                          }}
+                          onToggle={() => {
+                            setSelectedRowKey(key);
+                            setExpandedId((id) => {
+                              if (id === row.account.id) return null;
+                              if (!isAccountConnected(row.account)) setSetupInitialStep(2);
+                              return row.account.id;
+                            });
+                          }}
+                        />
+                      ) : (
+                        <IntegrationCloudAccountCard
+                          key={`${row.cloud.provider}-${row.cloud.id}`}
+                          cloud={row.cloud}
+                          stats={integrationStatsMap.get(row.cloud.id)}
+                          selected={isSelected}
+                          splitLayout
+                          onSelect={onSelect}
+                        />
+                      );
+                    })}
                   </div>
 
                   <div className="accounts-list-pagination">
@@ -7213,6 +7412,15 @@ export default function Accounts() {
                     findingsItems={allFindings.data?.items}
                     setupInitialStep={setupInitialStep}
                     onManageSetup={() => {
+                      if (selectedRow.kind === "aws" && !isAccountConnected(selectedRow.account)) {
+                        setOnboardingAccount(selectedRow.account);
+                        setDiscardOnboardingAccountId(null);
+                        setPendingConnectionOptions(accountConnectionOptions(selectedRow.account));
+                        setSetupInitialStep(2);
+                        setAddingAwsAccount(true);
+                        setExpandedId(null);
+                        return;
+                      }
                       setExpandedId(null);
                       setSetupInitialStep(1);
                     }}

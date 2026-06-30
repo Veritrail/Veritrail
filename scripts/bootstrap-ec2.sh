@@ -13,6 +13,7 @@ DEPLOY_ONLY=0
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 ENV_FILE="${ENV_FILE:-.env.prod}"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-veritrail}"
 COMPOSE_BASE=(docker compose -f "$REPO_DIR/compose.yml" -f "$REPO_DIR/compose.prod.yml" --env-file "$REPO_DIR/$ENV_FILE" --profile prod)
 CERT_NAME="$DOMAIN"
 NGINX_TEMPLATE="$REPO_DIR/nginx/nginx.conf.template"
@@ -90,11 +91,11 @@ compose_iap_args() {
 compose() {
   local -a iap_args=()
   while IFS= read -r -d '' arg; do iap_args+=("$arg"); done < <(compose_iap_args)
-  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
+  (cd "$REPO_DIR" && export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
 }
 
 compose_no_profile() {
-  (cd "$REPO_DIR" && ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
+  (cd "$REPO_DIR" && export COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
 }
 
 install_system_packages() {
@@ -270,7 +271,7 @@ install_renewal_cron() {
   if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
     iap_suffix=" -f compose.iap.yml --profile iap"
   fi
-  local compose_renew="cd $REPO_DIR && ENV_FILE=$ENV_FILE docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
+  local compose_renew="cd $REPO_DIR && export COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME && ENV_FILE=$ENV_FILE docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
   local cron_job="0 3 * * * certbot renew --quiet --pre-hook \"$compose_renew stop nginx\" --post-hook \"$compose_renew up -d nginx oauth2-proxy\""
 
   log "Installing certbot renewal cron job..."
@@ -350,6 +351,13 @@ ensure_env_prod() {
   set_env_value "APP_ENV" "production" "$env_path"
   set_env_value "DOMAIN" "$DOMAIN" "$env_path"
   set_env_value "API_DOMAIN" "$API_DOMAIN" "$env_path"
+
+  local compose_project
+  compose_project="$(get_env_value COMPOSE_PROJECT_NAME "$env_path")"
+  if [[ -z "$compose_project" || "$compose_project" == "vigil" ]]; then
+    set_env_value "COMPOSE_PROJECT_NAME" "veritrail" "$env_path"
+    log "Set COMPOSE_PROJECT_NAME=veritrail (was: ${compose_project:-<unset>})"
+  fi
 
   local jwt_secret app_secret trust_arn detected_arn
   jwt_secret="$(get_env_value JWT_SECRET "$env_path")"
@@ -475,6 +483,7 @@ sync_dotenv_from_prod() {
 export REPO_DIR=$REPO_DIR
 export ENV_FILE=$ENV_FILE
 export APP_ENV=production
+export COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
 export DOMAIN=$DOMAIN
 export API_DOMAIN=$API_DOMAIN
 EOF
@@ -534,13 +543,13 @@ deploy_compose() {
 }
 
 health_check() {
-  local url="https://${API_DOMAIN}/healthz"
+  local url="https://127.0.0.1/healthz"
   local tries=30
-  log "Health check: $url"
+  log "Health check: $url (Host: ${API_DOMAIN})"
   while [[ $tries -gt 0 ]]; do
-    if curl -fsS "$url" >/dev/null 2>&1; then
+    if curl -fsS --connect-timeout 5 -k "$url" -H "Host: ${API_DOMAIN}" >/dev/null 2>&1; then
       log "API health check passed"
-      curl -fsS "$url" || true
+      curl -fsS --connect-timeout 5 -k "$url" -H "Host: ${API_DOMAIN}" || true
       return 0
     fi
     tries=$((tries - 1))
@@ -551,7 +560,11 @@ health_check() {
 }
 
 print_checklist() {
-  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml --env-file $ENV_FILE --profile prod"
+  local iap_suffix=""
+  if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
+    iap_suffix=" -f compose.iap.yml --profile iap"
+  fi
+  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
   cat <<EOF
 
 ================================================================================

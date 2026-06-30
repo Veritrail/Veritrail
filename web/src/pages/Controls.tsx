@@ -2240,16 +2240,12 @@ function CategoryDetailSummaryBar({
   findingCountByCheck,
   acceptedCompositeIds,
   submittedCount,
-  findingsHref,
-  onNavigate,
 }: {
   ctrl: CompositeControlRow;
   displayStatus: ComplianceDisplayStatus;
   findingCountByCheck: Map<string, number>;
   acceptedCompositeIds: Set<string>;
   submittedCount: number;
-  findingsHref: string | null;
-  onNavigate: (href: string) => void;
 }) {
   const counts = ctrl.severity_counts;
   const severityItems = counts
@@ -2296,11 +2292,6 @@ function CategoryDetailSummaryBar({
           <strong>{blockingCount}</strong>
         </div>
       </div>
-      <ComplianceRowSummary
-        displayStatus={displayStatus}
-        href={findingsHref}
-        onNavigate={onNavigate}
-      />
     </div>
   );
 }
@@ -2559,9 +2550,12 @@ function CompositeCategoryDetailPanel({
   const regularFailing = Math.max(0, failingCheckCount - absenceChecks.length);
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
-  const workflowCols = (isExternalOnly ? 0 : 1) + (enableItems.length > 0 ? 1 : 0) + 1;
   const showFixColumn = !isExternalOnly;
   const showEnableColumn = enableItems.length > 0;
+  const showEvidenceAlternative = hasAbsenceGaps || isExternalOnly;
+  const showAltColumn = crossAccountEligible || showEvidenceAlternative;
+  const workflowCols =
+    (showFixColumn ? 1 : 0) + (showEnableColumn ? 1 : 0) + (showAltColumn ? 1 : 0);
   const enableStepIndex = showFixColumn ? 2 : 1;
 
   return (
@@ -2572,81 +2566,84 @@ function CompositeCategoryDetailPanel({
         findingCountByCheck={findingCountByCheck}
         acceptedCompositeIds={acceptedCompositeIds}
         submittedCount={submittedCount}
-        findingsHref={findingsHref}
-        onNavigate={(href) => navigate(href)}
       />
 
-      <section className="compliance-category-detail__checks-section">
-        <div className="compliance-category-detail__checks-heading">
-          <div>
-            <h4>Blocking gaps</h4>
-            <p>Highest-impact checks blocking this category.</p>
-          </div>
-          {findingsHref ? (
-            <button
-              type="button"
-              onClick={() => navigate(findingsHref)}
-              className="compliance-top-checks__view-all"
-            >
-              View all
-            </button>
-          ) : null}
-        </div>
-        <TopFailingChecksSeverityTable
-          checkIds={ctrl.check_ids}
-          findingCountByCheck={findingCountByCheck}
-          severityByCheck={severityByCheck}
-        />
-      </section>
-
-      {underlyingCriteria.length > 0 ? (
-        <section className="compliance-category-detail__criteria">
+      <div
+        className={`compliance-category-detail__lower${
+          underlyingCriteria.length > 0 ? "" : " compliance-category-detail__lower--single"
+        }`}
+      >
+        <section className="compliance-category-detail__checks-section">
           <div className="compliance-category-detail__checks-heading">
-            <div>
-              <h4>Controls</h4>
-              <p>Framework criteria mapped to this category.</p>
-            </div>
+            <h4>Blocking gaps</h4>
+            {findingsHref ? (
+              <button
+                type="button"
+                onClick={() => navigate(findingsHref)}
+                className="compliance-top-checks__view-all"
+              >
+                View all
+              </button>
+            ) : null}
           </div>
-          <div className="compliance-category-detail__criteria-list">
-            {underlyingCriteria.slice(0, 10).map((criterion) => {
-              const params = new URLSearchParams({
-                framework,
-                control: criterion.control_id,
-                composite: ctrl.id,
-                view: "detailed",
-              });
-              if (accountId) params.set("account_id", accountId);
-              const openFindings = criterion.check_ids.reduce(
-                (sum, checkId) => sum + (findingCountByCheck.get(checkId) ?? 0),
-                0,
-              );
-              return (
-                <Link
-                  key={criterion.id}
-                  to={`/controls?${params}`}
-                  className="compliance-category-detail__criteria-link"
-                >
-                  <FrameworkMark
-                    framework={framework}
-                    className="compliance-category-detail__criteria-mark"
-                  />
-                  <span className="compliance-category-detail__criteria-code">
-                    {frameworkControlLabel(framework, criterion.control_id)}
-                  </span>
-                  <span className="compliance-category-detail__criteria-title">
-                    {shortControlTitle(criterion.title)}
-                  </span>
-                  {openFindings > 0 ? (
-                    <span className="compliance-category-detail__criteria-count">
-                      {openFindings}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </div>
+          <TopFailingChecksSeverityTable
+            checkIds={ctrl.check_ids}
+            findingCountByCheck={findingCountByCheck}
+            severityByCheck={severityByCheck}
+          />
         </section>
-      ) : null}
+
+        {underlyingCriteria.length > 0 ? (
+          <section className="compliance-category-detail__criteria">
+            <div className="compliance-category-detail__checks-heading">
+              <h4>Controls</h4>
+              {!overrideDetail ? (
+                <GapScopeControl
+                  compositeId={ctrl.id}
+                  compositeTitle={ctrl.title}
+                  detail={overrideDetail}
+                />
+              ) : null}
+            </div>
+            <div className="compliance-category-detail__criteria-list">
+              {underlyingCriteria.slice(0, 6).map((criterion) => {
+                const params = new URLSearchParams({
+                  framework,
+                  control: criterion.control_id,
+                  composite: ctrl.id,
+                  view: "detailed",
+                });
+                if (accountId) params.set("account_id", accountId);
+                const openFindings = criterion.check_ids.reduce(
+                  (sum, checkId) => sum + (findingCountByCheck.get(checkId) ?? 0),
+                  0,
+                );
+                return (
+                  <Link
+                    key={criterion.id}
+                    to={`/controls?${params}`}
+                    className="compliance-category-detail__criteria-link"
+                  >
+                    <span className="compliance-category-detail__criteria-top">
+                      <span className="compliance-category-detail__criteria-code">
+                        {frameworkControlLabel(framework, criterion.control_id)}
+                      </span>
+                      {openFindings > 0 ? (
+                        <span className="compliance-category-detail__criteria-count">
+                          {openFindings}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="compliance-category-detail__criteria-title">
+                      {shortControlTitle(criterion.title)}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+      </div>
 
       {overrideDetail ? (
         <section className="compliance-category-detail__nextsteps">
@@ -2705,17 +2702,15 @@ function CompositeCategoryDetailPanel({
                       stroke="currentColor"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={1.75}
+                      strokeWidth={2}
                       viewBox="0 0 24 24"
                     >
-                      <path d="M14.7 6.3a4.3 4.3 0 0 0-6.08 5.55L4 16.48V20h3.52l4.63-4.62A4.3 4.3 0 1 0 14.7 6.3Z" />
-                      <path d="m14.5 8.5 1 1" />
+                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
                     </svg>
                   </span>
                   <h4>Recommended action</h4>
                 </div>
                 <div className="compliance-category-detail__column-card">
-                  <span className="compliance-category-detail__step-index">1</span>
                   <button
                     type="button"
                     className="compliance-category-detail__resolve-main"
@@ -2724,6 +2719,7 @@ function CompositeCategoryDetailPanel({
                     }}
                     disabled={!findingsHref}
                   >
+                    <span className="compliance-category-detail__step-index">1</span>
                     <span className="compliance-category-detail__resolve-copy">
                       <strong>
                         {hasAbsenceGaps && regularFailing === 0
@@ -2756,114 +2752,153 @@ function CompositeCategoryDetailPanel({
                       stroke="currentColor"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={1.75}
+                      strokeWidth={2}
                       viewBox="0 0 24 24"
                     >
-                      <path d="M4 4v5h5M20 20v-5h-5M5 19a9 9 0 0 0 14-2M19 5a9 9 0 0 0-14 2" />
+                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                      <path d="M21 3v5h-5" />
+                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                      <path d="M3 21v-5h5" />
                     </svg>
                   </span>
-                  <h4>Enable in AWS</h4>
+                  <h4>Automatic re-check</h4>
                 </div>
-                <div className="compliance-category-detail__column-card compliance-category-detail__column-card--enable">
+                <div
+                  className={`compliance-category-detail__column-card compliance-category-detail__column-card--enable${
+                    enableItems.length === 1 ? " compliance-category-detail__column-card--single-enable" : ""
+                  }`}
+                >
                   <span className="compliance-category-detail__step-index">{enableStepIndex}</span>
-                  <p className="compliance-category-detail__services-label">
-                    Turn these on, then scan to verify
-                  </p>
-                  {enableItems.map((item) => (
-                    <div key={item.checkId} className="compliance-category-detail__service-row">
-                      <span className="compliance-category-detail__service-name">
-                        {item.capability}
-                      </span>
-                      <button
-                        type="button"
-                        className="compliance-category-detail__service-cta"
-                        onClick={() => {
-                          if (item.consoleUrl) {
-                            window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
-                            return;
+                  <div className="compliance-category-detail__enable-body">
+                    <div className="compliance-category-detail__enable-head">
+                      <p className="compliance-category-detail__services-label">
+                        Turn {enableItems.length === 1 ? "this on" : "these on"}, then scan to verify
+                      </p>
+                      {enableItems.length > 1 ? (
+                        <button
+                          type="button"
+                          className="compliance-category-detail__enable-all"
+                          onClick={() =>
+                            navigate(
+                              `/findings?checks=${encodeURIComponent(absenceChecks.join(","))}`,
+                            )
                           }
-                          navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
-                        }}
-                      >
-                        Enable
-                      </button>
+                        >
+                          View all
+                        </button>
+                      ) : null}
                     </div>
-                  ))}
+                    <ul className="compliance-category-detail__enable-services">
+                      {enableItems.slice(0, 2).map((item) => (
+                        <li
+                          key={item.checkId}
+                          className="compliance-category-detail__enable-service"
+                        >
+                          <span>{item.capability}</span>
+                          <button
+                            type="button"
+                            className="compliance-category-detail__enable-cta"
+                            onClick={() => {
+                              if (item.consoleUrl) {
+                                window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
+                                return;
+                              }
+                              navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
+                            }}
+                          >
+                            Enable
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
             ) : null}
 
-            <div className="compliance-category-detail__column">
-              <div className="compliance-category-detail__column-head">
-                <span className="compliance-category-detail__column-icon" aria-hidden>
-                  <svg
-                    fill="none"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.75}
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 3v18M7 8h10M7 16h10M9 8l-2 4h4l-2-4M15 8l-2 4h4l-2-4" />
-                  </svg>
-                </span>
-                <h4>Alternative satisfaction</h4>
-              </div>
-              <div className="compliance-category-detail__column-alts">
-                {crossAccountEligible ? (
-                  <button
-                    type="button"
-                    className="compliance-category-detail__alt-row"
-                    onClick={() => {
-                      setAccountFormOpen(true);
-                      requestAnimationFrame(() =>
-                        accountRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-                      );
-                    }}
-                  >
-                    <span className="compliance-category-detail__alt-icon" aria-hidden>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
-                      </svg>
-                    </span>
-                    <span className="compliance-category-detail__alt-text">
-                      <strong>Covered in another AWS account</strong>
-                      <span>
-                        Managed centrally in an account we don't scan yet — auto-verified.
+            {showAltColumn ? (
+              <div className="compliance-category-detail__column">
+                <div className="compliance-category-detail__column-head">
+                  <span className="compliance-category-detail__column-icon" aria-hidden>
+                    <svg
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                      <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+                      <path d="M7 21h10" />
+                      <path d="M12 3v18" />
+                      <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+                    </svg>
+                  </span>
+                  <h4>Alternative satisfaction</h4>
+                </div>
+                <div
+                  className={`compliance-category-detail__column-alts${
+                    Number(crossAccountEligible) + Number(showEvidenceAlternative) === 1
+                      ? " compliance-category-detail__column-alts--compact"
+                      : ""
+                  }`}
+                >
+                  {crossAccountEligible ? (
+                    <button
+                      type="button"
+                      className="compliance-category-detail__alt-row"
+                      onClick={() => {
+                        setAccountFormOpen(true);
+                        requestAnimationFrame(() =>
+                          accountRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                        );
+                      }}
+                    >
+                      <span className="compliance-category-detail__alt-icon" aria-hidden>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
+                        </svg>
                       </span>
-                    </span>
-                    <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-                  </button>
-                ) : null}
-                {hasAbsenceGaps || isExternalOnly ? (
-                  <button
-                    type="button"
-                    className="compliance-category-detail__alt-row"
-                    onClick={() => {
-                      setShowEvidencePanel(true);
-                      requestAnimationFrame(() =>
-                        evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
-                      );
-                    }}
-                  >
-                    <span className="compliance-category-detail__alt-icon" aria-hidden>
-                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
-                      </svg>
-                    </span>
-                    <span className="compliance-category-detail__alt-text">
-                      <strong>Upload external evidence</strong>
-                      <span>
-                        Proof for checks managed outside of AWS
-                        {criteriaCount > 0 ? ` — ${criteriaCount} criteria` : ""}.
+                      <span className="compliance-category-detail__alt-text">
+                        <strong>Covered in another AWS account</strong>
+                        <span>
+                          Managed centrally in an account we don't scan yet — auto-verified.
+                        </span>
                       </span>
-                    </span>
-                    <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-                  </button>
-                ) : null}
+                      <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
+                    </button>
+                  ) : null}
+                  {showEvidenceAlternative ? (
+                    <button
+                      type="button"
+                      className="compliance-category-detail__alt-row"
+                      onClick={() => {
+                        setShowEvidencePanel(true);
+                        requestAnimationFrame(() =>
+                          evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                        );
+                      }}
+                    >
+                      <span className="compliance-category-detail__alt-icon" aria-hidden>
+                        <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
+                        </svg>
+                      </span>
+                      <span className="compliance-category-detail__alt-text">
+                        <strong>Upload external evidence</strong>
+                        <span>
+                          Proof for checks managed outside of AWS
+                          {criteriaCount > 0 ? ` — ${criteriaCount} criteria` : ""}.
+                        </span>
+                      </span>
+                      <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
+                    </button>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
           {accountFormOpen ? (
             <div ref={accountRef} className="compliance-category-detail__inline-form">
@@ -2894,11 +2929,13 @@ function CompositeCategoryDetailPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
                 </svg>
               </span>
-              <GapScopeControl
-                compositeId={ctrl.id}
-                compositeTitle={ctrl.title}
-                detail={overrideDetail}
-              />
+              {underlyingCriteria.length === 0 ? (
+                <GapScopeControl
+                  compositeId={ctrl.id}
+                  compositeTitle={ctrl.title}
+                  detail={overrideDetail}
+                />
+              ) : null}
             </div>
           </footer>
         </section>
