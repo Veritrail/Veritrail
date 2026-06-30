@@ -497,7 +497,7 @@ wait_for_db() {
   local user
   user="$(get_env_value POSTGRES_USER "$REPO_DIR/$ENV_FILE")"
   user="${user:-hygiene}"
-  local tries=60
+  local tries=10
   log "Waiting for Postgres to accept connections..."
   while [[ $tries -gt 0 ]]; do
     if compose_no_profile exec -T db pg_isready -U "$user" >/dev/null 2>&1; then
@@ -510,7 +510,7 @@ wait_for_db() {
 }
 
 wait_for_redis() {
-  local tries=30
+  local tries=10
   log "Waiting for Redis..."
   while [[ $tries -gt 0 ]]; do
     if compose_no_profile exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then
@@ -572,7 +572,7 @@ verify_nginx_running() {
 
 health_check() {
   local url="https://127.0.0.1/healthz"
-  local tries=30
+  local tries=10
   log "Health check: $url (Host: ${API_DOMAIN})"
   while [[ $tries -gt 0 ]]; do
     if curl -fsS --connect-timeout 5 -k "$url" -H "Host: ${API_DOMAIN}" >/dev/null 2>&1; then
@@ -581,7 +581,7 @@ health_check() {
       return 0
     fi
     tries=$((tries - 1))
-    sleep 5
+    sleep 2
   done
   warn "API health check failed — inspect logs: compose logs api nginx"
   return 1
