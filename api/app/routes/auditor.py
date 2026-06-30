@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.org_context import resolve_org
 from app.core.security import current_principal, issue_auditor_token
 from app.services.auditor_invite_email import send_auditor_invite_email
 from app.models.auditor import AuditorAccess, AuditActivityLog
@@ -21,10 +22,7 @@ router = APIRouter()
 
 
 def _get_org(p, db: Session) -> Org:
-    org = db.get(Org, uuid.UUID(p["org_id"]))
-    if not org:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "org not found")
-    return org
+    return resolve_org(db, p)
 
 
 class AuditorInviteIn(BaseModel):

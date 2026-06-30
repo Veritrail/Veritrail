@@ -97,6 +97,18 @@ export function formatApiError(error: unknown): string {
   return msg.charAt(0).toUpperCase() + msg.slice(1);
 }
 
+/** True when the API indicates JWT user/org no longer match the database. */
+export function isSessionStaleError(error: unknown): boolean {
+  const msg = formatApiError(error).toLowerCase();
+  return (
+    msg.includes("session stale") ||
+    msg.includes("session expired") ||
+    msg.includes("organization not found") ||
+    msg.includes("user not found") ||
+    msg.includes("org mismatch")
+  );
+}
+
 let _refreshing: Promise<string | null> | null = null;
 
 /** Restore session from HttpOnly refresh cookie when access token is gone. */

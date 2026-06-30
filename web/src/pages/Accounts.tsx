@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { api, formatApiError } from "../api";
+import { api, formatApiError, isSessionStaleError, logout } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import {
   delta7d,
@@ -7089,18 +7089,34 @@ export default function Accounts() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <p className="font-medium">Could not load accounts</p>
           <p className="mt-1 text-red-700">
-            {formatApiError(accounts.error ?? cloudAccounts.error)}
+            {isSessionStaleError(accounts.error ?? cloudAccounts.error)
+              ? "Your sign-in session no longer matches this workspace (common after a database restore). Sign out and sign in again."
+              : formatApiError(accounts.error ?? cloudAccounts.error)}
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (accounts.isError) accounts.refetch();
-              if (cloudAccounts.isError) cloudAccounts.refetch();
-            }}
-            className="mt-3 text-sm font-semibold text-red-900 underline hover:no-underline"
-          >
-            Retry
-          </button>
+          {isSessionStaleError(accounts.error ?? cloudAccounts.error) ? (
+            <button
+              type="button"
+              onClick={() => {
+                void logout().finally(() => {
+                  window.location.href = "/login";
+                });
+              }}
+              className="mt-3 text-sm font-semibold text-red-900 underline hover:no-underline"
+            >
+              Sign out and sign in again
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (accounts.isError) accounts.refetch();
+                if (cloudAccounts.isError) cloudAccounts.refetch();
+              }}
+              className="mt-3 text-sm font-semibold text-red-900 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 

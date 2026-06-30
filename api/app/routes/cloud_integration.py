@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.org_context import resolve_org
 from app.core.ratelimit import limiter
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
@@ -29,10 +30,7 @@ router = APIRouter()
 
 
 def _get_org(p, db: Session) -> Org:
-    org = db.get(Org, uuid.UUID(p["org_id"]))
-    if not org:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organization not found")
-    return org
+    return resolve_org(db, p)
 
 
 class CloudAccountOut(BaseModel):

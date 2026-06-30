@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, restoreSession, token } from "./api";
+import { api, restoreSession, token, logout } from "./api";
 import { accountListSchema } from "./lib/apiSchemas";
 import { roleAtLeast, useMe } from "./hooks/useMe";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
@@ -67,6 +67,12 @@ export default function Layout() {
 
   const hasConnectedAccount =
     accountsQ.isSuccess && accountsQ.data.some((a) => isAccountConnected(a));
+
+  const signOutAndLogin = () => {
+    void logout().finally(() => {
+      window.location.href = "/login";
+    });
+  };
 
   useEffect(() => {
     window.localStorage.setItem("veritrail-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
@@ -192,6 +198,19 @@ export default function Layout() {
               maxAccounts={planUsageQ.data?.max_accounts ?? null}
               planLoading={planUsageQ.isLoading && !planUsageQ.data}
             />
+          ) : meQ.isError ? (
+            <div className="app-sidebar__user">
+              <button
+                type="button"
+                className="app-sidebar__workspace-card text-left"
+                onClick={signOutAndLogin}
+              >
+                <span className="app-sidebar__workspace-copy">
+                  <span className="app-sidebar__workspace-name">Session expired</span>
+                  <span className="app-sidebar__workspace-org">Sign in again</span>
+                </span>
+              </button>
+            </div>
           ) : null}
         </div>
       </aside>

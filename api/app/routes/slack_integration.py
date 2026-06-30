@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.org_context import resolve_org
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
 from app.models.org import Org
@@ -19,10 +20,7 @@ router = APIRouter()
 
 
 def _get_org(p, db: Session) -> Org:
-    org = db.get(Org, uuid.UUID(p["org_id"]))
-    if not org:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organization not found")
-    return org
+    return resolve_org(db, p)
 
 
 def _mask_webhook(url: str | None) -> str | None:

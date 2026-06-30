@@ -592,7 +592,7 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
 
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
     org = db.get(Org, user.org_id)
     return MeOut(
         id=str(user.id),

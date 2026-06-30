@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.org_context import resolve_org
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
 from app.models.gcp_project import GcpProject
@@ -37,10 +38,7 @@ wif_router = APIRouter()
 
 
 def _get_org(p, db: Session) -> Org:
-    org = db.get(Org, uuid.UUID(p["org_id"]))
-    if not org:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Organization not found")
-    return org
+    return resolve_org(db, p)
 
 
 class GcpWifConfigIn(BaseModel):

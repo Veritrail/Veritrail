@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.org_context import resolve_org
 from app.core.public_url import PublicUrlError, validate_trust_logo_reference
 from app.core.security import current_principal
 from app.models.org import Org, User
@@ -237,10 +238,7 @@ def _evidence_source_categories_out(
 
 
 def _get_org(p, db: Session) -> Org:
-    org = db.get(Org, uuid.UUID(p["org_id"]))
-    if not org:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "org not found")
-    return org
+    return resolve_org(db, p)
 
 
 def _scan_status(org: Org, db: Session) -> ScanStatusOut:
