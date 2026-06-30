@@ -447,11 +447,30 @@ class PlanUsageOut(BaseModel):
 
 
 def _org_connected_account_count(db: Session, org_id: uuid.UUID) -> int:
-    """Total cloud accounts across AWS, GCP, and Azure for plan-cap display."""
-    aws = db.scalar(select(func.count()).select_from(AwsAccount).where(AwsAccount.org_id == org_id)) or 0
-    gcp = db.scalar(select(func.count()).select_from(GcpProject).where(GcpProject.org_id == org_id)) or 0
+    """Connected cloud accounts across AWS, GCP, and Azure (plan-cap enforcement)."""
+    connected = "connected"
+    aws = (
+        db.scalar(
+            select(func.count())
+            .select_from(AwsAccount)
+            .where(AwsAccount.org_id == org_id, AwsAccount.status == connected)
+        )
+        or 0
+    )
+    gcp = (
+        db.scalar(
+            select(func.count())
+            .select_from(GcpProject)
+            .where(GcpProject.org_id == org_id, GcpProject.status == connected)
+        )
+        or 0
+    )
     azure = (
-        db.scalar(select(func.count()).select_from(AzureSubscription).where(AzureSubscription.org_id == org_id))
+        db.scalar(
+            select(func.count())
+            .select_from(AzureSubscription)
+            .where(AzureSubscription.org_id == org_id, AzureSubscription.status == connected)
+        )
         or 0
     )
     return aws + gcp + azure
