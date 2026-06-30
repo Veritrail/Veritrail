@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type WheelEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError, isSessionStaleError, logout } from "../api";
@@ -2087,29 +2087,23 @@ function CliCodeBlock({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg bg-zinc-950 shadow-inner">
-      <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">bash</span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
-            className="text-[11px] font-medium text-zinc-500 transition hover:text-zinc-300"
-          >
+    <div className="accounts-cli-code">
+      <div className="accounts-cli-code__head">
+        <span className="accounts-cli-code__label">bash</span>
+        <div className="accounts-cli-code__actions">
+          <button type="button" onClick={() => setExpanded(false)} className="accounts-cli-code__action">
             Collapse
           </button>
           <button
             type="button"
             onClick={copy}
-            className={`rounded px-2 py-0.5 text-[11px] font-semibold transition ${
-              copied ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-            }`}
+            className={`accounts-cli-code__copy${copied ? " accounts-cli-code__copy--copied" : ""}`}
           >
             {copied ? "Copied" : "Copy"}
           </button>
         </div>
       </div>
-      <pre className="overflow-x-auto whitespace-pre px-4 py-3 font-mono text-[12px] leading-relaxed text-zinc-300">
+      <pre className="accounts-code-scroll accounts-cli-code__body" onWheel={containCodeBlockWheel}>
         <code>{command}</code>
       </pre>
     </div>
@@ -2247,7 +2241,7 @@ function TerraformCodeBlock({
           </button>
         </div>
       </div>
-      <pre>
+      <pre className="accounts-code-scroll" onWheel={containCodeBlockWheel}>
         <code>{code}</code>
       </pre>
     </div>
@@ -2822,6 +2816,12 @@ function useOnboardingEscapeDismiss(onDismiss: (() => void) | undefined) {
   }, [onDismiss]);
 }
 
+function containCodeBlockWheel(event: WheelEvent<HTMLElement>) {
+  if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+    event.stopPropagation();
+  }
+}
+
 function ConnectShellHeader({
   title,
   subtitle,
@@ -2863,15 +2863,28 @@ function AccountOnboardingOverlay({
   ariaLabelledBy?: string;
 }) {
   useOnboardingEscapeDismiss(onDismiss);
+  const backdropPressedRef = useRef(false);
 
   return createPortal(
-    <div className="accounts-onboarding-modal" onClick={onDismiss} role="presentation">
+    <div
+      className="accounts-onboarding-modal"
+      role="presentation"
+      onMouseDown={(e) => {
+        backdropPressedRef.current = e.target === e.currentTarget;
+      }}
+      onMouseUp={(e) => {
+        if (backdropPressedRef.current && e.target === e.currentTarget) {
+          onDismiss();
+        }
+        backdropPressedRef.current = false;
+      }}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={ariaLabelledBy}
         className="accounts-onboarding-modal__panel"
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         {children}
       </div>
