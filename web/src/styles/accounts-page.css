@@ -1285,10 +1285,20 @@ button.accounts-flow-step:hover {
   padding: 1.15rem 1.2rem 1.3rem;
 }
 
-/* Only the Deploy stack column scrolls; Copy/Test stay put. */
+/* Deploy stack column keeps a fixed height; the code block inside scrolls
+   instead of the whole column, so switching tabs never resizes it. */
 .accounts-connect-col--scroll {
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
+}
+
+.accounts-connect-col--scroll .accounts-deploy-rail--column,
+.accounts-connect-col--scroll .accounts-deploy-rail__action,
+.accounts-connect-col--scroll .accounts-deploy-rail__tab-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
 }
 
 .accounts-connect-col__head {
@@ -1337,12 +1347,22 @@ button.accounts-flow-step:hover {
   overflow: visible;
 }
 
-/* In the column the whole Deploy column scrolls, so the code block grows
-   naturally (vertical) — keep only horizontal scroll for long lines. */
+/* Code block fills the column's leftover height and scrolls on its own. */
+.accounts-deploy-rail--column.accounts-deploy-rail .accounts-cli-code,
+.accounts-deploy-rail--column.accounts-deploy-rail .accounts-terraform-code {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .accounts-deploy-rail--column.accounts-deploy-rail .accounts-cli-code__body,
 .accounts-deploy-rail--column.accounts-deploy-rail .accounts-terraform-code pre {
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: none;
-  overflow-y: visible;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .accounts-deploy-rail__lock-note {

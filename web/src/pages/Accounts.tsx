@@ -2229,7 +2229,6 @@ function TerraformCodeBlock({
       <div className="accounts-terraform-code__head">
         <div>
           <span>main.tf</span>
-          <p>Creates the selected IAM role policies with external ID trust.</p>
         </div>
         <div className="accounts-cli-code__actions">
           {compact ? (
