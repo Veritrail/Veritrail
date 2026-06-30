@@ -1104,7 +1104,9 @@ function CopyInputField({
       <div className="accounts-connect-field">
         <label className="accounts-connect-field__label">{label}</label>
         {helper ? <p className="accounts-connect-field__helper">{helper}</p> : null}
-        <div className={`accounts-connect-field__input${validationState ? ` ${validationState}` : ""}`}>
+        <div
+          className={`accounts-connect-field__input${!readOnly ? " accounts-connect-field__input--editable" : ""}${validationState ? ` ${validationState}` : ""}`}
+        >
           <input
             type="text"
             readOnly={readOnly}
@@ -2168,8 +2170,8 @@ function CliCodeBlock({
           ) : null}
           <button
             type="button"
-            onClick={copy}
-            className={`accounts-cli-code__copy${copied ? " accounts-cli-code__copy--copied" : ""}`}
+            onClick={() => void copy()}
+            className={`accounts-terraform-code__btn${copied ? " is-copied" : ""}`}
           >
             {copied ? "Copied" : "Copy"}
           </button>
@@ -2273,16 +2275,12 @@ function TerraformCodeBlock({
   expanded: expandedProp,
   onExpandedChange,
   defaultExpanded = false,
-  showDownload = false,
-  copyLabel = "Copy",
 }: {
   code: string;
   compact?: boolean;
   expanded?: boolean;
   onExpandedChange?: (open: boolean) => void;
   defaultExpanded?: boolean;
-  showDownload?: boolean;
-  copyLabel?: string;
 }) {
   const [expandedInternal, setExpandedInternal] = useState(defaultExpanded);
   const expanded = expandedProp ?? expandedInternal;
@@ -2316,27 +2314,13 @@ function TerraformCodeBlock({
           <span>main.tf</span>
         </div>
         <div className="accounts-terraform-code__actions">
-          {compact ? (
-            <button type="button" onClick={() => setExpanded(false)} className="accounts-terraform-code__action">
-              Collapse
-            </button>
-          ) : null}
           <button
             type="button"
             onClick={() => void copy()}
             className={`accounts-terraform-code__btn${copied ? " is-copied" : ""}`}
           >
-            {copied ? "Copied" : copyLabel}
+            {copied ? "Copied" : "Copy"}
           </button>
-          {showDownload ? (
-            <button
-              type="button"
-              onClick={() => downloadTerraformModule(code)}
-              className="accounts-terraform-code__btn accounts-terraform-code__btn--download"
-            >
-              Download .tf
-            </button>
-          ) : null}
         </div>
       </div>
       <pre className="accounts-code-scroll" onWheel={containCodeBlockWheel}>
@@ -3223,23 +3207,9 @@ function OnboardingDeployPanel({
   const column = layout === "column";
   const [cliExpanded, setCliExpanded] = useState(true);
   const [terraformExpanded, setTerraformExpanded] = useState(true);
-  const [cliCopied, setCliCopied] = useState(false);
-  const [terraformCopied, setTerraformCopied] = useState(false);
   const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
   const terraformCode = terraformForConnection(acc, connectionOptions);
   const copy = DEPLOY_METHOD_COPY[tab];
-
-  async function copyCliCommand() {
-    await navigator.clipboard.writeText(cliCommand);
-    setCliCopied(true);
-    window.setTimeout(() => setCliCopied(false), 2000);
-  }
-
-  async function copyTerraformModule() {
-    await navigator.clipboard.writeText(terraformCode);
-    setTerraformCopied(true);
-    window.setTimeout(() => setTerraformCopied(false), 2000);
-  }
 
   function selectTab(next: DeployTab) {
     onTabChange(next);
@@ -3303,37 +3273,26 @@ function OnboardingDeployPanel({
               ) : null}
             </>
           ) : tab === "cli" ? (
-            <>
-              <button
-                type="button"
-                onClick={() => void copyCliCommand()}
-                className={`accounts-deploy-rail__primary${cliCopied ? " is-copied" : ""}`}
-              >
-                {cliCopied ? "Copied" : "Copy CLI command"}
-              </button>
-              <CliCodeBlock
-                command={cliCommand}
-                expanded={cliExpanded}
-                onExpandedChange={setCliExpanded}
-                compact={column}
-              />
-            </>
+            <CliCodeBlock
+              command={cliCommand}
+              expanded={cliExpanded}
+              onExpandedChange={setCliExpanded}
+              compact={column}
+            />
           ) : (
             <>
               <button
                 type="button"
-                onClick={() => void copyTerraformModule()}
-                className={`accounts-deploy-rail__primary${terraformCopied ? " is-copied" : ""}`}
+                onClick={() => downloadTerraformModule(terraformCode)}
+                className="accounts-deploy-rail__primary accounts-deploy-rail__launch"
               >
-                {terraformCopied ? "Copied" : "Copy Terraform module"}
+                Download Terraform module
               </button>
               <TerraformCodeBlock
                 code={terraformCode}
                 compact={column}
                 expanded={column ? true : terraformExpanded}
                 onExpandedChange={setTerraformExpanded}
-                showDownload={column}
-                copyLabel={column ? "Copy module" : "Copy"}
               />
             </>
           )}
@@ -3344,23 +3303,32 @@ function OnboardingDeployPanel({
 }
 
 /** Checklist shown in the Verify access column (step 3). Matches POST /v1/accounts/{id}/verify. */
-const CONNECT_VALIDATE_ITEMS: readonly { title: string; desc: string; d: string }[] = [
+const CONNECT_VALIDATE_ITEMS: readonly { title: string; desc: string }[] = [
   {
     title: "Trust relationship",
-    desc: "Confirms the RoleArn can be assumed securely.",
-    d: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z",
+    desc: "Verifies Veritrail can assume the connector role.",
   },
   {
-    title: "Required permissions",
-    desc: "Checks the selected IAM permissions are available.",
-    d: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+    title: "AWS account identity",
+    desc: "Discovers the AWS account ID from the assumed role.",
   },
   {
-    title: "AWS account access",
-    desc: "Confirms the account ID and saves the connection.",
-    d: "M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z",
+    title: "Initial scan",
+    desc: "Queues a scan after the account is saved.",
   },
 ];
+
+type ConnectValidateItemState = "pending" | "running" | "success" | "error";
+
+function connectValidateItemState(
+  index: number,
+  verify: { isPending: boolean; isSuccess: boolean; isError: boolean },
+): ConnectValidateItemState {
+  if (verify.isPending) return "running";
+  if (verify.isSuccess) return "success";
+  if (verify.isError) return index === 0 ? "error" : "pending";
+  return "pending";
+}
 
 function PendingAccountOnboarding({
   acc,
@@ -3487,15 +3455,22 @@ function PendingAccountOnboarding({
                   />
                 </section>
 
-                <section className="accounts-connect-col">
+                <section
+                  className={`accounts-connect-col accounts-connect-col--trust${roleArnValid ? " accounts-connect-col--trust-ready" : ""}`}
+                >
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">2</span>
-                    <h3 className="accounts-connect-col__title">Paste RoleArn output</h3>
+                    <h3 className="accounts-connect-col__title">Confirm trust role</h3>
+                    {roleArnValid ? (
+                      <span className="accounts-connect-col__pill accounts-connect-col__pill--ready">
+                        Ready to verify
+                      </span>
+                    ) : null}
                   </header>
                   <p className="accounts-connect-col__lede">
-                    Paste the RoleArn from your CloudFormation stack Outputs tab to link the connector.
+                    Use the External ID in your deployment, then paste the RoleArn from the stack output.
                   </p>
-                  <div className="accounts-output-panel">
+                  <div className="accounts-output-panel accounts-output-panel--trust">
                     <CopyInputField
                       variant="connect"
                       label="External ID"
@@ -3504,28 +3479,16 @@ function PendingAccountOnboarding({
                     />
                     <CopyInputField
                       variant="connect"
-                      label="RoleArn"
+                      label="RoleArn output"
                       value={roleArn}
                       readOnly={false}
-                      placeholder="Paste arn:aws:iam::123456789012:role/VeritrailConnector"
+                      placeholder="arn:aws:iam::123456789012:role/VeritrailConnector"
+                      helper="Paste the RoleArn generated by your deployment."
                       accountId={acc.account_id}
                       onChange={setRoleArn}
                       validation={roleArnValidation}
-                      helper="You'll find this in the CloudFormation stack Outputs tab."
-                      formatHint="Expected format: arn:aws:iam::account-id:role/name"
+                      formatHint="Find it in AWS: CloudFormation → Stacks → Veritrail connector → Outputs → RoleArn"
                     />
-                    <div className="accounts-trust-callout" role="note">
-                      <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                      </svg>
-                      <div>
-                        <p className="accounts-trust-callout__title">Least-privilege trust relationship</p>
-                        <p className="accounts-trust-callout__body">
-                          External ID and RoleArn are used together to establish secure, scoped access. Veritrail does
-                          not store AWS credentials.
-                        </p>
-                      </div>
-                    </div>
                     {verify.error ? (
                       <div className="accounts-output-panel__error" role="alert">
                         {formatApiError(verify.error)}
@@ -3534,30 +3497,66 @@ function PendingAccountOnboarding({
                   </div>
                 </section>
 
-                <section className="accounts-connect-col">
+                <section
+                  className={`accounts-connect-col accounts-connect-col--verify${
+                    !roleArnValid && !verify.isPending ? " accounts-connect-col--verify-idle" : ""
+                  }${roleArnValid && !verify.isPending && !verify.isSuccess ? " accounts-connect-col--verify-ready" : ""}`}
+                >
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">3</span>
                     <h3 className="accounts-connect-col__title">Verify access</h3>
+                    {verify.isSuccess || verify.isPending || roleArnValid ? (
+                      <span
+                        className={`accounts-connect-col__pill${
+                          verify.isSuccess
+                            ? " accounts-connect-col__pill--verified"
+                            : verify.isPending
+                              ? " accounts-connect-col__pill--testing"
+                              : " accounts-connect-col__pill--ready"
+                        }`}
+                      >
+                        {verify.isSuccess
+                          ? "Verified"
+                          : verify.isPending
+                            ? "Testing..."
+                            : "Ready to test"}
+                      </span>
+                    ) : null}
                   </header>
                   <p className="accounts-connect-col__lede">
-                    Veritrail validates the trust relationship and permissions before saving the connection.
+                    Before saving the account, Veritrail will validate:
                   </p>
-                  <ul className="accounts-validate">
-                    {CONNECT_VALIDATE_ITEMS.map((item) => (
-                      <li key={item.title} className="accounts-validate__item">
-                        <span className="accounts-validate__icon" aria-hidden>
-                          <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d={item.d} />
-                          </svg>
-                        </span>
-                        <div>
-                          <p className="accounts-validate__title">{item.title}</p>
-                          <p className="accounts-validate__desc">{item.desc}</p>
-                        </div>
-                      </li>
-                    ))}
+                  <ul className="accounts-validate accounts-validate--timeline">
+                    {CONNECT_VALIDATE_ITEMS.map((item, index) => {
+                      const state = connectValidateItemState(index, verify);
+                      return (
+                        <li
+                          key={item.title}
+                          className={`accounts-validate__item accounts-validate__item--${state}${
+                            index < CONNECT_VALIDATE_ITEMS.length - 1 ? " accounts-validate__item--has-line" : ""
+                          }`}
+                        >
+                          <span className="accounts-validate__marker" aria-hidden>
+                            {state === "running" ? (
+                              <span className="accounts-validate__spinner" />
+                            ) : state === "success" ? (
+                              <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : state === "error" ? (
+                              <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            ) : null}
+                          </span>
+                          <div>
+                            <p className="accounts-validate__title">{item.title}</p>
+                            <p className="accounts-validate__desc">{item.desc}</p>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
-                  <p className="accounts-connect-col__foot-note">Veritrail does not store AWS credentials.</p>
                 </section>
               </div>
 
@@ -6392,12 +6391,14 @@ function IntegrationCloudAccountCard({
   stats,
   selected = false,
   splitLayout = false,
+  suppressSelectionStyle = false,
   onSelect,
 }: {
   cloud: CloudAccountRow;
   stats: FindingStats | undefined;
   selected?: boolean;
   splitLayout?: boolean;
+  suppressSelectionStyle?: boolean;
   onSelect?: () => void;
 }) {
   const qc = useQueryClient();
@@ -6438,8 +6439,10 @@ function IntegrationCloudAccountCard({
     onSelect?.();
   };
 
+  const showSelectionStyle = selected && !suppressSelectionStyle;
+
   return (
-    <div className={`accounts-list-item ${!connected ? "is-pending" : ""} ${selected ? "is-selected" : ""}`}>
+    <div className={`accounts-list-item ${!connected ? "is-pending" : ""} ${showSelectionStyle ? " is-selected" : ""}`}>
       <div
         className="accounts-list-item__main"
         onClick={splitLayout ? handleRowClick : undefined}
@@ -6541,6 +6544,7 @@ function AccountPremiumCard({
   setupInitialStep = 1,
   selected = false,
   splitLayout = false,
+  suppressSelectionStyle = false,
   onSelect,
   onContinueSetup,
 }: {
@@ -6551,6 +6555,7 @@ function AccountPremiumCard({
   setupInitialStep?: number;
   selected?: boolean;
   splitLayout?: boolean;
+  suppressSelectionStyle?: boolean;
   onSelect?: () => void;
   onContinueSetup?: () => void;
 }) {
@@ -6763,9 +6768,11 @@ function AccountPremiumCard({
     onToggle();
   };
 
+  const showSelectionStyle = selected && !suppressSelectionStyle;
+
   return (
     <>
-      <div className={`accounts-list-item ${!connected ? "is-pending" : ""} ${expanded && !splitLayout ? "is-expanded" : ""} ${selected ? "is-selected" : ""}`}>
+      <div className={`accounts-list-item ${!connected ? "is-pending" : ""} ${expanded && !splitLayout ? "is-expanded" : ""} ${showSelectionStyle ? " is-selected" : ""}`}>
         <div className="accounts-list-item__main" onClick={handleRowClick}>
           <div className="accounts-account-cell">
             <div className="accounts-account-cell__logo">
@@ -7172,9 +7179,26 @@ function PendingAccountSetupSurface({
   );
 }
 
+function useMatchMedia(query: string) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+
+  return matches;
+}
+
 export default function Accounts() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const stackedAccountsLayout = useMatchMedia("(max-width: 1439px)");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
   const [setupInitialStep, setSetupInitialStep] = useState(1);
@@ -7719,14 +7743,15 @@ export default function Accounts() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="accounts-list-head" aria-hidden>
-                    <span className="accounts-col accounts-col--account">Account</span>
-                    <span className="accounts-col accounts-col--coverage">Coverage</span>
-                    <span className="accounts-col accounts-col--findings">Open findings</span>
-                    <span className="accounts-col accounts-col--status">Status</span>
-                    <span className="accounts-col accounts-col--actions" />
-                  </div>
-                  <div className="accounts-list-body">
+                  <div className="accounts-list-table-scroll">
+                    <div className="accounts-list-head" aria-hidden>
+                      <span className="accounts-col accounts-col--account">Account</span>
+                      <span className="accounts-col accounts-col--coverage">Coverage</span>
+                      <span className="accounts-col accounts-col--findings">Open findings</span>
+                      <span className="accounts-col accounts-col--status">Status</span>
+                      <span className="accounts-col accounts-col--actions" />
+                    </div>
+                    <div className="accounts-list-body">
                     {paginatedRows.map((row) => {
                       const key = accountListRowKey(row);
                       const isSelected = selectedRowKey === key;
@@ -7740,6 +7765,7 @@ export default function Accounts() {
                           setupInitialStep={expandedId === row.account.id ? setupInitialStep : 1}
                           selected={isSelected}
                           splitLayout
+                          suppressSelectionStyle={stackedAccountsLayout}
                           onSelect={onSelect}
                           onContinueSetup={() => {
                             setOnboardingAccount(row.account);
@@ -7765,10 +7791,12 @@ export default function Accounts() {
                           stats={integrationStatsMap.get(row.cloud.id)}
                           selected={isSelected}
                           splitLayout
+                          suppressSelectionStyle={stackedAccountsLayout}
                           onSelect={onSelect}
                         />
                       );
                     })}
+                    </div>
                   </div>
 
                   <div className="accounts-list-pagination">
