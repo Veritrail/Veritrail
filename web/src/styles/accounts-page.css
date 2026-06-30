@@ -1141,6 +1141,31 @@ button.accounts-flow-step:hover {
   overflow-y: auto;
 }
 
+.accounts-onboarding-modal__panel .accounts-connect-shell--deploy-review {
+  display: flex;
+  flex-direction: column;
+  height: min(52rem, calc(100vh - 2rem));
+  min-height: min(40rem, calc(100vh - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+}
+
+.accounts-connect-shell__progress--with-close {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.accounts-connect-shell__progress--with-close > ol {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.accounts-connect-shell__progress--with-close .accounts-connect-shell__close {
+  position: static;
+  flex-shrink: 0;
+}
+
 .accounts-connect-shell--deploy-review {
   display: flex;
   flex-direction: column;
@@ -1153,13 +1178,61 @@ button.accounts-flow-step:hover {
   min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .accounts-connect-shell--deploy-review .accounts-review-stage {
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
+  padding-top: 0.65rem;
+}
+
+.accounts-connect-shell--deploy-review .accounts-review-stage__main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accounts-connect-shell--deploy-review .accounts-review-clean {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.accounts-connect-shell--deploy-review .accounts-review-clean__roles {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accounts-connect-shell--deploy-review .accounts-role-rows {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  align-items: start;
+}
+
+.accounts-connect-shell--deploy-review .accounts-policy-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accounts-connect-shell--deploy-review .accounts-policy-json--inline {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.accounts-connect-shell--deploy-review .accounts-deploy-rail {
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .accounts-connect-shell--deploy-review .accounts-connect-shell__footer {
@@ -2098,6 +2171,7 @@ button.accounts-flow-step:hover {
   display: flex;
   flex-direction: column;
   gap: 0;
+  min-height: 0;
   border: 1px solid #e4e4e7;
   border-radius: 0.75rem;
   background: #fff;
@@ -2116,6 +2190,7 @@ button.accounts-flow-step:hover {
 .accounts-deploy-rail__intro > p,
 .accounts-deploy-rail > p {
   margin: 0.35rem 0 0;
+  min-height: 2.75rem;
   font-size: 0.8125rem;
   line-height: 1.5;
   color: #71717a;
@@ -2167,6 +2242,26 @@ button.accounts-flow-step:hover {
   border-top: 1px solid #f4f4f5;
   padding-top: 1rem;
   min-height: 0;
+}
+
+.accounts-deploy-rail__tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 13.5rem;
+  max-height: 13.5rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.accounts-deploy-rail__tab-body .accounts-terraform-code pre {
+  max-height: none;
+}
+
+.accounts-deploy-rail__expand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .accounts-deploy-rail__expand {
@@ -2440,7 +2535,8 @@ button.accounts-flow-step:hover {
   color: #3f3f46;
 }
 
-.accounts-deploy-rail__params button {
+.accounts-deploy-rail__params button,
+.accounts-deploy-rail__copy {
   display: inline-flex;
   width: 1.6rem;
   height: 1.6rem;
@@ -2450,14 +2546,17 @@ button.accounts-flow-step:hover {
   border-radius: 0.4rem;
   background: transparent;
   color: #71717a;
+  flex-shrink: 0;
 }
 
-.accounts-deploy-rail__params button:hover {
+.accounts-deploy-rail__params button:hover,
+.accounts-deploy-rail__copy:hover {
   background: #f4f4f5;
   color: #18181b;
 }
 
-.accounts-deploy-rail__params svg {
+.accounts-deploy-rail__params svg,
+.accounts-deploy-rail__copy svg {
   width: 0.95rem;
   height: 0.95rem;
 }

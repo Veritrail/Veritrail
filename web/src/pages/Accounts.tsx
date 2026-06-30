@@ -2005,6 +2005,46 @@ function AccountDetailsPanel({
   );
 }
 
+function DeployRailCopyIconButton({
+  text,
+  ariaLabel = "Copy",
+}: {
+  text: string;
+  ariaLabel?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <button
+      type="button"
+      className="accounts-deploy-rail__copy"
+      onClick={(event) => void handleCopy(event)}
+      aria-label={copied ? "Copied" : ariaLabel}
+    >
+      {copied ? (
+        <svg fill="none" stroke="currentColor" strokeWidth={2.3} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z"
+          />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 function CliCodeBlock({
   command,
   expanded: expandedProp,
@@ -2029,16 +2069,20 @@ function CliCodeBlock({
 
   if (!expanded) {
     return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-zinc-600 transition hover:text-zinc-900"
-      >
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        Show CLI command
-      </button>
+      <div className="accounts-deploy-rail__expand-row">
+        <button type="button" onClick={() => setExpanded(true)} className="accounts-deploy-rail__expand">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.75}
+              d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          Show CLI command
+        </button>
+        <DeployRailCopyIconButton text={command} ariaLabel="Copy CLI command" />
+      </div>
     );
   }
 
@@ -2173,16 +2217,15 @@ function TerraformCodeBlock({
 
   if (compact && !expanded) {
     return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="accounts-deploy-rail__expand"
-      >
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-        Show full template
-      </button>
+      <div className="accounts-deploy-rail__expand-row">
+        <button type="button" onClick={() => setExpanded(true)} className="accounts-deploy-rail__expand">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+          Show full template
+        </button>
+        <DeployRailCopyIconButton text={code} ariaLabel="Copy Terraform template" />
+      </div>
     );
   }
 
@@ -2216,14 +2259,12 @@ type DeployTab = "console" | "cli" | "terraform";
 const DEPLOY_METHOD_COPY: Record<
   DeployTab,
   {
-    reviewSubtitle: string;
     deployDescription: string;
     whatHappensNext: readonly [string, string, string];
     consoleLaunchLabel: string;
   }
 > = {
   console: {
-    reviewSubtitle: "These IAM roles will be created by the CloudFormation stack.",
     deployDescription: "Launch the CloudFormation stack with the selected roles in the AWS Console.",
     whatHappensNext: [
       "CloudFormation stack is created in your AWS account",
@@ -2233,7 +2274,6 @@ const DEPLOY_METHOD_COPY: Record<
     consoleLaunchLabel: "Launch CloudFormation",
   },
   cli: {
-    reviewSubtitle: "These IAM roles will be created by the CloudFormation stack deployment.",
     deployDescription: "Deploy the connector using the AWS CLI and the template parameters below.",
     whatHappensNext: [
       "CLI creates or updates the CloudFormation stack",
@@ -2243,7 +2283,6 @@ const DEPLOY_METHOD_COPY: Record<
     consoleLaunchLabel: "Launch CloudFormation",
   },
   terraform: {
-    reviewSubtitle: "These IAM roles will be created when you apply the Terraform configuration.",
     deployDescription: "Apply the Terraform module to provision IAM roles in your AWS account.",
     whatHappensNext: [
       "Terraform creates IAM roles with external ID trust",
@@ -3136,33 +3175,35 @@ function OnboardingDeployPanel({
       </div>
 
       <div className="accounts-deploy-rail__action">
-        {tab === "console" ? (
-          <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
-            {copy.consoleLaunchLabel}
-            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
-            </svg>
-          </a>
-        ) : tab === "cli" ? (
-          <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
-        ) : (
-          <>
-            <div className="accounts-terraform-note">
-              <p>Terraform deployment</p>
-              <span>
-                {trustPrincipalArn
-                  ? "Apply this module, then continue with the scanner role ARN output. veritrail_principal_arn is pre-filled from your Veritrail deployment."
-                  : "Set veritrail_principal_arn, apply this module, then continue with the scanner role ARN output."}
-              </span>
-            </div>
-            <TerraformCodeBlock
-              code={terraformCode}
-              compact
-              expanded={terraformExpanded}
-              onExpandedChange={setTerraformExpanded}
-            />
-          </>
-        )}
+        <div className="accounts-deploy-rail__tab-body">
+          {tab === "console" ? (
+            <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__secondary accounts-deploy-rail__launch">
+              {copy.consoleLaunchLabel}
+              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
+              </svg>
+            </a>
+          ) : tab === "cli" ? (
+            <CliCodeBlock command={cliCommand} expanded={cliExpanded} onExpandedChange={setCliExpanded} />
+          ) : (
+            <>
+              <div className="accounts-terraform-note">
+                <p>Terraform deployment</p>
+                <span>
+                  {trustPrincipalArn
+                    ? "Apply this module, then continue with the scanner role ARN output. veritrail_principal_arn is pre-filled from your Veritrail deployment."
+                    : "Set veritrail_principal_arn, apply this module, then continue with the scanner role ARN output."}
+                </span>
+              </div>
+              <TerraformCodeBlock
+                code={terraformCode}
+                compact
+                expanded={terraformExpanded}
+                onExpandedChange={setTerraformExpanded}
+              />
+            </>
+          )}
+        </div>
       </div>
     </aside>
   );
@@ -3195,7 +3236,6 @@ function PendingAccountOnboarding({
   const [deployTab, setDeployTab] = useState<DeployTab>("console");
   const roleArnValid = isValidIamRoleArn(roleArn);
   const roleArnValidation = roleArnFieldValidation(roleArn, verify);
-  const deployCopy = DEPLOY_METHOD_COPY[deployTab];
 
   useEffect(() => {
     setActiveStep(initialStep === 3 ? 3 : 2);
@@ -3203,7 +3243,10 @@ function PendingAccountOnboarding({
 
   return (
     <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}${activeStep === 2 ? " accounts-connect-shell--deploy-review" : ""}`}>
-      <div className="accounts-connect-shell__progress" aria-label="Setup progress">
+      <div
+        className={`accounts-connect-shell__progress${activeStep === 2 ? " accounts-connect-shell__progress--with-close" : ""}`}
+        aria-label="Setup progress"
+      >
         <OnboardingFlowProgress
           activeStep={activeStep}
           onStepClick={(step) => {
@@ -3211,18 +3254,24 @@ function PendingAccountOnboarding({
             else setActiveStep(step);
           }}
         />
+        {activeStep === 2 && onDismiss ? (
+          <button
+            type="button"
+            className="accounts-connect-shell__close"
+            onClick={onDismiss}
+            aria-label="Close setup"
+          >
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        ) : null}
       </div>
 
       <div className="accounts-connect-shell__layout">
         <div className="accounts-connect-shell__main">
           {activeStep === 2 ? (
             <>
-              <ConnectShellHeader
-                title="Review access and deploy"
-                subtitle={deployCopy.reviewSubtitle}
-                onDismiss={onDismiss}
-              />
-
               <div className="accounts-review-stage">
                 <main className="accounts-review-stage__main">
                   <OnboardingRoleReview acc={acc} value={connectionOptions} />
