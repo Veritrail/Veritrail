@@ -53,6 +53,37 @@
       "iam.user.direct_policy_attachment",
       "iam.user.no_mfa",
       "identity_center.user.inactive_90d"
+    ],
+    "cis_criteria": [
+      "1.1",
+      "1.10",
+      "1.11",
+      "1.12",
+      "1.13",
+      "1.14",
+      "1.15",
+      "1.16",
+      "1.17",
+      "1.18",
+      "1.19",
+      "1.2",
+      "1.20",
+      "1.21",
+      "1.22",
+      "1.3",
+      "1.4",
+      "1.6",
+      "1.8",
+      "1.9"
+    ],
+    "iso_criteria": [
+      "A.12.6.1",
+      "A.9.2.1",
+      "A.9.2.2",
+      "A.9.2.3",
+      "A.9.2.4",
+      "A.9.2.5",
+      "A.9.4.2"
     ]
   },
   {
@@ -74,6 +105,13 @@
       "iam.role.unassumed_90d",
       "iam.user.credentials_unused_45d",
       "identity_center.user.inactive_90d"
+    ],
+    "cis_criteria": [
+      "1.11"
+    ],
+    "iso_criteria": [
+      "A.9.2.1",
+      "A.9.2.5"
     ]
   },
   {
@@ -103,7 +141,9 @@
       "gitlab.repo.sast_disabled",
       "gitlab.repo.security_ci_not_required",
       "gitlab.repo.self_merge_allowed"
-    ]
+    ],
+    "cis_criteria": [],
+    "iso_criteria": []
   },
   {
     "id": "change_management",
@@ -129,6 +169,16 @@
       "gitlab.repo.no_branch_protection",
       "gitlab.repo.no_env_protection",
       "gitlab.repo.self_merge_allowed"
+    ],
+    "cis_criteria": [
+      "3.1",
+      "3.2"
+    ],
+    "iso_criteria": [
+      "A.12.1.2",
+      "A.12.4.1",
+      "A.12.4.2",
+      "A.12.6.1"
     ]
   },
   {
@@ -178,6 +228,31 @@
       "sns.topic.no_encryption",
       "sqs.queue.no_encryption",
       "ssm.parameter.plaintext_secret"
+    ],
+    "cis_criteria": [
+      "2.1.1",
+      "2.1.2",
+      "2.1.3",
+      "2.1.4",
+      "2.2.1",
+      "2.3.1",
+      "2.3.2",
+      "3.3",
+      "3.8",
+      "4.1",
+      "4.4",
+      "5.1",
+      "EC2.2"
+    ],
+    "iso_criteria": [
+      "A.10.1.1",
+      "A.12.4.1",
+      "A.12.4.2",
+      "A.12.6.1",
+      "A.13.1.1",
+      "A.13.2.3",
+      "A.9.2.4",
+      "A.9.4.1"
     ]
   },
   {
@@ -195,6 +270,10 @@
       "aws.vulnerability_monitoring.not_detected",
       "ecr.registry.enhanced_scanning_disabled",
       "ecr.repository.image_scan_disabled"
+    ],
+    "cis_criteria": [],
+    "iso_criteria": [
+      "A.12.6.1"
     ]
   },
   {
@@ -214,6 +293,10 @@
       "ecr.registry.enhanced_scanning_disabled",
       "ecr.repository.image_scan_disabled",
       "lambda.function.deprecated_runtime"
+    ],
+    "cis_criteria": [],
+    "iso_criteria": [
+      "A.12.6.1"
     ]
   },
   {
@@ -251,6 +334,22 @@
       "vpc.flow_logs.not_enabled",
       "azure.defender.not_enabled",
       "gcp.logging.not_enabled"
+    ],
+    "cis_criteria": [
+      "3.1",
+      "3.2",
+      "3.4",
+      "3.5",
+      "3.6",
+      "4.3"
+    ],
+    "iso_criteria": [
+      "A.10.1.1",
+      "A.12.4.1",
+      "A.12.4.2",
+      "A.12.6.1",
+      "A.13.1.1",
+      "A.9.4.1"
     ]
   },
   {
@@ -272,6 +371,15 @@
       "rds.instance.no_deletion_protection",
       "rds.instance.no_multi_az",
       "rds.snapshot.public"
+    ],
+    "cis_criteria": [
+      "2.3.3"
+    ],
+    "iso_criteria": [
+      "A.10.1.1",
+      "A.12.3.1",
+      "A.12.4.1",
+      "A.17.2.1"
     ]
   },
   {
@@ -279,11 +387,13 @@
     "control_id": "COMPOSITE.ENDPOINT_SECURITY",
     "title": "Endpoint Security & EDR",
     "description": "Confirms workstations and servers are monitored by endpoint protection outside native AWS visibility.",
-    "guidance": "Declare your EDR/MDM platform in Workspace → Evidence, or upload endpoint-security attestations when AWS cannot observe corporate devices.",
+    "guidance": "Declare your EDR/MDM platform in Workspace \u2192 Evidence, or upload endpoint-security attestations when AWS cannot observe corporate devices.",
     "soc2_criteria": [
       "CC6",
       "CC7"
     ],
-    "checks": []
+    "checks": [],
+    "cis_criteria": [],
+    "iso_criteria": []
   }
 ]

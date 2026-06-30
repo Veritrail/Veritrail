@@ -47,6 +47,10 @@ def seed_controls(db: Session, *, commit: bool = True) -> int:
                 title=entry["title"],
                 description=entry.get("description", ""),
                 guidance=entry.get("guidance"),
+                soc2_scope_category=entry.get("soc2_scope_category"),
+                cis_profile_level=entry.get("cis_profile_level"),
+                iso_applicability=entry.get("iso_applicability"),
+                iso_applicability_rationale=entry.get("iso_applicability_rationale"),
             )
             db.add(ctrl)
             db.flush()
@@ -55,6 +59,10 @@ def seed_controls(db: Session, *, commit: bool = True) -> int:
             ctrl.title = entry["title"]
             ctrl.description = entry.get("description", "")
             ctrl.guidance = entry.get("guidance")
+            ctrl.soc2_scope_category = entry.get("soc2_scope_category")
+            ctrl.cis_profile_level = entry.get("cis_profile_level")
+            ctrl.iso_applicability = entry.get("iso_applicability")
+            ctrl.iso_applicability_rationale = entry.get("iso_applicability_rationale")
 
         existing_links = set(
             db.scalars(

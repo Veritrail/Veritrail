@@ -15,7 +15,8 @@
       "identity_center.user.inactive_90d",
       "google_workspace.user.inactive_90d",
       "entra.user.inactive_90d"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -36,7 +37,8 @@
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
       "cloudtrail.event.iam_access_key_created"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -62,7 +64,8 @@
       "github.org.admin_unreviewed",
       "google_workspace.admin.unreviewed",
       "iam.user.admin_policy_attached"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -112,7 +115,8 @@
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
       "iam.user.admin_policy_attached"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -123,7 +127,8 @@
     "checks": [
       "s3.bucket.no_https_policy",
       "elb.load_balancer.weak_tls_policy"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -142,7 +147,8 @@
       "dynamodb.table.no_encryption",
       "sns.topic.no_encryption",
       "sqs.queue.no_encryption"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -171,7 +177,8 @@
       "cloudtrail.event.lambda_function_created_or_modified",
       "cloudtrail.event.kms_key_disabled_or_deleted",
       "cloudtrail.event.rds_instance_created_or_modified"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -190,7 +197,8 @@
       "elb.load_balancer.no_access_logs",
       "lambda.function.no_dlq",
       "cloudtrail.event.anomalous_api_volume"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -215,7 +223,8 @@
       "gitlab.repo.container_scanning_disabled",
       "github.repo.security_status_checks_missing",
       "gitlab.repo.security_ci_not_required"
-    ]
+    ],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "cis_aws_l1",
@@ -225,7 +234,8 @@
     "guidance": "Complete primary contact in AWS Console \u2192 Account \u2192 Contact information.",
     "checks": [
       "aws.account.contact_incomplete"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -235,7 +245,8 @@
     "guidance": "Register SECURITY alternate contact with email and phone in Account settings.",
     "checks": [
       "aws.account.security_contact_missing"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -245,7 +256,8 @@
     "guidance": "Delete any root access keys. Use IAM roles for programmatic access.",
     "checks": [
       "iam.root.has_access_keys"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -255,7 +267,8 @@
     "guidance": "Enable MFA on the root account (hardware MFA preferred for root).",
     "checks": [
       "iam.root.no_mfa"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -263,7 +276,8 @@
     "title": "Ensure hardware MFA is enabled for the root user",
     "description": "CIS recommends hardware MFA for root. Veritrail verifies MFA is enabled but cannot distinguish hardware vs virtual from IAM alone.",
     "guidance": "Manual attestation required: the IAM API does not distinguish hardware vs virtual MFA. Attach a hardware MFA device to root and attest, or document the virtual-MFA exception.",
-    "checks": []
+    "checks": [],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -273,7 +287,8 @@
     "guidance": "Use IAM users and roles for daily operations; monitor CloudTrail for root usage.",
     "checks": [
       "iam.root.usage"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -283,7 +298,8 @@
     "guidance": "Enable MFA for every IAM user that has console access. Consider using IAM Identity Center for SSO instead of IAM users.",
     "checks": [
       "iam.user.no_mfa"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -294,7 +310,8 @@
     "checks": [
       "iam.user.credentials_unused_45d",
       "iam.access_key.unused_45d"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -304,7 +321,8 @@
     "guidance": "Create a new access key, update the consuming workload, then deactivate and delete the old key.",
     "checks": [
       "iam.access_key.no_rotation_90d"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -314,7 +332,8 @@
     "guidance": "Automated check: iam.account.password_policy_weak",
     "checks": [
       "iam.account.password_policy_weak"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -324,7 +343,8 @@
     "guidance": "Automated check: iam.account.password_policy_weak (reuse prevention field).",
     "checks": [
       "iam.account.password_policy_weak"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -334,7 +354,8 @@
     "guidance": "Remove directly-attached user policies and instead assign permissions via roles or groups.",
     "checks": [
       "iam.user.direct_policy_attachment"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -344,7 +365,8 @@
     "guidance": "Replace policies with Allow Action: '*' and Resource: '*' (full admin) with scoped action lists and specific resource ARNs.",
     "checks": [
       "iam.role.least_privilege_policy"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -354,7 +376,8 @@
     "guidance": "Add a bucket policy with a Deny statement on aws:SecureTransport: false.",
     "checks": [
       "s3.bucket.no_https_policy"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -365,7 +388,8 @@
     "checks": [
       "s3.account.public_access_not_blocked",
       "s3.bucket.public_access_not_blocked"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -375,7 +399,8 @@
     "guidance": "Enable annual automatic rotation on all customer-managed KMS keys. AWS-managed keys rotate automatically and are not flagged.",
     "checks": [
       "kms.key.no_rotation"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -386,7 +411,8 @@
     "checks": [
       "ec2.security_group.unrestricted_ssh",
       "ec2.security_group.unrestricted_rdp"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -396,7 +422,8 @@
     "guidance": "Create a snapshot of each unencrypted volume, copy the snapshot with encryption enabled, create a new encrypted volume, and replace the original during a maintenance window.",
     "checks": [
       "ec2.ebs.volume_unencrypted"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -406,7 +433,8 @@
     "guidance": "RDS encryption can only be set at creation time. To encrypt an existing unencrypted instance: take a snapshot, copy the snapshot with encryption enabled, restore to a new encrypted instance, then cut over traffic.",
     "checks": [
       "rds.instance.no_encryption"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -416,7 +444,8 @@
     "guidance": "Modify the RDS instance to set 'Publicly Accessible' to No. Also ensure the instance is in a private subnet and the security group does not allow unrestricted inbound access.",
     "checks": [
       "rds.instance.publicly_accessible"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -426,7 +455,8 @@
     "guidance": "Set a backup retention period greater than zero for every production RDS instance.",
     "checks": [
       "rds.instance.no_automated_backup"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "iso27001",
@@ -437,7 +467,9 @@
     "checks": [
       "iam.user.credentials_unused_45d",
       "iam.access_key.unused_45d"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -452,7 +484,9 @@
       "secretsmanager.secret.no_rotation",
       "ssm.parameter.plaintext_secret",
       "cloudtrail.event.iam_access_key_created"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -469,7 +503,9 @@
       "iam.policy.wildcard_resource",
       "iam.access_key.no_rotation_90d",
       "cloudtrail.event.iam_role_policy_mutation"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -479,7 +515,9 @@
     "guidance": "Evidence: IAM users receive permissions via groups or roles, not direct policy attachment.",
     "checks": [
       "iam.user.direct_policy_attachment"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -493,7 +531,9 @@
       "iam.root.usage",
       "iam.user.no_mfa",
       "iam.access_key.multiple_active"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -514,7 +554,9 @@
       "sns.topic.no_encryption",
       "sqs.queue.no_encryption",
       "cloudtrail.event.kms_key_disabled_or_deleted"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -537,7 +579,9 @@
       "cloudtrail.event.trail_tampering",
       "cloudtrail.event.config_recorder_stopped",
       "cloudtrail.event.anomalous_api_volume"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -551,7 +595,9 @@
       "cloudtrail.trail.s3_bucket_public",
       "cloudtrail.trail.s3_bucket_no_logging",
       "cloudtrail.event.trail_tampering"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -575,7 +621,9 @@
       "cloudtrail.event.guardduty_disabled",
       "cloudtrail.event.ec2_instance_tampering",
       "cloudtrail.event.rds_instance_created_or_modified"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -597,7 +645,9 @@
       "gcp.compute.instance_public_ip",
       "ecs.task_definition.privileged_container",
       "cloudtrail.event.security_group_open_to_world"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -611,7 +661,9 @@
       "s3.account.public_access_not_blocked",
       "s3.bucket.public_access_not_blocked",
       "azure.storage.public_blob_access"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "cis_aws_l1",
@@ -621,7 +673,8 @@
     "guidance": "Automated check: s3.bucket.no_default_encryption",
     "checks": [
       "s3.bucket.no_default_encryption"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -631,7 +684,8 @@
     "guidance": "Automated check: s3.bucket.no_mfa_delete",
     "checks": [
       "s3.bucket.no_mfa_delete"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -641,7 +695,8 @@
     "guidance": "Enable server access logging on the bucket that receives CloudTrail logs.",
     "checks": [
       "cloudtrail.trail.s3_bucket_no_logging"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -651,7 +706,8 @@
     "guidance": "Block public access on the trail bucket; verify bucket policy and ACLs.",
     "checks": [
       "cloudtrail.trail.s3_bucket_public"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -661,7 +717,8 @@
     "guidance": "Enable a multi-region trail with management events. Re-scan after enabling.",
     "checks": [
       "cloudtrail.trail.not_enabled"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -671,7 +728,8 @@
     "guidance": "Enable log file validation on each trail.",
     "checks": [
       "cloudtrail.trail.no_log_validation"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -681,7 +739,8 @@
     "guidance": "Associate a KMS key with each trail; verify key policy allows CloudTrail.",
     "checks": [
       "cloudtrail.trail.no_kms"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -691,7 +750,8 @@
     "guidance": "Create a role with the AWS managed policy AWSSupportAccess for break-glass support access.",
     "checks": [
       "iam.account.no_support_role"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -701,7 +761,8 @@
     "guidance": "Veritrail flags running instances with no IAM instance profile attached. Attach instance roles for AWS access; instances that never call AWS APIs can be snoozed with a note.",
     "checks": [
       "ec2.instance.no_instance_profile"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -711,7 +772,8 @@
     "guidance": "Enable Config recorder and delivery channel in each active region.",
     "checks": [
       "aws.config.not_enabled"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -721,7 +783,8 @@
     "guidance": "Remove all rules from default security groups; attach named groups to workloads.",
     "checks": [
       "ec2.security_group.default_allows_traffic"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -731,7 +794,8 @@
     "guidance": "Enable flow logs on each VPC or subnet per your logging architecture.",
     "checks": [
       "vpc.flow_logs.not_enabled"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -741,7 +805,8 @@
     "guidance": "Set HttpTokens to required on instance metadata options.",
     "checks": [
       "ec2.instance.imdsv2_not_required"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -751,7 +816,8 @@
     "guidance": "Enable encryption by default in each region; migrate existing volumes as needed.",
     "checks": [
       "ec2.ebs.encryption_not_default"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -761,7 +827,8 @@
     "guidance": "Enable Access Analyzer in each active region.",
     "checks": [
       "aws.access_analyzer.not_enabled"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -771,7 +838,8 @@
     "guidance": "Deactivate and delete unused keys after validating workloads.",
     "checks": [
       "iam.access_key.multiple_active"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -781,7 +849,8 @@
     "guidance": "Delete expired server certificates in IAM \u2192 Server certificates.",
     "checks": [
       "iam.server_certificate.expired"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -791,7 +860,8 @@
     "guidance": "Set MaxPasswordAge to 90 or fewer days in the account password policy.",
     "checks": [
       "iam.account.password_policy_weak"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -801,7 +871,8 @@
     "guidance": "Detach AWSCloudShellFullAccess except break-glass principals.",
     "checks": [
       "iam.cloudshell_full_access_granted"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "cis_aws_l1",
@@ -811,7 +882,8 @@
     "guidance": "Replace full-admin customer policies with scoped permissions.",
     "checks": [
       "iam.role.least_privilege_policy"
-    ]
+    ],
+    "cis_profile_level": "Level 1"
   },
   {
     "framework": "iso27001",
@@ -824,7 +896,9 @@
       "rds.instance.no_deletion_protection",
       "rds.instance.no_automated_backup",
       "dynamodb.table.no_pitr"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -834,7 +908,9 @@
     "guidance": "Evidence: RDS instances are deployed with Multi-AZ for automatic failover and high availability. Single-AZ deployments create a single point of failure.",
     "checks": [
       "rds.instance.no_multi_az"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -846,7 +922,9 @@
       "iam.role.least_privilege_policy",
       "cloudtrail.event.root_activity",
       "cloudtrail.event.iam_user_policy_attachment"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -857,7 +935,9 @@
     "checks": [
       "cloudtrail.event.s3_bucket_policy_change",
       "cloudtrail.event.s3_public_access_block_disabled"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "iso27001",
@@ -867,7 +947,9 @@
     "guidance": "Evidence: CloudTrail event analysis detects CreateFunction and UpdateFunctionConfiguration calls alongside other infrastructure changes.",
     "checks": [
       "cloudtrail.event.lambda_function_created_or_modified"
-    ]
+    ],
+    "iso_applicability": "applicable",
+    "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
   },
   {
     "framework": "soc2",
@@ -875,7 +957,8 @@
     "title": "Control Environment \u2014 Integrity & Ethics",
     "description": "The entity demonstrates a commitment to integrity and ethical values.",
     "guidance": "Attest: code of conduct / ethics policy is published and acknowledged by personnel. Upload the policy and acknowledgment records.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -883,7 +966,8 @@
     "title": "Control Environment \u2014 Board Oversight",
     "description": "The board of directors demonstrates independence from management and exercises oversight of internal control.",
     "guidance": "Attest: governance/oversight responsibilities are defined. Upload board or management-review evidence.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -891,7 +975,8 @@
     "title": "Control Environment \u2014 Structure & Authority",
     "description": "Management establishes structures, reporting lines, and appropriate authorities and responsibilities.",
     "guidance": "Attest: org chart and role/responsibility definitions exist. Upload org chart.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -899,7 +984,8 @@
     "title": "Control Environment \u2014 Competence & HR",
     "description": "The entity demonstrates a commitment to attract, develop, and retain competent individuals \u2014 including hiring, background checks, and security training.",
     "guidance": "Attest: background-check policy, hiring process, and security-awareness training are in place. Upload policy + completion records.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -907,7 +993,8 @@
     "title": "Control Environment \u2014 Accountability",
     "description": "The entity holds individuals accountable for their internal control responsibilities.",
     "guidance": "Attest: responsibilities and accountability mechanisms (performance, disciplinary) are defined. Upload evidence.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -915,7 +1002,8 @@
     "title": "Communication \u2014 Quality Information",
     "description": "The entity obtains or generates and uses relevant, quality information to support internal control.",
     "guidance": "Attest: relevant security/operational information is captured and used. Upload sample reports/logs.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -923,7 +1011,8 @@
     "title": "Communication \u2014 Internal",
     "description": "The entity internally communicates information, including security objectives and responsibilities.",
     "guidance": "Attest: security policies and responsibilities are communicated to personnel. Upload comms / onboarding materials.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -931,7 +1020,8 @@
     "title": "Communication \u2014 External",
     "description": "The entity communicates with external parties regarding matters affecting internal control.",
     "guidance": "Attest: process to communicate with customers/vendors/regulators exists (e.g. status page, trust center, DPAs).",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -939,7 +1029,8 @@
     "title": "Risk Assessment \u2014 Objectives",
     "description": "The entity specifies objectives with sufficient clarity to enable identification and assessment of related risks.",
     "guidance": "Attest: security/compliance objectives are documented. Upload objectives statement.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -947,7 +1038,8 @@
     "title": "Risk Assessment \u2014 Identify & Analyze",
     "description": "The entity identifies risks to the achievement of its objectives and analyzes them as a basis for determining how to manage them.",
     "guidance": "Attest: a risk assessment / risk register exists and is maintained. Upload the risk register.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -955,7 +1047,8 @@
     "title": "Risk Assessment \u2014 Fraud",
     "description": "The entity considers the potential for fraud in assessing risks.",
     "guidance": "Attest: fraud risks are considered in the risk assessment. Upload evidence within the risk register.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -963,7 +1056,8 @@
     "title": "Risk Assessment \u2014 Change",
     "description": "The entity identifies and assesses changes that could significantly impact the system of internal control.",
     "guidance": "Attest: change-impact assessment is part of risk/change processes. Upload evidence.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -971,7 +1065,8 @@
     "title": "Monitoring \u2014 Evaluations",
     "description": "The entity selects, develops, and performs ongoing and/or separate evaluations to ascertain whether controls are present and functioning.",
     "guidance": "Attest: internal audits / control self-assessments are performed (Veritrail's continuous scanning supports this). Upload audit cadence/evidence.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -979,7 +1074,8 @@
     "title": "Monitoring \u2014 Deficiencies",
     "description": "The entity evaluates and communicates internal control deficiencies in a timely manner to those responsible for corrective action.",
     "guidance": "Attest: deficiencies are tracked and remediated (Veritrail findings support this). Upload remediation tracking.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -987,7 +1083,8 @@
     "title": "Control Activities \u2014 Selection",
     "description": "The entity selects and develops control activities that contribute to the mitigation of risks to the achievement of objectives.",
     "guidance": "Attest: controls are mapped to risks. Upload control matrix.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -995,7 +1092,8 @@
     "title": "Control Activities \u2014 Technology",
     "description": "The entity selects and develops general control activities over technology to support the achievement of objectives.",
     "guidance": "Attest: technology general controls (access, change, ops) are defined \u2014 largely covered by Veritrail's automated checks.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1003,7 +1101,8 @@
     "title": "Control Activities \u2014 Policies",
     "description": "The entity deploys control activities through policies that establish what is expected and procedures that put policies into action.",
     "guidance": "Attest: a security policy set is published and maintained. Upload the policy set.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1011,7 +1110,8 @@
     "title": "Logical & Physical Access \u2014 Physical",
     "description": "The entity restricts physical access to facilities and protected information assets to authorized personnel.",
     "guidance": "Attest: physical access is controlled (often inherited from the cloud provider's SOC 2 for data centers; office controls for the entity). Upload provider report + office policy.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1019,7 +1119,8 @@
     "title": "Logical & Physical Access \u2014 Disposal",
     "description": "The entity discontinues logical and physical protections over physical assets only after the ability to read or recover data has been diminished (secure disposal).",
     "guidance": "Attest: secure media disposal / data destruction process exists. Upload disposal policy.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1027,7 +1128,8 @@
     "title": "System Operations \u2014 Incident Evaluation",
     "description": "The entity evaluates security events to determine whether they could or did result in a failure to meet objectives, and if so, takes action.",
     "guidance": "Attest: a process to triage and evaluate security events exists (Veritrail anomaly detection + alerts support detection). Upload incident-evaluation procedure.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1035,7 +1137,8 @@
     "title": "System Operations \u2014 Incident Response",
     "description": "The entity responds to identified security incidents by executing a defined incident response program.",
     "guidance": "Attest: an incident response plan exists and is tested. Upload the IR plan + any post-incident reviews.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1043,7 +1146,8 @@
     "title": "System Operations \u2014 Recovery",
     "description": "The entity identifies, develops, and implements activities to recover from identified security incidents.",
     "guidance": "Attest: backup and disaster-recovery procedures exist and are tested (Veritrail backup checks support this). Upload DR test evidence.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1051,7 +1155,8 @@
     "title": "Risk Mitigation \u2014 Business Disruption",
     "description": "The entity identifies, selects, and develops risk mitigation activities for risks arising from potential business disruptions.",
     "guidance": "Attest: a business continuity plan and backups exist. Upload BCP + last DR test.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
@@ -1059,6 +1164,7 @@
     "title": "Risk Mitigation \u2014 Vendor Risk",
     "description": "The entity assesses and manages risks associated with vendors and business partners.",
     "guidance": "Attest: vendors/subprocessors are inventoried and their security (e.g. SOC 2 reports) is reviewed. Upload vendor list + their reports.",
-    "checks": []
+    "checks": [],
+    "soc2_scope_category": "security"
   }
 ]

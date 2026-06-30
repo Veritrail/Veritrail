@@ -78,6 +78,11 @@ class ControlOut(BaseModel):
     open_finding_ids: list[str]
     kind: str = "auto"   # auto | manual
     attestation_status: str | None = None  # manual controls: met|not_met|not_applicable|pending
+    # Framework-mapping metadata (set only for the matching framework's controls).
+    soc2_scope_category: str | None = None
+    cis_profile_level: str | None = None
+    iso_applicability: str | None = None
+    iso_applicability_rationale: str | None = None
 
 
 class CheckScanErrorOut(BaseModel):
@@ -93,6 +98,8 @@ class CompositeControlOut(BaseModel):
     description: str
     guidance: str | None
     soc2_criteria: list[str]
+    cis_criteria: list[str] = []
+    iso_criteria: list[str] = []
     check_ids: list[str]
     coverage_tier: str = "core"
     coverage_label: str | None = None
@@ -958,6 +965,10 @@ def list_controls(
                 open_finding_ids=[str(f.id) for f in hits],
                 kind=kind,
                 attestation_status=attestation_status,
+                soc2_scope_category=ctrl.soc2_scope_category,
+                cis_profile_level=ctrl.cis_profile_level,
+                iso_applicability=ctrl.iso_applicability,
+                iso_applicability_rationale=ctrl.iso_applicability_rationale,
             )
         )
 

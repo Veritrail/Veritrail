@@ -17,6 +17,13 @@ class Control(Base):
     title: Mapped[str] = mapped_column(String(300))
     description: Mapped[str] = mapped_column(Text, default="")
     guidance: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Framework-mapping metadata (soc2 only: AICPA Trust Services Criteria category).
+    soc2_scope_category: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # cis_aws_l1 only: CIS AWS Foundations Benchmark profile applicability (Level 1 | Level 2).
+    cis_profile_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # iso27001 only: Statement-of-Applicability style decision (applicable | excluded | partial).
+    iso_applicability: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    iso_applicability_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class CheckControl(Base):

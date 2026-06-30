@@ -1,0 +1,288 @@
+/* Compliance/Controls page — master-detail layout + tabbed detail panel.
+   Page-scoped styles only; shared list/toolbar primitives stay in findings-v2.css. */
+
+/* ---------------------------------------------------------------------- */
+/* Master-detail grid                                                     */
+/* ---------------------------------------------------------------------- */
+
+.compliance-master-detail {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 1.25rem;
+}
+
+@media (min-width: 1181px) {
+  .compliance-master-detail--split {
+    grid-template-columns: minmax(22rem, 1fr) minmax(26rem, 38rem);
+  }
+}
+
+.compliance-master-detail__list {
+  min-width: 0;
+}
+
+.compliance-master-detail__detail {
+  display: none;
+  min-width: 0;
+}
+
+@media (min-width: 1181px) {
+  .compliance-master-detail--split .compliance-master-detail__detail {
+    display: block;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Detail panel chrome (shared by docked column + overlay fallback)       */
+/* ---------------------------------------------------------------------- */
+
+.control-detail-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #e4e4e7;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.control-detail-panel__header {
+  position: relative;
+  flex-shrink: 0;
+  padding: 1.1rem 3rem 0.9rem 1.25rem;
+  border-bottom: 1px solid #f0f0f2;
+}
+
+.control-detail-panel__close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #52525b;
+  transition: background 0.15s, color 0.15s;
+}
+
+.control-detail-panel__close:hover {
+  background: #f4f4f5;
+  color: #18181b;
+}
+
+.control-detail-panel__close svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.control-detail-panel__eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #71717a;
+}
+
+.control-detail-panel__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.control-detail-panel__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.control-detail-panel__description {
+  margin: 0.35rem 0 0;
+  font-size: 0.825rem;
+  line-height: 1.5;
+  color: #71717a;
+}
+
+.control-detail-panel__tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0 0.75rem;
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.control-detail-panel__tab {
+  flex-shrink: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.65rem 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #71717a;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.control-detail-panel__tab:hover {
+  color: #18181b;
+}
+
+.control-detail-panel__tab.is-active {
+  border-bottom-color: #0d9488;
+  color: #0f172a;
+}
+
+.control-detail-panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 1.1rem 1.25rem 1.4rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Narrow-viewport overlay fallback                                       */
+/* ---------------------------------------------------------------------- */
+
+.control-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(9, 9, 11, 0.4);
+  padding: 1rem;
+  backdrop-filter: blur(2px);
+}
+
+.control-detail-overlay .control-detail-panel {
+  width: min(40rem, 100%);
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+}
+
+@media (max-width: 720px) {
+  .control-detail-overlay {
+    padding: 0;
+  }
+
+  .control-detail-overlay .control-detail-panel {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Readiness bar — concrete N-of-M counts, not a probability indicator.   */
+/* ---------------------------------------------------------------------- */
+
+.control-readiness {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+}
+
+.control-readiness__row {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.control-readiness__row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.control-readiness__label {
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.control-readiness__count {
+  font-variant-numeric: tabular-nums;
+  color: #71717a;
+}
+
+.control-readiness__track {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #f0f0f2;
+  overflow: hidden;
+}
+
+.control-readiness__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #0d9488;
+  transition: width 0.2s ease;
+}
+
+.control-readiness__fill--incomplete {
+  background: #f59e0b;
+}
+
+.control-readiness__fill--empty {
+  background: #d4d4d8;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Evidence tab + Mappings tab framework-chip summary                     */
+/* ---------------------------------------------------------------------- */
+
+.control-evidence-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.control-mappings-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.control-mappings-summary__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.control-mappings-summary__fw {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #3f3f46;
+}
+
+.control-mappings-summary__chip {
+  border-radius: 0.4rem;
+  background: #f4f4f5;
+  padding: 0.15rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.control-mappings-summary__meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #71717a;
+}

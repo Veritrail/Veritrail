@@ -571,137 +571,12 @@
   color: #111827;
 }
 
-.compliance-group-list-header,
-.compliance-group-row {
-  display: grid;
-  grid-template-columns:
-    minmax(18rem, 1.45fr) minmax(9rem, 0.65fr) minmax(8rem, 0.55fr)
-    minmax(10rem, 0.55fr);
-  align-items: center;
-  column-gap: 1.25rem;
-}
-
-.compliance-category-card {
-  padding: 1.35rem 1.5rem 1.25rem;
-}
-
-.compliance-group-list-header {
-  border-bottom: 1px solid #eef2f6;
-  background: #ffffff;
-  padding: 0 0 0.875rem;
-  color: #a1a1aa;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.compliance-category-card .compliance-group-row {
-  padding: 1rem 0;
-}
-
-.compliance-group-list-header span:last-child {
-  text-align: right;
-}
-
-.compliance-group-row__category {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.compliance-group-row__meta {
-  color: #4b5563;
-  font-size: 0.8125rem;
-  font-weight: 500;
-}
-
-.compliance-group-row__status {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.compliance-category-row__chevron {
-  color: #334155;
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.compliance-category-row__chevron--empty {
-  visibility: hidden;
-}
-
-.compliance-category-card__footer {
-  margin: 1.25rem 0 0;
-  color: #64748b;
-  font-size: 0.8125rem;
-  font-weight: 500;
-}
-
-@media (max-width: 900px) {
-  .compliance-group-list-header {
-    display: none;
-  }
-
-  .compliance-group-row {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-}
-
-.compliance-group-expanded {
-  display: grid;
-  gap: 1.25rem;
-}
-
-@media (min-width: 1024px) {
-  .compliance-group-expanded {
-    grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.55fr);
-    gap: 0.875rem;
-    align-items: stretch;
-  }
-}
-
-.compliance-group-checks-card {
-  display: flex;
-  min-width: 0;
-  min-height: 100%;
-  flex-direction: column;
-  border: 1px solid #e8ecf1;
-  border-radius: 0.875rem;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
-  padding: 1.125rem 1.25rem;
-}
-
-.compliance-group-expanded__side {
-  display: flex;
-  min-width: 0;
-  min-height: 100%;
-  flex-direction: column;
-  gap: 0.875rem;
-}
-
-.compliance-top-checks__header {
-  margin-bottom: 0.5rem;
-}
 
 .compliance-top-checks-table {
   list-style: none;
   margin: 0;
   padding: 0;
   border-top: 1px solid #f1f5f9;
-}
-
-.compliance-top-checks__col-head {
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #9ca3af;
-  text-align: right;
 }
 
 .compliance-top-checks__view-all {
@@ -748,174 +623,6 @@
   min-height: 3rem;
 }
 
-.compliance-group-insights-card,
-.compliance-group-explore-card {
-  border: 1px solid #e8ecf1;
-  border-radius: 0.875rem;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
-}
-
-.compliance-group-insights-card {
-  flex: 1 1 auto;
-  padding: 1.125rem 1.25rem;
-}
-
-.compliance-group-explore-card {
-  flex: 0 0 auto;
-}
-
-.compliance-group-insight-rows {
-  margin-top: 0.875rem;
-  list-style: none;
-  padding: 0;
-}
-
-.compliance-group-insight-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 0;
-  border-top: 1px solid #f1f5f9;
-}
-
-.compliance-group-insight-row:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.compliance-group-insight-row:last-child {
-  padding-bottom: 0;
-}
-
-.compliance-group-insight-row__lead {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.compliance-group-insight-row__label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-.compliance-group-insight-row__value {
-  flex-shrink: 0;
-  max-width: 58%;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #111827;
-  text-align: right;
-}
-
-.compliance-group-insight-row__value--wrap {
-  line-height: 1.35;
-}
-
-.compliance-group-insight-row__dot {
-  display: inline-block;
-  width: 0.4375rem;
-  height: 0.4375rem;
-  margin-left: 0.25rem;
-  border-radius: 9999px;
-  background: #ef4444;
-  vertical-align: middle;
-}
-
-.compliance-group-insight__icon {
-  display: flex;
-  height: 2rem;
-  width: 2rem;
-  shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-}
-
-.compliance-group-insight__icon--emerald {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.compliance-group-insight__icon--sky {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.compliance-group-insight__icon--rose {
-  background: #fff1f2;
-  color: #e11d48;
-}
-
-.compliance-group-explore-card {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem 1.25rem;
-  padding: 1.125rem 1.25rem;
-}
-
-.compliance-group-explore-card__copy {
-  min-width: 0;
-  flex: 1 1 12rem;
-}
-
-.compliance-group-explore-card__hint {
-  margin-top: 0.25rem;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  color: #64748b;
-}
-
-.compliance-group-explore-card__actions {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.compliance-group-explore-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.625rem;
-  border: 1px solid #d8dee8;
-  background: #fff;
-  padding: 0.5rem 0.875rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #0f172a;
-  text-decoration: none;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.compliance-group-explore-btn:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-  color: #111827;
-}
-
-.compliance-group-explore-btn--primary {
-  border-color: #93c5fd;
-  color: #1d4ed8;
-}
-
-.compliance-group-explore-btn--primary:hover {
-  border-color: #60a5fa;
-  background: #eff6ff;
-  color: #1e40af;
-}
 
 .compliance-external-evidence {
   border: 1px solid #e8ecf1;
@@ -2190,36 +1897,6 @@
   margin: 0;
 }
 
-/* Compliance category split layout + detail panel */
-.compliance-category-card--split {
-  padding: 0;
-}
-
-.compliance-category-split {
-  display: grid;
-  grid-template-columns: minmax(42rem, 1.12fr) minmax(28rem, 0.88fr);
-  gap: 1rem;
-  min-height: 28rem;
-}
-
-@media (max-width: 1280px) {
-  .compliance-category-split {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Split view = two separate cards (list | detail), not one shared card.
-   Strip the outer ComplianceListCard chrome when it wraps the split. */
-.compliance-list-card:has(.compliance-category-card--split) {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.compliance-list-card:has(.compliance-category-card--split) > div {
-  overflow: visible;
-  border-radius: 0;
-}
 
 .compliance-category-board {
   min-width: 0;
@@ -2406,18 +2083,6 @@
   min-width: 0;
 }
 
-.compliance-control-card__detail {
-  border-top: 1px solid #eef2f6;
-  background: #ffffff;
-}
-
-.compliance-control-card__detail .compliance-category-detail {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 1.5rem;
-}
-
 .compliance-control-card__child-wrap {
   border-top: 1px solid #eef2f6;
   background: #f8fafc;
@@ -2470,17 +2135,6 @@
     padding-left: 1rem;
   }
 
-  .compliance-control-card__detail .compliance-category-detail {
-    padding: 1rem;
-  }
-}
-
-.control-detail-content {
-  display: grid;
-  gap: 1rem;
-  border-top: 1px solid #e9eef5;
-  background: #f8fafc;
-  padding: 1rem 1.25rem 1.25rem;
 }
 
 .control-detail-header {
@@ -2553,38 +2207,6 @@
   color: #0f172a;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
-}
-
-.control-detail-section {
-  overflow: hidden;
-  border: 1px solid #e5ebf3;
-  border-radius: 0.875rem;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.control-detail-section__head {
-  border-bottom: 1px solid #eef2f6;
-  background: #fbfcfe;
-  padding: 0.85rem 1rem;
-}
-
-.control-detail-section__head h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.875rem;
-  font-weight: 750;
-}
-
-.control-detail-section__head p {
-  margin: 0.2rem 0 0;
-  color: #64748b;
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
-
-.control-detail-section__body {
-  padding: 1rem;
 }
 
 .control-status-panel {
@@ -2707,96 +2329,10 @@
   }
 }
 
-@media (max-width: 720px) {
-  .control-detail-content {
-    padding: 0.85rem;
-  }
-
-  .control-detail-section__body {
-    padding: 0.85rem;
-  }
-}
-
-.compliance-category-split__list {
-  min-width: 0;
-  border: 1px solid #eef0f4;
-  border-radius: 1rem;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.03);
-  overflow: hidden;
-  padding: 1.35rem 1.5rem 1.25rem;
-}
-
-/* split list is narrower than the full table. Zero the list's side padding and
-   inset each child instead, so every full-width row's hover/selected background
-   bleeds the entire width (no clipped gutter before the status pill). Columns
-   shrink (minmax(0,…)) so the row never overflows its container. */
-.compliance-category-split__list {
-  padding-inline: 0;
-}
-
-.compliance-category-split__list .compliance-group-list-header,
-.compliance-category-split__list .compliance-group-row {
-  grid-template-columns:
-    minmax(16rem, 1.25fr) minmax(8rem, 0.52fr) minmax(6.5rem, 0.42fr)
-    minmax(8.5rem, auto);
-  column-gap: 1rem;
-  padding-inline: 1.5rem;
-}
-
-@media (max-width: 900px) {
-  .compliance-category-split__list .compliance-group-list-header {
-    display: none;
-  }
-
-  .compliance-category-split__list .compliance-group-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-.compliance-category-split__list .compliance-group-row {
-  cursor: pointer;
-}
-
-.compliance-group-row.is-selected {
-  background: #f8fafc;
-  box-shadow: inset 3px 0 0 #64748b;
-}
-
-.compliance-category-detail {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  gap: 1.35rem;
-  border: 1px solid #e6ecf2;
-  border-radius: 1.25rem;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.04);
-  padding: 1.35rem;
-  background: #ffffff;
-}
-
 /* Hierarchy: resolve (the action) leads, then the findings/controls row, then
    evidence panel. Header + severity keep default order 0 and stay at the top. */
 .compliance-category-detail__nextsteps {
   order: 1;
-}
-
-.compliance-category-detail__lower {
-  order: 2;
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: 1.25rem;
-  margin-top: 0;
-  padding: 1.25rem;
-  border: 1px solid #e6ecf2;
-  border-radius: 1.125rem;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
-}
-
-.compliance-category-detail__lower--single {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .compliance-category-detail__evidence {
@@ -3258,25 +2794,6 @@
   border-radius: 1.125rem;
   background: #ffffff;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
-}
-
-.compliance-category-detail__nextsteps-head {
-  margin-bottom: 1rem;
-}
-
-.compliance-category-detail__nextsteps-head h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 750;
-  letter-spacing: -0.01em;
-}
-
-.compliance-category-detail__nextsteps-head p {
-  margin: 0.2rem 0 0;
-  color: #64748b;
-  font-size: 0.8125rem;
-  line-height: 1.4;
 }
 
 /* Clean white cards; the soft icon tile carries the accent. */
@@ -3847,10 +3364,6 @@
   border-top: 0;
 }
 
-.compliance-category-detail__inline-form {
-  margin-top: 0.9rem;
-}
-
 .compliance-category-detail__footer,
 .compliance-category-detail__help {
   display: flex;
@@ -3958,11 +3471,6 @@
   .compliance-category-detail__columns--count-1 {
     grid-template-columns: minmax(0, 1fr);
     gap: 1rem;
-  }
-
-  .compliance-category-detail__lower {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.5rem;
   }
 
   .compliance-category-detail__summary-bar {
@@ -4553,21 +4061,6 @@
 
 .compliance-category-detail__evidence {
   margin-top: 1.25rem;
-}
-
-@media (max-width: 1100px) {
-  .compliance-category-split {
-    grid-template-columns: 1fr;
-  }
-
-  .compliance-category-split__list {
-    border-right: 0;
-    border-bottom: 1px solid #eef2f6;
-  }
-
-  .compliance-category-detail {
-    max-height: none;
-  }
 }
 
 @media (max-width: 640px) {

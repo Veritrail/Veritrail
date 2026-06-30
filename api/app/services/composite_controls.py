@@ -146,6 +146,8 @@ def _composite_summary(entry: dict[str, Any]) -> dict[str, Any]:
         "description": entry.get("description", ""),
         "guidance": entry.get("guidance"),
         "soc2_criteria": list(entry.get("soc2_criteria") or []),
+        "cis_criteria": list(entry.get("cis_criteria") or []),
+        "iso_criteria": list(entry.get("iso_criteria") or []),
     }
 
 
@@ -337,6 +339,8 @@ def list_composite_controls(
                 "description": entry.get("description", ""),
                 "guidance": entry.get("guidance"),
                 "soc2_criteria": list(entry.get("soc2_criteria") or []),
+                "cis_criteria": list(entry.get("cis_criteria") or []),
+                "iso_criteria": list(entry.get("iso_criteria") or []),
                 "check_ids": check_ids,
                 "coverage_tier": cov_tier,
                 "coverage_label": tier_display_label(cov_tier),
