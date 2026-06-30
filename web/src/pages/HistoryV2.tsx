@@ -31,6 +31,7 @@ import {
   postureSeries,
   scanCoverageDays,
 } from "../lib/historyEvidence";
+import { ListPagination } from "../components/ListPagination";
 import "../styles/history-page.css";
 
 interface Account {
@@ -97,68 +98,6 @@ function formatDateTime(iso: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function EventsFooter({
-  page,
-  totalPages,
-  totalItems,
-  pageSize,
-  onPage,
-}: {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-  pageSize: number;
-  onPage: (p: number) => void;
-}) {
-  const start = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
-  const end = Math.min(page * pageSize, totalItems);
-
-  const pages: (number | "ellipsis")[] = [];
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-  } else {
-    pages.push(1, 2, 3, "ellipsis", totalPages);
-  }
-
-  return (
-    <div className="history-footer">
-      <span>
-        Showing {start}-{end} of {totalItems} events
-      </span>
-      <div className="history-pagination">
-        <button type="button" className="history-page-btn" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
-          ‹
-        </button>
-        {pages.map((p, i) =>
-          p === "ellipsis" ? (
-            <span key={`e-${i}`} className="px-1 text-zinc-400">
-              …
-            </span>
-          ) : (
-            <button
-              key={p}
-              type="button"
-              className={`history-page-btn${p === page ? " history-page-btn--active" : ""}`}
-              onClick={() => onPage(p)}
-            >
-              {p}
-            </button>
-          ),
-        )}
-        <button
-          type="button"
-          className="history-page-btn"
-          disabled={page >= totalPages}
-          onClick={() => onPage(page + 1)}
-          aria-label="Next page"
-        >
-          ›
-        </button>
-      </div>
-    </div>
-  );
 }
 
 export default function HistoryV2() {
@@ -582,12 +521,14 @@ export default function HistoryV2() {
                   </div>
                 </div>
 
-                <EventsFooter
+                <ListPagination
+                  variant="card"
                   page={safePage}
                   totalPages={totalPages}
                   totalItems={filteredEvents.length}
                   pageSize={pageSize}
                   onPage={setPage}
+                  itemLabel="events"
                 />
               </div>
             )}

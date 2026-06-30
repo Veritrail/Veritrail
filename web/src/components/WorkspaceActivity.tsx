@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
+import { ListPagination } from "./ListPagination";
 import { auditLogPageSchema, type AuditLogEntry } from "../lib/apiSchemas";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
 
 /** Human label per audit action. Falls back to a de-slugged version. */
 const ACTION_LABELS: Record<string, string> = {
@@ -117,29 +118,14 @@ export function WorkspaceActivity() {
         })}
       </ul>
 
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs text-zinc-500">
-          Page {page} of {totalPages}
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <ListPagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={total}
+        pageSize={PAGE_SIZE}
+        onPage={setPage}
+        itemLabel="activities"
+      />
     </div>
   );
 }
