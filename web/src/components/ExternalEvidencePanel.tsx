@@ -323,7 +323,9 @@ export function ExternalEvidencePanel({
             onClick={closeModal}
             disabled={submit.isPending}
           >
-            ×
+            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
