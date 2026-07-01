@@ -11,6 +11,7 @@ import {
   serializeFrameworkParam,
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
+import { FindingsChecksFilter, FindingsChecksFilterSummary } from "../components/FindingsChecksFilter";
 import { api, token } from "../api";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
@@ -919,31 +920,6 @@ export default function Findings() {
           </HeaderSlot>
         )}
 
-        {searchTags.length > 0 && (
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-zinc-500">Check filter</span>
-            {searchTags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex max-w-[14rem] items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white px-2.5 py-1 text-xs font-medium text-zinc-800 shadow-sm"
-              >
-                <span className="truncate">{checkLabels[tag] ?? tag}</span>
-                <button
-                  type="button"
-                  className="text-zinc-400 hover:text-zinc-700"
-                  aria-label={`Remove ${checkLabels[tag] ?? tag} filter`}
-                  onClick={() => handleTagsChange(searchTags.filter((t) => t !== tag))}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <button type="button" onClick={() => handleTagsChange([])} className="text-xs font-semibold text-zinc-500 hover:text-indigo-700">
-              Clear all
-            </button>
-          </div>
-        )}
-
         {findingsQuery.isLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
 
         {!findingsQuery.isLoading && (
@@ -963,6 +939,7 @@ export default function Findings() {
                     ariaLabel="Severity"
                   />
 
+                  <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
                   <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
                   <FindingsStatusSelect
                     value={status}
@@ -1024,6 +1001,12 @@ export default function Findings() {
                   </div>
                 </div>
               </div>
+
+              <FindingsChecksFilterSummary
+                tags={searchTags}
+                checkLabels={checkLabels}
+                onClear={() => handleTagsChange([])}
+              />
 
               {rows.length === 0 ? (
                 <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>
