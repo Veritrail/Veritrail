@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDisplayDate, parseIso, toIsoDate, todayIso } from "../lib/isoDate";
+import "../styles/drawer-date-field.css";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
+const CLOSE_MS = 150;
 
 function buildMonthGrid(year: number, month: number, minIso: string, maxIso: string) {
   const first = new Date(year, month, 1);
@@ -34,6 +36,8 @@ export function DrawerDateField({
   maxIso,
   placeholder = "Select date",
   allowClear = true,
+  triggerClassName,
+  popoverPlacement = "above",
 }: {
   id?: string;
   value: string;
@@ -42,29 +46,77 @@ export function DrawerDateField({
   maxIso?: string;
   placeholder?: string;
   allowClear?: boolean;
+  /** Extra classes on the trigger (e.g. panel input styles). */
+  triggerClassName?: string;
+  popoverPlacement?: "above" | "below";
 }) {
   const max = maxIso ?? toIsoDate(new Date(new Date().getFullYear() + 10, 11, 31));
   const selectedIso = value.trim();
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [view, setView] = useState(() => {
     const d = selectedIso ? parseIso(selectedIso) : new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
   const rootRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+
+  function closePopover() {
+    if (!open || closing) return;
+    setClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+      closeTimerRef.current = null;
+    }, CLOSE_MS);
+  }
+
+  function openPopover() {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setClosing(false);
+    setEntered(false);
+    setOpen(true);
+  }
+
+  function togglePopover() {
+    if (open && !closing) closePopover();
+    else openPopover();
+  }
 
   useEffect(() => {
-    if (!open) return;
+    return () => {
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open || closing) return;
     const d = selectedIso ? parseIso(selectedIso) : new Date();
     setView({ year: d.getFullYear(), month: d.getMonth() });
-  }, [open, selectedIso]);
+  }, [open, closing, selectedIso]);
+
+  useEffect(() => {
+    if (!open || closing) {
+      setEntered(false);
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setEntered(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, closing]);
 
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(e.target as Node)) closePopover();
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closePopover();
     }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -72,7 +124,7 @@ export function DrawerDateField({
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, closing]);
 
   const cells = useMemo(
     () => buildMonthGrid(view.year, view.month, minIso, max),
@@ -86,29 +138,52 @@ export function DrawerDateField({
 
   const minDate = parseIso(minIso);
   const maxDate = parseIso(max);
-  const canPrevMonth = view.year > minDate.getFullYear() || (view.year === minDate.getFullYear() && view.month > minDate.getMonth());
-  const canNextMonth = view.year < maxDate.getFullYear() || (view.year === maxDate.getFullYear() && view.month < maxDate.getMonth());
+  const canPrevMonth =
+    view.year > minDate.getFullYear() ||
+    (view.year === minDate.getFullYear() && view.month > minDate.getMonth());
+  const canNextMonth =
+    view.year < maxDate.getFullYear() ||
+    (view.year === maxDate.getFullYear() && view.month < maxDate.getMonth());
 
   function pick(iso: string) {
     onChange(iso);
-    setOpen(false);
+    closePopover();
   }
 
+  const popoverClass = [
+    "drawer-date-field__popover",
+    popoverPlacement === "below" ? "is-below" : "is-above",
+    entered ? "is-open" : "",
+    closing ? "is-closing" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const triggerClass = [
+    "drawer-date-field__trigger",
+    triggerClassName ??
+      "rounded-lg border border-[#e4e4e7] bg-white px-3 py-2.5 text-sm shadow-sm transition hover:border-zinc-300 focus:outline-none",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="drawer-date-field">
       <button
         id={id}
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-left text-sm shadow-sm transition hover:border-zinc-300 focus:border-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
+        onClick={togglePopover}
+        className={triggerClass}
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <span className={selectedIso ? "font-medium text-zinc-800" : "text-zinc-400"}>
+        <span
+          className={`drawer-date-field__value ${selectedIso ? "font-medium text-zinc-800" : "is-empty"}`}
+        >
           {selectedIso ? formatDisplayDate(selectedIso) : placeholder}
         </span>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-500">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+        <span className="drawer-date-field__icon" aria-hidden>
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -119,16 +194,12 @@ export function DrawerDateField({
       </button>
 
       {open && (
-        <div
-          role="dialog"
-          aria-label="Choose date"
-          className="absolute bottom-full left-0 z-30 mb-2 w-[17.5rem] rounded-xl border border-zinc-200 bg-white p-3 shadow-xl shadow-zinc-900/10 ring-1 ring-zinc-950/[0.04]"
-        >
-          <div className="mb-2.5 flex items-center justify-between rounded-lg bg-zinc-50 px-1 py-0.5">
+        <div role="dialog" aria-label="Choose date" className={popoverClass}>
+          <div className="drawer-date-field__nav">
             <button
               type="button"
               disabled={!canPrevMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+              className="drawer-date-field__nav-btn"
               onClick={() =>
                 setView((v) => {
                   const m = v.month - 1;
@@ -141,11 +212,11 @@ export function DrawerDateField({
                 <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
               </svg>
             </button>
-            <span className="text-xs font-semibold text-zinc-800">{monthLabel}</span>
+            <span className="drawer-date-field__month">{monthLabel}</span>
             <button
               type="button"
               disabled={!canNextMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+              className="drawer-date-field__nav-btn"
               onClick={() =>
                 setView((v) => {
                   const m = v.month + 1;
@@ -160,32 +231,30 @@ export function DrawerDateField({
             </button>
           </div>
 
-          <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+          <div className="drawer-date-field__weekdays">
             {WEEKDAYS.map((d) => (
               <span key={d}>{d}</span>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-0.5">
+          <div className="drawer-date-field__grid">
             {cells.map((cell, idx) => {
               const selected = cell.iso === selectedIso;
               const isToday = cell.iso === todayIso();
+              const dayClass = [
+                "drawer-date-field__day",
+                selected ? "is-selected" : "",
+                !cell.inMonth ? "is-outside" : "",
+                isToday && !selected ? "is-today" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
               return (
                 <button
                   key={`${cell.iso}-${idx}`}
                   type="button"
                   disabled={cell.disabled}
                   onClick={() => pick(cell.iso)}
-                  className={`relative h-8 rounded-lg text-xs font-semibold tabular-nums transition ${
-                    selected
-                      ? "bg-zinc-800 text-white shadow-sm"
-                      : cell.disabled
-                        ? "cursor-not-allowed text-zinc-300"
-                        : cell.inMonth
-                          ? isToday
-                            ? "text-zinc-800 ring-1 ring-zinc-300 hover:bg-zinc-100"
-                            : "text-zinc-700 hover:bg-zinc-100"
-                          : "text-zinc-400 hover:bg-zinc-50"
-                  }`}
+                  className={dayClass}
                 >
                   {cell.day}
                 </button>
@@ -193,14 +262,14 @@ export function DrawerDateField({
             })}
           </div>
 
-          <div className="mt-2.5 flex gap-2 border-t border-zinc-100 pt-2.5">
+          <div className="drawer-date-field__footer">
             {allowClear && (
               <button
                 type="button"
-                className="flex-1 rounded-lg border border-zinc-200 bg-white py-1.5 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50"
+                className="drawer-date-field__footer-btn"
                 onClick={() => {
                   onChange("");
-                  setOpen(false);
+                  closePopover();
                 }}
               >
                 Clear
@@ -208,7 +277,7 @@ export function DrawerDateField({
             )}
             <button
               type="button"
-              className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 py-1.5 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-100"
+              className="drawer-date-field__footer-btn drawer-date-field__footer-btn--today"
               onClick={() => {
                 const t = todayIso();
                 if (t >= minIso && t <= max) pick(t);

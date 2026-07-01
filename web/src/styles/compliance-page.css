@@ -1130,29 +1130,10 @@
 }
 
 .control-resolve-path__panel-input:focus,
-.control-resolve-path__panel-textarea:focus {
+.control-resolve-path__panel-textarea:focus,
+.control-resolve-path__panel-field .drawer-date-field__trigger:focus-visible {
   border-color: var(--vt-teal, #0d9488);
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
-}
-
-.control-resolve-path__panel-input[type="date"] {
-  min-height: 2.5rem;
-  color-scheme: light;
-  font-variant-numeric: tabular-nums;
-}
-
-.control-resolve-path__panel-input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0.55;
-  cursor: pointer;
-  margin-left: 0.25rem;
-}
-
-.control-resolve-path__panel-input[type="date"]::-webkit-datetime-edit {
-  padding: 0;
-}
-
-.control-resolve-path__panel-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
-  padding: 0;
 }
 
 .control-resolve-path__panel-segmented {
@@ -2389,28 +2370,9 @@
   color: #52525b;
 }
 
-.compliance-category-detail__account-expiry .compliance-category-detail__account-input {
+.compliance-category-detail__account-expiry .compliance-category-detail__account-input,
+.compliance-category-detail__account-expiry .drawer-date-field__trigger {
   margin-bottom: 0;
-}
-
-.compliance-category-detail__account-input[type="date"] {
-  min-height: 2.5rem;
-  color-scheme: light;
-  font-variant-numeric: tabular-nums;
-}
-
-.compliance-category-detail__account-input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0.55;
-  cursor: pointer;
-  margin-left: 0.25rem;
-}
-
-.compliance-category-detail__account-input[type="date"]::-webkit-datetime-edit {
-  padding: 0;
-}
-
-.compliance-category-detail__account-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
-  padding: 0;
 }
 
 /* --- next-step columns ---------------------------------------------- */

@@ -38,6 +38,7 @@ import {
   openCrossAccountCoverableChecks,
 } from "../lib/evidenceGap";
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
+import { DrawerDateField } from "../components/DrawerDateField";
 import { ControlEvidenceTabContent } from "../components/ControlEvidenceSlideOver";
 import {
   ControlDetailPanel,
@@ -2166,11 +2167,12 @@ function CrossAccountCoverageControl({
         </label>
         <label className="control-resolve-path__panel-field">
           <span className="control-resolve-path__panel-label">Attestation expiry (optional)</span>
-          <input
-            className="control-resolve-path__panel-input"
-            type="date"
+          <DrawerDateField
             value={expires}
-            onChange={(e) => setExpires(e.target.value)}
+            onChange={setExpires}
+            placeholder="Select expiry date"
+            triggerClassName="control-resolve-path__panel-input drawer-date-field__trigger"
+            popoverPlacement="below"
           />
         </label>
         {error ? <p className="control-resolve-path__panel-error">{error}</p> : null}
@@ -2230,11 +2232,12 @@ function CrossAccountCoverageControl({
       />
       <label className="compliance-category-detail__account-expiry">
         <span className="compliance-category-detail__account-expiry-label">Attestation expiry (optional)</span>
-        <input
-          className="compliance-category-detail__account-input"
-          type="date"
+        <DrawerDateField
           value={expires}
-          onChange={(e) => setExpires(e.target.value)}
+          onChange={setExpires}
+          placeholder="Select expiry date"
+          triggerClassName="compliance-category-detail__account-input drawer-date-field__trigger"
+          popoverPlacement="below"
         />
       </label>
       {error ? <p className="compliance-category-detail__scope-error">{error}</p> : null}
