@@ -235,7 +235,6 @@ export function AccountFilterDropdown({
 
   return (
     <div ref={rootRef} className="account-filter">
-      <ProviderMark provider={current.provider} className="account-filter__provider-logo" />
       <button
         ref={triggerRef}
         type="button"
@@ -245,6 +244,7 @@ export function AccountFilterDropdown({
         aria-expanded={open}
         aria-label={`Account: ${accountDisplayName(current)}`}
       >
+        <ProviderMark provider={current.provider} className="account-filter__provider-logo" />
         <span className="account-filter__name">{accountDisplayName(current)}</span>
         <FilterChevron open={open} />
       </button>
