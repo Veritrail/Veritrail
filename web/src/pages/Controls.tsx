@@ -2314,7 +2314,7 @@ function CompositeGapResolution({
                 if (findingsHref) navigate(findingsHref);
               }}
             >
-              Open remediation
+              View
             </button>
           </div>
         ) : null}
