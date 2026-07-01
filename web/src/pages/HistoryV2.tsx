@@ -244,7 +244,7 @@ export default function HistoryV2() {
   return (
     <div className="history-page history-page--fill px-1 pb-8 pt-2 sm:px-0">
       <HeaderSlot>
-        <div className="history-filter-bar w-full" style={{ marginBottom: 0 }}>
+        <div className="history-filter-bar w-full">
           <AccountFilterDropdown
             accounts={connectedAccountOptions}
             value={effectiveAccountId}

@@ -7,7 +7,6 @@ import {
   ProviderMark,
   type AccountOption,
 } from "./AccountSelect";
-import "../styles/history-page.css";
 
 type MenuPosition = { top: number; left: number; minWidth: number };
 
