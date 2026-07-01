@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
+  accountDisplayId,
   accountDisplayName,
   accountDisplaySubtitle,
   ProviderMark,
@@ -187,7 +188,7 @@ export function AccountFilterDropdown({
                       </span>
                       <span className="account-filter-card__text">
                         <span className="account-filter-card__name">{accountDisplayName(account)}</span>
-                        <span className="account-filter-card__meta">{accountDisplaySubtitle(account)}</span>
+                        <span className="account-filter-card__meta">{accountDisplayId(account)}</span>
                       </span>
                       <span className="account-filter-card__indicator" aria-hidden>
                         {active ? (
