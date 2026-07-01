@@ -1,0 +1,68 @@
+/* Finding drawer — Resources tab (scoped to FindingResourcesTab). */
+
+.finding-resources-tab__table col.finding-resources-tab__type-col {
+  width: 5.25rem;
+  min-width: 5.25rem;
+}
+
+.finding-resources-tab__table .finding-resources-tab__type-head,
+.finding-resources-tab__table .finding-resources-tab__type-cell {
+  width: 5.25rem;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+}
+
+.finding-resources-tab__table .finding-resources-tab__type-cell > div {
+  display: flex;
+  width: 5.25rem;
+  min-height: 2.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.finding-resources-tab__table .finding-resources-tab__type-cell > div > div[aria-hidden="true"] {
+  height: 0;
+  margin-top: 0;
+  overflow: hidden;
+}
+
+.finding-resources-tab__posture-metrics {
+  display: grid;
+  width: fit-content;
+  grid-template-columns: 5.25rem auto 4.5rem;
+  align-items: center;
+  column-gap: 1rem;
+  padding-inline: 1rem;
+}
+
+.finding-resources-tab__posture-metric {
+  display: flex;
+  min-width: 0;
+  align-self: stretch;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.finding-resources-tab__posture-metric--count,
+.finding-resources-tab__posture-metric--score {
+  width: 5.25rem;
+  text-align: center;
+}
+
+.finding-resources-tab__posture-label {
+  color: #a1a1aa;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.045em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.finding-resources-tab__posture-value {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+}

@@ -17,6 +17,7 @@ import {
 import { remediationSummaryForFinding } from "../data/remediationSummaries";
 import type { RecheckBatchResponse } from "../context/RecheckNotificationsContext";
 import { CloudProviderMark } from "./FindingResourceIcon";
+import "../styles/finding-resources-tab.css";
 
 export type ResourcesTabFinding = {
   id: string;
@@ -680,7 +681,7 @@ export function FindingResourcesTab({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="finding-resources-tab space-y-3">
       <ResourcesPostureStrip
         selectedFinding={selectedFinding}
         groupFindings={groupFindings}
@@ -801,10 +802,10 @@ export function FindingResourcesTab({
       {/* Resource list — single merged card, rows divided by lines */}
       <div className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]">
         <div className="overflow-x-auto">
-          <table className="min-w-[56rem] w-full border-collapse text-left">
+          <table className="finding-resources-tab__table min-w-[56rem] w-full border-collapse text-left">
             <colgroup>
               <col className="min-w-[14rem]" />
-              <col className="min-w-[10rem]" />
+              <col className="finding-resources-tab__type-col min-w-[10rem]" />
               <col className="min-w-[7.5rem]" />
               <col />
               <col />
@@ -813,7 +814,7 @@ export function FindingResourcesTab({
             <thead>
               <tr className="border-b border-zinc-100 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Resource</th>
-                <th className="w-[1%] whitespace-nowrap pl-2 pr-6 pb-2.5 pt-3 text-left align-bottom font-semibold">
+                <th className="finding-resources-tab__type-head w-[1%] whitespace-nowrap pl-2 pr-6 pb-2.5 pt-3 text-left align-bottom font-semibold">
                   <span className="inline-block -translate-x-8">Type</span>
                 </th>
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Account</th>
@@ -879,7 +880,7 @@ export function FindingResourcesTab({
                         </div>
                       </div>
                     </td>
-                    <td className="w-[1%] whitespace-nowrap pl-2 pr-6 py-4 align-middle">
+                    <td className="finding-resources-tab__type-cell w-[1%] whitespace-nowrap pl-2 pr-6 py-4 align-middle">
                       <div className="flex -translate-x-8 flex-col items-start">
                         <ResourceTypePill label={rowAssetType} />
                         {/* phantom sub-line — keeps the pill level with the first line of the
