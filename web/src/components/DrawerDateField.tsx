@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatDisplayDate, parseIso, toIsoDate, todayIso } from "../lib/isoDate";
 import "../styles/drawer-date-field.css";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
 const CLOSE_MS = 150;
+const POPOVER_GAP = 8;
+const POPOVER_WIDTH = 280;
+const POPOVER_EST_HEIGHT = 320;
+
+type PopoverCoords = {
+  top: number;
+  left: number;
+  placement: "above" | "below";
+};
 
 function buildMonthGrid(year: number, month: number, minIso: string, maxIso: string) {
   const first = new Date(year, month, 1);
@@ -26,6 +36,36 @@ function buildMonthGrid(year: number, month: number, minIso: string, maxIso: str
     grid.push({ iso, day: d.getDate(), inMonth: false, disabled: iso < minIso || iso > maxIso });
   }
   return grid;
+}
+
+function computePopoverCoords(
+  trigger: HTMLElement,
+  preferred: "above" | "below",
+  popoverHeight: number,
+): PopoverCoords {
+  const rect = trigger.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+
+  let placement = preferred;
+  if (preferred === "below" && spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
+    placement = "above";
+  } else if (preferred === "above" && spaceAbove < popoverHeight && spaceBelow > spaceAbove) {
+    placement = "below";
+  }
+
+  const height = popoverHeight || POPOVER_EST_HEIGHT;
+  const top =
+    placement === "below"
+      ? rect.bottom + POPOVER_GAP
+      : Math.max(POPOVER_GAP, rect.top - POPOVER_GAP - height);
+
+  let left = rect.left;
+  if (left + POPOVER_WIDTH > window.innerWidth - POPOVER_GAP) {
+    left = Math.max(POPOVER_GAP, window.innerWidth - POPOVER_WIDTH - POPOVER_GAP);
+  }
+
+  return { top, left, placement };
 }
 
 export function DrawerDateField({
@@ -55,12 +95,21 @@ export function DrawerDateField({
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
+  const [coords, setCoords] = useState<PopoverCoords | null>(null);
   const [view, setView] = useState(() => {
     const d = selectedIso ? parseIso(selectedIso) : new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
-  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<number | null>(null);
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const measured = popoverRef.current?.offsetHeight ?? POPOVER_EST_HEIGHT;
+    setCoords(computePopoverCoords(trigger, popoverPlacement, measured));
+  }, [popoverPlacement]);
 
   function closePopover() {
     if (!open || closing) return;
@@ -68,6 +117,7 @@ export function DrawerDateField({
     closeTimerRef.current = window.setTimeout(() => {
       setOpen(false);
       setClosing(false);
+      setCoords(null);
       closeTimerRef.current = null;
     }, CLOSE_MS);
   }
@@ -99,6 +149,27 @@ export function DrawerDateField({
     setView({ year: d.getFullYear(), month: d.getMonth() });
   }, [open, closing, selectedIso]);
 
+  useLayoutEffect(() => {
+    if (!open || closing) {
+      setCoords(null);
+      return;
+    }
+    updatePosition();
+  }, [open, closing, updatePosition]);
+
+  useEffect(() => {
+    if (!open || closing) return;
+    function onScrollOrResize() {
+      updatePosition();
+    }
+    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    return () => {
+      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+    };
+  }, [open, closing, updatePosition]);
+
   useEffect(() => {
     if (!open || closing) {
       setEntered(false);
@@ -108,12 +179,14 @@ export function DrawerDateField({
       requestAnimationFrame(() => setEntered(true));
     });
     return () => cancelAnimationFrame(frame);
-  }, [open, closing]);
+  }, [open, closing, coords]);
 
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) closePopover();
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      closePopover();
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") closePopover();
@@ -150,9 +223,11 @@ export function DrawerDateField({
     closePopover();
   }
 
+  const effectivePlacement = coords?.placement ?? popoverPlacement;
   const popoverClass = [
     "drawer-date-field__popover",
-    popoverPlacement === "below" ? "is-below" : "is-above",
+    "drawer-date-field__popover--portal",
+    effectivePlacement === "below" ? "is-below" : "is-above",
     entered ? "is-open" : "",
     closing ? "is-closing" : "",
   ]
@@ -167,9 +242,114 @@ export function DrawerDateField({
     .filter(Boolean)
     .join(" ");
 
+  const popover =
+    open && coords ? (
+      <div
+        ref={popoverRef}
+        role="dialog"
+        aria-label="Choose date"
+        className={popoverClass}
+        style={{ top: coords.top, left: coords.left, zIndex: 50 }}
+      >
+        <div className="drawer-date-field__nav">
+          <button
+            type="button"
+            disabled={!canPrevMonth}
+            className="drawer-date-field__nav-btn"
+            onClick={() =>
+              setView((v) => {
+                const m = v.month - 1;
+                return m < 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: m };
+              })
+            }
+            aria-label="Previous month"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="drawer-date-field__month">{monthLabel}</span>
+          <button
+            type="button"
+            disabled={!canNextMonth}
+            className="drawer-date-field__nav-btn"
+            onClick={() =>
+              setView((v) => {
+                const m = v.month + 1;
+                return m > 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: m };
+              })
+            }
+            aria-label="Next month"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="drawer-date-field__weekdays">
+          {WEEKDAYS.map((d) => (
+            <span key={d}>{d}</span>
+          ))}
+        </div>
+        <div className="drawer-date-field__grid">
+          {cells.map((cell, idx) => {
+            const selected = cell.iso === selectedIso;
+            const isToday = cell.iso === todayIso();
+            const dayClass = [
+              "drawer-date-field__day",
+              selected ? "is-selected" : "",
+              !cell.inMonth ? "is-outside" : "",
+              isToday && !selected ? "is-today" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <button
+                key={`${cell.iso}-${idx}`}
+                type="button"
+                disabled={cell.disabled}
+                onClick={() => pick(cell.iso)}
+                className={dayClass}
+              >
+                {cell.day}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="drawer-date-field__footer">
+          {allowClear && (
+            <button
+              type="button"
+              className="drawer-date-field__footer-btn"
+              onClick={() => {
+                onChange("");
+                closePopover();
+              }}
+            >
+              Clear
+            </button>
+          )}
+          <button
+            type="button"
+            className="drawer-date-field__footer-btn drawer-date-field__footer-btn--today"
+            onClick={() => {
+              const t = todayIso();
+              if (t >= minIso && t <= max) pick(t);
+            }}
+            disabled={todayIso() < minIso || todayIso() > max}
+          >
+            Today
+          </button>
+        </div>
+      </div>
+    ) : null;
+
   return (
-    <div ref={rootRef} className="drawer-date-field">
+    <div className="drawer-date-field">
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         onClick={togglePopover}
@@ -193,102 +373,7 @@ export function DrawerDateField({
         </span>
       </button>
 
-      {open && (
-        <div role="dialog" aria-label="Choose date" className={popoverClass}>
-          <div className="drawer-date-field__nav">
-            <button
-              type="button"
-              disabled={!canPrevMonth}
-              className="drawer-date-field__nav-btn"
-              onClick={() =>
-                setView((v) => {
-                  const m = v.month - 1;
-                  return m < 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: m };
-                })
-              }
-              aria-label="Previous month"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
-              </svg>
-            </button>
-            <span className="drawer-date-field__month">{monthLabel}</span>
-            <button
-              type="button"
-              disabled={!canNextMonth}
-              className="drawer-date-field__nav-btn"
-              onClick={() =>
-                setView((v) => {
-                  const m = v.month + 1;
-                  return m > 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: m };
-                })
-              }
-              aria-label="Next month"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="drawer-date-field__weekdays">
-            {WEEKDAYS.map((d) => (
-              <span key={d}>{d}</span>
-            ))}
-          </div>
-          <div className="drawer-date-field__grid">
-            {cells.map((cell, idx) => {
-              const selected = cell.iso === selectedIso;
-              const isToday = cell.iso === todayIso();
-              const dayClass = [
-                "drawer-date-field__day",
-                selected ? "is-selected" : "",
-                !cell.inMonth ? "is-outside" : "",
-                isToday && !selected ? "is-today" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
-              return (
-                <button
-                  key={`${cell.iso}-${idx}`}
-                  type="button"
-                  disabled={cell.disabled}
-                  onClick={() => pick(cell.iso)}
-                  className={dayClass}
-                >
-                  {cell.day}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="drawer-date-field__footer">
-            {allowClear && (
-              <button
-                type="button"
-                className="drawer-date-field__footer-btn"
-                onClick={() => {
-                  onChange("");
-                  closePopover();
-                }}
-              >
-                Clear
-              </button>
-            )}
-            <button
-              type="button"
-              className="drawer-date-field__footer-btn drawer-date-field__footer-btn--today"
-              onClick={() => {
-                const t = todayIso();
-                if (t >= minIso && t <= max) pick(t);
-              }}
-              disabled={todayIso() < minIso || todayIso() > max}
-            >
-              Today
-            </button>
-          </div>
-        </div>
-      )}
+      {popover ? createPortal(popover, document.body) : null}
     </div>
   );
 }

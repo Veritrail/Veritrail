@@ -88,6 +88,13 @@
   transform: translateY(-4px) scale(0.98);
 }
 
+/* Portaled popover — fixed to viewport so ancestor overflow cannot clip it. */
+.drawer-date-field__popover--portal {
+  position: fixed;
+  top: auto;
+  bottom: auto;
+}
+
 .drawer-date-field__nav {
   display: flex;
   align-items: center;
