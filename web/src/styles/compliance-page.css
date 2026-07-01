@@ -241,14 +241,6 @@
 /* Consolidated drawer body — Blocking gaps + Guidance, nothing else.     */
 /* ---------------------------------------------------------------------- */
 
-.control-detail-section__stat--clear {
-  color: #16a34a;
-}
-
-.control-detail-section__stat--alert {
-  color: #dc2626;
-}
-
 .control-detail-empty {
   margin: 0;
   padding: 0.85rem 1rem;
@@ -472,10 +464,6 @@
 
 .control-detail-stack--composite .control-detail-section__head {
   align-items: center;
-}
-
-.control-detail-stack--composite .control-detail-section__stat {
-  font-size: 0.875rem;
 }
 
 .control-detail-stack--composite .control-detail-guidance-footer {

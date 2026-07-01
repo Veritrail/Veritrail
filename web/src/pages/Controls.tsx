@@ -2645,20 +2645,7 @@ function buildCompositeTabs({
       label: "Gaps",
       content: (
         <div className="control-detail-stack control-detail-stack--composite">
-          <ControlDetailSection
-            title="Blocking gaps"
-            action={
-              failingCheckCount > 0 ? (
-                <span className="control-detail-section__stat control-detail-section__stat--alert">
-                  {failingCheckCount}
-                </span>
-              ) : (
-                <span className="control-detail-section__stat control-detail-section__stat--clear">
-                  Clear
-                </span>
-              )
-            }
-          >
+          <ControlDetailSection title="Blocking gaps">
             {isExternalOnly ? (
               <p className="control-detail-empty">
                 No automated checks map to this control — resolve it with external evidence below.
@@ -2762,18 +2749,7 @@ function buildDetailedTabs({
       badge: blockingCount > 0 ? blockingCount : undefined,
       content: (
         <div className="control-detail-stack">
-          <ControlDetailSection
-            title="Blocking gaps"
-            action={
-              blockingCount > 0 ? (
-                <span className="control-detail-section__stat">{blockingCount} open</span>
-              ) : (
-                <span className="control-detail-section__stat control-detail-section__stat--clear">
-                  Clear
-                </span>
-              )
-            }
-          >
+          <ControlDetailSection title="Blocking gaps">
             {ctrl.check_ids.length > 0 ? (
               <ControlFindingsBlock
                 control={ctrl}
