@@ -1007,7 +1007,7 @@
   align-self: center;
   border: 0;
   border-radius: 0.4375rem;
-  background: var(--veritrail-primary, #0f172a);
+  background: var(--vt-teal, #0d9488);
   color: #fff;
   padding: 0.5rem 0.875rem;
   font-size: 0.8125rem;
@@ -1019,7 +1019,7 @@
 }
 
 .control-resolve-path__cta:hover:not(:disabled) {
-  background: var(--veritrail-primary-hover, #1e293b);
+  background: var(--vt-teal-hover, #0f766e);
 }
 
 .control-resolve-path__cta:disabled {
@@ -1030,22 +1030,23 @@
 .control-resolve-path__outline {
   flex-shrink: 0;
   align-self: center;
-  border: 1px solid #d4d4d8;
+  border: 1px solid var(--vt-teal, #0d9488);
   border-radius: 0.4375rem;
   background: #fff;
-  color: #3f3f46;
+  color: var(--vt-teal, #0d9488);
   padding: 0.45rem 0.8rem;
   font-size: 0.8125rem;
   font-weight: 650;
   line-height: 1.25;
   white-space: nowrap;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .control-resolve-path__outline:hover {
-  border-color: #a1a1aa;
+  border-color: var(--vt-teal-hover, #0f766e);
   background: #fafafa;
+  color: var(--vt-teal-hover, #0f766e);
 }
 
 .control-resolve-path__chevron {
