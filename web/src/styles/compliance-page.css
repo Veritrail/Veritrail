@@ -1000,9 +1000,20 @@
 }
 
 .control-resolve-path__expand {
-  padding: 0 1rem 1rem;
-  border-top: 1px solid #f0f0f2;
-  background: #fafafa;
+  padding: 0 1.2rem 1.1rem 3.55rem;
+  border-top: 1px solid #eef0f3;
+  background: #fff;
+}
+
+.control-resolve-path__scope-block {
+  margin-top: 0.85rem;
+}
+
+.control-resolve-path__scope-block.is-open {
+  border: 1px solid #e4e4e7;
+  border-radius: 0.625rem;
+  background: #fff;
+  overflow: hidden;
 }
 
 .control-resolve-path__scope-row {
@@ -1010,7 +1021,6 @@
   align-items: center;
   gap: 1rem;
   width: 100%;
-  margin-top: 0.85rem;
   min-height: 4rem;
   padding: 1.1rem 1.2rem;
   border: 1px solid #e8eaee;
@@ -1021,14 +1031,240 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
+.control-resolve-path__scope-block.is-open .control-resolve-path__scope-row {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+}
+
 .control-resolve-path__scope-row:hover {
   background: #fafafa;
   border-color: #d4d4d8;
 }
 
+.control-resolve-path__scope-block.is-open .control-resolve-path__scope-row:hover {
+  border-color: transparent;
+}
+
+.control-resolve-path__scope-row:focus {
+  outline: none;
+}
+
+.control-resolve-path__scope-row:focus-visible {
+  outline: 2px solid var(--vt-teal, #0d9488);
+  outline-offset: 2px;
+}
+
+.control-resolve-path__row--expand:focus {
+  outline: none;
+}
+
+.control-resolve-path__row--expand:focus-visible {
+  outline: 2px solid var(--vt-teal, #0d9488);
+  outline-offset: -2px;
+}
+
+.control-resolve-path__row--expand[aria-expanded="true"] {
+  background: #fafafa;
+}
+
 .control-resolve-path__scope-expand {
-  margin-top: 0.65rem;
-  padding: 0 0.15rem;
+  padding: 0 1.2rem 1.1rem 3.55rem;
+  border-top: 1px solid #eef0f3;
+}
+
+/* Inline expand panels — cross-account + out-of-scope forms */
+.control-resolve-path__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.control-resolve-path__panel-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #71717a;
+}
+
+.control-resolve-path__panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.control-resolve-path__panel-label {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: #52525b;
+}
+
+.control-resolve-path__panel-input,
+.control-resolve-path__panel-textarea,
+.control-resolve-path__panel-expiry input[type="date"] {
+  width: 100%;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.625rem;
+  background: #fff;
+  padding: 0.625rem 0.8125rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: #18181b;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.control-resolve-path__panel-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.control-resolve-path__panel-textarea {
+  resize: vertical;
+  min-height: 4.75rem;
+}
+
+.control-resolve-path__panel-input::placeholder,
+.control-resolve-path__panel-textarea::placeholder {
+  color: #a1a1aa;
+}
+
+.control-resolve-path__panel-input:focus,
+.control-resolve-path__panel-textarea:focus,
+.control-resolve-path__panel-expiry input[type="date"]:focus {
+  border-color: var(--vt-teal, #0d9488);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+.control-resolve-path__panel-expiry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.control-resolve-path__panel-expiry input[type="date"] {
+  width: auto;
+  flex-shrink: 0;
+  min-width: 9.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.control-resolve-path__panel-segmented {
+  display: flex;
+  gap: 0.1875rem;
+  padding: 0.1875rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.625rem;
+  background: #fafafa;
+}
+
+.control-resolve-path__panel-segmented button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 0.4375rem;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.control-resolve-path__panel-segmented button:hover:not(.is-active) {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.control-resolve-path__panel-segmented button.is-active {
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.control-resolve-path__panel-segmented strong {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: #18181b;
+}
+
+.control-resolve-path__panel-segmented span {
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: #71717a;
+}
+
+.control-resolve-path__panel-error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.75rem;
+}
+
+.control-resolve-path__panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.control-resolve-path__panel-btn {
+  padding: 0.5rem 0.95rem;
+  border-radius: 0.4375rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.control-resolve-path__panel-btn--cancel {
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  color: #52525b;
+}
+
+.control-resolve-path__panel-btn--cancel:hover:not(:disabled) {
+  background: #fafafa;
+  border-color: #d4d4d8;
+}
+
+.control-resolve-path__panel-btn--secondary {
+  border: 1px solid var(--vt-teal, #0d9488);
+  background: #fff;
+  color: var(--vt-teal, #0d9488);
+}
+
+.control-resolve-path__panel-btn--secondary:hover:not(:disabled) {
+  border-color: var(--vt-teal-hover, #0f766e);
+  background: #fafafa;
+  color: var(--vt-teal-hover, #0f766e);
+}
+
+.control-resolve-path__panel-btn--primary {
+  border: 0;
+  background: var(--vt-teal, #0d9488);
+  color: #fff;
+}
+
+.control-resolve-path__panel-btn--primary:hover:not(:disabled) {
+  background: var(--vt-teal-hover, #0f766e);
+}
+
+.control-resolve-path__panel-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 /* ---------------------------------------------------------------------- */

@@ -1763,6 +1763,67 @@ function GapScopeControl({
     );
   }
 
+  if (embedInResolution) {
+    return (
+      <div className="control-resolve-path__panel">
+        <div className="control-resolve-path__panel-segmented" role="radiogroup" aria-label="Scope type">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={status === "out_of_scope"}
+            className={status === "out_of_scope" ? "is-active" : ""}
+            onClick={() => setStatus("out_of_scope")}
+          >
+            <strong>Out of scope</strong>
+            <span>Outside this audit’s boundary</span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={status === "not_applicable"}
+            className={status === "not_applicable" ? "is-active" : ""}
+            onClick={() => setStatus("not_applicable")}
+          >
+            <strong>Not applicable</strong>
+            <span>Control can’t apply to your stack</span>
+          </button>
+        </div>
+        <label className="control-resolve-path__panel-field">
+          <span className="control-resolve-path__panel-label">Reason</span>
+          <textarea
+            className="control-resolve-path__panel-textarea"
+            placeholder="Recorded for your auditor — e.g. handled by an external vulnerability scanner"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+          />
+        </label>
+        {error ? <p className="control-resolve-path__panel-error">{error}</p> : null}
+        <div className="control-resolve-path__panel-actions">
+          <button
+            type="button"
+            className="control-resolve-path__panel-btn control-resolve-path__panel-btn--cancel"
+            disabled={saving}
+            onClick={() => {
+              setOpen(false);
+              setError("");
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="control-resolve-path__panel-btn control-resolve-path__panel-btn--primary"
+            disabled={saving || reason.trim() === ""}
+            onClick={() => void submit(status, reason.trim())}
+          >
+            {saving ? "Saving…" : "Mark out of scope"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="compliance-category-detail__scope is-editing">
       <p className="compliance-category-detail__scope-title">
@@ -1953,12 +2014,15 @@ function CrossAccountCoverageControl({
   open,
   onClose,
   onConnect,
+  embedInResolution = false,
 }: {
   compositeId: string;
   detail?: CrossAccountCoverageDetail | null;
   open: boolean;
   onClose: () => void;
   onConnect: () => void;
+  /** When true, parent renders the resolution-path row trigger. */
+  embedInResolution?: boolean;
 }) {
   const meQ = useMe();
   const qc = useQueryClient();
@@ -2072,6 +2136,71 @@ function CrossAccountCoverageControl({
   }
 
   if (!open || !canEdit) return null;
+
+  if (embedInResolution) {
+    return (
+      <div className="control-resolve-path__panel">
+        <p className="control-resolve-path__panel-hint">
+          Connect that account, then run a scan to verify this control. Attest in the meantime if
+          you can’t connect it yet.
+        </p>
+        <label className="control-resolve-path__panel-field">
+          <span className="control-resolve-path__panel-label">AWS account ID</span>
+          <input
+            className="control-resolve-path__panel-input"
+            inputMode="numeric"
+            placeholder="12 digits"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+          />
+        </label>
+        <label className="control-resolve-path__panel-field">
+          <span className="control-resolve-path__panel-label">How is it covered there?</span>
+          <textarea
+            className="control-resolve-path__panel-textarea"
+            placeholder="e.g. GuardDuty via delegated admin in the security account"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+          />
+        </label>
+        <label className="control-resolve-path__panel-expiry">
+          <span className="control-resolve-path__panel-label">Attestation expiry (optional)</span>
+          <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
+        </label>
+        {error ? <p className="control-resolve-path__panel-error">{error}</p> : null}
+        <div className="control-resolve-path__panel-actions">
+          <button
+            type="button"
+            className="control-resolve-path__panel-btn control-resolve-path__panel-btn--cancel"
+            disabled={saving}
+            onClick={() => {
+              onClose();
+              setError("");
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="control-resolve-path__panel-btn control-resolve-path__panel-btn--secondary"
+            disabled={saving || !validId}
+            onClick={() => void save({ withExpiry: true, thenConnect: false })}
+          >
+            Attest for now
+          </button>
+          <button
+            type="button"
+            className="control-resolve-path__panel-btn control-resolve-path__panel-btn--primary"
+            disabled={saving || !validId}
+            onClick={() => void save({ withExpiry: false, thenConnect: true })}
+          >
+            {saving ? "Saving…" : "Connect & verify →"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="compliance-category-detail__scope is-editing">
@@ -2418,6 +2547,7 @@ function CompositeGapResolution({
                   compositeId={ctrl.id}
                   detail={crossAccountDetail}
                   open
+                  embedInResolution
                   onClose={() => setOpenPanel(null)}
                   onConnect={() => navigate("/accounts")}
                 />
@@ -2474,7 +2604,9 @@ function CompositeGapResolution({
       ) : null}
 
       {showScopeRow ? (
-        <>
+        <div
+          className={`control-resolve-path__scope-block${openPanel === "scope" ? " is-open" : ""}`}
+        >
           <button
             type="button"
             className="control-resolve-path__scope-row"
@@ -2518,7 +2650,7 @@ function CompositeGapResolution({
               />
             </div>
           ) : null}
-        </>
+        </div>
       ) : null}
     </>
   );
