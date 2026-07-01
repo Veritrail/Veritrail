@@ -1,7 +1,7 @@
 /* App sidebar — premium dark navigation panel */
 
 .app-sidebar {
-  --sidebar-active: #3b82ff;
+  --sidebar-active: #0d9488;
   --sidebar-muted: rgba(226, 232, 240, 0.82);
   --sidebar-hover: rgba(34, 47, 75, 0.52);
   --sidebar-border: rgba(148, 163, 184, 0.14);
@@ -15,8 +15,8 @@
   overflow-x: hidden;
   overflow-y: auto;
   background:
-    radial-gradient(74% 38% at 50% 0%, rgba(29, 78, 216, 0.22) 0%, transparent 68%),
-    radial-gradient(78% 55% at 58% 45%, rgba(37, 99, 235, 0.12) 0%, transparent 72%),
+    radial-gradient(74% 38% at 50% 0%, rgba(13, 148, 136, 0.18) 0%, transparent 68%),
+    radial-gradient(78% 55% at 58% 45%, rgba(13, 148, 136, 0.1) 0%, transparent 72%),
     linear-gradient(180deg, #020815 0%, #071020 50%, #020712 100%);
   border-right: 1px solid rgba(191, 219, 254, 0.12);
   box-shadow:
@@ -35,7 +35,7 @@
   height: 31rem;
   background:
     linear-gradient(145deg, rgba(19, 42, 84, 0.48) 0%, rgba(7, 18, 38, 0.28) 54%, rgba(10, 28, 58, 0.42) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(13, 148, 136, 0.1);
   clip-path: polygon(50% 0%, 100% 18%, 100% 74%, 56% 100%, 0% 74%, 0% 18%);
   opacity: 0.68;
   filter: drop-shadow(0 24px 42px rgba(8, 20, 44, 0.38));
@@ -47,7 +47,7 @@
   position: absolute;
   inset: 0 0 0 auto;
   width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(147, 197, 253, 0.25) 38%, rgba(147, 197, 253, 0.12) 72%, transparent);
+  background: linear-gradient(180deg, transparent, rgba(13, 148, 136, 0.22) 38%, rgba(13, 148, 136, 0.1) 72%, transparent);
 }
 
 .app-sidebar__brand {
@@ -68,7 +68,7 @@
   flex-shrink: 0;
   object-fit: contain;
   background: transparent;
-  filter: drop-shadow(0 12px 26px rgba(37, 99, 235, 0.38));
+  filter: drop-shadow(0 12px 26px rgba(13, 148, 136, 0.32));
 }
 
 .app-sidebar__wordmark {
@@ -92,22 +92,22 @@
   justify-content: center;
   border: 0;
   border-radius: 999px 0 0 999px;
-  background: rgba(59, 130, 246, 0.32);
-  color: rgba(219, 234, 254, 0.86);
+  background: rgba(13, 148, 136, 0.32);
+  color: rgba(204, 251, 241, 0.86);
   cursor: pointer;
   box-shadow:
-    0 0 10px rgba(59, 130, 246, 0.22),
+    0 0 10px rgba(13, 148, 136, 0.22),
     inset 1px 0 0 rgba(255, 255, 255, 0.08);
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .app-sidebar__collapse-toggle:hover,
 .app-sidebar__collapse-toggle:focus-visible {
-  background: rgba(59, 130, 246, 0.55);
+  background: rgba(13, 148, 136, 0.55);
   color: #fff;
   outline: none;
   box-shadow:
-    0 0 12px rgba(59, 130, 246, 0.32),
+    0 0 12px rgba(13, 148, 136, 0.32),
     inset 1px 0 0 rgba(255, 255, 255, 0.12);
 }
 
@@ -191,12 +191,12 @@
 .app-sidebar__link.is-active,
 .app-sidebar__link.is-active:hover {
   background:
-    linear-gradient(90deg, rgba(37, 99, 235, 0.2), rgba(30, 41, 73, 0.42) 35%, rgba(14, 22, 40, 0.36));
-  border-color: rgba(147, 197, 253, 0.12);
+    linear-gradient(90deg, rgba(13, 148, 136, 0.2), rgba(30, 41, 73, 0.42) 35%, rgba(14, 22, 40, 0.36));
+  border-color: rgba(13, 148, 136, 0.14);
   color: #fff;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 16px 34px -22px rgba(37, 99, 235, 0.85);
+    0 16px 34px -22px rgba(13, 148, 136, 0.75);
 }
 
 .app-sidebar__link.is-active::before {
@@ -205,23 +205,23 @@
   inset: 0 auto 0 0;
   width: 0.42rem;
   border-radius: 999px;
-  background: #3b82ff;
+  background: #0d9488;
   box-shadow:
-    0 0 18px rgba(59, 130, 246, 0.95),
-    0 0 34px rgba(37, 99, 235, 0.62);
+    0 0 18px rgba(13, 148, 136, 0.85),
+    0 0 34px rgba(13, 148, 136, 0.5);
 }
 
 .app-sidebar__link.is-active svg {
-  color: #3b82ff;
+  color: #0d9488;
 }
 
 .app-sidebar__link.is-active svg,
 .app-sidebar__link.is-active .app-sidebar__icon {
-  filter: drop-shadow(0 0 9px rgba(59, 130, 246, 0.38));
+  filter: drop-shadow(0 0 9px rgba(13, 148, 136, 0.38));
 }
 
 .app-sidebar__link.is-active .app-sidebar__icon {
-  background: #3b82ff;
+  background: #0d9488;
 }
 
 .app-sidebar__button {
@@ -283,7 +283,7 @@
 
 .app-sidebar.is-collapsed .app-sidebar__collapse-toggle {
   top: 8.55rem;
-  background: rgba(59, 130, 246, 0.48);
+  background: rgba(13, 148, 136, 0.48);
 }
 
 .app-sidebar.is-collapsed .app-sidebar__nav {
@@ -472,10 +472,10 @@
   width: 0.72rem;
   height: 0.72rem;
   border-radius: 999px;
-  background: #2563eb;
+  background: #0d9488;
   box-shadow:
     0 0 0 2px #071020,
-    0 0 0 3px rgba(96, 165, 250, 0.28);
+    0 0 0 3px rgba(13, 148, 136, 0.28);
 }
 
 .app-sidebar__workspace-copy {

@@ -53,7 +53,7 @@ export function StatusDot({ tone }: { tone: "ok" | "warn" | "idle" | "sync" | "d
         : tone === "warn"
           ? "bg-amber-500"
           : tone === "sync"
-            ? "bg-indigo-500 animate-pulse"
+            ? "bg-teal-500 animate-pulse"
             : "bg-zinc-300";
   return <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${cls}`} />;
 }
@@ -183,7 +183,7 @@ export function IntegrationEcosystemCard({
 }: IntegrationCardModel) {
   const statusLabel = loading ? "—" : syncing ? "Syncing" : comingSoon ? "Coming soon" : connected ? "Connected" : "Not connected";
   const statusClass = syncing
-    ? "bg-indigo-50 text-indigo-700 ring-indigo-200"
+    ? "bg-teal-50 text-teal-700 ring-teal-200"
     : connected
       ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
       : comingSoon
@@ -257,8 +257,8 @@ export function IntegrationEcosystemCard({
         )}
 
         {syncing && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-800">
-            <Spinner className="h-3.5 w-3.5 shrink-0" />
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-teal-500 px-3 py-2 text-xs text-zinc-700">
+            <Spinner className="h-3.5 w-3.5 shrink-0 text-teal-600" />
             Collecting evidence…
           </div>
         )}

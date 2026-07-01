@@ -6,10 +6,23 @@
   :root {
     color-scheme: light;
     background: #f7f9fb;
+    /* Brand accent — ONE color for primary CTAs + one anchor per view. */
     --vt-teal: #0d9488;
     --vt-teal-hover: #0f766e;
+    --vt-teal-soft: #f0fdfa;
+    --vt-teal-ring: rgb(13 148 136 / 0.12);
+    /* Structural neutrals — borders, dividers, section backgrounds. */
     --vt-border: #e8edf3;
     --vt-border-strong: #d8dee8;
+    --vt-surface: #ffffff;
+    --vt-surface-muted: #f8fafc;
+    --vt-text: #0f172a;
+    --vt-text-muted: #64748b;
+    /* Semantic micro-accents — dots, chips, thin rails only (not card washes). */
+    --vt-semantic-success: #059669;
+    --vt-semantic-warning: #d97706;
+    --vt-semantic-danger: #dc2626;
+    --vt-semantic-info: #64748b;
     --vt-radius-sm: 0.5rem;
     --vt-radius-md: 0.625rem;
     --vt-radius-lg: 1rem;
@@ -203,10 +216,32 @@
     font-weight: 600;
   }
 
-  /* Legacy aliases — map old loud variants to quiet system. */
-  .veritrail-toolbar-btn--primary,
-  .veritrail-toolbar-btn--glass,
+  /* Teal solid — the ONE primary CTA per toolbar/view. */
+  .veritrail-toolbar-btn--accent,
   .veritrail-toolbar-btn--primary-solid {
+    flex-shrink: 0;
+    border-color: var(--vt-teal);
+    background: var(--vt-teal);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(13 148 136 / 0.28);
+  }
+
+  .veritrail-toolbar-btn--accent svg,
+  .veritrail-toolbar-btn--primary-solid svg {
+    color: #ffffff;
+  }
+
+  .veritrail-toolbar-btn--accent:hover:not(:disabled),
+  .veritrail-toolbar-btn--primary-solid:hover:not(:disabled) {
+    border-color: var(--vt-teal-hover);
+    background: var(--vt-teal-hover);
+    color: #ffffff;
+  }
+
+  /* Legacy aliases — map old loud variants to quiet neutral outline. */
+  .veritrail-toolbar-btn--primary,
+  .veritrail-toolbar-btn--glass {
     flex-shrink: 0;
     border-color: var(--veritrail-neutral-border);
     background: #ffffff;
@@ -216,17 +251,14 @@
   }
 
   .veritrail-toolbar-btn--primary svg,
-  .veritrail-toolbar-btn--glass svg,
-  .veritrail-toolbar-btn--primary-solid svg {
+  .veritrail-toolbar-btn--glass svg {
     color: #94a3b8;
   }
 
   .veritrail-toolbar-btn--primary:hover:not(:disabled),
   .veritrail-toolbar-btn--primary[aria-expanded="true"],
   .veritrail-toolbar-btn--glass:hover:not(:disabled),
-  .veritrail-toolbar-btn--glass[aria-expanded="true"],
-  .veritrail-toolbar-btn--primary-solid:hover:not(:disabled),
-  .veritrail-toolbar-btn--primary-solid[aria-expanded="true"] {
+  .veritrail-toolbar-btn--glass[aria-expanded="true"] {
     border-color: var(--veritrail-neutral-border);
     background: var(--veritrail-neutral-hover);
     color: var(--veritrail-neutral-text);

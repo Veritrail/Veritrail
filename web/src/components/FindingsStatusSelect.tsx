@@ -99,12 +99,12 @@ export function FindingsStatusSelect({
                     setOpen(false);
                   }}
                   className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold transition ${
-                    active ? "bg-indigo-50/70 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+                    active ? "bg-teal-50/70 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
                   }`}
                 >
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
                     {active ? (
-                      <svg className="h-3.5 w-3.5 text-indigo-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <svg className="h-3.5 w-3.5 text-teal-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
                     ) : null}
