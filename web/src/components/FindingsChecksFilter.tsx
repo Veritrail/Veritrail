@@ -166,21 +166,38 @@ export function FindingsChecksFilter({
 export function FindingsChecksFilterSummary({
   tags,
   checkLabels,
+  displayGroupCount,
   onClear,
 }: {
   tags: string[];
   checkLabels: Record<string, string>;
+  /** Rows shown after grouping checks into finding types; clarifies check count vs table rows. */
+  displayGroupCount?: number;
   onClear: () => void;
 }) {
   if (tags.length === 0) return null;
 
   const count = tags.length;
   const namesText = formatCheckFilterSummary(tags, checkLabels);
+  const groupHint =
+    displayGroupCount !== undefined &&
+    displayGroupCount > 0 &&
+    displayGroupCount < count
+      ? `${displayGroupCount} finding group${displayGroupCount === 1 ? "" : "s"} shown`
+      : null;
 
   return (
     <div className="findings-v2-checks-summary">
       <p className="findings-v2-checks-summary__text">
         {count === 1 ? "1 check filter active" : `${count} check filters active`}
+        {groupHint ? (
+          <>
+            <span className="findings-v2-checks-summary__sep" aria-hidden>
+              ·
+            </span>
+            {groupHint}
+          </>
+        ) : null}
         <span className="findings-v2-checks-summary__sep" aria-hidden>
           ·
         </span>

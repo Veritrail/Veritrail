@@ -33,6 +33,7 @@ import { evidenceIsStale } from "../lib/externalEvidence";
 import {
   absenceGapEnableItems,
   findingsHrefForAbsenceGaps,
+  isAbsenceGapCheck,
   openAbsenceGapChecks,
   openCrossAccountCoverableChecks,
 } from "../lib/evidenceGap";
@@ -1380,10 +1381,13 @@ function ComplianceProgressBadge({ label }: { label: string }) {
 function findingsHrefForChecks(
   checkIds: string[],
   findingCountByCheck: Map<string, number>,
+  opts?: { excludeAbsenceGaps?: boolean },
 ) {
-  const active = checkIds.filter(
-    (id) => (findingCountByCheck.get(id) ?? 0) > 0,
-  );
+  const active = checkIds.filter((id) => {
+    if ((findingCountByCheck.get(id) ?? 0) <= 0) return false;
+    if (opts?.excludeAbsenceGaps && isAbsenceGapCheck(id)) return false;
+    return true;
+  });
   if (active.length === 0) return null;
   const params = new URLSearchParams({ checks: active.join(",") });
   const providerScope = providerScopeForChecks(active);
@@ -2581,6 +2585,7 @@ function buildCompositeTabs({
   const findingsHref = findingsHrefForChecks(
     ctrl.check_ids,
     findingCountByCheck,
+    { excludeAbsenceGaps: true },
   );
   const overrideDetail = ctrl.coverage_override_detail ?? null;
   const crossAccountDetail = ctrl.cross_account_coverage_detail ?? null;

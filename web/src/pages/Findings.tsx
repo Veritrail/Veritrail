@@ -1005,6 +1005,12 @@ export default function Findings() {
               <FindingsChecksFilterSummary
                 tags={searchTags}
                 checkLabels={checkLabels}
+                displayGroupCount={
+                  searchTags.length > 0
+                    ? postureDisplayGroups.length +
+                      (SHOW_ACTIVITY_DETECTIONS_SECTION ? activityDisplayGroups.length : 0)
+                    : undefined
+                }
                 onClear={() => handleTagsChange([])}
               />
 
