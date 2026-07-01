@@ -31,10 +31,10 @@ const checkLabels: Record<string, string> = {
 const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
 const sevBadge: Record<string, string> = {
-  critical: "bg-white text-red-700 border-red-200 border-l-[3px] border-l-red-500",
-  high: "bg-white text-red-600 border-red-200 border-l-[3px] border-l-red-400",
-  medium: "bg-white text-amber-700 border-amber-200 border-l-[3px] border-l-amber-400",
-  low: "bg-white text-zinc-600 border-zinc-200 border-l-[3px] border-l-zinc-300",
+  critical: "bg-red-50 text-red-700 border-red-200",
+  high: "bg-red-50 text-red-600 border-red-200",
+  medium: "bg-amber-50 text-amber-600 border-amber-200",
+  low: "bg-zinc-50 text-zinc-500 border-zinc-200",
 };
 
 function shortResource(arn: string) {
@@ -134,7 +134,7 @@ export default function Dashboard() {
       {/* Top row: posture score + severity cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {/* Posture score */}
-        <div className="rounded-2xl border border-zinc-200 border-l-[3px] border-l-teal-600 bg-white shadow-sm p-6 flex flex-col justify-between">
+        <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm p-6 flex flex-col justify-between">
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Posture Score</div>
           <div className="my-3">
             <div className={`text-6xl font-bold tabular-nums leading-none ${isLoading ? "text-zinc-200" : scoreColor(postureScore)}`}>
@@ -160,27 +160,27 @@ export default function Dashboard() {
         </div>
 
         {/* Critical / High */}
-        <div className="rounded-2xl border border-zinc-200 border-l-[3px] border-l-red-500 bg-white shadow-sm p-6">
-          <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Critical / High</div>
-          <div className="text-5xl font-bold tabular-nums text-zinc-900 mt-4 leading-none">
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-6">
+          <div className="text-xs font-semibold uppercase tracking-wide text-red-400">Critical / High</div>
+          <div className="text-5xl font-bold tabular-nums text-red-600 mt-4 leading-none">
             {isLoading ? "…" : critHigh}
           </div>
-          <div className="text-sm text-zinc-400 mt-2">fix first</div>
+          <div className="text-sm text-red-400 mt-2">fix first</div>
         </div>
 
         {/* Medium */}
-        <div className="rounded-2xl border border-zinc-200 border-l-[3px] border-l-amber-400 bg-white shadow-sm p-6">
-          <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Medium</div>
-          <div className="text-5xl font-bold tabular-nums text-zinc-900 mt-4 leading-none">
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6">
+          <div className="text-xs font-semibold uppercase tracking-wide text-amber-500">Medium</div>
+          <div className="text-5xl font-bold tabular-nums text-amber-600 mt-4 leading-none">
             {isLoading ? "…" : medium}
           </div>
-          <div className="text-sm text-zinc-400 mt-2">reduce backlog</div>
+          <div className="text-sm text-amber-400 mt-2">reduce backlog</div>
         </div>
 
         {/* Low */}
-        <div className="rounded-2xl border border-zinc-200 border-l-[3px] border-l-zinc-300 bg-white shadow-sm p-6">
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Low</div>
-          <div className="text-5xl font-bold tabular-nums text-zinc-900 mt-4 leading-none">
+          <div className="text-5xl font-bold tabular-nums text-zinc-600 mt-4 leading-none">
             {isLoading ? "…" : low}
           </div>
           <div className="text-sm text-zinc-400 mt-2">monitor</div>

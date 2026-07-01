@@ -1938,23 +1938,20 @@ button.accounts-flow-step:hover {
 
 .accounts-cap-card.is-selected.accounts-cap-card--teal {
   border-color: #99f6e4;
-  border-top-width: 3px;
-  background: #fff;
-  box-shadow: 0 12px 32px -20px rgba(13, 148, 136, 0.2);
+  background: linear-gradient(180deg, #f0fdfa 0%, #fff 100%);
+  box-shadow: 0 12px 32px -20px rgba(13, 148, 136, 0.35);
 }
 
 .accounts-cap-card.is-selected.accounts-cap-card--blue {
-  border-color: #e2e8f0;
-  border-top: 3px solid #3b82f6;
-  background: #fff;
-  box-shadow: 0 12px 32px -20px rgba(15, 23, 42, 0.12);
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
+  box-shadow: 0 12px 32px -20px rgba(59, 130, 246, 0.3);
 }
 
 .accounts-cap-card.is-selected.accounts-cap-card--amber {
-  border-color: #e2e8f0;
-  border-top: 3px solid #f59e0b;
-  background: #fff;
-  box-shadow: 0 12px 32px -20px rgba(15, 23, 42, 0.12);
+  border-color: #fde68a;
+  background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
+  box-shadow: 0 12px 32px -20px rgba(245, 158, 11, 0.35);
 }
 
 .accounts-cap-card__check {
@@ -2005,9 +2002,9 @@ button.accounts-flow-step:hover {
   border-radius: 999px;
 }
 
-.accounts-cap-card__icon-ring--teal { color: #0d9488; background: #fff; border: 1px solid #99f6e4; }
-.accounts-cap-card__icon-ring--blue { color: #64748b; background: #fff; border: 1px solid #e2e8f0; }
-.accounts-cap-card__icon-ring--amber { color: #64748b; background: #fff; border: 1px solid #e2e8f0; }
+.accounts-cap-card__icon-ring--teal { color: #0d9488; background: #f0fdfa; }
+.accounts-cap-card__icon-ring--blue { color: #3b82f6; background: #eff6ff; }
+.accounts-cap-card__icon-ring--amber { color: #d97706; background: #fffbeb; }
 
 .accounts-cap-card__icon {
   width: 1.75rem;
@@ -2332,21 +2329,18 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-review-card--teal {
-  border-color: #e2e8f0;
-  border-top: 3px solid #0d9488;
-  background: #fff;
+  border-color: #99f6e4;
+  background: linear-gradient(180deg, #f0fdfa 0%, #fff 100%);
 }
 
 .accounts-review-card--blue {
-  border-color: #e2e8f0;
-  border-top: 3px solid #64748b;
-  background: #fff;
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
 }
 
 .accounts-review-card--amber {
-  border-color: #e2e8f0;
-  border-top: 3px solid #f59e0b;
-  background: #fff;
+  border-color: #fde68a;
+  background: linear-gradient(180deg, #fffbeb 0%, #fff 100%);
 }
 
 .accounts-review-card__icon {
@@ -2364,9 +2358,9 @@ button.accounts-flow-step:hover {
   height: 1.35rem;
 }
 
-.accounts-review-card__icon--teal { color: #0d9488; background: #fff; }
-.accounts-review-card__icon--blue { color: #64748b; background: #fff; }
-.accounts-review-card__icon--amber { color: #64748b; background: #fff; }
+.accounts-review-card__icon--teal { color: #0d9488; background: #f0fdfa; }
+.accounts-review-card__icon--blue { color: #2563eb; background: #eff6ff; }
+.accounts-review-card__icon--amber { color: #d97706; background: #fffbeb; }
 
 .accounts-review-card__title {
   margin: 0;

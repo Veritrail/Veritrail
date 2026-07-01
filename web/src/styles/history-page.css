@@ -995,8 +995,8 @@
 
 .history-page-size-trigger:focus-visible {
   outline: none;
-  border-color: var(--vt-teal, #0d9488);
-  box-shadow: 0 0 0 3px var(--vt-teal-ring, rgb(13 148 136 / 0.15));
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.15);
 }
 
 .history-page-size-menu {
@@ -1423,7 +1423,7 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--vt-teal, #0d9488);
+  color: #4f46e5;
 }
 
 .history-drawer__title-row {

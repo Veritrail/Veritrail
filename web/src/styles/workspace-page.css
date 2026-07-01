@@ -577,18 +577,30 @@
 
 .workspace-overview-card--blue {
   border-top-color: #3b82f6;
+  --overview-accent: #2563eb;
+  --overview-icon-bg: #dbeafe;
+  --overview-action-bg: #eff6ff;
 }
 
 .workspace-overview-card--green {
   border-top-color: #22c55e;
+  --overview-accent: #16a34a;
+  --overview-icon-bg: #dcfce7;
+  --overview-action-bg: #ecfdf5;
 }
 
 .workspace-overview-card--violet {
   border-top-color: #8b5cf6;
+  --overview-accent: #7c3aed;
+  --overview-icon-bg: #ede9fe;
+  --overview-action-bg: #f5f3ff;
 }
 
 .workspace-overview-card--amber {
   border-top-color: #f59e0b;
+  --overview-accent: #d97706;
+  --overview-icon-bg: #fef3c7;
+  --overview-action-bg: #fffbeb;
 }
 
 .workspace-overview-card__header {
@@ -607,9 +619,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 0.7rem;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #64748b;
+  background: var(--overview-icon-bg);
+  color: var(--overview-accent);
 }
 
 .workspace-overview-card__icon svg {
@@ -693,19 +704,18 @@
   justify-content: center;
   gap: 0.45rem;
   margin: auto 1.55rem 1.55rem;
-  border: 1px solid #e2e8f0;
+  border: 0;
   border-radius: 0.5rem;
-  background: #ffffff;
+  background: var(--overview-action-bg);
   padding: 0.675rem 1rem;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: #0f172a;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  color: var(--overview-accent);
+  transition: filter 0.15s ease, transform 0.15s ease;
 }
 
 .workspace-overview-card__action:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  filter: saturate(1.1) brightness(0.98);
   transform: translateY(-1px);
 }
 

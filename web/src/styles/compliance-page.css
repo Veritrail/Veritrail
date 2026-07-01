@@ -25,12 +25,10 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden; /* clip rounded corners; the body owns scroll */
-  border: 1px solid var(--vt-border, #e4e4e7);
-  border-radius: var(--vt-radius-lg, 1rem);
+  border: 1px solid #e4e4e7;
+  border-radius: 1rem;
   background: #fff;
-  box-shadow:
-    0 1px 3px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(15, 23, 42, 0.02);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   /* Content responds to the drawer's own width, not the viewport. */
   container-type: inline-size;
   container-name: control-detail;
@@ -40,20 +38,7 @@
   position: relative;
   flex-shrink: 0;
   padding: 1.1rem 3rem 0.9rem 1.25rem;
-  border-bottom: 1px solid #eef0f3;
-  background: #fff;
-}
-
-/* Single brand anchor — teal accent line under the drawer header. */
-.control-detail-panel__header::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 1.25rem;
-  width: 2.75rem;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--vt-teal);
+  border-bottom: 1px solid #f0f0f2;
 }
 
 .control-detail-panel__close {
@@ -177,13 +162,13 @@
 }
 
 .control-detail-panel__tab:focus-visible {
-  outline: 2px solid var(--vt-teal);
+  outline: 2px solid #0d9488;
   outline-offset: -2px;
   border-radius: 0.35rem 0.35rem 0 0;
 }
 
 .control-detail-panel__tab.is-active {
-  border-bottom-color: var(--vt-teal);
+  border-bottom-color: #0d9488;
   color: #0f172a;
   font-weight: 700;
 }
@@ -206,8 +191,8 @@
 }
 
 .control-detail-panel__tab.is-active .control-detail-panel__tab-badge {
-  background: #f0f0f2;
-  color: #52525b;
+  background: #ccfbf1;
+  color: #0f766e;
 }
 
 .control-detail-panel__body {
@@ -216,7 +201,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1.1rem 1.25rem 1.4rem;
-  background: #fafafa;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -258,18 +242,7 @@
 /* ---------------------------------------------------------------------- */
 
 .control-detail-section__stat--clear {
-  color: #52525b;
-}
-
-.control-detail-section__stat--clear::before {
-  content: "";
-  display: inline-block;
-  width: 0.4375rem;
-  height: 0.4375rem;
-  margin-right: 0.35rem;
-  border-radius: 999px;
-  background: #16a34a;
-  vertical-align: 0.05em;
+  color: #16a34a;
 }
 
 .control-detail-empty {
@@ -561,7 +534,7 @@
 }
 
 /* ---------------------------------------------------------------------- */
-/* Attention needed — neutral rows, orange icon chip, teal outline CTAs.  */
+/* Attention needed / next-action card                                    */
 /* ---------------------------------------------------------------------- */
 
 .control-attention__list {
@@ -579,9 +552,9 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 0.85rem;
-  border: 1px solid #e8eaee;
+  border: 1px solid #e4e4e7;
   border-radius: 0.75rem;
-  background: #fff;
+  background: #fafafa;
 }
 
 .control-attention__icon {
@@ -591,9 +564,9 @@
   width: 2rem;
   height: 2rem;
   border-radius: 0.5rem;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #c2410c;
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  color: #b45309;
 }
 
 .control-attention__icon svg {
@@ -625,7 +598,7 @@
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
-  border: 1px solid var(--vt-teal);
+  border: 1px solid #0d9488;
   border-radius: 0.5rem;
   background: #fff;
   padding: 0.4rem 0.7rem;
@@ -636,7 +609,7 @@
 }
 
 .control-attention__cta:hover {
-  background: var(--vt-teal);
+  background: #0d9488;
   color: #fff;
 }
 
@@ -650,9 +623,9 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.75rem 0.85rem;
-  border: 1px solid #e8eaee;
+  border: 1px solid #ccfbf1;
   border-radius: 0.75rem;
-  background: #fff;
+  background: #f0fdfa;
 }
 
 .control-attention__ok-icon {
@@ -663,8 +636,8 @@
   height: 1.6rem;
   flex-shrink: 0;
   border-radius: 999px;
-  background: #dcfce7;
-  color: #16a34a;
+  background: #ccfbf1;
+  color: #0f766e;
 }
 
 .control-attention__ok-icon svg {
@@ -2644,9 +2617,9 @@
 }
 
 .compliance-category-detail__scope-options button.is-active {
-  border-color: var(--vt-teal, #0d9488);
-  background: #ffffff;
-  box-shadow: inset 3px 0 0 var(--vt-teal, #0d9488), 0 0 0 1px var(--vt-teal, #0d9488);
+  border-color: #6366f1;
+  background: #eef2ff;
+  box-shadow: 0 0 0 1px #6366f1;
 }
 
 .compliance-category-detail__scope-options strong {
@@ -2686,8 +2659,8 @@
 }
 
 .compliance-category-detail__scope-reason-input:focus {
-  border-color: var(--vt-teal, #0d9488);
-  box-shadow: 0 0 0 3px var(--vt-teal-ring, rgb(13 148 136 / 0.12));
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px #e0e7ff;
 }
 
 .compliance-category-detail__scope-actions {
