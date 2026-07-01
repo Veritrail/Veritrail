@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -1811,12 +1811,12 @@ function ControlDrawerHeaderStats({
     {
       key: "gaps",
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2Z"
-          />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <circle cx="12" cy="12" r="8.5" />
+          <circle cx="9.5" cy="9.5" r="0.85" fill="currentColor" stroke="none" />
+          <circle cx="14.5" cy="9.5" r="0.85" fill="currentColor" stroke="none" />
+          <circle cx="9.5" cy="14.5" r="0.85" fill="currentColor" stroke="none" />
+          <circle cx="14.5" cy="14.5" r="0.85" fill="currentColor" stroke="none" />
         </svg>
       ),
       label: `${openGaps} open gap${openGaps === 1 ? "" : "s"}`,
@@ -1824,25 +1824,29 @@ function ControlDrawerHeaderStats({
     {
       key: "findings",
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"
+            d="M8 4h7l3 3v13H8a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
           />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 4v3h3" />
         </svg>
       ),
       label: `${findings} finding${findings === 1 ? "" : "s"}`,
     },
     {
       key: "high",
+      highSeverity: true,
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+            d="M12 3 4 7v5c0 5.25 3.5 10 8 11 4.5-1 8-5.75 8-11V7l-8-4Z"
           />
+          <path strokeLinecap="round" d="M12 9v3.5" />
+          <circle cx="12" cy="16.25" r="0.75" fill="currentColor" stroke="none" />
         </svg>
       ),
       label: `${highSeverity} high severity`,
@@ -1850,8 +1854,9 @@ function ControlDrawerHeaderStats({
     {
       key: "checks",
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <circle cx="12" cy="12" r="8.5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="m8.5 12 2.25 2.25L15.5 9.5" />
         </svg>
       ),
       label: `${checks} check${checks === 1 ? "" : "s"}`,
@@ -1860,13 +1865,22 @@ function ControlDrawerHeaderStats({
 
   return (
     <div className="control-detail-panel__stats-row" aria-label="Control summary">
-      {items.map((item) => (
-        <span key={item.key} className="control-detail-panel__stat">
-          <span className="control-detail-panel__stat-icon" aria-hidden>
-            {item.icon}
+      {items.map((item, index) => (
+        <Fragment key={item.key}>
+          {index > 0 ? (
+            <span className="control-detail-panel__stat-sep" aria-hidden>
+              ·
+            </span>
+          ) : null}
+          <span
+            className={`control-detail-panel__stat${item.highSeverity ? " control-detail-panel__stat--high-severity" : ""}`}
+          >
+            <span className="control-detail-panel__stat-icon" aria-hidden>
+              {item.icon}
+            </span>
+            {item.label}
           </span>
-          {item.label}
-        </span>
+        </Fragment>
       ))}
     </div>
   );
