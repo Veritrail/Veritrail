@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -49,6 +49,7 @@ import { controlReadinessMetrics, type ReadinessMetric } from "../lib/controlRea
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { CHECK_CONTROL_IDS_MAP } from "../data/checkControlIdsMap";
+import { controlReferenceUrl } from "../lib/controlReferenceUrls";
 import "../styles/findings-v2.css";
 import "../styles/compliance-page.css";
 
@@ -366,8 +367,6 @@ function ComplianceRowSummary({
   return <span className={chipClass}>{content}</span>;
 }
 
-const MAPPING_FRAMEWORK_ORDER = ["soc2", "cis_aws_l1", "iso27001"] as const;
-
 /** Matches api/app/services/check_controls.py — open findings may use legacy check_ids. */
 const CHECK_CONTROL_ALIASES: Record<string, string> = {
   "iam.access_key.unused_90d": "iam.access_key.unused_45d",
@@ -382,34 +381,47 @@ function isCoarseSoc2Category(controlId: string): boolean {
   return /^CC\d+$/i.test(controlId);
 }
 
+type GuidanceMappedControl = {
+  framework: string;
+  control_id: string;
+  reference_url: string;
+};
+
 /** Resolve framework control IDs from composite checks (same source as Findings drawer). */
-function compositeMappingChips(
+function compositeMappedControls(
   ctrl: CompositeControlRow,
-): { fw: string; ids: string[] }[] {
-  const byFramework = new Map<string, Set<string>>();
+  framework: string,
+): GuidanceMappedControl[] {
+  const controlIds = new Set<string>();
 
   for (const checkId of ctrl.check_ids) {
     const mappedCheckId = resolveCheckIdForMappings(checkId);
     for (const ref of CHECK_CONTROL_IDS_MAP[mappedCheckId] ?? []) {
-      if (!byFramework.has(ref.framework)) {
-        byFramework.set(ref.framework, new Set());
+      if (ref.framework === framework) {
+        controlIds.add(ref.control_id);
       }
-      byFramework.get(ref.framework)!.add(ref.control_id);
     }
   }
 
-  if (byFramework.size > 0) {
-    return MAPPING_FRAMEWORK_ORDER.filter((fw) => byFramework.has(fw)).map((fw) => ({
-      fw,
-      ids: [...byFramework.get(fw)!].sort(compareControlIds),
-    }));
+  if (controlIds.size === 0) {
+    if (framework === "soc2") {
+      for (const id of ctrl.soc2_criteria ?? []) {
+        if (!isCoarseSoc2Category(id)) controlIds.add(id);
+      }
+    } else if (framework === "cis_aws_l1") {
+      for (const id of ctrl.cis_criteria ?? []) controlIds.add(id);
+    } else if (framework === "iso27001") {
+      for (const id of ctrl.iso_criteria ?? []) controlIds.add(id);
+    }
   }
 
-  return [
-    { fw: "soc2", ids: (ctrl.soc2_criteria ?? []).filter((id) => !isCoarseSoc2Category(id)) },
-    { fw: "cis_aws_l1", ids: ctrl.cis_criteria ?? [] },
-    { fw: "iso27001", ids: ctrl.iso_criteria ?? [] },
-  ].filter((g) => g.ids.length > 0);
+  return [...controlIds]
+    .sort(compareControlIds)
+    .map((control_id) => ({
+      framework,
+      control_id,
+      reference_url: controlReferenceUrl(framework, control_id),
+    }));
 }
 
 function CompliancePanelShell({
@@ -1599,36 +1611,36 @@ function TopFailingChecksSeverityTable({
       <div className="compliance-category-detail__checks-scroll">
         <ul className="compliance-category-detail__checks-table">
           {failing.map((checkId, index) => {
-          const count = findingCountByCheck.get(checkId) ?? 0;
-          const severity = severityByCheck.get(checkId) ?? "low";
-          const severityLabel = severityDisplayLabel(severity);
-          return (
-            <li key={checkId}>
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(`/findings?checks=${encodeURIComponent(checkId)}`)
-                }
-                className="compliance-category-detail__checks-row"
-              >
-                <span className="compliance-category-detail__checks-index">
-                  {index + 1}
-                </span>
-                <span className="compliance-category-detail__checks-name">
-                  {labelForCheck(checkId)}
-                </span>
-                <span className="compliance-category-detail__checks-count">
-                  {count}
-                </span>
-                <span
-                  className={`compliance-category-detail__severity compliance-category-detail__severity--${severityLabel.toLowerCase()}`}
+            const count = findingCountByCheck.get(checkId) ?? 0;
+            const severity = severityByCheck.get(checkId) ?? "low";
+            const severityLabel = severityDisplayLabel(severity);
+            return (
+              <li key={checkId}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/findings?checks=${encodeURIComponent(checkId)}`)
+                  }
+                  className="compliance-category-detail__checks-row"
                 >
-                  <span aria-hidden />
-                  {severityLabel}
-                </span>
-              </button>
-            </li>
-          );
+                  <span className="compliance-category-detail__checks-index">
+                    {index + 1}
+                  </span>
+                  <span className="compliance-category-detail__checks-name">
+                    {labelForCheck(checkId)}
+                  </span>
+                  <span className="compliance-category-detail__checks-count">
+                    {count}
+                  </span>
+                  <span
+                    className={`compliance-category-detail__severity compliance-category-detail__severity--${severityLabel.toLowerCase()}`}
+                  >
+                    <span aria-hidden />
+                    {severityLabel}
+                  </span>
+                </button>
+              </li>
+            );
           })}
         </ul>
       </div>
@@ -1809,6 +1821,118 @@ function GapScopeControl({
       </div>
     </div>
   );
+}
+
+const CONTROL_DRAWER_STAT_ICON_PROPS = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.75,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+function ControlDrawerHeaderStats({
+  openGaps,
+  findings,
+  highSeverity,
+  checks,
+}: {
+  openGaps: number;
+  findings: number;
+  highSeverity: number;
+  checks: number;
+}) {
+  const items = [
+    {
+      key: "gaps",
+      icon: (
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="9.75" cy="9.75" r="1" fill="currentColor" stroke="none" />
+          <circle cx="14.25" cy="9.75" r="1" fill="currentColor" stroke="none" />
+          <circle cx="9.75" cy="14.25" r="1" fill="currentColor" stroke="none" />
+          <circle cx="14.25" cy="14.25" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      ),
+      label: `${openGaps} open gap${openGaps === 1 ? "" : "s"}`,
+    },
+    {
+      key: "findings",
+      icon: (
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <path d="M7.5 4.5h7.5l3.5 3.5V20a.5.5 0 0 1-.5.5H7.5a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5Z" />
+          <path d="M15 4.5V8h3.5" />
+        </svg>
+      ),
+      label: `${findings} finding${findings === 1 ? "" : "s"}`,
+    },
+    {
+      key: "high",
+      highSeverity: true,
+      icon: (
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <path d="M12 2.75 5 6.25v5c0 4.75 3.5 9.25 7 10.25 3.5-1 7-5.5 7-10.25v-5L12 2.75Z" />
+          <path d="M12 8.25v4" />
+          <circle cx="12" cy="16.25" r="0.8" fill="currentColor" stroke="none" />
+        </svg>
+      ),
+      label: `${highSeverity} high severity`,
+    },
+    {
+      key: "checks",
+      icon: (
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="m8.25 12.25 2.75 2.75L15.75 9" />
+        </svg>
+      ),
+      label: `${checks} check${checks === 1 ? "" : "s"}`,
+    },
+  ];
+
+  return (
+    <div className="control-detail-panel__stats-row" aria-label="Control summary">
+      {items.map((item, index) => (
+        <Fragment key={item.key}>
+          {index > 0 ? (
+            <span className="control-detail-panel__stat-sep" aria-hidden>
+              ·
+            </span>
+          ) : null}
+          <span
+            className={`control-detail-panel__stat${item.highSeverity ? " control-detail-panel__stat--high-severity" : ""}`}
+          >
+            <span className="control-detail-panel__stat-icon" aria-hidden>
+              {item.icon}
+            </span>
+            {item.label}
+          </span>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+function compositeHeaderStats(
+  ctrl: CompositeControlRow,
+  findingCountByCheck: Map<string, number>,
+): { openGaps: number; findings: number; highSeverity: number; checks: number } {
+  const openGaps = ctrl.check_ids.filter(
+    (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
+  ).length;
+  const findings =
+    ctrl.finding_count > 0
+      ? ctrl.finding_count
+      : ctrl.check_ids.reduce(
+          (sum, checkId) => sum + (findingCountByCheck.get(checkId) ?? 0),
+          0,
+        );
+  const highSeverity = ctrl.severity_counts
+    ? ctrl.severity_counts.critical + ctrl.severity_counts.high
+    : 0;
+  return { openGaps, findings, highSeverity, checks: ctrl.check_ids.length };
 }
 
 type CrossAccountCoverageDetail = {
@@ -2402,10 +2526,10 @@ function CompositeGapResolution({
 
 function ControlGuidanceFooter({
   guidance,
-  mappingChips,
+  mappedControls,
 }: {
   guidance: string | null;
-  mappingChips: { fw: string; ids: string[] }[];
+  mappedControls: GuidanceMappedControl[];
 }) {
   return (
     <ControlDetailSection title="Guidance">
@@ -2414,27 +2538,41 @@ function ControlGuidanceFooter({
       ) : (
         <p className="control-detail-empty">No written guidance yet for this control.</p>
       )}
-      {mappingChips.length > 0 ? (
+      {mappedControls.length > 0 ? (
         <div className="control-detail-guidance-footer">
-          <ul className="control-detail-guidance-mappings">
-            {mappingChips.map((g) => (
-              <li key={g.fw}>
-                <span className="control-detail-guidance-mappings__label">
-                  <FrameworkMark
-                    framework={g.fw}
-                    className="control-detail-guidance-mappings__icon"
-                  />
-                  <span className="control-detail-guidance-mappings__fw">
-                    {frameworkLabel(g.fw)}
-                  </span>
+          <p className="control-detail-mapped-controls__heading">Mapped controls</p>
+          <ul className="control-detail-mapped-controls">
+            {mappedControls.map((c) => (
+              <li
+                key={`${c.framework}:${c.control_id}`}
+                className="control-detail-mapped-controls__card"
+              >
+                <FrameworkMark framework={c.framework} />
+                <span className="control-detail-mapped-controls__label">
+                  {frameworkLabel(c.framework)} {c.control_id}
                 </span>
-                <span className="control-detail-guidance-mappings__ids">
-                  {g.ids.map((id) => (
-                    <span key={id} className="control-detail-guidance-mappings__chip">
-                      {id}
-                    </span>
-                  ))}
-                </span>
+                <a
+                  href={c.reference_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="control-detail-mapped-controls__docs"
+                >
+                  Docs
+                  <svg
+                    className="control-detail-mapped-controls__docs-icon"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                    />
+                  </svg>
+                </a>
               </li>
             ))}
           </ul>
@@ -2499,7 +2637,7 @@ function buildCompositeTabs({
   });
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
-  const mappingChips = compositeMappingChips(ctrl);
+  const mappedControls = compositeMappedControls(ctrl, framework);
 
   return [
     {
@@ -2563,7 +2701,7 @@ function buildCompositeTabs({
           ) : null}
 
           {!isVerified ? (
-            <ControlGuidanceFooter guidance={ctrl.guidance} mappingChips={mappingChips} />
+            <ControlGuidanceFooter guidance={ctrl.guidance} mappedControls={mappedControls} />
           ) : null}
         </div>
       ),
@@ -4186,7 +4324,7 @@ export default function Controls() {
               }}
               headerTitle={selectedCompositeRow.title}
               headerDescription={selectedCompositeRow.description}
-mode="overlay"
+              mode="overlay"
             />
           ) : selectedKind === "detailed" && selectedDetailedControl ? (
             <ControlDetailPanel

@@ -343,60 +343,59 @@
   border-top: 1px solid #eef0f3;
 }
 
-.control-detail-guidance-mappings {
+.control-detail-mapped-controls__heading {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #667085;
+}
+
+.control-detail-mapped-controls {
   margin: 0;
   padding: 0;
   list-style: none;
-  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-}
-
-.control-detail-guidance-mappings li {
-  display: grid;
-  grid-template-columns: minmax(7.5rem, auto) 1fr;
-  align-items: start;
-  gap: 0.5rem 0.75rem;
-}
-
-.control-detail-guidance-mappings__label {
-  display: inline-flex;
-  align-items: center;
   gap: 0.5rem;
-  flex-shrink: 0;
-  min-height: 1.5rem;
 }
 
-.control-detail-guidance-mappings__icon {
-  flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.control-detail-guidance-mappings__fw {
-  font-size: 0.8125rem;
-  font-weight: 650;
-  color: #3f3f46;
-  white-space: nowrap;
-}
-
-.control-detail-guidance-mappings__ids {
+.control-detail-mapped-controls__card {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e4e7ec;
+  background: #fff;
+  padding: 0.625rem 0.75rem;
 }
 
-.control-detail-guidance-mappings__chip {
-  border-radius: 0.4rem;
-  background: #f4f4f5;
-  padding: 0.2rem 0.5rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: #3f3f46;
+.control-detail-mapped-controls__label {
+  min-width: 0;
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #344054;
+}
+
+.control-detail-mapped-controls__docs {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1570ef;
+  text-decoration: none;
+}
+
+.control-detail-mapped-controls__docs:hover {
+  color: #175cd3;
+}
+
+.control-detail-mapped-controls__docs-icon {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 /* ---------------------------------------------------------------------- */
