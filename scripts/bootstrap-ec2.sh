@@ -10,6 +10,7 @@ EMAIL="${EMAIL:-}"
 FORCE_CERT=0
 DEPLOY_ONLY=0
 HETZNER_ROLES_ANYWHERE="${HETZNER_ROLES_ANYWHERE:-auto}"
+SKIP_HETZNER_BOOTSTRAP=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -37,7 +38,9 @@ Options:
   --deploy-only  Skip Docker/TLS/cron install; sync env + migrate + compose up (for redeploys)
   --force-cert   Re-obtain certificates even if valid certs already exist
   --hetzner-roles-anywhere
-                 Mount local IAM Roles Anywhere profile/helper/certs into app containers
+                 Configure Hetzner/VPS IAM Roles Anywhere and mount it into app containers
+  --skip-hetzner-bootstrap
+                 Only mount existing Hetzner IAM Roles Anywhere files; do not create/update AWS/Vault config
   -h, --help     Show this help
 
 Prerequisites:
@@ -64,6 +67,7 @@ parse_args() {
       --deploy-only) DEPLOY_ONLY=1; shift ;;
       --force-cert) FORCE_CERT=1; shift ;;
       --hetzner-roles-anywhere) HETZNER_ROLES_ANYWHERE=1; shift ;;
+      --skip-hetzner-bootstrap) SKIP_HETZNER_BOOTSTRAP=1; shift ;;
       -h|--help) usage; exit 0 ;;
       *) die "Unknown argument: $1 (see --help)" ;;
     esac
@@ -106,6 +110,14 @@ roles_anywhere_enabled() {
   [[ -x /usr/local/bin/aws_signing_helper ]] || return 1
   [[ -s /etc/veritrail/aws-ra/client.pem && -s /etc/veritrail/aws-ra/client.key ]] || return 1
   return 0
+}
+
+roles_anywhere_requested() {
+  local mode="$HETZNER_ROLES_ANYWHERE"
+  case "$mode" in
+    1|true|TRUE|yes|YES) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 compose_roles_anywhere_args() {
@@ -189,6 +201,30 @@ install_certbot() {
   else
     die "certbot install via apt is only supported on Debian/Ubuntu EC2"
   fi
+}
+
+configure_hetzner_roles_anywhere() {
+  roles_anywhere_requested || return 0
+  [[ "$SKIP_HETZNER_BOOTSTRAP" -eq 0 ]] || { log "Skipping Hetzner IAM Roles Anywhere bootstrap"; return 0; }
+
+  local script="$SCRIPT_DIR/bootstrap-hetzner-vault-rolesanywhere.sh"
+  [[ -x "$script" ]] || die "Missing executable Hetzner bootstrap script: $script"
+
+  log "Configuring Hetzner/VPS IAM Roles Anywhere"
+  local -a args=()
+  if [[ "$FORCE_CERT" -eq 1 ]]; then
+    args+=(--force-cert)
+  fi
+
+  REPO_DIR="$REPO_DIR" \
+  ENV_FILE="$ENV_FILE" \
+  AWS_REGION="${AWS_REGION:-eu-west-1}" \
+  AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}" \
+  AWS_PROFILE_NAME="${AWS_PROFILE_NAME:-veritrail-ra}" \
+  RA_ROLE_NAME="${RA_ROLE_NAME:-VeritrailControlPlaneRole}" \
+  ASSUMABLE_ROLE_RESOURCE="${ASSUMABLE_ROLE_RESOURCE:-arn:aws:iam::*:role/VeritrailScannerRole}" \
+  AWS_CONFIG_DIR="${AWS_CONFIG_DIR:-}" \
+  "$script" "${args[@]}"
 }
 
 certs_valid() {
@@ -689,6 +725,7 @@ main() {
   if [[ "$DEPLOY_ONLY" -eq 1 ]]; then
     log "Deploy-only mode — skipping Docker/TLS/cron bootstrap"
     ensure_env_prod
+    configure_hetzner_roles_anywhere
     sync_dotenv_from_prod
     render_nginx_conf
     render_iap_nginx
@@ -702,6 +739,7 @@ main() {
   install_docker
   install_certbot
   ensure_env_prod
+  configure_hetzner_roles_anywhere
   sync_dotenv_from_prod
   obtain_certs
   render_nginx_conf

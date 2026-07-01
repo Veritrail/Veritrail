@@ -13,10 +13,13 @@ set -euo pipefail
 #   [ ] Replace legal contact placeholders in web/src/pages/{Privacy,Terms}.tsx
 #
 # One command: Docker + certbot (if missing) + .env.prod + TLS + migrate + prod compose up.
+# Add --hetzner-roles-anywhere on a non-AWS VPS to also configure Vault PKI,
+# IAM Roles Anywhere, the AWS profile, and the prod compose runtime mounts.
 #
 #   ./scripts/launch-prod.sh
 #   ./scripts/launch-prod.sh --force-cert
 #   ./scripts/launch-prod.sh --deploy-only   # redeploy on an already-bootstrapped host
+#   ./scripts/launch-prod.sh --hetzner-roles-anywhere
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -28,6 +31,12 @@ export COMPOSE_DISABLE_GIT_TRACKING="${COMPOSE_DISABLE_GIT_TRACKING:-1}"
 export BUILDX_NO_DEFAULT_ATTESTATIONS="${BUILDX_NO_DEFAULT_ATTESTATIONS:-1}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-veritrail}"
 export HETZNER_ROLES_ANYWHERE="${HETZNER_ROLES_ANYWHERE:-auto}"
+export AWS_REGION="${AWS_REGION:-eu-west-1}"
+export AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
+export AWS_PROFILE_NAME="${AWS_PROFILE_NAME:-veritrail-ra}"
+export RA_ROLE_NAME="${RA_ROLE_NAME:-VeritrailControlPlaneRole}"
+export ASSUMABLE_ROLE_RESOURCE="${ASSUMABLE_ROLE_RESOURCE:-arn:aws:iam::*:role/VeritrailScannerRole}"
+export AWS_CONFIG_DIR="${AWS_CONFIG_DIR:-}"
 
 if [[ "$(id -u)" -eq 0 ]]; then
   exec "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"
@@ -38,4 +47,10 @@ exec sudo -E EMAIL="$EMAIL" ENV_FILE="$ENV_FILE" DOMAIN="$DOMAIN" API_DOMAIN="$A
   BUILDX_NO_DEFAULT_ATTESTATIONS="$BUILDX_NO_DEFAULT_ATTESTATIONS" \
   COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" \
   HETZNER_ROLES_ANYWHERE="$HETZNER_ROLES_ANYWHERE" \
+  AWS_REGION="$AWS_REGION" \
+  AWS_ACCOUNT_ID="$AWS_ACCOUNT_ID" \
+  AWS_PROFILE_NAME="$AWS_PROFILE_NAME" \
+  RA_ROLE_NAME="$RA_ROLE_NAME" \
+  ASSUMABLE_ROLE_RESOURCE="$ASSUMABLE_ROLE_RESOURCE" \
+  AWS_CONFIG_DIR="$AWS_CONFIG_DIR" \
   "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"

@@ -153,12 +153,22 @@ def _cfn_stack_params(
     remediation_modules: dict[str, bool],
 ) -> dict[str, str]:
     s = get_settings()
+    from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, connector_child_template_url
+
     params = {
         "templateURL": s.CFN_TEMPLATE_URL,
         "stackName": stack_name,
         "param_ExternalId": external_id,
         "param_VeritrailAccountPrincipal": s.TRUST_PRINCIPAL_ARN,
         "param_RoleName": s.CFN_SCANNER_ROLE_NAME,
+        "param_CoreScannerTemplateURL": connector_child_template_url(
+            RECOMMENDED_CONNECTOR_VERSION,
+            "veritrail-core-scanner.yaml",
+        ),
+        "param_RemediationTemplateURL": connector_child_template_url(
+            RECOMMENDED_CONNECTOR_VERSION,
+            "veritrail-remediation-ssm.yaml",
+        ),
         "param_EnableAdvancedPolicyGeneration": _yes_no(enable_advanced_policy_generation),
     }
     for spec in REMEDIATION_MODULES:
@@ -202,6 +212,8 @@ def _cli_command(
     enable_advanced_policy_generation: bool,
     remediation_modules: dict[str, bool],
 ) -> str:
+    from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, connector_child_template_url
+
     s = get_settings()
     region = s.CFN_CONSOLE_REGION or "us-east-1"
     lines = [
@@ -212,6 +224,8 @@ def _cli_command(
         f"    ParameterKey=ExternalId,ParameterValue={external_id} \\",
         f"    ParameterKey=VeritrailAccountPrincipal,ParameterValue={s.TRUST_PRINCIPAL_ARN} \\",
         f"    ParameterKey=RoleName,ParameterValue={s.CFN_SCANNER_ROLE_NAME} \\",
+        f"    ParameterKey=CoreScannerTemplateURL,ParameterValue={connector_child_template_url(RECOMMENDED_CONNECTOR_VERSION, 'veritrail-core-scanner.yaml')} \\",
+        f"    ParameterKey=RemediationTemplateURL,ParameterValue={connector_child_template_url(RECOMMENDED_CONNECTOR_VERSION, 'veritrail-remediation-ssm.yaml')} \\",
         f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
     ]
     for spec in REMEDIATION_MODULES:

@@ -30,6 +30,14 @@ function yesNo(flag: boolean): string {
   return flag ? "Yes" : "No";
 }
 
+function childTemplateUrl(templateUrl: string, templateName: string): string {
+  const marker = "/infra/";
+  if (templateUrl.includes(marker)) {
+    return `${templateUrl.split(marker)[0]}/infra/2026.06/${templateName}`;
+  }
+  return `https://amzn-s3-veritrail.s3.${cfnConsoleRegion(templateUrl)}.amazonaws.com/infra/2026.06/${templateName}`;
+}
+
 /** Infer console region from S3 template host (e.g. .s3.us-east-1.amazonaws.com). */
 export function cfnConsoleRegion(templateUrl: string): string {
   const m = templateUrl.match(/\.s3\.([a-z0-9-]+)\.amazonaws\.com/i);
@@ -82,6 +90,8 @@ function buildCreateLaunchUrl(
   params.set("param_ExternalId", acc.external_id);
   params.set("param_VeritrailAccountPrincipal", meta.trustPrincipalArn);
   params.set("param_RoleName", meta.scannerRoleName);
+  params.set("param_CoreScannerTemplateURL", childTemplateUrl(acc.cfn_template_url, "veritrail-core-scanner.yaml"));
+  params.set("param_RemediationTemplateURL", childTemplateUrl(acc.cfn_template_url, "veritrail-remediation-ssm.yaml"));
   params.set(
     "param_EnableAdvancedPolicyGeneration",
     yesNo(opts.enable_advanced_policy_generation),
@@ -110,6 +120,8 @@ export function buildCfnCliCommand(
     `    ParameterKey=ExternalId,ParameterValue=${acc.external_id} \\`,
     `    ParameterKey=VeritrailAccountPrincipal,ParameterValue=${meta.trustPrincipalArn} \\`,
     `    ParameterKey=RoleName,ParameterValue=${meta.scannerRoleName} \\`,
+    `    ParameterKey=CoreScannerTemplateURL,ParameterValue=${childTemplateUrl(acc.cfn_template_url, "veritrail-core-scanner.yaml")} \\`,
+    `    ParameterKey=RemediationTemplateURL,ParameterValue=${childTemplateUrl(acc.cfn_template_url, "veritrail-remediation-ssm.yaml")} \\`,
     `    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue=${yesNo(opts.enable_advanced_policy_generation)} \\`,
   ];
   for (const spec of REMEDIATION_MODULE_SPECS) {

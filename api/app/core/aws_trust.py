@@ -59,7 +59,12 @@ def merge_trust_principal(
     out.setdefault("Statement", []).append({
         "Effect": "Allow",
         "Principal": {"AWS": principal_arn},
-        "Action": ["sts:AssumeRole", "sts:SetSourceIdentity", "sts:TagSession"],
+        "Action": "sts:AssumeRole",
         "Condition": {"StringEquals": {"sts:ExternalId": external_id}},
+    })
+    out.setdefault("Statement", []).append({
+        "Effect": "Allow",
+        "Principal": {"AWS": principal_arn},
+        "Action": ["sts:SetSourceIdentity", "sts:TagSession"],
     })
     return out

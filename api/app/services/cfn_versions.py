@@ -63,6 +63,21 @@ def connector_template_url(tag: str) -> str:
     return f"https://amzn-s3-veritrail.s3.{region}.amazonaws.com/infra/{tag}/veritrail-stack.yaml"
 
 
+def connector_child_template_url(tag: str, template_name: str) -> str:
+    validate_connector_version_tag(tag)
+
+    settings = get_settings()
+    region = settings.CFN_CONSOLE_REGION or "us-east-1"
+
+    base_url = settings.CFN_TEMPLATE_URL
+    marker = "/infra/"
+    if marker in base_url:
+        root = base_url.split(marker, 1)[0]
+        return f"{root}/infra/{tag}/{template_name}"
+
+    return f"https://amzn-s3-veritrail.s3.{region}.amazonaws.com/infra/{tag}/{template_name}"
+
+
 def _yes_no(flag: bool) -> str:
     return "Yes" if flag else "No"
 
@@ -100,6 +115,8 @@ def update_cli_command(
         f"    ParameterKey=ExternalId,ParameterValue={external_id} \\",
         f"    ParameterKey=VeritrailAccountPrincipal,ParameterValue={settings.TRUST_PRINCIPAL_ARN} \\",
         f"    ParameterKey=RoleName,ParameterValue={settings.CFN_SCANNER_ROLE_NAME} \\",
+        f"    ParameterKey=CoreScannerTemplateURL,ParameterValue={connector_child_template_url(version_tag, 'veritrail-core-scanner.yaml')} \\",
+        f"    ParameterKey=RemediationTemplateURL,ParameterValue={connector_child_template_url(version_tag, 'veritrail-remediation-ssm.yaml')} \\",
         f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
     ]
 

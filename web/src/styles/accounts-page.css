@@ -519,7 +519,7 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  margin-top: 0.1rem;
+  margin-top: 0.2rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
   color: #71717a;
@@ -4552,7 +4552,7 @@ button.accounts-flow-step:hover {
 .accounts-detail-overview__cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .accounts-detail-metric-card {
@@ -4565,7 +4565,7 @@ button.accounts-flow-step:hover {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #fff;
-  padding: clamp(0.75rem, 3.5cqw, 0.9rem);
+  padding: clamp(0.85rem, 3.5cqw, 1.1rem);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -4855,8 +4855,8 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-capabilities__title {
-  margin: 0 0 0.75rem;
-  font-size: 0.8125rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #09090b;
 }
@@ -4910,8 +4910,8 @@ button.accounts-flow-step:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.68rem;
-  font-weight: 400;
+  font-size: 0.75rem;
+  font-weight: 650;
   white-space: nowrap;
 }
 
@@ -4950,8 +4950,8 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-quick-actions__title {
-  margin: 0 0 0.35rem;
-  font-size: 0.8125rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #09090b;
 }

@@ -9,6 +9,11 @@ def test_connector_template_url_versioned():
     assert "/infra/2026.06/veritrail-stack.yaml" in url
 
 
+def test_connector_child_template_url_versioned():
+    url = cv.connector_child_template_url("2026.06", "veritrail-core-scanner.yaml")
+    assert "/infra/2026.06/veritrail-core-scanner.yaml" in url
+
+
 def test_rejects_unknown_tag():
     with pytest.raises(ValueError, match="unsupported"):
         cv.connector_template_url("v99")
@@ -25,6 +30,10 @@ def test_update_cli_includes_capabilities_and_modules():
     assert "update-stack" in cmd
     assert "VeritrailAccountConnector" in cmd
     assert "/infra/2026.06/veritrail-stack.yaml" in cmd
+    assert "CoreScannerTemplateURL,ParameterValue=" in cmd
+    assert "/infra/2026.06/veritrail-core-scanner.yaml" in cmd
+    assert "RemediationTemplateURL,ParameterValue=" in cmd
+    assert "/infra/2026.06/veritrail-remediation-ssm.yaml" in cmd
     assert "CAPABILITY_NAMED_IAM" in cmd
     assert "EnableAdvancedPolicyGeneration,ParameterValue=Yes" in cmd
     assert "EnableSecurityGroupRemediation,ParameterValue=Yes" in cmd

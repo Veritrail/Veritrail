@@ -124,6 +124,8 @@ def test_account_out_launch_uses_current_even_when_db_legacy():
     assert out.cfn_stack_name == settings.CFN_STACK_NAME
     assert f"stackName={settings.CFN_STACK_NAME}" in out.cfn_launch_url
     assert f"--stack-name {settings.CFN_STACK_NAME}" in out.cfn_cli_command
+    assert "param_CoreScannerTemplateURL=" in out.cfn_launch_url
+    assert "ParameterKey=CoreScannerTemplateURL,ParameterValue=" in out.cfn_cli_command
 
 
 def test_account_out_update_uses_db_stack_name():

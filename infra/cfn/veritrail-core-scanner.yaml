@@ -108,11 +108,15 @@ Resources:
               AWS: !Ref VeritrailAccountPrincipal
             Action:
               - sts:AssumeRole
-              - sts:SetSourceIdentity
-              - sts:TagSession
             Condition:
               StringEquals:
                 sts:ExternalId: !Ref ExternalId
+          - Effect: Allow
+            Principal:
+              AWS: !Ref VeritrailAccountPrincipal
+            Action:
+              - sts:SetSourceIdentity
+              - sts:TagSession
       Policies:
         - PolicyName: VeritrailMinimalReadOnly
           PolicyDocument:
@@ -157,6 +161,7 @@ Resources:
                 Action:
                   - account:GetContactInformation
                   - account:GetAlternateContact
+                  - account:GetAccountInformation
                 Resource: "*"
               - Sid: S3BucketConfiguration
                 Effect: Allow
