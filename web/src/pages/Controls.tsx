@@ -2310,7 +2310,9 @@ function CompositeGapResolution({
               <div className="control-resolve-path__title-row">
                 <strong>Enable automatic re-check</strong>
                 {enableCapabilityLabel ? (
-                  <span className="control-resolve-path__tag">{enableCapabilityLabel}</span>
+                  <span className="control-resolve-path__tag control-resolve-path__tag--capability">
+                    {enableCapabilityLabel}
+                  </span>
                 ) : null}
               </div>
               <span className="control-resolve-path__desc">
@@ -2612,7 +2614,9 @@ function buildCompositeTabs({
             title="Blocking gaps"
             action={
               failingCheckCount > 0 ? (
-                <span className="control-detail-section__stat">{failingCheckCount}</span>
+                <span className="control-detail-section__stat control-detail-section__stat--alert">
+                  {failingCheckCount}
+                </span>
               ) : (
                 <span className="control-detail-section__stat control-detail-section__stat--clear">
                   Clear
