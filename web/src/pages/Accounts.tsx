@@ -3718,8 +3718,8 @@ function PendingAccountOnboarding({
                     {verify.isPending
                       ? "Testing connection..."
                       : roleArnValid
-                        ? "Test and connect →"
-                        : "Paste RoleArn to continue"}
+                        ? "Verify →"
+                        : "Verify"}
                   </button>
                 </div>
               </div>
