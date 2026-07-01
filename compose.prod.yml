@@ -15,7 +15,9 @@ services:
       - "8000"
       - --workers
       - "2"
-    volumes: !reset []
+    volumes:
+      - /root/.aws:/root/.aws:ro
+      - /etc/veritrail/aws-ra:/etc/veritrail/aws-ra:ro
     ports: !reset []
 
   worker:
@@ -29,7 +31,9 @@ services:
       - worker
       - --loglevel=info
       - --concurrency=4
-    volumes: !reset []
+    volumes:
+      - /root/.aws:/root/.aws:ro
+      - /etc/veritrail/aws-ra:/etc/veritrail/aws-ra:ro
 
   beat:
     build:
@@ -41,7 +45,9 @@ services:
       - app.worker.celery_app
       - beat
       - --loglevel=info
-    volumes: !reset []
+    volumes:
+      - /root/.aws:/root/.aws:ro
+      - /etc/veritrail/aws-ra:/etc/veritrail/aws-ra:ro
 
   web:
     build:
