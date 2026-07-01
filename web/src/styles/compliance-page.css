@@ -524,6 +524,21 @@
   gap: 1.25rem;
 }
 
+/* Composite drawer — single scrollable gaps page (no tab strip). */
+.control-detail-stack--composite {
+  gap: 1.1rem;
+}
+
+.control-detail-stack--composite .control-detail-section__title {
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+}
+
+.control-detail-stack--composite .control-detail-guidance-footer {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+}
+
 .control-detail-section {
   display: flex;
   flex-direction: column;
