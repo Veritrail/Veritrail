@@ -367,6 +367,16 @@ function ComplianceRowSummary({
 
 const MAPPING_FRAMEWORK_ORDER = ["soc2", "cis_aws_l1", "iso27001"] as const;
 
+/** Matches api/app/services/check_controls.py — open findings may use legacy check_ids. */
+const CHECK_CONTROL_ALIASES: Record<string, string> = {
+  "iam.access_key.unused_90d": "iam.access_key.unused_45d",
+  "iam.user.inactive_90d": "iam.user.credentials_unused_45d",
+};
+
+function resolveCheckIdForMappings(checkId: string): string {
+  return CHECK_CONTROL_ALIASES[checkId] ?? checkId;
+}
+
 function isCoarseSoc2Category(controlId: string): boolean {
   return /^CC\d+$/i.test(controlId);
 }
@@ -378,7 +388,8 @@ function compositeMappingChips(
   const byFramework = new Map<string, Set<string>>();
 
   for (const checkId of ctrl.check_ids) {
-    for (const ref of CHECK_CONTROL_IDS_MAP[checkId] ?? []) {
+    const mappedCheckId = resolveCheckIdForMappings(checkId);
+    for (const ref of CHECK_CONTROL_IDS_MAP[mappedCheckId] ?? []) {
       if (!byFramework.has(ref.framework)) {
         byFramework.set(ref.framework, new Set());
       }
