@@ -1792,7 +1792,7 @@ function GapScopeControl({
           <span className="control-resolve-path__panel-label">Reason</span>
           <textarea
             className="control-resolve-path__panel-textarea"
-            placeholder="Recorded for your auditor — e.g. handled by an external vulnerability scanner"
+            placeholder="Recorded for your auditor — e.g. handled by an external system"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}
@@ -1853,7 +1853,7 @@ function GapScopeControl({
       </div>
       <textarea
         className="compliance-category-detail__scope-reason-input"
-        placeholder="Reason (recorded for your auditor) — e.g. handled by an external vulnerability scanner"
+        placeholder="Reason (recorded for your auditor) — e.g. handled by an external system"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         rows={2}
