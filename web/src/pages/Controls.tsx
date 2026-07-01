@@ -2198,15 +2198,14 @@ function CompositeGapResolution({
 }) {
   const meQ = useMe();
   const canEditScope = roleAtLeast(meQ.data?.role, "admin");
-  const [openPanel, setOpenPanel] = useState<
-    "cross-account" | "evidence" | "scope" | null
-  >(null);
+  const [openPanel, setOpenPanel] = useState<"cross-account" | "scope" | null>(null);
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const showEvidenceAlternative = hasAbsenceGaps || isExternalOnly;
   const showFixColumn = !isExternalOnly;
   const showEnableColumn = enableItems.length > 0;
   const showScopeRow = canEditScope && !overrideDetail;
 
-  function togglePanel(panel: "cross-account" | "evidence" | "scope") {
+  function togglePanel(panel: "cross-account" | "scope") {
     setOpenPanel((current) => (current === panel ? null : panel));
   }
 
@@ -2385,57 +2384,51 @@ function CompositeGapResolution({
         ) : null}
 
         {showEvidenceAlternative ? (
-          <>
+          <div className="control-resolve-path__row">
+            <svg
+              className="control-resolve-path__icon"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+              />
+            </svg>
+            <div className="control-resolve-path__body control-resolve-path__body--stacked">
+              <strong>Upload external evidence</strong>
+              <span className="control-resolve-path__desc">
+                Policies, attestations, or exports auditors can review.
+              </span>
+            </div>
             <button
               type="button"
-              className="control-resolve-path__row control-resolve-path__row--expand"
-              aria-expanded={openPanel === "evidence"}
-              onClick={() => togglePanel("evidence")}
+              className="control-resolve-path__outline"
+              onClick={() => setEvidenceModalOpen(true)}
             >
-              <svg
-                className="control-resolve-path__icon"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.7}
-                viewBox="0 0 24 24"
-                aria-hidden
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-                />
-              </svg>
-              <div className="control-resolve-path__body control-resolve-path__body--stacked">
-                <strong>Upload external evidence</strong>
-                <span className="control-resolve-path__desc">
-                  Policies, attestations, or exports auditors can review.
-                </span>
-              </div>
-              <span
-                className={`control-resolve-path__chevron${openPanel === "evidence" ? " is-open" : ""}`}
-                aria-hidden
-              >
-                ›
-              </span>
+              Upload
             </button>
-            {openPanel === "evidence" ? (
-              <div className="control-resolve-path__expand">
-                <ExternalEvidencePanel
-                  compositeId={ctrl.id}
-                  compositeTitle={ctrl.title}
-                  framework={framework}
-                  groupStatus={ctrl.status}
-                  checkIds={ctrl.check_ids}
-                  findingCountByCheck={findingCountByCheck}
-                  underlyingCriteria={underlyingCriteria}
-                  frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
-                />
-              </div>
-            ) : null}
-          </>
+          </div>
         ) : null}
       </div>
+
+      {showEvidenceAlternative ? (
+        <ExternalEvidencePanel
+          compositeId={ctrl.id}
+          compositeTitle={ctrl.title}
+          framework={framework}
+          checkIds={ctrl.check_ids}
+          findingCountByCheck={findingCountByCheck}
+          underlyingCriteria={underlyingCriteria}
+          frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
+          open={evidenceModalOpen}
+          onOpenChange={setEvidenceModalOpen}
+        />
+      ) : null}
 
       {showScopeRow ? (
         <>
