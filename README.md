@@ -154,6 +154,22 @@ Details: [docs/multi-cloud-collectors.md](docs/multi-cloud-collectors.md).
 
 ---
 
+## Microsoft Azure (optional)
+
+Phase-one baseline posture checks (Microsoft Defender for Cloud pricing/secure score, storage account public blob access). This is intentionally a thin baseline — not AWS-level check parity.
+
+Connect under **Integrations → Microsoft Azure** with an Entra app registration and client credentials (tenant ID, client ID, client secret). Veritrail encrypts credentials at rest.
+
+1. Register an app in Entra ID with **Reader** on the target subscription (and Microsoft Graph `Directory.Read.All` if you also use Entra integration).
+2. **Integrations → Microsoft Azure** → add subscription ID + client credentials → **Verify**.
+3. Run **Scan** on the subscription; findings include `azure.defender.not_enabled` and `azure.storage.public_blob_access`.
+
+Client secrets are convenient for phase one; federated workload identity for Azure is planned as phase two (similar to GCP WIF / AWS role assumption).
+
+Details: [docs/multi-cloud-collectors.md](docs/multi-cloud-collectors.md).
+
+---
+
 ## Evidence pack
 
 `GET /v1/exports/evidence-pack?framework=soc2&account_id=<id>&period=90`
