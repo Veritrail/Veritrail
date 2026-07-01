@@ -531,13 +531,10 @@
   background: #fafafa;
 }
 
-.control-detail-stack--composite .compliance-category-detail__checks-row.is-high-severity {
-  background: #fef2f2;
-  box-shadow: inset 3px 0 0 #dc2626;
-}
-
+.control-detail-stack--composite .compliance-category-detail__checks-row.is-high-severity,
 .control-detail-stack--composite .compliance-category-detail__checks-row.is-high-severity:hover {
   background: #fef2f2;
+  box-shadow: inset 3px 0 0 #dc2626;
 }
 
 .control-detail-stack--composite .compliance-category-detail__checks-name {
@@ -3216,6 +3213,9 @@
   background: transparent;
   text-align: left;
   cursor: pointer;
+}
+
+.compliance-category-detail__checks-row:not(.is-high-severity) {
   transition: background 0.15s ease;
 }
 
@@ -3224,11 +3224,12 @@
   border-top: 0;
 }
 
-.compliance-category-detail__checks-row:hover {
+.compliance-category-detail__checks-row:hover:not(.is-high-severity) {
   background: #fafafa;
 }
 
-.compliance-category-detail__checks-row.is-high-severity {
+.compliance-category-detail__checks-row.is-high-severity,
+.compliance-category-detail__checks-row.is-high-severity:hover {
   background: #fff1f2;
   box-shadow: inset 3px 0 0 #ef4444;
 }
