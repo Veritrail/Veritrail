@@ -26,18 +26,16 @@ export default function HelpMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200/90 bg-white/80 text-zinc-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-zinc-300 hover:bg-white hover:text-zinc-900 focus-visible:ring-4 focus-visible:ring-zinc-900/[0.06]"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200/90 bg-white/80 text-zinc-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-zinc-300 hover:bg-white hover:text-zinc-900 focus-visible:ring-4 focus-visible:ring-zinc-900/[0.06]"
         aria-label="Help"
         aria-expanded={open}
       >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-          <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" />
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d="M9.5 9.25a2.5 2.5 0 1 1 3.5 2.29c-.73.32-1.25.99-1.25 1.79v.42"
+            d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01"
           />
-          <path strokeLinecap="round" d="M12 17h.01" />
         </svg>
       </button>
 
