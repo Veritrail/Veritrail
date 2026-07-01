@@ -6,6 +6,39 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import type { ReadinessMetric } from "../lib/controlReadiness";
+
+/** Concrete N-of-M readiness rows — semantic color as a thin rail only. */
+export function ControlReadinessBar({ metrics }: { metrics: ReadinessMetric[] }) {
+  if (metrics.length === 0) return null;
+  return (
+    <div className="control-readiness">
+      {metrics.map((m) => {
+        const pct = m.total > 0 ? Math.round((m.complete / m.total) * 100) : 0;
+        const fillClass =
+          m.total === 0
+            ? "control-readiness__fill--empty"
+            : `control-readiness__fill--${m.variant}`;
+        return (
+          <div className="control-readiness__row" key={m.label}>
+            <div className="control-readiness__row-head">
+              <span className="control-readiness__label">{m.label}</span>
+              <span className="control-readiness__count">
+                {m.complete} of {m.total}
+              </span>
+            </div>
+            <div className="control-readiness__track">
+              <div
+                className={`control-readiness__fill ${fillClass}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export type ControlDetailTabId = "overview" | "gaps" | "evidence" | "mappings" | "guidance";
 

@@ -41,9 +41,11 @@ import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawe
 import { ControlEvidenceTabContent } from "../components/ControlEvidenceSlideOver";
 import {
   ControlDetailPanel,
+  ControlReadinessBar,
   type ControlDetailTab,
   type ControlDetailTabId,
 } from "../components/ControlDetailPanel";
+import { controlReadinessMetrics, type ReadinessMetric } from "../lib/controlReadiness";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FrameworkMark } from "../components/FrameworkMark";
 import "../styles/findings-v2.css";
@@ -1775,18 +1777,16 @@ function MetricIconGlyph({ kind }: { kind: MetricIconKind }) {
 }
 
 function CategoryDetailMetricCard({
-  tone,
   icon,
   label,
   value,
 }: {
-  tone: "ok" | "warn" | "neutral";
   icon: MetricIconKind;
   label: string;
   value: string;
 }) {
   return (
-    <div className={`compliance-category-detail__metric-card is-${tone}`}>
+    <div className="compliance-category-detail__metric-card">
       <span className="compliance-category-detail__metric-label">{label}</span>
       <span className="compliance-category-detail__metric-icon" aria-hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
@@ -1794,6 +1794,104 @@ function CategoryDetailMetricCard({
         </svg>
       </span>
       <strong className="compliance-category-detail__metric-value">{value}</strong>
+    </div>
+  );
+}
+
+function SeveritySummaryIcon({ severity }: { severity: "high" | "medium" | "low" }) {
+  if (severity === "high") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+        />
+      </svg>
+    );
+  }
+  if (severity === "medium") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3.5 2" />
+        <circle cx="12" cy="12" r="9" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+    </svg>
+  );
+}
+
+function CategoryDetailSummaryBar({
+  ctrl,
+  displayStatus,
+  findingCountByCheck,
+  acceptedCompositeIds,
+  submittedCount,
+}: {
+  ctrl: CompositeControlRow;
+  displayStatus: ComplianceDisplayStatus;
+  findingCountByCheck: Map<string, number>;
+  acceptedCompositeIds: Set<string>;
+  submittedCount: number;
+}) {
+  const counts = ctrl.severity_counts;
+  const severityItems = counts
+    ? (
+        [
+          ["high", counts.critical + counts.high, "High"],
+          ["medium", counts.medium, "Medium"],
+          ["low", counts.low, "Low"],
+        ] as const
+      ).filter(([, n]) => n > 0)
+    : [];
+  const blockingCount = ctrl.check_ids.filter(
+    (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
+  ).length;
+
+  return (
+    <div className="compliance-category-detail__summary-bar" aria-label="Executive summary">
+      <div className="compliance-category-detail__summary-severity">
+        {severityItems.length > 0 ? (
+          severityItems.map(([sev, n, label]) => (
+            <div
+              key={sev}
+              className={`compliance-category-detail__severity-badge is-${sev}`}
+            >
+              <span className="compliance-category-detail__severity-badge-icon" aria-hidden>
+                <SeveritySummaryIcon severity={sev} />
+              </span>
+              <span className="compliance-category-detail__severity-badge-text">
+                <span className="compliance-category-detail__severity-badge-count">{n}</span>
+                <span className="compliance-category-detail__severity-badge-label">{label}</span>
+              </span>
+            </div>
+          ))
+        ) : (
+          <span className="compliance-category-detail__summary-empty">No open findings</span>
+        )}
+      </div>
+      <div className="compliance-category-detail__summary-divider" aria-hidden />
+      <div className="compliance-category-detail__summary-metrics">
+        <CategoryDetailMetricCard
+          icon="automated"
+          label="Automated checks"
+          value={compositeAutomatedSummary(ctrl, displayStatus)}
+        />
+        <CategoryDetailMetricCard
+          icon="external"
+          label="External evidence"
+          value={compositeExternalSummary(ctrl, acceptedCompositeIds, submittedCount)}
+        />
+        <CategoryDetailMetricCard
+          icon="blocking"
+          label="Blocking gaps"
+          value={String(blockingCount)}
+        />
+      </div>
     </div>
   );
 }
@@ -2005,16 +2103,21 @@ function ControlDetailSection({
   title,
   eyebrow,
   action,
+  panel = false,
   children,
 }: {
   title?: ReactNode;
   eyebrow?: ReactNode;
   action?: ReactNode;
+  /** Off-white panel shell for overview blocks. */
+  panel?: boolean;
   children: ReactNode;
 }) {
   const hasHead = title != null || eyebrow != null || action != null;
   return (
-    <section className="control-detail-section">
+    <section
+      className={`control-detail-section${panel ? " control-detail-section--panel" : ""}`}
+    >
       {hasHead ? (
         <div className="control-detail-section__head">
           <div className="control-detail-section__heading">
@@ -2035,15 +2138,155 @@ function ControlDetailSection({
   );
 }
 
+/** Readiness bar wrapped in a titled section with an N-of-M summary stat. */
+function ControlReadinessSection({ metrics }: { metrics: ReadinessMetric[] }) {
+  if (metrics.length === 0) return null;
+  const primary = metrics[0];
+  return (
+    <ControlDetailSection
+      panel
+      title="Readiness"
+      action={
+        <span className="control-detail-section__stat">
+          {primary.complete}
+          <span className="control-detail-section__stat-sep">/</span>
+          {primary.total}
+        </span>
+      }
+    >
+      <ControlReadinessBar metrics={metrics} />
+      <p className="control-detail-hint">
+        Concrete N-of-M counts — not a likelihood-to-pass score.
+      </p>
+    </ControlDetailSection>
+  );
+}
 
-/**
- * Assembles the composite/category detail content into ControlDetailPanel tabs.
- * Replaces the old single-canvas CompositeCategoryDetailPanel — same underlying
- * components, redistributed instead of all rendered at once. The "Alternative
- * satisfaction" reveal (external evidence / cross-account form) is now the
- * Evidence tab itself rather than a click-to-scroll-into-view toggle, and the
- * three places GapScopeControl could render are collapsed to one (Gaps tab).
- */
+function CompositeAttentionCard({
+  isVerified,
+  blockingCount,
+  submittedCount,
+  crossAccountEligible,
+  onSelectTab,
+}: {
+  isVerified: boolean;
+  blockingCount: number;
+  submittedCount: number;
+  crossAccountEligible: boolean;
+  onSelectTab: (tab: ControlDetailTabId) => void;
+}) {
+  if (isVerified) {
+    return (
+      <ControlDetailSection panel title="Attention needed" eyebrow="Next action">
+        <div className="control-attention control-attention--ok">
+          <span className="control-attention__ok-icon" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+            </svg>
+          </span>
+          <p className="control-attention__ok-copy">
+            This control is verified — no action needed right now.
+          </p>
+        </div>
+      </ControlDetailSection>
+    );
+  }
+
+  const items: {
+    key: string;
+    icon: ReactNode;
+    title: string;
+    detail: string;
+    cta: string;
+    tab: ControlDetailTabId;
+  }[] = [];
+
+  if (blockingCount > 0) {
+    items.push({
+      key: "gaps",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+          />
+        </svg>
+      ),
+      title: `${blockingCount} blocking gap${blockingCount === 1 ? "" : "s"}`,
+      detail: "Failing checks are holding this control back.",
+      cta: "Review gaps",
+      tab: "gaps",
+    });
+  }
+  if (submittedCount > 0) {
+    items.push({
+      key: "evidence",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"
+          />
+        </svg>
+      ),
+      title: `${submittedCount} evidence submission${submittedCount === 1 ? "" : "s"} pending review`,
+      detail: "Awaiting approval to count toward this control.",
+      cta: "View gaps",
+      tab: "gaps",
+    });
+  }
+  if (crossAccountEligible) {
+    items.push({
+      key: "cross-account",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01"
+          />
+        </svg>
+      ),
+      title: "Eligible for cross-account coverage",
+      detail: "May be satisfied centrally in another AWS account.",
+      cta: "Add coverage",
+      tab: "gaps",
+    });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <ControlDetailSection panel title="Attention needed" eyebrow="Next action">
+      <ul className="control-attention__list">
+        {items.map((item) => (
+          <li key={item.key} className="control-attention__item">
+            <span className="control-attention__icon" aria-hidden>
+              {item.icon}
+            </span>
+            <span className="control-attention__text">
+              <strong>{item.title}</strong>
+              <span>{item.detail}</span>
+            </span>
+            <button
+              type="button"
+              className="control-attention__cta"
+              onClick={() => onSelectTab(item.tab)}
+            >
+              {item.cta}
+              <span className="control-attention__cta-chevron" aria-hidden>
+                ›
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </ControlDetailSection>
+  );
+}
+
 /**
  * How to close the gaps on a composite control. "Fix in AWS" and "turn this on"
  * apply broadly; cross-account coverage only applies to the one or two checks
@@ -2287,6 +2530,7 @@ function buildCompositeTabs({
   acceptedCompositeIds,
   submittedCount = 0,
   expiredCompositeIds,
+  onSelectTab,
   navigate,
 }: {
   ctrl: CompositeControlRow;
@@ -2298,6 +2542,7 @@ function buildCompositeTabs({
   acceptedCompositeIds: Set<string>;
   submittedCount?: number;
   expiredCompositeIds?: Set<string>;
+  onSelectTab: (tab: ControlDetailTabId) => void;
   navigate: (href: string) => void;
 }): ControlDetailTab[] {
   const displayStatus = compositeDisplayStatus(
@@ -2334,6 +2579,11 @@ function buildCompositeTabs({
   });
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
+  const readinessMetrics = controlReadinessMetrics(
+    ctrl.check_ids,
+    ctrl.check_tiers,
+    findingCountByCheck,
+  );
   const mappingChips: { fw: string; ids: string[] }[] = [
     { fw: "soc2", ids: ctrl.soc2_criteria ?? [] },
     { fw: "cis_aws_l1", ids: ctrl.cis_criteria ?? [] },
@@ -2343,7 +2593,33 @@ function buildCompositeTabs({
   const tabs: ControlDetailTab[] = [
     {
       id: "overview",
-      label: "Details",
+      label: "Overview",
+      content: (
+        <div className="control-detail-stack">
+          <ControlDetailSection panel title="Executive summary" eyebrow="Current status">
+            <CategoryDetailSummaryBar
+              ctrl={ctrl}
+              displayStatus={displayStatus}
+              findingCountByCheck={findingCountByCheck}
+              acceptedCompositeIds={acceptedCompositeIds}
+              submittedCount={submittedCount}
+            />
+          </ControlDetailSection>
+          <ControlReadinessSection metrics={readinessMetrics} />
+          <CompositeAttentionCard
+            isVerified={isVerified}
+            blockingCount={failingCheckCount}
+            submittedCount={submittedCount}
+            crossAccountEligible={crossAccountEligible}
+            onSelectTab={onSelectTab}
+          />
+        </div>
+      ),
+    },
+    {
+      id: "gaps",
+      label: "Gaps",
+      badge: failingCheckCount > 0 ? failingCheckCount : undefined,
       content: (
         <div className="control-detail-stack">
           <ControlDetailSection
@@ -2352,7 +2628,9 @@ function buildCompositeTabs({
               failingCheckCount > 0 ? (
                 <span className="control-detail-section__stat">{failingCheckCount} open</span>
               ) : (
-                <span className="control-detail-section__stat control-detail-section__stat--clear">Clear</span>
+                <span className="control-detail-section__stat control-detail-section__stat--clear">
+                  Clear
+                </span>
               )
             }
           >
@@ -2454,11 +2732,26 @@ function buildDetailedTabs({
   const hasMappingMeta =
     !!ctrl.soc2_scope_category || !!ctrl.cis_profile_level || !!ctrl.iso_applicability;
   const isVerified = displayStatus === "passing";
+  const readinessMetrics = controlReadinessMetrics(
+    ctrl.check_ids,
+    ctrl.check_tiers,
+    findingCountByCheck,
+  );
 
   const tabs: ControlDetailTab[] = [
     {
       id: "overview",
-      label: "Details",
+      label: "Overview",
+      content: (
+        <div className="control-detail-stack">
+          <ControlReadinessSection metrics={readinessMetrics} />
+        </div>
+      ),
+    },
+    {
+      id: "gaps",
+      label: "Gaps",
+      badge: blockingCount > 0 ? blockingCount : undefined,
       content: (
         <div className="control-detail-stack">
           <ControlDetailSection
@@ -2467,7 +2760,9 @@ function buildDetailedTabs({
               blockingCount > 0 ? (
                 <span className="control-detail-section__stat">{blockingCount} open</span>
               ) : (
-                <span className="control-detail-section__stat control-detail-section__stat--clear">Clear</span>
+                <span className="control-detail-section__stat control-detail-section__stat--clear">
+                  Clear
+                </span>
               )
             }
           >
@@ -4013,6 +4308,7 @@ export default function Controls() {
                 acceptedCompositeIds,
                 submittedCount: submittedCountByComposite.get(selectedCompositeRow.id) ?? 0,
                 expiredCompositeIds,
+                onSelectTab: setSelectedTab,
                 navigate,
               })}
               activeTab={selectedTab}
