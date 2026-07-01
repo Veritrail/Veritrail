@@ -109,6 +109,7 @@
 
   .veritrail-app-header {
     background: rgba(248, 250, 252, 0.68);
+    border-bottom: 1px solid #eef0f3;
   }
 
   .veritrail-button-primary {

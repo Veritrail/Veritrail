@@ -221,7 +221,7 @@ export default function Layout() {
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
             {/* App-wide header bar: help + bell on the right, a left slot pages fill via <HeaderSlot>. */}
-            <div className="veritrail-app-header sticky top-0 z-30 flex items-center gap-3 px-8 pt-5 pb-3 backdrop-blur-md">
+            <div className="veritrail-app-header sticky top-0 z-30 flex items-center gap-3 px-8 pt-5 pb-4 backdrop-blur-md">
               <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
               <HelpMenu />
               <NotificationsBell />
