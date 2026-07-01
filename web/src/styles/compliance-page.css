@@ -113,12 +113,11 @@
 
 .control-detail-panel__title {
   margin: 0;
-  font-family: Georgia, "Times New Roman", "Iowan Old Style", serif;
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 1.25;
-  color: #18181b;
+  line-height: 1.375;
+  color: #111827;
 }
 
 .control-detail-panel__description {
@@ -456,9 +455,8 @@
 }
 
 .control-detail-stack--composite .control-detail-section__title {
-  font-family: Georgia, "Times New Roman", "Iowan Old Style", serif;
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
 
