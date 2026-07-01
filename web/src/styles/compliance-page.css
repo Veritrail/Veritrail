@@ -2644,9 +2644,9 @@
 }
 
 .compliance-category-detail__scope-options button.is-active {
-  border-color: #6366f1;
-  background: #eef2ff;
-  box-shadow: 0 0 0 1px #6366f1;
+  border-color: var(--vt-teal, #0d9488);
+  background: #ffffff;
+  box-shadow: inset 3px 0 0 var(--vt-teal, #0d9488), 0 0 0 1px var(--vt-teal, #0d9488);
 }
 
 .compliance-category-detail__scope-options strong {
@@ -2686,8 +2686,8 @@
 }
 
 .compliance-category-detail__scope-reason-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px #e0e7ff;
+  border-color: var(--vt-teal, #0d9488);
+  box-shadow: 0 0 0 3px var(--vt-teal-ring, rgb(13 148 136 / 0.12));
 }
 
 .compliance-category-detail__scope-actions {
