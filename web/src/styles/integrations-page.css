@@ -58,8 +58,8 @@
 }
 
 .integrations-summary-icon--sync {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #f0fdfa;
+  color: #0d9488;
 }
 
 .integrations-summary-icon--warn {
@@ -173,7 +173,7 @@
 }
 
 .integrations-table__status--sync {
-  color: #2563eb;
+  color: #0d9488;
 }
 
 .integrations-table__status--idle {
@@ -219,8 +219,9 @@
   border-radius: 0.4375rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #2563eb;
-  background: #eff6ff;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .integrations-table__actions {

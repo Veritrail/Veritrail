@@ -295,26 +295,26 @@
 
 .integration-setup__callout {
   margin-bottom: 1rem;
-  border: 1px solid #e0f2fe;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #0d9488;
   border-radius: 0.625rem;
-  background: #f0f9ff;
+  background: #ffffff;
   padding: 0.75rem 0.875rem;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: #0c4a6e;
+  color: #334155;
 }
 
 .integration-setup__callout a {
   font-weight: 600;
-  color: #0369a1;
+  color: #0d9488;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .integration-setup__callout--warning {
-  border-color: #fde68a;
-  background: #fffbeb;
-  color: #92400e;
+  border-left-color: #f59e0b;
+  color: #334155;
 }
 
 .integration-setup__input--placeholder {
