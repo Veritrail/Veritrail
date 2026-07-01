@@ -91,13 +91,10 @@ function bellToneFromHistory(items: NotificationItem[]): BellTone {
   return "neutral";
 }
 
-const BELL_BUTTON_CLASS: Record<BellTone, string> = {
-  error:
-    "border-red-200/90 bg-red-50/90 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus-visible:ring-red-500/15",
-  success:
-    "border-emerald-200/90 bg-emerald-50/90 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:ring-emerald-500/15",
-  neutral:
-    "border-zinc-200/90 bg-white/80 text-zinc-600 hover:border-zinc-300 hover:bg-white hover:text-zinc-900 focus-visible:ring-zinc-900/[0.06]",
+const BELL_ICON_CLASS: Record<BellTone, string> = {
+  error: "text-red-600",
+  success: "text-emerald-600",
+  neutral: "text-zinc-600",
 };
 
 const BELL_BADGE_CLASS: Record<BellTone, string> = {
@@ -259,24 +256,27 @@ export default function NotificationsBell() {
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus-visible:ring-4 ${BELL_BUTTON_CLASS.neutral}`}
+        className={`veritrail-header-action${notificationCount > 0 ? ` veritrail-header-action--${bellTone}` : ""}`}
         aria-label={notificationCount ? `${notificationCount} notifications` : "Notifications"}
         aria-expanded={open}
       >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
-          />
-        </svg>
-        {notificationCount > 0 && (
-          <span
-            className={`absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-white ring-2 ring-white ${BELL_BADGE_CLASS[bellTone]}`}
-          >
-            {notificationCount > 9 ? "9+" : notificationCount}
-          </span>
-        )}
+        <span className={`veritrail-header-action__icon-wrap ${BELL_ICON_CLASS[bellTone]}`}>
+          <svg className="veritrail-header-action__icon" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
+            />
+          </svg>
+          {notificationCount > 0 && (
+            <span
+              className={`veritrail-header-action__badge ${BELL_BADGE_CLASS[bellTone]}`}
+            >
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </span>
+          )}
+        </span>
+        <span className="veritrail-header-action__label">Notifications</span>
       </button>
       {panel}
     </div>

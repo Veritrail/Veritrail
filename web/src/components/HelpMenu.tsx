@@ -26,17 +26,18 @@ export default function HelpMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200/90 bg-white/80 text-zinc-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-zinc-300 hover:bg-white hover:text-zinc-900 focus-visible:ring-4 focus-visible:ring-zinc-900/[0.06]"
+        className="veritrail-header-action"
         aria-label="Help"
         aria-expanded={open}
       >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+        <svg className="veritrail-header-action__icon" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
+        <span className="veritrail-header-action__label">Help</span>
       </button>
 
       {open && (
