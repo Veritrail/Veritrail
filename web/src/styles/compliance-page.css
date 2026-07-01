@@ -391,79 +391,65 @@
 .control-detail-guidance-footer {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.4rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
   border-top: 1px solid #eef0f3;
 }
 
-.control-detail-guidance-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font-size: 0.75rem;
-  font-weight: 650;
-  color: #0d9488;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.control-detail-guidance-link:hover {
-  color: #0f766e;
-}
-
-.control-detail-guidance-link span {
-  font-size: 0.9rem;
-  line-height: 1;
-  transform: translateY(-0.5px);
-}
-
 .control-detail-guidance-mappings {
-  margin: 0.25rem 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.65rem;
 }
 
 .control-detail-guidance-mappings li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1.45;
-  color: #71717a;
+  display: grid;
+  grid-template-columns: minmax(7.5rem, auto) 1fr;
+  align-items: start;
+  gap: 0.5rem 0.75rem;
 }
 
 .control-detail-guidance-mappings__label {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   flex-shrink: 0;
+  min-height: 1.5rem;
 }
 
 .control-detail-guidance-mappings__icon {
   flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.375rem;
+  height: 1.375rem;
 }
 
 .control-detail-guidance-mappings__fw {
+  font-size: 0.8125rem;
   font-weight: 650;
-  color: #52525b;
+  color: #3f3f46;
   white-space: nowrap;
 }
 
 .control-detail-guidance-mappings__ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   min-width: 0;
-  flex: 1 1 8rem;
+}
+
+.control-detail-guidance-mappings__chip {
+  border-radius: 0.4rem;
+  background: #f4f4f5;
+  padding: 0.2rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #3f3f46;
 }
 
 /* ---------------------------------------------------------------------- */

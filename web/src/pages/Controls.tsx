@@ -47,6 +47,7 @@ import {
 import { controlReadinessMetrics, type ReadinessMetric } from "../lib/controlReadiness";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FrameworkMark } from "../components/FrameworkMark";
+import { CHECK_CONTROL_IDS_MAP } from "../data/checkControlIdsMap";
 import "../styles/findings-v2.css";
 import "../styles/compliance-page.css";
 
@@ -364,9 +365,39 @@ function ComplianceRowSummary({
   return <span className={chipClass}>{content}</span>;
 }
 
-function frameworkGuidanceLabel(fw: string): string {
-  if (fw === "cis_aws_l1") return "CIS AWS";
-  return frameworkLabel(fw);
+const MAPPING_FRAMEWORK_ORDER = ["soc2", "cis_aws_l1", "iso27001"] as const;
+
+function isCoarseSoc2Category(controlId: string): boolean {
+  return /^CC\d+$/i.test(controlId);
+}
+
+/** Resolve framework control IDs from composite checks (same source as Findings drawer). */
+function compositeMappingChips(
+  ctrl: CompositeControlRow,
+): { fw: string; ids: string[] }[] {
+  const byFramework = new Map<string, Set<string>>();
+
+  for (const checkId of ctrl.check_ids) {
+    for (const ref of CHECK_CONTROL_IDS_MAP[checkId] ?? []) {
+      if (!byFramework.has(ref.framework)) {
+        byFramework.set(ref.framework, new Set());
+      }
+      byFramework.get(ref.framework)!.add(ref.control_id);
+    }
+  }
+
+  if (byFramework.size > 0) {
+    return MAPPING_FRAMEWORK_ORDER.filter((fw) => byFramework.has(fw)).map((fw) => ({
+      fw,
+      ids: [...byFramework.get(fw)!].sort(compareControlIds),
+    }));
+  }
+
+  return [
+    { fw: "soc2", ids: (ctrl.soc2_criteria ?? []).filter((id) => !isCoarseSoc2Category(id)) },
+    { fw: "cis_aws_l1", ids: ctrl.cis_criteria ?? [] },
+    { fw: "iso27001", ids: ctrl.iso_criteria ?? [] },
+  ].filter((g) => g.ids.length > 0);
 }
 
 function CompliancePanelShell({
@@ -2473,12 +2504,6 @@ function ControlGuidanceFooter({
   guidance: string | null;
   mappingChips: { fw: string; ids: string[] }[];
 }) {
-  const [showMappings, setShowMappings] = useState(false);
-  const frameworkSummary =
-    mappingChips.length > 0
-      ? mappingChips.map((g) => frameworkGuidanceLabel(g.fw)).join(" • ")
-      : null;
-
   return (
     <ControlDetailSection title="Guidance">
       {guidance ? (
@@ -2486,44 +2511,30 @@ function ControlGuidanceFooter({
       ) : (
         <p className="control-detail-empty">No written guidance yet for this control.</p>
       )}
-      {frameworkSummary || mappingChips.length > 0 ? (
+      {mappingChips.length > 0 ? (
         <div className="control-detail-guidance-footer">
-          {frameworkSummary ? (
-            <p className="control-detail-mapping-line">{frameworkSummary}</p>
-          ) : null}
-          {mappingChips.length > 0 ? (
-            <>
-              <button
-                type="button"
-                className="control-detail-guidance-link"
-                aria-expanded={showMappings}
-                onClick={() => setShowMappings((open) => !open)}
-              >
-                View mappings
-                <span aria-hidden>›</span>
-              </button>
-              {showMappings ? (
-                <ul className="control-detail-guidance-mappings">
-                  {mappingChips.map((g) => (
-                    <li key={g.fw}>
-                      <span className="control-detail-guidance-mappings__label">
-                        <FrameworkMark
-                          framework={g.fw}
-                          className="control-detail-guidance-mappings__icon"
-                        />
-                        <span className="control-detail-guidance-mappings__fw">
-                          {frameworkLabel(g.fw)}
-                        </span>
-                      </span>
-                      <span className="control-detail-guidance-mappings__ids">
-                        {g.ids.join(", ")}
-                      </span>
-                    </li>
+          <ul className="control-detail-guidance-mappings">
+            {mappingChips.map((g) => (
+              <li key={g.fw}>
+                <span className="control-detail-guidance-mappings__label">
+                  <FrameworkMark
+                    framework={g.fw}
+                    className="control-detail-guidance-mappings__icon"
+                  />
+                  <span className="control-detail-guidance-mappings__fw">
+                    {frameworkLabel(g.fw)}
+                  </span>
+                </span>
+                <span className="control-detail-guidance-mappings__ids">
+                  {g.ids.map((id) => (
+                    <span key={id} className="control-detail-guidance-mappings__chip">
+                      {id}
+                    </span>
                   ))}
-                </ul>
-              ) : null}
-            </>
-          ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </ControlDetailSection>
@@ -2584,11 +2595,7 @@ function buildCompositeTabs({
   });
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
-  const mappingChips: { fw: string; ids: string[] }[] = [
-    { fw: "soc2", ids: ctrl.soc2_criteria ?? [] },
-    { fw: "cis_aws_l1", ids: ctrl.cis_criteria ?? [] },
-    { fw: "iso27001", ids: ctrl.iso_criteria ?? [] },
-  ].filter((g) => g.ids.length > 0);
+  const mappingChips = compositeMappingChips(ctrl);
 
   return [
     {
