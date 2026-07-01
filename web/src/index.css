@@ -108,9 +108,14 @@
   }
 
   .veritrail-app-header {
-    /* Opaque bar so the bottom edge stays visible over white page cards. */
+    /* Standalone bar — page background shows through the gap below. */
     background: #ffffff;
     border-bottom: 1px solid #e4e4e7;
+    box-shadow: 0 1px 0 rgb(9 9 11 / 0.03);
+  }
+
+  .veritrail-app-content {
+    padding-top: 1.25rem;
   }
 
   .veritrail-app-header__utilities {

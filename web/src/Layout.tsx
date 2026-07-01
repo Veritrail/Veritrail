@@ -232,7 +232,7 @@ export default function Layout() {
               {/* flex-1 so short pages fill the viewport — lets pages pin
                   bottom content (e.g. Integrations "Explore") to the bottom
                   without leaving a scroll. */}
-              <div className="flex w-full min-w-0 flex-1 flex-col px-8 pb-8">
+              <div className="veritrail-app-content flex w-full min-w-0 flex-1 flex-col px-8 pb-8">
                 <Outlet />
               </div>
             </HeaderSlotContext.Provider>

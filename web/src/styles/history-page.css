@@ -272,8 +272,8 @@
 .account-filter__provider-logo {
   display: block;
   flex-shrink: 0;
-  width: 1.75rem;
-  height: 1.125rem;
+  width: 2.375rem;
+  height: 1.625rem;
   object-fit: contain;
   object-position: left center;
 }
@@ -288,7 +288,7 @@
   padding: 0.3125rem 0.625rem 0.3125rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid #e4e4e7;
-  background: #f4f4f5;
+  background: #ffffff;
   box-shadow: none;
   cursor: pointer;
   font: inherit;
@@ -301,7 +301,7 @@
 
 .account-filter__trigger:hover {
   border-color: #d4d4d8;
-  background: #ececee;
+  background: #fafafa;
 }
 
 .account-filter__trigger:focus-visible {
@@ -313,7 +313,7 @@
 .account-filter__trigger[aria-expanded="true"],
 .account-filter__trigger--open {
   border-color: #d4d4d8;
-  background: #ececee;
+  background: #fafafa;
 }
 
 .account-filter__icon-box,
