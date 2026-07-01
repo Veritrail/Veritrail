@@ -30,12 +30,14 @@ export default function HelpMenu() {
         aria-label="Help"
         aria-expanded={open}
       >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+          <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" />
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"
+            d="M9.5 9.25a2.5 2.5 0 1 1 3.5 2.29c-.73.32-1.25.99-1.25 1.79v.42"
           />
+          <path strokeLinecap="round" d="M12 17h.01" />
         </svg>
       </button>
 

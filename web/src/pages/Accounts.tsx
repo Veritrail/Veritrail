@@ -52,6 +52,7 @@ import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useTriggeredCloudScan, type ScanRunLatest } from "../hooks/useTriggeredCloudScan";
 import { IconShield } from "../components/IntegrationsUi";
+import { SeverityIndicator } from "../components/SeverityIndicator";
 import { isAccountConnected } from "../lib/accountConnection";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import {
@@ -62,6 +63,7 @@ import {
 import { checkLabels } from "../data/checkLabels";
 import { findingDisplayGroupKey, findingGroupMeta } from "../data/findingGroups";
 import "../styles/accounts-page.css";
+import "../styles/findings-v2.css";
 
 type ConnectionOptions = {
   enable_advanced_policy_generation: boolean;
@@ -743,6 +745,153 @@ function matchesCloudAccountStatusFilter(cloud: CloudAccountRow, filter: string)
   if (filter === "setup") return !connected;
   if (filter === "action") return connected && cloud.status === "error";
   return true;
+}
+
+type AccountsToolbarProps = {
+  search: string;
+  onSearchChange: (value: string) => void;
+  providerFilter: string;
+  onProviderFilterChange: (value: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (value: string) => void;
+  onAddAccount: () => void;
+  addDisabled: boolean;
+  addTitle?: string;
+  adding: boolean;
+};
+
+const ACCOUNTS_FILTER_ACTIVE = (providerFilter: string, statusFilter: string) =>
+  providerFilter !== "all" || statusFilter !== "all";
+
+/** Search input, an anchored filter popover, and the add-account button —
+    right-aligned so the toolbar isn't all bunched against the search box. */
+function AccountsToolbar({
+  search,
+  onSearchChange,
+  providerFilter,
+  onProviderFilterChange,
+  statusFilter,
+  onStatusFilterChange,
+  onAddAccount,
+  addDisabled,
+  addTitle,
+  adding,
+}: AccountsToolbarProps) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const filterActive = ACCOUNTS_FILTER_ACTIVE(providerFilter, statusFilter);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || popoverRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="accounts-toolbar">
+      <div className="accounts-toolbar__start">
+        <label className="accounts-toolbar__search">
+          <span className="sr-only">Search accounts</span>
+          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
+          </svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search by account name, ID, or provider…"
+          />
+        </label>
+      </div>
+      <div className="accounts-toolbar__end">
+        <div className="accounts-toolbar__filter-wrap">
+          <button
+            ref={btnRef}
+            type="button"
+            className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${filterActive ? " has-filters" : ""}`}
+            aria-label="Filter accounts"
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
+            </svg>
+            {filterActive && <span className="accounts-toolbar__filter-dot" aria-hidden />}
+          </button>
+          {open && (
+            <div ref={popoverRef} className="accounts-toolbar__filter-popover" role="dialog" aria-label="Filter accounts">
+              <div className="accounts-toolbar__filter-field">
+                <span className="accounts-toolbar__filter-label">Provider</span>
+                <Select
+                  className="accounts-toolbar__select"
+                  value={providerFilter}
+                  onChange={onProviderFilterChange}
+                  options={[
+                    { value: "all", label: "All providers" },
+                    { value: "aws", label: "AWS" },
+                    { value: "gcp", label: "Google Cloud" },
+                    { value: "azure", label: "Microsoft Azure" },
+                  ]}
+                />
+              </div>
+              <div className="accounts-toolbar__filter-field">
+                <span className="accounts-toolbar__filter-label">Status</span>
+                <Select
+                  className="accounts-toolbar__select"
+                  value={statusFilter}
+                  onChange={onStatusFilterChange}
+                  options={[
+                    { value: "all", label: "All statuses" },
+                    { value: "connected", label: "Connected" },
+                    { value: "setup", label: "Setup required" },
+                    { value: "action", label: "Action required" },
+                  ]}
+                />
+              </div>
+              {filterActive && (
+                <button
+                  type="button"
+                  className="accounts-toolbar__filter-clear"
+                  onClick={() => {
+                    onProviderFilterChange("all");
+                    onStatusFilterChange("all");
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onAddAccount}
+          disabled={addDisabled}
+          title={addTitle}
+          className="accounts-toolbar__add"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          {adding ? "Adding…" : "Add account"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function matchesCloudAccountSearch(cloud: CloudAccountRow, query: string): boolean {
@@ -2582,24 +2731,6 @@ const ONBOARDING_ROLE_PERMISSIONS: Record<(typeof ONBOARDING_CAPS)[number]["id"]
   ],
 };
 
-const ONBOARDING_VALUE_PROPS = [
-  {
-    title: "Least privilege by design",
-    blurb: "Each capability maps to a dedicated IAM role with scoped permissions.",
-    icon: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z",
-  },
-  {
-    title: "Full transparency",
-    blurb: "Review every permission before you deploy the CloudFormation stack.",
-    icon: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
-  },
-  {
-    title: "Secure by default",
-    blurb: "Core scanning stays read-only. Write access is optional and scoped.",
-    icon: "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z",
-  },
-] as const;
-
 function onboardingCapIsOn(value: ConnectionOptions, id: (typeof ONBOARDING_CAPS)[number]["id"]) {
   const ssmOn = anyRemediationEnabled(value.remediation_modules);
   return id === "core" ? true : id === "iam" ? value.enable_advanced_policy_generation : ssmOn;
@@ -2880,26 +3011,6 @@ function OnboardingCapabilityCards({
   );
 }
 
-function OnboardingValueProps() {
-  return (
-    <div className="accounts-connect-value-props">
-      {ONBOARDING_VALUE_PROPS.map((item) => (
-        <div key={item.title} className="accounts-connect-value-props__item">
-          <span className="accounts-connect-value-props__icon" aria-hidden>
-            <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-            </svg>
-          </span>
-          <div>
-            <p className="accounts-connect-value-props__title">{item.title}</p>
-            <p className="accounts-connect-value-props__blurb">{item.blurb}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function useOnboardingEscapeDismiss(onDismiss: (() => void) | undefined) {
   useEffect(() => {
     if (!onDismiss) return;
@@ -2921,28 +3032,14 @@ function containCodeBlockWheel(event: WheelEvent<HTMLElement>) {
 function ConnectShellHeader({
   title,
   subtitle,
-  onDismiss,
   className,
 }: {
   title: string;
   subtitle: string;
-  onDismiss?: () => void;
   className?: string;
 }) {
   return (
     <div className={`accounts-connect-shell__header${className ? ` ${className}` : ""}`}>
-      {onDismiss ? (
-        <button
-          type="button"
-          className="accounts-connect-shell__close"
-          onClick={onDismiss}
-          aria-label="Close setup"
-        >
-          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      ) : null}
       <h2 className="accounts-connect-shell__title">{title}</h2>
       <p className="accounts-connect-shell__subtitle">{subtitle}</p>
     </div>
@@ -3018,11 +3115,9 @@ function FirstAccountOnboarding({
           <ConnectShellHeader
             title="Connect a cloud account"
             subtitle="Choose the capabilities to enable for this connection."
-            onDismiss={onDismiss}
           />
 
           <OnboardingCapabilityCards value={value} onChange={onChange} disabled={disabled} />
-          <OnboardingValueProps />
 
           <div className="accounts-connect-shell__footer">
             <div className="accounts-connect-shell__footer-stats">
@@ -3238,7 +3333,13 @@ function OnboardingDeployPanel({
         <div className="accounts-deploy-tabs">
           {(["console", "cli", "terraform"] as DeployTab[]).map((t) => (
             <button key={t} type="button" className={tab === t ? "is-active" : ""} onClick={() => selectTab(t)}>
-              <img src={DEPLOY_METHOD_ICON[t]} alt="" aria-hidden decoding="async" />
+              <img
+                src={DEPLOY_METHOD_ICON[t]}
+                alt=""
+                aria-hidden
+                decoding="async"
+                className={`accounts-deploy-tabs__icon accounts-deploy-tabs__icon--${t}`}
+              />
               {t === "console" ? "Console" : t === "cli" ? "CLI" : "Terraform"}
             </button>
           ))}
@@ -3331,8 +3432,13 @@ type ConnectValidateItemState = "pending" | "running" | "success" | "error";
 function connectValidateItemState(
   index: number,
   verify: { isPending: boolean; isSuccess: boolean; isError: boolean },
+  activeIndex = 0,
 ): ConnectValidateItemState {
-  if (verify.isPending) return "running";
+  if (verify.isPending) {
+    if (index < activeIndex) return "success";
+    if (index === activeIndex) return "running";
+    return "pending";
+  }
   if (verify.isSuccess) return "success";
   if (verify.isError) return index === 0 ? "error" : "pending";
   return "pending";
@@ -3363,6 +3469,8 @@ function PendingAccountOnboarding({
 }) {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(initialStep === 3 ? 3 : 2);
   const [deployTab, setDeployTab] = useState<DeployTab>("console");
+  const [verifyActiveIndex, setVerifyActiveIndex] = useState(0);
+  const [showVerifySuccess, setShowVerifySuccess] = useState(false);
   const roleArnValid = isValidIamRoleArn(roleArn);
   const roleArnValidation = roleArnFieldValidation(roleArn, verify);
 
@@ -3370,28 +3478,46 @@ function PendingAccountOnboarding({
     setActiveStep(initialStep === 3 ? 3 : 2);
   }, [initialStep, acc.id]);
 
+  useEffect(() => {
+    if (!verify.isPending) return;
+    setShowVerifySuccess(false);
+    setVerifyActiveIndex(0);
+    const timers = [
+      window.setTimeout(() => setVerifyActiveIndex(1), 650),
+      window.setTimeout(() => setVerifyActiveIndex(2), 1350),
+    ];
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [verify.isPending]);
+
+  useEffect(() => {
+    if (verify.isSuccess) {
+      setVerifyActiveIndex(CONNECT_VALIDATE_ITEMS.length);
+      const timer = window.setTimeout(() => setShowVerifySuccess(true), 550);
+      return () => window.clearTimeout(timer);
+    }
+    if (verify.isError) {
+      setShowVerifySuccess(false);
+      setVerifyActiveIndex(0);
+    }
+    return undefined;
+  }, [verify.isSuccess, verify.isError]);
+
   return (
     <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}${activeStep === 2 || activeStep === 3 ? " accounts-connect-shell--deploy-review" : ""}`}>
-      {verify.isSuccess && (
+      {showVerifySuccess && (
         <div
-          className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-gradient-to-b from-emerald-50 via-emerald-50/95 to-white px-8 text-center"
+          className="accounts-connect-success"
           role="status"
           aria-live="polite"
         >
-          <div className="relative mb-6 flex h-24 w-24 items-center justify-center">
-            <span
-              className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping"
-              style={{ animationDuration: "1.4s" }}
-              aria-hidden
-            />
-            <span className="relative flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/35 ring-4 ring-emerald-100">
-              <svg className="h-11 w-11" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
+          <div className="accounts-connect-success__icon" aria-hidden>
+            <span />
+            <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-          <p className="text-2xl font-bold tracking-tight text-emerald-950">Connected</p>
-          <p className="mt-2 text-sm leading-relaxed text-emerald-900/75">Account verified and connected to Veritrail.</p>
+          <p className="accounts-connect-success__title">Connected</p>
+          <p className="accounts-connect-success__copy">Initial scan started. Closing setup...</p>
         </div>
       )}
       <div className="accounts-connect-shell__progress" aria-label="Setup progress">
@@ -3411,7 +3537,6 @@ function PendingAccountOnboarding({
               <ConnectShellHeader
                 title="Review the access you're granting"
                 subtitle="These are the IAM roles the connector will create in your account."
-                onDismiss={onDismiss}
                 className="accounts-connect-shell__header--verify"
               />
 
@@ -3428,12 +3553,19 @@ function PendingAccountOnboarding({
                   </svg>
                   Back to capabilities
                 </button>
-                <button type="button" onClick={() => setActiveStep(3)} className="accounts-connect-shell__cta">
-                  Continue
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </button>
+                <div className="accounts-connect-shell__footer-cta">
+                  {onDismiss ? (
+                    <button type="button" onClick={onDismiss} className="accounts-connect-shell__cancel">
+                      Cancel
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={() => setActiveStep(3)} className="accounts-connect-shell__cta">
+                    Continue
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -3441,7 +3573,6 @@ function PendingAccountOnboarding({
               <ConnectShellHeader
                 title="Deploy & connect"
                 subtitle="Deploy the AWS connector, paste the RoleArn output, and Veritrail will verify the trust relationship before saving the account."
-                onDismiss={onDismiss}
                 className="accounts-connect-shell__header--verify"
               />
 
@@ -3469,11 +3600,6 @@ function PendingAccountOnboarding({
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">2</span>
                     <h3 className="accounts-connect-col__title">Confirm trust role</h3>
-                    {roleArnValid ? (
-                      <span className="accounts-connect-col__pill accounts-connect-col__pill--ready">
-                        Ready to verify
-                      </span>
-                    ) : null}
                   </header>
                   <p className="accounts-connect-col__lede">
                     Use the External ID in your deployment, then paste the RoleArn from the stack output.
@@ -3513,21 +3639,17 @@ function PendingAccountOnboarding({
                   <header className="accounts-connect-col__head">
                     <span className="accounts-connect-col__num">3</span>
                     <h3 className="accounts-connect-col__title">Verify access</h3>
-                    {verify.isSuccess || verify.isPending || roleArnValid ? (
+                    {verify.isSuccess || verify.isPending ? (
                       <span
                         className={`accounts-connect-col__pill${
                           verify.isSuccess
                             ? " accounts-connect-col__pill--verified"
                             : verify.isPending
                               ? " accounts-connect-col__pill--testing"
-                              : " accounts-connect-col__pill--ready"
+                              : ""
                         }`}
                       >
-                        {verify.isSuccess
-                          ? "Verified"
-                          : verify.isPending
-                            ? "Testing..."
-                            : "Ready to test"}
+                        {verify.isSuccess ? "Verified" : "Testing..."}
                       </span>
                     ) : null}
                   </header>
@@ -3536,7 +3658,7 @@ function PendingAccountOnboarding({
                   </p>
                   <ul className="accounts-validate accounts-validate--timeline">
                     {CONNECT_VALIDATE_ITEMS.map((item, index) => {
-                      const state = connectValidateItemState(index, verify);
+                      const state = connectValidateItemState(index, verify, verifyActiveIndex);
                       return (
                         <li
                           key={item.title}
@@ -3576,18 +3698,30 @@ function PendingAccountOnboarding({
                   </svg>
                   Back to review access
                 </button>
-                <button
-                  type="button"
-                  onClick={onVerifyConnection}
-                  disabled={verify.isPending || !roleArnValid}
-                  className="accounts-connect-shell__cta"
-                >
-                  {verify.isPending
-                    ? "Testing connection..."
-                    : roleArnValid
-                      ? "Test and connect →"
-                      : "Paste RoleArn to continue"}
-                </button>
+                <div className="accounts-connect-shell__footer-cta">
+                  {onDismiss ? (
+                    <button
+                      type="button"
+                      onClick={onDismiss}
+                      disabled={verify.isPending}
+                      className="accounts-connect-shell__cancel"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={onVerifyConnection}
+                    disabled={verify.isPending || !roleArnValid}
+                    className="accounts-connect-shell__cta"
+                  >
+                    {verify.isPending
+                      ? "Testing connection..."
+                      : roleArnValid
+                        ? "Test and connect →"
+                        : "Paste RoleArn to continue"}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -5347,6 +5481,22 @@ function findingGroupTitle(groupKey: string, items: Finding[]): string {
   );
 }
 
+function riskScorePillTone(severity: string): string {
+  return severity === "critical" || severity === "high"
+    ? "findings-v2-risk-pill--high"
+    : severity === "medium"
+      ? "findings-v2-risk-pill--medium"
+      : "findings-v2-risk-pill--low";
+}
+
+function RiskScorePill({ score, severity }: { score: number; severity: string }) {
+  return (
+    <span aria-label={`Risk score ${score}`} className={`findings-v2-risk-pill ${riskScorePillTone(severity)}`}>
+      <span className="findings-v2-risk-pill__inner">{score}</span>
+    </span>
+  );
+}
+
 function AccountDetailFindingsTab({
   accountId,
   hasScanned,
@@ -5392,16 +5542,15 @@ function AccountDetailFindingsTab({
   return (
     <div className="accounts-detail-findings">
       <div className="accounts-detail-findings__head">
-        <div>
-          <h3 className="accounts-detail-findings__title">Open findings</h3>
-          <p className="accounts-detail-findings__meta">
-            {openCount.toLocaleString()} total · {groups.length.toLocaleString()} check
-            {groups.length === 1 ? "" : "s"}
-          </p>
+        <div
+          className="findings-v2-col-head accounts-detail-findings__col-head"
+          role="row"
+          aria-label="Findings columns"
+        >
+          <span>Severity</span>
+          <span>Finding</span>
+          <span className="accounts-detail-findings__col-head-risk">Risk</span>
         </div>
-        <button type="button" className="accounts-detail-findings__workspace-link" onClick={onOpenWorkspace}>
-          View all
-        </button>
       </div>
       <div className="accounts-detail-findings__list">
         {previewGroups.map(({ key, items }) => {
@@ -5420,8 +5569,8 @@ function AccountDetailFindingsTab({
               className={`accounts-detail-finding-row ${railClass}`}
               onClick={() => onOpenGroup(key)}
             >
-              <span className={`accounts-detail-finding-row__severity accounts-detail-finding-row__severity--${sev}`}>
-                {sev === "critical" ? "Critical" : sev === "high" ? "High" : sev === "medium" ? "Medium" : "Low"}
+              <span className="accounts-detail-finding-row__severity-cell">
+                <SeverityIndicator severity={sev} />
               </span>
               <span className="accounts-detail-finding-row__main">
                 <span className="accounts-detail-finding-row__title">{title}</span>
@@ -5431,9 +5580,7 @@ function AccountDetailFindingsTab({
                   </span>
                 ) : null}
               </span>
-              <span className={`accounts-detail-finding-row__score accounts-detail-finding-row__score--${sev}`}>
-                {topRisk}
-              </span>
+              <RiskScorePill score={topRisk} severity={sev} />
             </button>
           );
         })}
@@ -7307,8 +7454,8 @@ function PendingAccountSetupSurface({
       qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
       setRoleArn("");
       if (isAccountConnected(updated)) {
-        // Hold the success overlay briefly so it's seen, then close the modal.
-        window.setTimeout(() => onCompleteSetup?.(), 1600);
+        // Hold the final check state and success overlay briefly, then close the modal.
+        window.setTimeout(() => onCompleteSetup?.(), 2800);
       }
     },
     onError: () => {
@@ -7382,7 +7529,6 @@ export default function Accounts() {
   const [accountSearch, setAccountSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
   const [pendingConnectionOptions, setPendingConnectionOptions] = useState<ConnectionOptions>(
     defaultOnboardingConnectionOptions,
   );
@@ -7759,80 +7905,27 @@ export default function Accounts() {
           {filteredRows.length === 0 ? (
             <div className="accounts-list-shell">
               <div className="accounts-list-shell__header">
-                <div className="accounts-toolbar">
-                  <div className="accounts-toolbar__start">
-                    <label className="accounts-toolbar__search">
-                      <span className="sr-only">Search accounts</span>
-                      <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
-                      </svg>
-                      <input
-                        type="search"
-                        value={accountSearch}
-                        onChange={(e) => {
-                          setAccountSearch(e.target.value);
-                          setPage(1);
-                        }}
-                        placeholder="Search by account name, ID, or provider…"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
-                      aria-label="Filter accounts"
-                      aria-expanded={showFilters}
-                      onClick={() => setShowFilters((v) => !v)}
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddAccountClick}
-                      disabled={create.isPending || atPlanCap || addingAwsAccount}
-                      title={atPlanCap ? planCapMsg : undefined}
-                      className="accounts-toolbar__add"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                      </svg>
-                      {create.isPending ? "Adding…" : "Add account"}
-                    </button>
-                  </div>
-                </div>
-                {showFilters ? (
-                  <div className="accounts-toolbar__filters">
-                    <Select
-                      className="accounts-toolbar__select"
-                      value={providerFilter}
-                      onChange={(v) => {
-                        setProviderFilter(v);
-                        setPage(1);
-                      }}
-                      options={[
-                        { value: "all", label: "All providers" },
-                        { value: "aws", label: "AWS" },
-                        { value: "gcp", label: "Google Cloud" },
-                        { value: "azure", label: "Microsoft Azure" },
-                      ]}
-                    />
-                    <Select
-                      className="accounts-toolbar__select"
-                      value={statusFilter}
-                      onChange={(v) => {
-                        setStatusFilter(v);
-                        setPage(1);
-                      }}
-                      options={[
-                        { value: "all", label: "All statuses" },
-                        { value: "connected", label: "Connected" },
-                        { value: "setup", label: "Setup required" },
-                        { value: "action", label: "Action required" },
-                      ]}
-                    />
-                  </div>
-                ) : null}
+                <AccountsToolbar
+                  search={accountSearch}
+                  onSearchChange={(v) => {
+                    setAccountSearch(v);
+                    setPage(1);
+                  }}
+                  providerFilter={providerFilter}
+                  onProviderFilterChange={(v) => {
+                    setProviderFilter(v);
+                    setPage(1);
+                  }}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={(v) => {
+                    setStatusFilter(v);
+                    setPage(1);
+                  }}
+                  onAddAccount={handleAddAccountClick}
+                  addDisabled={create.isPending || atPlanCap || addingAwsAccount}
+                  addTitle={atPlanCap ? planCapMsg : undefined}
+                  adding={create.isPending}
+                />
               </div>
               <p className="accounts-list-empty">No accounts match your filters</p>
             </div>
@@ -7841,80 +7934,27 @@ export default function Accounts() {
               <div className="accounts-split__list">
                 <div className="accounts-list-shell">
                   <div className="accounts-list-shell__header">
-                    <div className="accounts-toolbar">
-                      <div className="accounts-toolbar__start">
-                        <label className="accounts-toolbar__search">
-                          <span className="sr-only">Search accounts</span>
-                          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
-                          </svg>
-                          <input
-                            type="search"
-                            value={accountSearch}
-                            onChange={(e) => {
-                              setAccountSearch(e.target.value);
-                              setPage(1);
-                            }}
-                            placeholder="Search by account name, ID, or provider…"
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className={`accounts-toolbar__icon-btn accounts-toolbar__filter-btn${showFilters ? " is-active" : ""}`}
-                          aria-label="Filter accounts"
-                          aria-expanded={showFilters}
-                          onClick={() => setShowFilters((v) => !v)}
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5l-6.25 7.2v5.05l-4 1.75v-6.8l-6.25-7.2Z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleAddAccountClick}
-                          disabled={create.isPending || atPlanCap || addingAwsAccount}
-                          title={atPlanCap ? planCapMsg : undefined}
-                          className="accounts-toolbar__add"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                          </svg>
-                          {create.isPending ? "Adding…" : "Add account"}
-                        </button>
-                      </div>
-                    </div>
-                    {showFilters ? (
-                      <div className="accounts-toolbar__filters">
-                        <Select
-                          className="accounts-toolbar__select"
-                          value={providerFilter}
-                          onChange={(v) => {
-                            setProviderFilter(v);
-                            setPage(1);
-                          }}
-                          options={[
-                            { value: "all", label: "All providers" },
-                            { value: "aws", label: "AWS" },
-                            { value: "gcp", label: "Google Cloud" },
-                            { value: "azure", label: "Microsoft Azure" },
-                          ]}
-                        />
-                        <Select
-                          className="accounts-toolbar__select"
-                          value={statusFilter}
-                          onChange={(v) => {
-                            setStatusFilter(v);
-                            setPage(1);
-                          }}
-                          options={[
-                            { value: "all", label: "All statuses" },
-                            { value: "connected", label: "Connected" },
-                            { value: "setup", label: "Setup required" },
-                            { value: "action", label: "Action required" },
-                          ]}
-                        />
-                      </div>
-                    ) : null}
+                    <AccountsToolbar
+                      search={accountSearch}
+                      onSearchChange={(v) => {
+                        setAccountSearch(v);
+                        setPage(1);
+                      }}
+                      providerFilter={providerFilter}
+                      onProviderFilterChange={(v) => {
+                        setProviderFilter(v);
+                        setPage(1);
+                      }}
+                      statusFilter={statusFilter}
+                      onStatusFilterChange={(v) => {
+                        setStatusFilter(v);
+                        setPage(1);
+                      }}
+                      onAddAccount={handleAddAccountClick}
+                      addDisabled={create.isPending || atPlanCap || addingAwsAccount}
+                      addTitle={atPlanCap ? planCapMsg : undefined}
+                      adding={create.isPending}
+                    />
                   </div>
                   <div className="accounts-list-table-scroll">
                     <div className="accounts-list-head" aria-hidden>
