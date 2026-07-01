@@ -479,6 +479,12 @@
   overflow: hidden;
 }
 
+.control-detail-stack--composite .compliance-category-detail__checks-cols,
+.control-detail-stack--composite .compliance-category-detail__checks-row {
+  grid-template-columns: 1.25rem minmax(0, 1fr) 4.5rem minmax(7.5rem, 1fr);
+  column-gap: 1rem;
+}
+
 .control-detail-stack--composite .compliance-category-detail__checks-cols {
   position: sticky;
   top: 0;
@@ -498,8 +504,7 @@
   overflow-y: auto;
 }
 
-.control-detail-stack--composite .compliance-category-detail__checks-cols span:nth-child(4) {
-  text-align: left;
+.control-detail-stack--composite .compliance-category-detail__checks-cols span:nth-child(3) {
   padding-right: 1rem;
 }
 
@@ -522,13 +527,13 @@
 .control-detail-stack--composite .compliance-category-detail__checks-count {
   font-size: 0.8125rem;
   font-weight: 700;
+  padding-right: 1rem;
 }
 
 .control-detail-stack--composite .compliance-category-detail__severity {
-  justify-content: flex-start;
+  justify-content: flex-end;
   font-weight: 500;
   color: #71717a;
-  padding-right: 1rem;
 }
 
 .control-detail-stack--composite .compliance-category-detail__severity--high,
