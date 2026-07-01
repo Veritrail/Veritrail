@@ -24,15 +24,15 @@ VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}"
 export VAULT_ADDR
 
 VAULT_PKI_PATH="${VAULT_PKI_PATH:-pki}"
-VAULT_PKI_ROLE="${VAULT_PKI_ROLE:-veritrail-hetzner}"
-CA_CN="${CA_CN:-Veritrail Hetzner Roles Anywhere Root CA}"
-CERT_CN="${CERT_CN:-veritrail-hetzner-control-plane}"
+VAULT_PKI_ROLE="${VAULT_PKI_ROLE:-veritrail-control-plane}"
+CA_CN="${CA_CN:-Veritrail Control Plane Roles Anywhere Root CA}"
+CERT_CN="${CERT_CN:-veritrail-control-plane}"
 CERT_DOMAIN="${CERT_DOMAIN:-veritrail.internal}"
 CERT_TTL="${CERT_TTL:-720h}"
 
-RA_TRUST_ANCHOR_NAME="${RA_TRUST_ANCHOR_NAME:-veritrail-hetzner-vault-ca}"
-RA_PROFILE_NAME="${RA_PROFILE_NAME:-veritrail-hetzner-profile}"
-RA_ROLE_NAME="${RA_ROLE_NAME:-VeritrailHetznerControlPlaneRole}"
+RA_TRUST_ANCHOR_NAME="${RA_TRUST_ANCHOR_NAME:-veritrail-control-plane-ca}"
+RA_PROFILE_NAME="${RA_PROFILE_NAME:-veritrail-control-plane-profile}"
+RA_ROLE_NAME="${RA_ROLE_NAME:-VeritrailControlPlaneRole}"
 RA_SESSION_DURATION="${RA_SESSION_DURATION:-3600}"
 ASSUMABLE_ROLE_RESOURCE="${ASSUMABLE_ROLE_RESOURCE:-*}"
 
@@ -65,7 +65,7 @@ Important env vars:
   AWS_ACCOUNT_ID             Optional. Auto-detected with aws sts get-caller-identity.
   ENV_FILE                   Default: .env
   AWS_PROFILE_NAME           Default: veritrail-ra
-  RA_ROLE_NAME               Default: VeritrailHetznerControlPlaneRole
+  RA_ROLE_NAME               Default: VeritrailControlPlaneRole
   ASSUMABLE_ROLE_RESOURCE    Default: *  Tighten in production.
   CERT_TTL                   Default: 720h
 
@@ -483,7 +483,7 @@ print_done() {
   cat <<EOF
 
 ================================================================================
-Hetzner/Vault/IAM Roles Anywhere bootstrap complete.
+External VPS/Vault/IAM Roles Anywhere bootstrap complete.
 
 Installed:
   Docker Engine + Docker Compose plugin
