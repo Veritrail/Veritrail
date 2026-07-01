@@ -1569,20 +1569,18 @@ function TopFailingChecksSeverityTable({
   checkIds,
   findingCountByCheck,
   severityByCheck,
-  max = 5,
 }: {
   checkIds: string[];
   findingCountByCheck: Map<string, number>;
   severityByCheck: Map<string, string>;
-  max?: number;
 }) {
   const navigate = useNavigate();
-  const top = useMemo(
-    () => sortedTopFailingChecks(checkIds, findingCountByCheck, max),
-    [checkIds, findingCountByCheck, max],
+  const failing = useMemo(
+    () => sortedTopFailingChecks(checkIds, findingCountByCheck, checkIds.length),
+    [checkIds, findingCountByCheck],
   );
 
-  if (top.length === 0) {
+  if (failing.length === 0) {
     return (
       <p className="compliance-category-detail__empty-checks">
         No open findings on mapped checks.
@@ -1598,8 +1596,9 @@ function TopFailingChecksSeverityTable({
         <span>Findings</span>
         <span>Severity</span>
       </div>
-      <ul className="compliance-category-detail__checks-table">
-        {top.map((checkId, index) => {
+      <div className="compliance-category-detail__checks-scroll">
+        <ul className="compliance-category-detail__checks-table">
+          {failing.map((checkId, index) => {
           const count = findingCountByCheck.get(checkId) ?? 0;
           const severity = severityByCheck.get(checkId) ?? "low";
           const severityLabel = severityDisplayLabel(severity);
@@ -1630,8 +1629,9 @@ function TopFailingChecksSeverityTable({
               </button>
             </li>
           );
-        })}
-      </ul>
+          })}
+        </ul>
+      </div>
     </div>
   );
 }

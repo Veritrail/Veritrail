@@ -542,9 +542,13 @@
   border: 1px solid #e8eaee;
   border-radius: 0.625rem;
   background: #fff;
+  overflow: hidden;
 }
 
 .control-detail-stack--composite .compliance-category-detail__checks-cols {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   min-height: 2.5rem;
   padding: 0.65rem 1.15rem;
   border-bottom: 1px solid #eef0f3;
@@ -553,6 +557,11 @@
   font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.08em;
+}
+
+.control-detail-stack--composite .compliance-category-detail__checks-scroll {
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .control-detail-stack--composite .compliance-category-detail__checks-cols span:nth-child(4) {
