@@ -2164,9 +2164,14 @@ function CrossAccountCoverageControl({
             rows={2}
           />
         </label>
-        <label className="control-resolve-path__panel-expiry">
+        <label className="control-resolve-path__panel-field">
           <span className="control-resolve-path__panel-label">Attestation expiry (optional)</span>
-          <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
+          <input
+            className="control-resolve-path__panel-input"
+            type="date"
+            value={expires}
+            onChange={(e) => setExpires(e.target.value)}
+          />
         </label>
         {error ? <p className="control-resolve-path__panel-error">{error}</p> : null}
         <div className="control-resolve-path__panel-actions">
@@ -2224,8 +2229,13 @@ function CrossAccountCoverageControl({
         rows={2}
       />
       <label className="compliance-category-detail__account-expiry">
-        Attestation expiry (optional)
-        <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
+        <span className="compliance-category-detail__account-expiry-label">Attestation expiry (optional)</span>
+        <input
+          className="compliance-category-detail__account-input"
+          type="date"
+          value={expires}
+          onChange={(e) => setExpires(e.target.value)}
+        />
       </label>
       {error ? <p className="compliance-category-detail__scope-error">{error}</p> : null}
       <div className="compliance-category-detail__scope-actions">
