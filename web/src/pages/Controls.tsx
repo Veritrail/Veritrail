@@ -2506,10 +2506,18 @@ function ControlGuidanceFooter({
                 <ul className="control-detail-guidance-mappings">
                   {mappingChips.map((g) => (
                     <li key={g.fw}>
-                      <span className="control-detail-guidance-mappings__fw">
-                        {frameworkLabel(g.fw)}
+                      <span className="control-detail-guidance-mappings__label">
+                        <FrameworkMark
+                          framework={g.fw}
+                          className="control-detail-guidance-mappings__icon"
+                        />
+                        <span className="control-detail-guidance-mappings__fw">
+                          {frameworkLabel(g.fw)}
+                        </span>
                       </span>
-                      {g.ids.join(", ")}
+                      <span className="control-detail-guidance-mappings__ids">
+                        {g.ids.join(", ")}
+                      </span>
                     </li>
                   ))}
                 </ul>

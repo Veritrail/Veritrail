@@ -433,17 +433,37 @@
 }
 
 .control-detail-guidance-mappings li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.25rem 0.5rem;
   font-size: 0.75rem;
   line-height: 1.45;
   color: #71717a;
 }
 
+.control-detail-guidance-mappings__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.control-detail-guidance-mappings__icon {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 .control-detail-guidance-mappings__fw {
-  display: inline-block;
-  min-width: 4.5rem;
-  margin-right: 0.35rem;
   font-weight: 650;
   color: #52525b;
+  white-space: nowrap;
+}
+
+.control-detail-guidance-mappings__ids {
+  min-width: 0;
+  flex: 1 1 8rem;
 }
 
 /* ---------------------------------------------------------------------- */
