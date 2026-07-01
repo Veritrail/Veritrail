@@ -6,6 +6,7 @@ import { SourceControlManageConnected, type SourceControlManageConfig } from "..
 import { GitHubMark, Spinner } from "../components/IntegrationsUi";
 import { GITHUB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
+import "../styles/integration-setup.css";
 
 type GitHubProvider = {
   id: string;
@@ -137,20 +138,21 @@ export default function GitHubIntegration() {
             </Link>
             {" / "}Source control
           </p>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm shadow-zinc-950/[0.04]">
+          <div className="integration-setup__card p-8">
             <div className="flex flex-wrap items-start gap-5">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-950 text-white">
                 <GitHubMark className="h-8 w-8" />
               </span>
               <div className="flex-1">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-950">GitHub evidence source</h1>
-                <p className="mt-2 max-w-xl text-sm text-zinc-500">
+                <h1 className="integration-setup__title">GitHub evidence source</h1>
+                <p className="integration-setup__subtitle">
                   Authorize read-only access to collect identity, branch protection, and pull request evidence for SOC 2 change-management controls.
                 </p>
                 <button
+                  type="button"
                   onClick={() => connect.mutate()}
                   disabled={connect.isPending}
-                  className="mt-5 rounded-lg bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+                  className="integration-setup__btn integration-setup__btn--primary mt-5"
                 >
                   {connect.isPending ? "Connecting…" : "Connect GitHub"}
                 </button>

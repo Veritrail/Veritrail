@@ -6,6 +6,7 @@ import { SourceControlManageConnected, type SourceControlManageConfig } from "..
 import { GitLabMark, Spinner } from "../components/IntegrationsUi";
 import { GITLAB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
+import "../styles/integration-setup.css";
 
 type GitLabProvider = {
   id: string;
@@ -179,14 +180,14 @@ export default function GitLabIntegration() {
             </Link>
             {" / "}Source control
           </p>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm shadow-zinc-950/[0.04]">
+          <div className="integration-setup__card p-8">
             <div className="flex flex-wrap items-start gap-5">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e24329] text-white">
                 <GitLabMark className="h-8 w-8" />
               </span>
               <div className="flex-1">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-950">GitLab evidence source</h1>
-                <p className="mt-2 max-w-xl text-sm text-zinc-500">
+                <h1 className="integration-setup__title">GitLab evidence source</h1>
+                <p className="integration-setup__subtitle">
                   Authorize read-only access to collect identity, branch protection, and merge request evidence for SOC 2 change-management controls.
                 </p>
                 <div className="mt-5 flex max-w-sm items-center gap-3">
@@ -195,13 +196,14 @@ export default function GitLabIntegration() {
                     value={baseUrlInput}
                     onChange={(event) => setBaseUrlInput(event.target.value)}
                     placeholder="https://gitlab.com  (or self-hosted URL)"
-                    className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none placeholder:text-zinc-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                    className="integration-setup__input flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none placeholder:text-zinc-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                   />
                 </div>
                 <button
+                  type="button"
                   onClick={() => connect.mutate()}
                   disabled={connect.isPending}
-                  className="mt-3 rounded-lg bg-[#e24329] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#c93a22] disabled:opacity-60"
+                  className="integration-setup__btn integration-setup__btn--primary mt-3"
                 >
                   {connect.isPending ? "Connecting…" : "Connect GitLab"}
                 </button>
