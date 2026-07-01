@@ -78,7 +78,10 @@ Resources:
           - Effect: Allow
             Principal:
               AWS: !Ref VeritrailAccountPrincipal
-            Action: sts:AssumeRole
+            Action:
+              - sts:AssumeRole
+              - sts:SetSourceIdentity
+              - sts:TagSession
             Condition:
               StringEquals:
                 sts:ExternalId: !Ref ExternalId
@@ -360,7 +363,10 @@ Resources:
           - Effect: Allow
             Principal:
               AWS: !Ref VeritrailAccountPrincipal
-            Action: sts:AssumeRole
+            Action:
+              - sts:AssumeRole
+              - sts:SetSourceIdentity
+              - sts:TagSession
             Condition:
               StringEquals:
                 sts:ExternalId: !Ref ExternalId

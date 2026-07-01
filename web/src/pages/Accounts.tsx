@@ -59,6 +59,8 @@ import {
   SCANNER_ROLE_NAME,
   scannerRoleArnExample,
 } from "../lib/connectionPosture";
+import { checkLabels } from "../data/checkLabels";
+import { findingDisplayGroupKey, findingGroupMeta } from "../data/findingGroups";
 import "../styles/accounts-page.css";
 
 type ConnectionOptions = {
@@ -613,11 +615,17 @@ type Finding = {
   account_id?: string | null;
   account_label?: string | null;
   account_provider?: string | null;
+  check_id: string;
   resource_arn?: string | null;
+  title: string;
+  risk_score: number;
   evidence?: Record<string, unknown>;
   severity: string;
   status: string;
 };
+
+const DETAIL_FINDINGS_GROUP_LIMIT = 8;
+const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
 type CloudAccountRow = {
   provider: string;
@@ -2230,7 +2238,7 @@ function terraformForConnection(acc: Account, connectionOptions: ConnectionOptio
     ...(remediationSelected ? REMEDIATION_START_STATEMENTS : []),
   ];
   const roleBlocks = [
-    `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
+    `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole", "sts:SetSourceIdentity", "sts:TagSession"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
       PassAccessAnalyzerMonitorRole: "aws_iam_role.veritrail_core_scanner_role.arn",
       PassRemediationAutomationRole: "aws_iam_role.veritrail_remediation_automation_role.arn",
     })}\n}\n\nresource "aws_iam_role" "veritrail_core_scanner_role" {\n  name = var.veritrail_core_scanner_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_core_scanner_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_core_scanner_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_core_scanner_role" {\n  name   = "VeritrailScannerAccess"\n  role   = aws_iam_role.veritrail_core_scanner_role.id\n  policy = data.aws_iam_policy_document.veritrail_core_scanner_role_policy.json\n}`,
@@ -5278,6 +5286,169 @@ function MetricCardDelta({
   );
 }
 
+function filterOpenFindingsForAccount(
+  items: Finding[] | undefined,
+  accountId: string,
+  isAws: boolean,
+  cloud: CloudAccountRow | null,
+): Finding[] {
+  const open = (items ?? []).filter((f) => f.status === "open");
+  if (isAws) {
+    return open.filter((f) => f.account_id === accountId);
+  }
+  const externalId = cloud?.external_id ?? cloud?.id ?? accountId;
+  return open.filter((f) => {
+    if (f.account_provider !== cloud?.provider) return false;
+    if (f.account_id === externalId || f.account_id === accountId) return true;
+    if (f.account_label && cloud && f.account_label.toLowerCase() === cloud.label.toLowerCase()) return true;
+    const evidence = f.evidence ?? {};
+    if (typeof evidence.project_id === "string" && evidence.project_id === externalId) return true;
+    if (typeof evidence.subscription_id === "string" && evidence.subscription_id === externalId) return true;
+    return false;
+  });
+}
+
+function worstFindingSeverity(items: Finding[]): string {
+  return items.reduce(
+    (worst, f) => ((sevWeight[f.severity] ?? 9) < (sevWeight[worst] ?? 9) ? f.severity : worst),
+    items[0]?.severity ?? "low",
+  );
+}
+
+function uniqueFindingResourceCount(items: Finding[]): number {
+  return new Set(items.map((f) => f.resource_arn).filter(Boolean)).size;
+}
+
+function buildAccountFindingGroups(items: Finding[]): Array<{ key: string; items: Finding[] }> {
+  const map = new Map<string, Finding[]>();
+  for (const f of items) {
+    const key = findingDisplayGroupKey(f.check_id);
+    map.set(key, [...(map.get(key) ?? []), f]);
+  }
+  return [...map.entries()]
+    .sort(([, a], [, b]) => {
+      const wa = worstFindingSeverity(a);
+      const wb = worstFindingSeverity(b);
+      return (
+        (sevWeight[wa] ?? 9) - (sevWeight[wb] ?? 9) ||
+        Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score))
+      );
+    })
+    .map(([key, groupItems]) => ({ key, items: groupItems }));
+}
+
+function findingGroupTitle(groupKey: string, items: Finding[]): string {
+  return (
+    findingGroupMeta(groupKey)?.title ??
+    checkLabels[groupKey] ??
+    checkLabels[items[0]?.check_id ?? ""] ??
+    items[0]?.title ??
+    groupKey
+  );
+}
+
+function AccountDetailFindingsTab({
+  accountId,
+  hasScanned,
+  openCount,
+  findings,
+  onOpenWorkspace,
+  onOpenGroup,
+}: {
+  accountId: string;
+  hasScanned: boolean;
+  openCount: number;
+  findings: Finding[];
+  onOpenWorkspace: () => void;
+  onOpenGroup: (groupKey: string) => void;
+}) {
+  const groups = useMemo(() => buildAccountFindingGroups(findings), [findings]);
+  const previewGroups = groups.slice(0, DETAIL_FINDINGS_GROUP_LIMIT);
+  const hiddenGroupCount = Math.max(0, groups.length - previewGroups.length);
+
+  if (!hasScanned) {
+    return (
+      <div className="accounts-detail-findings accounts-detail-findings--empty">
+        <p className="accounts-detail-findings__empty-title">No findings yet</p>
+        <p className="accounts-detail-findings__empty-body">Run a scan to populate findings for this account.</p>
+      </div>
+    );
+  }
+
+  if (openCount === 0) {
+    return (
+      <div className="accounts-detail-findings accounts-detail-findings--empty">
+        <p className="accounts-detail-findings__empty-title">No open findings</p>
+        <p className="accounts-detail-findings__empty-body">
+          This account has a clean bill of health from the latest scan.
+        </p>
+        <button type="button" className="accounts-detail-findings__workspace-link" onClick={onOpenWorkspace}>
+          Open Findings workspace
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="accounts-detail-findings">
+      <div className="accounts-detail-findings__head">
+        <div>
+          <h3 className="accounts-detail-findings__title">Open findings</h3>
+          <p className="accounts-detail-findings__meta">
+            {openCount.toLocaleString()} total · {groups.length.toLocaleString()} check
+            {groups.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <button type="button" className="accounts-detail-findings__workspace-link" onClick={onOpenWorkspace}>
+          View all
+        </button>
+      </div>
+      <div className="accounts-detail-findings__list">
+        {previewGroups.map(({ key, items }) => {
+          const sev = worstFindingSeverity(items);
+          const railClass =
+            sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
+              ? `accounts-detail-finding-row--${sev}`
+              : "accounts-detail-finding-row--low";
+          const title = findingGroupTitle(key, items);
+          const resourceCount = uniqueFindingResourceCount(items);
+          const topRisk = Math.max(...items.map((f) => f.risk_score));
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`accounts-detail-finding-row ${railClass}`}
+              onClick={() => onOpenGroup(key)}
+            >
+              <span className={`accounts-detail-finding-row__severity accounts-detail-finding-row__severity--${sev}`}>
+                {sev === "critical" ? "Critical" : sev === "high" ? "High" : sev === "medium" ? "Medium" : "Low"}
+              </span>
+              <span className="accounts-detail-finding-row__main">
+                <span className="accounts-detail-finding-row__title">{title}</span>
+                {resourceCount > 0 ? (
+                  <span className="accounts-detail-finding-row__resources">
+                    · {resourceCount} {resourceCount === 1 ? "resource" : "resources"}
+                  </span>
+                ) : null}
+              </span>
+              <span className={`accounts-detail-finding-row__score accounts-detail-finding-row__score--${sev}`}>
+                {topRisk}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {hiddenGroupCount > 0 ? (
+        <div className="accounts-detail-recent-scans__footer">
+          <button type="button" onClick={onOpenWorkspace}>
+            View all in Findings workspace →
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function countAccountResources(
   items: Finding[] | undefined,
   accountKey: string,
@@ -5506,6 +5677,11 @@ function AccountSplitDetailPane({
   }, [findingsItems, accountId, cloud, isAws, cloudOverviewQ.data]);
 
   const displayStats = stats ?? EMPTY_FINDING_STATS;
+
+  const accountFindings = useMemo(
+    () => filterOpenFindingsForAccount(findingsItems, accountId, isAws, cloud),
+    [findingsItems, accountId, isAws, cloud],
+  );
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -6100,17 +6276,14 @@ function AccountSplitDetailPane({
         )}
 
         {tab === "findings" && (
-          <DetailTabStub
-            title={`${hasScanned ? stats?.open ?? 0 : 0} open findings`}
-            body="Review and remediate security findings for this account in the Findings workspace."
-            action={
-              <button
-                type="button"
-                className="accounts-detail-quick-actions__primary"
-                onClick={() => navigate(`/findings?account=${accountId}`)}
-              >
-                Open findings
-              </button>
+          <AccountDetailFindingsTab
+            accountId={accountId}
+            hasScanned={hasScanned}
+            openCount={displayStats.open}
+            findings={accountFindings}
+            onOpenWorkspace={() => navigate(`/findings?account=${accountId}`)}
+            onOpenGroup={(groupKey) =>
+              navigate(`/findings?account=${accountId}&checks=${encodeURIComponent(groupKey)}`)
             }
           />
         )}

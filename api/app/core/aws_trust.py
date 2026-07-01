@@ -26,7 +26,9 @@ def trust_allows_principal(doc: dict[str, Any], principal_arn: str, external_id:
     for stmt in doc.get("Statement", []):
         if stmt.get("Effect") != "Allow":
             continue
-        if stmt.get("Action") not in ("sts:AssumeRole", ["sts:AssumeRole"]):
+        action = stmt.get("Action")
+        actions = action if isinstance(action, list) else [action]
+        if "sts:AssumeRole" not in actions:
             continue
         principal = stmt.get("Principal", {})
         aws = principal.get("AWS")
@@ -57,7 +59,7 @@ def merge_trust_principal(
     out.setdefault("Statement", []).append({
         "Effect": "Allow",
         "Principal": {"AWS": principal_arn},
-        "Action": "sts:AssumeRole",
+        "Action": ["sts:AssumeRole", "sts:SetSourceIdentity", "sts:TagSession"],
         "Condition": {"StringEquals": {"sts:ExternalId": external_id}},
     })
     return out

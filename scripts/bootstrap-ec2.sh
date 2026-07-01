@@ -9,6 +9,7 @@ API_DOMAIN="${API_DOMAIN:-api.veritrail.io}"
 EMAIL="${EMAIL:-}"
 FORCE_CERT=0
 DEPLOY_ONLY=0
+HETZNER_ROLES_ANYWHERE="${HETZNER_ROLES_ANYWHERE:-auto}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -35,6 +36,8 @@ Environment variables:
 Options:
   --deploy-only  Skip Docker/TLS/cron install; sync env + migrate + compose up (for redeploys)
   --force-cert   Re-obtain certificates even if valid certs already exist
+  --hetzner-roles-anywhere
+                 Mount local IAM Roles Anywhere profile/helper/certs into app containers
   -h, --help     Show this help
 
 Prerequisites:
@@ -60,6 +63,7 @@ parse_args() {
     case "$1" in
       --deploy-only) DEPLOY_ONLY=1; shift ;;
       --force-cert) FORCE_CERT=1; shift ;;
+      --hetzner-roles-anywhere) HETZNER_ROLES_ANYWHERE=1; shift ;;
       -h|--help) usage; exit 0 ;;
       *) die "Unknown argument: $1 (see --help)" ;;
     esac
@@ -88,14 +92,40 @@ compose_iap_args() {
   fi
 }
 
+roles_anywhere_enabled() {
+  local mode="$HETZNER_ROLES_ANYWHERE"
+  case "$mode" in
+    1|true|TRUE|yes|YES) return 0 ;;
+    0|false|FALSE|no|NO) return 1 ;;
+  esac
+
+  local env_path="$REPO_DIR/$ENV_FILE"
+  local aws_profile
+  aws_profile="$(get_env_value AWS_PROFILE "$env_path")"
+  [[ -n "$aws_profile" ]] || return 1
+  [[ -x /usr/local/bin/aws_signing_helper ]] || return 1
+  [[ -s /etc/veritrail/aws-ra/client.pem && -s /etc/veritrail/aws-ra/client.key ]] || return 1
+  return 0
+}
+
+compose_roles_anywhere_args() {
+  if roles_anywhere_enabled; then
+    printf '%s\0%s\0' "-f" "$REPO_DIR/compose.hetzner-rolesanywhere.yml"
+  fi
+}
+
 compose() {
   local -a iap_args=()
   while IFS= read -r -d '' arg; do iap_args+=("$arg"); done < <(compose_iap_args)
-  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
+  local -a ra_args=()
+  while IFS= read -r -d '' arg; do ra_args+=("$arg"); done < <(compose_roles_anywhere_args)
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${ra_args[@]}" "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
 }
 
 compose_no_profile() {
-  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
+  local -a ra_args=()
+  while IFS= read -r -d '' arg; do ra_args+=("$arg"); done < <(compose_roles_anywhere_args)
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${ra_args[@]}" --env-file "$ENV_FILE" "$@")
 }
 
 install_system_packages() {
@@ -498,6 +528,8 @@ export APP_ENV=production
 export COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
 export DOMAIN=$DOMAIN
 export API_DOMAIN=$API_DOMAIN
+export HETZNER_ROLES_ANYWHERE=$HETZNER_ROLES_ANYWHERE
+export AWS_CONFIG_DIR=$(get_env_value AWS_CONFIG_DIR "$env_path")
 EOF
   chmod 644 "$compose_env"
   log "Wrote $(basename "$compose_env") — source it for manual docker compose commands"
@@ -614,7 +646,11 @@ print_checklist() {
   if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
     iap_suffix=" -f compose.iap.yml --profile iap"
   fi
-  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
+  local ra_suffix=""
+  if roles_anywhere_enabled; then
+    ra_suffix=" -f compose.hetzner-rolesanywhere.yml"
+  fi
+  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml${ra_suffix}${iap_suffix} --env-file $ENV_FILE --profile prod"
   cat <<EOF
 
 ================================================================================
@@ -628,8 +664,8 @@ Post-deploy checklist:
        ${API_DOMAIN}/v1/auth/gitlab/callback
      IAP (oauth2-proxy) Google redirect when IAP_ENABLED=true:
        https://${DOMAIN}/oauth2/callback
-  3. EC2 instance IAM role must match TRUST_PRINCIPAL_ARN in $ENV_FILE
-     (customer CFN connector stack trusts this principal for sts:AssumeRole).
+  3. Control-plane principal must match TRUST_PRINCIPAL_ARN in $ENV_FILE
+     (EC2 instance profile or Hetzner IAM Roles Anywhere role trusted by customer stacks).
   4. If you change TRUST_PRINCIPAL_ARN, update existing customer scanner role
      trust policies in AWS, then recreate API/worker:
        $compose_hint up -d --force-recreate api worker beat

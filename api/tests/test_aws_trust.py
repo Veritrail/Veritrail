@@ -37,3 +37,16 @@ def test_merge_idempotent():
     }
     merged = merge_trust_principal(doc, SSO, EID)
     assert merged == doc
+
+
+def test_trust_allows_principal_with_roles_anywhere_chain_actions():
+    doc = {
+        "Version": "2012-10-17",
+        "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"AWS": SSO},
+            "Action": ["sts:AssumeRole", "sts:SetSourceIdentity", "sts:TagSession"],
+            "Condition": {"StringEquals": {"sts:ExternalId": EID}},
+        }],
+    }
+    assert trust_allows_principal(doc, SSO, EID)

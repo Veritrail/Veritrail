@@ -17,6 +17,7 @@ AWS_REGION="${AWS_REGION:-eu-west-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 AWS_PROFILE_NAME="${AWS_PROFILE_NAME:-veritrail-ra}"
 ENV_FILE="${ENV_FILE:-.env}"
+AWS_CONFIG_DIR="${AWS_CONFIG_DIR:-}"
 
 # Vault CLI defaults to https://127.0.0.1:8200 when VAULT_ADDR is unset. This
 # bootstrap uses a local HTTP-only listener, so force and export it everywhere.
@@ -376,7 +377,7 @@ ensure_iam_role() {
 
   policy_doc="$(mktemp)"
   jq -n --arg resource "$ASSUMABLE_ROLE_RESOURCE" \
-    '{Version:"2012-10-17",Statement:[{Sid:"AllowVeritrailToAssumeCustomerScannerRoles",Effect:"Allow",Action:["sts:AssumeRole"],Resource:$resource}]}' >"$policy_doc"
+    '{Version:"2012-10-17",Statement:[{Sid:"AllowVeritrailToAssumeCustomerScannerRoles",Effect:"Allow",Action:["sts:AssumeRole","sts:SetSourceIdentity","sts:TagSession"],Resource:$resource}]}' >"$policy_doc"
   aws iam put-role-policy --role-name "$RA_ROLE_NAME" --policy-name VeritrailAssumeCustomerRoles --policy-document "file://$policy_doc" >/dev/null
   rm -f "$policy_doc"
 
@@ -459,12 +460,24 @@ set_env_value() {
 update_veritrail_env() {
   [[ "$SKIP_ENV" -eq 0 ]] || return 0
   local role_arn="$1" env_path="$REPO_DIR/$ENV_FILE"
+  local target_user target_home aws_config_dir
+  target_user="${SUDO_USER:-root}"
+  if [[ -n "$AWS_CONFIG_DIR" ]]; then
+    aws_config_dir="$AWS_CONFIG_DIR"
+  elif [[ "$target_user" == "root" ]]; then
+    aws_config_dir="/root/.aws"
+  else
+    target_home="$(getent passwd "$target_user" | cut -d: -f6)"
+    aws_config_dir="$target_home/.aws"
+  fi
   if [[ ! -f "$env_path" ]]; then
     [[ -f "$REPO_DIR/.env.example" ]] || { warn "No $ENV_FILE or .env.example found. Skipping env update."; return 0; }
     cp "$REPO_DIR/.env.example" "$env_path"
   fi
-  log "Updating $ENV_FILE with AWS_PROFILE and TRUST_PRINCIPAL_ARN"
+  log "Updating $ENV_FILE with AWS_PROFILE, AWS_CONFIG_DIR, and TRUST_PRINCIPAL_ARN"
   set_env_value "AWS_PROFILE" "$AWS_PROFILE_NAME" "$env_path"
+  set_env_value "AWS_SDK_LOAD_CONFIG" "1" "$env_path"
+  set_env_value "AWS_CONFIG_DIR" "$aws_config_dir" "$env_path"
   set_env_value "TRUST_PRINCIPAL_ARN" "$role_arn" "$env_path"
   chmod 0600 "$env_path" 2>/dev/null || true
 }
