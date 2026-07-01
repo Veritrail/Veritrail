@@ -365,6 +365,41 @@ function ComplianceRowSummary({
   return <span className={chipClass}>{content}</span>;
 }
 
+/** Drawer header status pill — matches reference orange “• Needs evidence” chip. */
+function ControlDrawerStatusPill({
+  displayStatus,
+}: {
+  displayStatus: ComplianceDisplayStatus;
+}) {
+  const label: Record<ComplianceDisplayStatus, string> = {
+    passing: "Passing",
+    failing: "Failing",
+    at_risk: "At risk",
+    unevaluated: "Not evaluated",
+    externally_covered: "Externally covered",
+    needs_evidence: "Needs evidence",
+    expired: "Expired evidence",
+    out_of_scope: "Out of scope",
+    not_applicable: "Not applicable",
+  };
+
+  return (
+    <span
+      className={`control-detail-panel__status-pill control-detail-panel__status-pill--${displayStatus}`}
+    >
+      <span className="control-detail-panel__status-dot" aria-hidden>
+        •
+      </span>
+      {label[displayStatus]}
+    </span>
+  );
+}
+
+function frameworkGuidanceLabel(fw: string): string {
+  if (fw === "cis_aws_l1") return "CIS AWS";
+  return frameworkLabel(fw);
+}
+
 function CompliancePanelShell({
   title,
   subtitle,
@@ -2466,10 +2501,34 @@ function CompositeGapResolution({
     navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
   }
 
+  const enableCapabilityLabel =
+    enableItems.length === 1
+      ? enableItems[0]?.capability
+      : enableItems.length > 1
+        ? `${enableItems.length} services`
+        : null;
+
   return (
-    <div className="control-resolve-path">
-      {showFixColumn ? (
-        <>
+    <>
+      <div className="control-resolve-path">
+        <div className="control-resolve-path__head">
+          <svg
+            className="control-resolve-path__head-icon"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <path d="M3 7v6h6" />
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.36 2.64L3 13" />
+          </svg>
+          <h4 className="control-resolve-path__title">Resolution path</h4>
+        </div>
+
+        {showFixColumn ? (
           <div className="control-resolve-path__row">
             <svg
               className="control-resolve-path__icon"
@@ -2483,8 +2542,9 @@ function CompositeGapResolution({
             >
               <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
             </svg>
-            <div className="control-resolve-path__body">
+            <div className="control-resolve-path__body control-resolve-path__body--stacked">
               <strong>{primaryAction.title}</strong>
+              <span className="control-resolve-path__desc">{primaryAction.detail}</span>
               {regularFailing > 0 ? (
                 <span className="control-resolve-path__tag">
                   {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
@@ -2504,11 +2564,9 @@ function CompositeGapResolution({
               Open remediation
             </button>
           </div>
-        </>
-      ) : null}
+        ) : null}
 
-      {showEnableColumn ? (
-        <>
+        {showEnableColumn ? (
           <div className="control-resolve-path__row">
             <svg
               className="control-resolve-path__icon"
@@ -2525,8 +2583,16 @@ function CompositeGapResolution({
               <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
               <path d="M3 21v-5h5" />
             </svg>
-            <div className="control-resolve-path__body">
-              <strong>Enable automatic re-check</strong>
+            <div className="control-resolve-path__body control-resolve-path__body--stacked">
+              <div className="control-resolve-path__title-row">
+                <strong>Enable automatic re-check</strong>
+                {enableCapabilityLabel ? (
+                  <span className="control-resolve-path__tag">{enableCapabilityLabel}</span>
+                ) : null}
+              </div>
+              <span className="control-resolve-path__desc">
+                Turn on the missing AWS capability, then re-scan to verify.
+              </span>
             </div>
             <button
               type="button"
@@ -2536,111 +2602,121 @@ function CompositeGapResolution({
               Enable
             </button>
           </div>
-        </>
-      ) : null}
+        ) : null}
 
-      {crossAccountEligible ? (
-        <>
-          <button
-            type="button"
-            className="control-resolve-path__row control-resolve-path__row--expand"
-            aria-expanded={openPanel === "cross-account"}
-            onClick={() => togglePanel("cross-account")}
-          >
-            <svg
-              className="control-resolve-path__icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.7}
-              aria-hidden
+        {crossAccountEligible ? (
+          <>
+            <button
+              type="button"
+              className="control-resolve-path__row control-resolve-path__row--expand"
+              aria-expanded={openPanel === "cross-account"}
+              onClick={() => togglePanel("cross-account")}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-              />
-              <circle cx="9" cy="7" r="4" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <div className="control-resolve-path__body">
-              <strong>Covered in another AWS account</strong>
-            </div>
-            <span
-              className={`control-resolve-path__chevron${openPanel === "cross-account" ? " is-open" : ""}`}
-              aria-hidden
-            >
-              ›
-            </span>
-          </button>
-          {openPanel === "cross-account" ? (
-            <div className="control-resolve-path__expand">
-              <CrossAccountCoverageControl
-                compositeId={ctrl.id}
-                detail={crossAccountDetail}
-                open
-                onClose={() => setOpenPanel(null)}
-                onConnect={() => navigate("/accounts")}
-              />
-            </div>
-          ) : null}
-        </>
-      ) : null}
+              <svg
+                className="control-resolve-path__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.7}
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                />
+                <circle cx="9" cy="7" r="4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+                />
+              </svg>
+              <div className="control-resolve-path__body control-resolve-path__body--stacked">
+                <strong>Covered in another AWS account</strong>
+                <span className="control-resolve-path__desc">
+                  Org-level coverage may satisfy this from your management account.
+                </span>
+              </div>
+              <span
+                className={`control-resolve-path__chevron${openPanel === "cross-account" ? " is-open" : ""}`}
+                aria-hidden
+              >
+                ›
+              </span>
+            </button>
+            {openPanel === "cross-account" ? (
+              <div className="control-resolve-path__expand">
+                <CrossAccountCoverageControl
+                  compositeId={ctrl.id}
+                  detail={crossAccountDetail}
+                  open
+                  onClose={() => setOpenPanel(null)}
+                  onConnect={() => navigate("/accounts")}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : null}
 
-      {showEvidenceAlternative ? (
-        <>
-          <button
-            type="button"
-            className="control-resolve-path__row control-resolve-path__row--expand"
-            aria-expanded={openPanel === "evidence"}
-            onClick={() => togglePanel("evidence")}
-          >
-            <svg
-              className="control-resolve-path__icon"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.7}
-              viewBox="0 0 24 24"
-              aria-hidden
+        {showEvidenceAlternative ? (
+          <>
+            <button
+              type="button"
+              className="control-resolve-path__row control-resolve-path__row--expand"
+              aria-expanded={openPanel === "evidence"}
+              onClick={() => togglePanel("evidence")}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-              />
-            </svg>
-            <div className="control-resolve-path__body">
-              <strong>Upload external evidence</strong>
-            </div>
-            <span
-              className={`control-resolve-path__chevron${openPanel === "evidence" ? " is-open" : ""}`}
-              aria-hidden
-            >
-              ›
-            </span>
-          </button>
-          {openPanel === "evidence" ? (
-            <div className="control-resolve-path__expand">
-              <ExternalEvidencePanel
-                compositeId={ctrl.id}
-                compositeTitle={ctrl.title}
-                framework={framework}
-                groupStatus={ctrl.status}
-                checkIds={ctrl.check_ids}
-                findingCountByCheck={findingCountByCheck}
-                underlyingCriteria={underlyingCriteria}
-                frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
-              />
-            </div>
-          ) : null}
-        </>
-      ) : null}
+              <svg
+                className="control-resolve-path__icon"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.7}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                />
+              </svg>
+              <div className="control-resolve-path__body control-resolve-path__body--stacked">
+                <strong>Upload external evidence</strong>
+                <span className="control-resolve-path__desc">
+                  Policies, attestations, or exports auditors can review.
+                </span>
+              </div>
+              <span
+                className={`control-resolve-path__chevron${openPanel === "evidence" ? " is-open" : ""}`}
+                aria-hidden
+              >
+                ›
+              </span>
+            </button>
+            {openPanel === "evidence" ? (
+              <div className="control-resolve-path__expand">
+                <ExternalEvidencePanel
+                  compositeId={ctrl.id}
+                  compositeTitle={ctrl.title}
+                  framework={framework}
+                  groupStatus={ctrl.status}
+                  checkIds={ctrl.check_ids}
+                  findingCountByCheck={findingCountByCheck}
+                  underlyingCriteria={underlyingCriteria}
+                  frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
 
       {showScopeRow ? (
         <>
           <button
             type="button"
-            className="control-resolve-path__row control-resolve-path__row--expand"
+            className="control-resolve-path__scope-row"
             aria-expanded={openPanel === "scope"}
             onClick={() => togglePanel("scope")}
           >
@@ -2655,8 +2731,11 @@ function CompositeGapResolution({
               <circle cx="12" cy="12" r="9" />
               <path strokeLinecap="round" d="M4.5 4.5l15 15" />
             </svg>
-            <div className="control-resolve-path__body">
+            <div className="control-resolve-path__body control-resolve-path__body--stacked">
               <strong>Mark out of scope</strong>
+              <span className="control-resolve-path__desc">
+                Exclude this control when it does not apply to your audit boundary.
+              </span>
             </div>
             <span
               className={`control-resolve-path__chevron${openPanel === "scope" ? " is-open" : ""}`}
@@ -2666,7 +2745,7 @@ function CompositeGapResolution({
             </span>
           </button>
           {openPanel === "scope" ? (
-            <div className="control-resolve-path__expand">
+            <div className="control-resolve-path__scope-expand">
               <GapScopeControl
                 compositeId={ctrl.id}
                 compositeTitle={ctrl.title}
@@ -2680,7 +2759,7 @@ function CompositeGapResolution({
           ) : null}
         </>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -2694,7 +2773,7 @@ function ControlGuidanceFooter({
   const [showMappings, setShowMappings] = useState(false);
   const frameworkSummary =
     mappingChips.length > 0
-      ? mappingChips.map((g) => frameworkLabel(g.fw)).join(" • ")
+      ? mappingChips.map((g) => frameworkGuidanceLabel(g.fw)).join(" • ")
       : null;
 
   return (
@@ -2857,25 +2936,23 @@ function buildCompositeTabs({
           </ControlDetailSection>
 
           {!isVerified && !overrideDetail ? (
-            <ControlDetailSection title="Resolution path">
-              <CompositeGapResolution
-                ctrl={ctrl}
-                framework={framework}
-                findingCountByCheck={findingCountByCheck}
-                findingsHref={findingsHref}
-                navigate={navigate}
-                primaryAction={primaryAction}
-                regularFailing={regularFailing}
-                hasAbsenceGaps={hasAbsenceGaps}
-                absenceChecks={absenceChecks}
-                enableItems={enableItems}
-                crossAccountEligible={crossAccountEligible}
-                crossAccountDetail={crossAccountDetail}
-                isExternalOnly={isExternalOnly}
-                underlyingCriteria={underlyingCriteria}
-                overrideDetail={overrideDetail}
-              />
-            </ControlDetailSection>
+            <CompositeGapResolution
+              ctrl={ctrl}
+              framework={framework}
+              findingCountByCheck={findingCountByCheck}
+              findingsHref={findingsHref}
+              navigate={navigate}
+              primaryAction={primaryAction}
+              regularFailing={regularFailing}
+              hasAbsenceGaps={hasAbsenceGaps}
+              absenceChecks={absenceChecks}
+              enableItems={enableItems}
+              crossAccountEligible={crossAccountEligible}
+              crossAccountDetail={crossAccountDetail}
+              isExternalOnly={isExternalOnly}
+              underlyingCriteria={underlyingCriteria}
+              overrideDetail={overrideDetail}
+            />
           ) : overrideDetail ? (
             <ControlDetailSection title="Scope">
               <GapScopeControl
@@ -4516,15 +4593,13 @@ export default function Controls() {
               headerTitle={selectedCompositeRow.title}
               headerDescription={selectedCompositeRow.description}
               headerStatus={
-                <ComplianceRowSummary
+                <ControlDrawerStatusPill
                   displayStatus={compositeDisplayStatus(
                     selectedCompositeRow,
                     findingCountByCheck,
                     acceptedCompositeIds.has(selectedCompositeRow.id),
                     expiredCompositeIds.has(selectedCompositeRow.id),
                   )}
-                  href={null}
-                  onNavigate={navigate}
                 />
               }
               headerStats={
