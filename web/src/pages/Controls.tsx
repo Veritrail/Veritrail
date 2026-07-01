@@ -364,36 +364,6 @@ function ComplianceRowSummary({
   return <span className={chipClass}>{content}</span>;
 }
 
-/** Drawer header status pill — matches reference orange “• Needs evidence” chip. */
-function ControlDrawerStatusPill({
-  displayStatus,
-}: {
-  displayStatus: ComplianceDisplayStatus;
-}) {
-  const label: Record<ComplianceDisplayStatus, string> = {
-    passing: "Passing",
-    failing: "Failing",
-    at_risk: "At risk",
-    unevaluated: "Not evaluated",
-    externally_covered: "Externally covered",
-    needs_evidence: "Needs evidence",
-    expired: "Expired evidence",
-    out_of_scope: "Out of scope",
-    not_applicable: "Not applicable",
-  };
-
-  return (
-    <span
-      className={`control-detail-panel__status-pill control-detail-panel__status-pill--${displayStatus}`}
-    >
-      <span className="control-detail-panel__status-dot" aria-hidden>
-        •
-      </span>
-      {label[displayStatus]}
-    </span>
-  );
-}
-
 function frameworkGuidanceLabel(fw: string): string {
   if (fw === "cis_aws_l1") return "CIS AWS";
   return frameworkLabel(fw);
@@ -4296,16 +4266,6 @@ export default function Controls() {
               }}
               headerTitle={selectedCompositeRow.title}
               headerDescription={selectedCompositeRow.description}
-              headerStatus={
-                <ControlDrawerStatusPill
-                  displayStatus={compositeDisplayStatus(
-                    selectedCompositeRow,
-                    findingCountByCheck,
-                    acceptedCompositeIds.has(selectedCompositeRow.id),
-                    expiredCompositeIds.has(selectedCompositeRow.id),
-                  )}
-                />
-              }
               headerStats={
                 <ControlDrawerHeaderStats
                   {...compositeHeaderStats(selectedCompositeRow, findingCountByCheck)}
