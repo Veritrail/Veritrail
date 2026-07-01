@@ -113,15 +113,15 @@
 
 .control-detail-panel__title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.375;
-  color: #111827;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #18181b;
 }
 
 .control-detail-panel__description {
-  margin: 0.45rem 0 0;
+  margin: 0.6rem 0 0;
   font-size: 0.8125rem;
   line-height: 1.55;
   color: #71717a;
