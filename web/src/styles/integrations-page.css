@@ -1,5 +1,5 @@
 .integrations-page {
-  --integrations-border: #e8edf3;
+  --integrations-border: var(--vt-border, #e8edf3);
   --integrations-muted: #64748b;
   --integrations-surface: #ffffff;
   --integrations-bg: #f8fafc;
@@ -147,7 +147,7 @@
   font-weight: 600;
   background: #ecfdf5;
   color: #047857;
-  ring: 1px solid #a7f3d0;
+  box-shadow: inset 0 0 0 1px #a7f3d0;
 }
 
 .integrations-table__status {
@@ -180,13 +180,6 @@
 }
 
 .integrations-table__description {
-  max-width: 16rem;
-  font-size: 0.8125rem;
-  color: var(--integrations-muted);
-  line-height: 1.5;
-}
-
-.integrations-table__status {
   max-width: 16rem;
   font-size: 0.8125rem;
   color: var(--integrations-muted);
@@ -256,6 +249,13 @@
   border-color: #cbd5e1;
   background: #f8fafc;
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
+}
+
+.integrations-manage-btn:focus-visible,
+.integrations-connect-btn:focus-visible {
+  outline: none;
+  border-color: var(--vt-teal, #5eead4);
+  box-shadow: 0 0 0 3px rgb(13 148 136 / 0.12);
 }
 
 .integrations-chevron {

@@ -11,6 +11,7 @@ import {
   ReadinessChecklistPanel,
   type Tone,
 } from "./Workspace";
+import "../styles/workspace-page.css";
 
 // d-path icons for the Workspace-style KPI strip + overview cards (Workspace's
 // Icon component renders a single <path d>). Kept local so the Account page

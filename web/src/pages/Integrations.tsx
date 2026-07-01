@@ -25,6 +25,7 @@ import {
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import { IntegrationRequestModal } from "../components/IntegrationRequestModal";
 import "../styles/integrations-page.css";
+import "../styles/workspace-page.css";
 
 type ProviderSummary = {
   id: string;
