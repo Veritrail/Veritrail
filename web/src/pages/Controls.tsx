@@ -1557,7 +1557,6 @@ function TopFailingChecksSeverityTable({
           const count = findingCountByCheck.get(checkId) ?? 0;
           const severity = severityByCheck.get(checkId) ?? "low";
           const severityLabel = severityDisplayLabel(severity);
-          const isHigh = severityLabel === "High";
           return (
             <li key={checkId}>
               <button
@@ -1565,7 +1564,7 @@ function TopFailingChecksSeverityTable({
                 onClick={() =>
                   navigate(`/findings?checks=${encodeURIComponent(checkId)}`)
                 }
-                className={`compliance-category-detail__checks-row${isHigh ? " is-high-severity" : ""}`}
+                className="compliance-category-detail__checks-row"
               >
                 <span className="compliance-category-detail__checks-index">
                   {index + 1}
