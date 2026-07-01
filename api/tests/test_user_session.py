@@ -1,15 +1,19 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from app.models.user_session import UserSession
 from app.services.ip_geolocation import format_location, lookup_ip_geolocation
 from app.services.user_session import (
+    REFRESH_GRACE_SECONDS,
     ensure_session_for_refresh,
+    get_session_for_refresh,
     hash_refresh_token,
     list_user_sessions,
     refresh_session_geolocation,
     revoke_other_sessions,
     revoke_session_by_id,
+    rotate_user_session,
     session_location_label,
 )
 
@@ -145,3 +149,80 @@ def test_revoke_other_sessions_keeps_current():
     count = revoke_other_sessions(db, user_id, "keep-me")
     assert count == 1
     db.delete.assert_called_once_with(other)
+
+
+def test_get_session_for_refresh_matches_current_token():
+    db = MagicMock()
+    user_id = uuid.uuid4()
+    row = UserSession(user_id=user_id, token_hash=hash_refresh_token("current-token"))
+    db.scalar.return_value = row
+    assert get_session_for_refresh(db, user_id, "current-token") is row
+    db.scalar.assert_called_once()
+
+
+def test_get_session_for_refresh_falls_back_within_grace_window():
+    """Second tab refreshing with the just-superseded token gets the same
+    session back instead of a hard failure — the core race-condition fix."""
+    db = MagicMock()
+    user_id = uuid.uuid4()
+    row = UserSession(
+        user_id=user_id,
+        token_hash=hash_refresh_token("new-token"),
+        prev_token_hash=hash_refresh_token("old-token"),
+        prev_token_rotated_at=datetime.now(timezone.utc) - timedelta(seconds=2),
+    )
+    # First scalar() call (current-hash lookup) misses; second (grace lookup) hits.
+    db.scalar.side_effect = [None, row]
+    assert get_session_for_refresh(db, user_id, "old-token") is row
+    assert db.scalar.call_count == 2
+
+
+def test_get_session_for_refresh_rejects_expired_grace_window():
+    db = MagicMock()
+    user_id = uuid.uuid4()
+    # Both scalar() calls miss: the grace query itself filters on
+    # prev_token_rotated_at >= cutoff, so an expired row wouldn't match —
+    # simulate that by having the DB-side query return None either way.
+    db.scalar.side_effect = [None, None]
+    assert get_session_for_refresh(db, user_id, "old-token") is None
+    assert db.scalar.call_count == 2
+
+
+def test_rotate_user_session_stashes_previous_token():
+    db = MagicMock()
+    user_id = uuid.uuid4()
+    request = MagicMock()
+    row = UserSession(user_id=user_id, token_hash=hash_refresh_token("old-token"))
+    db.scalar.return_value = row
+    result = rotate_user_session(db, user_id, "old-token", "new-token", request)
+    assert result is row
+    assert row.token_hash == hash_refresh_token("new-token")
+    assert row.prev_token_hash == hash_refresh_token("old-token")
+    assert row.prev_token_rotated_at is not None
+
+
+def test_rotate_user_session_updates_same_row_during_grace_window():
+    """A grace-window rotation must update the existing row, not create a
+    duplicate session — otherwise a losing tab silently forks a new session."""
+    db = MagicMock()
+    user_id = uuid.uuid4()
+    request = MagicMock()
+    row = UserSession(
+        user_id=user_id,
+        token_hash=hash_refresh_token("newer-token"),
+        prev_token_hash=hash_refresh_token("old-token"),
+        prev_token_rotated_at=datetime.now(timezone.utc) - timedelta(seconds=1),
+    )
+    db.scalar.side_effect = [None, row]
+    with patch("app.services.user_session.record_user_session") as record:
+        result = rotate_user_session(db, user_id, "old-token", "newest-token", request)
+        record.assert_not_called()
+    assert result is row
+    assert row.token_hash == hash_refresh_token("newest-token")
+    assert row.prev_token_hash == hash_refresh_token("newer-token")
+
+
+def test_refresh_grace_seconds_is_short() -> None:
+    """Sanity bound so the window stays a race-condition buffer, not a
+    meaningful extension of how long a stolen/leaked token stays valid."""
+    assert 0 < REFRESH_GRACE_SECONDS <= 60

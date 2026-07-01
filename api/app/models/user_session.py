@@ -21,3 +21,8 @@ class UserSession(Base):
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Grace window for the immediately-prior refresh token, so a concurrent
+    # refresh from a second tab (racing on the same now-rotated cookie) isn't
+    # forced to sign in again — see get_session_for_refresh.
+    prev_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    prev_token_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
 from sqlalchemy import select
@@ -14,9 +14,33 @@ from app.core.client_ip import client_ip_from_request
 from app.models.user_session import UserSession
 from app.services.ip_geolocation import format_location, lookup_ip_geolocation
 
+# How long an already-rotated-away refresh token is still accepted. Covers the
+# case where two tabs share one cookie and both refresh around the same time —
+# the losing tab's request still carries the just-superseded token. Without
+# this, that tab gets a hard 401 ("session ended") and bounces to /login even
+# though the session is perfectly valid.
+REFRESH_GRACE_SECONDS = 15
+
 
 def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _find_session_by_hash_or_grace(db: Session, user_id: uuid.UUID, token_hash: str) -> UserSession | None:
+    row = db.scalar(
+        select(UserSession).where(UserSession.user_id == user_id, UserSession.token_hash == token_hash)
+    )
+    if row:
+        return row
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=REFRESH_GRACE_SECONDS)
+    return db.scalar(
+        select(UserSession).where(
+            UserSession.user_id == user_id,
+            UserSession.prev_token_hash == token_hash,
+            UserSession.prev_token_rotated_at.isnot(None),
+            UserSession.prev_token_rotated_at >= cutoff,
+        )
+    )
 
 
 def record_user_session(db: Session, user_id: uuid.UUID, refresh_token: str, request: Request) -> UserSession:
@@ -44,10 +68,10 @@ def rotate_user_session(
     request: Request,
 ) -> UserSession | None:
     old_hash = hash_refresh_token(old_refresh_token)
-    row = db.scalar(
-        select(UserSession).where(UserSession.user_id == user_id, UserSession.token_hash == old_hash)
-    )
+    row = _find_session_by_hash_or_grace(db, user_id, old_hash)
     if row:
+        row.prev_token_hash = row.token_hash
+        row.prev_token_rotated_at = datetime.now(timezone.utc)
         row.token_hash = hash_refresh_token(new_refresh_token)
         row.last_seen_at = datetime.now(timezone.utc)
         return row
@@ -56,9 +80,7 @@ def rotate_user_session(
 
 def get_session_for_refresh(db: Session, user_id: uuid.UUID, refresh_token: str) -> UserSession | None:
     token_hash = hash_refresh_token(refresh_token)
-    return db.scalar(
-        select(UserSession).where(UserSession.user_id == user_id, UserSession.token_hash == token_hash)
-    )
+    return _find_session_by_hash_or_grace(db, user_id, token_hash)
 
 
 def ensure_session_for_refresh(
