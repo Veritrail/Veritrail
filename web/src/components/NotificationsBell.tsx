@@ -276,7 +276,6 @@ export default function NotificationsBell() {
             </span>
           )}
         </span>
-        <span className="veritrail-header-action__label">Notifications</span>
       </button>
       {panel}
     </div>

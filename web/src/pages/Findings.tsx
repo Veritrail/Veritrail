@@ -112,6 +112,25 @@ function emptyFindingsLabel(status: StatusTab): string {
   return `No ${status} findings`;
 }
 
+function findingsPageSubtitle(
+  status: StatusTab,
+  rowCount: number,
+  scopedCount: number,
+  hasCheckFilters: boolean,
+  frameworks: FrameworkId[],
+): string {
+  if (status === "open") {
+    const n = hasCheckFilters ? rowCount : scopedCount;
+    const label = `${n} open finding${n === 1 ? "" : "s"}`;
+    if (hasCheckFilters) return `${label} across selected checks`;
+    if (frameworks.length > 0) return `${label} for ${benchmarkSelectionLabel(frameworks)}`;
+    return label;
+  }
+  if (status === "excepted") return `${rowCount} excepted finding${rowCount === 1 ? "" : "s"}`;
+  if (status === "resolved") return `${rowCount} resolved finding${rowCount === 1 ? "" : "s"}`;
+  return `${rowCount} finding${rowCount === 1 ? "" : "s"}`;
+}
+
 function FindingsScanButton({
   connectedId,
   isRunning,
@@ -788,6 +807,14 @@ export default function Findings() {
   const activityDisplayGroups = useMemo(() => buildDisplayGroups(activityRows), [activityRows, buildDisplayGroups]);
   const isPositiveEmpty = status === "open" && !hasActiveFilters && rows.length === 0;
 
+  const pageSubtitle = findingsPageSubtitle(
+    status,
+    rows.length,
+    benchmarkScopedFindings.length,
+    searchTags.length > 0,
+    selectedFrameworks,
+  );
+
   const severityCounts = useMemo(() => {
     const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
     for (const f of benchmarkScopedFindings) {
@@ -924,90 +951,95 @@ export default function Findings() {
 
         {!findingsQuery.isLoading && (
           <section className="min-w-0">
-            <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
-              <div className="findings-v2-table-toolbar">
-                <div className="findings-v2-filter-cluster">
-                  <FilterChipBar
-                    chips={severityTabs.map((tab) => ({
-                      id: tab.id,
-                      label: tab.label,
-                      count: severityCounts[tab.id],
-                      urgent: tab.urgent,
-                    }))}
-                    selected={severityFilter}
-                    onChange={(id) => setSeverityFilter(id as SeverityFilter)}
-                    ariaLabel="Severity"
-                  />
+            <header className="findings-v2-page-heading">
+              <h1 className="findings-v2-page-heading__title">Findings</h1>
+              <p className="findings-v2-page-heading__subtitle">{pageSubtitle}</p>
+            </header>
 
-                  <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
-                  <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
-                  <FindingsStatusSelect
-                    value={status}
-                    onChange={setStatus}
-                  />
-                </div>
+            <div className="findings-v2-table-toolbar">
+              <div className="findings-v2-filter-cluster">
+                <FilterChipBar
+                  chips={severityTabs.map((tab) => ({
+                    id: tab.id,
+                    label: tab.label,
+                    count: severityCounts[tab.id],
+                    urgent: tab.urgent,
+                  }))}
+                  selected={severityFilter}
+                  onChange={(id) => setSeverityFilter(id as SeverityFilter)}
+                  ariaLabel="Severity"
+                />
 
-                <div className="findings-v2-control-cluster">
-                  <input
-                    value={searchText}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    placeholder="Search finding, ARN, resource…"
-                    className="findings-v2-search h-8 rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
-                  />
-                  <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        qc.invalidateQueries({ queryKey: ["findings"] });
-                        setIsRefreshing(true);
-                      }}
-                      disabled={isRefreshing}
-                      className="findings-v2-toolbar-btn findings-v2-toolbar-icon-btn"
-                      aria-label={isRefreshing ? "Refreshing findings" : "Refresh findings"}
-                      title={isRefreshing ? "Refreshing" : "Refresh"}
-                    >
-                      <svg className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4m-4 4a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="findings-v2-toolbar-group" role="group" aria-label="Sort findings">
-                    {SORT_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => toggleSort(opt.id)}
-                        className="findings-v2-toolbar-btn"
-                      >
-                        {opt.label}
-                        {sortKey === opt.id ? (
-                          <span className="text-[13px] leading-none text-zinc-500">{sortDir === "asc" ? "↑" : "↓"}</span>
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
-                    <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
-                      Export
-                    </button>
-                    {awsScanAccountId ? (
-                      <FindingsScanButton
-                        connectedId={awsScanAccountId}
-                        isRunning={isRunning}
-                        scanTriggered={scanTriggered}
-                        onScan={triggerScan}
-                      />
-                    ) : null}
-                  </div>
-                </div>
+                <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
+                <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
+                <FindingsStatusSelect
+                  value={status}
+                  onChange={setStatus}
+                />
               </div>
 
-              <FindingsChecksFilterSummary
-                tags={searchTags}
-                checkLabels={checkLabels}
-                onClear={() => handleTagsChange([])}
-              />
+              <div className="findings-v2-control-cluster">
+                <input
+                  value={searchText}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search finding, ARN, resource…"
+                  className="findings-v2-search h-8 rounded-md border border-[#e4e4e7] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#71717a] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
+                />
+                <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      qc.invalidateQueries({ queryKey: ["findings"] });
+                      setIsRefreshing(true);
+                    }}
+                    disabled={isRefreshing}
+                    className="findings-v2-toolbar-btn findings-v2-toolbar-icon-btn"
+                    aria-label={isRefreshing ? "Refreshing findings" : "Refresh findings"}
+                    title={isRefreshing ? "Refreshing" : "Refresh"}
+                  >
+                    <svg className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4m-4 4a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="findings-v2-toolbar-group" role="group" aria-label="Sort findings">
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => toggleSort(opt.id)}
+                      className="findings-v2-toolbar-btn"
+                    >
+                      {opt.label}
+                      {sortKey === opt.id ? (
+                        <span className="text-[13px] leading-none text-zinc-500">{sortDir === "asc" ? "↑" : "↓"}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+                <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
+                  <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
+                    Export
+                  </button>
+                  {awsScanAccountId ? (
+                    <FindingsScanButton
+                      connectedId={awsScanAccountId}
+                      isRunning={isRunning}
+                      scanTriggered={scanTriggered}
+                      onScan={triggerScan}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
 
+            <FindingsChecksFilterSummary
+              tags={searchTags}
+              checkLabels={checkLabels}
+              onClear={() => handleTagsChange([])}
+            />
+
+            <div className="findings-v2-table-card">
               {rows.length === 0 ? (
                 <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>
                   {isPositiveEmpty ? (
