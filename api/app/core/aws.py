@@ -276,23 +276,27 @@ def verify_account(
         # works whether or not the account belongs to an Organization; only fall
         # back to org/IAM alias lookups if it's unavailable (older accounts,
         # permission not yet granted, etc).
+        # Best-effort only: an older botocore without this operation raises
+        # AttributeError (not ClientError) on the client call itself, and none
+        # of these three lookups should ever be able to fail the actual
+        # assume-role verification below.
         alias = None
         try:
             acct = sess.client("account", config=_boto_cfg, region_name="us-east-1")
             alias = acct.get_account_information().get("AccountName")
-        except ClientError:
+        except Exception:  # noqa: BLE001
             pass
         if not alias:
             try:
                 org = sess.client("organizations", config=_boto_cfg, region_name="us-east-1")
                 alias = org.describe_account(AccountId=account_id)["Account"]["Name"]
-            except ClientError:
+            except Exception:  # noqa: BLE001
                 pass
         if not alias:
             try:
                 aliases = sess.client("iam", config=_boto_cfg).list_account_aliases().get("AccountAliases", [])
                 alias = aliases[0] if aliases else None
-            except ClientError:
+            except Exception:  # noqa: BLE001
                 pass
         return True, account_id, alias, None
     except ClientError as e:
