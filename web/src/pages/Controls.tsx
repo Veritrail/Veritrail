@@ -2320,7 +2320,7 @@ function CompositeGapResolution({
             </div>
             <button
               type="button"
-              className="control-resolve-path__cta"
+              className="control-resolve-path__outline"
               disabled={!findingsHref}
               onClick={() => {
                 if (findingsHref) navigate(findingsHref);
