@@ -281,7 +281,7 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
   },
   {
     key: "underused_role",
-    title: "Underused IAM role",
+    title: "Unused IAM role",
     checkIds: ["iam.role.unassumed_90d", "iam.role.unused_services_90d"],
     searchTerms: ["role", "unassumed", "unused", "granted services", "least privilege", "90 days", "iam role"],
   },

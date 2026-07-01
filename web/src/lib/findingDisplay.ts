@@ -700,35 +700,52 @@ export function formatIamServiceDisplayName(serviceLabel: string): string {
   });
 }
 
-/** Human asset type for resource rows (S3 Bucket, IAM Role, …). */
-export function assetTypeLabel(checkId: string): string {
-  if (checkId.startsWith("iam.root")) return "AWS Root User";
-  if (checkId.startsWith("iam.role")) return "IAM Role";
-  if (checkId.startsWith("iam.user")) return "IAM User";
-  if (checkId.startsWith("iam.access_key")) return "IAM ARN";
-  if (checkId.startsWith("ec2.ebs")) return "EBS Volume";
-  if (checkId.startsWith("s3.bucket")) return "S3 Bucket";
-  return resourceTypePillLabel(checkId)
+/** Title-case badge labels for affected-resource rows (Findings page, drawer resources tab). */
+const ASSET_TYPE_DISPLAY_LABELS: Record<string, string> = {
+  "iam.root": "Root Account",
+  "iam.user": "IAM User",
+  "iam.role": "IAM Role",
+  "iam.access_key": "Access Key",
+  "iam.policy": "IAM Policy",
+  "iam.perm": "IAM Role",
+  "iam.account": "Account Setting",
+  "s3.bucket": "S3 Bucket",
+  "ec2.ebs": "EBS Volume",
+};
+
+const TITLE_CASE_ACRONYMS: Record<string, string> = {
+  iam: "IAM",
+  aws: "AWS",
+  s3: "S3",
+  kms: "KMS",
+  ec2: "EC2",
+  rds: "RDS",
+  eks: "EKS",
+  ecr: "ECR",
+  ecs: "ECS",
+  acm: "ACM",
+  ssm: "SSM",
+  sns: "SNS",
+  sqs: "SQS",
+  elb: "ELB",
+};
+
+function titleCasePillLabel(pillLabel: string): string {
+  return pillLabel
     .split(" ")
     .map((word) => {
       const lower = word.toLowerCase();
-      if (lower === "iam") return "IAM";
-      if (lower === "aws") return "AWS";
-      if (lower === "s3") return "S3";
-      if (lower === "kms") return "KMS";
-      if (lower === "ec2") return "EC2";
-      if (lower === "rds") return "RDS";
-      if (lower === "eks") return "EKS";
-      if (lower === "ecr") return "ECR";
-      if (lower === "ecs") return "ECS";
-      if (lower === "acm") return "ACM";
-      if (lower === "ssm") return "SSM";
-      if (lower === "sns") return "SNS";
-      if (lower === "sqs") return "SQS";
-      if (lower === "elb") return "ELB";
+      if (TITLE_CASE_ACRONYMS[lower]) return TITLE_CASE_ACRONYMS[lower];
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(" ");
+}
+
+/** Human asset type for resource rows (S3 Bucket, IAM Role, …). */
+export function assetTypeLabel(checkId: string): string {
+  const match = Object.entries(ASSET_TYPE_DISPLAY_LABELS).find(([prefix]) => checkId.startsWith(prefix));
+  if (match) return match[1];
+  return titleCasePillLabel(resourceTypePillLabel(checkId));
 }
 
 export function findingStatusLabel(status: string): string {
