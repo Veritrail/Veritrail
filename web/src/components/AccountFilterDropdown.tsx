@@ -184,7 +184,11 @@ export function AccountFilterDropdown({
                       className={`account-filter-card${active ? " account-filter-card--selected" : ""}`}
                     >
                       <span className="account-filter-card__icon-box">
-                        <ProviderMark provider={account.provider} className="account-filter-card__provider" />
+                        <ProviderMark
+                          provider={account.provider}
+                          variant="compact"
+                          className={`account-filter-card__provider account-filter-card__provider--${account.provider ?? "aws"}`}
+                        />
                       </span>
                       <span className="account-filter-card__text">
                         <span className="account-filter-card__name">{accountDisplayName(account)}</span>
@@ -245,7 +249,13 @@ export function AccountFilterDropdown({
         aria-expanded={open}
         aria-label={`Account: ${accountDisplayName(current)}`}
       >
-        <ProviderMark provider={current.provider} className="account-filter__provider-logo" />
+        <span className="account-filter__icon-box">
+          <ProviderMark
+            provider={current.provider}
+            variant="compact"
+            className={`account-filter__provider account-filter__provider--${current.provider ?? "aws"}`}
+          />
+        </span>
         <span className="account-filter__name">{accountDisplayName(current)}</span>
         <FilterChevron open={open} />
       </button>

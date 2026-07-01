@@ -17,6 +17,9 @@ export type IntegrationBrandId =
 type BrandAsset = {
   src: string;
   fallback?: string;
+  /** Square icon / favicon for compact UI (header pills, list rows). */
+  compactSrc?: string;
+  compactFallback?: string;
   /** Press-kit art with extra padding — scale up inside the tile. */
   tileScale?: number;
   /** Tile inner padding (px). Default 8. */
@@ -25,7 +28,12 @@ type BrandAsset = {
 
 /** Official brand marks / favicons for integration UI. */
 export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
-  aws: { src: "/integrations/aws.png", fallback: "/aws-account-icon.png" },
+  aws: {
+    src: "/integrations/aws.png",
+    fallback: "/aws-account-icon.png",
+    compactSrc: "/aws-account-icon.png",
+    compactFallback: "/aws.png",
+  },
   github: { src: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" },
   gitlab: { src: "/integrations/gitlab.png", tileScale: 1.32, tilePadding: 4 },
   "google-workspace": { src: "https://www.google.com/favicon.ico" },
@@ -36,8 +44,8 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   jira: { src: "https://jira.atlassian.com/favicon.ico" },
   "azure-devops": { src: "/integrations/azure-devops.png" },
   datadog: { src: "https://www.datadoghq.com/favicon.ico" },
-  gcp: { src: "/integrations/gcp.png" },
-  azure: { src: "/integrations/azure.png" },
+  gcp: { src: "/integrations/gcp.png", compactSrc: "/integrations/gcp.png" },
+  azure: { src: "/integrations/azure.png", compactSrc: "/integrations/azure.png" },
   wiz: { src: "https://www.wiz.io/favicon.ico" },
   tenable: { src: "https://www.tenable.com/favicon.ico" },
   qualys: { src: "https://www.qualys.com/favicon.ico" },

@@ -14,24 +14,39 @@ export type AccountOption = {
 const CONTEXT_PILL =
   "inline-flex h-10 items-center rounded-full border border-zinc-200/90 bg-white px-4 shadow-sm shadow-zinc-950/[0.03] transition-colors";
 
-function ProviderBrandImg({ provider, className }: { provider: CloudProvider; className?: string }) {
+function ProviderBrandImg({
+  provider,
+  className,
+  variant = "wordmark",
+}: {
+  provider: CloudProvider;
+  className?: string;
+  variant?: "wordmark" | "compact";
+}) {
   const brand = INTEGRATION_BRAND[provider];
+  const src = variant === "compact" && brand.compactSrc ? brand.compactSrc : brand.src;
+  const fallback =
+    variant === "compact" && brand.compactSrc
+      ? brand.compactFallback ?? brand.fallback
+      : brand.fallback;
   const imgClass = className
     ? `${className} shrink-0 object-contain`
-    : "h-[1.125rem] w-[2.25rem] shrink-0 object-contain object-left";
+    : variant === "compact"
+      ? "h-[1.125rem] w-[1.125rem] shrink-0 object-contain object-center"
+      : "h-[1.125rem] w-[2.25rem] shrink-0 object-contain object-left";
   return (
     <img
-      src={brand.src}
+      src={src}
       alt=""
       className={imgClass}
       aria-hidden
       decoding="async"
       onError={
-        brand.fallback
+        fallback
           ? (e) => {
-              if (e.currentTarget.src.endsWith(brand.fallback!)) return;
+              if (e.currentTarget.src.endsWith(fallback)) return;
               e.currentTarget.onerror = null;
-              e.currentTarget.src = brand.fallback!;
+              e.currentTarget.src = fallback!;
             }
           : undefined
       }
@@ -47,8 +62,16 @@ function CloudIcon({ className }: { className?: string }) {
   );
 }
 
-export function ProviderMark({ provider, className }: { provider?: CloudProvider; className?: string }) {
-  return <ProviderBrandImg provider={provider ?? "aws"} className={className} />;
+export function ProviderMark({
+  provider,
+  className,
+  variant = "wordmark",
+}: {
+  provider?: CloudProvider;
+  className?: string;
+  variant?: "wordmark" | "compact";
+}) {
+  return <ProviderBrandImg provider={provider ?? "aws"} className={className} variant={variant} />;
 }
 
 function ProviderMarkInternal({ provider, className }: { provider?: CloudProvider; className?: string }) {
