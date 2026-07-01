@@ -33,7 +33,13 @@
     position: sticky;
     top: 1rem;
     max-height: calc(100vh - 2rem);
-    overflow-y: auto;
+    /* Scroll ownership moved onto .control-detail-panel__body so the header
+       and tabs stay pinned while only the content scrolls. */
+    overflow: visible;
+  }
+
+  .compliance-master-detail--split .control-detail-panel {
+    max-height: calc(100vh - 2rem);
   }
 }
 
@@ -45,10 +51,14 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden; /* clip rounded corners; the body owns scroll */
   border: 1px solid #e4e4e7;
   border-radius: 1rem;
   background: #fff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  /* Content responds to the drawer's own width, not the viewport. */
+  container-type: inline-size;
+  container-name: control-detail;
 }
 
 .control-detail-panel__header {
@@ -124,6 +134,9 @@
 }
 
 .control-detail-panel__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   flex-shrink: 0;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -132,21 +145,52 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: #71717a;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .control-detail-panel__tab:hover {
   color: #18181b;
 }
 
+.control-detail-panel__tab:focus-visible {
+  outline: 2px solid #0d9488;
+  outline-offset: -2px;
+  border-radius: 0.35rem 0.35rem 0 0;
+}
+
 .control-detail-panel__tab.is-active {
   border-bottom-color: #0d9488;
   color: #0f172a;
+  font-weight: 700;
+}
+
+/* Compact count pill next to a tab label (e.g. blocking gaps, pending evidence). */
+.control-detail-panel__tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #f0f0f2;
+  color: #52525b;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.control-detail-panel__tab.is-active .control-detail-panel__tab-badge {
+  background: #ccfbf1;
+  color: #0f766e;
 }
 
 .control-detail-panel__body {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1.1rem 1.25rem 1.4rem;
 }
 
@@ -285,4 +329,251 @@
   font-size: 0.78rem;
   line-height: 1.5;
   color: #71717a;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Drawer content hierarchy — titled sections + stack rhythm              */
+/* ---------------------------------------------------------------------- */
+
+.control-detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.control-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.control-detail-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.control-detail-section__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.control-detail-section__eyebrow {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.control-detail-section__title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.control-detail-section__action {
+  flex-shrink: 0;
+}
+
+.control-detail-section__stat {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f766e;
+  font-variant-numeric: tabular-nums;
+}
+
+.control-detail-section__stat-sep {
+  margin: 0 0.05rem;
+  color: #a1a1aa;
+  font-weight: 600;
+}
+
+.control-detail-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #a1a1aa;
+}
+
+/* Readiness section: the bar already carries its own bottom margin — drop it
+   so the section's own gap controls rhythm. */
+.control-detail-section .control-readiness {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Attention needed / next-action card                                    */
+/* ---------------------------------------------------------------------- */
+
+.control-attention__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.control-attention__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.75rem;
+  background: #fafafa;
+}
+
+.control-attention__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  color: #b45309;
+}
+
+.control-attention__icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.control-attention__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.control-attention__text strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.control-attention__text span {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #71717a;
+}
+
+.control-attention__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  border: 1px solid #0d9488;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0f766e;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.control-attention__cta:hover {
+  background: #0d9488;
+  color: #fff;
+}
+
+.control-attention__cta-chevron {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.control-attention--ok {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #ccfbf1;
+  border-radius: 0.75rem;
+  background: #f0fdfa;
+}
+
+.control-attention__ok-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.control-attention__ok-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.control-attention__ok-copy {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #115e59;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Container queries — respond to the DRAWER width, not the viewport.     */
+/* Below ~33rem the drawer is too narrow for multi-column dense layouts.  */
+/* ---------------------------------------------------------------------- */
+
+@container control-detail (max-width: 33rem) {
+  /* Stat rows in the composite summary bar stack to one column. */
+  .control-detail-panel .compliance-category-detail__summary-metrics {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .control-detail-panel .compliance-category-detail__summary-metrics > div {
+    border-left: 0;
+    padding-left: 0;
+    padding-right: 0;
+    min-height: 0;
+  }
+
+  /* Framework/criteria cards collapse to a single readable column. */
+  .control-detail-panel .compliance-category-detail__criteria-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Attention items drop the trailing CTA into its own row. */
+  .control-detail-panel .control-attention__item {
+    grid-template-columns: auto 1fr;
+  }
+
+  .control-detail-panel .control-attention__cta {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  /* Guidance workflow columns become single-column regardless of count. */
+  .control-detail-panel .compliance-category-detail__columns,
+  .control-detail-panel .compliance-category-detail__columns--count-3,
+  .control-detail-panel .compliance-category-detail__columns--count-2,
+  .control-detail-panel .compliance-category-detail__columns--count-1 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+}
+
+/* Any dense multi-column card layout inside the drawer follows drawer width. */
+@container control-detail (max-width: 40rem) {
+  .control-detail-panel .compliance-category-detail__columns--count-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import type { ReadinessMetric } from "../lib/controlReadiness";
 
@@ -24,6 +30,8 @@ export type ControlDetailTab = {
   id: ControlDetailTabId;
   label: string;
   content: ReactNode;
+  /** Optional compact count pill rendered next to the label (e.g. blocking gaps). */
+  badge?: ReactNode;
 };
 
 /** Concrete N-of-M readiness counts — deliberately not a "likelihood to pass" score. */
@@ -71,6 +79,18 @@ function useEscapeDismiss(onDismiss: () => void, active: boolean) {
   }, [onDismiss, active]);
 }
 
+/** Locks body scroll while active (overlay mode), restoring the prior value. */
+function useBodyScrollLock(active: boolean) {
+  useEffect(() => {
+    if (!active || typeof document === "undefined") return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [active]);
+}
+
 /**
  * Shared tabbed detail surface for a selected control/composite row.
  * `mode="docked"` renders inline (desktop master-detail column); `mode="overlay"`
@@ -99,8 +119,32 @@ export function ControlDetailPanel({
 }) {
   const isOverlay = mode === "overlay";
   useEscapeDismiss(onClose, isOverlay);
+  useBodyScrollLock(isOverlay);
   const backdropPressedRef = useRef(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const tabRefs = useRef<Map<ControlDetailTabId, HTMLButtonElement>>(new Map());
   const active = tabs.find((t) => t.id === activeTab) ?? tabs[0];
+  const activeId = active?.id;
+
+  // Overlay open: move focus to the close button so keyboard/AT users land inside the dialog.
+  useEffect(() => {
+    if (isOverlay) closeRef.current?.focus();
+  }, [isOverlay]);
+
+  // WAI-ARIA tabs keyboard pattern: Left/Right move between tabs, Home/End jump to ends.
+  function onTabKeyDown(e: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    let next = index;
+    if (e.key === "ArrowRight") next = (index + 1) % tabs.length;
+    else if (e.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = tabs.length - 1;
+    else return;
+    e.preventDefault();
+    const target = tabs[next];
+    if (!target) return;
+    onTabChange(target.id);
+    tabRefs.current.get(target.id)?.focus();
+  }
 
   const panel = (
     <div
@@ -111,6 +155,7 @@ export function ControlDetailPanel({
     >
       <div className="control-detail-panel__header">
         <button
+          ref={closeRef}
           type="button"
           className="control-detail-panel__close"
           onClick={onClose}
@@ -133,21 +178,43 @@ export function ControlDetailPanel({
       </div>
 
       <div className="control-detail-panel__tabs" role="tablist" aria-label="Control detail">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={t.id === activeTab}
-            className={`control-detail-panel__tab${t.id === activeTab ? " is-active" : ""}`}
-            onClick={() => onTabChange(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
+        {tabs.map((t, index) => {
+          const isActive = t.id === activeTab;
+          return (
+            <button
+              key={t.id}
+              ref={(el) => {
+                if (el) tabRefs.current.set(t.id, el);
+                else tabRefs.current.delete(t.id);
+              }}
+              type="button"
+              role="tab"
+              id={`control-detail-tab-${t.id}`}
+              aria-selected={isActive}
+              aria-controls={`control-detail-panel-${t.id}`}
+              tabIndex={isActive ? 0 : -1}
+              className={`control-detail-panel__tab${isActive ? " is-active" : ""}`}
+              onClick={() => onTabChange(t.id)}
+              onKeyDown={(e) => onTabKeyDown(e, index)}
+            >
+              {t.label}
+              {t.badge != null ? (
+                <span className="control-detail-panel__tab-badge" aria-hidden>
+                  {t.badge}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="control-detail-panel__body" role="tabpanel">
+      <div
+        className="control-detail-panel__body"
+        role="tabpanel"
+        id={activeId ? `control-detail-panel-${activeId}` : undefined}
+        aria-labelledby={activeId ? `control-detail-tab-${activeId}` : undefined}
+        tabIndex={0}
+      >
         {active?.content}
       </div>
     </div>
