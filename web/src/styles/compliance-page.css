@@ -113,19 +113,20 @@
 }
 
 .control-detail-panel__stat-sep {
-  margin: 0 1rem;
+  margin: 0 0.875rem;
   flex-shrink: 0;
   color: #a1a1aa;
   font-size: 0.875rem;
-  line-height: 1;
+  line-height: 1.25;
   user-select: none;
 }
 
 .control-detail-panel__stat {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4375rem;
   font-size: 0.8125rem;
+  line-height: 1.25;
   font-weight: 500;
   color: #3f3f46;
   font-variant-numeric: tabular-nums;
@@ -142,10 +143,13 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
   color: inherit;
 }
 
 .control-detail-panel__stat-icon svg {
+  display: block;
   width: 1.125rem;
   height: 1.125rem;
 }

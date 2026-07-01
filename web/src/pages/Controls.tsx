@@ -1765,6 +1765,16 @@ function GapScopeControl({
   );
 }
 
+const CONTROL_DRAWER_STAT_ICON_PROPS = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.75,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
 function ControlDrawerHeaderStats({
   openGaps,
   findings,
@@ -1780,12 +1790,12 @@ function ControlDrawerHeaderStats({
     {
       key: "gaps",
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-          <circle cx="12" cy="12" r="8.5" />
-          <circle cx="9.5" cy="9.5" r="0.85" fill="currentColor" stroke="none" />
-          <circle cx="14.5" cy="9.5" r="0.85" fill="currentColor" stroke="none" />
-          <circle cx="9.5" cy="14.5" r="0.85" fill="currentColor" stroke="none" />
-          <circle cx="14.5" cy="14.5" r="0.85" fill="currentColor" stroke="none" />
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="9.75" cy="9.75" r="1" fill="currentColor" stroke="none" />
+          <circle cx="14.25" cy="9.75" r="1" fill="currentColor" stroke="none" />
+          <circle cx="9.75" cy="14.25" r="1" fill="currentColor" stroke="none" />
+          <circle cx="14.25" cy="14.25" r="1" fill="currentColor" stroke="none" />
         </svg>
       ),
       label: `${openGaps} open gap${openGaps === 1 ? "" : "s"}`,
@@ -1793,13 +1803,9 @@ function ControlDrawerHeaderStats({
     {
       key: "findings",
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M8 4h7l3 3v13H8a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"
-          />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 4v3h3" />
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <path d="M7.5 4.5h7.5l3.5 3.5V20a.5.5 0 0 1-.5.5H7.5a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5Z" />
+          <path d="M15 4.5V8h3.5" />
         </svg>
       ),
       label: `${findings} finding${findings === 1 ? "" : "s"}`,
@@ -1808,14 +1814,10 @@ function ControlDrawerHeaderStats({
       key: "high",
       highSeverity: true,
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 3 4 7v5c0 5.25 3.5 10 8 11 4.5-1 8-5.75 8-11V7l-8-4Z"
-          />
-          <path strokeLinecap="round" d="M12 9v3.5" />
-          <circle cx="12" cy="16.25" r="0.75" fill="currentColor" stroke="none" />
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <path d="M12 2.75 5 6.25v5c0 4.75 3.5 9.25 7 10.25 3.5-1 7-5.5 7-10.25v-5L12 2.75Z" />
+          <path d="M12 8.25v4" />
+          <circle cx="12" cy="16.25" r="0.8" fill="currentColor" stroke="none" />
         </svg>
       ),
       label: `${highSeverity} high severity`,
@@ -1823,9 +1825,9 @@ function ControlDrawerHeaderStats({
     {
       key: "checks",
       icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-          <circle cx="12" cy="12" r="8.5" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="m8.5 12 2.25 2.25L15.5 9.5" />
+        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
+          <circle cx="12" cy="12" r="8" />
+          <path d="m8.25 12.25 2.75 2.75L15.75 9" />
         </svg>
       ),
       label: `${checks} check${checks === 1 ? "" : "s"}`,
