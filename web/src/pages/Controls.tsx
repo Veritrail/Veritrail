@@ -2044,6 +2044,239 @@ function ControlDetailSection({
  * Evidence tab itself rather than a click-to-scroll-into-view toggle, and the
  * three places GapScopeControl could render are collapsed to one (Gaps tab).
  */
+/**
+ * How to close the gaps on a composite control. "Fix in AWS" and "turn this on"
+ * apply broadly; cross-account coverage only applies to the one or two checks
+ * that can only be read from a management/root account (e.g. IAM Access
+ * Analyzer) — so it and evidence upload sit behind a quiet toggle instead of
+ * an always-open form, to avoid implying they cover the whole gap list.
+ */
+function CompositeGapResolution({
+  ctrl,
+  framework,
+  findingCountByCheck,
+  findingsHref,
+  navigate,
+  primaryAction,
+  regularFailing,
+  hasAbsenceGaps,
+  absenceChecks,
+  enableItems,
+  crossAccountEligible,
+  crossAccountDetail,
+  isExternalOnly,
+  underlyingCriteria,
+}: {
+  ctrl: CompositeControlRow;
+  framework: string;
+  findingCountByCheck: Map<string, number>;
+  findingsHref: string | null;
+  navigate: (href: string) => void;
+  primaryAction: { title: string; detail: string };
+  regularFailing: number;
+  hasAbsenceGaps: boolean;
+  absenceChecks: string[];
+  enableItems: { checkId: string; capability: string; consoleUrl?: string | null }[];
+  crossAccountEligible: boolean;
+  crossAccountDetail: CrossAccountCoverageDetail | null;
+  isExternalOnly: boolean;
+  underlyingCriteria: ControlRow[];
+}) {
+  const [openPanel, setOpenPanel] = useState<"cross-account" | "evidence" | null>(null);
+  const showEvidenceAlternative = hasAbsenceGaps || isExternalOnly;
+  const showAltColumn = crossAccountEligible || showEvidenceAlternative;
+  const showFixColumn = !isExternalOnly;
+  const showEnableColumn = enableItems.length > 0;
+  const enableStepIndex = showFixColumn ? 2 : 1;
+
+  return (
+    <div className="control-resolve">
+      {showFixColumn ? (
+        <div className="control-resolve-card">
+          <div className="control-resolve-card__head">
+            <svg className="control-resolve-card__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
+            <span className="control-resolve-card__label">Recommended action</span>
+          </div>
+          <button
+            type="button"
+            className="control-resolve-main"
+            onClick={() => {
+              if (findingsHref) navigate(findingsHref);
+            }}
+            disabled={!findingsHref}
+          >
+            <span className="control-resolve-step">1</span>
+            <span className="control-resolve-copy">
+              <strong>{primaryAction.title}</strong>
+              <span>{primaryAction.detail}</span>
+              {regularFailing > 0 ? (
+                <span className="control-resolve-badge control-resolve-badge--warn">
+                  {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
+                </span>
+              ) : !hasAbsenceGaps ? (
+                <span className="control-resolve-badge control-resolve-badge--neutral">Re-scan needed</span>
+              ) : null}
+            </span>
+            <span className="control-resolve-chevron" aria-hidden>›</span>
+          </button>
+        </div>
+      ) : null}
+
+      {showEnableColumn ? (
+        <div className="control-resolve-card">
+          <div className="control-resolve-card__head">
+            <svg className="control-resolve-card__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M3 21v-5h5" />
+            </svg>
+            <span className="control-resolve-card__label">Automatic re-check</span>
+          </div>
+          <div className="control-resolve-enable">
+            <span className="control-resolve-step">{enableStepIndex}</span>
+            <div className="control-resolve-enable__body">
+              <div className="control-resolve-enable__head">
+                <p>Turn {enableItems.length === 1 ? "this on" : "these on"}, then scan to verify</p>
+                {enableItems.length > 1 ? (
+                  <button
+                    type="button"
+                    className="control-resolve-enable__view-all"
+                    onClick={() =>
+                      navigate(`/findings?checks=${encodeURIComponent(absenceChecks.join(","))}`)
+                    }
+                  >
+                    View all
+                  </button>
+                ) : null}
+              </div>
+              <ul className="control-resolve-enable__list">
+                {enableItems.slice(0, 2).map((item) => (
+                  <li key={item.checkId}>
+                    <span>{item.capability}</span>
+                    <button
+                      type="button"
+                      className="control-resolve-enable__cta"
+                      onClick={() => {
+                        if (item.consoleUrl) {
+                          window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
+                          return;
+                        }
+                        navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
+                      }}
+                    >
+                      Enable
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showAltColumn ? (
+        <div className="control-resolve-card">
+          <div className="control-resolve-card__head">
+            <svg className="control-resolve-card__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+              <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+              <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+              <path d="M7 21h10" />
+              <path d="M12 3v18" />
+              <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+            </svg>
+            <span className="control-resolve-card__label">Alternative satisfaction</span>
+          </div>
+
+          {crossAccountEligible ? (
+            <div className="control-resolve-alt">
+              <button
+                type="button"
+                className="control-resolve-alt__row"
+                aria-expanded={openPanel === "cross-account"}
+                onClick={() => setOpenPanel((p) => (p === "cross-account" ? null : "cross-account"))}
+              >
+                <svg className="control-resolve-alt__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
+                </svg>
+                <span className="control-resolve-alt__text">
+                  <strong>Covered in another AWS account</strong>
+                  <span>
+                    {crossAccountDetail
+                      ? crossAccountDetail.verified
+                        ? "Verified — resolved via another AWS account."
+                        : "Attested — pending verification."
+                      : "Managed centrally in an account we don't scan yet — auto-verified."}
+                  </span>
+                </span>
+                <span
+                  className={`control-resolve-alt__chevron${openPanel === "cross-account" ? " is-open" : ""}`}
+                  aria-hidden
+                >
+                  ›
+                </span>
+              </button>
+              {openPanel === "cross-account" ? (
+                <div className="control-resolve-alt__expand">
+                  <CrossAccountCoverageControl
+                    compositeId={ctrl.id}
+                    detail={crossAccountDetail}
+                    open
+                    onClose={() => setOpenPanel(null)}
+                    onConnect={() => navigate("/accounts")}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {showEvidenceAlternative ? (
+            <div className="control-resolve-alt">
+              <button
+                type="button"
+                className="control-resolve-alt__row"
+                aria-expanded={openPanel === "evidence"}
+                onClick={() => setOpenPanel((p) => (p === "evidence" ? null : "evidence"))}
+              >
+                <svg className="control-resolve-alt__icon" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
+                </svg>
+                <span className="control-resolve-alt__text">
+                  <strong>Upload external evidence</strong>
+                  <span>Proof for checks managed outside of AWS.</span>
+                </span>
+                <span
+                  className={`control-resolve-alt__chevron${openPanel === "evidence" ? " is-open" : ""}`}
+                  aria-hidden
+                >
+                  ›
+                </span>
+              </button>
+              {openPanel === "evidence" ? (
+                <div className="control-resolve-alt__expand">
+                  <ExternalEvidencePanel
+                    compositeId={ctrl.id}
+                    compositeTitle={ctrl.title}
+                    framework={framework}
+                    groupStatus={ctrl.status}
+                    checkIds={ctrl.check_ids}
+                    findingCountByCheck={findingCountByCheck}
+                    underlyingCriteria={underlyingCriteria}
+                    frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function buildCompositeTabs({
   ctrl,
   findingCountByCheck,
@@ -2054,7 +2287,6 @@ function buildCompositeTabs({
   acceptedCompositeIds,
   submittedCount = 0,
   expiredCompositeIds,
-  onSelectTab,
   navigate,
 }: {
   ctrl: CompositeControlRow;
@@ -2066,7 +2298,6 @@ function buildCompositeTabs({
   acceptedCompositeIds: Set<string>;
   submittedCount?: number;
   expiredCompositeIds?: Set<string>;
-  onSelectTab: (tab: ControlDetailTabId) => void;
   navigate: (href: string) => void;
 }): ControlDetailTab[] {
   const displayStatus = compositeDisplayStatus(
@@ -2103,7 +2334,6 @@ function buildCompositeTabs({
   });
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
-  const showEnableColumn = enableItems.length > 0;
   const mappingChips: { fw: string; ids: string[] }[] = [
     { fw: "soc2", ids: ctrl.soc2_criteria ?? [] },
     { fw: "cis_aws_l1", ids: ctrl.cis_criteria ?? [] },
@@ -2138,59 +2368,23 @@ function buildCompositeTabs({
               />
             )}
 
-            {showEnableColumn ? (
+            {!isVerified && !overrideDetail ? (
               <div className="control-detail-subsection">
-                <p className="control-detail-subsection__label">
-                  Turn {enableItems.length === 1 ? "this" : "these"} on, then scan to verify
-                </p>
-                <ul className="compliance-category-detail__enable-services">
-                  {enableItems.map((item) => (
-                    <li key={item.checkId} className="compliance-category-detail__enable-service">
-                      <span>{item.capability}</span>
-                      <button
-                        type="button"
-                        className="compliance-category-detail__enable-cta"
-                        onClick={() => {
-                          if (item.consoleUrl) {
-                            window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
-                            return;
-                          }
-                          navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
-                        }}
-                      >
-                        Enable
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            {crossAccountEligible || crossAccountDetail ? (
-              <div className="control-detail-subsection">
-                <p className="control-detail-subsection__label">Covered in another AWS account</p>
-                <CrossAccountCoverageControl
-                  compositeId={ctrl.id}
-                  detail={crossAccountDetail}
-                  open={!crossAccountDetail}
-                  onClose={() => {}}
-                  onConnect={() => navigate("/accounts")}
-                />
-              </div>
-            ) : null}
-
-            {hasAbsenceGaps || isExternalOnly ? (
-              <div className="control-detail-subsection">
-                <p className="control-detail-subsection__label">External evidence</p>
-                <ExternalEvidencePanel
-                  compositeId={ctrl.id}
-                  compositeTitle={ctrl.title}
+                <CompositeGapResolution
+                  ctrl={ctrl}
                   framework={framework}
-                  groupStatus={ctrl.status}
-                  checkIds={ctrl.check_ids}
                   findingCountByCheck={findingCountByCheck}
+                  findingsHref={findingsHref}
+                  navigate={navigate}
+                  primaryAction={primaryAction}
+                  regularFailing={regularFailing}
+                  hasAbsenceGaps={hasAbsenceGaps}
+                  absenceChecks={absenceChecks}
+                  enableItems={enableItems}
+                  crossAccountEligible={crossAccountEligible}
+                  crossAccountDetail={crossAccountDetail}
+                  isExternalOnly={isExternalOnly}
                   underlyingCriteria={underlyingCriteria}
-                  frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
                 />
               </div>
             ) : null}
@@ -2206,24 +2400,11 @@ function buildCompositeTabs({
 
           {!isVerified && !overrideDetail ? (
             <ControlDetailSection title="Guidance">
-              {findingsHref ? (
-                <button
-                  type="button"
-                  className="control-detail-primary-cta"
-                  onClick={() => navigate(findingsHref)}
-                >
-                  <span>
-                    <strong>{primaryAction.title}</strong>
-                    <span className="control-detail-primary-cta__detail">{primaryAction.detail}</span>
-                  </span>
-                  <span className="control-detail-primary-cta__chevron" aria-hidden>
-                    ›
-                  </span>
-                </button>
-              ) : null}
               {ctrl.guidance ? (
                 <p className="control-detail-guidance-text">{ctrl.guidance}</p>
-              ) : null}
+              ) : (
+                <p className="control-detail-empty">No written guidance yet for this control.</p>
+              )}
               {mappingChips.length > 0 ? (
                 <p className="control-detail-mapping-line">
                   Mapped to{" "}
@@ -3832,7 +4013,6 @@ export default function Controls() {
                 acceptedCompositeIds,
                 submittedCount: submittedCountByComposite.get(selectedCompositeRow.id) ?? 0,
                 expiredCompositeIds,
-                onSelectTab: setSelectedTab,
                 navigate,
               })}
               activeTab={selectedTab}

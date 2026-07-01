@@ -132,7 +132,7 @@ export default function Dashboard() {
       )}
 
       {/* Top row: posture score + severity cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {/* Posture score */}
         <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm p-6 flex flex-col justify-between">
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Posture Score</div>
