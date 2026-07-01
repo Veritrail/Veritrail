@@ -9,6 +9,14 @@
     --vt-teal: #0d9488;
     --vt-teal-hover: #0f766e;
     --vt-border: #e8edf3;
+    --vt-border-strong: #d8dee8;
+    --vt-radius-sm: 0.5rem;
+    --vt-radius-md: 0.625rem;
+    --vt-radius-lg: 1rem;
+    --vt-rail-critical: rgb(252 165 165 / 0.52);
+    --vt-rail-high: rgb(252 165 165 / 0.52);
+    --vt-rail-medium: rgb(252 211 77 / 0.56);
+    --vt-rail-low: rgb(203 213 225 / 0.72);
     --veritrail-primary: #0f172a;
     --veritrail-primary-hover: #1e293b;
     --veritrail-neutral-border: #d8dee8;
@@ -101,22 +109,6 @@
 
   .veritrail-app-header {
     background: rgba(248, 250, 252, 0.68);
-  }
-
-  .veritrail-card {
-    @apply rounded-lg border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-6px_rgba(15,23,42,0.08)];
-  }
-
-  .veritrail-soft-card {
-    @apply rounded-md border border-zinc-200 bg-white shadow-[0_1px_1px_rgba(15,23,42,0.03)];
-  }
-
-  .veritrail-muted-panel {
-    @apply rounded-md bg-zinc-50 border border-zinc-100;
-  }
-
-  .veritrail-button {
-    @apply inline-flex items-center justify-center gap-1.5 rounded border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50;
   }
 
   .veritrail-button-primary {
@@ -300,196 +292,9 @@
   }
 }
 
-.findings-v2-page.findings-v2-shell {
-  --fv-rail-critical: #fdd0d0;
-  --fv-rail-high: #fdd0d0;
-  --fv-rail-medium: #fde69b;
-  --fv-rail-low: #dae1e9;
-}
-
 .findings-v2-page .findings-v2-row::before {
   top: 0;
   bottom: 0;
-}
-
-.max-w-screen-2xl .rounded-b-xl.border-t.border-zinc-100.bg-white > div:first-child > div {
-  gap: 1rem;
-  padding: 0.95rem 1.35rem;
-}
-
-.max-w-screen-2xl .rounded-b-xl.border-t.border-zinc-100.bg-white > div:first-child > div > span.absolute {
-  right: 0;
-  top: 50%;
-  width: 1px;
-  height: 2.65rem;
-  transform: translateY(-50%);
-  background: #e5e7eb;
-}
-
-.max-w-screen-2xl .rounded-b-xl.border-t.border-zinc-100.bg-white > div:first-child > div > span:not(.absolute) {
-  display: flex;
-  width: 1rem;
-  height: 1rem;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  flex-shrink: 0;
-  margin-top: 0;
-  transform: translateY(0.08rem);
-  color: #747c89;
-}
-
-.max-w-screen-2xl .rounded-b-xl.border-t.border-zinc-100.bg-white > div:first-child > div > span:not(.absolute) svg {
-  display: block;
-  width: 1rem;
-  height: 1rem;
-  stroke-width: 1.5;
-}
-
-.max-w-screen-2xl .rounded-b-xl.border-t.border-zinc-100.bg-white > div:first-child > div > div > p:first-child {
-  color: #4b5563;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
-}
-
-.max-w-screen-2xl .rounded-b-xl.border-t.border-zinc-100.bg-white > div:first-child > div > div > p + p {
-  margin-top: 0.3rem;
-  color: #6b7280;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.35;
-}
-
-/* Finding drawer resources tab: align the summary card metrics and the resource type column. */
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child {
-  display: grid;
-  width: fit-content;
-  grid-template-columns: 5.25rem auto 4.5rem;
-  align-items: center;
-  column-gap: 1rem;
-  padding-inline: 1rem;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child,
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child {
-  display: flex;
-  min-width: 0;
-  align-self: stretch;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child,
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:last-child {
-  width: 5.25rem;
-  text-align: center;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child {
-  font-size: 0;
-  line-height: 1;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child::after {
-  content: "Resources";
-  color: #a1a1aa;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.045em;
-  line-height: 1rem;
-  text-transform: uppercase;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:last-child {
-  display: flex;
-  min-height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > p:first-child,
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div {
-  width: 4.5rem;
-  text-align: center;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div {
-  min-height: 2.5rem;
-  align-items: center;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div > span:first-child {
-  display: block;
-  width: 4.5rem;
-  text-align: center;
-}
-
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:last-child > div > span:last-child {
-  width: 3.75rem !important;
-  justify-content: center;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left colgroup col:nth-child(2) {
-  width: 5.25rem !important;
-  min-width: 5.25rem;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left thead th:nth-child(2),
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) {
-  width: 5.25rem !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  text-align: center !important;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) > div {
-  display: flex;
-  width: 5.25rem;
-  min-height: 2.5rem;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) > div > div {
-  height: 0 !important;
-  margin-top: 0 !important;
-  overflow: hidden;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) span {
-  justify-content: center;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr:hover {
-  background-color: #f4f4f5 !important;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr[aria-selected="true"] {
-  background-color: #f2f4f7 !important;
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody tr[aria-selected="true"]:hover {
-  background-color: #eceff3 !important;
-}
-
-/* Stronger visible nudges: the previous pass only normalized the boxes. */
-.space-y-3 > div[class*="min-h-[5.25rem]"].flex.flex-col.gap-2\.5 > div:first-child > div:first-child > p:first-child::after {
-  display: inline-block;
-  transform: translateY(-5px);
-}
-
-.space-y-3 table.min-w-\[56rem\].w-full.border-collapse.text-left tbody td:nth-child(2) > div > span {
-  box-sizing: border-box;
-  display: inline-flex;
-  height: 1.25rem;
-  align-items: center;
-  padding-top: 1px !important;
-  padding-bottom: 0 !important;
-  line-height: 1rem !important;
 }
 
 /* Accounts page: stronger button borders so they don't blend, and a teal Scan

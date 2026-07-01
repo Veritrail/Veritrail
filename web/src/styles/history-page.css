@@ -3,7 +3,7 @@
 .history-page {
   --history-border: #e8ecf1;
   --history-muted: #6b7280;
-  --history-teal: #439385;
+  --history-teal: var(--vt-teal, #0d9488);
   --history-teal-light: #e9f3f1;
   --history-card: #ffffff;
   --history-bg: #f6f8fb;
@@ -164,7 +164,7 @@
 
 .history-filter-menu,
 .history-page-size-menu {
-  --history-teal: #439385;
+  --history-teal: var(--vt-teal, #0d9488);
   --history-teal-light: #e9f3f1;
   --history-border: #e8ecf1;
 }

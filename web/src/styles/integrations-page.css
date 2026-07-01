@@ -1,5 +1,6 @@
 .integrations-page {
   --integrations-border: var(--vt-border, #e8edf3);
+  --integrations-border-strong: var(--vt-border-strong, #d8dee8);
   --integrations-muted: #64748b;
   --integrations-surface: #ffffff;
   --integrations-bg: #f8fafc;
