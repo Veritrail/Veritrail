@@ -1,8 +1,8 @@
-/* Compliance/Controls page — master-detail layout + tabbed detail panel.
+/* Compliance/Controls page — full-width control list + drawer detail panel.
    Page-scoped styles only; shared list/toolbar primitives stay in findings-v2.css. */
 
 /* ---------------------------------------------------------------------- */
-/* Master-detail grid                                                     */
+/* Master list — always full width; detail opens as a drawer, not docked.  */
 /* ---------------------------------------------------------------------- */
 
 .compliance-master-detail {
@@ -12,35 +12,8 @@
   gap: 1.25rem;
 }
 
-@media (min-width: 1181px) {
-  .compliance-master-detail--split {
-    grid-template-columns: minmax(22rem, 1fr) minmax(26rem, 38rem);
-  }
-}
-
 .compliance-master-detail__list {
   min-width: 0;
-}
-
-.compliance-master-detail__detail {
-  display: none;
-  min-width: 0;
-}
-
-@media (min-width: 1181px) {
-  .compliance-master-detail--split .compliance-master-detail__detail {
-    display: block;
-    position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 2rem);
-    /* Scroll ownership moved onto .control-detail-panel__body so the header
-       and tabs stay pinned while only the content scrolls. */
-    overflow: visible;
-  }
-
-  .compliance-master-detail--split .control-detail-panel {
-    max-height: calc(100vh - 2rem);
-  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -195,94 +168,128 @@
 }
 
 /* ---------------------------------------------------------------------- */
-/* Narrow-viewport overlay fallback                                       */
+/* Detail drawer — right-anchored sheet, matching the Findings drawer.    */
 /* ---------------------------------------------------------------------- */
 
 .control-detail-overlay {
   position: fixed;
   inset: 0;
   z-index: 60;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: rgba(9, 9, 11, 0.4);
-  padding: 1rem;
+  background: rgba(9, 9, 11, 0.35);
   backdrop-filter: blur(2px);
 }
 
 .control-detail-overlay .control-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: min(40rem, 100%);
-  max-height: calc(100vh - 2rem);
-  margin: auto;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  border-top: 0;
+  border-bottom: 0;
+  border-right: 0;
+  box-shadow: -8px 0 24px rgba(15, 23, 42, 0.12);
 }
 
 @media (max-width: 720px) {
-  .control-detail-overlay {
-    padding: 0;
-  }
-
   .control-detail-overlay .control-detail-panel {
     width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    border-radius: 0;
   }
 }
 
 /* ---------------------------------------------------------------------- */
-/* Readiness bar — concrete N-of-M counts, not a probability indicator.   */
+/* Consolidated drawer body — Blocking gaps + Guidance, nothing else.     */
 /* ---------------------------------------------------------------------- */
 
-.control-readiness {
-  display: grid;
-  gap: 0.7rem;
-  margin-bottom: 1.1rem;
+.control-detail-section__stat--clear {
+  color: #16a34a;
 }
 
-.control-readiness__row {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.control-readiness__row-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  font-size: 0.78rem;
-}
-
-.control-readiness__label {
-  font-weight: 600;
-  color: #3f3f46;
-}
-
-.control-readiness__count {
-  font-variant-numeric: tabular-nums;
+.control-detail-empty {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px dashed #e4e4e7;
+  border-radius: 0.65rem;
+  background: #fafafa;
+  font-size: 0.8125rem;
+  line-height: 1.5;
   color: #71717a;
 }
 
-.control-readiness__track {
-  height: 0.4rem;
-  border-radius: 999px;
-  background: #f0f0f2;
-  overflow: hidden;
+.control-detail-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f2;
 }
 
-.control-readiness__fill {
-  height: 100%;
-  border-radius: 999px;
-  background: #0d9488;
-  transition: width 0.2s ease;
+.control-detail-subsection--muted {
+  opacity: 0.9;
 }
 
-.control-readiness__fill--incomplete {
-  background: #f59e0b;
+.control-detail-subsection__label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: #52525b;
 }
 
-.control-readiness__fill--empty {
-  background: #d4d4d8;
+.control-detail-primary-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid #99f6e4;
+  border-radius: 0.75rem;
+  background: #f0fdfa;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  color: #0f766e;
+  font-size: 0.85rem;
+  transition: background 0.15s ease;
+}
+
+.control-detail-primary-cta:hover {
+  background: #ccfbf1;
+}
+
+.control-detail-primary-cta strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.control-detail-primary-cta__detail {
+  display: block;
+  margin-top: 0.15rem;
+  font-weight: 500;
+  color: #0d9488;
+}
+
+.control-detail-primary-cta__chevron {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  color: #0f766e;
+}
+
+.control-detail-guidance-text {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #3f3f46;
+}
+
+.control-detail-mapping-line {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #a1a1aa;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -394,19 +401,6 @@
   font-weight: 600;
 }
 
-.control-detail-hint {
-  margin: 0;
-  font-size: 0.72rem;
-  line-height: 1.45;
-  color: #a1a1aa;
-}
-
-/* Readiness section: the bar already carries its own bottom margin — drop it
-   so the section's own gap controls rhythm. */
-.control-detail-section .control-readiness {
-  margin-bottom: 0;
-}
-
 /* ---------------------------------------------------------------------- */
 /* Attention needed / next-action card                                    */
 /* ---------------------------------------------------------------------- */
@@ -414,7 +408,7 @@
 .control-attention__list {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -425,10 +419,20 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid #e4e4e7;
-  border-radius: 0.75rem;
-  background: #fafafa;
+  padding: 0.7rem 0;
+  border: 0;
+  border-bottom: 1px solid #f4f4f5;
+  border-radius: 0;
+  background: transparent;
+}
+
+.control-attention__item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.control-attention__item:first-child {
+  padding-top: 0;
 }
 
 .control-attention__icon {
@@ -532,18 +536,13 @@
 /* ---------------------------------------------------------------------- */
 
 @container control-detail (max-width: 33rem) {
-  /* Stat rows in the composite summary bar stack to one column. */
-  .control-detail-panel .compliance-category-detail__summary-metrics {
+  /* Executive summary cards stack to one column in narrow drawers. */
+  .control-detail-panel .compliance-category-detail__summary-severity {
     flex-direction: column;
-    align-items: stretch;
-    width: 100%;
   }
 
-  .control-detail-panel .compliance-category-detail__summary-metrics > div {
-    border-left: 0;
-    padding-left: 0;
-    padding-right: 0;
-    min-height: 0;
+  .control-detail-panel .compliance-category-detail__summary-metrics {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   /* Framework/criteria cards collapse to a single readable column. */

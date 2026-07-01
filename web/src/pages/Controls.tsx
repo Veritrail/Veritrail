@@ -7,18 +7,13 @@ import { roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS, frameworkLabel } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
+import { ComplianceMetricIconGlyph } from "../components/ComplianceMetricIcon";
 import { FilterChipBar } from "../components/FilterChipBar";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
 import { controlPostureScore } from "../lib/controlPostureScore";
-import {
-  controlEvidenceSectionTitle,
-  controlEvidenceUsesType2Bar,
-  frameworkEvidenceUi,
-  showControlEvidenceSection,
-} from "../lib/frameworkEvidenceCoverage";
 import {
   findingsScopeParams,
   useConnectedAccountOptions,
@@ -46,12 +41,9 @@ import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawe
 import { ControlEvidenceTabContent } from "../components/ControlEvidenceSlideOver";
 import {
   ControlDetailPanel,
-  ControlReadinessBar,
-  useNarrowControlDetail,
   type ControlDetailTab,
   type ControlDetailTabId,
 } from "../components/ControlDetailPanel";
-import { controlReadinessMetrics, type ReadinessMetric } from "../lib/controlReadiness";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FrameworkMark } from "../components/FrameworkMark";
 import "../styles/findings-v2.css";
@@ -144,20 +136,6 @@ type ControlRow = {
   cis_profile_level?: string | null;
   iso_applicability?: "applicable" | "excluded" | "partial" | null;
   iso_applicability_rationale?: string | null;
-};
-
-type ControlHistory = {
-  current_status: string;
-  failing_since: string | null;
-  days_failing: number | null;
-  open_finding_count: number;
-  segments: {
-    status: string;
-    from: string;
-    to: string;
-    duration_seconds: number;
-  }[];
-  events: { timestamp: string; type: string; detail: string }[];
 };
 
 const AUDIT_WINDOWS = [
@@ -1790,69 +1768,36 @@ function GapScopeControl({
   );
 }
 
-/** Open-finding counts by severity — shows *why* a category is graded the way
- *  it is (crit/high fail, medium = at risk, low = noted). */
-function CategoryDetailSummaryBar({
-  ctrl,
-  displayStatus,
-  findingCountByCheck,
-  acceptedCompositeIds,
-  submittedCount,
-}: {
-  ctrl: CompositeControlRow;
-  displayStatus: ComplianceDisplayStatus;
-  findingCountByCheck: Map<string, number>;
-  acceptedCompositeIds: Set<string>;
-  submittedCount: number;
-}) {
-  const counts = ctrl.severity_counts;
-  const severityItems = counts
-    ? (
-        [
-          ["high", counts.high, "High"],
-          ["medium", counts.medium, "Medium"],
-          ["low", counts.low, "Low"],
-        ] as const
-      ).filter(([, n]) => n > 0)
-    : [];
-  const blockingCount = ctrl.check_ids.filter(
-    (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
-  ).length;
+type MetricIconKind = "automated" | "external" | "blocking";
 
+function MetricIconGlyph({ kind }: { kind: MetricIconKind }) {
+  return <ComplianceMetricIconGlyph kind={kind} />;
+}
+
+function CategoryDetailMetricCard({
+  tone,
+  icon,
+  label,
+  value,
+}: {
+  tone: "ok" | "warn" | "neutral";
+  icon: MetricIconKind;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="compliance-category-detail__summary-bar" aria-label="Category summary">
-      <div className="compliance-category-detail__summary-severity">
-        {severityItems.length > 0 ? (
-          severityItems.map(([sev, n, label]) => (
-            <div
-              key={sev}
-              className={`compliance-category-detail__severity-badge is-${sev}`}
-            >
-              <span className="compliance-category-detail__severity-badge-count">{n}</span>
-              <span className="compliance-category-detail__severity-badge-label">{label}</span>
-            </div>
-          ))
-        ) : (
-          <span className="compliance-category-detail__summary-empty">No open findings</span>
-        )}
-      </div>
-      <div className="compliance-category-detail__summary-metrics">
-        <div>
-          <span>Automated</span>
-          <strong>{compositeAutomatedSummary(ctrl, displayStatus)}</strong>
-        </div>
-        <div>
-          <span>External</span>
-          <strong>{compositeExternalSummary(ctrl, acceptedCompositeIds, submittedCount)}</strong>
-        </div>
-        <div>
-          <span>Blocking gaps</span>
-          <strong>{blockingCount}</strong>
-        </div>
-      </div>
+    <div className={`compliance-category-detail__metric-card is-${tone}`}>
+      <span className="compliance-category-detail__metric-label">{label}</span>
+      <span className="compliance-category-detail__metric-icon" aria-hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+          <MetricIconGlyph kind={icon} />
+        </svg>
+      </span>
+      <strong className="compliance-category-detail__metric-value">{value}</strong>
     </div>
   );
 }
+
 
 type CrossAccountCoverageDetail = {
   account_id: string;
@@ -2090,145 +2035,6 @@ function ControlDetailSection({
   );
 }
 
-/** Readiness bar wrapped in a titled section with an N-of-M summary stat. */
-function ControlReadinessSection({ metrics }: { metrics: ReadinessMetric[] }) {
-  if (metrics.length === 0) return null;
-  const primary = metrics[0];
-  return (
-    <ControlDetailSection
-      title="Readiness"
-      action={
-        <span className="control-detail-section__stat">
-          {primary.complete}
-          <span className="control-detail-section__stat-sep">/</span>
-          {primary.total}
-        </span>
-      }
-    >
-      <ControlReadinessBar metrics={metrics} />
-      <p className="control-detail-hint">
-        Concrete N-of-M counts — not a likelihood-to-pass score.
-      </p>
-    </ControlDetailSection>
-  );
-}
-
-/**
- * "Attention needed" / next-action card for the composite Overview. Surfaces
- * the most actionable facts (blocking gaps, submitted evidence, cross-account
- * eligibility) with CTAs that jump to the relevant tab via the existing
- * tab-switch mechanism.
- */
-function CompositeAttentionCard({
-  isVerified,
-  blockingCount,
-  submittedCount,
-  crossAccountEligible,
-  onSelectTab,
-}: {
-  isVerified: boolean;
-  blockingCount: number;
-  submittedCount: number;
-  crossAccountEligible: boolean;
-  onSelectTab: (tab: ControlDetailTabId) => void;
-}) {
-  if (isVerified) {
-    return (
-      <ControlDetailSection title="Next action">
-        <div className="control-attention control-attention--ok">
-          <span className="control-attention__ok-icon" aria-hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
-            </svg>
-          </span>
-          <p className="control-attention__ok-copy">
-            This control is verified — no action needed right now.
-          </p>
-        </div>
-      </ControlDetailSection>
-    );
-  }
-
-  const items: {
-    key: string;
-    icon: ReactNode;
-    title: string;
-    detail: string;
-    cta: string;
-    tab: ControlDetailTabId;
-  }[] = [];
-
-  if (blockingCount > 0) {
-    items.push({
-      key: "gaps",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-        </svg>
-      ),
-      title: `${blockingCount} blocking gap${blockingCount === 1 ? "" : "s"}`,
-      detail: "Failing checks are holding this control back.",
-      cta: "Review gaps",
-      tab: "gaps",
-    });
-  }
-  if (submittedCount > 0) {
-    items.push({
-      key: "evidence",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z" />
-        </svg>
-      ),
-      title: `${submittedCount} evidence submission${submittedCount === 1 ? "" : "s"} pending review`,
-      detail: "Awaiting approval to count toward this control.",
-      cta: "View evidence",
-      tab: "evidence",
-    });
-  }
-  if (crossAccountEligible) {
-    items.push({
-      key: "cross-account",
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
-        </svg>
-      ),
-      title: "Eligible for cross-account coverage",
-      detail: "May be satisfied centrally in another AWS account.",
-      cta: "Add coverage",
-      tab: "evidence",
-    });
-  }
-
-  if (items.length === 0) return null;
-
-  return (
-    <ControlDetailSection title="Attention needed" eyebrow="Next action">
-      <ul className="control-attention__list">
-        {items.map((item) => (
-          <li key={item.key} className="control-attention__item">
-            <span className="control-attention__icon" aria-hidden>
-              {item.icon}
-            </span>
-            <span className="control-attention__text">
-              <strong>{item.title}</strong>
-              <span>{item.detail}</span>
-            </span>
-            <button
-              type="button"
-              className="control-attention__cta"
-              onClick={() => onSelectTab(item.tab)}
-            >
-              {item.cta}
-              <span className="control-attention__cta-chevron" aria-hidden>›</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </ControlDetailSection>
-  );
-}
 
 /**
  * Assembles the composite/category detail content into ControlDetailPanel tabs.
@@ -2279,7 +2085,6 @@ function buildCompositeTabs({
     (c) => (findingCountByCheck.get(c) ?? 0) > 0,
   ).length;
   const underlyingCriteria = underlyingCriteriaForComposite(ctrl, frameworkRows);
-  const criteriaCount = underlyingCriteria.length;
   // Absence gaps = an AWS service is simply off (…not_enabled/.not_detected/.missing).
   // Those can be closed by enabling the service, by central coverage in another
   // account, or by external evidence. Everything else is a real failing check
@@ -2298,423 +2103,141 @@ function buildCompositeTabs({
   });
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
-  const showFixColumn = !isExternalOnly;
   const showEnableColumn = enableItems.length > 0;
-  const showEvidenceAlternative = hasAbsenceGaps || isExternalOnly;
-  const showAltColumn = crossAccountEligible || showEvidenceAlternative;
-  const workflowCols =
-    (showFixColumn ? 1 : 0) + (showEnableColumn ? 1 : 0) + (showAltColumn ? 1 : 0);
-  const enableStepIndex = showFixColumn ? 2 : 1;
-  const readinessMetrics = controlReadinessMetrics(
-    ctrl.check_ids,
-    ctrl.check_tiers,
-    findingCountByCheck,
-  );
-
-  const tabs: ControlDetailTab[] = [];
-
-  tabs.push({
-    id: "overview",
-    label: "Overview",
-    content: (
-      <div className="control-detail-stack">
-        <ControlDetailSection title="Current status">
-          <CategoryDetailSummaryBar
-            ctrl={ctrl}
-            displayStatus={displayStatus}
-            findingCountByCheck={findingCountByCheck}
-            acceptedCompositeIds={acceptedCompositeIds}
-            submittedCount={submittedCount}
-          />
-        </ControlDetailSection>
-        <ControlReadinessSection metrics={readinessMetrics} />
-        <CompositeAttentionCard
-          isVerified={isVerified}
-          blockingCount={failingCheckCount}
-          submittedCount={submittedCount}
-          crossAccountEligible={crossAccountEligible}
-          onSelectTab={onSelectTab}
-        />
-      </div>
-    ),
-  });
-
-  tabs.push({
-    id: "gaps",
-    label: "Gaps",
-    badge: failingCheckCount > 0 ? failingCheckCount : undefined,
-    content: (
-      <>
-        <section className="compliance-category-detail__checks-section">
-          <div className="compliance-category-detail__checks-heading">
-            <h4>Blocking gaps</h4>
-            {findingsHref ? (
-              <button
-                type="button"
-                onClick={() => navigate(findingsHref)}
-                className="compliance-top-checks__view-all"
-              >
-                View all
-              </button>
-            ) : null}
-          </div>
-          <TopFailingChecksSeverityTable
-            checkIds={ctrl.check_ids}
-            findingCountByCheck={findingCountByCheck}
-            severityByCheck={severityByCheck}
-          />
-        </section>
-        <section className="compliance-category-detail__criteria">
-          <GapScopeControl
-            compositeId={ctrl.id}
-            compositeTitle={ctrl.title}
-            detail={overrideDetail}
-          />
-        </section>
-      </>
-    ),
-  });
-
-  tabs.push({
-    id: "evidence",
-    label: "Evidence",
-    badge: submittedCount > 0 ? submittedCount : undefined,
-    content: (
-      <>
-        {crossAccountEligible || crossAccountDetail ? (
-          <section className="compliance-category-detail__criteria">
-            <div className="compliance-category-detail__checks-heading">
-              <h4>Covered in another AWS account</h4>
-            </div>
-            <CrossAccountCoverageControl
-              compositeId={ctrl.id}
-              detail={crossAccountDetail}
-              open={!crossAccountDetail}
-              onClose={() => {}}
-              onConnect={() => navigate("/accounts")}
-            />
-          </section>
-        ) : null}
-        <div className="compliance-category-detail__evidence">
-          <ExternalEvidencePanel
-            compositeId={ctrl.id}
-            compositeTitle={ctrl.title}
-            framework={framework}
-            groupStatus={ctrl.status}
-            checkIds={ctrl.check_ids}
-            findingCountByCheck={findingCountByCheck}
-            underlyingCriteria={underlyingCriteria}
-            frameworkControlLabel={(controlId) =>
-              frameworkControlLabel(framework, controlId)
-            }
-          />
-        </div>
-      </>
-    ),
-  });
-
-  const frameworkMappingChips: { fw: string; ids: string[] }[] = [
+  const mappingChips: { fw: string; ids: string[] }[] = [
     { fw: "soc2", ids: ctrl.soc2_criteria ?? [] },
     { fw: "cis_aws_l1", ids: ctrl.cis_criteria ?? [] },
     { fw: "iso27001", ids: ctrl.iso_criteria ?? [] },
   ].filter((g) => g.ids.length > 0);
 
-  tabs.push({
-    id: "mappings",
-    label: "Mappings",
-    badge: criteriaCount > 0 ? criteriaCount : undefined,
-    content: (
-      <>
-        {frameworkMappingChips.length > 0 ? (
-          <section className="compliance-category-detail__criteria">
-            <div className="compliance-category-detail__checks-heading">
-              <h4>Mapped frameworks</h4>
-            </div>
-            <div className="control-mappings-summary">
-              {frameworkMappingChips.map((g) => (
-                <span className="control-mappings-summary__group" key={g.fw}>
-                  <span className="control-mappings-summary__fw">{frameworkLabel(g.fw)}</span>
-                  {g.ids.map((id) => (
-                    <span className="control-mappings-summary__chip" key={id}>
-                      {id}
-                    </span>
-                  ))}
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
-        {underlyingCriteria.length > 0 ? (
-          <section className="compliance-category-detail__criteria">
-            <div className="compliance-category-detail__checks-heading">
-              <h4>Controls</h4>
-            </div>
-            <div className="compliance-category-detail__criteria-list">
-              {underlyingCriteria.slice(0, 6).map((criterion) => {
-                const params = new URLSearchParams({
-                  framework,
-                  control: criterion.control_id,
-                  composite: ctrl.id,
-                  view: "detailed",
-                });
-                if (accountId) params.set("account_id", accountId);
-                const openFindings = criterion.check_ids.reduce(
-                  (sum, checkId) => sum + (findingCountByCheck.get(checkId) ?? 0),
-                  0,
-                );
-                return (
-                  <Link
-                    key={criterion.id}
-                    to={`/controls?${params}`}
-                    className="compliance-category-detail__criteria-link"
-                  >
-                    <span className="compliance-category-detail__criteria-top">
-                      <span className="compliance-category-detail__criteria-code">
-                        {frameworkControlLabel(framework, criterion.control_id)}
-                      </span>
-                      {openFindings > 0 ? (
-                        <span className="compliance-category-detail__criteria-count">
-                          {openFindings}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="compliance-category-detail__criteria-title">
-                      {shortControlTitle(criterion.title)}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-      </>
-    ),
-  });
-
-  if (!isVerified && !overrideDetail) {
-    tabs.push({
-      id: "guidance",
-      label: "Guidance",
+  const tabs: ControlDetailTab[] = [
+    {
+      id: "overview",
+      label: "Details",
       content: (
-        <section className="compliance-category-detail__nextsteps">
-          <div
-            className={`compliance-category-detail__columns compliance-category-detail__columns--count-${workflowCols}`}
+        <div className="control-detail-stack">
+          <ControlDetailSection
+            title="Blocking gaps"
+            action={
+              failingCheckCount > 0 ? (
+                <span className="control-detail-section__stat">{failingCheckCount} open</span>
+              ) : (
+                <span className="control-detail-section__stat control-detail-section__stat--clear">Clear</span>
+              )
+            }
           >
-            {showFixColumn ? (
-              <div className="compliance-category-detail__column">
-                <div className="compliance-category-detail__column-head">
-                  <span className="compliance-category-detail__column-icon" aria-hidden>
-                    <svg
-                      fill="none"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                    </svg>
-                  </span>
-                  <h4>Recommended action</h4>
-                </div>
-                <div className="compliance-category-detail__column-card">
-                  <button
-                    type="button"
-                    className="compliance-category-detail__resolve-main"
-                    onClick={() => {
-                      if (findingsHref) navigate(findingsHref);
-                    }}
-                    disabled={!findingsHref}
-                  >
-                    <span className="compliance-category-detail__step-index">1</span>
-                    <span className="compliance-category-detail__resolve-copy">
-                      <strong>{primaryAction.title}</strong>
-                      <span>{primaryAction.detail}</span>
-                      {regularFailing > 0 ? (
-                        <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--warn">
-                          {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
-                        </span>
-                      ) : !hasAbsenceGaps ? (
-                        <span className="compliance-category-detail__action-badge compliance-category-detail__action-badge--neutral">
-                          Re-scan needed
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-                  </button>
-                </div>
-              </div>
-            ) : null}
+            {isExternalOnly ? (
+              <p className="control-detail-empty">
+                No automated checks map to this control — resolve it with external evidence below.
+              </p>
+            ) : (
+              <TopFailingChecksSeverityTable
+                checkIds={ctrl.check_ids}
+                findingCountByCheck={findingCountByCheck}
+                severityByCheck={severityByCheck}
+              />
+            )}
 
             {showEnableColumn ? (
-              <div className="compliance-category-detail__column">
-                <div className="compliance-category-detail__column-head">
-                  <span className="compliance-category-detail__column-icon" aria-hidden>
-                    <svg
-                      fill="none"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                      <path d="M21 3v5h-5" />
-                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                      <path d="M3 21v-5h5" />
-                    </svg>
-                  </span>
-                  <h4>Automatic re-check</h4>
-                </div>
-                <div
-                  className={`compliance-category-detail__column-card compliance-category-detail__column-card--enable${
-                    enableItems.length === 1 ? " compliance-category-detail__column-card--single-enable" : ""
-                  }`}
-                >
-                  <span className="compliance-category-detail__step-index">{enableStepIndex}</span>
-                  <div className="compliance-category-detail__enable-body">
-                    <div className="compliance-category-detail__enable-head">
-                      <p className="compliance-category-detail__services-label">
-                        Turn {enableItems.length === 1 ? "this on" : "these on"}, then scan to verify
-                      </p>
-                      {enableItems.length > 1 ? (
-                        <button
-                          type="button"
-                          className="compliance-category-detail__enable-all"
-                          onClick={() =>
-                            navigate(
-                              `/findings?checks=${encodeURIComponent(absenceChecks.join(","))}`,
-                            )
+              <div className="control-detail-subsection">
+                <p className="control-detail-subsection__label">
+                  Turn {enableItems.length === 1 ? "this" : "these"} on, then scan to verify
+                </p>
+                <ul className="compliance-category-detail__enable-services">
+                  {enableItems.map((item) => (
+                    <li key={item.checkId} className="compliance-category-detail__enable-service">
+                      <span>{item.capability}</span>
+                      <button
+                        type="button"
+                        className="compliance-category-detail__enable-cta"
+                        onClick={() => {
+                          if (item.consoleUrl) {
+                            window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
+                            return;
                           }
-                        >
-                          View all
-                        </button>
-                      ) : null}
-                    </div>
-                    <ul className="compliance-category-detail__enable-services">
-                      {enableItems.slice(0, 2).map((item) => (
-                        <li
-                          key={item.checkId}
-                          className="compliance-category-detail__enable-service"
-                        >
-                          <span>{item.capability}</span>
-                          <button
-                            type="button"
-                            className="compliance-category-detail__enable-cta"
-                            onClick={() => {
-                              if (item.consoleUrl) {
-                                window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
-                                return;
-                              }
-                              navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
-                            }}
-                          >
-                            Enable
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+                          navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
+                        }}
+                      >
+                        Enable
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
 
-            {showAltColumn ? (
-              <div className="compliance-category-detail__column">
-                <div className="compliance-category-detail__column-head">
-                  <span className="compliance-category-detail__column-icon" aria-hidden>
-                    <svg
-                      fill="none"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                      <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                      <path d="M7 21h10" />
-                      <path d="M12 3v18" />
-                      <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
-                    </svg>
-                  </span>
-                  <h4>Alternative satisfaction</h4>
-                </div>
-                <div
-                  className={`compliance-category-detail__column-alts${
-                    Number(crossAccountEligible) + Number(showEvidenceAlternative) === 1
-                      ? " compliance-category-detail__column-alts--compact"
-                      : ""
-                  }`}
-                >
-                  {crossAccountEligible ? (
-                    <button
-                      type="button"
-                      className="compliance-category-detail__alt-row"
-                      onClick={() => onSelectTab("evidence")}
-                    >
-                      <span className="compliance-category-detail__alt-icon" aria-hidden>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
-                        </svg>
-                      </span>
-                      <span className="compliance-category-detail__alt-text">
-                        <strong>Covered in another AWS account</strong>
-                        <span>
-                          Managed centrally in an account we don't scan yet — auto-verified.
-                        </span>
-                      </span>
-                      <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-                    </button>
-                  ) : null}
-                  {showEvidenceAlternative ? (
-                    <button
-                      type="button"
-                      className="compliance-category-detail__alt-row"
-                      onClick={() => onSelectTab("evidence")}
-                    >
-                      <span className="compliance-category-detail__alt-icon" aria-hidden>
-                        <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
-                        </svg>
-                      </span>
-                      <span className="compliance-category-detail__alt-text">
-                        <strong>Upload external evidence</strong>
-                        <span>
-                          Proof for checks managed outside of AWS
-                          {criteriaCount > 0 ? ` — ${criteriaCount} criteria` : ""}.
-                        </span>
-                      </span>
-                      <span className="compliance-category-detail__alt-chevron" aria-hidden>›</span>
-                    </button>
-                  ) : null}
-                </div>
+            {crossAccountEligible || crossAccountDetail ? (
+              <div className="control-detail-subsection">
+                <p className="control-detail-subsection__label">Covered in another AWS account</p>
+                <CrossAccountCoverageControl
+                  compositeId={ctrl.id}
+                  detail={crossAccountDetail}
+                  open={!crossAccountDetail}
+                  onClose={() => {}}
+                  onConnect={() => navigate("/accounts")}
+                />
               </div>
             ) : null}
-          </div>
-          <footer className="compliance-category-detail__footer">
-            <span className="compliance-category-detail__help-icon" aria-hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                <circle cx="12" cy="12" r="9" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.7.25-1.2.9-1.2 1.6v.5M12 17h.01" />
-              </svg>
-            </span>
-            <span className="compliance-category-detail__help-copy">
-              <strong>Need help with this control?</strong>
-              <span>Review our guidance and remediation best practices.</span>
-            </span>
-            <span className="compliance-category-detail__help-cta" aria-disabled="true">
-              View guidance
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7M7 7h10v10" />
-              </svg>
-            </span>
-          </footer>
-        </section>
+
+            {hasAbsenceGaps || isExternalOnly ? (
+              <div className="control-detail-subsection">
+                <p className="control-detail-subsection__label">External evidence</p>
+                <ExternalEvidencePanel
+                  compositeId={ctrl.id}
+                  compositeTitle={ctrl.title}
+                  framework={framework}
+                  groupStatus={ctrl.status}
+                  checkIds={ctrl.check_ids}
+                  findingCountByCheck={findingCountByCheck}
+                  underlyingCriteria={underlyingCriteria}
+                  frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
+                />
+              </div>
+            ) : null}
+
+            <div className="control-detail-subsection control-detail-subsection--muted">
+              <GapScopeControl
+                compositeId={ctrl.id}
+                compositeTitle={ctrl.title}
+                detail={overrideDetail}
+              />
+            </div>
+          </ControlDetailSection>
+
+          {!isVerified && !overrideDetail ? (
+            <ControlDetailSection title="Guidance">
+              {findingsHref ? (
+                <button
+                  type="button"
+                  className="control-detail-primary-cta"
+                  onClick={() => navigate(findingsHref)}
+                >
+                  <span>
+                    <strong>{primaryAction.title}</strong>
+                    <span className="control-detail-primary-cta__detail">{primaryAction.detail}</span>
+                  </span>
+                  <span className="control-detail-primary-cta__chevron" aria-hidden>
+                    ›
+                  </span>
+                </button>
+              ) : null}
+              {ctrl.guidance ? (
+                <p className="control-detail-guidance-text">{ctrl.guidance}</p>
+              ) : null}
+              {mappingChips.length > 0 ? (
+                <p className="control-detail-mapping-line">
+                  Mapped to{" "}
+                  {mappingChips
+                    .map((g) => `${frameworkLabel(g.fw)} ${g.ids.join(", ")}`)
+                    .join(" · ")}
+                </p>
+              ) : null}
+            </ControlDetailSection>
+          ) : null}
+        </div>
       ),
-    });
-  }
+    },
+  ];
 
   return tabs;
 }
@@ -2724,9 +2247,6 @@ function buildDetailedTabs({
   ctrl,
   framework,
   findingCountByCheck,
-  evidenceCoverage,
-  periodDays,
-  accountId,
   canAttest,
   attestPending,
   onAttest,
@@ -2738,9 +2258,6 @@ function buildDetailedTabs({
   ctrl: ControlRow;
   framework: string;
   findingCountByCheck: Map<string, number>;
-  evidenceCoverage?: EvidenceCoverage;
-  periodDays: number;
-  accountId: string;
   canAttest: boolean;
   attestPending: boolean;
   onAttest: (status: string) => void;
@@ -2750,134 +2267,91 @@ function buildDetailedTabs({
   canEditEvidence: boolean;
 }): ControlDetailTab[] {
   const displayStatus = controlDisplayStatus(ctrl, findingCountByCheck);
-  const readinessMetrics = controlReadinessMetrics(
-    ctrl.check_ids,
-    ctrl.check_tiers,
-    findingCountByCheck,
-  );
   const blockingCount = ctrl.check_ids.filter(
     (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
   ).length;
+  const hasMappingMeta =
+    !!ctrl.soc2_scope_category || !!ctrl.cis_profile_level || !!ctrl.iso_applicability;
+  const isVerified = displayStatus === "passing";
 
   const tabs: ControlDetailTab[] = [
     {
       id: "overview",
-      label: "Overview",
+      label: "Details",
       content: (
         <div className="control-detail-stack">
-          <ControlDetailHeader control={ctrl} coverage={evidenceCoverage} periodDays={periodDays} />
-          <ControlReadinessSection metrics={readinessMetrics} />
-          <ControlStatusBlock
-            control={ctrl}
-            periodDays={periodDays}
-            coverage={evidenceCoverage}
-            controlId={ctrl.control_id}
-            framework={framework}
-            accountId={accountId}
-          />
+          <ControlDetailSection
+            title="Blocking gaps"
+            action={
+              blockingCount > 0 ? (
+                <span className="control-detail-section__stat">{blockingCount} open</span>
+              ) : (
+                <span className="control-detail-section__stat control-detail-section__stat--clear">Clear</span>
+              )
+            }
+          >
+            {ctrl.check_ids.length > 0 ? (
+              <ControlFindingsBlock
+                control={ctrl}
+                checkIds={ctrl.check_ids}
+                findingCountByCheck={findingCountByCheck}
+              />
+            ) : ctrl.kind !== "manual" ? (
+              <p className="control-detail-empty">
+                No automated checks map to this control yet.
+              </p>
+            ) : null}
+
+            {ctrl.kind === "manual" ? (
+              <div className="control-detail-subsection">
+                <ManualAttestation
+                  status={ctrl.attestation_status ?? "pending"}
+                  canEdit={canAttest}
+                  saving={attestPending}
+                  onChange={onAttest}
+                />
+              </div>
+            ) : null}
+
+            {ctrl.check_ids.length > 0 ? (
+              <div className="control-detail-subsection">
+                <p className="control-detail-subsection__label">Evidence</p>
+                <ControlEvidenceTabContent
+                  control={ctrl}
+                  artifacts={externalEvidence}
+                  findingCountByCheck={findingCountByCheck}
+                  displayStatus={displayStatus}
+                  submittedCount={submittedCount}
+                  framework={framework}
+                  compositeId={compositeId}
+                  canEdit={canEditEvidence}
+                />
+              </div>
+            ) : null}
+          </ControlDetailSection>
+
+          {!isVerified ? (
+            <ControlDetailSection title="Guidance">
+              {ctrl.guidance ? (
+                <p className="control-detail-guidance-text">{ctrl.guidance}</p>
+              ) : null}
+              {hasMappingMeta ? (
+                <p className="control-detail-mapping-line">
+                  {frameworkControlLabel(framework, ctrl.control_id)}
+                  {ctrl.soc2_scope_category ? ` · SOC 2 scope: ${ctrl.soc2_scope_category}` : ""}
+                  {ctrl.cis_profile_level ? ` · CIS profile: ${ctrl.cis_profile_level}` : ""}
+                  {ctrl.iso_applicability ? ` · ISO 27001: ${ctrl.iso_applicability}` : ""}
+                </p>
+              ) : null}
+              {!ctrl.guidance && !hasMappingMeta ? (
+                <p className="control-detail-empty">No written guidance yet for this control.</p>
+              ) : null}
+            </ControlDetailSection>
+          ) : null}
         </div>
       ),
     },
   ];
-
-  if (ctrl.check_ids.length > 0) {
-    tabs.push({
-      id: "gaps",
-      label: "Gaps",
-      badge: blockingCount > 0 ? blockingCount : undefined,
-      content: (
-        <ControlFindingsBlock
-          control={ctrl}
-          checkIds={ctrl.check_ids}
-          findingCountByCheck={findingCountByCheck}
-        />
-      ),
-    });
-
-    tabs.push({
-      id: "evidence",
-      label: "Evidence",
-      badge: submittedCount > 0 ? submittedCount : undefined,
-      content: (
-        <ControlEvidenceTabContent
-          control={ctrl}
-          artifacts={externalEvidence}
-          findingCountByCheck={findingCountByCheck}
-          displayStatus={displayStatus}
-          submittedCount={submittedCount}
-          framework={framework}
-          compositeId={compositeId}
-          canEdit={canEditEvidence}
-        />
-      ),
-    });
-  }
-
-  const hasMappingMeta =
-    !!ctrl.soc2_scope_category || !!ctrl.cis_profile_level || !!ctrl.iso_applicability;
-  if (hasMappingMeta) {
-    tabs.push({
-      id: "mappings",
-      label: "Mappings",
-      content: (
-        <section className="compliance-category-detail__criteria">
-          <div className="compliance-category-detail__checks-heading">
-            <h4>{frameworkControlLabel(framework, ctrl.control_id)}</h4>
-          </div>
-          {ctrl.soc2_scope_category ? (
-            <p className="control-mappings-summary__meta">
-              SOC 2 scope: <strong>{ctrl.soc2_scope_category}</strong>
-            </p>
-          ) : null}
-          {ctrl.cis_profile_level ? (
-            <p className="control-mappings-summary__meta">
-              CIS AWS Foundations profile: <strong>{ctrl.cis_profile_level}</strong>
-            </p>
-          ) : null}
-          {ctrl.iso_applicability ? (
-            <p className="control-mappings-summary__meta">
-              ISO 27001 applicability: <strong>{ctrl.iso_applicability}</strong>
-              {ctrl.iso_applicability_rationale ? ` — ${ctrl.iso_applicability_rationale}` : ""}
-            </p>
-          ) : null}
-        </section>
-      ),
-    });
-  }
-
-  if (ctrl.kind === "manual") {
-    tabs.push({
-      id: "guidance",
-      label: "Guidance",
-      content: (
-        <ManualAttestation
-          status={ctrl.attestation_status ?? "pending"}
-          canEdit={canAttest}
-          saving={attestPending}
-          onChange={onAttest}
-        />
-      ),
-    });
-  } else if (ctrl.check_ids.length === 0) {
-    tabs.push({
-      id: "guidance",
-      label: "Guidance",
-      content: (
-        <p className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50/60 px-3.5 py-2.5 text-sm leading-relaxed text-zinc-600">
-          No automated Veritrail checks map to this control yet — attest
-          manually (e.g. IAM users only inherit access via groups or roles).
-        </p>
-      ),
-    });
-  } else {
-    tabs.push({
-      id: "guidance",
-      label: "Guidance",
-      content: (
-        <ControlEvaluationBlock checkIds={ctrl.check_ids} />
-      ),
-    });
-  }
 
   return tabs;
 }
@@ -3302,451 +2776,6 @@ function MappedChecksList({
   );
 }
 
-function CoverageProgressBar({
-  coverageDays,
-  coverageTotal,
-  coveragePct,
-  barFillClass,
-  className = "h-2.5",
-}: {
-  coverageDays: number;
-  coverageTotal: number;
-  coveragePct: number;
-  barFillClass: string;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`${className} overflow-hidden rounded-full bg-zinc-200/70`}
-      role="progressbar"
-      aria-valuenow={coveragePct}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={`${coverageDays} of ${coverageTotal} audit days with evidence (${coveragePct}%)`}
-    >
-      <div
-        className={`h-full rounded-full bg-gradient-to-r ${barFillClass} transition-all`}
-        style={{ width: `${Math.max(coveragePct, coveragePct > 0 ? 2 : 0)}%` }}
-      />
-    </div>
-  );
-}
-
-function CalendarIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      className={`${className} shrink-0 text-zinc-400`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"
-      />
-    </svg>
-  );
-}
-
-function ControlStatusPill({
-  status,
-  compact = false,
-}: {
-  status: ControlRow["status"];
-  compact?: boolean;
-}) {
-  const styles = {
-    pass: {
-      pill: compact
-        ? "bg-emerald-50/80 text-emerald-800 ring-emerald-200/60"
-        : "bg-emerald-50 text-emerald-800 ring-emerald-200/70",
-      dot: "bg-emerald-500",
-      icon: "text-emerald-600",
-    },
-    fail: {
-      pill: compact
-        ? "bg-amber-50/80 text-amber-900 ring-amber-200/60"
-        : "bg-amber-50 text-amber-900 ring-amber-200/70",
-      dot: "bg-amber-500",
-      icon: "text-amber-600",
-    },
-    at_risk: {
-      pill: compact
-        ? "bg-amber-50/80 text-amber-800 ring-amber-200/60"
-        : "bg-amber-50 text-amber-800 ring-amber-200/70",
-      dot: "bg-amber-500",
-      icon: "text-amber-600",
-    },
-    no_data: {
-      pill: compact
-        ? "bg-zinc-100 text-zinc-600 ring-zinc-200/70"
-        : "bg-zinc-100 text-zinc-600 ring-zinc-200/80",
-      dot: "bg-zinc-400",
-      icon: "text-zinc-500",
-    },
-  }[status];
-
-  const label =
-    status === "pass"
-      ? "Passing"
-      : status === "fail"
-        ? "Failing"
-        : status === "at_risk"
-          ? "At risk"
-          : "Not evaluated";
-
-  if (compact) {
-    return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${styles.pill}`}
-      >
-        <span
-          className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`}
-          aria-hidden
-        />
-        {label}
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${styles.pill}`}
-    >
-      {status === "fail" ? (
-        <svg
-          className={`h-3.5 w-3.5 shrink-0 ${styles.icon}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          viewBox="0 0 24 24"
-          aria-hidden
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path strokeLinecap="round" d="M8 12h8M12 8v8" />
-        </svg>
-      ) : status === "pass" ? (
-        <svg
-          className={`h-3.5 w-3.5 shrink-0 ${styles.icon}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.5}
-          viewBox="0 0 24 24"
-          aria-hidden
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5 13l4 4L19 7"
-          />
-        </svg>
-      ) : (
-        <span
-          className={`h-1.5 w-1.5 shrink-0 rounded-full ${styles.dot}`}
-          aria-hidden
-        />
-      )}
-      {label}
-    </span>
-  );
-}
-
-function ControlDetailHeader({
-  control,
-  coverage,
-  periodDays,
-}: {
-  control: ControlRow;
-  coverage?: EvidenceCoverage;
-  periodDays: number;
-}) {
-  const coveragePct = coverage
-    ? Math.min(100, Math.round(coverage.coverage_ratio * 100))
-    : null;
-  const scans = coverage?.successful_scans_in_period ?? null;
-  const findings =
-    control.status === "fail"
-      ? control.finding_count
-      : control.status === "pass"
-        ? 0
-        : null;
-
-  return (
-    <div className="control-detail-header">
-      <div className="control-detail-header__copy">
-        <div className="control-detail-header__eyebrow">
-          {control.control_id}
-        </div>
-        <h3>{shortControlTitle(control.title)}</h3>
-        {control.description ? <p>{control.description}</p> : null}
-      </div>
-      <div className="control-detail-header__metrics">
-        <ControlStatusPill status={control.status} compact />
-        {findings != null ? (
-          <span>
-            <strong>{findings}</strong>
-            {findings === 1 ? " finding" : " findings"}
-          </span>
-        ) : null}
-        {scans != null ? (
-          <span>
-            <strong>{scans}</strong>
-            {scans === 1 ? " scan" : " scans"}
-          </span>
-        ) : null}
-        {coveragePct != null ? (
-          <span>
-            <strong>{coveragePct}%</strong>
-            evidence
-          </span>
-        ) : (
-          <span>
-            <strong>{periodDays}</strong>
-            day window
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ControlStatusBlock({
-  control,
-  periodDays,
-  coverage,
-  controlId,
-  framework,
-  accountId,
-}: {
-  control: ControlRow;
-  periodDays: number;
-  coverage?: EvidenceCoverage;
-  controlId: string;
-  framework: string;
-  accountId: string;
-}) {
-  const history = useQuery({
-    queryKey: ["control-history", controlId, framework, accountId, periodDays],
-    queryFn: () =>
-      api<ControlHistory>(
-        `/v1/controls/${encodeURIComponent(controlId)}/history?framework=${framework}&account_id=${accountId}&days=${periodDays}`,
-      ),
-    enabled: !!accountId && control.check_ids.length > 0,
-  });
-
-  const h = history.data;
-
-  const scans = coverage?.successful_scans_in_period;
-  const coverageDays = coverage?.days_with_data ?? 0;
-  const coverageTotal = coverage?.days_requested ?? periodDays;
-  const coveragePct = coverage
-    ? Math.min(100, Math.round(coverage.coverage_ratio * 100))
-    : 0;
-  const evidenceUi = frameworkEvidenceUi(framework, coverage, periodDays);
-  const showEvidence = showControlEvidenceSection(framework);
-
-  let statusSubline: string | null = null;
-  if (h?.current_status === "fail") {
-    if (h.failing_since)
-      statusSubline = `Since ${formatEvidenceDate(h.failing_since)}`;
-    else if (h.days_failing != null) {
-      statusSubline = `Failing for ${h.days_failing} day${h.days_failing === 1 ? "" : "s"}`;
-    }
-  } else if (h?.current_status === "pass") {
-    statusSubline = null;
-  }
-
-  const findingsCount =
-    control.status === "fail"
-      ? control.finding_count
-      : control.status === "pass"
-        ? 0
-        : null;
-
-  const barFillClass =
-    coveragePct >= 80
-      ? "from-emerald-500 to-emerald-600"
-      : coveragePct >= 40
-        ? "from-amber-400 to-amber-500"
-        : "from-orange-400 to-orange-500";
-
-  const coverageGuidance =
-    evidenceUi.guidanceLine ??
-    (controlEvidenceUsesType2Bar(framework) && coveragePct < 85
-      ? "Collect more audit days to improve coverage and demonstrate compliance."
-      : null);
-
-  const evidenceTitle =
-    framework === "soc2"
-      ? "Evidence coverage"
-      : controlEvidenceSectionTitle(framework);
-  const compactStatus = framework !== "soc2";
-
-  return (
-    <div className="control-status-panel">
-      <div
-        className={`grid grid-cols-1 ${showEvidence ? "lg:grid-cols-2 lg:divide-x lg:divide-zinc-100" : ""}`}
-      >
-        <div className={compactStatus ? "px-4 py-3" : "p-4"}>
-          <p className="text-sm font-semibold text-zinc-950">Control status</p>
-          <div className={`${compactStatus ? "mt-2" : "mt-3"} w-fit`}>
-            <ControlStatusPill
-              status={control.status}
-              compact={compactStatus}
-            />
-          </div>
-          <div className={`space-y-1.5 ${compactStatus ? "mt-2" : "mt-3"}`}>
-            {statusSubline ? (
-              <div className="flex items-center gap-2 text-sm text-zinc-600">
-                <CalendarIcon />
-                <span>{statusSubline}</span>
-              </div>
-            ) : null}
-            {(findingsCount != null || scans != null) && (
-              <div className="flex items-center gap-2 text-sm text-zinc-600">
-                <svg
-                  className="h-4 w-4 shrink-0 text-zinc-400"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.75}
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2m-9 4h10m-9 4h6m-7 6h8a2 2 0 002-2v-6H6v6a2 2 0 002 2z"
-                  />
-                </svg>
-                <span>
-                  {findingsCount != null ? (
-                    <>
-                      {findingsCount} Finding{findingsCount === 1 ? "" : "s"}
-                    </>
-                  ) : (
-                    "— Findings"
-                  )}
-                  {scans != null ? (
-                    <>
-                      <span className="px-1.5 text-zinc-300">·</span>
-                      <span className="font-semibold tabular-nums text-zinc-900">
-                        {scans}
-                      </span>{" "}
-                      Scans
-                    </>
-                  ) : null}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {showEvidence ? (
-          <div className="border-t border-zinc-100 p-4 lg:border-t-0">
-            <p className="text-sm font-semibold text-zinc-950">
-              {evidenceTitle}
-            </p>
-            {coverage ? (
-              controlEvidenceUsesType2Bar(framework) ? (
-                <div className="mt-3 space-y-2.5">
-                  <div className="flex items-baseline justify-between gap-3 text-sm text-zinc-700">
-                    <span>
-                      <span className="font-semibold tabular-nums text-zinc-900">
-                        {coverageDays}
-                      </span>
-                      <span className="tabular-nums text-zinc-500"> / </span>
-                      <span className="font-semibold tabular-nums text-zinc-900">
-                        {coverageTotal}
-                      </span>
-                      {" audit days collected"}
-                    </span>
-                    <span className="shrink-0 font-semibold tabular-nums text-zinc-900">
-                      {coveragePct}%
-                    </span>
-                  </div>
-                  <CoverageProgressBar
-                    coverageDays={coverageDays}
-                    coverageTotal={coverageTotal}
-                    coveragePct={coveragePct}
-                    barFillClass={barFillClass}
-                    className="h-3"
-                  />
-                  {coverageGuidance ? (
-                    <p className="text-sm leading-relaxed text-zinc-500">
-                      {coverageGuidance}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="mt-3 space-y-1.5">
-                  <p className="text-sm text-zinc-700">
-                    {evidenceUi.headline ?? (
-                      <>
-                        <span className="font-semibold tabular-nums text-zinc-900">
-                          {coverageDays}
-                        </span>
-                        {coverageDays === 1 ? " day" : " days"} collected in the
-                        selected export period
-                      </>
-                    )}
-                  </p>
-                  {evidenceUi.detailLine ? (
-                    <p className="text-sm leading-relaxed text-zinc-500">
-                      {evidenceUi.detailLine}
-                    </p>
-                  ) : null}
-                </div>
-              )
-            ) : (
-              <p className="mt-3 text-sm text-zinc-600">
-                {periodDays}-day export window
-              </p>
-            )}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function ControlEvaluationBlock({ checkIds }: { checkIds: string[] }) {
-  if (checkIds.length === 0) return null;
-
-  const grouped = groupCheckIds(checkIds);
-
-  return (
-    <div className="control-integrations-list">
-      <div className="control-integrations-list__head">
-        <span>Source</span>
-        <span>Checks</span>
-      </div>
-      <div className="control-integrations-list__rows">
-        {grouped.map(([group, ids]) => (
-          <details key={group} className="control-integrations-list__row">
-            <summary>
-              <span className="control-integrations-list__source">
-                {group}
-              </span>
-              <span className="control-integrations-list__count">
-                {ids.length}
-              </span>
-            </summary>
-            <ul>
-              {ids.map((cid) => (
-                <li key={cid} title={cid}>
-                  {labelForCheck(cid)}
-                </li>
-              ))}
-            </ul>
-          </details>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 type ControlFindingsSummary = Pick<ControlRow, "status" | "finding_count">;
 
@@ -3842,7 +2871,6 @@ function useFrameworkStats(
 
 export default function Controls() {
   const navigate = useNavigate();
-  const isNarrowDetail = useNarrowControlDetail();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlFramework = searchParams.get("framework");
   const urlControl = searchParams.get("control");
@@ -4598,14 +3626,7 @@ export default function Controls() {
       {controls.isLoading && <LoadingSkeleton />}
 
       {!controls.isLoading && activeAccount && (
-        <div
-          className={`compliance-master-detail${
-            (selectedKind === "composite" && selectedCompositeRow) ||
-            (selectedKind === "detailed" && selectedDetailedControl)
-              ? " compliance-master-detail--split"
-              : ""
-          }`}
-        >
+        <div className="compliance-master-detail">
         <div className="compliance-master-detail__list">
           <ComplianceContentShell
             toolbar={
@@ -4797,7 +3818,7 @@ export default function Controls() {
           </ComplianceContentShell>
         </div>
 
-        <aside className="compliance-master-detail__detail">
+        <>
           {selectedKind === "composite" && selectedCompositeRow ? (
             <ControlDetailPanel
               key={selectedCompositeRow.id}
@@ -4820,7 +3841,6 @@ export default function Controls() {
                 setSelectedControlId(null);
                 setSelectedKind(null);
               }}
-              headerEyebrow={frameworkControlLabel(framework, selectedCompositeRow.control_id)}
               headerTitle={selectedCompositeRow.title}
               headerDescription={selectedCompositeRow.description}
               headerStatus={
@@ -4832,10 +3852,10 @@ export default function Controls() {
                     expiredCompositeIds.has(selectedCompositeRow.id),
                   )}
                   href={null}
-                  onNavigate={(href) => navigate(href)}
+                  onNavigate={navigate}
                 />
               }
-              mode={isNarrowDetail ? "overlay" : "docked"}
+              mode="overlay"
             />
           ) : selectedKind === "detailed" && selectedDetailedControl ? (
             <ControlDetailPanel
@@ -4844,9 +3864,6 @@ export default function Controls() {
                 ctrl: selectedDetailedControl,
                 framework,
                 findingCountByCheck,
-                evidenceCoverage: evidenceCoverage.data,
-                periodDays: exportWindow.period,
-                accountId: activeAccount?.id ?? "",
                 canAttest,
                 attestPending: attest.isPending,
                 onAttest: (status) => attest.mutate({ id: selectedDetailedControl.id, status }),
@@ -4861,20 +3878,19 @@ export default function Controls() {
                 setSelectedControlId(null);
                 setSelectedKind(null);
               }}
-              headerEyebrow={frameworkControlLabel(framework, selectedDetailedControl.control_id)}
               headerTitle={shortControlTitle(selectedDetailedControl.title)}
               headerDescription={selectedDetailedControl.description}
               headerStatus={
                 <ComplianceRowSummary
                   displayStatus={controlDisplayStatus(selectedDetailedControl, findingCountByCheck)}
                   href={null}
-                  onNavigate={(href) => navigate(href)}
+                  onNavigate={navigate}
                 />
               }
-              mode={isNarrowDetail ? "overlay" : "docked"}
+              mode="overlay"
             />
           ) : null}
-        </aside>
+        </>
       </div>
       )}
     </div>

@@ -2398,13 +2398,11 @@
 
 .compliance-category-detail__summary-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem 1.25rem;
-  min-height: 5.25rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.375rem;
   margin-bottom: 0;
-  padding: 1.125rem 1.5rem;
+  padding: 1.375rem 1.5rem;
   border: 1px solid #e6ecf2;
   border-radius: 1rem;
   background: linear-gradient(180deg, #ffffff 0%, #fafcfe 100%);
@@ -2415,121 +2413,179 @@
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  gap: 0.6rem;
-  flex: 0 0 auto;
+  gap: 0.875rem;
+  width: 100%;
   min-width: 0;
 }
 
 .compliance-category-detail__summary-empty {
+  grid-column: 1 / -1;
+  padding: 0.25rem 0.15rem;
   color: #94a3b8;
   font-size: 0.8125rem;
 }
 
 .compliance-category-detail__severity-badge {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.22rem;
-  position: relative;
-  min-width: 5rem;
-  min-height: 3.35rem;
-  padding: 0.55rem 0.8rem 0.55rem 1.05rem;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 0.875rem;
+  min-width: 0;
+  padding: 1.125rem 1.25rem;
   border: 1px solid #eef2f6;
   border-radius: 0.75rem;
   background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.compliance-category-detail__severity-badge::before {
-  content: "";
-  position: absolute;
-  left: 0.55rem;
-  top: 0.72rem;
-  height: 0.45rem;
-  width: 0.45rem;
-  border-radius: 9999px;
-  background: #94a3b8;
+.compliance-category-detail__severity-badge-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.compliance-category-detail__severity-badge-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.compliance-category-detail__severity-badge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
 }
 
 .compliance-category-detail__severity-badge-count {
   display: block;
   color: #0f172a;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .compliance-category-detail__severity-badge-label {
-  color: #64748b;
-  font-size: 0.75rem;
-  font-weight: 650;
-  line-height: 1;
-}
-
-.compliance-category-detail__severity-badge.is-high .compliance-category-detail__severity-badge-count {
-  color: #ef4444;
-}
-
-.compliance-category-detail__severity-badge.is-high::before {
-  background: #ef4444;
-}
-
-.compliance-category-detail__severity-badge.is-medium .compliance-category-detail__severity-badge-count {
-  color: #f97316;
-}
-
-.compliance-category-detail__severity-badge.is-medium::before {
-  background: #f97316;
-}
-
-.compliance-category-detail__severity-badge.is-low .compliance-category-detail__severity-badge-count {
-  color: #10b981;
-}
-
-.compliance-category-detail__severity-badge.is-low::before {
-  background: #10b981;
-}
-
-.compliance-category-detail__summary-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0;
-  margin: 0;
-  flex: 0 0 auto;
-}
-
-.compliance-category-detail__summary-metrics > div {
-  min-width: 0;
-  min-height: 3.25rem;
-  padding: 0.3rem 1.5rem;
-  border-left: 1px solid #e6ecf2;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.compliance-category-detail__summary-metrics > div:first-child {
-  border-left: 0;
-  padding-left: 0;
-}
-
-.compliance-category-detail__summary-metrics > div > span {
-  display: block;
   color: #94a3b8;
   font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  line-height: 1.15;
   text-transform: uppercase;
 }
 
-.compliance-category-detail__summary-metrics > div > strong {
+/* Severity cards stay white/premium — colour lives in the icon chip and the
+ * count only, so the tint communicates severity without shouting. */
+.compliance-category-detail__severity-badge.is-high .compliance-category-detail__severity-badge-count {
+  color: #dc2626;
+}
+
+.compliance-category-detail__severity-badge.is-high .compliance-category-detail__severity-badge-icon {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.compliance-category-detail__severity-badge.is-medium .compliance-category-detail__severity-badge-count {
+  color: #ea580c;
+}
+
+.compliance-category-detail__severity-badge.is-medium .compliance-category-detail__severity-badge-icon {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.compliance-category-detail__severity-badge.is-low .compliance-category-detail__severity-badge-count {
+  color: #059669;
+}
+
+.compliance-category-detail__severity-badge.is-low .compliance-category-detail__severity-badge-icon {
+  background: #dcfce7;
+  color: #059669;
+}
+
+.compliance-category-detail__summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.875rem;
+  width: 100%;
+  margin: 0;
+}
+
+.compliance-category-detail__metric-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.875rem;
+  min-width: 0;
+  padding: 1.125rem 1.25rem;
+  border: 1px solid #eef2f6;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.compliance-category-detail__metric-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.compliance-category-detail__metric-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.compliance-category-detail__metric-label {
   display: block;
-  margin-top: 0.3rem;
+  color: #94a3b8;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.compliance-category-detail__metric-value {
+  display: block;
   color: #0f172a;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.2;
+  white-space: nowrap;
+}
+
+.compliance-category-detail__metric-card.is-ok {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.compliance-category-detail__metric-card.is-ok .compliance-category-detail__metric-icon {
+  background: #dcfce7;
+  color: #10b981;
+}
+
+.compliance-category-detail__metric-card.is-warn {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.compliance-category-detail__metric-card.is-warn .compliance-category-detail__metric-icon {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .compliance-category-detail__summary-bar > .inline-flex {
@@ -3474,12 +3530,16 @@
   }
 
   .compliance-category-detail__summary-bar {
-    gap: 0.85rem 1rem;
+    gap: 1.125rem;
+    padding: 1.125rem 1.25rem;
+  }
+
+  .compliance-category-detail__summary-severity {
+    flex-direction: column;
   }
 
   .compliance-category-detail__summary-metrics {
-    order: 3;
-    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .compliance-category-detail__summary-bar > .inline-flex {

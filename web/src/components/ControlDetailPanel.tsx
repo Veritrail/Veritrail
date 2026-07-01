@@ -6,23 +6,6 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import type { ReadinessMetric } from "../lib/controlReadiness";
-
-/** True when the docked master-detail column doesn't fit — matches the CSS breakpoint. */
-export function useNarrowControlDetail(): boolean {
-  const query = "(max-width: 1180px)";
-  const [narrow, setNarrow] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia(query).matches,
-  );
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const onChange = () => setNarrow(mql.matches);
-    onChange();
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-  return narrow;
-}
 
 export type ControlDetailTabId = "overview" | "gaps" | "evidence" | "mappings" | "guidance";
 
@@ -33,40 +16,6 @@ export type ControlDetailTab = {
   /** Optional compact count pill rendered next to the label (e.g. blocking gaps). */
   badge?: ReactNode;
 };
-
-/** Concrete N-of-M readiness counts — deliberately not a "likelihood to pass" score. */
-export function ControlReadinessBar({ metrics }: { metrics: ReadinessMetric[] }) {
-  if (metrics.length === 0) return null;
-  return (
-    <div className="control-readiness">
-      {metrics.map((m) => {
-        const pct = m.total > 0 ? Math.round((m.complete / m.total) * 100) : 0;
-        const fillClass =
-          m.total === 0
-            ? "control-readiness__fill--empty"
-            : m.complete < m.total
-              ? "control-readiness__fill--incomplete"
-              : "";
-        return (
-          <div className="control-readiness__row" key={m.label}>
-            <div className="control-readiness__row-head">
-              <span className="control-readiness__label">{m.label}</span>
-              <span className="control-readiness__count">
-                {m.complete} of {m.total}
-              </span>
-            </div>
-            <div className="control-readiness__track">
-              <div
-                className={`control-readiness__fill ${fillClass}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function useEscapeDismiss(onDismiss: () => void, active: boolean) {
   useEffect(() => {
@@ -101,7 +50,6 @@ export function ControlDetailPanel({
   activeTab,
   onTabChange,
   onClose,
-  headerEyebrow,
   headerTitle,
   headerDescription,
   headerStatus,
@@ -111,7 +59,6 @@ export function ControlDetailPanel({
   activeTab: ControlDetailTabId;
   onTabChange: (tab: ControlDetailTabId) => void;
   onClose: () => void;
-  headerEyebrow?: ReactNode;
   headerTitle: ReactNode;
   headerDescription?: ReactNode;
   headerStatus?: ReactNode;
@@ -165,7 +112,6 @@ export function ControlDetailPanel({
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </button>
-        {headerEyebrow ? <p className="control-detail-panel__eyebrow">{headerEyebrow}</p> : null}
         <div className="control-detail-panel__title-row">
           <h2 id="control-detail-panel-title" className="control-detail-panel__title">
             {headerTitle}
@@ -177,6 +123,7 @@ export function ControlDetailPanel({
         ) : null}
       </div>
 
+      {tabs.length > 1 ? (
       <div className="control-detail-panel__tabs" role="tablist" aria-label="Control detail">
         {tabs.map((t, index) => {
           const isActive = t.id === activeTab;
@@ -207,6 +154,7 @@ export function ControlDetailPanel({
           );
         })}
       </div>
+      ) : null}
 
       <div
         className="control-detail-panel__body"

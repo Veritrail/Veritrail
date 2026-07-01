@@ -1,9 +1,14 @@
 import { isAbsenceGapCheck, openAbsenceGapChecks } from "./evidenceGap";
 
+export type ReadinessMetricVariant = "green" | "yellow" | "blue";
+export type ReadinessMetricIcon = "automated" | "blocking" | "evidence";
+
 export type ReadinessMetric = {
   label: string;
   complete: number;
   total: number;
+  variant: ReadinessMetricVariant;
+  icon: ReadinessMetricIcon;
 };
 
 /**
@@ -30,6 +35,8 @@ export function controlReadinessMetrics(
       label: "Automated checks passing",
       complete: checkIds.length - failing.length,
       total: checkIds.length,
+      variant: "green",
+      icon: "automated",
     },
   ];
 
@@ -40,6 +47,8 @@ export function controlReadinessMetrics(
       label: "Blocking gaps closed",
       complete: coreIds.length - coreFailing.length,
       total: coreIds.length,
+      variant: "yellow",
+      icon: "blocking",
     });
   }
 
@@ -50,6 +59,8 @@ export function controlReadinessMetrics(
       label: "Evidence current",
       complete: absenceGapIds.length - stillOpen.length,
       total: absenceGapIds.length,
+      variant: "blue",
+      icon: "evidence",
     });
   }
 
