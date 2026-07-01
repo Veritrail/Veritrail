@@ -512,6 +512,7 @@
 
 .control-detail-stack--composite .compliance-category-detail__checks-cols span:nth-child(4) {
   text-align: left;
+  padding-right: 1rem;
 }
 
 .control-detail-stack--composite .compliance-category-detail__checks-row {
@@ -539,6 +540,7 @@
   justify-content: flex-start;
   font-weight: 500;
   color: #71717a;
+  padding-right: 1rem;
 }
 
 .control-detail-stack--composite .compliance-category-detail__severity--high,
