@@ -4032,7 +4032,7 @@ export default function Controls() {
 
 
   return (
-    <div className="findings-v2-page findings-v2-shell min-h-full w-full">
+    <div className="compliance-page compliance-v2-shell min-h-full w-full">
       {connectedAccounts.length > 0 && activeAccount && (
         <HeaderSlot>
           <AccountFilterDropdown

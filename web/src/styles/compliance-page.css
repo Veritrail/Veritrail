@@ -1,6 +1,34 @@
 /* Compliance/Controls page — full-width control list + drawer detail panel.
    Page-scoped styles only; shared list/toolbar primitives stay in findings-v2.css. */
 
+.compliance-page.compliance-v2-shell {
+  /* transparent so the app-main gradient flows under the content */
+  background: transparent;
+}
+
+/* Compliance toolbar keeps grey header band inside the list card (not Findings white). */
+.compliance-page .findings-v2-table-toolbar {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+/* Generate Audit Package — teal primary CTA in toolbar. */
+.compliance-page .findings-v2-toolbar-btn--scan {
+  border-color: var(--vt-teal);
+  background: var(--vt-teal);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(13, 148, 136, 0.28);
+}
+
+.compliance-page .findings-v2-toolbar-btn--scan:hover:not(:disabled) {
+  border-color: var(--vt-teal-hover);
+  background: var(--vt-teal-hover);
+  color: #ffffff;
+}
+
+.compliance-page .findings-v2-toolbar-btn--scan svg {
+  color: #ffffff;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Master list — always full width; detail opens as a drawer, not docked.  */
 /* ---------------------------------------------------------------------- */
