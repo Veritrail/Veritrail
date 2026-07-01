@@ -24,23 +24,23 @@ const TONE_STYLES: Record<
 > = {
   neutral: {
     shell: "border-zinc-200/90 shadow-sm shadow-zinc-900/[0.03]",
-    header: "bg-gradient-to-r from-zinc-50/95 to-white",
+    header: "bg-white",
     tag: "bg-zinc-100 text-zinc-700 ring-zinc-200/80",
   },
   caution: {
-    shell: "border-amber-200/75 shadow-sm shadow-amber-900/[0.04]",
-    header: "bg-gradient-to-r from-amber-50/90 to-white",
-    tag: "bg-amber-100 text-amber-900 ring-amber-200/80",
+    shell: "border-zinc-200/90 border-l-[3px] border-l-amber-400 shadow-sm shadow-zinc-900/[0.03]",
+    header: "bg-white",
+    tag: "bg-amber-50 text-amber-900 ring-amber-200/80",
   },
   action: {
-    shell: "border-zinc-200/90 shadow-sm shadow-zinc-900/[0.03]",
-    header: "bg-gradient-to-r from-indigo-50/40 to-white",
-    tag: "bg-indigo-100 text-indigo-900 ring-indigo-200/70",
+    shell: "border-zinc-200/90 border-l-[3px] border-l-teal-500 shadow-sm shadow-zinc-900/[0.03]",
+    header: "bg-white",
+    tag: "bg-teal-50 text-teal-900 ring-teal-200/70",
   },
   positive: {
-    shell: "border-emerald-200/65 shadow-sm shadow-emerald-900/[0.04]",
-    header: "bg-gradient-to-r from-emerald-50/50 to-white",
-    tag: "bg-emerald-100 text-emerald-900 ring-emerald-200/70",
+    shell: "border-zinc-200/90 border-l-[3px] border-l-emerald-500 shadow-sm shadow-zinc-900/[0.03]",
+    header: "bg-white",
+    tag: "bg-emerald-50 text-emerald-900 ring-emerald-200/70",
   },
 };
 

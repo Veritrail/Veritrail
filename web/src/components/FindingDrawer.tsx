@@ -122,7 +122,7 @@ const drawerFooterActionBase =
   `inline-flex h-[42px] items-center justify-center gap-2 rounded-[10px] px-4 ${drawerBtnText} transition-all duration-150 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60`;
 const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#439385] text-white shadow-[0_6px_16px_rgba(67,147,133,0.18)] hover:bg-[#367a6f] hover:shadow-[0_8px_18px_rgba(54,122,111,0.22)]`;
 const drawerFooterVerifySoft = `${drawerFooterActionBase} flex-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70`;
-const drawerFooterExceptionGhost = `${drawerFooterActionBase} flex-[0.8] border border-zinc-200 bg-white text-zinc-600 shadow-sm shadow-zinc-900/[0.02] hover:border-amber-200 hover:bg-amber-50/60 hover:text-amber-700`;
+const drawerFooterExceptionGhost = `${drawerFooterActionBase} flex-[0.8] border border-zinc-200 bg-white text-zinc-600 shadow-sm shadow-zinc-900/[0.02] hover:border-amber-300 hover:bg-white hover:text-amber-700`;
 
 function DrawerChevronButton({
   expanded,
@@ -304,7 +304,7 @@ function RemediationModePicker({
               onClick={() => onSelect(mode)}
               className={`flex min-h-[5rem] flex-col items-center justify-center gap-2.5 rounded-xl border px-2.5 py-3.5 text-center transition-all duration-150 ${
                 selected
-                  ? "border-indigo-400 bg-indigo-50 text-indigo-950 shadow-sm ring-2 ring-indigo-300/50"
+                  ? "border-teal-400 bg-white text-zinc-900 shadow-sm ring-2 ring-teal-200/50"
                   : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
               }`}
             >
@@ -312,7 +312,7 @@ function RemediationModePicker({
               <span
                 className={
                   selected
-                    ? "text-[13.5px] font-semibold leading-snug text-indigo-950"
+                    ? "text-[13.5px] font-semibold leading-snug text-zinc-900"
                     : "text-[13px] font-medium leading-snug text-zinc-600"
                 }
               >
@@ -380,7 +380,7 @@ function RemediationDetailPanel({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-zinc-200/90 bg-[#f7f9fc]">
       <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#e6ebf2] bg-white px-6 py-4 shadow-sm shadow-zinc-950/[0.03]">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-200/90 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-900/[0.04]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-teal-700 shadow-sm shadow-zinc-900/[0.04]">
             <RemediationModeIcon mode={mode} />
           </span>
           <div className="min-w-0">
@@ -477,9 +477,9 @@ type Finding = {
 };
 
 const sevHeaderBadge: Record<string, string> = {
-  critical: "bg-red-50 text-red-700 border-red-200",
-  high: "bg-red-50 text-red-600 border-red-200",
-  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  critical: "bg-white text-red-700 border-red-200 border-l-[3px] border-l-red-500",
+  high: "bg-white text-red-600 border-red-200 border-l-[3px] border-l-red-400",
+  medium: "bg-white text-amber-700 border-amber-200 border-l-[3px] border-l-amber-400",
   low: "bg-zinc-100 text-zinc-500 border-zinc-200",
 };
 
@@ -2067,7 +2067,7 @@ function GrantedServicePills({ services }: { services: GrantedServicePill[] }) {
           key={s.name}
           title={s.last_used ? `Last used ${s.days_ago}d ago` : "Never used"}
           className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${
-            s.active ? "border-red-200 bg-red-50 text-red-700" : "border-zinc-200 bg-zinc-50 text-zinc-500"
+            s.active ? "border-zinc-200 bg-white border-l-[3px] border-l-red-500 text-red-700" : "border-zinc-200 bg-zinc-50 text-zinc-500"
           }`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${s.active ? "bg-red-400" : "bg-zinc-300"}`} />
@@ -2138,7 +2138,7 @@ function KeyActivityCard({ keyData }: { keyData: { key_id: string; last_used: st
   const age = keyData.days_ago != null ? `${keyData.days_ago}d ago` : "recently";
 
   return (
-    <div className={`rounded-lg border px-3 py-2.5 text-xs ${keyData.active ? "border-red-100 bg-red-50" : "border-zinc-200 bg-zinc-50"}`}>
+    <div className={`rounded-lg border px-3 py-2.5 text-xs ${keyData.active ? "border-zinc-200 bg-white border-l-[3px] border-l-red-500" : "border-zinc-200 bg-zinc-50"}`}>
       <div className="font-mono font-semibold text-zinc-700">{maskAccessKeyId(keyData.key_id)}</div>
       {keyData.last_used ? (
         <>
@@ -2217,7 +2217,7 @@ function RegionPills({ regions }: { regions: string[] }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          className="text-xs font-medium text-teal-700 hover:text-teal-800"
         >
           {expanded ? "Show fewer regions" : `Show all ${sorted.length} regions`}
         </button>
@@ -2399,9 +2399,9 @@ type BlastRadiusData = {
 };
 
 const confidenceConfig = {
-  high: { label: "Safe to remediate", color: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500", desc: "No active usage detected in the past 90 days." },
-  medium: { label: "Review first", color: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-400", desc: "Some recent activity detected — verify before making changes." },
-  low: { label: "Active — proceed with caution", color: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500", desc: "Resource was actively used in the last 30 days." },
+  high: { label: "Safe to remediate", color: "bg-white text-emerald-800 border-emerald-200 border-l-[3px] border-l-emerald-500", dot: "bg-emerald-500", desc: "No active usage detected in the past 90 days." },
+  medium: { label: "Review first", color: "bg-white text-amber-800 border-amber-200 border-l-[3px] border-l-amber-400", dot: "bg-amber-400", desc: "Some recent activity detected — verify before making changes." },
+  low: { label: "Active — proceed with caution", color: "bg-white text-red-800 border-red-200 border-l-[3px] border-l-red-500", dot: "bg-red-500", desc: "Resource was actively used in the last 30 days." },
 };
 
 function buildVerdict(data: BlastRadiusData, checkId?: string): { text: string; type: "safe" | "caution" | "warning" } {
@@ -2726,9 +2726,9 @@ function buildVerdict(data: BlastRadiusData, checkId?: string): { text: string; 
 }
 
 const verdictStyle = {
-  safe: { card: "border-emerald-200/80 bg-emerald-50/60", text: "text-emerald-900", icon: "text-emerald-500" },
-  caution: { card: "border-zinc-200 bg-zinc-50", text: "text-zinc-800", icon: "text-amber-500" },
-  warning: { card: "border-red-200/80 bg-red-50/70", text: "text-red-900", icon: "text-red-500" },
+  safe: { card: "border-zinc-200 bg-white border-l-[3px] border-l-emerald-500", text: "text-zinc-800", icon: "text-emerald-500" },
+  caution: { card: "border-zinc-200 bg-white border-l-[3px] border-l-amber-400", text: "text-zinc-800", icon: "text-amber-500" },
+  warning: { card: "border-zinc-200 bg-white border-l-[3px] border-l-red-500", text: "text-zinc-800", icon: "text-red-500" },
 };
 
 function VerdictIcon({ type }: { type: "safe" | "caution" | "warning" }) {
@@ -3170,7 +3170,7 @@ function BlastRadiusSection({
                 </div>
                 <div className="space-y-1.5">
                   {data.attached_instances.map((inst) => (
-                    <div key={inst.instance_id} className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs ${inst.state === "running" ? "border-red-100 bg-red-50" : "border-zinc-200 bg-zinc-50"}`}>
+                    <div key={inst.instance_id} className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs ${inst.state === "running" ? "border-zinc-200 bg-white border-l-[3px] border-l-red-500 text-red-700" : "border-zinc-200 bg-zinc-50"}`}>
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${inst.state === "running" ? "bg-red-400" : "bg-zinc-300"}`} />
                         <span className="font-mono text-zinc-700 truncate">{inst.name !== inst.instance_id ? inst.name : inst.instance_id}</span>
@@ -3221,10 +3221,10 @@ function BlastRadiusSection({
                     <div className="mt-0.5 text-zinc-400">{trail.home_region}</div>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                    <span className={`rounded border px-1.5 py-0.5 font-medium ${trail.is_logging ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-zinc-200 bg-white text-zinc-500"}`}>
+                    <span className={`rounded border px-1.5 py-0.5 font-medium ${trail.is_logging ? "border-emerald-200 bg-white text-emerald-700" : "border-zinc-200 bg-white text-zinc-500"}`}>
                       {trail.is_logging ? "Logging" : "Stopped"}
                     </span>
-                    <span className={`rounded border px-1.5 py-0.5 font-medium ${trail.is_multi_region ? "border-blue-200 bg-blue-50 text-blue-700" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                    <span className={`rounded border px-1.5 py-0.5 font-medium ${trail.is_multi_region ? "border-zinc-200 bg-white text-zinc-700" : "border-zinc-200 bg-white text-amber-800"}`}>
                       {trail.is_multi_region ? "Multi-region" : "Single-region"}
                     </span>
                   </div>
@@ -3376,7 +3376,7 @@ function BlastRadiusSection({
                       <span className="font-mono text-zinc-700 truncate">{trail.name}</span>
                       <div className="flex items-center gap-2 flex-shrink-0 pl-2">
                         <span className="text-zinc-400">{trail.region}</span>
-                        {trail.is_multi_region && <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">multi-region</span>}
+                        {trail.is_multi_region && <span className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-zinc-700">multi-region</span>}
                       </div>
                     </div>
                   ))}
@@ -3894,15 +3894,15 @@ type GeneratedPolicy = {
 };
 
 const POLICY_CONFIDENCE_STYLE: Record<string, string> = {
-  high: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  medium: "border-amber-200 bg-amber-50 text-amber-900",
+  high: "border-emerald-200 bg-white text-emerald-900",
+  medium: "border-amber-200 bg-white text-amber-900",
   low: "border-zinc-300 bg-zinc-100 text-zinc-700",
 };
 
 function PolicyGenSpinner({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg
-      className={`shrink-0 animate-spin text-indigo-600 ${className}`}
+      className={`shrink-0 animate-spin text-teal-600 ${className}`}
       fill="none"
       viewBox="0 0 24 24"
       aria-hidden
@@ -4878,7 +4878,7 @@ function PolicyDiffServiceBreakdown({
           <button
             type="button"
             onClick={onShowAll}
-            className="policy-services__row-btn text-indigo-700 hover:bg-indigo-50/40"
+            className="policy-services__row-btn text-teal-700 hover:bg-teal-50/40"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-zinc-500">
               +
@@ -4886,7 +4886,7 @@ function PolicyDiffServiceBreakdown({
             <span className="text-sm font-medium tracking-[-0.01em]">
               {hiddenCount} more service{hiddenCount !== 1 ? "s" : ""}
             </span>
-            <svg className="policy-services__chevron ml-auto text-indigo-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+            <svg className="policy-services__chevron ml-auto text-teal-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
           </button>
@@ -5004,8 +5004,8 @@ function SuggestedPolicyLoadingCard({
       aria-busy="true"
       aria-live="polite"
     >
-      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-indigo-50" aria-hidden>
-        <span className="policy-preparing-bar block h-full w-1/2 rounded-full bg-indigo-500/70" />
+      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-zinc-100" aria-hidden>
+        <span className="policy-preparing-bar block h-full w-1/2 rounded-full bg-teal-500/70" />
       </div>
       <div>
         <p className="text-[13px] font-semibold text-zinc-900">{title}</p>
@@ -5439,7 +5439,7 @@ function PolicyCloudTrailStartAction({
   const alerts = (
     <>
       {needsTrailSetup && (
-        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
+        <div className="space-y-2 rounded-xl border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
               "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
@@ -5453,7 +5453,7 @@ function PolicyCloudTrailStartAction({
         </div>
       )}
       {needsAdvanced && (
-        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
+        <div className="space-y-2 rounded-xl border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
               "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
@@ -5467,18 +5467,18 @@ function PolicyCloudTrailStartAction({
         </div>
       )}
       {isRunning && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
+        <div className="flex items-start gap-2.5 rounded-xl border border-zinc-200 bg-white border-l-[3px] border-l-teal-500 px-4 py-3">
           <PolicyGenSpinner className="mt-0.5 h-4 w-4" />
-          <div className="min-w-0 text-[13px] leading-[1.55] text-indigo-950">
+          <div className="min-w-0 text-[13px] leading-[1.55] text-zinc-800">
             <p>{policyGenerationReasonLabel("in_progress")}</p>
-            <p className="mt-1 text-indigo-800/80">
+            <p className="mt-1 text-zinc-500">
               Checking AWS every 15s — you can close this tab; progress is saved for this role.
             </p>
           </div>
         </div>
       )}
       {analysisComplete && !isRunning && !refreshFeedback && !cloudTrailMergedIntoProposal && (
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] leading-[1.55] text-emerald-950">
+        <div className="rounded-xl border border-emerald-200 bg-white border-l-[3px] border-l-emerald-500 px-4 py-3 text-[13px] leading-[1.55] text-zinc-800">
           <p className="font-semibold">CloudTrail analysis complete</p>
           <p className="mt-1 text-emerald-900/90">
             Rebuild the suggestion to merge the latest CloudTrail job into this proposal.
@@ -5491,7 +5491,7 @@ function PolicyCloudTrailStartAction({
             refreshFeedback.tone === "error"
               ? "border-red-100 bg-red-50 text-red-900"
               : refreshFeedback.tone === "success"
-                ? "border-emerald-100 bg-emerald-50 text-emerald-950"
+                ? "border-emerald-200 bg-white border-l-[3px] border-l-emerald-500 text-zinc-800"
                 : "border-zinc-100 bg-zinc-50 text-zinc-800"
           }`}
         >
@@ -5504,7 +5504,7 @@ function PolicyCloudTrailStartAction({
             feedbackDisplay.tone === "error"
               ? "border-red-100 bg-red-50 text-red-900"
               : feedbackDisplay.tone === "success"
-                ? "border-emerald-100 bg-emerald-50 text-emerald-950"
+                ? "border-emerald-200 bg-white border-l-[3px] border-l-emerald-500 text-zinc-800"
                 : "border-zinc-100 bg-zinc-50 text-zinc-700"
           }`}
         >
@@ -5515,7 +5515,7 @@ function PolicyCloudTrailStartAction({
   );
 
   const footerAction = isRunning ? (
-    <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-950">
+    <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-teal-500 px-3.5 py-2 text-xs font-semibold text-zinc-800">
       <PolicyGenSpinner className="h-3.5 w-3.5" />
       {elapsedLabel ? `Analyzing · ${elapsedLabel}` : "Analyzing…"}
     </span>
@@ -5528,11 +5528,11 @@ function PolicyCloudTrailStartAction({
       Run analysis
     </PolicyOutlineButton>
   ) : needsTrailSetup ? (
-    <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
+    <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-3.5 py-2 text-xs font-semibold text-amber-900">
       Trail required
     </span>
   ) : needsAdvanced ? (
-    <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
+    <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-3.5 py-2 text-xs font-semibold text-amber-900">
       Advanced IAM required
     </span>
   ) : (
@@ -5566,7 +5566,7 @@ function PolicyCloudTrailStartAction({
           <p className={`mt-0.5 ${drawerHelperText}`}>CloudTrail · ~15 min · checks resource ARNs · IAM unchanged until you apply</p>
         </div>
         {isRunning ? (
-          <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-950">
+          <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-teal-500 px-3.5 py-2 text-xs font-semibold text-zinc-800">
             <PolicyGenSpinner className="h-3.5 w-3.5" />
             {elapsedLabel ? `Analyzing · ${elapsedLabel}` : "Analyzing…"}
           </span>
@@ -5575,7 +5575,7 @@ function PolicyCloudTrailStartAction({
             type="button"
             disabled={refreshBusy}
             onClick={() => void rebuild()}
-            className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-indigo-200 bg-white px-3.5 py-2 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50`}
+            className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-zinc-200 bg-white px-3.5 py-2 ${drawerBtnText} text-zinc-800 shadow-sm shadow-zinc-900/[0.02] transition hover:border-teal-300 hover:bg-teal-50/40 disabled:cursor-not-allowed disabled:opacity-50`}
           >
             {refreshBusy ? "Refreshing…" : "Rebuild suggestion"}
           </button>
@@ -5587,25 +5587,25 @@ function PolicyCloudTrailStartAction({
               type="button"
               disabled={busy}
               onClick={start}
-              className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-indigo-200 bg-white px-3.5 py-2 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50`}
+              className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-zinc-200 bg-white px-3.5 py-2 ${drawerBtnText} text-zinc-800 shadow-sm shadow-zinc-900/[0.02] transition hover:border-teal-300 hover:bg-teal-50/40 disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {busy ? "Starting…" : "Run analysis"}
             </button>
           )
         )}
         {needsTrailSetup && (
-          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
+          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-3.5 py-2 text-xs font-semibold text-amber-900">
             Trail required
           </span>
         )}
         {needsAdvanced && (
-          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
+          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-3.5 py-2 text-xs font-semibold text-amber-900">
             Advanced IAM required
           </span>
         )}
       </div>
       {needsTrailSetup && (
-        <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
+        <div className="space-y-2 border-b border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
               "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
@@ -5619,7 +5619,7 @@ function PolicyCloudTrailStartAction({
         </div>
       )}
       {needsAdvanced && (
-        <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
+        <div className="space-y-2 border-b border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
           <p>
             {analysis?.message ??
               "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
@@ -5633,18 +5633,18 @@ function PolicyCloudTrailStartAction({
         </div>
       )}
       {isRunning && (
-        <div className="flex items-start gap-2.5 border-b border-indigo-100 bg-indigo-50/60 px-4 py-3">
+        <div className="flex items-start gap-2.5 border-b border-zinc-200 bg-white border-l-[3px] border-l-teal-500 px-4 py-3">
           <PolicyGenSpinner className="mt-0.5 h-4 w-4" />
-          <div className="min-w-0 text-[13px] leading-[1.55] text-indigo-950">
+          <div className="min-w-0 text-[13px] leading-[1.55] text-zinc-800">
             <p>{policyGenerationReasonLabel("in_progress")}</p>
-            <p className="mt-1 text-indigo-800/80">
+            <p className="mt-1 text-zinc-500">
               Checking AWS every 15s — you can close this tab; progress is saved for this role.
             </p>
           </div>
         </div>
       )}
       {analysisComplete && !isRunning && !refreshFeedback && !cloudTrailMergedIntoProposal && (
-        <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] leading-[1.55] text-emerald-950">
+        <div className="border-b border-emerald-200 bg-white border-l-[3px] border-l-emerald-500 px-4 py-3 text-[13px] leading-[1.55] text-zinc-800">
           <p className="font-semibold">CloudTrail analysis complete</p>
           <p className="mt-1 text-emerald-900/90">
             Rebuild the suggestion to merge the latest CloudTrail job into this proposal.
@@ -5657,7 +5657,7 @@ function PolicyCloudTrailStartAction({
             refreshFeedback.tone === "error"
               ? "border-red-100 bg-red-50 text-red-900"
               : refreshFeedback.tone === "success"
-                ? "border-emerald-100 bg-emerald-50 text-emerald-950"
+                ? "border-emerald-200 bg-white border-l-[3px] border-l-emerald-500 text-zinc-800"
                 : "border-zinc-100 bg-zinc-50 text-zinc-800"
           }`}
         >
@@ -5816,7 +5816,7 @@ function GeneratePolicySection({
             return (
               <div
                 key={policyName}
-                className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-[13px] leading-snug text-indigo-900"
+                className="rounded-md border border-zinc-200 bg-white border-l-[3px] border-l-teal-500 px-3 py-2 text-[13px] leading-snug text-zinc-800"
               >
                 {hint}
               </div>
@@ -5917,7 +5917,7 @@ function GenerateS3HttpsPolicySection({
       {enabled && isLoading && <div className="py-2 text-[13px] text-zinc-500">Generating…</div>}
       {enabled && error && <div className="py-1 text-[13px] text-red-600">{formatSuggestedPolicyError(error)}</div>}
       {enabled && data?.already_has_https_deny && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900">
+        <div className="rounded-md border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-3 py-2 text-[13px] leading-snug text-amber-900">
           Live bucket policy already denies requests where{" "}
           <span className="font-mono text-[12px]">aws:SecureTransport</span> is false. Re-scan after any change if this
           finding still appears.
@@ -5995,7 +5995,7 @@ function GenerateS3HttpsPolicySection({
           </p>
         )}
         {enabled && data?.already_has_https_deny && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
+          <div className="rounded-xl border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
             Live bucket policy already denies requests where{" "}
             <span className="font-mono text-[12px]">aws:SecureTransport</span> is false. Re-scan after any change if this
             finding still appears.
@@ -6263,7 +6263,7 @@ function ExceptionButton({
 	                <span className="h-1 w-10 rounded-full bg-zinc-200 transition-colors hover:bg-zinc-300" aria-hidden />
 	              </button>
 	              <div className="shrink-0 px-5 pb-4 pt-4">
-	                <div className="flex items-start gap-2.5 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-amber-950">
+	                <div className="flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-4 py-3 text-zinc-800">
 	                  <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
 	                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z" />
 	                  </svg>
@@ -6357,7 +6357,7 @@ function ExceptionButton({
                       <button
                         type="submit"
                         disabled={submitting || !reason.trim() || !approvedBy.trim()}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6a2.25 2.25 0 0 1 2.25-2.25Z" />
@@ -6726,7 +6726,7 @@ export function FindingDrawer({
     >
       {verifyUnchanged && !verified && (
         <div
-          className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3.5 text-[12px] leading-relaxed text-amber-950"
+          className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white border-l-[3px] border-l-amber-400 px-4 py-3.5 text-[12px] leading-relaxed text-zinc-800"
           role="status"
         >
           <p className="min-w-0 flex-1">
@@ -6813,7 +6813,7 @@ export function FindingDrawer({
                     <button
                       type="button"
                       onClick={() => openRemediationDetail("console")}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[12px] font-semibold text-zinc-800 transition hover:border-indigo-200 hover:bg-indigo-50/50"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[12px] font-semibold text-zinc-800 transition hover:border-teal-200 hover:bg-teal-50/50"
                     >
                       <RemediationModeIcon mode="console" />
                       View console steps
