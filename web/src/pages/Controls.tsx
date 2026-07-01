@@ -1811,118 +1811,6 @@ function GapScopeControl({
   );
 }
 
-const CONTROL_DRAWER_STAT_ICON_PROPS = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.75,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-
-function ControlDrawerHeaderStats({
-  openGaps,
-  findings,
-  highSeverity,
-  checks,
-}: {
-  openGaps: number;
-  findings: number;
-  highSeverity: number;
-  checks: number;
-}) {
-  const items = [
-    {
-      key: "gaps",
-      icon: (
-        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
-          <circle cx="12" cy="12" r="8" />
-          <circle cx="9.75" cy="9.75" r="1" fill="currentColor" stroke="none" />
-          <circle cx="14.25" cy="9.75" r="1" fill="currentColor" stroke="none" />
-          <circle cx="9.75" cy="14.25" r="1" fill="currentColor" stroke="none" />
-          <circle cx="14.25" cy="14.25" r="1" fill="currentColor" stroke="none" />
-        </svg>
-      ),
-      label: `${openGaps} open gap${openGaps === 1 ? "" : "s"}`,
-    },
-    {
-      key: "findings",
-      icon: (
-        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
-          <path d="M7.5 4.5h7.5l3.5 3.5V20a.5.5 0 0 1-.5.5H7.5a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5Z" />
-          <path d="M15 4.5V8h3.5" />
-        </svg>
-      ),
-      label: `${findings} finding${findings === 1 ? "" : "s"}`,
-    },
-    {
-      key: "high",
-      highSeverity: true,
-      icon: (
-        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
-          <path d="M12 2.75 5 6.25v5c0 4.75 3.5 9.25 7 10.25 3.5-1 7-5.5 7-10.25v-5L12 2.75Z" />
-          <path d="M12 8.25v4" />
-          <circle cx="12" cy="16.25" r="0.8" fill="currentColor" stroke="none" />
-        </svg>
-      ),
-      label: `${highSeverity} high severity`,
-    },
-    {
-      key: "checks",
-      icon: (
-        <svg {...CONTROL_DRAWER_STAT_ICON_PROPS}>
-          <circle cx="12" cy="12" r="8" />
-          <path d="m8.25 12.25 2.75 2.75L15.75 9" />
-        </svg>
-      ),
-      label: `${checks} check${checks === 1 ? "" : "s"}`,
-    },
-  ];
-
-  return (
-    <div className="control-detail-panel__stats-row" aria-label="Control summary">
-      {items.map((item, index) => (
-        <Fragment key={item.key}>
-          {index > 0 ? (
-            <span className="control-detail-panel__stat-sep" aria-hidden>
-              ·
-            </span>
-          ) : null}
-          <span
-            className={`control-detail-panel__stat${item.highSeverity ? " control-detail-panel__stat--high-severity" : ""}`}
-          >
-            <span className="control-detail-panel__stat-icon" aria-hidden>
-              {item.icon}
-            </span>
-            {item.label}
-          </span>
-        </Fragment>
-      ))}
-    </div>
-  );
-}
-
-function compositeHeaderStats(
-  ctrl: CompositeControlRow,
-  findingCountByCheck: Map<string, number>,
-): { openGaps: number; findings: number; highSeverity: number; checks: number } {
-  const openGaps = ctrl.check_ids.filter(
-    (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
-  ).length;
-  const findings =
-    ctrl.finding_count > 0
-      ? ctrl.finding_count
-      : ctrl.check_ids.reduce(
-          (sum, checkId) => sum + (findingCountByCheck.get(checkId) ?? 0),
-          0,
-        );
-  const highSeverity = ctrl.severity_counts
-    ? ctrl.severity_counts.critical + ctrl.severity_counts.high
-    : 0;
-  return { openGaps, findings, highSeverity, checks: ctrl.check_ids.length };
-}
-
 type CrossAccountCoverageDetail = {
   account_id: string;
   reason: string | null;
@@ -4298,12 +4186,7 @@ export default function Controls() {
               }}
               headerTitle={selectedCompositeRow.title}
               headerDescription={selectedCompositeRow.description}
-              headerStats={
-                <ControlDrawerHeaderStats
-                  {...compositeHeaderStats(selectedCompositeRow, findingCountByCheck)}
-                />
-              }
-              mode="overlay"
+mode="overlay"
             />
           ) : selectedKind === "detailed" && selectedDetailedControl ? (
             <ControlDetailPanel

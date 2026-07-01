@@ -86,7 +86,6 @@ export function ControlDetailPanel({
   headerTitle,
   headerDescription,
   headerStatus,
-  headerStats,
   mode,
 }: {
   tabs: ControlDetailTab[];
@@ -96,8 +95,6 @@ export function ControlDetailPanel({
   headerTitle: ReactNode;
   headerDescription?: ReactNode;
   headerStatus?: ReactNode;
-  /** Optional summary metrics row below the description (e.g. open gaps, findings). */
-  headerStats?: ReactNode;
   mode: "docked" | "overlay";
 }) {
   const isOverlay = mode === "overlay";
@@ -156,9 +153,6 @@ export function ControlDetailPanel({
         </div>
         {headerDescription ? (
           <p className="control-detail-panel__description">{headerDescription}</p>
-        ) : null}
-        {headerStats ? (
-          <div className="control-detail-panel__stats">{headerStats}</div>
         ) : null}
       </div>
 
