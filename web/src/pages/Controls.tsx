@@ -1566,6 +1566,7 @@ function TopFailingChecksSeverityTable({
   return (
     <div className="compliance-category-detail__checks">
       <div className="compliance-category-detail__checks-cols" aria-hidden>
+        <span>#</span>
         <span>Check</span>
         <span>Findings</span>
         <span>Severity</span>
@@ -1575,6 +1576,7 @@ function TopFailingChecksSeverityTable({
           const count = findingCountByCheck.get(checkId) ?? 0;
           const severity = severityByCheck.get(checkId) ?? "low";
           const severityLabel = severityDisplayLabel(severity);
+          const isHigh = severityLabel === "High";
           return (
             <li key={checkId}>
               <button
@@ -1582,7 +1584,7 @@ function TopFailingChecksSeverityTable({
                 onClick={() =>
                   navigate(`/findings?checks=${encodeURIComponent(checkId)}`)
                 }
-                className="compliance-category-detail__checks-row"
+                className={`compliance-category-detail__checks-row${isHigh ? " is-high-severity" : ""}`}
               >
                 <span className="compliance-category-detail__checks-index">
                   {index + 1}
@@ -1623,15 +1625,26 @@ function GapScopeControl({
   compositeId,
   compositeTitle,
   detail,
+  embedInResolution = false,
+  expanded = false,
+  onExpandedChange,
 }: {
   compositeId: string;
   compositeTitle: string;
   detail?: CoverageOverrideDetail | null;
+  /** When true, parent renders the resolution-path row trigger. */
+  embedInResolution?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const meQ = useMe();
   const qc = useQueryClient();
   const canEdit = roleAtLeast(meQ.data?.role, "admin");
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = embedInResolution ? expanded : internalOpen;
+  const setOpen = embedInResolution
+    ? (next: boolean) => onExpandedChange?.(next)
+    : setInternalOpen;
   const [status, setStatus] = useState<"out_of_scope" | "not_applicable">("out_of_scope");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1660,6 +1673,7 @@ function GapScopeControl({
   }
 
   if (detail) {
+    if (embedInResolution && !expanded) return null;
     const label = detail.status === "out_of_scope" ? "Out of scope" : "Not applicable";
     const when = detail.set_at ? new Date(detail.set_at).toLocaleDateString() : null;
     return (
@@ -1694,6 +1708,7 @@ function GapScopeControl({
   if (!canEdit) return null;
 
   if (!open) {
+    if (embedInResolution) return null;
     return (
       <div className="compliance-category-detail__scope">
         <span className="compliance-category-detail__scope-prompt">
@@ -1896,6 +1911,102 @@ function CategoryDetailSummaryBar({
   );
 }
 
+
+function ControlDrawerHeaderStats({
+  openGaps,
+  findings,
+  highSeverity,
+  checks,
+}: {
+  openGaps: number;
+  findings: number;
+  highSeverity: number;
+  checks: number;
+}) {
+  const items = [
+    {
+      key: "gaps",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2Z"
+          />
+        </svg>
+      ),
+      label: `${openGaps} open gap${openGaps === 1 ? "" : "s"}`,
+    },
+    {
+      key: "findings",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"
+          />
+        </svg>
+      ),
+      label: `${findings} finding${findings === 1 ? "" : "s"}`,
+    },
+    {
+      key: "high",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"
+          />
+        </svg>
+      ),
+      label: `${highSeverity} high severity`,
+    },
+    {
+      key: "checks",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+        </svg>
+      ),
+      label: `${checks} check${checks === 1 ? "" : "s"}`,
+    },
+  ];
+
+  return (
+    <div className="control-detail-panel__stats-row" aria-label="Control summary">
+      {items.map((item) => (
+        <span key={item.key} className="control-detail-panel__stat">
+          <span className="control-detail-panel__stat-icon" aria-hidden>
+            {item.icon}
+          </span>
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function compositeHeaderStats(
+  ctrl: CompositeControlRow,
+  findingCountByCheck: Map<string, number>,
+): { openGaps: number; findings: number; highSeverity: number; checks: number } {
+  const openGaps = ctrl.check_ids.filter(
+    (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
+  ).length;
+  const findings =
+    ctrl.finding_count > 0
+      ? ctrl.finding_count
+      : ctrl.check_ids.reduce(
+          (sum, checkId) => sum + (findingCountByCheck.get(checkId) ?? 0),
+          0,
+        );
+  const highSeverity = ctrl.severity_counts
+    ? ctrl.severity_counts.critical + ctrl.severity_counts.high
+    : 0;
+  return { openGaps, findings, highSeverity, checks: ctrl.check_ids.length };
+}
 
 type CrossAccountCoverageDetail = {
   account_id: string;
@@ -2309,6 +2420,7 @@ function CompositeGapResolution({
   crossAccountDetail,
   isExternalOnly,
   underlyingCriteria,
+  overrideDetail,
 }: {
   ctrl: CompositeControlRow;
   framework: string;
@@ -2324,199 +2436,307 @@ function CompositeGapResolution({
   crossAccountDetail: CrossAccountCoverageDetail | null;
   isExternalOnly: boolean;
   underlyingCriteria: ControlRow[];
+  overrideDetail?: CoverageOverrideDetail | null;
 }) {
-  const [openPanel, setOpenPanel] = useState<"cross-account" | "evidence" | null>(null);
+  const meQ = useMe();
+  const canEditScope = roleAtLeast(meQ.data?.role, "admin");
+  const [openPanel, setOpenPanel] = useState<
+    "cross-account" | "evidence" | "scope" | null
+  >(null);
   const showEvidenceAlternative = hasAbsenceGaps || isExternalOnly;
-  const showAltColumn = crossAccountEligible || showEvidenceAlternative;
   const showFixColumn = !isExternalOnly;
   const showEnableColumn = enableItems.length > 0;
-  const enableStepIndex = showFixColumn ? 2 : 1;
+  const showScopeRow = canEditScope && !overrideDetail;
+
+  function togglePanel(panel: "cross-account" | "evidence" | "scope") {
+    setOpenPanel((current) => (current === panel ? null : panel));
+  }
+
+  function handleEnable() {
+    const item = enableItems[0];
+    if (!item) return;
+    if (enableItems.length > 1) {
+      navigate(`/findings?checks=${encodeURIComponent(absenceChecks.join(","))}`);
+      return;
+    }
+    if (item.consoleUrl) {
+      window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
+  }
 
   return (
-    <div className="control-resolve">
+    <div className="control-resolve-path">
       {showFixColumn ? (
-        <div className="control-resolve-card">
-          <div className="control-resolve-card__head">
-            <svg className="control-resolve-card__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+        <>
+          <div className="control-resolve-path__row">
+            <svg
+              className="control-resolve-path__icon"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.8}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
               <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
             </svg>
-            <span className="control-resolve-card__label">Recommended action</span>
-          </div>
-          <button
-            type="button"
-            className="control-resolve-main"
-            onClick={() => {
-              if (findingsHref) navigate(findingsHref);
-            }}
-            disabled={!findingsHref}
-          >
-            <span className="control-resolve-step">1</span>
-            <span className="control-resolve-copy">
+            <div className="control-resolve-path__body">
               <strong>{primaryAction.title}</strong>
-              <span>{primaryAction.detail}</span>
               {regularFailing > 0 ? (
-                <span className="control-resolve-badge control-resolve-badge--warn">
+                <span className="control-resolve-path__tag">
                   {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
                 </span>
               ) : !hasAbsenceGaps ? (
-                <span className="control-resolve-badge control-resolve-badge--neutral">Re-scan needed</span>
+                <span className="control-resolve-path__tag">Re-scan needed</span>
               ) : null}
-            </span>
-            <span className="control-resolve-chevron" aria-hidden>›</span>
-          </button>
-        </div>
+            </div>
+            <button
+              type="button"
+              className="control-resolve-path__cta"
+              disabled={!findingsHref}
+              onClick={() => {
+                if (findingsHref) navigate(findingsHref);
+              }}
+            >
+              Open remediation
+            </button>
+          </div>
+        </>
       ) : null}
 
       {showEnableColumn ? (
-        <div className="control-resolve-card">
-          <div className="control-resolve-card__head">
-            <svg className="control-resolve-card__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+        <>
+          <div className="control-resolve-path__row">
+            <svg
+              className="control-resolve-path__icon"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.8}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
               <path d="M21 3v5h-5" />
               <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
               <path d="M3 21v-5h5" />
             </svg>
-            <span className="control-resolve-card__label">Automatic re-check</span>
-          </div>
-          <div className="control-resolve-enable">
-            <span className="control-resolve-step">{enableStepIndex}</span>
-            <div className="control-resolve-enable__body">
-              <div className="control-resolve-enable__head">
-                <p>Turn {enableItems.length === 1 ? "this on" : "these on"}, then scan to verify</p>
-                {enableItems.length > 1 ? (
-                  <button
-                    type="button"
-                    className="control-resolve-enable__view-all"
-                    onClick={() =>
-                      navigate(`/findings?checks=${encodeURIComponent(absenceChecks.join(","))}`)
-                    }
-                  >
-                    View all
-                  </button>
-                ) : null}
-              </div>
-              <ul className="control-resolve-enable__list">
-                {enableItems.slice(0, 2).map((item) => (
-                  <li key={item.checkId}>
-                    <span>{item.capability}</span>
-                    <button
-                      type="button"
-                      className="control-resolve-enable__cta"
-                      onClick={() => {
-                        if (item.consoleUrl) {
-                          window.open(item.consoleUrl, "_blank", "noopener,noreferrer");
-                          return;
-                        }
-                        navigate(`/findings?checks=${encodeURIComponent(item.checkId)}`);
-                      }}
-                    >
-                      Enable
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            <div className="control-resolve-path__body">
+              <strong>Enable automatic re-check</strong>
             </div>
+            <button
+              type="button"
+              className="control-resolve-path__outline"
+              onClick={handleEnable}
+            >
+              Enable
+            </button>
           </div>
-        </div>
+        </>
       ) : null}
 
-      {showAltColumn ? (
-        <div className="control-resolve-card">
-          <div className="control-resolve-card__head">
-            <svg className="control-resolve-card__icon" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-              <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-              <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-              <path d="M7 21h10" />
-              <path d="M12 3v18" />
-              <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+      {crossAccountEligible ? (
+        <>
+          <button
+            type="button"
+            className="control-resolve-path__row control-resolve-path__row--expand"
+            aria-expanded={openPanel === "cross-account"}
+            onClick={() => togglePanel("cross-account")}
+          >
+            <svg
+              className="control-resolve-path__icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+              />
+              <circle cx="9" cy="7" r="4" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            <span className="control-resolve-card__label">Alternative satisfaction</span>
-          </div>
-
-          {crossAccountEligible ? (
-            <div className="control-resolve-alt">
-              <button
-                type="button"
-                className="control-resolve-alt__row"
-                aria-expanded={openPanel === "cross-account"}
-                onClick={() => setOpenPanel((p) => (p === "cross-account" ? null : "cross-account"))}
-              >
-                <svg className="control-resolve-alt__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V8l7-4 7 4v13M9.5 21v-4h5v4M9 11h.01M15 11h.01" />
-                </svg>
-                <span className="control-resolve-alt__text">
-                  <strong>Covered in another AWS account</strong>
-                  <span>
-                    {crossAccountDetail
-                      ? crossAccountDetail.verified
-                        ? "Verified — resolved via another AWS account."
-                        : "Attested — pending verification."
-                      : "Managed centrally in an account we don't scan yet — auto-verified."}
-                  </span>
-                </span>
-                <span
-                  className={`control-resolve-alt__chevron${openPanel === "cross-account" ? " is-open" : ""}`}
-                  aria-hidden
-                >
-                  ›
-                </span>
-              </button>
-              {openPanel === "cross-account" ? (
-                <div className="control-resolve-alt__expand">
-                  <CrossAccountCoverageControl
-                    compositeId={ctrl.id}
-                    detail={crossAccountDetail}
-                    open
-                    onClose={() => setOpenPanel(null)}
-                    onConnect={() => navigate("/accounts")}
-                  />
-                </div>
-              ) : null}
+            <div className="control-resolve-path__body">
+              <strong>Covered in another AWS account</strong>
+            </div>
+            <span
+              className={`control-resolve-path__chevron${openPanel === "cross-account" ? " is-open" : ""}`}
+              aria-hidden
+            >
+              ›
+            </span>
+          </button>
+          {openPanel === "cross-account" ? (
+            <div className="control-resolve-path__expand">
+              <CrossAccountCoverageControl
+                compositeId={ctrl.id}
+                detail={crossAccountDetail}
+                open
+                onClose={() => setOpenPanel(null)}
+                onConnect={() => navigate("/accounts")}
+              />
             </div>
           ) : null}
+        </>
+      ) : null}
 
-          {showEvidenceAlternative ? (
-            <div className="control-resolve-alt">
-              <button
-                type="button"
-                className="control-resolve-alt__row"
-                aria-expanded={openPanel === "evidence"}
-                onClick={() => setOpenPanel((p) => (p === "evidence" ? null : "evidence"))}
-              >
-                <svg className="control-resolve-alt__icon" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16.5a4 4 0 0 1-.8-7.92 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 16.5" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v7m0-7-2.25 2.25M12 12l2.25 2.25" />
-                </svg>
-                <span className="control-resolve-alt__text">
-                  <strong>Upload external evidence</strong>
-                  <span>Proof for checks managed outside of AWS.</span>
-                </span>
-                <span
-                  className={`control-resolve-alt__chevron${openPanel === "evidence" ? " is-open" : ""}`}
-                  aria-hidden
-                >
-                  ›
-                </span>
-              </button>
-              {openPanel === "evidence" ? (
-                <div className="control-resolve-alt__expand">
-                  <ExternalEvidencePanel
-                    compositeId={ctrl.id}
-                    compositeTitle={ctrl.title}
-                    framework={framework}
-                    groupStatus={ctrl.status}
-                    checkIds={ctrl.check_ids}
-                    findingCountByCheck={findingCountByCheck}
-                    underlyingCriteria={underlyingCriteria}
-                    frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
-                  />
-                </div>
-              ) : null}
+      {showEvidenceAlternative ? (
+        <>
+          <button
+            type="button"
+            className="control-resolve-path__row control-resolve-path__row--expand"
+            aria-expanded={openPanel === "evidence"}
+            onClick={() => togglePanel("evidence")}
+          >
+            <svg
+              className="control-resolve-path__icon"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+              />
+            </svg>
+            <div className="control-resolve-path__body">
+              <strong>Upload external evidence</strong>
+            </div>
+            <span
+              className={`control-resolve-path__chevron${openPanel === "evidence" ? " is-open" : ""}`}
+              aria-hidden
+            >
+              ›
+            </span>
+          </button>
+          {openPanel === "evidence" ? (
+            <div className="control-resolve-path__expand">
+              <ExternalEvidencePanel
+                compositeId={ctrl.id}
+                compositeTitle={ctrl.title}
+                framework={framework}
+                groupStatus={ctrl.status}
+                checkIds={ctrl.check_ids}
+                findingCountByCheck={findingCountByCheck}
+                underlyingCriteria={underlyingCriteria}
+                frameworkControlLabel={(controlId) => frameworkControlLabel(framework, controlId)}
+              />
             </div>
           ) : null}
-        </div>
+        </>
+      ) : null}
+
+      {showScopeRow ? (
+        <>
+          <button
+            type="button"
+            className="control-resolve-path__row control-resolve-path__row--expand"
+            aria-expanded={openPanel === "scope"}
+            onClick={() => togglePanel("scope")}
+          >
+            <svg
+              className="control-resolve-path__icon"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path strokeLinecap="round" d="M4.5 4.5l15 15" />
+            </svg>
+            <div className="control-resolve-path__body">
+              <strong>Mark out of scope</strong>
+            </div>
+            <span
+              className={`control-resolve-path__chevron${openPanel === "scope" ? " is-open" : ""}`}
+              aria-hidden
+            >
+              ›
+            </span>
+          </button>
+          {openPanel === "scope" ? (
+            <div className="control-resolve-path__expand">
+              <GapScopeControl
+                compositeId={ctrl.id}
+                compositeTitle={ctrl.title}
+                embedInResolution
+                expanded
+                onExpandedChange={(next) => {
+                  if (!next) setOpenPanel(null);
+                }}
+              />
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
+  );
+}
+
+function ControlGuidanceFooter({
+  guidance,
+  mappingChips,
+}: {
+  guidance: string | null;
+  mappingChips: { fw: string; ids: string[] }[];
+}) {
+  const [showMappings, setShowMappings] = useState(false);
+  const frameworkSummary =
+    mappingChips.length > 0
+      ? mappingChips.map((g) => frameworkLabel(g.fw)).join(" • ")
+      : null;
+
+  return (
+    <ControlDetailSection title="Guidance">
+      {guidance ? (
+        <p className="control-detail-guidance-text">{guidance}</p>
+      ) : (
+        <p className="control-detail-empty">No written guidance yet for this control.</p>
+      )}
+      {frameworkSummary || mappingChips.length > 0 ? (
+        <div className="control-detail-guidance-footer">
+          {frameworkSummary ? (
+            <p className="control-detail-mapping-line">{frameworkSummary}</p>
+          ) : null}
+          {mappingChips.length > 0 ? (
+            <>
+              <button
+                type="button"
+                className="control-detail-guidance-link"
+                aria-expanded={showMappings}
+                onClick={() => setShowMappings((open) => !open)}
+              >
+                View mappings
+                <span aria-hidden>›</span>
+              </button>
+              {showMappings ? (
+                <ul className="control-detail-guidance-mappings">
+                  {mappingChips.map((g) => (
+                    <li key={g.fw}>
+                      <span className="control-detail-guidance-mappings__fw">
+                        {frameworkLabel(g.fw)}
+                      </span>
+                      {g.ids.join(", ")}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </ControlDetailSection>
   );
 }
 
@@ -2622,18 +2842,7 @@ function buildCompositeTabs({
       badge: failingCheckCount > 0 ? failingCheckCount : undefined,
       content: (
         <div className="control-detail-stack">
-          <ControlDetailSection
-            title="Blocking gaps"
-            action={
-              failingCheckCount > 0 ? (
-                <span className="control-detail-section__stat">{failingCheckCount} open</span>
-              ) : (
-                <span className="control-detail-section__stat control-detail-section__stat--clear">
-                  Clear
-                </span>
-              )
-            }
-          >
+          <ControlDetailSection title="Blocking gaps">
             {isExternalOnly ? (
               <p className="control-detail-empty">
                 No automated checks map to this control — resolve it with external evidence below.
@@ -2645,53 +2854,40 @@ function buildCompositeTabs({
                 severityByCheck={severityByCheck}
               />
             )}
+          </ControlDetailSection>
 
-            {!isVerified && !overrideDetail ? (
-              <div className="control-detail-subsection">
-                <CompositeGapResolution
-                  ctrl={ctrl}
-                  framework={framework}
-                  findingCountByCheck={findingCountByCheck}
-                  findingsHref={findingsHref}
-                  navigate={navigate}
-                  primaryAction={primaryAction}
-                  regularFailing={regularFailing}
-                  hasAbsenceGaps={hasAbsenceGaps}
-                  absenceChecks={absenceChecks}
-                  enableItems={enableItems}
-                  crossAccountEligible={crossAccountEligible}
-                  crossAccountDetail={crossAccountDetail}
-                  isExternalOnly={isExternalOnly}
-                  underlyingCriteria={underlyingCriteria}
-                />
-              </div>
-            ) : null}
-
-            <div className="control-detail-subsection control-detail-subsection--muted">
+          {!isVerified && !overrideDetail ? (
+            <ControlDetailSection title="Resolution path">
+              <CompositeGapResolution
+                ctrl={ctrl}
+                framework={framework}
+                findingCountByCheck={findingCountByCheck}
+                findingsHref={findingsHref}
+                navigate={navigate}
+                primaryAction={primaryAction}
+                regularFailing={regularFailing}
+                hasAbsenceGaps={hasAbsenceGaps}
+                absenceChecks={absenceChecks}
+                enableItems={enableItems}
+                crossAccountEligible={crossAccountEligible}
+                crossAccountDetail={crossAccountDetail}
+                isExternalOnly={isExternalOnly}
+                underlyingCriteria={underlyingCriteria}
+                overrideDetail={overrideDetail}
+              />
+            </ControlDetailSection>
+          ) : overrideDetail ? (
+            <ControlDetailSection title="Scope">
               <GapScopeControl
                 compositeId={ctrl.id}
                 compositeTitle={ctrl.title}
                 detail={overrideDetail}
               />
-            </div>
-          </ControlDetailSection>
-
-          {!isVerified && !overrideDetail ? (
-            <ControlDetailSection title="Guidance">
-              {ctrl.guidance ? (
-                <p className="control-detail-guidance-text">{ctrl.guidance}</p>
-              ) : (
-                <p className="control-detail-empty">No written guidance yet for this control.</p>
-              )}
-              {mappingChips.length > 0 ? (
-                <p className="control-detail-mapping-line">
-                  Mapped to{" "}
-                  {mappingChips
-                    .map((g) => `${frameworkLabel(g.fw)} ${g.ids.join(", ")}`)
-                    .join(" · ")}
-                </p>
-              ) : null}
             </ControlDetailSection>
+          ) : null}
+
+          {!isVerified ? (
+            <ControlGuidanceFooter guidance={ctrl.guidance} mappingChips={mappingChips} />
           ) : null}
         </div>
       ),
@@ -4329,6 +4525,11 @@ export default function Controls() {
                   )}
                   href={null}
                   onNavigate={navigate}
+                />
+              }
+              headerStats={
+                <ControlDrawerHeaderStats
+                  {...compositeHeaderStats(selectedCompositeRow, findingCountByCheck)}
                 />
               }
               mode="overlay"
