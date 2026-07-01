@@ -6,6 +6,7 @@ import { api } from "../api";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { HeaderSlot } from "../context/HeaderSlot";
+import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
 import { HistoryFilterDropdown } from "../components/HistoryFilterDropdown";
 import { HistoryPageSizeDropdown } from "../components/HistoryPageSizeDropdown";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
@@ -33,13 +34,6 @@ import {
 } from "../lib/historyEvidence";
 import { ListPagination } from "../components/ListPagination";
 import "../styles/history-page.css";
-
-interface Account {
-  id: string;
-  label: string;
-  account_id: string | null;
-  status: string;
-}
 
 const FRAMEWORKS = [
   { value: "soc2", label: "SOC 2" },
@@ -113,13 +107,15 @@ export default function HistoryV2() {
   const [drawer, setDrawer] = useState<DrawerPayload | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const accountsQ = useQuery({ queryKey: ["accounts"], queryFn: () => api<Account[]>("/v1/accounts") });
-  const connected = accountsQ.data?.filter((a) => a.status === "connected") ?? [];
-  const effectiveAccountId = accountId || connected[0]?.id || "";
-  const connectedAccountOptions = useMemo(
-    () => connected.map((account) => ({ ...account, provider: "aws" as const })),
-    [connected],
+  const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
+    useConnectedAccountOptions();
+  const activeAccount = useMemo(
+    () =>
+      (accountId && connectedAccounts.find((a) => a.id === accountId)) || connectedAccounts[0],
+    [accountId, connectedAccounts],
   );
+  const effectiveAccountId = activeAccount?.id ?? "";
+  const isAwsAccount = !activeAccount?.provider || activeAccount.provider === "aws";
 
   const compositesQ = useQuery({
     queryKey: ["controls", "composites", effectiveAccountId],
@@ -127,7 +123,7 @@ export default function HistoryV2() {
       api<CompositeControlSummary[]>(
         `/v1/controls/composites${effectiveAccountId ? `?account_id=${effectiveAccountId}` : ""}`,
       ),
-    enabled: !!effectiveAccountId,
+    enabled: !!effectiveAccountId && isAwsAccount,
   });
 
   const compositeOptions = useMemo(() => {
@@ -174,7 +170,7 @@ export default function HistoryV2() {
     queryKey: ["history", effectiveAccountId, framework, days],
     queryFn: () =>
       api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=100`),
-    enabled: !!effectiveAccountId,
+    enabled: !!effectiveAccountId && isAwsAccount,
     staleTime: HISTORY_STALE_MS,
   });
 
@@ -230,7 +226,9 @@ export default function HistoryV2() {
 
   const onlyBaseline = events.length === 1 && events[0]?.type === "baseline_established";
 
-  if (accountsQ.data && connected.length === 0) return <Navigate to="/accounts" replace />;
+  if (accountsReady && !accountsLoading && connectedAccounts.length === 0) {
+    return <Navigate to="/accounts" replace />;
+  }
 
   async function handleDownload(event: HistoryEvent) {
     setDownloadingId(event.scan_run_id);
@@ -246,7 +244,7 @@ export default function HistoryV2() {
       <HeaderSlot>
         <div className="history-filter-bar w-full">
           <AccountFilterDropdown
-            accounts={connectedAccountOptions}
+            accounts={connectedAccounts}
             value={effectiveAccountId}
             onChange={(id) => {
               setAccountId(id);
@@ -301,13 +299,23 @@ export default function HistoryV2() {
         </div>
       </HeaderSlot>
 
-      {historyQ.isLoading && <p className="history-loading">Loading history…</p>}
+      {isAwsAccount && historyQ.isLoading && <p className="history-loading">Loading history…</p>}
 
-      {historyQ.isError && (
+      {isAwsAccount && historyQ.isError && (
         <p className="history-empty text-amber-800">History is temporarily unavailable. Try again in a moment.</p>
       )}
 
-      {!historyQ.isLoading && !historyQ.isError && historyQ.data && (
+      {!isAwsAccount && effectiveAccountId && (
+        <div className="history-empty">
+          <p className="font-semibold text-zinc-800">Compliance history</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
+            Detailed event history is available for AWS accounts. View scan results and findings for this account on
+            Findings.
+          </p>
+        </div>
+      )}
+
+      {isAwsAccount && !historyQ.isLoading && !historyQ.isError && historyQ.data && (
         <>
           <div className="history-stats">
             <div className="history-stats__cell history-stats__cell--posture">
