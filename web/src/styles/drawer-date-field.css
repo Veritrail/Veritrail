@@ -93,6 +93,8 @@
   position: fixed;
   top: auto;
   bottom: auto;
+  /* Above drawer overlays (z-index 60) and finding drawer (z-index 110). */
+  z-index: 120;
 }
 
 .drawer-date-field__nav {

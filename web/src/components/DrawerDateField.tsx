@@ -249,7 +249,7 @@ export function DrawerDateField({
         role="dialog"
         aria-label="Choose date"
         className={popoverClass}
-        style={{ top: coords.top, left: coords.left, zIndex: 50 }}
+        style={{ top: coords.top, left: coords.left }}
       >
         <div className="drawer-date-field__nav">
           <button
