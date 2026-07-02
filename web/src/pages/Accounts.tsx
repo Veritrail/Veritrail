@@ -6138,67 +6138,98 @@ function AccountSplitDetailPane({
       <div className="accounts-detail-pane__body">
         {tab === "overview" && (
           <>
-            <div className="accounts-detail-metric-strip">
-              <div className="accounts-detail-metric-strip__item">
-                <p className="accounts-detail-metric-strip__label">Open findings</p>
-                <div className="accounts-detail-metric-strip__value-row">
-                  <p className="accounts-detail-metric-strip__value">
-                    {hasScanned ? displayStats.open : "—"}
-                  </p>
+            <div className="accounts-detail-overview__cards">
+              <div className="accounts-detail-metric-card">
+                <div className="accounts-detail-metric-card__top">
+                  <p className="accounts-detail-metric-card__label">Open findings</p>
+                </div>
+                <div className="accounts-detail-metric-card__value-row">
+                  <p className="accounts-detail-metric-card__value">{hasScanned ? displayStats.open : "—"}</p>
                   {hasScanned ? (
                     <MetricCardDelta delta={openFindingsDelta} betterWhen="down" />
                   ) : null}
                 </div>
-                <p className="accounts-detail-metric-strip__sub">
+                <p className="accounts-detail-metric-card__sub">
                   {hasScanned
-                    ? `${displayStats.critHigh} critical/high · ${displayStats.medium} medium · ${displayStats.low} low`
+                    ? openFindingsDelta != null
+                      ? "Across severities · last 7 days"
+                      : "Across severities"
                     : "Run a scan first"}
                 </p>
+                {hasScanned ? (
+                  <div className="accounts-detail-metric-card__findings">
+                    <FindingsMixDonutCompact stats={displayStats} hasScanned={hasScanned} size={96} stroke={5.25} />
+                    <FindingsSeverityLegend stats={displayStats} hasScanned={hasScanned} />
+                  </div>
+                ) : null}
               </div>
-              <div className="accounts-detail-metric-strip__item">
-                <p className="accounts-detail-metric-strip__label">Resources covered</p>
-                <div className="accounts-detail-metric-strip__value-row">
-                  <p className="accounts-detail-metric-strip__value">
-                    {hasScanned ? resourceCount.toLocaleString() : "—"}
+              <div className="accounts-detail-metric-card">
+                <div className="accounts-detail-metric-card__content">
+                  <div className="accounts-detail-metric-card__top">
+                    <p className="accounts-detail-metric-card__label">Resources covered</p>
+                  </div>
+                  <div className="accounts-detail-metric-card__value-row">
+                    <p className="accounts-detail-metric-card__value">
+                      {hasScanned ? resourceCount.toLocaleString() : "—"}
+                    </p>
+                    {hasScanned ? (
+                      <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
+                    ) : null}
+                  </div>
+                  <p className="accounts-detail-metric-card__sub">
+                    {hasScanned
+                      ? resourcesDelta != null
+                        ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
+                        : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
+                      : "From latest scan"}
                   </p>
-                  {hasScanned ? (
-                    <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
-                  ) : null}
                 </div>
-                <p className="accounts-detail-metric-strip__sub">
-                  {hasScanned
-                    ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
-                    : "From latest scan"}
-                </p>
+                <span className="accounts-detail-metric-card__watermark accounts-detail-metric-card__watermark--cloud" aria-hidden>
+                  <img src="/icons/veritrail-cloud-watermark-cloud-only.svg" alt="" />
+                </span>
               </div>
-              <div className="accounts-detail-metric-strip__item">
-                <p className="accounts-detail-metric-strip__label">Compliance posture</p>
-                <div className="accounts-detail-metric-strip__value-row">
-                  <p className="accounts-detail-metric-strip__value">
-                    {compliancePct != null ? `${compliancePct}%` : "—"}
+              <div className="accounts-detail-metric-card">
+                <div className="accounts-detail-metric-card__top">
+                  <p className="accounts-detail-metric-card__label">Compliance posture</p>
+                </div>
+                <div className="accounts-detail-metric-card__value-row">
+                  <p className="accounts-detail-metric-card__value">
+                    {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
                   </p>
                   {hasScanned && compliancePct != null ? (
                     <MetricCardDelta delta={complianceDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                <p className="accounts-detail-metric-strip__sub">Last 7 days · SOC 2</p>
+                <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
+                <CompliancePostureSparkline points={complianceTrendPoints} />
               </div>
-              <div className="accounts-detail-metric-strip__item">
-                <div className="accounts-detail-metric-strip__label-row">
-                  <p className="accounts-detail-metric-strip__label">Coverage</p>
-                  <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
+              <div className="accounts-detail-metric-card">
+                <div className="accounts-detail-metric-card__top">
+                  <div className="accounts-detail-metric-card__label-row">
+                    <p className="accounts-detail-metric-card__label">Coverage</p>
+                    <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
+                  </div>
                 </div>
-                <div className="accounts-detail-metric-strip__value-row">
-                  <p className="accounts-detail-metric-strip__value">
-                    {coveragePct != null ? `${coveragePct}%` : "—"}
+                <div className="accounts-detail-metric-card__value-row">
+                  <p className="accounts-detail-metric-card__value">
+                    {coveragePct != null ? `${coveragePct}%` : hasScanned ? "—" : "—"}
                   </p>
                   {hasScanned && coveragePct != null ? (
                     <MetricCardDelta delta={coverageDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                <p className="accounts-detail-metric-strip__sub">
+                <p className="accounts-detail-metric-card__sub">
                   {coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
                 </p>
+                <div
+                  className={`accounts-detail-metric-card__progress${coveragePct == null ? " is-empty" : ""}`}
+                  aria-hidden={coveragePct == null}
+                >
+                  <span
+                    className="accounts-detail-metric-card__progress-fill"
+                    style={{ width: `${coveragePct ?? 0}%` }}
+                  />
+                </div>
               </div>
             </div>
 
@@ -6274,9 +6305,9 @@ function AccountSplitDetailPane({
               </div>
             ) : null}
 
-            <div className="accounts-detail-support">
-              <div className="accounts-detail-support__block">
-                <h3 className="accounts-detail-support__title">Connected capabilities</h3>
+            <div className="accounts-detail-overview__lower">
+              <div className="accounts-detail-capabilities">
+                <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
                 {capabilityRows.map((cap) => (
                   <div className="accounts-detail-capability-row" key={cap.name}>
                     <div className="min-w-0">
@@ -6297,8 +6328,8 @@ function AccountSplitDetailPane({
                 ))}
               </div>
 
-              <div className="accounts-detail-support__block accounts-detail-support__block--actions">
-                <h3 className="accounts-detail-support__title">Quick actions</h3>
+              <div className="accounts-detail-quick-actions">
+                <h3 className="accounts-detail-quick-actions__title">Quick actions</h3>
                 <button
                   type="button"
                   className="accounts-detail-quick-actions__primary"
