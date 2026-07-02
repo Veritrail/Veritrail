@@ -6223,7 +6223,7 @@ function AccountSplitDetailPane({
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">
-                    {compliancePct != null ? `${compliancePct}% ready` : hasScanned ? "—" : "—"}
+                    {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
                   </p>
                   {hasScanned && compliancePct != null ? (
                     <MetricCardDelta delta={complianceDelta} betterWhen="up" />

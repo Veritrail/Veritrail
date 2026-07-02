@@ -4799,15 +4799,16 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card__findings {
   display: flex;
   align-items: center;
-  gap: clamp(0.65rem, 4cqw, 1rem);
+  gap: clamp(0.5rem, 3cqw, 0.75rem);
   min-height: clamp(4.35rem, 26cqw, 7rem);
   margin-top: auto;
   padding-top: clamp(0.4rem, 2.2cqw, 0.5rem);
+  padding-inline-end: 0.15rem;
 }
 
 .accounts-detail-metric-card .accounts-findings-donut {
-  width: clamp(5rem, 30cqw, 8rem);
-  height: clamp(5rem, 30cqw, 8rem);
+  width: clamp(4.5rem, 26cqw, 7rem);
+  height: clamp(4.5rem, 26cqw, 7rem);
   flex-shrink: 0;
   box-shadow: none;
 }
@@ -4838,12 +4839,19 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card .accounts-findings-legend {
   flex: 1;
   min-width: 0;
-  gap: clamp(0.35rem, 1.8cqw, 0.45rem);
+  gap: clamp(0.3rem, 1.5cqw, 0.4rem);
+  padding-inline-end: 0.35rem;
 }
 
 .accounts-detail-metric-card .accounts-findings-legend__row {
-  gap: clamp(0.35rem, 1.8cqw, 0.45rem);
-  font-size: clamp(0.85rem, 3.6cqw, 1rem);
+  gap: clamp(0.3rem, 1.5cqw, 0.4rem);
+  font-size: clamp(0.78rem, 3.2cqw, 0.9rem);
+  min-width: 0;
+}
+
+.accounts-detail-metric-card .accounts-findings-legend__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .accounts-detail-metric-card .accounts-findings-legend__dot {
