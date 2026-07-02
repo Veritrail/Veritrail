@@ -4582,22 +4582,12 @@ button.accounts-flow-step:hover {
   color: #71717a;
 }
 
-.accounts-detail-pane__meta > span:not(.accounts-detail-pane__meta-sep):not(.accounts-detail-pane__meta-status) {
+.accounts-detail-pane__meta > span {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.accounts-detail-pane__meta-sep {
-  color: #d4d4d8;
-  user-select: none;
-}
-
-.accounts-detail-pane__meta-status {
-  color: #16a34a;
-  font-weight: 600;
 }
 
 .accounts-detail-pane__actions {
@@ -5454,10 +5444,6 @@ button.accounts-flow-step:hover {
 
   .accounts-detail-pane__meta {
     gap: 0.25rem;
-  }
-
-  .accounts-detail-pane__meta-sep {
-    display: none;
   }
 
   .accounts-detail-pane__actions {

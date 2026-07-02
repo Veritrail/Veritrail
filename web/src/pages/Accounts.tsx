@@ -6112,8 +6112,6 @@ function AccountSplitDetailPane({
     );
   }
 
-  const scanAgo = hasScanned ? formatRelativeScanAgo(lastScanAt) : null;
-
   return (
     <div className="accounts-detail-pane">
       <div className="accounts-detail-pane__header">
@@ -6126,24 +6124,12 @@ function AccountSplitDetailPane({
               <h2 className="accounts-detail-pane__title">{displayName}</h2>
               <VerifiedBadgeIcon />
             </div>
-            <div className="accounts-detail-pane__meta">
-              {displayId ? (
-                <>
-                  <span>{displayId}</span>
-                  <CopyIdButton text={displayId} />
-                  <span className="accounts-detail-pane__meta-sep" aria-hidden>
-                    ·
-                  </span>
-                </>
-              ) : null}
-              <span className="accounts-detail-pane__meta-status">Connected</span>
-              <span className="accounts-detail-pane__meta-sep" aria-hidden>
-                ·
-              </span>
-              <span>
-                {scanAgo ? `Last scan ${scanAgo}` : "Not scanned yet"}
-              </span>
-            </div>
+            {displayId ? (
+              <div className="accounts-detail-pane__meta">
+                <span>{displayId}</span>
+                <CopyIdButton text={displayId} />
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="accounts-detail-pane__actions">
