@@ -86,7 +86,11 @@
 }
 
 .integrations-table-wrap {
-  overflow: hidden;
+  /* Always scrollable: column minimums exceed the container over a wide
+     range of window sizes (sidebar eats ~250px), and a clipped table is
+     worse than a scrollbar that only shows when needed. */
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--integrations-border);
   border-radius: 0.75rem;
   background: var(--integrations-surface);
@@ -95,6 +99,7 @@
 
 .integrations-table {
   width: 100%;
+  min-width: 56rem;
   border-collapse: collapse;
   font-size: 0.8125rem;
 }
@@ -181,6 +186,9 @@
 }
 
 .integrations-table__description {
+  /* Min keeps auto table layout from crushing this column to one word per
+     line when nowrap neighbors take their space first. */
+  min-width: 11rem;
   max-width: 16rem;
   font-size: 0.8125rem;
   color: var(--integrations-muted);
@@ -221,6 +229,7 @@
   font-weight: 600;
   color: #2563eb;
   background: #eff6ff;
+  white-space: nowrap;
 }
 
 .integrations-table__actions {
@@ -279,16 +288,40 @@
 
 .integrations-explore__header {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  justify-content: flex-start;
+  gap: 0.25rem;
 }
 
-.integrations-explore-footer {
-  margin-top: 0.1rem;
-  border-top: 1px solid #eef2f6;
-  padding-top: 0.85rem;
+.integrations-explore__request-row {
+  margin: 0;
   font-size: 0.8125rem;
   color: #64748b;
+  line-height: 1.5;
+}
+
+.integrations-explore-request {
+  display: inline;
+  padding: 0;
+  border: none;
+  font: inherit;
+  font-weight: 600;
+  color: #2563eb;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  transition: color 0.15s;
+}
+
+.integrations-explore-request:hover {
+  color: #1d4ed8;
+}
+
+.integrations-explore-request:focus-visible {
+  outline: none;
+  border-radius: 0.25rem;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.2);
 }
 
 .integrations-explore h2 {
@@ -301,7 +334,10 @@
 .integrations-explore-grid {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* auto-fill: column count follows available width — a fixed count crushes
+     card text. 21rem min keeps name + desc + Connect button on comfortable
+     lines instead of stacking one word per line. */
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
 }
 
 .integrations-explore-card {
@@ -387,22 +423,6 @@
   box-shadow: none;
 }
 
-@media (max-width: 1280px) {
-  .integrations-explore-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1024px) {
-  .integrations-table-wrap {
-    overflow-x: auto;
-  }
-
-  .integrations-table {
-    min-width: 56rem;
-  }
-}
-
 @media (max-width: 640px) {
   .integrations-summary {
     grid-template-columns: 1fr;
@@ -411,9 +431,5 @@
   .integrations-explore__header {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .integrations-explore-grid {
-    grid-template-columns: 1fr;
   }
 }
