@@ -6227,69 +6227,63 @@ function AccountSplitDetailPane({
       <div className="accounts-detail-pane__body">
         {tab === "overview" && (
           <>
-            <div className="accounts-detail-overview__summary">
-              <div className="accounts-detail-overview__summary-main">
-                <p className="accounts-detail-overview__summary-headline">
-                  <span className="accounts-detail-overview__summary-count">
+            <div className="accounts-detail-overview__metrics" aria-label="Account overview metrics">
+              <div className="accounts-detail-overview__metric">
+                <p className="accounts-detail-overview__metric-label">Open findings</p>
+                <div className="accounts-detail-overview__metric-value-row">
+                  <p className="accounts-detail-overview__metric-value">
                     {hasScanned ? displayStats.open.toLocaleString() : "—"}
-                  </span>
-                  <span className="accounts-detail-overview__summary-headline-text">open findings</span>
+                  </p>
                   {hasScanned ? (
                     <MetricCardDelta delta={openFindingsDelta} betterWhen="down" />
                   ) : null}
-                </p>
+                </div>
                 {hasScanned ? (
                   <OverviewSeverityChips stats={displayStats} hasScanned={hasScanned} />
                 ) : (
-                  <p className="accounts-detail-overview__summary-muted">Run a scan first</p>
+                  <p className="accounts-detail-overview__metric-detail">Run a scan first</p>
                 )}
               </div>
-              <div className="accounts-detail-overview__summary-aside" aria-label="Posture metrics">
-                <div className="accounts-detail-overview__summary-aside-item">
-                  <p className="accounts-detail-overview__summary-aside-line">
-                    <span className="accounts-detail-overview__summary-aside-label">SOC 2</span>
-                    <span className="accounts-detail-overview__summary-aside-value">
-                      {hasScanned
-                        ? soc2PhaseLabel
-                          ? soc2PhaseLabel.toLowerCase()
-                          : compliancePct != null
-                            ? `${compliancePct}%`
-                            : "—"
-                        : "—"}
-                    </span>
-                    {hasScanned && compliancePct != null ? (
-                      <MetricCardDelta delta={complianceDelta} betterWhen="up" />
-                    ) : null}
-                  </p>
-                  <p className="accounts-detail-overview__summary-aside-detail">
+              <div className="accounts-detail-overview__metric">
+                <p className="accounts-detail-overview__metric-label">SOC 2</p>
+                <div className="accounts-detail-overview__metric-value-row">
+                  <p className="accounts-detail-overview__metric-value accounts-detail-overview__metric-value--phase">
                     {hasScanned
-                      ? soc2CheckSummary
-                        ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
-                        : "Awaiting control mapping"
-                      : "Run a scan first"}
+                      ? soc2PhaseLabel ?? (compliancePct != null ? `${compliancePct}%` : "—")
+                      : "—"}
                   </p>
+                  {hasScanned && compliancePct != null ? (
+                    <MetricCardDelta delta={complianceDelta} betterWhen="up" />
+                  ) : null}
                 </div>
-                <div className="accounts-detail-overview__summary-aside-item">
-                  <p className="accounts-detail-overview__summary-aside-line">
-                    <span className="accounts-detail-overview__summary-aside-label">
-                      Coverage
-                      <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
-                    </span>
-                    <span className="accounts-detail-overview__summary-aside-value">
-                      {coveragePct != null ? `${coveragePct}%` : "—"}
-                    </span>
-                    {hasScanned && coveragePct != null ? (
-                      <MetricCardDelta delta={coverageDelta} betterWhen="up" />
-                    ) : null}
+                <p className="accounts-detail-overview__metric-detail">
+                  {hasScanned
+                    ? soc2CheckSummary
+                      ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
+                      : "Awaiting control mapping"
+                    : "Run a scan first"}
+                </p>
+              </div>
+              <div className="accounts-detail-overview__metric">
+                <p className="accounts-detail-overview__metric-label">
+                  Coverage
+                  <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
+                </p>
+                <div className="accounts-detail-overview__metric-value-row">
+                  <p className="accounts-detail-overview__metric-value">
+                    {coveragePct != null ? `${coveragePct}%` : "—"}
                   </p>
-                  <p className="accounts-detail-overview__summary-aside-detail">
-                    {hasScanned
-                      ? coverageDelta != null
-                        ? "Evidence window · last 7 days"
-                        : "Last scan"
-                      : "Run a scan first"}
-                  </p>
+                  {hasScanned && coveragePct != null ? (
+                    <MetricCardDelta delta={coverageDelta} betterWhen="up" />
+                  ) : null}
                 </div>
+                <p className="accounts-detail-overview__metric-detail">
+                  {hasScanned
+                    ? coverageDelta != null
+                      ? "Evidence window · last 7 days"
+                      : "Last scan"
+                    : "Run a scan first"}
+                </p>
               </div>
             </div>
 
