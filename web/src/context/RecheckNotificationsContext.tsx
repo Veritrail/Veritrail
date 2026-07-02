@@ -14,6 +14,7 @@ import { accountListSchema, cloudAccountListSchema, scanRunLatestNullableSchema 
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { readPendingScan, type ScanRunLatest } from "../hooks/useTriggeredScan";
+import { scanFailureAccountLabel } from "../lib/scanFailureMessages";
 
 const STORAGE_KEY = "veritrail.recheckNotifications.v3";
 const HISTORY_LIMIT = 100;
@@ -57,6 +58,8 @@ export type ScanFailureNotification = {
   completedAt: number;
   readAt?: number;
   accountId?: string;
+  accountLabel?: string;
+  provider?: string;
   message: string;
   failedAt?: string | null;
   errorType?: string | null;
@@ -289,6 +292,8 @@ type RecheckNotificationsContextValue = {
   }) => void;
   reportScanFailure: (args: {
     accountId?: string | null;
+    accountLabel?: string | null;
+    provider?: string | null;
     message: string;
     failedAt?: string | null;
     errorType?: string | null;
@@ -460,8 +465,10 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
   );
 
   const reportScanFailure = useCallback(
-    ({ accountId, message, failedAt, errorType, step }: {
+    ({ accountId, accountLabel, provider, message, failedAt, errorType, step }: {
       accountId?: string | null;
+      accountLabel?: string | null;
+      provider?: string | null;
       message: string;
       failedAt?: string | null;
       errorType?: string | null;
@@ -475,6 +482,8 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
         status: "failed",
         completedAt: Date.now(),
         accountId: accountId ?? undefined,
+        accountLabel: accountLabel?.trim() || undefined,
+        provider: provider?.trim() || undefined,
         message,
         failedAt,
         errorType,
@@ -518,6 +527,11 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       lastReportedScanFailureRef.current[account.id] = failureKey;
       reportScanFailure({
         accountId: account.id,
+        accountLabel: scanFailureAccountLabel({
+          label: account.label,
+          externalId: account.account_id,
+        }),
+        provider: "aws",
         message: run.error,
         failedAt: run.failed_at ?? null,
         errorType: run.error_type ?? null,
@@ -562,6 +576,11 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       lastReportedCloudScanFailureRef.current[monitorKey] = failureKey;
       reportScanFailure({
         accountId: account.id,
+        accountLabel: scanFailureAccountLabel({
+          label: account.label,
+          externalId: account.external_id,
+        }),
+        provider: account.provider,
         message: run.error,
         failedAt: run.failed_at ?? null,
         errorType: run.error_type ?? null,

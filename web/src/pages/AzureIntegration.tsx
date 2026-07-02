@@ -6,6 +6,7 @@ import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { IntegrationScanErrorStatus } from "../components/IntegrationScanErrorStatus";
 import { useIntegrationScanFailureNotifications } from "../hooks/useIntegrationScanFailureNotifications";
 import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
+import { scanFailureAccountLabel } from "../lib/scanFailureMessages";
 import "../styles/integration-setup.css";
 
 type AzureSubscription = {
@@ -38,7 +39,16 @@ export default function AzureIntegration() {
 
   const subs = data ?? [];
   const connected = subs.some((s) => s.status === "connected");
-  useIntegrationScanFailureNotifications(subs);
+  useIntegrationScanFailureNotifications(
+    subs.map((s) => ({
+      id: s.id,
+      last_error: s.last_error,
+      last_scan_at: s.last_scan_at,
+      label: s.label,
+      external_id: s.subscription_id,
+      provider: "azure",
+    })),
+  );
 
   const create = useMutation({
     mutationFn: () =>
@@ -65,6 +75,7 @@ export default function AzureIntegration() {
   });
 
   async function verifySub(id: string) {
+    const sub = subs.find((s) => s.id === id);
     setActionState(id);
     try {
       await api(`/v1/integrations/azure/subscriptions/${id}/verify`, { method: "POST", body: "{}" });
@@ -72,13 +83,22 @@ export default function AzureIntegration() {
     } catch (e) {
       const message = formatApiError(e);
       setSaveError(message);
-      reportScanFailure({ accountId: id, message });
+      reportScanFailure({
+        accountId: id,
+        accountLabel: scanFailureAccountLabel({
+          label: sub?.label,
+          externalId: sub?.subscription_id,
+        }),
+        provider: "azure",
+        message,
+      });
     } finally {
       setActionState(null);
     }
   }
 
   async function scanSub(id: string) {
+    const sub = subs.find((s) => s.id === id);
     setActionState(`scan-${id}`);
     try {
       await api(`/v1/integrations/azure/subscriptions/${id}/scan`, { method: "POST", body: "{}" });
@@ -86,7 +106,15 @@ export default function AzureIntegration() {
     } catch (e) {
       const message = formatApiError(e);
       setSaveError(message);
-      reportScanFailure({ accountId: id, message });
+      reportScanFailure({
+        accountId: id,
+        accountLabel: scanFailureAccountLabel({
+          label: sub?.label,
+          externalId: sub?.subscription_id,
+        }),
+        provider: "azure",
+        message,
+      });
     } finally {
       setActionState(null);
     }

@@ -6,6 +6,7 @@ import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { IntegrationScanErrorStatus } from "../components/IntegrationScanErrorStatus";
 import { useIntegrationScanFailureNotifications } from "../hooks/useIntegrationScanFailureNotifications";
 import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
+import { scanFailureAccountLabel } from "../lib/scanFailureMessages";
 import "../styles/integration-setup.css";
 
 type GcpAuthMethod = "service_account_impersonation" | "workload_identity";
@@ -322,7 +323,16 @@ export default function GcpIntegration() {
 
   const projects = data ?? [];
   const connected = projects.some((p) => p.status === "connected");
-  useIntegrationScanFailureNotifications(projects);
+  useIntegrationScanFailureNotifications(
+    projects.map((p) => ({
+      id: p.id,
+      last_error: p.last_error,
+      last_scan_at: p.last_scan_at,
+      label: p.label,
+      external_id: p.project_id,
+      provider: "gcp",
+    })),
+  );
   const isWif = authMethod === "workload_identity";
   const steps = isWif ? WIF_STEPS : SA_STEPS;
 
@@ -447,6 +457,7 @@ export default function GcpIntegration() {
   }
 
   async function verifyProject(id: string) {
+    const project = projects.find((p) => p.id === id);
     setActionState(id);
     try {
       const result = await api<{
@@ -468,13 +479,22 @@ export default function GcpIntegration() {
     } catch (e) {
       const message = formatApiError(e);
       setSaveError(message);
-      reportScanFailure({ accountId: id, message });
+      reportScanFailure({
+        accountId: id,
+        accountLabel: scanFailureAccountLabel({
+          label: project?.label,
+          externalId: project?.project_id,
+        }),
+        provider: "gcp",
+        message,
+      });
     } finally {
       setActionState(null);
     }
   }
 
   async function scanProject(id: string) {
+    const project = projects.find((p) => p.id === id);
     setActionState(`scan-${id}`);
     setListActionMessage(null);
     try {
@@ -490,7 +510,15 @@ export default function GcpIntegration() {
       const message = formatApiError(e);
       setSaveError(message);
       setListActionMessage({ tone: "error", text: "Scan failed — see notifications" });
-      reportScanFailure({ accountId: id, message });
+      reportScanFailure({
+        accountId: id,
+        accountLabel: scanFailureAccountLabel({
+          label: project?.label,
+          externalId: project?.project_id,
+        }),
+        provider: "gcp",
+        message,
+      });
     } finally {
       setActionState(null);
     }

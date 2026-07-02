@@ -2,6 +2,42 @@
  * End-user copy for failed account scans. Raw API/worker errors stay in logs only.
  */
 
+export function scanFailureAccountLabel(opts: {
+  label?: string | null;
+  externalId?: string | null;
+}): string | undefined {
+  if (opts.label?.trim()) return opts.label.trim();
+  const id = opts.externalId?.trim();
+  if (!id) return undefined;
+  return /^\d{12}$/.test(id) ? id.replace(/(\d{4})(?=\d)/g, "$1 ") : id;
+}
+
+export function providerShortLabel(provider?: string | null): string | undefined {
+  if (!provider) return undefined;
+  switch (provider.toLowerCase()) {
+    case "gcp":
+      return "GCP";
+    case "azure":
+      return "Azure";
+    case "aws":
+      return "AWS";
+    default:
+      return provider.toUpperCase();
+  }
+}
+
+/** Notification bell title — includes account name and provider when known. */
+export function scanFailureNotificationTitle(
+  accountLabel?: string | null,
+  provider?: string | null,
+): string {
+  const name = accountLabel?.trim();
+  if (!name) return "Scan could not complete";
+  const tag = providerShortLabel(provider);
+  const providerSuffix = tag && tag !== "AWS" ? ` (${tag})` : "";
+  return `Scan could not complete — ${name}${providerSuffix}`;
+}
+
 function isTechnicalScanError(raw: string): boolean {
   const lower = raw.toLowerCase();
   return (

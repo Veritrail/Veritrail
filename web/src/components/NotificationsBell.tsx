@@ -7,7 +7,7 @@ import {
   type NotificationItem,
 } from "../context/RecheckNotificationsContext";
 import { friendlyPolicyGenerationError } from "../lib/policyGenerationErrors";
-import { friendlyScanFailureMessage, SCAN_FAILURE_USER_ACTION } from "../lib/scanFailureMessages";
+import { friendlyScanFailureMessage, SCAN_FAILURE_USER_ACTION, scanFailureNotificationTitle } from "../lib/scanFailureMessages";
 import { checkLabels } from "../data/checkLabels";
 
 function formatWhen(ts: number): string {
@@ -44,7 +44,9 @@ function itemStyles(item: NotificationItem): string {
 }
 
 function itemTitle(item: NotificationItem): string {
-  if (item.kind === "scan_failure") return "Scan could not complete";
+  if (item.kind === "scan_failure") {
+    return scanFailureNotificationTitle(item.accountLabel, item.provider);
+  }
   if (item.kind === "cloudtrail") return cloudTrailTitle(item);
   return item.status === "verified" ? "Verified" : "Still open";
 }
