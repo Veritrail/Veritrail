@@ -92,10 +92,16 @@
 /* Portaled popover — fixed to viewport so ancestor overflow cannot clip it. */
 .drawer-date-field__popover--portal {
   position: fixed;
-  top: auto;
-  bottom: auto;
   /* Above drawer overlays (z-index 60) and finding drawer (z-index 110). */
   z-index: 120;
+}
+
+/* Portal coords come from inline top/left; never use absolute-placement rules. */
+.drawer-date-field__popover.drawer-date-field__popover--portal.is-below,
+.drawer-date-field__popover.drawer-date-field__popover--portal.is-above {
+  top: unset;
+  bottom: unset;
+  left: unset;
 }
 
 .drawer-date-field__popover--match-trigger {

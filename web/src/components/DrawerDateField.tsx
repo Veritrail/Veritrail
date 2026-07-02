@@ -39,6 +39,19 @@ function buildMonthGrid(year: number, month: number, minIso: string, maxIso: str
   return grid;
 }
 
+function getScrollableAncestors(el: HTMLElement): HTMLElement[] {
+  const ancestors: HTMLElement[] = [];
+  let node = el.parentElement;
+  while (node && node !== document.body) {
+    const { overflowY, overflowX } = window.getComputedStyle(node);
+    if (/(auto|scroll|overlay)/.test(overflowY) || /(auto|scroll|overlay)/.test(overflowX)) {
+      ancestors.push(node);
+    }
+    node = node.parentElement;
+  }
+  return ancestors;
+}
+
 function computePopoverCoords(
   trigger: HTMLElement,
   preferred: "above" | "below",
@@ -46,7 +59,8 @@ function computePopoverCoords(
   popoverWidth: number,
 ): PopoverCoords {
   const rect = trigger.getBoundingClientRect();
-  const spaceBelow = window.innerHeight - rect.bottom;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  const spaceBelow = viewportHeight - rect.bottom;
   const spaceAbove = rect.top;
 
   let placement = preferred;
@@ -118,6 +132,7 @@ export function DrawerDateField({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<number | null>(null);
+  const remeasurePopoverRef = useRef(false);
 
   const updatePosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -127,6 +142,14 @@ export function DrawerDateField({
     const popoverWidth = matchTriggerWidth ? triggerWidth : POPOVER_WIDTH;
     setCoords(computePopoverCoords(trigger, popoverPlacement, measured, popoverWidth));
   }, [matchTriggerWidth, popoverPlacement]);
+
+  const prepareAndMeasure = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    trigger.scrollIntoView({ block: "nearest", inline: "nearest" });
+    updatePosition();
+    remeasurePopoverRef.current = true;
+  }, [updatePosition]);
 
   function closePopover() {
     if (!open || closing) return;
@@ -168,22 +191,45 @@ export function DrawerDateField({
 
   useLayoutEffect(() => {
     if (!open || closing) {
+      remeasurePopoverRef.current = false;
       setCoords(null);
       return;
     }
+    prepareAndMeasure();
+  }, [open, closing, prepareAndMeasure]);
+
+  useLayoutEffect(() => {
+    if (!open || closing || !remeasurePopoverRef.current || !popoverRef.current) return;
+    remeasurePopoverRef.current = false;
     updatePosition();
-  }, [open, closing, updatePosition]);
+  });
 
   useEffect(() => {
     if (!open || closing) return;
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
     function onScrollOrResize() {
       updatePosition();
     }
+
+    const scrollParents = getScrollableAncestors(trigger);
     window.addEventListener("resize", onScrollOrResize);
     window.addEventListener("scroll", onScrollOrResize, true);
+    window.visualViewport?.addEventListener("resize", onScrollOrResize);
+    window.visualViewport?.addEventListener("scroll", onScrollOrResize);
+    for (const parent of scrollParents) {
+      parent.addEventListener("scroll", onScrollOrResize, { passive: true });
+    }
+
     return () => {
       window.removeEventListener("resize", onScrollOrResize);
       window.removeEventListener("scroll", onScrollOrResize, true);
+      window.visualViewport?.removeEventListener("resize", onScrollOrResize);
+      window.visualViewport?.removeEventListener("scroll", onScrollOrResize);
+      for (const parent of scrollParents) {
+        parent.removeEventListener("scroll", onScrollOrResize);
+      }
     };
   }, [open, closing, updatePosition]);
 
@@ -269,6 +315,7 @@ export function DrawerDateField({
         aria-label="Choose date"
         className={popoverClass}
         style={{
+          position: "fixed",
           top: coords.top,
           left: coords.left,
           ...(matchTriggerWidth ? { width: coords.width } : null),
