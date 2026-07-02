@@ -11,6 +11,20 @@
   background: var(--vt-surface-raised);
 }
 
+/* Filter cluster + status pills hug content; Findings uses flex-grow for scroll. */
+.compliance-page .findings-v2-filter-cluster {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.compliance-page .findings-v2-filter-cluster .findings-v2-filter-chip-bar {
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
 /* The control cluster holds a single button here — don't inherit Findings'
    34rem flex-basis, which forced it onto its own mostly-empty second row. */
 .compliance-page .findings-v2-control-cluster {
