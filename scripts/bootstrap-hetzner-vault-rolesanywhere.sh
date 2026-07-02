@@ -29,7 +29,7 @@ VAULT_PKI_ROLE="${VAULT_PKI_ROLE:-veritrail-control-plane}"
 CA_CN="${CA_CN:-Veritrail Control Plane Roles Anywhere Root CA}"
 CERT_CN="${CERT_CN:-veritrail-control-plane}"
 CERT_DOMAIN="${CERT_DOMAIN:-veritrail.internal}"
-CERT_TTL="${CERT_TTL:-720h}"
+CERT_TTL="${CERT_TTL:-2160h}"
 
 RA_TRUST_ANCHOR_NAME="${RA_TRUST_ANCHOR_NAME:-veritrail-control-plane-ca}"
 RA_PROFILE_NAME="${RA_PROFILE_NAME:-veritrail-control-plane-profile}"
@@ -68,7 +68,7 @@ Important env vars:
   AWS_PROFILE_NAME           Default: veritrail-ra
   RA_ROLE_NAME               Default: VeritrailControlPlaneRole
   ASSUMABLE_ROLE_RESOURCE    Default: *  Tighten in production.
-  CERT_TTL                   Default: 720h
+  CERT_TTL                   Default: 2160h
 
 The AWS step requires temporary bootstrap AWS credentials that can create IAM
 roles/policies and IAM Roles Anywhere trust-anchor/profile resources.
