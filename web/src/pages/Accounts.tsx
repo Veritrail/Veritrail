@@ -5341,8 +5341,8 @@ function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) 
       role="img"
       aria-label={
         hasRealTrend
-          ? "Compliance posture trend over time."
-          : "Compliance posture trend placeholder."
+          ? "SOC 2 readiness trend over time."
+          : "SOC 2 readiness trend placeholder."
       }
     >
       <svg viewBox={`0 0 ${SPARK_VB_W} ${SPARK_VB_H}`} preserveAspectRatio="xMidYMid meet">
@@ -6219,17 +6219,17 @@ function AccountSplitDetailPane({
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">Compliance posture</p>
+                  <p className="accounts-detail-metric-card__label">SOC 2 readiness</p>
                 </div>
                 <div className="accounts-detail-metric-card__value-row">
                   <p className="accounts-detail-metric-card__value">
-                    {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
+                    {compliancePct != null ? `${compliancePct}% ready` : hasScanned ? "—" : "—"}
                   </p>
                   {hasScanned && compliancePct != null ? (
                     <MetricCardDelta delta={complianceDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                <p className="accounts-detail-metric-card__sub">Last 7 days · SOC 2</p>
+                <p className="accounts-detail-metric-card__sub">Last 7 days</p>
                 <CompliancePostureSparkline points={complianceTrendPoints} />
               </div>
               <div className="accounts-detail-metric-card">

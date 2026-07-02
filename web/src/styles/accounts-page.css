@@ -4434,18 +4434,6 @@ button.accounts-flow-step:hover {
     box-shadow: none;
   }
 
-  /* Absolute bar scrolls with the row — inset box-shadow clipped oddly during horizontal scroll. */
-  .accounts-split .accounts-list-item.is-selected .accounts-list-item__main::before {
-    content: "";
-    position: absolute;
-    z-index: 1;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 3px;
-    background: #2563eb;
-    pointer-events: none;
-  }
 }
 
 @media (hover: hover) and (min-width: 1440px) {
@@ -4541,7 +4529,7 @@ button.accounts-flow-step:hover {
   align-items: center;
   justify-content: space-between;
   gap: 1rem 1.35rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f4f4f5;
   padding: 1.25rem 1.6rem 1.2rem;
   min-height: 4.5rem;
 }
@@ -4585,7 +4573,7 @@ button.accounts-flow-step:hover {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f4f4f5;
   padding: 0.2rem 1.6rem 0;
 }
 
@@ -4606,23 +4594,23 @@ button.accounts-flow-step:hover {
 
 @media (hover: hover) {
   .accounts-detail-pane__tab:hover {
-    color: #2563eb;
+    color: #3f3f46;
   }
 }
 
 .accounts-detail-pane__tab.is-active {
-  color: #2563eb;
+  color: #18181b;
 }
 
 .accounts-detail-pane__tab.is-active::after {
   content: "";
   position: absolute;
-  right: 0.5rem;
+  right: 0.65rem;
   bottom: -1px;
-  left: 0.5rem;
+  left: 0.65rem;
   height: 2px;
   border-radius: 999px;
-  background: #2563eb;
+  background: #60a5fa;
 }
 
 .accounts-detail-pane__body {
@@ -4929,9 +4917,9 @@ button.accounts-flow-step:hover {
   flex-direction: column;
   box-sizing: border-box;
   min-height: 0;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f1f5f9;
   border-radius: 0.75rem;
-  padding: 1rem 1.05rem;
+  padding: 1.05rem 1.1rem;
 }
 
 .accounts-detail-capabilities__title {
@@ -4947,7 +4935,7 @@ button.accounts-flow-step:hover {
   justify-content: flex-start;
   gap: 0.75rem;
   padding: 0.65rem 0;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid #f8fafc;
 }
 
 .accounts-detail-capability-row:first-of-type {
@@ -5116,7 +5104,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-recent-scans {
   margin-top: 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f1f5f9;
   border-radius: 0.75rem;
   overflow: hidden;
 }
@@ -5126,9 +5114,8 @@ button.accounts-flow-step:hover {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid #f4f4f5;
   padding: 0.95rem 1rem;
-  background: #fbfdff;
 }
 
 .accounts-detail-recent-scans__title {
@@ -5144,7 +5131,7 @@ button.accounts-flow-step:hover {
   align-items: center;
   gap: 0.85rem;
   padding: 0.85rem 1rem;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid #f4f4f5;
   font-size: 0.8125rem;
 }
 
@@ -5361,7 +5348,7 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-findings {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #f1f5f9;
   border-radius: 0.75rem;
   overflow: hidden;
   background: #fff;
@@ -5387,8 +5374,8 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-findings__head {
-  border-bottom: 1px solid #eef2f7;
-  background: #f8fafc;
+  border-bottom: 1px solid #f4f4f5;
+  background: #fff;
 }
 
 .accounts-detail-findings__col-head {
@@ -5437,7 +5424,7 @@ button.accounts-flow-step:hover {
   gap: 0.65rem 0.75rem;
   width: 100%;
   border: 0;
-  border-top: 1px solid #eef2f7;
+  border-top: 1px solid #f4f4f5;
   background: #fff;
   padding: 0.75rem 1rem 0.75rem 0.85rem;
   text-align: left;
