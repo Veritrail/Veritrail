@@ -364,7 +364,9 @@ def reap_stuck_scan_runs(max_age_minutes: int = 30) -> dict:
     Called on worker startup with max_age_minutes=0 (any in-flight scan from a
     prior process is dead) and periodically with the default to catch scans
     that hang silently (network stall, OOM, etc.)."""
+    from app.models.azure_subscription import AzureSubscription
     from app.models.cloud_scan_run import CloudScanRun
+    from app.models.gcp_project import GcpProject
 
     db = SessionLocal()
     try:
@@ -388,6 +390,16 @@ def reap_stuck_scan_runs(max_age_minutes: int = 30) -> dict:
             run.status = "error"
             run.finished_at = now
             run.error = "scan interrupted (worker restart or timeout)"
+            if run.provider == "gcp":
+                proj = db.get(GcpProject, run.resource_id)
+                if proj and proj.status == "connected":
+                    proj.status = "error"
+                    proj.last_error = run.error[:1000]
+            elif run.provider == "azure":
+                sub = db.get(AzureSubscription, run.resource_id)
+                if sub and sub.status == "connected":
+                    sub.status = "error"
+                    sub.last_error = run.error[:1000]
         if stale or cloud_stale:
             db.commit()
             log.info(
@@ -955,6 +967,7 @@ def run_gcp_scan(project_id: str) -> dict:
 
     db = SessionLocal()
     run: CloudScanRun | None = None
+    row: GcpProject | None = None
     try:
         row = db.get(GcpProject, uuid.UUID(project_id))
         if not row:
@@ -1014,6 +1027,9 @@ def run_gcp_scan(project_id: str) -> dict:
         else:
             run.status = "error"
             run.error = (result.error or "scan failed")[:2000]
+            if row is not None:
+                row.status = "error"
+                row.last_error = (result.error or "scan failed")[:1000]
         db.commit()
         return {
             "ok": result.ok,
@@ -1027,6 +1043,10 @@ def run_gcp_scan(project_id: str) -> dict:
             run.status = "error"
             run.finished_at = datetime.now(timezone.utc)
             run.error = "scan interrupted"
+        if row is not None:
+            row.status = "error"
+            row.last_error = "scan interrupted"
+        if run is not None or row is not None:
             db.commit()
         raise
     finally:
@@ -1062,6 +1082,7 @@ def run_azure_scan(subscription_id: str) -> dict:
 
     db = SessionLocal()
     run: CloudScanRun | None = None
+    row: AzureSubscription | None = None
     try:
         row = db.get(AzureSubscription, uuid.UUID(subscription_id))
         if not row:
@@ -1122,6 +1143,9 @@ def run_azure_scan(subscription_id: str) -> dict:
         else:
             run.status = "error"
             run.error = (result.error or "scan failed")[:2000]
+            if row is not None:
+                row.status = "error"
+                row.last_error = (result.error or "scan failed")[:1000]
         db.commit()
         return {
             "ok": result.ok,
@@ -1135,6 +1159,10 @@ def run_azure_scan(subscription_id: str) -> dict:
             run.status = "error"
             run.finished_at = datetime.now(timezone.utc)
             run.error = "scan interrupted"
+        if row is not None:
+            row.status = "error"
+            row.last_error = "scan interrupted"
+        if run is not None or row is not None:
             db.commit()
         raise
     finally:

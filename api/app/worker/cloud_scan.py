@@ -14,6 +14,29 @@ from app.models.cloud_scan_run import CloudScanRun
 
 log = structlog.get_logger()
 
+_CONNECTION_FAILURE_MARKERS = (
+    "credentials unauthorized",
+    "credentials lack required",
+    "credentials are not configured",
+    "credentials expired",
+    "permission denied",
+    "access denied",
+    "unauthorized",
+    "authentication failed",
+    "invalid_client",
+    "invalid_grant",
+    "failed to obtain gcp access token",
+    "unable to locate credentials",
+    "no credentials",
+    "impersonat",
+    "aadsts",
+)
+
+
+def is_connection_failure_message(message: str) -> bool:
+    lower = message.lower()
+    return any(marker in lower for marker in _CONNECTION_FAILURE_MARKERS)
+
 
 @dataclass
 class CloudScanResult:
@@ -132,18 +155,43 @@ def execute_cloud_scan(
             tracker.start()
 
         collector_total = len(collectors)
+        collector_errors: list[dict[str, str]] = []
         for index, (name, fn) in enumerate(collectors, start=1):
             if tracker:
                 tracker.publish_collector_start(index, collector_total, name)
             try:
                 fn(db, target)
                 db.commit()
-            except Exception:
+            except Exception as e:
                 db.rollback()
+                err_msg = f"{type(e).__name__}: {e}"
+                collector_errors.append({"collector": name, "error": err_msg})
                 log.exception("cloud_scan.collector_failed", collector=name)
             finally:
                 if tracker:
                     tracker.collector_done()
+
+        if scan_run and collector_errors:
+            stats = dict(scan_run.stats or {})
+            stats["collector_errors"] = collector_errors
+            scan_run.stats = stats
+
+        connection_err = next(
+            (entry["error"] for entry in collector_errors if is_connection_failure_message(entry["error"])),
+            None,
+        )
+        if connection_err:
+            if tracker:
+                tracker.finalize()
+            if scan_run:
+                stats = dict(scan_run.stats or {})
+                stats["error_type"] = "ConnectionError"
+                stats["failed_at"] = tracker._current_step_name if tracker else "collectors"
+                scan_run.stats = stats
+            if on_error:
+                on_error(connection_err[:1000])
+            db.commit()
+            return CloudScanResult(ok=False, error=connection_err)
 
         if scan_run and scope_column in {"gcp_project_id", "azure_subscription_id"}:
             from app.services.cloud_account_overview import count_cloud_resources

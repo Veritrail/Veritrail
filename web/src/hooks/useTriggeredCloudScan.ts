@@ -156,13 +156,22 @@ export function useTriggeredCloudScan(
     const pending = pendingAt;
 
     const completedViaTransition = prevScanStatus.current === "running" && scanStatus === "ok";
+    const completedViaError = prevScanStatus.current === "running" && scanStatus === "error";
     const completedViaPending =
       !!run &&
       !!pending &&
       run.status === "ok" &&
       pendingMatchesRun(pending, run);
+    const completedViaPendingError =
+      !!run &&
+      !!pending &&
+      run.status === "error" &&
+      pendingMatchesRun(pending, run);
     if (
-      (completedViaTransition || completedViaPending) &&
+      (completedViaTransition ||
+        completedViaError ||
+        completedViaPending ||
+        completedViaPendingError) &&
       run?.id &&
       completedRunIdRef.current !== run.id
     ) {

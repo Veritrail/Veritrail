@@ -7,7 +7,11 @@ import {
   type NotificationItem,
 } from "../context/RecheckNotificationsContext";
 import { friendlyPolicyGenerationError } from "../lib/policyGenerationErrors";
-import { friendlyScanFailureMessage, SCAN_FAILURE_USER_ACTION, scanFailureNotificationTitle } from "../lib/scanFailureMessages";
+import {
+  friendlyScanFailureMessage,
+  scanFailureNotificationTitle,
+  scanFailureUserAction,
+} from "../lib/scanFailureMessages";
 import { checkLabels } from "../data/checkLabels";
 
 function formatWhen(ts: number): string {
@@ -52,7 +56,12 @@ function itemTitle(item: NotificationItem): string {
 }
 
 function itemBody(item: NotificationItem): string {
-  if (item.kind === "scan_failure") return friendlyScanFailureMessage(item.message);
+  if (item.kind === "scan_failure") {
+    return friendlyScanFailureMessage(item.message, {
+      provider: item.provider,
+      accountLabel: item.accountLabel,
+    });
+  }
   if (item.kind === "cloudtrail") return cloudTrailBody(item);
   return item.status === "verified"
     ? "Re-check passed — finding resolved."
@@ -60,7 +69,7 @@ function itemBody(item: NotificationItem): string {
 }
 
 function itemSubtitle(item: NotificationItem): string {
-  if (item.kind === "scan_failure") return SCAN_FAILURE_USER_ACTION;
+  if (item.kind === "scan_failure") return scanFailureUserAction(item.provider);
   if (item.kind === "cloudtrail") return item.roleLabel;
   return checkLabels[item.checkId] ?? item.checkId;
 }

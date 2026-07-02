@@ -5300,7 +5300,9 @@ function resolveAccountRowStatus(
   if (!connected) return { label: "Setup required", tone: "rose" };
   if (isScanActive) return { label: "Scanning", tone: "blue" };
   if (accountStatus === "error") return { label: "Connection error", tone: "rose" };
-  if (scanStatus === "error" && lastError) return { label: "Action required", tone: "rose" };
+  if (scanStatus === "error") {
+    return { label: lastError ? "Action required" : "Scan failed", tone: "rose" };
+  }
   return { label: "Connected", tone: "emerald" };
 }
 
@@ -6919,6 +6921,7 @@ function IntegrationCloudAccountCard({
   const scanAgo = hasScanned ? formatRelativeScanAgo(cloud.last_scan_at) : "Never";
 
   const {
+    scanRun,
     scanStatus,
     isScanActive,
     scanProgress,
@@ -6926,7 +6929,7 @@ function IntegrationCloudAccountCard({
     scan,
   } = useTriggeredCloudScan(connected ? cloud.provider : undefined, connected ? cloud.id : undefined, {
     backgroundPollMs: 5000,
-    onScanComplete: () => {
+      onScanComplete: () => {
       qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
       qc.invalidateQueries({ queryKey: ["gcp-projects"] });
       qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
@@ -6934,14 +6937,15 @@ function IntegrationCloudAccountCard({
     },
   });
 
+  const scanRunError = scanStatus === "error" ? scanRun.data?.error ?? null : null;
   const rowStatus = resolveAccountRowStatus(
     connected,
     isScanActive,
     scanStatus,
-    null,
+    scanRunError,
     cloud.status,
   );
-  const scanError = scan.isError ? formatApiError(scan.error) : null;
+  const scanError = scan.isError ? formatApiError(scan.error) : scanRunError;
 
   const handleRowClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
