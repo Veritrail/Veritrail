@@ -94,18 +94,18 @@ export function DrawerDateField({
   /** Extra classes on the trigger (e.g. panel input styles). */
   triggerClassName?: string;
   popoverPlacement?: "above" | "below";
-  /** `audit` matches Generate Audit Package date picker (blue accents, single Use today). */
+  /** `audit` matches Generate Audit Package date picker (blue accents, single Today footer). */
   variant?: "default" | "audit";
   /** When true, popover width matches the trigger; defaults to true for audit variant. */
   popoverMatchTriggerWidth?: boolean;
-  /** Footer today action label; defaults to "Today" or "Use today" for audit variant. */
+  /** Footer today action label; defaults to "Today". */
   todayLabel?: string;
 }) {
   const max = maxIso ?? toIsoDate(new Date(new Date().getFullYear() + 10, 11, 31));
   const isAudit = variant === "audit";
   const matchTriggerWidth = popoverMatchTriggerWidth ?? isAudit;
   const resolvedAllowClear = isAudit ? false : allowClear;
-  const resolvedTodayLabel = todayLabel ?? (isAudit ? "Use today" : "Today");
+  const resolvedTodayLabel = todayLabel ?? "Today";
   const selectedIso = value.trim();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);

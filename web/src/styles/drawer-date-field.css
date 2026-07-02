@@ -246,7 +246,7 @@
   opacity: 0.45;
 }
 
-/* Audit package variant — blue accents, single full-width "Use today" footer.
+/* Audit package variant — blue accents, single full-width "Today" footer.
    Popover is portaled to document.body, so day styles target __popover--audit. */
 .drawer-date-field--audit .drawer-date-field__trigger:focus-visible {
   border-color: #93c5fd;
@@ -284,8 +284,8 @@
   border-radius: 0.75rem;
   background: rgb(239 246 255 / 0.8);
   padding: 0.5rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #1d4ed8;
 }
 

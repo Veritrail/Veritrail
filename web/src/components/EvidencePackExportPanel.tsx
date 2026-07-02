@@ -550,13 +550,13 @@ function AuditAsOfPicker({
           )}
           <button
             type="button"
-            className="mt-3 w-full rounded-xl border border-blue-100 bg-blue-50/80 py-2 text-[11px] font-bold text-blue-700 transition hover:bg-blue-100"
+            className="mt-3 w-full rounded-xl border border-blue-100 bg-blue-50/80 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
             onClick={() => {
               onChange("");
               setOpen(false);
             }}
           >
-            Use today
+            Today
           </button>
         </div>
       )}
