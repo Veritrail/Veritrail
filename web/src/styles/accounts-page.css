@@ -4324,15 +4324,18 @@ button.accounts-flow-step:hover {
 }
 
 @media (min-width: 1440px) {
+  .accounts-page {
+    min-height: 0;
+  }
+
   .accounts-split {
     grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
+    flex: 1 1 auto;
     min-width: 0;
+    /* Floor keeps tab switches from collapsing the detail pane (see 125b2ac1). */
+    min-height: 50rem;
     overflow: hidden;
     align-items: stretch;
-    /* Viewport-anchored height keeps the detail pane stable when switching tabs. */
-    height: clamp(50rem, calc(100dvh - 14rem), 56rem);
-    min-height: clamp(50rem, calc(100dvh - 14rem), 56rem);
-    max-height: clamp(50rem, calc(100dvh - 14rem), 56rem);
     border: 1px solid var(--accounts-border);
     border-radius: 1rem;
     background: #fff;
