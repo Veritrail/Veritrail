@@ -7,6 +7,7 @@ Veritrail's GCP and Azure integrations collect baseline posture evidence via RES
 ### Service account access (recommended)
 
 - **Connect:** Integrations → Google Cloud → **Service account access**: project ID → copy-paste **gcloud commands** from the wizard → paste scanner SA email → verify. Optional automation: `infra/gcp/sa-setup` (`setup.sh` or Terraform).
+- **Scanner roles (project-level):** `roles/viewer`, `roles/logging.viewer`, `roles/osconfig.viewer`, `roles/securitycenter.findingsViewer`, `roles/cloudasset.viewer`, plus `roles/iam.serviceAccountTokenCreator` for Veritrail's platform SA on the scanner SA.
 - **Auth:** `service_account_impersonation`. Veritrail's platform SA impersonates the customer scanner SA via `roles/iam.serviceAccountTokenCreator`. No WIF pool, no JSON keys.
 - **Operator:** `VERITRAIL_GCP_PLATFORM_SA_JSON` (or `VERITRAIL_GCP_PLATFORM_SA_JSON_PATH`), optional `VERITRAIL_GCP_PLATFORM_SA_EMAIL`.
 - **Verify:** `POST /v1/integrations/gcp/projects/{id}/verify` — impersonation token + Cloud Resource Manager + Logging API smoke test.

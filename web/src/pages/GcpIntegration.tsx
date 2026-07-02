@@ -113,6 +113,9 @@ const GCP_REQUIRED_APIS = [
   "cloudresourcemanager.googleapis.com",
   "logging.googleapis.com",
   "compute.googleapis.com",
+  "osconfig.googleapis.com",
+  "securitycenter.googleapis.com",
+  "cloudasset.googleapis.com",
 ] as const;
 
 const GCP_WIF_APIS = [...GCP_REQUIRED_APIS, "sts.googleapis.com"] as const;
@@ -191,6 +194,21 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
   --role="roles/logging.viewer" \\
   --condition=None
 
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/osconfig.viewer" \\
+  --condition=None
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/securitycenter.findingsViewer" \\
+  --condition=None
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/cloudasset.viewer" \\
+  --condition=None
+
 PRINCIPAL="principal://iam.googleapis.com/projects/\${PROJECT_NUMBER}/locations/global/workloadIdentityPools/\${POOL_ID}/subject/\${WIF_SUBJECT}"
 
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \\
@@ -248,6 +266,21 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
   --member="serviceAccount:\${SA_EMAIL}" \\
   --role="roles/logging.viewer" \\
+  --condition=None
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/osconfig.viewer" \\
+  --condition=None
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/securitycenter.findingsViewer" \\
+  --condition=None
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \\
+  --member="serviceAccount:\${SA_EMAIL}" \\
+  --role="roles/cloudasset.viewer" \\
   --condition=None
 
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \\

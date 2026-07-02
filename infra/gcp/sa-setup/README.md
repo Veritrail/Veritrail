@@ -25,6 +25,18 @@ Copy output `service_account_email` into Veritrail, then **Verify**.
 
 ## Option B — gcloud
 
+`setup.sh` grants the scanner SA these project roles:
+
+| Role | Purpose |
+|---|---|
+| `roles/viewer` | Resource inventory baseline |
+| `roles/logging.viewer` | Audit log export checks |
+| `roles/osconfig.viewer` | OS Config vulnerability reports |
+| `roles/securitycenter.findingsViewer` | Security Command Center findings |
+| `roles/cloudasset.viewer` | Cloud Asset Inventory IAM policies |
+
+It also grants Veritrail's platform SA `roles/iam.serviceAccountTokenCreator` on the scanner SA.
+
 ```bash
 export PROJECT_ID=YOUR_PROJECT
 export VERITRAIL_PLATFORM_SA_EMAIL=PLATFORM_SA_FROM_VERITRAIL_UI

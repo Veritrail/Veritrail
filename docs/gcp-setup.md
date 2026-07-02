@@ -13,7 +13,14 @@ Veritrail scans GCP projects via a read-only **scanner service account** (impers
 
 1. Integrations → **Google Cloud** → choose **Service account access** or **Workload Identity Federation**.
 2. Run the wizard **gcloud** commands (or `infra/gcp/sa-setup`).
-3. Paste the scanner SA email → **Verify** → **Scan**.
+3. Grant the scanner SA these **project-level** roles:
+   - `roles/viewer` (resource inventory baseline)
+   - `roles/logging.viewer`
+   - `roles/osconfig.viewer`
+   - `roles/securitycenter.findingsViewer`
+   - `roles/cloudasset.viewer`
+4. Grant Veritrail's platform SA `roles/iam.serviceAccountTokenCreator` on the scanner SA (service account access path only).
+5. Paste the scanner SA email → **Verify** → **Scan**.
 
 ### Organization-level
 
