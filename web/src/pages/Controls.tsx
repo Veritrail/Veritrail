@@ -18,7 +18,7 @@ import {
   useConnectedAccountOptions,
 } from "../hooks/useConnectedAccountOptions";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
-import { openFindingFailsControl } from "../lib/evidenceClass";
+import { openFindingAffectsControlStatus } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { AppCommandBar } from "../components/AppCommandBar";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
@@ -2416,6 +2416,9 @@ function CompositeGapResolution({
         ? `${enableItems.length} services`
         : null;
 
+  const showRescanTag =
+    ctrl.status === "no_data" || (ctrl.scan_errors?.length ?? 0) > 0;
+
   return (
     <>
       <div className="control-resolve-path">
@@ -2457,16 +2460,24 @@ function CompositeGapResolution({
                 <span className="control-resolve-path__tag">
                   {regularFailing} failing check{regularFailing === 1 ? "" : "s"}
                 </span>
-              ) : !hasAbsenceGaps ? (
+              ) : showRescanTag ? (
                 <span className="control-resolve-path__tag">Re-scan needed</span>
               ) : null}
             </div>
             <button
               type="button"
               className="control-resolve-path__outline"
-              disabled={!findingsHref}
+              disabled={!findingsHref && ctrl.check_ids.length === 0}
               onClick={() => {
-                if (findingsHref) navigate(findingsHref);
+                if (findingsHref) {
+                  navigate(findingsHref);
+                  return;
+                }
+                if (ctrl.check_ids.length > 0) {
+                  navigate(
+                    `/findings?checks=${encodeURIComponent(ctrl.check_ids.join(","))}`,
+                  );
+                }
               }}
             >
               View
@@ -2762,7 +2773,7 @@ function buildCompositeTabs({
     ctrl.check_ids,
     findingCountByCheck,
     { excludeAbsenceGaps: true },
-  );
+  ) ?? findingsHrefForAbsenceGaps(ctrl.check_ids, findingCountByCheck);
   const overrideDetail = ctrl.coverage_override_detail ?? null;
   const crossAccountDetail = ctrl.cross_account_coverage_detail ?? null;
   const failingCheckCount = ctrl.check_ids.filter(
@@ -3593,6 +3604,7 @@ export default function Controls() {
   const isAwsAccount =
     !activeAccount?.provider || activeAccount.provider === "aws";
   const hasScanned = !!activeAccount?.last_scan_at;
+  const prevScanAtRef = useRef<string | null>(null);
 
   function handleAccountChange(id: string) {
     setSearchParams(
@@ -3629,6 +3641,16 @@ export default function Controls() {
   });
 
   const qc = useQueryClient();
+
+  useEffect(() => {
+    const scanAt = activeAccount?.last_scan_at ?? null;
+    if (prevScanAtRef.current && scanAt && scanAt !== prevScanAtRef.current) {
+      void qc.invalidateQueries({ queryKey: ["findings"] });
+      void qc.invalidateQueries({ queryKey: ["controls"] });
+    }
+    prevScanAtRef.current = scanAt;
+  }, [activeAccount?.last_scan_at, qc]);
+
   const meQ = useMe();
   const canAttest = roleAtLeast(meQ.data?.role, "admin");
   const canEditEvidence = roleAtLeast(meQ.data?.role, "editor");
@@ -3793,7 +3815,7 @@ export default function Controls() {
     const countByCheck = new Map<string, number>();
     const severityByCheck = new Map<string, string>();
     for (const f of openFindingsRaw.data?.items ?? []) {
-      if (!openFindingFailsControl(f.check_id, evidenceClasses)) continue;
+      if (!openFindingAffectsControlStatus(f.check_id, evidenceClasses)) continue;
       byId.set(f.id, f);
       countByCheck.set(f.check_id, (countByCheck.get(f.check_id) ?? 0) + 1);
       const prev = severityByCheck.get(f.check_id);

@@ -999,10 +999,15 @@
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.control-resolve-path__outline:hover {
+.control-resolve-path__outline:hover:not(:disabled) {
   border-color: var(--vt-teal-hover, #0f766e);
   background: #fafafa;
   color: var(--vt-teal-hover, #0f766e);
+}
+
+.control-resolve-path__outline:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .control-resolve-path__chevron {
