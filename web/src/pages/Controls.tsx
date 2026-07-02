@@ -24,7 +24,6 @@ import { AppCommandBar } from "../components/AppCommandBar";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import {
-  compositeRecommendedAction,
   isPermissionGapError,
   type ComplianceDisplayStatus,
   type RecommendedAction,
@@ -2739,7 +2738,6 @@ function buildCompositeTabs({
   acceptedCompositeIds,
   expiredCompositeIds,
   externalEvidence,
-  submittedCount,
   canEditEvidence,
   navigate,
 }: {
@@ -2751,7 +2749,6 @@ function buildCompositeTabs({
   acceptedCompositeIds: Set<string>;
   expiredCompositeIds?: Set<string>;
   externalEvidence: ExternalEvidenceArtifact[];
-  submittedCount: number;
   canEditEvidence: boolean;
   navigate: (href: string) => void;
 }): ControlDetailTab[] {
@@ -2792,7 +2789,6 @@ function buildCompositeTabs({
   const isVerified = displayStatus === "passing";
   const mappedControls = compositeMappedControls(ctrl, framework);
   const linkedEvidence = evidenceArtifactsForComposite(externalEvidence, ctrl.id);
-  const evidenceRecommended = compositeRecommendedAction(displayStatus, { submittedCount });
 
   return [
     {
@@ -2843,14 +2839,6 @@ function buildCompositeTabs({
           ) : null}
 
           <ControlDetailSection title="External evidence">
-            {evidenceRecommended ? (
-              <div
-                className={`control-evidence-drawer__action control-evidence-drawer__action--${evidenceRecommended.tone}`}
-              >
-                <p className="control-evidence-drawer__action-title">{evidenceRecommended.title}</p>
-                <p className="control-evidence-drawer__action-detail">{evidenceRecommended.detail}</p>
-              </div>
-            ) : null}
             <ExternalEvidenceArtifactList
               artifacts={linkedEvidence}
               emptyMessage="No external evidence uploaded for this control group yet."
@@ -4464,7 +4452,6 @@ export default function Controls() {
                 acceptedCompositeIds,
                 expiredCompositeIds,
                 externalEvidence: externalEvidence.data ?? [],
-                submittedCount: submittedCountByComposite.get(selectedCompositeRow.id) ?? 0,
                 canEditEvidence,
                 navigate,
               })}

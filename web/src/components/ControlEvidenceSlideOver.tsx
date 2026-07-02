@@ -1,15 +1,10 @@
 import { useState, useMemo } from "react";
-import { AbsenceGapCallout } from "./AbsenceGapCallout";
 import { EvidenceArtifactComments } from "./EvidenceArtifactComments";
 import { CriterionEvidenceUploadModal } from "./CriterionEvidenceUploadModal";
 import { labelForCheck } from "../data/checkLabels";
 import { downloadEvidenceArtifact } from "../lib/downloadEvidenceArtifact";
 import { evidenceIsStale, type ExternalEvidenceArtifact } from "../lib/externalEvidence";
-import { findingsHrefForAbsenceGaps, openAbsenceGapChecks } from "../lib/evidenceGap";
-import {
-  compositeRecommendedAction,
-  type ComplianceDisplayStatus,
-} from "../lib/compositeRecommendedAction";
+import type { ComplianceDisplayStatus } from "../lib/compositeRecommendedAction";
 import { evidenceArtifactsForControl } from "../lib/controlEvidence";
 
 type ControlSlice = {
@@ -168,28 +163,9 @@ export function ControlEvidenceTabContent({
     () => evidenceArtifactsForControl(artifacts, control),
     [artifacts, control],
   );
-  const openGaps = openAbsenceGapChecks(control.check_ids, findingCountByCheck);
-  const recommended = compositeRecommendedAction(displayStatus, { submittedCount });
-  const remediateHref = findingsHrefForAbsenceGaps(control.check_ids, findingCountByCheck);
 
   return (
     <div className="control-evidence-tab">
-      {recommended && (
-        <div className={`control-evidence-drawer__action control-evidence-drawer__action--${recommended.tone}`}>
-          <p className="control-evidence-drawer__action-title">{recommended.title}</p>
-          <p className="control-evidence-drawer__action-detail">{recommended.detail}</p>
-        </div>
-      )}
-
-      {openGaps.length > 0 && (
-        <AbsenceGapCallout
-          checkIds={control.check_ids}
-          findingCountByCheck={findingCountByCheck}
-          remediateHref={remediateHref}
-          compact
-        />
-      )}
-
       <section className="control-evidence-slideover__section">
         <div className="control-evidence-slideover__section-head">
           <h3 className="control-evidence-slideover__section-title">External evidence</h3>
