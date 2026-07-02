@@ -98,6 +98,11 @@
   z-index: 120;
 }
 
+.drawer-date-field__popover--match-trigger {
+  width: auto;
+  min-width: 0;
+}
+
 .drawer-date-field__nav {
   display: flex;
   align-items: center;

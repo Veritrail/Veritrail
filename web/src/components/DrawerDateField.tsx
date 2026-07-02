@@ -12,6 +12,7 @@ const POPOVER_EST_HEIGHT = 320;
 type PopoverCoords = {
   top: number;
   left: number;
+  width: number;
   placement: "above" | "below";
 };
 
@@ -42,6 +43,7 @@ function computePopoverCoords(
   trigger: HTMLElement,
   preferred: "above" | "below",
   popoverHeight: number,
+  popoverWidth: number,
 ): PopoverCoords {
   const rect = trigger.getBoundingClientRect();
   const spaceBelow = window.innerHeight - rect.bottom;
@@ -61,11 +63,11 @@ function computePopoverCoords(
       : Math.max(POPOVER_GAP, rect.top - POPOVER_GAP - height);
 
   let left = rect.left;
-  if (left + POPOVER_WIDTH > window.innerWidth - POPOVER_GAP) {
-    left = Math.max(POPOVER_GAP, window.innerWidth - POPOVER_WIDTH - POPOVER_GAP);
+  if (left + popoverWidth > window.innerWidth - POPOVER_GAP) {
+    left = Math.max(POPOVER_GAP, window.innerWidth - popoverWidth - POPOVER_GAP);
   }
 
-  return { top, left, placement };
+  return { top, left, width: popoverWidth, placement };
 }
 
 export function DrawerDateField({
@@ -79,6 +81,7 @@ export function DrawerDateField({
   triggerClassName,
   popoverPlacement = "above",
   variant = "default",
+  popoverMatchTriggerWidth,
   todayLabel,
 }: {
   id?: string;
@@ -93,11 +96,14 @@ export function DrawerDateField({
   popoverPlacement?: "above" | "below";
   /** `audit` matches Generate Audit Package date picker (blue accents, single Use today). */
   variant?: "default" | "audit";
+  /** When true, popover width matches the trigger; defaults to true for audit variant. */
+  popoverMatchTriggerWidth?: boolean;
   /** Footer today action label; defaults to "Today" or "Use today" for audit variant. */
   todayLabel?: string;
 }) {
   const max = maxIso ?? toIsoDate(new Date(new Date().getFullYear() + 10, 11, 31));
   const isAudit = variant === "audit";
+  const matchTriggerWidth = popoverMatchTriggerWidth ?? isAudit;
   const resolvedAllowClear = isAudit ? false : allowClear;
   const resolvedTodayLabel = todayLabel ?? (isAudit ? "Use today" : "Today");
   const selectedIso = value.trim();
@@ -117,8 +123,10 @@ export function DrawerDateField({
     const trigger = triggerRef.current;
     if (!trigger) return;
     const measured = popoverRef.current?.offsetHeight ?? POPOVER_EST_HEIGHT;
-    setCoords(computePopoverCoords(trigger, popoverPlacement, measured));
-  }, [popoverPlacement]);
+    const triggerWidth = trigger.getBoundingClientRect().width;
+    const popoverWidth = matchTriggerWidth ? triggerWidth : POPOVER_WIDTH;
+    setCoords(computePopoverCoords(trigger, popoverPlacement, measured, popoverWidth));
+  }, [matchTriggerWidth, popoverPlacement]);
 
   function closePopover() {
     if (!open || closing) return;
@@ -236,6 +244,7 @@ export function DrawerDateField({
   const popoverClass = [
     "drawer-date-field__popover",
     "drawer-date-field__popover--portal",
+    matchTriggerWidth ? "drawer-date-field__popover--match-trigger" : "",
     effectivePlacement === "below" ? "is-below" : "is-above",
     entered ? "is-open" : "",
     closing ? "is-closing" : "",
@@ -258,7 +267,11 @@ export function DrawerDateField({
         role="dialog"
         aria-label="Choose date"
         className={popoverClass}
-        style={{ top: coords.top, left: coords.left }}
+        style={{
+          top: coords.top,
+          left: coords.left,
+          ...(matchTriggerWidth ? { width: coords.width } : null),
+        }}
       >
         <div className="drawer-date-field__nav">
           <button
