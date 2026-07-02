@@ -4628,11 +4628,11 @@ button.accounts-flow-step:hover {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: clamp(7.5rem, 36cqw, 10rem);
+  min-height: clamp(8.5rem, 38cqw, 11.25rem);
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #fff;
-  padding: clamp(0.8rem, 3.2cqw, 1rem);
+  padding: clamp(0.85rem, 3.2cqw, 1.05rem);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -4764,18 +4764,30 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card__sub {
   margin: 0.2rem 0 0;
   font-size: 0.7rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: #64748b;
+}
+
+.accounts-detail-metric-card__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  margin-top: auto;
+  padding-top: 0.35rem;
+}
+
+.accounts-detail-metric-card__detail .accounts-detail-metric-card__sub {
+  margin: 0;
 }
 
 .accounts-detail-metric-card__findings {
   display: flex;
   align-items: center;
-  gap: clamp(0.5rem, 3cqw, 0.75rem);
+  gap: clamp(0.55rem, 3cqw, 0.85rem);
   min-height: clamp(4.35rem, 26cqw, 7rem);
   margin-top: auto;
-  padding-top: clamp(0.4rem, 2.2cqw, 0.5rem);
-  padding-inline-end: 0.15rem;
+  padding-top: clamp(0.45rem, 2.2cqw, 0.55rem);
+  padding-inline-end: 0.2rem;
 }
 
 .accounts-detail-metric-card .accounts-findings-donut {
@@ -4811,13 +4823,13 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card .accounts-findings-legend {
   flex: 1;
   min-width: 0;
-  gap: clamp(0.3rem, 1.5cqw, 0.4rem);
-  padding-inline-end: 0.35rem;
+  gap: clamp(0.35rem, 1.6cqw, 0.45rem);
+  padding-inline-end: 0.4rem;
 }
 
 .accounts-detail-metric-card .accounts-findings-legend__row {
-  gap: clamp(0.3rem, 1.5cqw, 0.4rem);
-  font-size: clamp(0.78rem, 3.2cqw, 0.9rem);
+  gap: clamp(0.35rem, 1.6cqw, 0.45rem);
+  font-size: clamp(0.78rem, 3.2cqw, 0.88rem);
   min-width: 0;
 }
 
@@ -4832,7 +4844,7 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card__progress {
-  margin-top: auto;
+  margin-top: 0.55rem;
   height: clamp(0.4rem, 1.5cqw, 0.6rem);
   overflow: hidden;
   border-radius: 999px;

@@ -5232,26 +5232,135 @@ function MetricCardDelta({
   );
 }
 
+type Soc2ControlStats = {
+  passRate: number | null;
+  passed: number;
+  pending: number;
+  total: number;
+};
+
+function summarizeSoc2Controls(rows: Array<{ status: string }>): Soc2ControlStats {
+  const total = rows.length;
+  const passed = rows.filter((row) => row.status === "pass").length;
+  return {
+    passRate: controlPostureScore(rows),
+    passed,
+    pending: total - passed,
+    total,
+  };
+}
+
+function soc2ReadinessPhaseLabel(pct: number | null): string | null {
+  if (pct == null) return null;
+  if (pct < 20) return "Early setup";
+  if (pct < 50) return "Building coverage";
+  if (pct < 75) return "Maturing controls";
+  if (pct < 90) return "Strong foundation";
+  return "Audit-ready posture";
+}
+
+function providerMetricLabel(provider: "aws" | "gcp" | "azure"): string {
+  if (provider === "aws") return "AWS";
+  if (provider === "gcp") return "GCP";
+  return "Azure";
+}
+
+const AWS_SERVICE_LABELS: Record<string, string> = {
+  ec2: "EC2",
+  s3: "S3",
+  iam: "IAM",
+  rds: "RDS",
+  lambda: "Lambda",
+  kms: "KMS",
+  cloudtrail: "CloudTrail",
+  logs: "CloudWatch",
+};
+
+function resourceServiceLabel(service: string, provider: "aws" | "gcp" | "azure"): string {
+  if (provider === "aws") {
+    return AWS_SERVICE_LABELS[service.toLowerCase()] ?? service.toUpperCase();
+  }
+  if (provider === "gcp") {
+    if (service === "compute") return "Compute";
+    if (service === "project") return "Project";
+    return service.charAt(0).toUpperCase() + service.slice(1);
+  }
+  if (service === "storage") return "Storage";
+  if (service === "subscription") return "Subscription";
+  return service.charAt(0).toUpperCase() + service.slice(1);
+}
+
+function parseResourceService(
+  resourceArn: string,
+  provider: "aws" | "gcp" | "azure",
+): string | null {
+  if (provider === "aws") {
+    const parts = resourceArn.split(":");
+    return parts[2] ?? null;
+  }
+  if (provider === "gcp" && resourceArn.startsWith("gcp://")) {
+    return resourceArn.slice(6).split("/")[0] ?? null;
+  }
+  if (provider === "azure" && resourceArn.startsWith("azure://")) {
+    return resourceArn.slice(8).split("/")[0] ?? null;
+  }
+  return null;
+}
+
+function buildResourceScopeLabel(
+  items: Finding[],
+  provider: "aws" | "gcp" | "azure",
+): string {
+  const byService = new Map<string, Set<string>>();
+  for (const finding of items) {
+    if (!finding.resource_arn) continue;
+    const service = parseResourceService(finding.resource_arn, provider);
+    if (!service) continue;
+    const bucket = byService.get(service) ?? new Set<string>();
+    bucket.add(finding.resource_arn);
+    byService.set(service, bucket);
+  }
+  const ranked = [...byService.entries()]
+    .sort((left, right) => right[1].size - left[1].size)
+    .slice(0, 3);
+  if (ranked.length === 0) return providerMetricLabel(provider);
+  return ranked
+    .map(([service, resources]) => `${resources.size} ${resourceServiceLabel(service, provider)}`)
+    .join(" · ");
+}
+
+function findingsForAccountScope(
+  items: Finding[] | undefined,
+  accountId: string,
+  isAws: boolean,
+  cloud: CloudAccountRow | null,
+): Finding[] {
+  if (isAws) {
+    return (items ?? []).filter((finding) => finding.account_id === accountId);
+  }
+  const externalId = cloud?.external_id ?? cloud?.id ?? accountId;
+  return (items ?? []).filter((finding) => {
+    if (finding.account_provider !== cloud?.provider) return false;
+    if (finding.account_id === externalId || finding.account_id === accountId) return true;
+    if (finding.account_label && cloud && finding.account_label.toLowerCase() === cloud.label.toLowerCase()) {
+      return true;
+    }
+    const evidence = finding.evidence ?? {};
+    if (typeof evidence.project_id === "string" && evidence.project_id === externalId) return true;
+    if (typeof evidence.subscription_id === "string" && evidence.subscription_id === externalId) return true;
+    return false;
+  });
+}
+
 function filterOpenFindingsForAccount(
   items: Finding[] | undefined,
   accountId: string,
   isAws: boolean,
   cloud: CloudAccountRow | null,
 ): Finding[] {
-  const open = (items ?? []).filter((f) => f.status === "open");
-  if (isAws) {
-    return open.filter((f) => f.account_id === accountId);
-  }
-  const externalId = cloud?.external_id ?? cloud?.id ?? accountId;
-  return open.filter((f) => {
-    if (f.account_provider !== cloud?.provider) return false;
-    if (f.account_id === externalId || f.account_id === accountId) return true;
-    if (f.account_label && cloud && f.account_label.toLowerCase() === cloud.label.toLowerCase()) return true;
-    const evidence = f.evidence ?? {};
-    if (typeof evidence.project_id === "string" && evidence.project_id === externalId) return true;
-    if (typeof evidence.subscription_id === "string" && evidence.subscription_id === externalId) return true;
-    return false;
-  });
+  return findingsForAccountScope(items, accountId, isAws, cloud).filter(
+    (finding) => finding.status === "open",
+  );
 }
 
 function worstFindingSeverity(items: Finding[]): string {
@@ -5564,7 +5673,7 @@ function AccountSplitDetailPane({
       `/v1/controls?framework=soc2&account_id=${accountId}`,
     ),
     enabled: isAws && connected && hasScanned,
-    select: (rows) => controlPostureScore(rows),
+    select: summarizeSoc2Controls,
   });
 
   const coverageQ = useQuery({
@@ -5640,6 +5749,16 @@ function AccountSplitDetailPane({
   const accountFindings = useMemo(
     () => filterOpenFindingsForAccount(findingsItems, accountId, isAws, cloud),
     [findingsItems, accountId, isAws, cloud],
+  );
+
+  const scopedFindings = useMemo(
+    () => findingsForAccountScope(findingsItems, accountId, isAws, cloud),
+    [findingsItems, accountId, isAws, cloud],
+  );
+
+  const resourceScopeLabel = useMemo(
+    () => buildResourceScopeLabel(scopedFindings, provider),
+    [scopedFindings, provider],
   );
 
   const patchConnection = useMutation({
@@ -5723,13 +5842,35 @@ function AccountSplitDetailPane({
     : cloudOverviewQ.data != null
       ? Math.round(cloudOverviewQ.data.coverage.coverage_ratio * 100)
       : null;
-  const compliancePct = isAws ? controlsQ.data : cloudOverviewQ.data?.compliance_posture_pct ?? null;
+  const compliancePct = isAws
+    ? controlsQ.data?.passRate ?? historyQ.data?.current_posture_score ?? null
+    : cloudOverviewQ.data?.compliance_posture_pct ?? null;
   const resourceCount = isAws
     ? resourceStats.resources
     : cloudOverviewQ.data?.resources_covered ?? resourceStats.resources;
   const resourceRegions = isAws
     ? resourceStats.regions
     : cloudOverviewQ.data?.regions_count ?? resourceStats.regions;
+  const soc2CheckSummary = useMemo((): { passed: number; pending: number; total: number } | null => {
+    if (!hasScanned || !isAws) return null;
+    if (controlsQ.data && controlsQ.data.total > 0) {
+      return {
+        passed: controlsQ.data.passed,
+        pending: controlsQ.data.pending,
+        total: controlsQ.data.total,
+      };
+    }
+    const summary = historyQ.data?.current_summary;
+    if (!summary) return null;
+    const total = summary.controls_passed + summary.controls_failed + summary.controls_no_data;
+    if (total <= 0) return null;
+    return {
+      passed: summary.controls_passed,
+      pending: total - summary.controls_passed,
+      total,
+    };
+  }, [hasScanned, isAws, controlsQ.data, historyQ.data?.current_summary]);
+  const soc2PhaseLabel = soc2ReadinessPhaseLabel(compliancePct);
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
   const recentScanRows = useMemo(
     () =>
@@ -5999,7 +6140,7 @@ function AccountSplitDetailPane({
                 </p>
                 {hasScanned ? (
                   <div className="accounts-detail-metric-card__findings">
-                    <FindingsMixDonutCompact stats={displayStats} hasScanned={hasScanned} size={96} stroke={5.25} />
+                    <FindingsMixDonutCompact stats={displayStats} hasScanned={hasScanned} size={92} stroke={5} />
                     <FindingsSeverityLegend stats={displayStats} hasScanned={hasScanned} />
                   </div>
                 ) : null}
@@ -6016,13 +6157,18 @@ function AccountSplitDetailPane({
                     <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                <p className="accounts-detail-metric-card__sub">
-                  {hasScanned
-                    ? resourcesDelta != null
-                      ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
-                      : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
-                    : "From latest scan"}
-                </p>
+                <div className="accounts-detail-metric-card__detail">
+                  <p className="accounts-detail-metric-card__sub">
+                    {hasScanned ? resourceScopeLabel : "From latest scan"}
+                  </p>
+                  <p className="accounts-detail-metric-card__sub">
+                    {hasScanned
+                      ? resourcesDelta != null
+                        ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
+                        : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
+                      : providerMetricLabel(provider)}
+                  </p>
+                </div>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
@@ -6036,7 +6182,22 @@ function AccountSplitDetailPane({
                     <MetricCardDelta delta={complianceDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                <p className="accounts-detail-metric-card__sub">Last 7 days</p>
+                <div className="accounts-detail-metric-card__detail">
+                  <p className="accounts-detail-metric-card__sub">
+                    {hasScanned
+                      ? soc2PhaseLabel ?? (complianceDelta != null ? "Last 7 days" : "Mapped controls")
+                      : "Run a scan first"}
+                  </p>
+                  <p className="accounts-detail-metric-card__sub">
+                    {hasScanned
+                      ? soc2CheckSummary
+                        ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
+                        : complianceDelta != null
+                          ? "Trend vs prior week"
+                          : "Awaiting control mapping"
+                      : "SOC 2 controls"}
+                  </p>
+                </div>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
@@ -6053,9 +6214,11 @@ function AccountSplitDetailPane({
                     <MetricCardDelta delta={coverageDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                <p className="accounts-detail-metric-card__sub">
-                  {coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
-                </p>
+                <div className="accounts-detail-metric-card__detail">
+                  <p className="accounts-detail-metric-card__sub">
+                    {coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
+                  </p>
+                </div>
                 <div
                   className={`accounts-detail-metric-card__progress${coveragePct == null ? " is-empty" : ""}`}
                   aria-hidden={coveragePct == null}
@@ -7811,29 +7974,31 @@ export default function Accounts() {
                     <p className="accounts-list-pagination__meta">
                       {pageStart}-{pageEnd} of {filteredRows.length} account{filteredRows.length === 1 ? "" : "s"}
                     </p>
-                    <div className="accounts-list-pagination__controls">
-                      <button
-                        type="button"
-                        className="accounts-list-pagination__btn"
-                        disabled={page <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        aria-label="Previous page"
-                      >
-                        ‹
-                      </button>
-                      <button type="button" className="accounts-list-pagination__btn is-current" aria-current="page">
-                        {page}
-                      </button>
-                      <button
-                        type="button"
-                        className="accounts-list-pagination__btn"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        aria-label="Next page"
-                      >
-                        ›
-                      </button>
-                    </div>
+                    {totalPages > 1 ? (
+                      <div className="accounts-list-pagination__controls">
+                        <button
+                          type="button"
+                          className="accounts-list-pagination__btn"
+                          disabled={page <= 1}
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          aria-label="Previous page"
+                        >
+                          ‹
+                        </button>
+                        <button type="button" className="accounts-list-pagination__btn is-current" aria-current="page">
+                          {page}
+                        </button>
+                        <button
+                          type="button"
+                          className="accounts-list-pagination__btn"
+                          disabled={page >= totalPages}
+                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          aria-label="Next page"
+                        >
+                          ›
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
