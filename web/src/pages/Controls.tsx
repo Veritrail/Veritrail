@@ -40,7 +40,8 @@ import {
 } from "../lib/evidenceGap";
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
 import { DrawerDateField } from "../components/DrawerDateField";
-import { ControlEvidenceTabContent } from "../components/ControlEvidenceSlideOver";
+import { ControlEvidenceTabContent, ExternalEvidenceArtifactList } from "../components/ControlEvidenceSlideOver";
+import { evidenceArtifactsForComposite } from "../lib/controlEvidence";
 import {
   ControlDetailPanel,
   ControlReadinessBar,
@@ -2737,6 +2738,9 @@ function buildCompositeTabs({
   frameworkRows,
   acceptedCompositeIds,
   expiredCompositeIds,
+  externalEvidence,
+  submittedCount,
+  canEditEvidence,
   navigate,
 }: {
   ctrl: CompositeControlRow;
@@ -2746,6 +2750,9 @@ function buildCompositeTabs({
   frameworkRows: ControlRow[];
   acceptedCompositeIds: Set<string>;
   expiredCompositeIds?: Set<string>;
+  externalEvidence: ExternalEvidenceArtifact[];
+  submittedCount: number;
+  canEditEvidence: boolean;
   navigate: (href: string) => void;
 }): ControlDetailTab[] {
   const displayStatus = compositeDisplayStatus(
@@ -2784,6 +2791,8 @@ function buildCompositeTabs({
   const isExternalOnly = ctrl.check_ids.length === 0;
   const isVerified = displayStatus === "passing";
   const mappedControls = compositeMappedControls(ctrl, framework);
+  const linkedEvidence = evidenceArtifactsForComposite(externalEvidence, ctrl.id);
+  const evidenceRecommended = compositeRecommendedAction(displayStatus, { submittedCount });
 
   return [
     {
@@ -2832,6 +2841,22 @@ function buildCompositeTabs({
               />
             </ControlDetailSection>
           ) : null}
+
+          <ControlDetailSection title="External evidence">
+            {evidenceRecommended ? (
+              <div
+                className={`control-evidence-drawer__action control-evidence-drawer__action--${evidenceRecommended.tone}`}
+              >
+                <p className="control-evidence-drawer__action-title">{evidenceRecommended.title}</p>
+                <p className="control-evidence-drawer__action-detail">{evidenceRecommended.detail}</p>
+              </div>
+            ) : null}
+            <ExternalEvidenceArtifactList
+              artifacts={linkedEvidence}
+              emptyMessage="No external evidence uploaded for this control group yet."
+              canComment={canEditEvidence}
+            />
+          </ControlDetailSection>
 
           {!isVerified ? (
             <ControlGuidanceFooter guidance={ctrl.guidance} mappedControls={mappedControls} />
@@ -4438,6 +4463,9 @@ export default function Controls() {
                 frameworkRows: rows,
                 acceptedCompositeIds,
                 expiredCompositeIds,
+                externalEvidence: externalEvidence.data ?? [],
+                submittedCount: submittedCountByComposite.get(selectedCompositeRow.id) ?? 0,
+                canEditEvidence,
                 navigate,
               })}
               activeTab={selectedTab}

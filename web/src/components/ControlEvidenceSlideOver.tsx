@@ -32,6 +32,101 @@ function statusLabel(status: string, stale: boolean) {
   return status;
 }
 
+function formatEvidenceDate(iso: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+/** Shared artifact list for control and composite detail drawers. */
+export function ExternalEvidenceArtifactList({
+  artifacts,
+  emptyMessage = "No external evidence linked yet.",
+  canComment = false,
+}: {
+  artifacts: ExternalEvidenceArtifact[];
+  emptyMessage?: string;
+  canComment?: boolean;
+}) {
+  const [downloadError, setDownloadError] = useState("");
+
+  if (artifacts.length === 0) {
+    return <p className="control-evidence-drawer__empty">{emptyMessage}</p>;
+  }
+
+  return (
+    <>
+      <ul className="control-evidence-drawer__list">
+        {artifacts.map((item) => {
+          const stale = evidenceIsStale(item);
+          const uploadedOn = formatEvidenceDate(item.created_at);
+          return (
+            <li key={item.id} className="control-evidence-drawer__item">
+              <div className="min-w-0 flex-1">
+                <p className="control-evidence-drawer__item-title">{item.title}</p>
+                <p className="control-evidence-drawer__item-meta">
+                  {uploadedOn && <span>Uploaded {uploadedOn}</span>}
+                  {item.source && <span>{item.source}</span>}
+                  {item.evidence_type && <span>{item.evidence_type}</span>}
+                  {item.check_id && <span>{labelForCheck(item.check_id)}</span>}
+                  {item.owner && <span>Owner: {item.owner}</span>}
+                  {item.period_end && <span>Through {item.period_end}</span>}
+                </p>
+                {item.note && <p className="control-evidence-slideover__note">{item.note}</p>}
+                {item.review_notes && (
+                  <p className="control-evidence-slideover__review-note">{item.review_notes}</p>
+                )}
+                {item.superseded_by && (
+                  <p className="control-evidence-slideover__review-note">Superseded by newer accepted evidence.</p>
+                )}
+                <EvidenceArtifactComments artifactId={item.id} canComment={canComment} />
+                <div className="control-evidence-slideover__item-actions">
+                  {item.external_url ? (
+                    <a
+                      href={item.external_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="compliance-external-evidence__link"
+                    >
+                      Open link
+                    </a>
+                  ) : item.filename ? (
+                    <button
+                      type="button"
+                      className="compliance-external-evidence__link"
+                      onClick={() =>
+                        downloadEvidenceArtifact(item).catch((err) =>
+                          setDownloadError(err instanceof Error ? err.message : "Download failed"),
+                        )
+                      }
+                    >
+                      Download {item.filename}
+                    </button>
+                  ) : null}
+                  {item.checksum_sha256 && (
+                    <span className="compliance-external-evidence__checksum" title={item.checksum_sha256}>
+                      SHA-256 {item.checksum_sha256.slice(0, 8)}…
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span
+                className={`compliance-external-evidence__status compliance-external-evidence__status--${
+                  stale ? "stale" : item.status
+                }`}
+              >
+                {statusLabel(item.status, stale)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {downloadError && <p className="compliance-external-evidence__error">{downloadError}</p>}
+    </>
+  );
+}
+
 /**
  * Evidence tab content for a single control's master-detail panel.
  * Replaces the old full-page ControlEvidenceSlideOver overlay — same content,
@@ -56,7 +151,6 @@ export function ControlEvidenceTabContent({
   compositeId?: string | null;
   canEdit?: boolean;
 }) {
-  const [downloadError, setDownloadError] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const linked = useMemo(
@@ -101,73 +195,9 @@ export function ControlEvidenceTabContent({
         {linked.length === 0 ? (
           <p className="control-evidence-drawer__empty">No external evidence linked to this criterion yet.</p>
         ) : (
-          <ul className="control-evidence-drawer__list">
-            {linked.map((item) => {
-              const stale = evidenceIsStale(item);
-              return (
-                <li key={item.id} className="control-evidence-drawer__item">
-                  <div className="min-w-0 flex-1">
-                    <p className="control-evidence-drawer__item-title">{item.title}</p>
-                    <p className="control-evidence-drawer__item-meta">
-                      {item.source && <span>{item.source}</span>}
-                      {item.evidence_type && <span>{item.evidence_type}</span>}
-                      {item.check_id && <span>{labelForCheck(item.check_id)}</span>}
-                      {item.owner && <span>Owner: {item.owner}</span>}
-                      {item.period_end && <span>Through {item.period_end}</span>}
-                    </p>
-                    {item.note && <p className="control-evidence-slideover__note">{item.note}</p>}
-                    {item.review_notes && (
-                      <p className="control-evidence-slideover__review-note">{item.review_notes}</p>
-                    )}
-                    {item.superseded_by && (
-                      <p className="control-evidence-slideover__review-note">Superseded by newer accepted evidence.</p>
-                    )}
-                    <EvidenceArtifactComments artifactId={item.id} canComment={canEdit} />
-                    <div className="control-evidence-slideover__item-actions">
-                      {item.external_url ? (
-                        <a
-                          href={item.external_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="compliance-external-evidence__link"
-                        >
-                          Open link
-                        </a>
-                      ) : item.filename ? (
-                        <button
-                          type="button"
-                          className="compliance-external-evidence__link"
-                          onClick={() =>
-                            downloadEvidenceArtifact(item).catch((err) =>
-                              setDownloadError(err instanceof Error ? err.message : "Download failed"),
-                            )
-                          }
-                        >
-                          Download {item.filename}
-                        </button>
-                      ) : null}
-                      {item.checksum_sha256 && (
-                        <span className="compliance-external-evidence__checksum" title={item.checksum_sha256}>
-                          SHA-256 {item.checksum_sha256.slice(0, 8)}…
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span
-                    className={`compliance-external-evidence__status compliance-external-evidence__status--${
-                      stale ? "stale" : item.status
-                    }`}
-                  >
-                    {statusLabel(item.status, stale)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <ExternalEvidenceArtifactList artifacts={linked} canComment={canEdit} />
         )}
       </section>
-
-      {downloadError && <p className="compliance-external-evidence__error">{downloadError}</p>}
 
       <CriterionEvidenceUploadModal
         open={uploadOpen}

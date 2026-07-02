@@ -8,3 +8,10 @@ export function evidenceArtifactsForControl(
     (row) => row.control_id === control.id || row.control_ref === control.control_id,
   );
 }
+
+export function evidenceArtifactsForComposite(
+  artifacts: ExternalEvidenceArtifact[],
+  compositeId: string,
+) {
+  return artifacts.filter((row) => row.composite_control_id === compositeId);
+}
