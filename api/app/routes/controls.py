@@ -149,6 +149,7 @@ class EvidenceArtifactOut(BaseModel):
     checksum_sha256: str | None = None
     review_notes: str | None = None
     reviewed_at: str | None = None
+    reviewed_by_email: str | None = None
     superseded_by: str | None = None
     policy_ref: str | None = None
     suggested_mappings: list[dict] = []
@@ -164,6 +165,7 @@ class EvidenceCommentOut(BaseModel):
     id: str
     artifact_id: str
     body: str
+    author_user_id: str | None = None
     author_email: str | None = None
     created_at: str
 
@@ -282,7 +284,15 @@ def _composite_definition(composite_id: str) -> dict | None:
     return None
 
 
-def _artifact_out(row: EvidenceArtifact) -> EvidenceArtifactOut:
+def _reviewer_emails(db: Session, rows: list[EvidenceArtifact]) -> dict[uuid.UUID, str | None]:
+    reviewer_ids = {row.reviewed_by for row in rows if row.reviewed_by}
+    if not reviewer_ids:
+        return {}
+    users = db.scalars(select(User).where(User.id.in_(reviewer_ids))).all()
+    return {user.id: user.email for user in users}
+
+
+def _artifact_out(row: EvidenceArtifact, *, reviewer_email: str | None = None) -> EvidenceArtifactOut:
     return EvidenceArtifactOut(
         id=str(row.id),
         control_id=str(row.control_id) if row.control_id else None,
@@ -306,6 +316,7 @@ def _artifact_out(row: EvidenceArtifact) -> EvidenceArtifactOut:
         checksum_sha256=row.checksum_sha256,
         review_notes=row.review_notes,
         reviewed_at=row.reviewed_at.isoformat() if row.reviewed_at else None,
+        reviewed_by_email=reviewer_email,
         superseded_by=str(row.superseded_by) if row.superseded_by else None,
         policy_ref=row.policy_ref,
         suggested_mappings=row.suggested_mappings or [],
@@ -333,7 +344,11 @@ def list_evidence_artifacts(
     if composite_control_id:
         q = q.where(EvidenceArtifact.composite_control_id == composite_control_id)
     rows = db.scalars(q.order_by(EvidenceArtifact.created_at.desc())).all()
-    return [_artifact_out(row) for row in rows]
+    reviewers = _reviewer_emails(db, rows)
+    return [
+        _artifact_out(row, reviewer_email=reviewers.get(row.reviewed_by) if row.reviewed_by else None)
+        for row in rows
+    ]
 
 
 class EvidenceDownloadOut(BaseModel):
@@ -580,7 +595,8 @@ async def upload_evidence_artifact(
     )
     db.commit()
     db.refresh(row)
-    return _artifact_out(row)
+    reviewer_email = db.get(User, row.reviewed_by).email if row.reviewed_by else None
+    return _artifact_out(row, reviewer_email=reviewer_email)
 
 
 @router.delete("/evidence/{artifact_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -680,7 +696,8 @@ def review_evidence_artifact(
     )
     db.commit()
     db.refresh(row)
-    return _artifact_out(row)
+    reviewer_email = db.get(User, row.reviewed_by).email if row.reviewed_by else None
+    return _artifact_out(row, reviewer_email=reviewer_email)
 
 
 def _comment_out(row: EvidenceArtifactComment, author_email: str | None) -> EvidenceCommentOut:
@@ -688,6 +705,7 @@ def _comment_out(row: EvidenceArtifactComment, author_email: str | None) -> Evid
         id=str(row.id),
         artifact_id=str(row.artifact_id),
         body=row.body,
+        author_user_id=str(row.user_id) if row.user_id else None,
         author_email=author_email,
         created_at=row.created_at.isoformat() if row.created_at else "",
     )
@@ -767,6 +785,53 @@ def add_evidence_comment(
     db.commit()
     db.refresh(row)
     return _comment_out(row, user.email)
+
+
+@router.delete(
+    "/evidence/{artifact_id}/comments/{comment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_evidence_comment(
+    artifact_id: str,
+    comment_id: str,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+
+    try:
+        art_id = uuid.UUID(artifact_id)
+        comment_uuid = uuid.UUID(comment_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid artifact_id or comment_id")
+
+    org_id = uuid.UUID(p["org_id"])
+    artifact = db.get(EvidenceArtifact, art_id)
+    if not artifact or artifact.org_id != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    row = db.get(EvidenceArtifactComment, comment_uuid)
+    if not row or row.artifact_id != art_id or row.org_id != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "comment not found")
+
+    is_author = row.user_id == user.id
+    if not is_author and not role_at_least(user.role, "admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "only the author or an admin can delete this comment")
+
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action="evidence.comment_removed",
+        target_type="control",
+        target_id=artifact.control_ref or artifact.composite_control_id or artifact.framework,
+        target_label=artifact.title,
+        detail={"artifact_id": str(artifact.id), "comment_id": str(row.id)},
+    )
+    db.delete(row)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/check-frameworks", response_model=CheckFrameworksOut)

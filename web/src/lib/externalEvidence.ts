@@ -21,6 +21,7 @@ export type ExternalEvidenceArtifact = {
   checksum_sha256: string | null;
   review_notes: string | null;
   reviewed_at: string | null;
+  reviewed_by_email: string | null;
   superseded_by: string | null;
   policy_ref?: string | null;
 };

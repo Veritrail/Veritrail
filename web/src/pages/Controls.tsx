@@ -2860,6 +2860,7 @@ function buildCompositeTabs({
               artifacts={linkedEvidence}
               emptyMessage="No external evidence uploaded for this control group yet."
               canComment={canEditEvidence}
+              framework={framework}
             />
           </ControlDetailSection>
 
