@@ -4663,18 +4663,25 @@ function AccountsStatsCards({
     label: string;
     value: string;
     sub: string;
-    valueTone?: "rose";
+    icon: "cloud" | "scan" | "flag" | "warning";
+    tone: "violet" | "teal" | "amber" | "rose";
+    progress?: number;
     trend?: { text: string; tone: "up" | "down" };
   }> = [
     {
       label: "Connected accounts",
       value: maxAccounts != null ? `${connected} of ${maxAccounts}` : String(connected),
       sub: maxAccounts != null ? `${planPct}% of ${planLabel} plan` : `${planLabel} · unlimited`,
+      icon: "cloud",
+      tone: "violet",
+      progress: maxAccounts != null ? planPct : undefined,
     },
     {
       label: "Scans (last 7 days)",
       value: String(scansLast7Days),
       sub: "vs previous 7 days",
+      icon: "scan",
+      tone: "teal",
       trend:
         scanTrendPct != null && scanTrendPct !== 0
           ? {
@@ -4687,12 +4694,15 @@ function AccountsStatsCards({
       label: "Open findings",
       value: String(openFindings),
       sub: "total active",
+      icon: "flag",
+      tone: "amber",
     },
     {
       label: "High severity",
       value: String(highSeverity),
       sub: "critical + high",
-      valueTone: "rose",
+      icon: "warning",
+      tone: "rose",
     },
   ];
 
@@ -4700,22 +4710,47 @@ function AccountsStatsCards({
     <div className="accounts-page__stats">
       {cards.map((card) => (
         <div className="accounts-stat-card" key={card.label}>
-          <p className="accounts-stat-card__label">{card.label}</p>
-          <p
-            className={`accounts-stat-card__value${
-              card.valueTone === "rose" ? " accounts-stat-card__value--rose" : ""
-            }`}
-          >
-            {card.value}
-          </p>
-          {card.trend ? (
-            <p className="accounts-stat-card__sub">
-              <span className={`accounts-stat-card__trend--${card.trend.tone}`}>{card.trend.text}</span>{" "}
-              {card.sub}
+          <span className="accounts-stat-card__icon">
+            {card.icon === "cloud" && (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                </svg>
+              )}
+              {card.icon === "scan" && (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+              )}
+              {card.icon === "flag" && (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+                </svg>
+              )}
+              {card.icon === "warning" && (
+                <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+              )}
+          </span>
+          <div className="accounts-stat-card__content">
+            <p className="accounts-stat-card__label">{card.label}</p>
+            <p className={`accounts-stat-card__value${card.tone === "rose" ? " accounts-stat-card__value--rose" : ""}`}>
+              {card.value}
             </p>
-          ) : (
-            <p className="accounts-stat-card__sub">{card.sub}</p>
-          )}
+            {card.trend ? (
+              <p className="accounts-stat-card__sub">
+                <span className={`accounts-stat-card__trend--${card.trend.tone}`}>{card.trend.text}</span>{" "}
+                {card.sub}
+              </p>
+            ) : (
+              <p className="accounts-stat-card__sub">{card.sub}</p>
+            )}
+            {card.progress != null ? (
+              <div className="accounts-stat-card__progress" aria-hidden>
+                <span className="accounts-stat-card__progress-fill" style={{ width: `${card.progress}%` }} />
+              </div>
+            ) : null}
+          </div>
         </div>
       ))}
     </div>
@@ -6112,12 +6147,6 @@ function AccountSplitDetailPane({
             ) : null}
           </div>
         </div>
-        <div className="accounts-detail-pane__header-meta">
-          <span className="accounts-detail-pane__status accounts-detail-pane__status--connected">Connected</span>
-          <span className="accounts-detail-pane__last-scan">
-            {hasScanned ? `Last scan ${formatRelativeScanAgo(lastScanAt)}` : "Not scanned yet"}
-          </span>
-        </div>
       </div>
 
       <div className="accounts-detail-pane__tabs" role="tablist">
@@ -6233,6 +6262,81 @@ function AccountSplitDetailPane({
               </div>
             </div>
 
+            <div className="accounts-detail-overview__lower">
+              <div className="accounts-detail-capabilities">
+                <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
+                {capabilityRows.map((cap) => {
+                  const onboardingCap = ONBOARDING_CAP_BY_ID[cap.id] ?? ONBOARDING_CAPS[0];
+                  return (
+                    <div className="accounts-detail-capability-row" key={cap.name}>
+                      <OnboardingCapIcon
+                        cap={onboardingCap}
+                        className="accounts-detail-capability-row__icon accounts-detail-capability-row__icon--neutral"
+                        title={onboardingCap.title}
+                      />
+                      <div className="min-w-0">
+                        <p className="accounts-detail-capability-row__name">{cap.name}</p>
+                        <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
+                      </div>
+                      <span
+                        className={`accounts-detail-capability-row__status accounts-detail-capability-row__status--${cap.status}`}
+                      >
+                        <span className="accounts-detail-capability-row__status-dot" aria-hidden />
+                        {cap.status === "enabled"
+                          ? "Enabled"
+                          : cap.status === "coming-soon"
+                            ? "Coming soon"
+                            : "Off"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="accounts-detail-quick-actions">
+                <h3 className="accounts-detail-quick-actions__title">Quick actions</h3>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__primary"
+                  onClick={handleScan}
+                  disabled={scanBusy}
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
+                  </svg>
+                  {scanBusy ? "Scanning…" : "Scan now"}
+                </button>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() => navigate(`/findings?account=${accountId}`)}
+                >
+                  View findings
+                </button>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() =>
+                    isAws
+                      ? setShowConnectorUpdate(true)
+                      : navigate(cloudIntegrationPath(cloud!.provider))
+                  }
+                >
+                  Manage connection
+                </button>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() => {
+                    setTab("settings");
+                    if (isAws) setShowManageCapabilities(true);
+                  }}
+                >
+                  Edit account
+                </button>
+              </div>
+            </div>
+
             {recentScanRows.length > 0 ? (
               <div className="accounts-detail-recent-scans">
                 <div className="accounts-detail-recent-scans__head">
@@ -6304,73 +6408,6 @@ function AccountSplitDetailPane({
                 ) : null}
               </div>
             ) : null}
-
-            <div className="accounts-detail-overview__lower">
-              <div className="accounts-detail-capabilities">
-                <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
-                {capabilityRows.map((cap) => (
-                  <div className="accounts-detail-capability-row" key={cap.name}>
-                    <div className="min-w-0">
-                      <p className="accounts-detail-capability-row__name">{cap.name}</p>
-                      <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
-                    </div>
-                    <span
-                      className={`accounts-detail-capability-row__status accounts-detail-capability-row__status--${cap.status}`}
-                    >
-                      <span className="accounts-detail-capability-row__status-dot" aria-hidden />
-                      {cap.status === "enabled"
-                        ? "Enabled"
-                        : cap.status === "coming-soon"
-                          ? "Coming soon"
-                          : "Off"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="accounts-detail-quick-actions">
-                <h3 className="accounts-detail-quick-actions__title">Quick actions</h3>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__primary"
-                  onClick={handleScan}
-                  disabled={scanBusy}
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
-                  </svg>
-                  {scanBusy ? "Scanning…" : "Scan now"}
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() => navigate(`/findings?account=${accountId}`)}
-                >
-                  View findings
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() =>
-                    isAws
-                      ? setShowConnectorUpdate(true)
-                      : navigate(cloudIntegrationPath(cloud!.provider))
-                  }
-                >
-                  Manage connection
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() => {
-                    setTab("settings");
-                    if (isAws) setShowManageCapabilities(true);
-                  }}
-                >
-                  Edit account
-                </button>
-              </div>
-            </div>
           </>
         )}
 
