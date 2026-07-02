@@ -246,21 +246,28 @@
   opacity: 0.45;
 }
 
-/* Audit package variant — blue accents, single full-width "Use today" footer. */
+/* Audit package variant — blue accents, single full-width "Use today" footer.
+   Popover is portaled to document.body, so day styles target __popover--audit. */
 .drawer-date-field--audit .drawer-date-field__trigger:focus-visible {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.12);
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 2px #dbeafe;
 }
 
-.drawer-date-field--audit .drawer-date-field__day.is-selected {
+.drawer-date-field__popover--audit .drawer-date-field__day.is-selected {
   background: #2563eb;
   color: #fff;
   box-shadow: 0 1px 2px rgb(37 99 235 / 0.25);
 }
 
-.drawer-date-field--audit .drawer-date-field__day:hover:not(:disabled):not(.is-selected) {
+.drawer-date-field__popover--audit
+  .drawer-date-field__day:hover:not(:disabled):not(.is-selected):not(.is-outside) {
   background: #eff6ff;
   color: #1e3a8a;
+}
+
+.drawer-date-field__popover--audit
+  .drawer-date-field__day.is-outside:hover:not(:disabled):not(.is-selected) {
+  background: #fafafa;
 }
 
 .drawer-date-field__footer--audit {

@@ -244,6 +244,7 @@ export function DrawerDateField({
   const popoverClass = [
     "drawer-date-field__popover",
     "drawer-date-field__popover--portal",
+    isAudit ? "drawer-date-field__popover--audit" : "",
     matchTriggerWidth ? "drawer-date-field__popover--match-trigger" : "",
     effectivePlacement === "below" ? "is-below" : "is-above",
     entered ? "is-open" : "",

@@ -1140,9 +1140,10 @@
   width: 100%;
 }
 
+.compliance-external-evidence__field .drawer-date-field--audit .drawer-date-field__trigger:focus,
 .compliance-external-evidence__field .drawer-date-field--audit .drawer-date-field__trigger:focus-visible {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.12);
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 2px #dbeafe;
 }
 
 .compliance-external-evidence__field .veritrail-select__btn {
