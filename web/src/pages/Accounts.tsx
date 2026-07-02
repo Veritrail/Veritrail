@@ -4456,6 +4456,117 @@ function CloudAccountMenu({
   );
 }
 
+function AccountDetailOverflowMenu({
+  onViewFindings,
+  onManageConnection,
+  onEditAccount,
+}: {
+  onViewFindings: () => void;
+  onManageConnection: () => void;
+  onEditAccount: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+  const itemClass =
+    "block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50";
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setCoords({ top: r.bottom + 6, right: window.innerWidth - r.right });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onScrollResize() {
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScrollResize, true);
+    window.addEventListener("resize", onScrollResize);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScrollResize, true);
+      window.removeEventListener("resize", onScrollResize);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="More actions"
+        title="More actions"
+        className="accounts-detail-header__menu-btn"
+      >
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="5" cy="12" r="2.25" />
+          <circle cx="12" cy="12" r="2.25" />
+          <circle cx="19" cy="12" r="2.25" />
+        </svg>
+      </button>
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ position: "fixed", top: coords.top, right: coords.right }}
+            className="z-[60] w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
+          >
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onViewFindings();
+              }}
+              className={itemClass}
+            >
+              View findings
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onManageConnection();
+              }}
+              className={itemClass}
+            >
+              Manage connection
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onEditAccount();
+              }}
+              className={itemClass}
+            >
+              Edit account
+            </button>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 function ScanPhaseBlock({
   progress,
   elapsedMs,
@@ -5988,6 +6099,8 @@ function AccountSplitDetailPane({
     );
   }
 
+  const scanAgo = hasScanned ? formatRelativeScanAgo(lastScanAt) : null;
+
   return (
     <div className="accounts-detail-pane">
       <div className="accounts-detail-pane__header">
@@ -6000,13 +6113,50 @@ function AccountSplitDetailPane({
               <h2 className="accounts-detail-pane__title">{displayName}</h2>
               <VerifiedBadgeIcon />
             </div>
-            {displayId ? (
-              <div className="accounts-detail-pane__meta">
-                <span>{displayId}</span>
-                <CopyIdButton text={displayId} />
-              </div>
-            ) : null}
+            <div className="accounts-detail-pane__meta">
+              {displayId ? (
+                <>
+                  <span>{displayId}</span>
+                  <CopyIdButton text={displayId} />
+                  <span className="accounts-detail-pane__meta-sep" aria-hidden>
+                    ·
+                  </span>
+                </>
+              ) : null}
+              <span className="accounts-detail-pane__meta-status">Connected</span>
+              <span className="accounts-detail-pane__meta-sep" aria-hidden>
+                ·
+              </span>
+              <span>
+                {scanAgo ? `Last scan ${scanAgo}` : "Not scanned yet"}
+              </span>
+            </div>
           </div>
+        </div>
+        <div className="accounts-detail-pane__actions">
+          <button
+            type="button"
+            className="accounts-detail-header__scan-btn"
+            onClick={handleScan}
+            disabled={scanBusy}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
+            </svg>
+            {scanBusy ? "Scanning…" : "Scan now"}
+          </button>
+          <AccountDetailOverflowMenu
+            onViewFindings={() => setTab("findings")}
+            onManageConnection={() =>
+              isAws
+                ? setShowConnectorUpdate(true)
+                : navigate(cloudIntegrationPath(cloud!.provider))
+            }
+            onEditAccount={() => {
+              setTab("settings");
+              if (isAws) setShowManageCapabilities(true);
+            }}
+          />
         </div>
       </div>
 
@@ -6143,49 +6293,6 @@ function AccountSplitDetailPane({
                     </div>
                   );
                 })}
-              </div>
-
-              <div className="accounts-detail-quick-actions">
-                <h3 className="accounts-detail-quick-actions__title">Quick actions</h3>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__primary"
-                  onClick={handleScan}
-                  disabled={scanBusy}
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
-                  </svg>
-                  {scanBusy ? "Scanning…" : "Scan now"}
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() => navigate(`/findings?account=${accountId}`)}
-                >
-                  View findings
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() =>
-                    isAws
-                      ? setShowConnectorUpdate(true)
-                      : navigate(cloudIntegrationPath(cloud!.provider))
-                  }
-                >
-                  Manage connection
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() => {
-                    setTab("settings");
-                    if (isAws) setShowManageCapabilities(true);
-                  }}
-                >
-                  Edit account
-                </button>
               </div>
             </div>
 
