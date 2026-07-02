@@ -39,7 +39,7 @@ const DISPLAY_LABELS: Record<string, string> = {
   at_risk: "At risk",
   unevaluated: "Not evaluated",
   externally_covered: "Externally covered",
-  needs_evidence: "Needs evidence",
+  needs_evidence: "Coverage gap",
   out_of_scope: "Out of scope",
   not_applicable: "Not applicable",
 };

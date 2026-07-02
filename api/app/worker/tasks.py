@@ -943,6 +943,7 @@ def run_gcp_scan(project_id: str) -> dict:
     from app.collectors.gcp.security_command_center import collect_security_command_center
     from app.checks import (
         gcp_asset_public_iam_binding,
+        gcp_asset_public_invoker,
         gcp_compute_instance_public_ip,
         gcp_logging_not_enabled,
         gcp_osconfig_vuln_report_present,
@@ -996,6 +997,7 @@ def run_gcp_scan(project_id: str) -> dict:
                 ("gcp_osconfig_vuln_report_present", gcp_osconfig_vuln_report_present.run),
                 ("gcp_scc_not_enabled", gcp_scc_not_enabled.run),
                 ("gcp_asset_public_iam_binding", gcp_asset_public_iam_binding.run),
+                ("gcp_asset_public_invoker", gcp_asset_public_invoker.run),
             ],
             target=row,
             scan_run=run,

@@ -433,6 +433,33 @@ export const evidenceCoverageSchema = z
 
 export type EvidenceCoverageData = z.infer<typeof evidenceCoverageSchema>;
 
+const cloudMetricTrendPointSchema = z.object({
+  timestamp: z.string(),
+  posture_score: z.number(),
+});
+
+const cloudOpenFindingsTrendPointSchema = z.object({
+  timestamp: z.string(),
+  open_findings_count: z.number(),
+});
+
+/** GCP/Azure account overview for the Accounts detail pane. Matches API CloudAccountOverviewOut. */
+export const cloudAccountOverviewSchema = z.object({
+  provider: z.string(),
+  resource_id: z.string(),
+  resources_covered: z.number(),
+  regions_count: z.number(),
+  open_findings_count: z.number().default(0),
+  soc2_controls_passed: z.number().nullable(),
+  soc2_controls_total: z.number().nullable(),
+  compliance_posture_pct: z.number().nullable(),
+  coverage: evidenceCoverageSchema,
+  posture_trend: z.array(cloudMetricTrendPointSchema).default([]),
+  open_findings_trend: z.array(cloudOpenFindingsTrendPointSchema).default([]),
+});
+
+export type CloudAccountOverview = z.infer<typeof cloudAccountOverviewSchema>;
+
 export const controlListItemSchema = z
   .object({
     id: z.string(),

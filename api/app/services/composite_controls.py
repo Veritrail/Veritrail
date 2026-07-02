@@ -136,6 +136,7 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "azure.compute.instance_public_ip": "network_boundary",
     "gcp.compute.instance_public_ip": "network_boundary",
     "gcp.asset.public_iam_binding": "network_boundary",
+    "gcp.asset.public_invoker": "network_boundary",
     "azure.entra.privileged_role_assignment": "identity_governance",
     "azure.policy.non_compliant": "logging_monitoring",
     "gcp.osconfig.vuln_report_present": "vulnerability_management",

@@ -2721,6 +2721,28 @@ function OnboardingCapIcon({
   );
 }
 
+/** Document with folded corner + person — Policy generation in Connected capabilities only. */
+function PolicyGenerationCapIcon({
+  className,
+  strokeWidth = 1.6,
+  title,
+}: {
+  className?: string;
+  strokeWidth?: number;
+  title?: string;
+}) {
+  return (
+    <span className={className} title={title} aria-hidden={title ? undefined : true}>
+      <svg fill="none" stroke="currentColor" strokeWidth={strokeWidth} viewBox="0 0 24 24" aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v4a2 2 0 0 0 2 2h4" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
+        <circle cx="12" cy="13" r="2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 18a3 3 0 1 0-6 0" />
+      </svg>
+    </span>
+  );
+}
+
 const ONBOARDING_ROLE_PERMISSIONS: Record<(typeof ONBOARDING_CAPS)[number]["id"], string[]> = {
   core: [
     "Read AWS resource configuration",
@@ -5563,20 +5585,17 @@ function SecurityScoreCard({
   coveragePct,
   lastScanAt,
   hasScanned,
-  onViewHighFindings,
 }: {
   score: number | null;
   stats: FindingStats;
   coveragePct: number | null;
   lastScanAt: string | null | undefined;
   hasScanned: boolean;
-  onViewHighFindings?: () => void;
 }) {
   const showScore = hasScanned && score != null;
   const label = showScore ? securityScoreLabel(score) : null;
   const tone = showScore ? securityScoreTone(score) : null;
   const driver = showScore ? computeSecurityScoreDriver(stats, coveragePct, lastScanAt, score) : null;
-  const showHighFindingsLink = hasScanned && stats.critHigh > 0 && !!onViewHighFindings;
 
   if (!showScore || !label || !tone || !driver) {
     return <p className="accounts-detail-overview__metric-detail">Run a scan first</p>;
@@ -5592,16 +5611,7 @@ function SecurityScoreCard({
       </div>
       <div className="accounts-security-score__drivers">
         <p className="accounts-security-score__driver-label">Main driver</p>
-        <p className="accounts-security-score__driver-value">{driver.driverValue}</p>
-        {showHighFindingsLink ? (
-          <button
-            type="button"
-            className="accounts-security-score__driver-link"
-            onClick={onViewHighFindings}
-          >
-            View high findings →
-          </button>
-        ) : null}
+        <p className="accounts-detail-overview__metric-detail">{driver.driverValue}</p>
       </div>
     </div>
   );
@@ -6426,7 +6436,6 @@ function AccountSplitDetailPane({
                   coveragePct={coveragePct}
                   lastScanAt={lastScanAt}
                   hasScanned={hasScanned}
-                  onViewHighFindings={() => setTab("findings")}
                 />
               </div>
               <div className="accounts-detail-overview__metric">
@@ -6496,13 +6505,19 @@ function AccountSplitDetailPane({
                 <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
                 {capabilityRows.map((cap) => {
                   const onboardingCap = ONBOARDING_CAP_BY_ID[cap.id] ?? ONBOARDING_CAPS[0];
+                  const iconClassName =
+                    "accounts-detail-capability-row__icon accounts-detail-capability-row__icon--neutral";
                   return (
                     <div className="accounts-detail-capability-row" key={cap.name}>
-                      <OnboardingCapIcon
-                        cap={onboardingCap}
-                        className="accounts-detail-capability-row__icon accounts-detail-capability-row__icon--neutral"
-                        title={onboardingCap.title}
-                      />
+                      {cap.id === "iam" ? (
+                        <PolicyGenerationCapIcon className={iconClassName} title="Policy generation" />
+                      ) : (
+                        <OnboardingCapIcon
+                          cap={onboardingCap}
+                          className={iconClassName}
+                          title={onboardingCap.title}
+                        />
+                      )}
                       <div className="min-w-0">
                         <p className="accounts-detail-capability-row__name">{cap.name}</p>
                         <p className="accounts-detail-capability-row__desc">{cap.desc}</p>

@@ -151,6 +151,7 @@ export const checkLabels: Record<string, string> = {
   "gcp.osconfig.vuln_report_present": "GCP OS Config vulnerability reports missing",
   "gcp.scc.not_enabled": "GCP Security Command Center not accessible",
   "gcp.asset.public_iam_binding": "GCP asset public IAM binding",
+  "gcp.asset.public_invoker": "GCP service publicly invocable",
   "entra.org.mfa_not_enforced": "Entra MFA not enforced",
   "entra.user.inactive_90d": "Entra inactive user",
   "entra.admin.unreviewed": "Entra admin unreviewed",

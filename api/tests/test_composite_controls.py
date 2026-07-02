@@ -195,6 +195,45 @@ def test_supporting_findings_do_not_fail_controls():
     assert count == 1
 
 
+def test_incident_response_at_risk_when_supporting_gaps_exist_without_full_scan():
+    """Incident Response maps only supporting/activity checks (GuardDuty, Security
+    Hub). Open absence gaps must surface as at_risk, not no_data, even when the
+    latest scan did not execute every mapped check."""
+    gd = MagicMock()
+    gd.check_id = "guardduty.detector.not_enabled"
+    gd.status = "open"
+    gd.severity = "medium"
+
+    sh = MagicMock()
+    sh.check_id = "aws.securityhub.not_enabled"
+    sh.status = "open"
+    sh.severity = "medium"
+
+    incident_checks = [
+        "aws.securityhub.not_enabled",
+        "cloudtrail.event.guardduty_disabled",
+        "guardduty.detector.not_enabled",
+        "guardduty.open_findings",
+        # Multi-cloud benchmark checks that do not run on AWS-only accounts must
+        # not suppress open AWS detection signals.
+        "azure.defender.not_enabled",
+        "gcp.scc.not_enabled",
+    ]
+    status, hits, count = compute_control_status(
+        incident_checks,
+        {
+            "guardduty.detector.not_enabled": [gd],
+            "aws.securityhub.not_enabled": [sh],
+        },
+        {"guardduty.detector.not_enabled"},
+        set(),
+        has_scanned_account=True,
+    )
+    assert status == "at_risk"
+    assert count == 2
+    assert len(hits) == 2
+
+
 def test_supporting_findings_do_not_downgrade_benchmark_controls():
     """When a control has at least one benchmark-class check, open supporting
     findings alone leave a clean pass untouched."""

@@ -11,8 +11,9 @@ export type ConnectedAccountOption = AccountOption & {
   last_scan_at?: string | null;
 };
 
-/** Account is usable (connected, or needs reconnect after verify/scan failure). */
-export function isCloudAccountConnected(row: CloudAccountRow): boolean {
+/** Account is usable (connected, or needs reconnect after verify/scan failure).
+    Only reads `status` — callers pass several CloudAccountRow shapes. */
+export function isCloudAccountConnected(row: { status: string }): boolean {
   return row.status === "connected" || row.status === "error";
 }
 

@@ -117,7 +117,8 @@
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
       "iam.user.admin_policy_attached",
-      "azure.entra.privileged_role_assignment"
+      "azure.entra.privileged_role_assignment",
+      "gcp.asset.public_invoker"
     ],
     "soc2_scope_category": "security"
   },
@@ -654,7 +655,8 @@
       "azure.compute.instance_public_ip",
       "gcp.asset.public_iam_binding",
       "ecs.task_definition.privileged_container",
-      "cloudtrail.event.security_group_open_to_world"
+      "cloudtrail.event.security_group_open_to_world",
+      "gcp.asset.public_invoker"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."

@@ -322,7 +322,10 @@ function ComplianceRowSummary({
     at_risk: "At risk",
     unevaluated: "Not evaluated",
     externally_covered: "Externally covered",
-    needs_evidence: "Needs evidence",
+    // Absence gaps: a service Veritrail collects from is off (GuardDuty, Config,
+    // CloudTrail, ...). Close by enabling it — or upload evidence of external
+    // coverage. "Needs evidence" read as "must upload documents", which is wrong.
+    needs_evidence: "Coverage gap",
     expired: "Expired evidence",
     out_of_scope: "Out of scope",
     not_applicable: "Not applicable",

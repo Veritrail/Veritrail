@@ -390,7 +390,7 @@ def scan_gcp_project(
     row = db.get(GcpProject, project_row_id)
     if not row or row.org_id != org.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "GCP project not found")
-    if row.status != "connected":
+    if row.status == "pending":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Verify GCP connection before scanning")
 
     from app.services.cloud_scan_runs import latest_running_cloud_scan

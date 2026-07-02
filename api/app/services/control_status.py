@@ -27,6 +27,41 @@ def _is_absence_gap(check_id: str) -> bool:
     return check_id.endswith(_ABSENCE_SUFFIXES)
 
 
+def _open_supporting_activity_hits(hits: list[Finding]) -> list[Finding]:
+    """Open supporting/activity findings that never fail via ``finding_open_for_control``.
+
+    Used when a composite cannot otherwise be graded — e.g. Incident Response
+    includes Azure/GCP benchmark checks that did not run on a connected AWS
+    account, but GuardDuty/Security Hub signals are already open."""
+    from app.services.check_evidence import (
+        CLASS_ACTIVITY,
+        CLASS_SUPPORTING,
+        evidence_class_for_check,
+    )
+
+    return [
+        f
+        for f in hits
+        if f.status == "open"
+        and evidence_class_for_check(f.check_id) in (CLASS_SUPPORTING, CLASS_ACTIVITY)
+    ]
+
+
+def _supporting_only_open_hits(
+    check_ids: list[str],
+    hits: list[Finding],
+) -> list[Finding]:
+    """Open supporting/activity findings for controls with *only* supporting checks.
+
+    Used to block a vacuous pass — not for the no_data fallback (see
+    ``_open_supporting_activity_hits``)."""
+    from app.services.check_evidence import CLASS_BENCHMARK, evidence_class_for_check
+
+    if any(evidence_class_for_check(cid) == CLASS_BENCHMARK for cid in check_ids):
+        return []
+    return _open_supporting_activity_hits(hits)
+
+
 def compute_control_status(
     check_ids: list[str],
     open_by_check: dict[str, list[Finding]],
@@ -69,7 +104,12 @@ def compute_control_status(
     elif has_scanned_account and all_mapped_checks_ran and not any_mapped_check_failed:
         status = "pass"
     else:
-        status = "no_data"
+        supporting_open = _open_supporting_activity_hits(hits)
+        if supporting_open:
+            status = "at_risk"
+            open_hits = supporting_open
+        else:
+            status = "no_data"
 
     if status == "pass":
         status, open_hits = _downgrade_supporting_only_pass(check_ids, hits, open_hits)
@@ -88,21 +128,7 @@ def _downgrade_supporting_only_pass(
     off. When such a control has open supporting/activity findings, report
     at_risk and surface them. Hygiene-class findings stay cosmetic and never
     affect status."""
-    from app.services.check_evidence import (
-        CLASS_ACTIVITY,
-        CLASS_BENCHMARK,
-        CLASS_SUPPORTING,
-        evidence_class_for_check,
-    )
-
-    if any(evidence_class_for_check(cid) == CLASS_BENCHMARK for cid in check_ids):
-        return "pass", open_hits
-    supporting_open = [
-        f
-        for f in hits
-        if f.status == "open"
-        and evidence_class_for_check(f.check_id) in (CLASS_SUPPORTING, CLASS_ACTIVITY)
-    ]
+    supporting_open = _supporting_only_open_hits(check_ids, hits)
     if not supporting_open:
         return "pass", open_hits
     return "at_risk", supporting_open

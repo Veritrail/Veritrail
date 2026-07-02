@@ -40,9 +40,9 @@ export function compositeRecommendedAction(
   switch (displayStatus) {
     case "needs_evidence":
       return {
-        title: "Two ways to close this gap",
+        title: "Close the coverage gap",
         detail:
-          "Upload external evidence that you cover this outside AWS, or enable the corresponding AWS capability in this account.",
+          "A service Veritrail collects from is not enabled. Enable it so evidence is gathered automatically on every scan — or, if you cover this outside AWS, upload external evidence instead.",
         tone: "warn",
       };
     case "externally_covered":

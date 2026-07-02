@@ -287,7 +287,8 @@
       "azure.storage.public_blob_access",
       "azure.compute.instance_public_ip",
       "gcp.compute.instance_public_ip",
-      "gcp.asset.public_iam_binding"
+      "gcp.asset.public_iam_binding",
+      "gcp.asset.public_invoker"
     ],
     "cis_criteria": [
       "5.1",
