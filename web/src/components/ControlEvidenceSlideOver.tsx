@@ -30,7 +30,6 @@ function statusLabel(status: string, stale: boolean) {
   if (stale && status === "accepted") return "Stale";
   if (status === "accepted") return "Accepted";
   if (status === "rejected") return "Rejected";
-  if (status === "submitted") return "Pending review";
   if (status === "expired") return "Expired";
   if (status === "superseded") return "Superseded";
   return status;
@@ -140,13 +139,15 @@ export function ExternalEvidenceArtifactList({
             <li key={item.id} className="control-evidence-drawer__item">
               <div className="control-evidence-drawer__item-head">
                 <p className="control-evidence-drawer__item-title">{item.title}</p>
-                <span
-                  className={`compliance-external-evidence__status compliance-external-evidence__status--${
-                    stale ? "stale" : item.status
-                  }`}
-                >
-                  {statusLabel(item.status, stale)}
-                </span>
+                {item.status !== "submitted" && (
+                  <span
+                    className={`compliance-external-evidence__status compliance-external-evidence__status--${
+                      stale ? "stale" : item.status
+                    }`}
+                  >
+                    {statusLabel(item.status, stale)}
+                  </span>
+                )}
               </div>
               <p className="control-evidence-drawer__item-meta">
                 {uploadedOn && <span>Uploaded {uploadedOn}</span>}
