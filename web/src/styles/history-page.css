@@ -1015,12 +1015,9 @@
 .history-drawer__panel {
   display: flex;
   height: 100%;
-  width: 100%;
-  max-width: none;
   flex-direction: column;
   overflow: hidden;
   background: #fff;
-  box-shadow: none;
 }
 
 .history-drawer__header {
