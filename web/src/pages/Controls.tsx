@@ -2687,6 +2687,52 @@ function CompositeGapResolution({
   );
 }
 
+type GuidanceBlock =
+  | { type: "p"; text: string }
+  | { type: "ul"; items: string[] };
+
+function parseGuidanceBlocks(text: string): GuidanceBlock[] {
+  return text
+    .split(/\n\n+/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const lines = block
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const bulletLines = lines.filter((line) => /^[-•]\s/.test(line));
+      if (bulletLines.length >= 2 && bulletLines.length === lines.length) {
+        return {
+          type: "ul" as const,
+          items: lines.map((line) => line.replace(/^[-•]\s+/, "")),
+        };
+      }
+      return { type: "p" as const, text: block.replace(/\n/g, " ") };
+    });
+}
+
+function ControlGuidanceContent({ text }: { text: string }) {
+  const blocks = parseGuidanceBlocks(text);
+  return (
+    <div className="control-detail-guidance">
+      {blocks.map((block, index) =>
+        block.type === "ul" ? (
+          <ul key={index} className="control-detail-guidance__list">
+            {block.items.map((item, itemIndex) => (
+              <li key={itemIndex}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p key={index} className="control-detail-guidance__text">
+            {block.text}
+          </p>
+        ),
+      )}
+    </div>
+  );
+}
+
 function ControlGuidanceFooter({
   guidance,
   mappedControls,
@@ -2697,7 +2743,7 @@ function ControlGuidanceFooter({
   return (
     <ControlDetailSection title="Guidance">
       {guidance ? (
-        <p className="control-detail-guidance-text">{guidance}</p>
+        <ControlGuidanceContent text={guidance} />
       ) : (
         <p className="control-detail-empty">No written guidance yet for this control.</p>
       )}
@@ -2973,7 +3019,7 @@ function buildDetailedTabs({
           {!isVerified ? (
             <ControlDetailSection title="Guidance">
               {ctrl.guidance ? (
-                <p className="control-detail-guidance-text">{ctrl.guidance}</p>
+                <ControlGuidanceContent text={ctrl.guidance} />
               ) : null}
               {hasMappingMeta ? (
                 <p className="control-detail-mapping-line">

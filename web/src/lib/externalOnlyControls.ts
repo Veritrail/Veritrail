@@ -18,11 +18,11 @@ export const EXTERNAL_ONLY_CONTROLS: ExternalOnlyControlCopy[] = [
     blockingGapSummary:
       "No cloud scan coverage — corporate endpoints are outside AWS.",
     guidance:
-      "Export a device or agent coverage report from your EDR platform and upload it below. " +
-      "CrowdStrike, SentinelOne, and Microsoft Defender for Endpoint are common sources. " +
-      "Auditors typically want agent coverage across the employee fleet, real-time alerting enabled, " +
-      "and a recent export dated within your audit period. Declare your platform in Workspace → Evidence " +
-      "to streamline future uploads.",
+      "Export a device or agent coverage report from your EDR platform and upload it below.\n\n" +
+      "- CrowdStrike, SentinelOne, and Microsoft Defender for Endpoint are common sources\n" +
+      "- Auditors want agent coverage across the employee fleet and real-time alerting enabled\n" +
+      "- Include a recent export dated within your audit period\n\n" +
+      "Declare your platform in Workspace → Evidence to streamline future uploads.",
   },
   {
     id: "mdm_endpoint",
@@ -30,11 +30,11 @@ export const EXTERNAL_ONLY_CONTROLS: ExternalOnlyControlCopy[] = [
     description: "Requires external mobile-device management evidence.",
     blockingGapSummary: "No cloud scan coverage — managed devices are outside AWS.",
     guidance:
-      "Export a device compliance report from your MDM platform (Intune, Jamf Pro, Kandji, …) showing " +
-      "enrollment, disk encryption, and screen-lock enforcement, then upload it below. " +
-      "Auditors typically want proof that corporate laptops and mobile devices in scope are enrolled " +
-      "and meet baseline policies. If no managed devices are in your audit boundary, mark this control " +
-      "out of scope with a rationale instead.",
+      "Export a device compliance report from your MDM platform and upload it below.\n\n" +
+      "- Intune, Jamf Pro, and Kandji are common sources\n" +
+      "- Auditors want proof that in-scope laptops and mobile devices are enrolled\n" +
+      "- Show disk encryption and screen-lock enforcement on enrolled devices\n\n" +
+      "If no managed devices are in your audit boundary, mark this control out of scope with a rationale instead.",
   },
 ];
 
