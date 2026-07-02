@@ -9,12 +9,12 @@ Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-rea
 | Scope | Done | Notes |
 |-------|------|-------|
 | **Phase-one enterprise batch** (direction `TODO`, pre-audit) | ~95% | Shipped 2026-06-26; documented in `enterprise-readiness.md` |
-| **Pipeline phases 0–9** (post-audit backlog) | **5 / 10 phases** (~50%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3 |
+| **Pipeline phases 0–9** (post-audit backlog) | **5.3 / 5.5 / 10 phases** (~55%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3, Phase 5.1–5.3 Azure collectors, Phase 5.5 Azure onboarding |
 | **Direction README specs wholesale** | **No** | Strategy/roadmap docs remain largely aspirational; only incremental slices shipped |
 
-**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). **Most backlog remains** — start at Phase 5.1.
+**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). Phase 5.1 (Azure Resource Graph VM inventory + public IP check), Phase 5.2 (Activity Log / diagnostic settings), Phase 5.3 (Entra / Azure RBAC privileged role assignments), and Phase 5.5 (Azure onboarding polish with degraded-check verify) are complete. **Most backlog remains** — start at Phase 5.4.
 
-**Next run:** Phase 5.1 (Azure Resource Graph collector) unless blocked.
+**Next run:** Phase 5.4 (Azure Policy compliance) unless blocked.
 
 ---
 
@@ -147,27 +147,27 @@ Current collectors: `api/app/collectors/azure/defender.py`, `storage.py`.
 
 #### 5.1 — Azure Resource Graph
 
-- [ ] Collector `api/app/collectors/azure/resource_graph.py`
-- [ ] Model + migration for inventory baseline
-- [ ] Check registered in `run_azure_scan`
-- [ ] Mapped to composite in `composite_controls.json`
-- [ ] Tests with mocked Azure HTTP
+- [x] Collector `api/app/collectors/azure/resource_graph.py`
+- [x] Model + migration for inventory baseline
+- [x] Check registered in `run_azure_scan`
+- [x] Mapped to composite in `composite_controls.json`
+- [x] Tests with mocked Azure HTTP
 
 #### 5.2 — Activity Log / diagnostic settings
 
-- [ ] Collector `api/app/collectors/azure/activity_log.py`
-- [ ] Model + migration for management-plane actions
-- [ ] Check registered in `run_azure_scan`
-- [ ] Mapped to composite in `composite_controls.json`
-- [ ] Tests with mocked Azure HTTP
+- [x] Collector `api/app/collectors/azure/activity_log.py`
+- [x] Model + migration for management-plane actions
+- [x] Check registered in `run_azure_scan`
+- [x] Mapped to composite in `composite_controls.json`
+- [x] Tests with mocked Azure HTTP
 
 #### 5.3 — Entra / Azure RBAC deep checks
 
-- [ ] Collector `api/app/collectors/azure/entra_rbac.py`
-- [ ] Model + migration for privileged role assignments
-- [ ] Check registered in `run_azure_scan`
-- [ ] Mapped to composite in `composite_controls.json`
-- [ ] Tests with mocked Azure HTTP
+- [x] Collector `api/app/collectors/azure/entra_rbac.py`
+- [x] Model + migration for privileged role assignments
+- [x] Check registered in `run_azure_scan`
+- [x] Mapped to composite in `composite_controls.json`
+- [x] Tests with mocked Azure HTTP
 
 #### 5.4 — Azure Policy compliance
 
@@ -179,8 +179,8 @@ Current collectors: `api/app/collectors/azure/defender.py`, `storage.py`.
 
 #### 5.5 — Azure onboarding polish
 
-- [ ] Subscription-level onboarding documented with exact app registration permissions
-- [ ] Test-connection detects missing permissions with degraded-check messaging
+- [x] Subscription-level onboarding documented with exact app registration permissions
+- [x] Test-connection detects missing permissions with degraded-check messaging
 - [ ] Management group support (stretch — can defer within phase)
 
 ---
@@ -300,9 +300,9 @@ Items from `direction/README_Veritrail_Engineering_and_Evidence_Strategy.md` not
 
 - [~] Microsoft Defender for Cloud — `defender.py` shipped
 - [~] Storage checks — `storage.py` shipped
-- [ ] Azure Resource Graph — Phase 5.1
-- [ ] Activity Log collector — Phase 5.2
-- [ ] Entra/RBAC evidence — Phase 5.3
+- [x] Azure Resource Graph — Phase 5.1
+- [x] Activity Log collector — Phase 5.2
+- [x] Entra/RBAC evidence — Phase 5.3
 - [ ] Azure Policy compliance — Phase 5.4
 
 #### Release 5 — Deeper integrations
@@ -412,9 +412,9 @@ flowchart LR
 
 ### Phase 5 — Azure (one collector per run)
 
-- [ ] Resource Graph baseline
-- [ ] Activity Log / diagnostic settings
-- [ ] Entra RBAC deep checks
+- [x] Resource Graph baseline
+- [x] Activity Log / diagnostic settings
+- [x] Entra RBAC deep checks
 - [ ] Azure Policy compliance
 
 ### Phase 6–8

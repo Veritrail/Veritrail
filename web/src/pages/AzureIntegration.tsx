@@ -21,6 +21,8 @@ type AzureSubscription = {
   has_client_secret: boolean;
 };
 
+type ListActionMessage = { tone: "ok" | "error"; text: string };
+
 export default function AzureIntegration() {
   const qc = useQueryClient();
   const { reportScanFailure } = useRecheckNotifications();
@@ -35,6 +37,7 @@ export default function AzureIntegration() {
   const [clientSecret, setClientSecret] = useState("");
   const [label, setLabel] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [listActionMessage, setListActionMessage] = useState<ListActionMessage | null>(null);
   const [actionState, setActionState] = useState<string | null>(null);
 
   const subs = data ?? [];
@@ -77,9 +80,24 @@ export default function AzureIntegration() {
   async function verifySub(id: string) {
     const sub = subs.find((s) => s.id === id);
     setActionState(id);
+    setListActionMessage(null);
     try {
-      await api(`/v1/integrations/azure/subscriptions/${id}/verify`, { method: "POST", body: "{}" });
+      const result = await api<{
+        ok: boolean;
+        degraded_checks?: Array<{ check_id: string; api: string; reason: string }>;
+      }>(`/v1/integrations/azure/subscriptions/${id}/verify`, { method: "POST", body: "{}" });
       qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
+      setSaveError("");
+      const degraded = result.degraded_checks ?? [];
+      if (degraded.length > 0) {
+        const summary = degraded.map((row) => row.check_id).join(", ");
+        setListActionMessage({
+          tone: "ok",
+          text: `Connected with degraded checks (${summary}). Grant Reader and Security Reader on the subscription and verify again.`,
+        });
+      } else {
+        setListActionMessage({ tone: "ok", text: "Azure connection verified." });
+      }
     } catch (e) {
       const message = formatApiError(e);
       setSaveError(message);
@@ -100,12 +118,19 @@ export default function AzureIntegration() {
   async function scanSub(id: string) {
     const sub = subs.find((s) => s.id === id);
     setActionState(`scan-${id}`);
+    setListActionMessage(null);
     try {
       await api(`/v1/integrations/azure/subscriptions/${id}/scan`, { method: "POST", body: "{}" });
       qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
+      setListActionMessage({
+        tone: "ok",
+        text: "Scan queued. Findings will update when the scan completes.",
+      });
+      setSaveError("");
     } catch (e) {
       const message = formatApiError(e);
       setSaveError(message);
+      setListActionMessage({ tone: "error", text: "Scan failed — see notifications" });
       reportScanFailure({
         accountId: id,
         accountLabel: scanFailureAccountLabel({
@@ -141,7 +166,7 @@ export default function AzureIntegration() {
               {connected && <span className="integration-setup__badge">Connected</span>}
             </div>
             <p className="integration-setup__subtitle">
-              Defender for Cloud posture and storage account public blob access checks.
+              Defender, storage, Resource Graph, Activity Log, and privileged RBAC checks.
             </p>
           </div>
         </div>
@@ -154,7 +179,8 @@ export default function AzureIntegration() {
           <div className="integration-setup__card">
             <div className="integration-setup__section">
               <p className="integration-setup__callout">
-                Register an app in Entra ID with client credentials and Reader + Security Reader on the subscription.
+                Register an app in Entra ID with client credentials. Assign <strong>Reader</strong> and{" "}
+                <strong>Security Reader</strong> on the subscription (see setup guide in repo docs/azure-setup.md).
               </p>
               <div className="integration-setup__grid integration-setup__grid--2">
                 <div>
@@ -190,6 +216,11 @@ export default function AzureIntegration() {
           {subs.length > 0 && (
             <div className="integration-setup__card">
               <h2 className="integration-setup__section-title">Connected subscriptions</h2>
+              {listActionMessage && (
+                <p className={listActionMessage.tone === "error" ? "integration-setup__error" : "integration-setup__callout"}>
+                  {listActionMessage.text}
+                </p>
+              )}
               <ul className="integration-setup__list">
                 {subs.map((s) => (
                   <li key={s.id} className="integration-setup__list-item">

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -58,4 +58,61 @@ class AzureStorageAccount(Base):
     account_name: Mapped[str] = mapped_column(String(120), nullable=False)
     resource_group: Mapped[str] = mapped_column(String(120), nullable=False)
     public_blob_access: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AzureActivityLogSettings(Base):
+    __tablename__ = "azure_activity_log_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azure_subscription_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("azure_subscriptions.id", ondelete="CASCADE"), unique=True
+    )
+    activity_log_export_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    diagnostic_settings_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AzurePrivilegedRoleAssignment(Base):
+    __tablename__ = "azure_privileged_role_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "azure_subscription_id",
+            "assignment_id",
+            name="uq_azure_rbac_subscription_assignment",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azure_subscription_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("azure_subscriptions.id", ondelete="CASCADE"), index=True
+    )
+    assignment_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    role_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    role_definition_id: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    principal_id: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    principal_type: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    scope: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AzureComputeInstance(Base):
+    __tablename__ = "azure_compute_instances"
+    __table_args__ = (
+        UniqueConstraint(
+            "azure_subscription_id",
+            "vm_id",
+            name="uq_azure_compute_subscription_vm",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azure_subscription_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("azure_subscriptions.id", ondelete="CASCADE"), index=True
+    )
+    vm_id: Mapped[str] = mapped_column(String(500), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    resource_group: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    location: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    has_public_ip: Mapped[bool] = mapped_column(Boolean, default=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -133,8 +133,10 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "s3.account.public_access_not_blocked": "network_boundary",
     "s3.bucket.public_access_not_blocked": "network_boundary",
     "azure.storage.public_blob_access": "network_boundary",
+    "azure.compute.instance_public_ip": "network_boundary",
     "gcp.compute.instance_public_ip": "network_boundary",
     "gcp.asset.public_iam_binding": "network_boundary",
+    "azure.entra.privileged_role_assignment": "identity_governance",
     "gcp.osconfig.vuln_report_present": "vulnerability_management",
     "gcp.scc.not_enabled": "incident_response",
     # Flow logs stay attributed to logging even though the network composite

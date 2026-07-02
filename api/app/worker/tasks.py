@@ -1041,8 +1041,17 @@ def run_azure_scan(subscription_id: str) -> dict:
     from datetime import datetime, timezone
 
     from app.collectors.azure.defender import collect_defender
+    from app.collectors.azure.resource_graph import collect_resource_graph
     from app.collectors.azure.storage import collect_storage_accounts
-    from app.checks import azure_defender_not_enabled, azure_storage_public_blob_access
+    from app.collectors.azure.activity_log import collect_activity_log
+    from app.collectors.azure.entra_rbac import collect_entra_rbac
+    from app.checks import (
+        azure_compute_instance_public_ip,
+        azure_defender_not_enabled,
+        azure_entra_privileged_role_assignment,
+        azure_logging_not_enabled,
+        azure_storage_public_blob_access,
+    )
     from app.models.azure_subscription import AzureSubscription
     from app.models.cloud_scan_run import CloudScanRun
     from app.worker.cloud_scan import execute_cloud_scan
@@ -1081,10 +1090,16 @@ def run_azure_scan(subscription_id: str) -> dict:
             collectors=[
                 ("collect_defender", collect_defender),
                 ("collect_storage_accounts", collect_storage_accounts),
+                ("collect_resource_graph", collect_resource_graph),
+                ("collect_activity_log", collect_activity_log),
+                ("collect_entra_rbac", collect_entra_rbac),
             ],
             checks=[
                 ("azure_defender_not_enabled", azure_defender_not_enabled.run),
                 ("azure_storage_public_blob_access", azure_storage_public_blob_access.run),
+                ("azure_compute_instance_public_ip", azure_compute_instance_public_ip.run),
+                ("azure_logging_not_enabled", azure_logging_not_enabled.run),
+                ("azure_entra_privileged_role_assignment", azure_entra_privileged_role_assignment.run),
             ],
             target=row,
             scan_run=run,

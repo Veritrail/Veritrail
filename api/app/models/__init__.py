@@ -33,7 +33,14 @@ from app.models.gcp_project import (
     GcpProject,
     GcpSecurityCommandCenter,
 )
-from app.models.azure_subscription import AzureDefenderStatus, AzureStorageAccount, AzureSubscription
+from app.models.azure_subscription import (
+    AzureActivityLogSettings,
+    AzureComputeInstance,
+    AzureDefenderStatus,
+    AzurePrivilegedRoleAssignment,
+    AzureStorageAccount,
+    AzureSubscription,
+)
 
 __all__ = [
     "Org", "User",
@@ -62,5 +69,6 @@ __all__ = [
     "UserSession",
     "GcpProject", "GcpComputeInstance", "GcpLoggingAudit",
     "GcpOsconfigVuln", "GcpSecurityCommandCenter", "GcpCloudAsset",
-    "AzureSubscription", "AzureDefenderStatus", "AzureStorageAccount",
+    "AzureSubscription", "AzureDefenderStatus", "AzureStorageAccount", "AzureComputeInstance",
+    "AzureActivityLogSettings", "AzurePrivilegedRoleAssignment",
 ]

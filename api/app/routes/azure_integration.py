@@ -174,6 +174,9 @@ def verify_azure_subscription(
             client_secret=row.client_secret,
         )
         result = client.verify(row.subscription_id)
+        from app.services.azure_permission_probes import probe_azure_scan_permissions
+
+        degraded_checks = probe_azure_scan_permissions(row)
     except ValueError as e:
         row.status = "error"
         row.last_error = str(e)[:1000]
@@ -188,7 +191,7 @@ def verify_azure_subscription(
     row.status = "connected"
     row.last_error = None
     db.commit()
-    return {"ok": True, **result}
+    return {"ok": True, **result, "degraded_checks": degraded_checks}
 
 
 @router.post("/azure/subscriptions/{subscription_row_id}/scan")
@@ -202,7 +205,7 @@ def scan_azure_subscription(
     row = db.get(AzureSubscription, subscription_row_id)
     if not row or row.org_id != org.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Azure subscription not found")
-    if row.status != "connected":
+    if row.status == "pending":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Verify Azure connection before scanning")
 
     from app.services.cloud_scan_runs import latest_running_cloud_scan

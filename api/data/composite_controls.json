@@ -20,6 +20,7 @@
       "entra.admin.unreviewed",
       "entra.org.mfa_not_enforced",
       "entra.user.inactive_90d",
+      "azure.entra.privileged_role_assignment",
       "github.org.admin_unreviewed",
       "github.org.dormant_members",
       "github.org.mfa_not_enforced",
@@ -208,6 +209,7 @@
       "ecs.service.public_ip_enabled",
       "ecs.task_definition.privileged_container",
       "azure.storage.public_blob_access",
+      "azure.compute.instance_public_ip",
       "gcp.compute.instance_public_ip",
       "gcp.asset.public_iam_binding",
       "eks.cluster.public_endpoint",
@@ -283,6 +285,7 @@
       "s3.bucket.public_access_not_blocked",
       "vpc.flow_logs.not_enabled",
       "azure.storage.public_blob_access",
+      "azure.compute.instance_public_ip",
       "gcp.compute.instance_public_ip",
       "gcp.asset.public_iam_binding"
     ],
@@ -378,6 +381,7 @@
       "guardduty.open_findings",
       "vpc.flow_logs.not_enabled",
       "azure.defender.not_enabled",
+      "azure.logging.not_enabled",
       "gcp.logging.not_enabled",
       "gcp.scc.not_enabled"
     ],

@@ -139,6 +139,9 @@ from app.checks import (
     gcp_asset_public_iam_binding,
     azure_defender_not_enabled,
     azure_storage_public_blob_access,
+    azure_compute_instance_public_ip,
+    azure_logging_not_enabled,
+    azure_entra_privileged_role_assignment,
 )
 
 ALL_CHECKS = [
@@ -303,4 +306,7 @@ ALL_CHECKS = [
     gcp_asset_public_iam_binding,
     azure_defender_not_enabled,
     azure_storage_public_blob_access,
+    azure_compute_instance_public_ip,
+    azure_logging_not_enabled,
+    azure_entra_privileged_role_assignment,
 ]

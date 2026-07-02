@@ -33,13 +33,16 @@ Veritrail's GCP and Azure integrations collect baseline posture evidence via RES
 
 ## Azure
 
-- **Connect:** Integrations → Microsoft Azure → subscription + Entra app client credentials (encrypted).
+- **Connect:** Integrations → Microsoft Azure → subscription + Entra app client credentials (encrypted). See [azure-setup.md](./azure-setup.md) for exact app registration RBAC roles.
 - **Note:** Client secrets are convenient for phase one but not ideal for production; federated workload identity for Azure is planned as phase two (similar to GCP WIF / AWS role assumption).
-- **Verify:** `POST /v1/integrations/azure/subscriptions/{id}/verify`
-- **Scan:** Celery task `run_azure_scan` collects Defender pricing/secure score and storage accounts, then runs:
+- **Verify:** `POST /v1/integrations/azure/subscriptions/{id}/verify` — subscription read + per-API permission probes with degraded-check messaging.
+- **Scan:** Celery task `run_azure_scan` collects Defender pricing/secure score, storage accounts, Resource Graph VM inventory, Activity Log diagnostic settings, and privileged RBAC role assignments, then runs:
   - `azure.defender.not_enabled`
   - `azure.storage.public_blob_access`
-- **Tables:** `azure_subscriptions`, `azure_defender_status`, `azure_storage_accounts`
+  - `azure.compute.instance_public_ip`
+  - `azure.logging.not_enabled`
+  - `azure.entra.privileged_role_assignment`
+- **Tables:** `azure_subscriptions`, `azure_defender_status`, `azure_storage_accounts`, `azure_compute_instances`, `azure_activity_log_settings`, `azure_privileged_role_assignments`
 
 ## Normalization APIs (phase two)
 
@@ -76,7 +79,10 @@ GCP and Azure baseline checks are mapped into existing composites in `api/data/c
 | `gcp.scc.not_enabled` | `incident_response`, `logging_monitoring` |
 | `gcp.asset.public_iam_binding` | `data_protection`, `network_boundary` |
 | `azure.defender.not_enabled` | `logging_monitoring` |
+| `azure.logging.not_enabled` | `logging_monitoring` |
 | `azure.storage.public_blob_access` | `data_protection` |
+| `azure.compute.instance_public_ip` | `data_protection`, `network_boundary` |
+| `azure.entra.privileged_role_assignment` | `identity_governance` |
 
 ## Scan-all UX
 
@@ -89,8 +95,8 @@ Phase-one GCP and Azure are **intentionally thin baselines**. A connected projec
 
 | Dimension | AWS | GCP (phase one) | Azure (phase one) |
 |---|---|---|---|
-| Collectors | 32 (`api/app/collectors/` — IAM, S3, CloudTrail, VPC, RDS, EC2, EKS, GuardDuty, Config, Security Hub, …) | 5 (`logging_audit`, `compute`, `osconfig_vuln`, `security_command_center`, `cloud_asset_inventory`) | 2 (`defender`, `storage`) |
-| Registered checks | ~100 (`ALL_CHECKS` minus `gcp.*` / `azure.*`) | 5 | 2 |
+| Collectors | 32 (`api/app/collectors/` — IAM, S3, CloudTrail, VPC, RDS, EC2, EKS, GuardDuty, Config, Security Hub, …) | 5 (`logging_audit`, `compute`, `osconfig_vuln`, `security_command_center`, `cloud_asset_inventory`) | 5 (`defender`, `storage`, `resource_graph`, `activity_log`, `entra_rbac`) |
+| Registered checks | ~100 (`ALL_CHECKS` minus `gcp.*` / `azure.*`) | 5 | 5 |
 | Scan pipeline | `run_scan` → `ScanPipeline` (collectors + checks + evidence snapshots) | `run_gcp_scan` → `execute_cloud_scan` | `run_azure_scan` → `execute_cloud_scan` |
 | Finding scope | `account_id` | `gcp_project_id` | `azure_subscription_id` |
 
