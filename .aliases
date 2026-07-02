@@ -1,0 +1,8 @@
+# Veritrail shell shortcuts — source from the repo root:
+#   source .aliases
+#
+# h — one-time Hetzner bootstrap (Vault PKI + IAM Roles Anywhere)
+# d — routine prod redeploy (git pull + migrate + compose up)
+
+alias h='git pull && EMAIL=zenmyx@gmail.com ENV_FILE=.env.prod DOMAIN=app.veritrail.io API_DOMAIN=api.veritrail.io ./scripts/launch-prod.sh --hetzner-roles-anywhere'
+alias d='git pull && EMAIL=zenmyx@gmail.com ENV_FILE=.env.prod DOMAIN=app.veritrail.io API_DOMAIN=api.veritrail.io ./scripts/launch-prod.sh --deploy-only'
