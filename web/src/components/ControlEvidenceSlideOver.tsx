@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { api, formatApiError } from "../api";
 import ConfirmDialog from "./ConfirmDialog";
 import { EvidenceArtifactComments } from "./EvidenceArtifactComments";
@@ -64,6 +64,24 @@ async function invalidateEvidenceQueries(qc: ReturnType<typeof useQueryClient>, 
   if (framework) {
     await qc.invalidateQueries({ queryKey: ["evidence-coverage", framework] });
   }
+}
+
+/** Bordered drawer card with optional uppercase label — matches History snapshot pills. */
+export function ControlDetailPillCard({
+  label,
+  children,
+  className,
+}: {
+  label?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`control-detail-pill${className ? ` ${className}` : ""}`}>
+      {label ? <p className="control-detail-pill__label">{label}</p> : null}
+      <div className="control-detail-pill__body">{children}</div>
+    </div>
+  );
 }
 
 /** Shared artifact list for control and composite detail drawers. */
@@ -379,11 +397,13 @@ export function ControlEvidenceTabContent({
             </button>
           ) : null}
         </div>
-        {linked.length === 0 ? (
-          <p className="control-evidence-drawer__empty">No external evidence linked to this criterion yet.</p>
-        ) : (
-          <ExternalEvidenceArtifactList artifacts={linked} canComment={canEdit} framework={framework} />
-        )}
+        <ControlDetailPillCard>
+          {linked.length === 0 ? (
+            <p className="control-evidence-drawer__empty">No external evidence linked to this criterion yet.</p>
+          ) : (
+            <ExternalEvidenceArtifactList artifacts={linked} canComment={canEdit} framework={framework} />
+          )}
+        </ControlDetailPillCard>
       </section>
 
       <CriterionEvidenceUploadModal

@@ -45,7 +45,11 @@ import {
 } from "../lib/evidenceGap";
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
 import { DrawerDateField } from "../components/DrawerDateField";
-import { ControlEvidenceTabContent, ExternalEvidenceArtifactList } from "../components/ControlEvidenceSlideOver";
+import {
+  ControlDetailPillCard,
+  ControlEvidenceTabContent,
+  ExternalEvidenceArtifactList,
+} from "../components/ControlEvidenceSlideOver";
 import { evidenceArtifactsForComposite } from "../lib/controlEvidence";
 import {
   ControlDetailPanel,
@@ -2741,12 +2745,14 @@ function ControlGuidanceFooter({
   mappedControls: GuidanceMappedControl[];
 }) {
   return (
-    <ControlDetailSection title="Guidance">
-      {guidance ? (
-        <ControlGuidanceContent text={guidance} />
-      ) : (
-        <p className="control-detail-empty">No written guidance yet for this control.</p>
-      )}
+    <ControlDetailSection>
+      <ControlDetailPillCard label="Guidance">
+        {guidance ? (
+          <ControlGuidanceContent text={guidance} />
+        ) : (
+          <p className="control-detail-empty">No written guidance yet for this control.</p>
+        )}
+      </ControlDetailPillCard>
       {mappedControls.length > 0 ? (
         <div className="control-detail-guidance-footer">
           <p className="control-detail-mapped-controls__heading">Mapped controls</p>
@@ -2901,13 +2907,15 @@ function buildCompositeTabs({
             </ControlDetailSection>
           ) : null}
 
-          <ControlDetailSection title="External evidence">
-            <ExternalEvidenceArtifactList
-              artifacts={linkedEvidence}
-              emptyMessage="No external evidence uploaded for this control group yet."
-              canComment={canEditEvidence}
-              framework={framework}
-            />
+          <ControlDetailSection>
+            <ControlDetailPillCard label="External evidence">
+              <ExternalEvidenceArtifactList
+                artifacts={linkedEvidence}
+                emptyMessage="No external evidence uploaded for this control group yet."
+                canComment={canEditEvidence}
+                framework={framework}
+              />
+            </ControlDetailPillCard>
           </ControlDetailSection>
 
           {!isVerified ? (
@@ -3017,10 +3025,14 @@ function buildDetailedTabs({
           </ControlDetailSection>
 
           {!isVerified ? (
-            <ControlDetailSection title="Guidance">
-              {ctrl.guidance ? (
-                <ControlGuidanceContent text={ctrl.guidance} />
-              ) : null}
+            <ControlDetailSection>
+              <ControlDetailPillCard label="Guidance">
+                {ctrl.guidance ? (
+                  <ControlGuidanceContent text={ctrl.guidance} />
+                ) : !hasMappingMeta ? (
+                  <p className="control-detail-empty">No written guidance yet for this control.</p>
+                ) : null}
+              </ControlDetailPillCard>
               {hasMappingMeta ? (
                 <p className="control-detail-mapping-line">
                   {frameworkControlLabel(framework, ctrl.control_id)}
@@ -3028,9 +3040,6 @@ function buildDetailedTabs({
                   {ctrl.cis_profile_level ? ` · CIS profile: ${ctrl.cis_profile_level}` : ""}
                   {ctrl.iso_applicability ? ` · ISO 27001: ${ctrl.iso_applicability}` : ""}
                 </p>
-              ) : null}
-              {!ctrl.guidance && !hasMappingMeta ? (
-                <p className="control-detail-empty">No written guidance yet for this control.</p>
               ) : null}
             </ControlDetailSection>
           ) : null}

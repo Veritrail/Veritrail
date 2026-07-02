@@ -269,6 +269,42 @@
   color: #71717a;
 }
 
+/* Pill card — matches History drawer snapshot sections (e.g. Primary cause). */
+.control-detail-pill {
+  border: 1px solid var(--vt-border);
+  border-radius: var(--vt-radius-md);
+  background: var(--vt-surface);
+}
+
+.control-detail-pill__label {
+  margin: 0;
+  padding: 0.875rem 1rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.control-detail-pill__body {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.control-detail-pill__body .control-detail-empty {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.control-detail-pill__body .control-evidence-drawer__empty {
+  margin: 0;
+}
+
+.control-detail-pill__body .control-detail-guidance {
+  max-width: none;
+}
+
 .control-detail-subsection {
   display: flex;
   flex-direction: column;
