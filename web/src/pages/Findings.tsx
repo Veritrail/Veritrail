@@ -200,7 +200,7 @@ type ResourceOption = {
 };
 
 const FINDINGS_ROW_GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 sm:items-center";
+  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:gap-4 lg:items-center";
 
 const RESOURCE_CHILD_PREVIEW = 3;
 
@@ -484,7 +484,7 @@ function FindingRow({
         tabIndex={0}
         aria-expanded={canExpand ? expanded : undefined}
         aria-label={`${title}${canExpand ? `, ${resources.length} resources` : ""}`}
-        className={`findings-v2-row finding-row ${railClass} group ${FINDINGS_ROW_GRID} cursor-pointer ${expanded ? "is-expanded sm:items-start" : "sm:items-center"}`}
+        className={`findings-v2-row finding-row ${railClass} group ${FINDINGS_ROW_GRID} cursor-pointer ${expanded ? "is-expanded lg:items-start" : "lg:items-center"}`}
         onClick={handleParentRowClick}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -493,15 +493,15 @@ function FindingRow({
           }
         }}
       >
-        <div className="flex w-5 shrink-0 items-center justify-center self-center sm:col-auto sm:self-start sm:pt-2">
+        <div className="flex w-5 shrink-0 items-center justify-center self-center lg:col-auto lg:self-start lg:pt-2">
           <RowChevron expanded={expanded && canExpand} muted={!canExpand} />
         </div>
 
-        <div className="hidden shrink-0 self-start pt-2 sm:col-auto sm:block sm:w-[5.5rem]">
+        <div className="hidden shrink-0 self-start pt-2 lg:col-auto lg:block lg:w-[5.5rem]">
           <SeverityIndicator severity={sev} />
         </div>
 
-        <div className="finding-title-cell finding-cell min-w-0 sm:col-auto">
+        <div className="finding-title-cell finding-cell min-w-0 lg:col-auto">
           <div className="flex min-w-0 items-baseline gap-1">
             <span className="finding-title min-w-0 truncate">{title}</span>
             {canExpand && !expanded ? (
@@ -510,13 +510,13 @@ function FindingRow({
               </span>
             ) : null}
           </div>
-          <div className="mt-1 sm:hidden">
+          <div className="mt-1 lg:hidden">
             <SeverityIndicator severity={sev} />
           </div>
         </div>
 
         <div
-          className="flex shrink-0 items-center justify-end self-center sm:col-auto sm:w-16 sm:justify-center sm:self-start sm:pt-2"
+          className="flex shrink-0 items-center justify-end self-center lg:col-auto lg:w-16 lg:justify-center lg:self-start lg:pt-2"
           onClick={(event) => {
             event.stopPropagation();
             onReview(items);
@@ -529,10 +529,10 @@ function FindingRow({
       {canExpand ? (
         <div className={`veritrail-accordion-panel ${expanded ? "is-open" : ""}`}>
           <div className="veritrail-accordion-panel__inner">
-            <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
-              <span className="hidden sm:block" aria-hidden />
-              <span className="hidden w-[5.5rem] sm:block" aria-hidden />
-              <div className="py-4 pl-4 pr-5 sm:pl-0">
+            <div className="border-t border-zinc-100 lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:gap-4">
+              <span className="hidden lg:block" aria-hidden />
+              <span className="hidden w-[5.5rem] lg:block" aria-hidden />
+              <div className="py-4 pl-4 pr-5 lg:pl-0">
                 <AffectedResourcesCard
                   resources={visibleResources}
                   totalCount={resources.length}
@@ -923,81 +923,83 @@ export default function Findings() {
         {findingsQuery.isLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
 
         {!findingsQuery.isLoading && (
-          <section className="min-w-0">
-            <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
+          <section className="findings-v2-content min-w-0">
+            <div className="findings-v2-card rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
               <div className="findings-v2-table-toolbar">
-                <div className="findings-v2-filter-cluster">
-                  <FilterChipBar
-                    chips={severityTabs.map((tab) => ({
-                      id: tab.id,
-                      label: tab.label,
-                      count: severityCounts[tab.id],
-                      urgent: tab.urgent,
-                    }))}
-                    selected={severityFilter}
-                    onChange={(id) => setSeverityFilter(id as SeverityFilter)}
-                    ariaLabel="Severity"
-                  />
+                <div className="findings-v2-toolbar-scroll">
+                  <div className="findings-v2-filter-cluster">
+                    <FilterChipBar
+                      chips={severityTabs.map((tab) => ({
+                        id: tab.id,
+                        label: tab.label,
+                        count: severityCounts[tab.id],
+                        urgent: tab.urgent,
+                      }))}
+                      selected={severityFilter}
+                      onChange={(id) => setSeverityFilter(id as SeverityFilter)}
+                      ariaLabel="Severity"
+                    />
 
-                  <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
-                  <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
-                  <FindingsStatusSelect
-                    value={status}
-                    onChange={setStatus}
-                  />
-                </div>
-
-                <div className="findings-v2-control-cluster">
-                  <input
-                    value={searchText}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    placeholder="Search finding, ARN, resource…"
-                    className="findings-v2-search h-8 rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
-                  />
-                  <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        qc.invalidateQueries({ queryKey: ["findings"] });
-                        setIsRefreshing(true);
-                      }}
-                      disabled={isRefreshing}
-                      className="findings-v2-toolbar-btn findings-v2-toolbar-icon-btn"
-                      aria-label={isRefreshing ? "Refreshing findings" : "Refresh findings"}
-                      title={isRefreshing ? "Refreshing" : "Refresh"}
-                    >
-                      <svg className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4m-4 4a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4" />
-                      </svg>
-                    </button>
+                    <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
+                    <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
+                    <FindingsStatusSelect
+                      value={status}
+                      onChange={setStatus}
+                    />
                   </div>
-                  <div className="findings-v2-toolbar-group" role="group" aria-label="Sort findings">
-                    {SORT_OPTIONS.map((opt) => (
+
+                  <div className="findings-v2-control-cluster">
+                    <input
+                      value={searchText}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      placeholder="Search finding, ARN, resource…"
+                      className="findings-v2-search h-8 rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
+                    />
+                    <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
                       <button
-                        key={opt.id}
                         type="button"
-                        onClick={() => toggleSort(opt.id)}
-                        className="findings-v2-toolbar-btn"
+                        onClick={() => {
+                          qc.invalidateQueries({ queryKey: ["findings"] });
+                          setIsRefreshing(true);
+                        }}
+                        disabled={isRefreshing}
+                        className="findings-v2-toolbar-btn findings-v2-toolbar-icon-btn"
+                        aria-label={isRefreshing ? "Refreshing findings" : "Refresh findings"}
+                        title={isRefreshing ? "Refreshing" : "Refresh"}
                       >
-                        {opt.label}
-                        {sortKey === opt.id ? (
-                          <span className="text-[13px] leading-none text-zinc-500">{sortDir === "asc" ? "↑" : "↓"}</span>
-                        ) : null}
+                        <svg className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4m-4 4a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4" />
+                        </svg>
                       </button>
-                    ))}
-                  </div>
-                  <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
-                    <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
-                      Export
-                    </button>
-                    {awsScanAccountId ? (
-                      <FindingsScanButton
-                        connectedId={awsScanAccountId}
-                        isRunning={isRunning}
-                        scanTriggered={scanTriggered}
-                        onScan={triggerScan}
-                      />
-                    ) : null}
+                    </div>
+                    <div className="findings-v2-toolbar-group" role="group" aria-label="Sort findings">
+                      {SORT_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => toggleSort(opt.id)}
+                          className="findings-v2-toolbar-btn"
+                        >
+                          {opt.label}
+                          {sortKey === opt.id ? (
+                            <span className="text-[13px] leading-none text-zinc-500">{sortDir === "asc" ? "↑" : "↓"}</span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
+                      <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
+                        Export
+                      </button>
+                      {awsScanAccountId ? (
+                        <FindingsScanButton
+                          connectedId={awsScanAccountId}
+                          isRunning={isRunning}
+                          scanTriggered={scanTriggered}
+                          onScan={triggerScan}
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1044,7 +1046,7 @@ export default function Findings() {
               ) : (
                 <>
                   <div
-                    className="findings-v2-col-head hidden sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4"
+                    className="findings-v2-col-head hidden lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4"
                     role="row"
                   >
                     <span className="w-5" aria-hidden />

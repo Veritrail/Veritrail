@@ -19,12 +19,26 @@
   --fv-rail-high: var(--vt-rail-high);
   --fv-rail-medium: var(--vt-rail-medium);
   --fv-rail-low: var(--vt-rail-low);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .findings-v2-page.findings-v2-shell {
   /* transparent so the app-main gradient flows under the content — avoids a
      grey/white seam against the lighter left margin */
   background: transparent;
+}
+
+.findings-v2-content,
+.findings-v2-card,
+.findings-v2-table {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.findings-v2-card {
+  overflow: hidden;
 }
 
 .findings-v2-page-meta-row {
@@ -46,8 +60,9 @@
 .findings-v2-filter-trigger {
   display: inline-flex;
   height: 2.375rem;
-  min-width: 10.25rem;
+  min-width: 0;
   max-width: 14rem;
+  flex: 0 1 auto;
   cursor: pointer;
   align-items: center;
   gap: 0.625rem;
@@ -95,6 +110,16 @@
   border-color: #cbd5e1;
   background: #fafbfc;
   color: #18181b;
+}
+
+.findings-v2-filter-cluster > div {
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
+}
+
+.findings-v2-filter-trigger .truncate {
+  min-width: 0;
 }
 
 .findings-v2-checks-summary {
@@ -271,7 +296,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   overflow: visible;
   position: relative;
   z-index: 1;
@@ -284,12 +309,67 @@
 /* Findings: white toolbar so the page reads white -> grey column head -> white
    rows, matching the History page. Scoped to Findings; Compliance keeps grey. */
 .findings-v2-page .findings-v2-table-toolbar {
+  display: block;
+  overflow: visible;
   background: var(--vt-surface);
+}
+
+/* Findings toolbar: one horizontal row; scroll when space is tight. */
+.findings-v2-page .findings-v2-toolbar-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-filter-cluster,
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-control-cluster {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  min-width: max-content;
+  overflow: visible;
+}
+
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-control-cluster {
+  margin-left: auto;
+}
+
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-filter-cluster > div {
+  flex: 0 0 auto;
+  min-width: max-content;
+  max-width: none;
+}
+
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-filter-cluster .findings-v2-filter-chip-bar {
+  flex: 0 0 auto;
+  min-width: max-content;
+  max-width: none;
+  overflow-x: visible;
+}
+
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+  flex: 0 0 auto;
+  min-width: 12rem;
+  max-width: 24rem;
+}
+
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group {
+  flex-wrap: nowrap;
+  min-width: max-content;
 }
 
 /* Findings toolbar buttons adopt the History filter-button family: flat (no
    shadow), 8px radius, lighter border, #374151 text. Scoped to Findings. */
 .findings-v2-page .findings-v2-toolbar-btn {
+  flex: 0 0 auto;
+  min-width: max-content;
   border-radius: 0.5rem;
   border-color: #cbd5e1;
   color: #374151;
@@ -352,21 +432,36 @@
 }
 
 .findings-v2-filter-cluster {
-  flex: 0 0 auto;
+  flex: 1 1 35rem;
   flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.findings-v2-filter-cluster .findings-v2-filter-chip-bar {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.findings-v2-filter-cluster .findings-v2-filter-chip-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .findings-v2-control-cluster {
-  flex: 1 1 34rem;
-  flex-wrap: wrap;
+  flex: 1 1 31rem;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
 .findings-v2-severity-tabs {
   display: inline-flex;
-  flex: 0 0 auto;
-  min-width: max-content;
-  max-width: none;
+  flex: 1 1 20rem;
+  min-width: 13rem;
+  max-width: 33rem;
   align-items: center;
   gap: 0.25rem;
   overflow-x: auto;
@@ -384,18 +479,20 @@
 
 .findings-v2-severity-tabs > button {
   justify-content: center;
-  min-width: 5.625rem;
+  min-width: 5rem;
+  flex: 0 0 auto;
 }
 
 .findings-v2-search {
-  flex: 1 1 18rem;
-  min-width: min(100%, 14rem);
-  max-width: 26rem;
+  flex: 1 1 16rem;
+  min-width: 12rem;
+  max-width: 24rem;
 }
 
 .findings-v2-toolbar-icon-btn {
   width: 2.25rem;
   min-width: 2.25rem;
+  flex-basis: 2.25rem;
   padding: 0;
 }
 
@@ -513,6 +610,7 @@
 
 .finding-row {
   min-height: 44px;
+  min-width: 0;
 }
 
 .veritrail-accordion-panel {
@@ -568,7 +666,7 @@
   flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
-  min-width: max-content;
+  min-width: 0;
 }
 
 .findings-v2-toolbar-group--divider {
@@ -585,12 +683,91 @@
 }
 
 .findings-v2-actions-group .findings-v2-toolbar-btn {
-  min-width: 0;
+  min-width: max-content;
+}
+
+@media (max-width: 1120px) {
+  .findings-v2-table-toolbar {
+    align-items: stretch;
+  }
+
+  .findings-v2-filter-cluster,
+  .findings-v2-control-cluster {
+    width: 100%;
+  }
+
+  .findings-v2-filter-cluster {
+    flex-wrap: nowrap;
+    overflow: visible;
+  }
+
+  .findings-v2-filter-cluster > div {
+    flex: 0 1 auto;
+  }
+
+  .findings-v2-control-cluster {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .findings-v2-search {
+    max-width: none;
+  }
+
+  .findings-v2-toolbar-group {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .findings-v2-toolbar-group--divider,
+  .findings-v2-actions-group {
+    padding-left: 0;
+    margin-left: 0;
+    border-left: 0;
+  }
+
+  .findings-v2-page .findings-v2-toolbar-scroll {
+    flex-wrap: nowrap;
+  }
+
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-filter-cluster,
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-control-cluster {
+    width: auto;
+    flex-wrap: nowrap;
+  }
+
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group {
+    flex-wrap: nowrap;
+    min-width: max-content;
+  }
+
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group--divider,
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-actions-group {
+    padding-left: 12px;
+    margin-left: 4px;
+    border-left: 1px solid #e2e8f0;
+  }
+
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-actions-group {
+    padding-left: 14px;
+    margin-left: 6px;
+    border-left-color: #d4d4d8;
+  }
 }
 
 @media (max-width: 760px) {
   .findings-v2-table-toolbar {
     padding-inline: 0.75rem;
+  }
+
+  .findings-v2-filter-cluster,
+  .findings-v2-control-cluster {
+    flex-wrap: wrap;
+  }
+
+  .findings-v2-filter-cluster > div,
+  .findings-v2-filter-trigger {
+    width: 100%;
   }
 
   .findings-v2-control-cluster {
@@ -618,6 +795,23 @@
     padding-left: 0;
     margin-left: 0;
     border-left: 0;
+  }
+
+  .findings-v2-page .findings-v2-filter-cluster > div,
+  .findings-v2-page .findings-v2-filter-trigger {
+    width: auto;
+  }
+
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-filter-cluster,
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-control-cluster {
+    flex-wrap: nowrap;
+    width: auto;
+  }
+
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+    flex: 0 0 auto;
+    flex-basis: auto;
+    max-width: 24rem;
   }
 }
 
@@ -896,7 +1090,7 @@
   background: #fff;
   padding: 0.55rem 1rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   color: #52525b;
   cursor: pointer;
@@ -954,7 +1148,7 @@
 
 .compliance-external-evidence__field label {
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #52525b;
 }
 
@@ -1024,7 +1218,7 @@
   background: #fff;
   padding: 0.4375rem 0.8125rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #52525b;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -1068,7 +1262,7 @@
   background: var(--vt-teal, #0d9488);
   padding: 0.55rem 1rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   color: #fff;
   cursor: pointer;
@@ -1487,7 +1681,7 @@
   border: none;
   background: none;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--vt-teal, #0d9488);
   cursor: pointer;
   transition: color 0.15s ease;
@@ -1929,7 +2123,7 @@
   flex-shrink: 0;
   color: #94a3b8;
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.4;
 }
 
@@ -2050,7 +2244,7 @@
   display: block;
   color: #94a3b8;
   font-size: 0.625rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.2;
   text-transform: uppercase;
@@ -2062,7 +2256,7 @@
   overflow: hidden;
   color: #334155;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
