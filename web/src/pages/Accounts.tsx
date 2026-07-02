@@ -5259,76 +5259,6 @@ function soc2ReadinessPhaseLabel(pct: number | null): string | null {
   return "Audit-ready posture";
 }
 
-function providerMetricLabel(provider: "aws" | "gcp" | "azure"): string {
-  if (provider === "aws") return "AWS";
-  if (provider === "gcp") return "GCP";
-  return "Azure";
-}
-
-const AWS_SERVICE_LABELS: Record<string, string> = {
-  ec2: "EC2",
-  s3: "S3",
-  iam: "IAM",
-  rds: "RDS",
-  lambda: "Lambda",
-  kms: "KMS",
-  cloudtrail: "CloudTrail",
-  logs: "CloudWatch",
-};
-
-function resourceServiceLabel(service: string, provider: "aws" | "gcp" | "azure"): string {
-  if (provider === "aws") {
-    return AWS_SERVICE_LABELS[service.toLowerCase()] ?? service.toUpperCase();
-  }
-  if (provider === "gcp") {
-    if (service === "compute") return "Compute";
-    if (service === "project") return "Project";
-    return service.charAt(0).toUpperCase() + service.slice(1);
-  }
-  if (service === "storage") return "Storage";
-  if (service === "subscription") return "Subscription";
-  return service.charAt(0).toUpperCase() + service.slice(1);
-}
-
-function parseResourceService(
-  resourceArn: string,
-  provider: "aws" | "gcp" | "azure",
-): string | null {
-  if (provider === "aws") {
-    const parts = resourceArn.split(":");
-    return parts[2] ?? null;
-  }
-  if (provider === "gcp" && resourceArn.startsWith("gcp://")) {
-    return resourceArn.slice(6).split("/")[0] ?? null;
-  }
-  if (provider === "azure" && resourceArn.startsWith("azure://")) {
-    return resourceArn.slice(8).split("/")[0] ?? null;
-  }
-  return null;
-}
-
-function buildResourceScopeLabel(
-  items: Finding[],
-  provider: "aws" | "gcp" | "azure",
-): string {
-  const byService = new Map<string, Set<string>>();
-  for (const finding of items) {
-    if (!finding.resource_arn) continue;
-    const service = parseResourceService(finding.resource_arn, provider);
-    if (!service) continue;
-    const bucket = byService.get(service) ?? new Set<string>();
-    bucket.add(finding.resource_arn);
-    byService.set(service, bucket);
-  }
-  const ranked = [...byService.entries()]
-    .sort((left, right) => right[1].size - left[1].size)
-    .slice(0, 3);
-  if (ranked.length === 0) return providerMetricLabel(provider);
-  return ranked
-    .map(([service, resources]) => `${resources.size} ${resourceServiceLabel(service, provider)}`)
-    .join(" · ");
-}
-
 function findingsForAccountScope(
   items: Finding[] | undefined,
   accountId: string,
@@ -5751,16 +5681,6 @@ function AccountSplitDetailPane({
     [findingsItems, accountId, isAws, cloud],
   );
 
-  const scopedFindings = useMemo(
-    () => findingsForAccountScope(findingsItems, accountId, isAws, cloud),
-    [findingsItems, accountId, isAws, cloud],
-  );
-
-  const resourceScopeLabel = useMemo(
-    () => buildResourceScopeLabel(scopedFindings, provider),
-    [scopedFindings, provider],
-  );
-
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
       api<Account>(`/v1/accounts/${acc!.id}/connection-options`, {
@@ -6157,18 +6077,13 @@ function AccountSplitDetailPane({
                     <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                <div className="accounts-detail-metric-card__detail">
-                  <p className="accounts-detail-metric-card__sub">
-                    {hasScanned ? resourceScopeLabel : "From latest scan"}
-                  </p>
-                  <p className="accounts-detail-metric-card__sub">
-                    {hasScanned
-                      ? resourcesDelta != null
-                        ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
-                        : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
-                      : providerMetricLabel(provider)}
-                  </p>
-                </div>
+                <p className="accounts-detail-metric-card__sub">
+                  {hasScanned
+                    ? resourcesDelta != null
+                      ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
+                      : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
+                    : "From latest scan"}
+                </p>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
