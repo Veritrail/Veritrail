@@ -5060,11 +5060,12 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-capabilities__title {
   margin: 0;
-  padding: 0.95rem 1rem;
+  padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--vt-border);
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #09090b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #64748b;
   background: var(--vt-surface-raised);
 }
 
@@ -5087,16 +5088,16 @@ button.accounts-flow-step:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   margin: 0;
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: #18181b;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #3f3f46;
 }
 
 .accounts-detail-capability-row__desc {
   margin: 0.15rem 0 0;
   font-size: 0.75rem;
   line-height: 1.4;
-  color: #71717a;
+  color: #a1a1aa;
 }
 
 .accounts-detail-capability-row__icon {
@@ -5121,7 +5122,7 @@ button.accounts-flow-step:hover {
   align-items: center;
   gap: 0.3rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -5132,11 +5133,11 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-capability-row__status--enabled {
-  color: #16a34a;
+  color: #71717a;
 }
 
 .accounts-detail-capability-row__status--enabled .accounts-detail-capability-row__status-dot {
-  background: #22c55e;
+  background: #4ade80;
 }
 
 .accounts-detail-capability-row__status--disabled {
@@ -5217,15 +5218,16 @@ button.accounts-flow-step:hover {
   justify-content: space-between;
   gap: 0.75rem;
   border-bottom: 1px solid var(--vt-border);
-  padding: 0.95rem 1rem;
+  padding: 0.85rem 1rem;
   background: var(--vt-surface-raised);
 }
 
 .accounts-detail-recent-scans__title {
   margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #09090b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #64748b;
 }
 
 .accounts-detail-scan-row {
@@ -5233,7 +5235,7 @@ button.accounts-flow-step:hover {
   grid-template-columns: 1.35rem minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1.1fr) auto;
   align-items: center;
   gap: 0.65rem 0.85rem;
-  padding: 0.85rem 1rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid var(--vt-border);
   font-size: 0.8125rem;
   min-width: 0;
@@ -5281,13 +5283,15 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-scan-row__when {
   margin: 0;
-  font-weight: 700;
-  color: #18181b;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #3f3f46;
 }
 
 .accounts-detail-scan-row__ago {
   margin: 0.1rem 0 0;
   font-size: 0.75rem;
+  line-height: 1.4;
   color: #a1a1aa;
 }
 
@@ -5295,9 +5299,9 @@ button.accounts-flow-step:hover {
   margin: 0;
   min-height: 1.15rem;
   grid-column: 3;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #a1a1aa;
 }
 
 .accounts-detail-scan-row__findings {
@@ -5336,10 +5340,10 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-scan-row__finding-count {
-  font-size: 0.8125rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #3f3f46;
+  color: #52525b;
 }
 
 .accounts-detail-scan-row__view {
@@ -5352,8 +5356,8 @@ button.accounts-flow-step:hover {
   background: #fff;
   padding: 0.4rem 0.7rem;
   font-size: 0.75rem;
-  font-weight: 600;
-  color: #3f3f46;
+  font-weight: 500;
+  color: #52525b;
 }
 
 .accounts-detail-scan-row__view:hover {
@@ -5492,8 +5496,8 @@ button.accounts-flow-step:hover {
 .accounts-detail-recent-scans__footer button {
   border: 0;
   background: transparent;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: #2563eb;
 }
 
