@@ -4469,8 +4469,6 @@ function AccountDetailOverflowMenu({
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
-  const itemClass =
-    "block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50";
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -4513,9 +4511,9 @@ function AccountDetailOverflowMenu({
         aria-expanded={open}
         aria-label="More actions"
         title="More actions"
-        className="accounts-detail-header__menu-btn"
+        className={`accounts-detail-header__menu-btn${open ? " is-open" : ""}`}
       >
-        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="5" cy="12" r="2.25" />
           <circle cx="12" cy="12" r="2.25" />
           <circle cx="19" cy="12" r="2.25" />
@@ -4527,36 +4525,39 @@ function AccountDetailOverflowMenu({
           <div
             ref={menuRef}
             role="menu"
-            style={{ position: "fixed", top: coords.top, right: coords.right }}
-            className="z-[60] w-52 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
+            style={{ top: coords.top, right: coords.right }}
+            className="accounts-detail-header__menu-panel"
           >
             <button
               role="menuitem"
+              type="button"
               onClick={() => {
                 setOpen(false);
                 onViewFindings();
               }}
-              className={itemClass}
+              className="accounts-detail-header__menu-item"
             >
               View findings
             </button>
             <button
               role="menuitem"
+              type="button"
               onClick={() => {
                 setOpen(false);
                 onManageConnection();
               }}
-              className={itemClass}
+              className="accounts-detail-header__menu-item"
             >
               Manage connection
             </button>
             <button
               role="menuitem"
+              type="button"
               onClick={() => {
                 setOpen(false);
                 onEditAccount();
               }}
-              className={itemClass}
+              className="accounts-detail-header__menu-item"
             >
               Edit account
             </button>
@@ -6750,8 +6751,8 @@ function IntegrationCloudAccountCard({
               <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
             </div>
             <AccountStatusIndicator label={rowStatus.label} tone={rowStatus.tone} />
-            <div className="accounts-row-actions">
-              {!splitLayout ? (
+            {!splitLayout ? (
+              <div className="accounts-row-actions">
                 <button
                   type="button"
                   onClick={() => triggerScan(cloudScanPath(cloud))}
@@ -6760,12 +6761,12 @@ function IntegrationCloudAccountCard({
                 >
                   {isScanActive ? "Scanning…" : "Scan now"}
                 </button>
-              ) : null}
-              <CloudAccountMenu
-                provider={cloud.provider}
-                onOpenIntegration={() => navigate(cloudIntegrationPath(cloud.provider))}
-              />
-            </div>
+                <CloudAccountMenu
+                  provider={cloud.provider}
+                  onOpenIntegration={() => navigate(cloudIntegrationPath(cloud.provider))}
+                />
+              </div>
+            ) : null}
           </>
         ) : (
           <div className="accounts-row-actions accounts-row-actions--pending">
@@ -7081,8 +7082,8 @@ function AccountPremiumCard({
                 <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
               </div>
               <AccountStatusIndicator label={rowStatus.label} tone={rowStatus.tone} />
-              <div className="accounts-row-actions">
-                {!splitLayout ? (
+              {!splitLayout ? (
+                <div className="accounts-row-actions">
                   <button
                     type="button"
                     onClick={() => triggerScan(acc.id)}
@@ -7091,9 +7092,9 @@ function AccountPremiumCard({
                   >
                     {isScanActive ? "Scanning…" : "Scan now"}
                   </button>
-                ) : null}
-                <AccountMenu {...accountMenu} />
-              </div>
+                  <AccountMenu {...accountMenu} />
+                </div>
+              ) : null}
             </>
           ) : (
             <>
@@ -7910,7 +7911,6 @@ export default function Accounts() {
                       <span className="accounts-col accounts-col--coverage">Coverage</span>
                       <span className="accounts-col accounts-col--findings">Open findings</span>
                       <span className="accounts-col accounts-col--status">Status</span>
-                      <span className="accounts-col accounts-col--actions" />
                     </div>
                     <div className="accounts-list-body">
                     {paginatedRows.map((row) => {
