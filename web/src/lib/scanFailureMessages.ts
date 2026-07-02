@@ -2,8 +2,90 @@
  * End-user copy for failed account scans. Raw API/worker errors stay in logs only.
  */
 
+function isTechnicalScanError(raw: string): boolean {
+  const lower = raw.toLowerCase();
+  return (
+    raw.length > 280 ||
+    lower.includes("traceback") ||
+    lower.includes("sqlalchemy") ||
+    lower.includes("programmingerror") ||
+    lower.includes("psycopg") ||
+    lower.includes("undefinedtable") ||
+    lower.includes("does not exist") ||
+    lower.includes("error during bootstrap") ||
+    lower.includes("botocore") ||
+    lower.includes("clienterror")
+  );
+}
+
+/** One-line summary for integration cards — never a full traceback. */
+export function summarizeIntegrationScanError(raw: string): string | null {
+  const lower = raw.toLowerCase();
+
+  if (lower.includes("gcp_osconfig") || lower.includes("osconfig_vuln")) {
+    return "OS Config vulnerability collector failed.";
+  }
+  if (lower.includes("permission denied") || lower.includes("403") || lower.includes("access denied")) {
+    return "Scanner credentials are missing permissions.";
+  }
+  if (lower.includes("timeout") || lower.includes("timed out")) {
+    return "Scan timed out.";
+  }
+  if (isTechnicalScanError(raw)) {
+    return null;
+  }
+  const firstLine = raw.split(/\r?\n/)[0]?.trim() ?? "";
+  if (!firstLine) return null;
+  return firstLine.length > 120 ? `${firstLine.slice(0, 117)}…` : firstLine;
+}
+
 export function friendlyScanFailureMessage(raw: string): string {
   const lower = raw.toLowerCase();
+
+  if (
+    lower.includes("permission denied") ||
+    lower.includes("403") ||
+    (lower.includes("googleapis") && lower.includes("denied"))
+  ) {
+    return (
+      "Veritrail could not read your GCP project because the scanner service account is missing permissions. " +
+      "Re-run the gcloud setup on the GCP integration page, then verify and scan again."
+    );
+  }
+
+  if (
+    lower.includes("azure") ||
+    lower.includes("microsoft") ||
+    lower.includes("graph.microsoft") ||
+    lower.includes("arm.microsoft")
+  ) {
+    if (lower.includes("unauthorized") || lower.includes("invalid_client") || lower.includes("aadsts")) {
+      return (
+        "Veritrail could not authenticate to Azure with the registered app credentials. " +
+        "Confirm the client secret on the Azure integration page, then verify again."
+      );
+    }
+    if (lower.includes("access denied") || lower.includes("authorizationfailed")) {
+      return (
+        "Veritrail could not read your Azure subscription because the app is missing Reader or Security Reader. " +
+        "Update role assignments, then verify and scan again."
+      );
+    }
+  }
+
+  if (
+    lower.includes("gcp") ||
+    lower.includes("googleapis") ||
+    lower.includes("workload identity") ||
+    (lower.includes("service account") && !lower.includes("aws"))
+  ) {
+    if (lower.includes("impersonat") || lower.includes("tokencreator")) {
+      return (
+        "Veritrail could not impersonate your GCP scanner service account. " +
+        "Confirm TokenCreator is granted to the Veritrail connection account, then verify again."
+      );
+    }
+  }
 
   if (
     lower.includes("tokenretrieval") ||
@@ -73,16 +155,10 @@ export function friendlyScanFailureMessage(raw: string): string {
   }
 
   // Long stack traces / Python tracebacks — never show verbatim.
-  if (
-    raw.length > 280 ||
-    lower.includes("traceback") ||
-    lower.includes("error during bootstrap") ||
-    lower.includes("botocore") ||
-    lower.includes("clienterror")
-  ) {
+  if (isTechnicalScanError(raw)) {
     return (
-      "Something went wrong while Veritrail was collecting evidence from AWS. " +
-      "Open Accounts to verify your connector, then run a scan from Findings. " +
+      "Something went wrong while Veritrail was collecting evidence. " +
+      "Verify your cloud connection, then run a scan again. " +
       "If this keeps happening, contact your Veritrail administrator."
     );
   }

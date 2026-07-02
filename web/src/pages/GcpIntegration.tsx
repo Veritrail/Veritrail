@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { api, formatApiError } from "../api";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
+import { IntegrationScanErrorStatus } from "../components/IntegrationScanErrorStatus";
+import { useIntegrationScanFailureNotifications } from "../hooks/useIntegrationScanFailureNotifications";
+import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
 import "../styles/integration-setup.css";
 
 type GcpAuthMethod = "service_account_impersonation" | "workload_identity";
@@ -298,6 +301,7 @@ function authMethodLabel(method: string) {
 
 export default function GcpIntegration() {
   const qc = useQueryClient();
+  const { reportScanFailure } = useRecheckNotifications();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["gcp-projects"],
     queryFn: () => api<GcpProject[]>("/v1/integrations/gcp/projects"),
@@ -318,6 +322,7 @@ export default function GcpIntegration() {
 
   const projects = data ?? [];
   const connected = projects.some((p) => p.status === "connected");
+  useIntegrationScanFailureNotifications(projects);
   const isWif = authMethod === "workload_identity";
   const steps = isWif ? WIF_STEPS : SA_STEPS;
 
@@ -461,7 +466,9 @@ export default function GcpIntegration() {
         setListActionMessage({ tone: "ok", text: "GCP connection verified." });
       }
     } catch (e) {
-      setSaveError(formatApiError(e));
+      const message = formatApiError(e);
+      setSaveError(message);
+      reportScanFailure({ accountId: id, message });
     } finally {
       setActionState(null);
     }
@@ -482,7 +489,8 @@ export default function GcpIntegration() {
     } catch (e) {
       const message = formatApiError(e);
       setSaveError(message);
-      setListActionMessage({ tone: "error", text: message });
+      setListActionMessage({ tone: "error", text: "Scan failed — see notifications" });
+      reportScanFailure({ accountId: id, message });
     } finally {
       setActionState(null);
     }
@@ -852,7 +860,7 @@ export default function GcpIntegration() {
                         {p.project_id} · {authMethodLabel(p.auth_method)} ·{" "}
                         <span className={statusClass(p.status)}>{p.status}</span>
                       </div>
-                      {p.last_error && <div className="integration-setup__list-error">{p.last_error}</div>}
+                      {p.last_error && <IntegrationScanErrorStatus raw={p.last_error} />}
                     </div>
                     <div className="integration-setup__actions">
                       <button type="button" className="integration-setup__btn integration-setup__btn--secondary" disabled={actionState === p.id} onClick={() => verifyProject(p.id)}>Verify</button>

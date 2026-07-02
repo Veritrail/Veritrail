@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { accountListSchema, scanRunLatestNullableSchema } from "../lib/apiSchemas";
+import { accountListSchema, cloudAccountListSchema, scanRunLatestNullableSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { readPendingScan, type ScanRunLatest } from "../hooks/useTriggeredScan";
@@ -306,6 +306,7 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
   const storageKey = useMemo(() => notificationStorageKey(orgId), [orgId]);
   const initial = loadPersisted(storageKey);
   const lastReportedScanFailureRef = useRef<Record<string, string>>({});
+  const lastReportedCloudScanFailureRef = useRef<Record<string, string>>({});
   const [pendingRecheck, setPendingRecheck] = useState<PendingRecheck | null>(initial.pendingRecheck);
   const [pendingCloudTrail, setPendingCloudTrail] = useState<PendingCloudTrail | null>(
     initial.pendingCloudTrail,
@@ -524,6 +525,50 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       });
     });
   }, [connectedAccounts, monitoredScanRuns, reportScanFailure]);
+
+  const cloudAccountsQ = useQuery({
+    queryKey: ["cloud-accounts"],
+    queryFn: () => api("/v1/integrations/cloud-accounts", { schema: cloudAccountListSchema }),
+    enabled: !!orgId,
+    staleTime: 30_000,
+  });
+  const connectedCloudAccounts = useMemo(
+    () => cloudAccountsQ.data?.filter((account) => account.status === "connected") ?? [],
+    [cloudAccountsQ.data],
+  );
+  const monitoredCloudScanRuns = useQueries({
+    queries: connectedCloudAccounts.map((account) => ({
+      queryKey: ["cloud-scan-run-latest", account.provider, account.id],
+      queryFn: () =>
+        api(`/v1/integrations/cloud-accounts/${account.provider}/${account.id}/scan-runs/latest`, {
+          schema: scanRunLatestNullableSchema,
+        }),
+      refetchInterval: (query: { state: { data?: ScanRunLatest | null } }) => {
+        if (query.state.data?.status === "running") return 2_000;
+        return SCAN_FAILURE_MONITOR_POLL_MS;
+      },
+      staleTime: 0,
+    })),
+  });
+
+  useEffect(() => {
+    monitoredCloudScanRuns.forEach((scanRun, index) => {
+      const account = connectedCloudAccounts[index];
+      const run = scanRun.data;
+      if (!account || run?.status !== "error" || !run.error) return;
+      const monitorKey = `${account.provider}:${account.id}`;
+      const failureKey = `${run.id}:${run.failed_at ?? ""}:${run.error_type ?? ""}:${run.error}`;
+      if (lastReportedCloudScanFailureRef.current[monitorKey] === failureKey) return;
+      lastReportedCloudScanFailureRef.current[monitorKey] = failureKey;
+      reportScanFailure({
+        accountId: account.id,
+        message: run.error,
+        failedAt: run.failed_at ?? null,
+        errorType: run.error_type ?? null,
+        step: null,
+      });
+    });
+  }, [connectedCloudAccounts, monitoredCloudScanRuns, reportScanFailure]);
 
   const openMetricsQ = useQuery({
     queryKey: ["findings", "open"],

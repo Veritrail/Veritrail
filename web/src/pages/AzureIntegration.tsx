@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { api, formatApiError } from "../api";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
+import { IntegrationScanErrorStatus } from "../components/IntegrationScanErrorStatus";
+import { useIntegrationScanFailureNotifications } from "../hooks/useIntegrationScanFailureNotifications";
+import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
 import "../styles/integration-setup.css";
 
 type AzureSubscription = {
@@ -19,6 +22,7 @@ type AzureSubscription = {
 
 export default function AzureIntegration() {
   const qc = useQueryClient();
+  const { reportScanFailure } = useRecheckNotifications();
   const { data, isLoading } = useQuery({
     queryKey: ["azure-subscriptions"],
     queryFn: () => api<AzureSubscription[]>("/v1/integrations/azure/subscriptions"),
@@ -34,6 +38,7 @@ export default function AzureIntegration() {
 
   const subs = data ?? [];
   const connected = subs.some((s) => s.status === "connected");
+  useIntegrationScanFailureNotifications(subs);
 
   const create = useMutation({
     mutationFn: () =>
@@ -65,7 +70,9 @@ export default function AzureIntegration() {
       await api(`/v1/integrations/azure/subscriptions/${id}/verify`, { method: "POST", body: "{}" });
       qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
     } catch (e) {
-      setSaveError(formatApiError(e));
+      const message = formatApiError(e);
+      setSaveError(message);
+      reportScanFailure({ accountId: id, message });
     } finally {
       setActionState(null);
     }
@@ -77,7 +84,9 @@ export default function AzureIntegration() {
       await api(`/v1/integrations/azure/subscriptions/${id}/scan`, { method: "POST", body: "{}" });
       qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
     } catch (e) {
-      setSaveError(formatApiError(e));
+      const message = formatApiError(e);
+      setSaveError(message);
+      reportScanFailure({ accountId: id, message });
     } finally {
       setActionState(null);
     }
@@ -159,7 +168,7 @@ export default function AzureIntegration() {
                     <div>
                       <strong>{s.label}</strong>
                       <div className="text-sm text-slate-500">{s.subscription_id} · {s.status}</div>
-                      {s.last_error && <div className="text-sm text-red-600">{s.last_error}</div>}
+                      {s.last_error && <IntegrationScanErrorStatus raw={s.last_error} className="text-sm text-red-600" />}
                     </div>
                     <div className="integration-setup__actions">
                       <button type="button" className="integration-setup__btn" disabled={actionState === s.id} onClick={() => verifySub(s.id)}>Verify</button>
