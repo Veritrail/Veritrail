@@ -3,16 +3,22 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError, isSessionStaleError, logout } from "../api";
-import { accountListSchema, cloudAccountListSchema } from "../lib/apiSchemas";
+import {
+  accountListSchema,
+  cloudAccountListSchema,
+  complianceTimelineSchema,
+  controlListSchema,
+  evidenceCoverageSchema,
+  scanStatsSchema,
+  settingsSchema,
+} from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import {
   delta7d,
   deltaImproved,
   daysAgoIso,
   formatPercentDelta,
-  openFindingsSeries,
   postureTrendSeries,
-  relativePercentChange,
   type BetterWhen,
   valueAtOrBeforeDaysAgo,
 } from "../lib/accountMetricDeltas";
@@ -814,6 +820,8 @@ function AccountsToolbar({
             <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z" />
           </svg>
           <input
+            id="accounts-search"
+            name="accounts-search"
             type="search"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -1030,35 +1038,6 @@ function FindingsMixDonutCompact({
         <span className="accounts-findings-donut__label">Open</span>
       </div>
     </div>
-  );
-}
-
-function OverviewSeverityChips({ stats, hasScanned }: { stats: FindingStats; hasScanned: boolean }) {
-  const rows = [
-    { label: "High", count: stats.critHigh, tone: "high" as const },
-    { label: "Medium", count: stats.medium, tone: "medium" as const },
-    { label: "Low", count: stats.low, tone: "low" as const },
-  ];
-
-  return (
-    <p className="accounts-detail-overview__severity-line">
-      {rows.map((row, index) => (
-        <span className="accounts-detail-overview__severity-group" key={row.label}>
-          {index > 0 ? (
-            <span className="accounts-detail-overview__severity-sep" aria-hidden>
-              ·
-            </span>
-          ) : null}
-          <span className={`accounts-detail-overview__severity-chip accounts-detail-overview__severity-chip--${row.tone}`}>
-            <i aria-hidden />
-            <span className="accounts-detail-overview__severity-count">
-              {hasScanned ? row.count.toLocaleString() : "—"}
-            </span>
-            <span className="accounts-detail-overview__severity-label">{row.label}</span>
-          </span>
-        </span>
-      ))}
-    </p>
   );
 }
 
@@ -4976,7 +4955,7 @@ function AccountCard({
   const navigate = useNavigate();
   const settings = useQuery<ScanScheduleData>({
     queryKey: ["settings"],
-    queryFn: () => api("/v1/settings"),
+    queryFn: () => api("/v1/settings", { schema: settingsSchema }),
     enabled: connected,
   });
   const nextScanShort = settings.data
@@ -5418,6 +5397,140 @@ function soc2ReadinessPhaseLabel(pct: number | null): string | null {
   return "Audit-ready posture";
 }
 
+function computeFindingsHealthScore(stats: FindingStats): number {
+  const { critHigh, medium, low } = stats;
+  return Math.max(0, Math.min(100, Math.round(100 - critHigh * 10 - medium * 3 - low * 1)));
+}
+
+function computeScanRecencyScore(lastScanAt: string | null | undefined): number {
+  if (!lastScanAt) return 0;
+  const t = new Date(lastScanAt).getTime();
+  if (Number.isNaN(t)) return 0;
+  const hoursSince = (Date.now() - t) / 3_600_000;
+  if (hoursSince <= 24) return 100;
+  if (hoursSince <= 72) return 80;
+  if (hoursSince <= 168) return 60;
+  if (hoursSince <= 336) return 40;
+  return 20;
+}
+
+function computeSecurityScore(
+  stats: FindingStats,
+  coveragePct: number | null,
+  lastScanAt: string | null | undefined,
+): number {
+  const findings = computeFindingsHealthScore(stats);
+  const coverage = coveragePct ?? 0;
+  const recency = computeScanRecencyScore(lastScanAt);
+  return Math.round(findings * 0.5 + coverage * 0.3 + recency * 0.2);
+}
+
+type SecurityScoreTone = "critical" | "poor" | "fair" | "good";
+
+function securityScoreLabel(score: number): string {
+  if (score >= 80) return "Good";
+  if (score >= 60) return "Fair";
+  if (score >= 40) return "Poor";
+  return "Critical";
+}
+
+function securityScoreTone(score: number): SecurityScoreTone {
+  if (score >= 80) return "good";
+  if (score >= 60) return "fair";
+  if (score >= 40) return "poor";
+  return "critical";
+}
+
+function SecurityScoreGaugeSvg({
+  score,
+  size = 96,
+  stroke = 8,
+}: {
+  score: number;
+  size?: number;
+  stroke?: number;
+}) {
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circum = 2 * Math.PI * r;
+  const fraction = Math.max(0, Math.min(100, score)) / 100;
+  const dash = fraction * circum;
+  const tone = securityScoreTone(score);
+  const gradientId = `security-score-arc-${tone}`;
+
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="shrink-0" aria-hidden>
+      <defs>
+        <linearGradient id="security-score-arc-good" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#b8e6c8" />
+          <stop offset="52%" stopColor="#7ecba0" />
+          <stop offset="100%" stopColor="#4f9f73" />
+        </linearGradient>
+        <linearGradient id="security-score-arc-fair" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#e8a86a" />
+          <stop offset="48%" stopColor="#efc27a" />
+          <stop offset="100%" stopColor="#fde8b0" />
+        </linearGradient>
+        <linearGradient id="security-score-arc-poor" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#e39a72" />
+          <stop offset="50%" stopColor="#e8b07e" />
+          <stop offset="100%" stopColor="#f5d9b0" />
+        </linearGradient>
+        <linearGradient id="security-score-arc-critical" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#efb4b4" />
+          <stop offset="52%" stopColor="#df8f8f" />
+          <stop offset="100%" stopColor="#c96a6a" />
+        </linearGradient>
+      </defs>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e4e8ed" strokeWidth={stroke} />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={`url(#${gradientId})`}
+        strokeWidth={stroke}
+        strokeDasharray={`${dash} ${circum - dash}`}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${cx} ${cy})`}
+      />
+    </svg>
+  );
+}
+
+function SecurityScoreGauge({
+  score,
+  hasScanned,
+}: {
+  score: number | null;
+  hasScanned: boolean;
+}) {
+  const showScore = hasScanned && score != null;
+  const label = showScore ? securityScoreLabel(score) : null;
+  const tone = showScore ? securityScoreTone(score) : null;
+
+  return (
+    <div className="accounts-security-gauge">
+      <div className="accounts-security-gauge__ring">
+        {showScore ? (
+          <SecurityScoreGaugeSvg score={score} />
+        ) : (
+          <div className="accounts-security-gauge__empty" aria-hidden />
+        )}
+      </div>
+      <div className="accounts-security-gauge__hub">
+        <span className="accounts-security-gauge__score">{showScore ? score : "—"}</span>
+        {showScore && label && tone ? (
+          <span className={`accounts-security-gauge__badge accounts-security-gauge__badge--${tone}`}>
+            {label}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function findingsForAccountScope(
   items: Finding[] | undefined,
   accountId: string,
@@ -5654,6 +5767,12 @@ function DetailTabStub({ title, body, action }: { title: string; body: string; a
   );
 }
 
+const ACCOUNT_SCORE_HELP =
+  "Composite score based on open findings severity, evidence coverage over the last 7 days, and how recently this account was scanned.";
+
+const SOC2_READINESS_HELP =
+  "Share of mapped SOC 2 controls currently passing for this account. Higher means closer to audit readiness.";
+
 const COVERAGE_METRIC_HELP =
   "Share of days in the last 7 days with scan or snapshot evidence. Higher means more continuous monitoring for audit readiness—not how many cloud resources were scanned.";
 
@@ -5749,7 +5868,7 @@ function AccountSplitDetailPane({
 
   const settings = useQuery<ScanScheduleData>({
     queryKey: ["settings"],
-    queryFn: () => api("/v1/settings"),
+    queryFn: () => api("/v1/settings", { schema: settingsSchema }),
     enabled: isAws && connected,
   });
   const nextScanShort = settings.data
@@ -5758,9 +5877,8 @@ function AccountSplitDetailPane({
 
   const controlsQ = useQuery({
     queryKey: ["controls", "soc2", accountId],
-    queryFn: () => api<Array<{ status: string; finding_count: number }>>(
-      `/v1/controls?framework=soc2&account_id=${accountId}`,
-    ),
+    queryFn: () =>
+      api(`/v1/controls?framework=soc2&account_id=${accountId}`, { schema: controlListSchema }),
     enabled: isAws && connected && hasScanned,
     select: summarizeSoc2Controls,
   });
@@ -5768,15 +5886,16 @@ function AccountSplitDetailPane({
   const coverageQ = useQuery({
     queryKey: ["evidence-coverage", accountId, 7],
     queryFn: () =>
-      api<EvidenceCoverage>(`/v1/accounts/${accountId}/evidence-coverage?period=7`),
+      api(`/v1/accounts/${accountId}/evidence-coverage?period=7`, { schema: evidenceCoverageSchema }),
     enabled: isAws && connected && hasScanned,
   });
 
   const coveragePrevQ = useQuery({
     queryKey: ["evidence-coverage", accountId, 7, "prev"],
     queryFn: () =>
-      api<EvidenceCoverage>(
+      api(
         `/v1/accounts/${accountId}/evidence-coverage?period=7&as_of=${daysAgoIso(7)}`,
+        { schema: evidenceCoverageSchema },
       ),
     enabled: isAws && connected && hasScanned,
   });
@@ -5804,6 +5923,7 @@ function AccountSplitDetailPane({
     queryFn: () =>
       api<ComplianceHistoryResponse>(
         `/v1/accounts/${accountId}/compliance-timeline?framework=soc2&days=14&limit=40`,
+        { schema: complianceTimelineSchema },
       ),
     enabled: isAws && connected && hasScanned,
     staleTime: 60_000,
@@ -5954,6 +6074,10 @@ function AccountSplitDetailPane({
   }, [hasScanned, isAws, controlsQ.data, historyQ.data?.current_summary, cloudOverviewQ.data]);
 
   const soc2PhaseLabel = soc2ReadinessPhaseLabel(compliancePct);
+  const securityScore = useMemo(() => {
+    if (!hasScanned) return null;
+    return computeSecurityScore(displayStats, coveragePct, lastScanAt);
+  }, [hasScanned, displayStats, coveragePct, lastScanAt]);
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
   const recentScanRows = useMemo(
     () =>
@@ -5986,21 +6110,6 @@ function AccountSplitDetailPane({
       value: p.posture_score,
     }));
   }, [isAws, historyQ.data, cloudOverviewQ.data?.posture_trend]);
-
-  const openFindingsDelta = useMemo(() => {
-    if (!hasScanned) return null;
-    const current = stats?.open ?? (isAws ? undefined : cloudOverviewQ.data?.open_findings_count);
-    if (isAws) {
-      const prior = valueAtOrBeforeDaysAgo(openFindingsSeries(historyQ.data, current), 7);
-      return relativePercentChange(current, prior);
-    }
-    const trend = (cloudOverviewQ.data?.open_findings_trend ?? []).map((point) => ({
-      timestamp: point.timestamp,
-      value: point.open_findings_count,
-    }));
-    const prior = valueAtOrBeforeDaysAgo(trend, 7);
-    return relativePercentChange(current, prior);
-  }, [hasScanned, isAws, stats?.open, historyQ.data, cloudOverviewQ.data]);
 
   const complianceDelta = useMemo(() => {
     if (!hasScanned) return null;
@@ -6228,46 +6337,50 @@ function AccountSplitDetailPane({
         {tab === "overview" && (
           <>
             <div className="accounts-detail-overview__metrics" aria-label="Account overview metrics">
-              <div className="accounts-detail-overview__metric">
-                <p className="accounts-detail-overview__metric-label">Open findings</p>
-                <div className="accounts-detail-overview__metric-value-row">
-                  <p className="accounts-detail-overview__metric-value">
-                    {hasScanned ? displayStats.open.toLocaleString() : "—"}
-                  </p>
-                  {hasScanned ? (
-                    <MetricCardDelta delta={openFindingsDelta} betterWhen="down" />
-                  ) : null}
-                </div>
-                {hasScanned ? (
-                  <OverviewSeverityChips stats={displayStats} hasScanned={hasScanned} />
-                ) : (
-                  <p className="accounts-detail-overview__metric-detail">Run a scan first</p>
-                )}
-              </div>
-              <div className="accounts-detail-overview__metric">
-                <p className="accounts-detail-overview__metric-label">SOC 2</p>
-                <div className="accounts-detail-overview__metric-value-row">
-                  <p className="accounts-detail-overview__metric-value accounts-detail-overview__metric-value--phase">
-                    {hasScanned
-                      ? soc2PhaseLabel ?? (compliancePct != null ? `${compliancePct}%` : "—")
-                      : "—"}
-                  </p>
-                  {hasScanned && compliancePct != null ? (
-                    <MetricCardDelta delta={complianceDelta} betterWhen="up" />
-                  ) : null}
+              <div className="accounts-detail-overview__metric accounts-detail-overview__metric--security">
+                <p className="accounts-detail-overview__metric-label">
+                  Account score
+                  <MetricHelpTip metric="Account score" text={ACCOUNT_SCORE_HELP} />
+                </p>
+                <div className="accounts-detail-overview__metric-body accounts-detail-overview__metric-body--gauge">
+                  <SecurityScoreGauge score={securityScore} hasScanned={hasScanned} />
                 </div>
                 <p className="accounts-detail-overview__metric-detail">
                   {hasScanned
-                    ? soc2CheckSummary
-                      ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
-                      : "Awaiting control mapping"
+                    ? "Based on findings, evidence coverage, and scan recency."
                     : "Run a scan first"}
                 </p>
               </div>
               <div className="accounts-detail-overview__metric">
                 <p className="accounts-detail-overview__metric-label">
-                  Coverage
-                  <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
+                  SOC 2 readiness
+                  <MetricHelpTip metric="SOC 2 readiness" text={SOC2_READINESS_HELP} />
+                </p>
+                <div className="accounts-detail-overview__metric-value-row">
+                  <p className="accounts-detail-overview__metric-value">
+                    {hasScanned && compliancePct != null ? `${compliancePct}%` : "—"}
+                  </p>
+                  {hasScanned && compliancePct != null ? (
+                    <MetricCardDelta delta={complianceDelta} betterWhen="up" />
+                  ) : null}
+                </div>
+                {hasScanned && soc2PhaseLabel ? (
+                  <p className="accounts-detail-overview__metric-phase">{soc2PhaseLabel}</p>
+                ) : !hasScanned ? (
+                  <p className="accounts-detail-overview__metric-detail">Run a scan first</p>
+                ) : null}
+                {hasScanned ? (
+                  <p className="accounts-detail-overview__metric-detail">
+                    {soc2CheckSummary
+                      ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
+                      : "Awaiting control mapping"}
+                  </p>
+                ) : null}
+              </div>
+              <div className="accounts-detail-overview__metric">
+                <p className="accounts-detail-overview__metric-label">
+                  Evidence coverage
+                  <MetricHelpTip metric="Evidence coverage" text={COVERAGE_METRIC_HELP} />
                 </p>
                 <div className="accounts-detail-overview__metric-value-row">
                   <p className="accounts-detail-overview__metric-value">
@@ -6277,12 +6390,23 @@ function AccountSplitDetailPane({
                     <MetricCardDelta delta={coverageDelta} betterWhen="up" />
                   ) : null}
                 </div>
+                {hasScanned && coveragePct != null ? (
+                  <div
+                    className="accounts-detail-overview__progress"
+                    role="progressbar"
+                    aria-valuenow={coveragePct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Evidence coverage"
+                  >
+                    <div
+                      className="accounts-detail-overview__progress-fill"
+                      style={{ width: `${coveragePct}%` }}
+                    />
+                  </div>
+                ) : null}
                 <p className="accounts-detail-overview__metric-detail">
-                  {hasScanned
-                    ? coverageDelta != null
-                      ? "Evidence window · last 7 days"
-                      : "Last scan"
-                    : "Run a scan first"}
+                  {hasScanned ? "Evidence window · last 7 days" : "Run a scan first"}
                 </p>
               </div>
             </div>
@@ -6902,7 +7026,7 @@ function AccountPremiumCard({
 
   const settings = useQuery<ScanScheduleData>({
     queryKey: ["settings"],
-    queryFn: () => api("/v1/settings"),
+    queryFn: () => api("/v1/settings", { schema: settingsSchema }),
     enabled: connected,
   });
   const nextScanShort = settings.data
@@ -7565,7 +7689,7 @@ export default function Accounts() {
   const scanStats = useQuery({
     queryKey: ["accounts-scan-stats"],
     queryFn: () =>
-      api<{ scans_last_7_days: number; scans_prev_7_days: number }>("/v1/accounts/scan-stats"),
+      api("/v1/accounts/scan-stats", { schema: scanStatsSchema }),
     enabled: (accounts.data?.length ?? 0) > 0 || (cloudAccounts.data?.length ?? 0) > 0,
     staleTime: 60_000,
   });
