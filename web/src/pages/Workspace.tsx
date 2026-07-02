@@ -115,6 +115,21 @@ function formatWhen(iso: string | null) {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+/* KPI strip cells are narrow — omit the year unless it differs from today's. */
+function formatWhenShort(iso: string | null) {
+  if (!iso) return "None";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "None";
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function formatCustomHours(hours: number) {
   if (hours % 168 === 0) return `Every ${hours / 168} week${hours / 168 === 1 ? "" : "s"}`;
   if (hours % 24 === 0) return `Every ${hours / 24} day${hours / 24 === 1 ? "" : "s"}`;
@@ -1157,7 +1172,7 @@ export default function Workspace() {
             iconSlot={<ScanningKpiIcon />}
             label="Scanning"
             value={scanBadge}
-            detail={`Next: ${nextScan}`}
+            detail={`Next: ${formatWhenShort(data?.scan_status.next_scan_at ?? null)}`}
             valueTone="info"
           />
           <PostureMetricCell

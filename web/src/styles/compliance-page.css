@@ -11,6 +11,12 @@
   background: var(--vt-surface-raised);
 }
 
+/* The control cluster holds a single button here — don't inherit Findings'
+   34rem flex-basis, which forced it onto its own mostly-empty second row. */
+.compliance-page .findings-v2-control-cluster {
+  flex: 0 1 auto;
+}
+
 /* Generate Audit Package — teal primary CTA in toolbar. */
 .compliance-page .findings-v2-toolbar-btn--scan {
   border-color: var(--vt-teal);
@@ -67,7 +73,9 @@
   flex-shrink: 0;
   padding: 1.25rem 3rem 1rem 1.35rem;
   border-bottom: 1px solid var(--vt-border);
-  background: linear-gradient(180deg, #fff7f7 0%, var(--vt-surface) 92%);
+  /* Neutral wash — red tints are reserved for finding severity, not
+     compliance controls. */
+  background: linear-gradient(180deg, #fafcfe 0%, var(--vt-surface) 92%);
 }
 
 .control-detail-panel__close {

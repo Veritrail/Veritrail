@@ -83,7 +83,7 @@ export function IntegrationRequestModal({ open, onClose }: IntegrationRequestMod
             <button
               type="button"
               onClick={handleClose}
-              className="mt-6 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+              className="mt-6 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
             >
               Done
             </button>
@@ -114,7 +114,7 @@ export function IntegrationRequestModal({ open, onClose }: IntegrationRequestMod
                   value={integrationName}
                   onChange={(e) => setIntegrationName(e.target.value)}
                   placeholder="e.g. ServiceNow, Datadog, PagerDuty"
-                  className="mt-1.5 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="mt-1.5 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                 />
               </label>
               <label className="block">
@@ -126,7 +126,7 @@ export function IntegrationRequestModal({ open, onClose }: IntegrationRequestMod
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="What would you use this integration for?"
                   rows={3}
-                  className="mt-1.5 w-full resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="mt-1.5 w-full resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                 />
               </label>
 
@@ -144,7 +144,7 @@ export function IntegrationRequestModal({ open, onClose }: IntegrationRequestMod
                 <button
                   type="submit"
                   disabled={!integrationName.trim() || submit.isPending}
-                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submit.isPending ? "Sending…" : "Send request"}
                 </button>

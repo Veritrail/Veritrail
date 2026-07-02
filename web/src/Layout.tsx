@@ -38,6 +38,19 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
 
 type AccountRow = { status: string; account_id: string | null };
 
+/** Section title shown in the app header, keyed by first path segment. */
+const HEADER_TITLES: Record<string, string> = {
+  dashboard: "Dashboard",
+  accounts: "Accounts",
+  findings: "Findings",
+  controls: "Compliance",
+  history: "History",
+  integrations: "Integrations",
+  workspace: "Workspace",
+  profile: "Profile",
+  reference: "Reference",
+};
+
 const DEFAULT_HISTORY_FRAMEWORK = "soc2";
 const DEFAULT_HISTORY_DAYS = 90;
 const HISTORY_PREFETCH_STALE_MS = 120_000;
@@ -220,8 +233,13 @@ export default function Layout() {
       >
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
-            {/* App-wide header bar: help + bell on the right, a left slot pages fill via <HeaderSlot>. */}
+            {/* App-wide header bar: section title + a left slot pages fill via <HeaderSlot>, help + bell on the right. */}
             <div className="veritrail-app-header sticky top-0 z-30 flex items-center gap-4 px-8 py-3">
+              {HEADER_TITLES[location.pathname.split("/")[1]] && (
+                <h1 className="veritrail-app-header__title">
+                  {HEADER_TITLES[location.pathname.split("/")[1]]}
+                </h1>
+              )}
               <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
               <div className="veritrail-app-header__utilities">
                 <HelpMenu />

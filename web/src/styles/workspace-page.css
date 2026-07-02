@@ -89,7 +89,38 @@
     0 8px 24px -6px rgba(15, 23, 42, 0.08);
 }
 
-@media (min-width: 900px) {
+/* Mid widths: two columns (readiness spans both, metrics 2×2). Five-across
+   needs ~1060px of content width — with the ~250px sidebar that's a ~1360px
+   viewport; anything narrower overflows values ("members") across dividers. */
+@media (min-width: 640px) and (max-width: 1359.98px) {
+  .workspace-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-summary__cell--readiness {
+    grid-column: 1 / -1;
+  }
+
+  /* Readiness strip: metric cells are children 2–5 → left column is even. */
+  .workspace-summary__cell:nth-child(even):not(:last-child) {
+    border-right: 1px solid #eef2f6;
+  }
+
+  .workspace-summary--metrics .workspace-summary__cell:nth-child(even):not(:last-child) {
+    border-right: 0;
+  }
+
+  /* Metrics-only strip: no readiness cell → left column is odd. */
+  .workspace-summary--metrics .workspace-summary__cell:nth-child(odd):not(:last-child) {
+    border-right: 1px solid #eef2f6;
+  }
+
+  .workspace-summary__cell:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+
+@media (min-width: 1360px) {
   .workspace-summary {
     grid-template-columns: minmax(0, 1.45fr) repeat(4, minmax(0, 1fr));
   }
@@ -105,12 +136,14 @@
   min-width: 0;
   min-height: 7.5rem;
   align-items: center;
-  gap: 1.125rem;
-  padding: 1.5rem 1.625rem;
+  gap: 0.875rem;
+  /* Tighter horizontal padding: five columns share ~1030px of content width,
+     so cell chrome must stay lean or the detail text gets crushed. */
+  padding: 1.5rem 1.125rem;
   border-bottom: 1px solid #eef2f6;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1360px) {
   .workspace-summary__cell {
     border-bottom: 0;
     border-right: 1px solid #eef2f6;
@@ -245,9 +278,12 @@
 
 .workspace-summary__detail {
   margin-top: 0.25rem;
+  /* Wrap up to two lines — nowrap ellipsis truncated mid-word in narrow
+     cells ("Membe…"); the 7.5rem cell height has room for a second line. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 0.8125rem;
   line-height: 1.25;
   color: #64748b;
@@ -728,9 +764,7 @@
   border-radius: 0.75rem;
   background: #ffffff;
   padding: 1.5rem;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 12px 30px -12px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--vt-shadow-card);
 }
 
 .workspace-readiness-panel__header {

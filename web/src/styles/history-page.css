@@ -38,16 +38,10 @@
   min-width: 20rem;
 }
 
-.history-filter-dropdown.history-filter-box--period {
-  min-width: 11.5rem;
-}
-
-.history-filter-dropdown.history-filter-box--framework {
-  min-width: 14.5rem;
-}
-
+/* Content-hugging pills matching the Findings filter triggers — the old
+   wide labeled boxes (11.5–14.5rem minimums) were a third filter-bar
+   pattern; one pattern across pages. */
 .history-filter-dropdown.history-filter-box--group {
-  min-width: 12.5rem;
   max-width: 18rem;
 }
 
@@ -59,11 +53,11 @@
   min-height: 2.375rem;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem 0.625rem 0.375rem 0.75rem;
-  border-radius: 0.625rem;
-  border: 1px solid #e4e4e7;
+  padding: 0.375rem 0.75rem 0.375rem 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgb(9 9 11 / 0.03);
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -78,19 +72,19 @@
 }
 
 .history-filter-box:hover {
-  border-color: #d4d4d8;
-  background: #fafafa;
+  border-color: #cbd5e1;
+  background: #fafbfc;
 }
 
 .history-filter-box:focus-visible {
   outline: none;
-  border-color: #a1a1aa;
-  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.08);
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 2px rgb(31 78 121 / 0.15);
 }
 
 .history-filter-box[aria-expanded="true"] {
-  border-color: #d4d4d8;
-  background: #fafafa;
+  border-color: #cbd5e1;
+  background: #fafbfc;
 }
 
 .history-filter-box__label {
@@ -149,8 +143,8 @@
 }
 
 .history-filter-box__selected {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  font-weight: 600;
   line-height: 1.25;
   letter-spacing: 0;
   color: #18181b;
@@ -295,10 +289,10 @@
   width: 100%;
   grid-template-columns:
     minmax(8rem, 0.85fr)
-    minmax(18rem, 2fr)
-    minmax(4.5rem, 0.52fr)
-    minmax(5rem, 0.62fr)
-    minmax(5rem, 0.62fr)
+    minmax(13rem, 2fr)
+    minmax(5.25rem, 0.52fr)
+    minmax(10rem, 0.62fr)
+    minmax(6.75rem, 0.62fr)
     minmax(11rem, 1.1fr);
   align-items: stretch;
   border-radius: 0.625rem;
@@ -338,6 +332,8 @@
   color: #6b7280;
   margin-bottom: 0.5rem;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .history-stats__value {
@@ -803,28 +799,28 @@
   font-size: 0.8125rem;
 }
 
+/* Datetime is nowrap tabular text — needs a fixed width, not a percentage,
+   so it can't collide with the type badge at narrow content widths. */
 .history-col-datetime {
-  width: 13.5%;
+  width: 10.75rem;
 }
 
 .history-col-type {
-  width: 9%;
+  width: 7.5rem;
 }
 
 .history-col-control {
-  width: 8%;
+  width: 5.5rem;
 }
 
 .history-col-resource {
   width: 24%;
 }
 
-.history-col-detail {
-  width: 37.5%;
-}
+/* Detail: no explicit width — absorbs the remaining space. */
 
 .history-col-actions {
-  width: 8%;
+  width: 4.75rem;
 }
 
 .history-table thead th {
