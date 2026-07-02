@@ -15,6 +15,7 @@ const IK = {
   sources: "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z",
 } as const;
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
+import { isCloudAccountConnected } from "../hooks/useConnectedAccountOptions";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import {
   formatSyncDetail,
@@ -340,15 +341,15 @@ function IntegrationsContent() {
 
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
 
-  const gcpConnected = gcpRows.some((p) => p.status === "connected");
-  const gcpProject = gcpRows.find((p) => p.status === "connected") ?? gcpRows[0];
-  const azureConnected = azureRows.some((s) => s.status === "connected");
-  const azureSub = azureRows.find((s) => s.status === "connected") ?? azureRows[0];
+  const gcpConnected = gcpRows.some(isCloudAccountConnected);
+  const gcpProject = gcpRows.find(isCloudAccountConnected) ?? gcpRows[0];
+  const azureConnected = azureRows.some(isCloudAccountConnected);
+  const azureSub = azureRows.find(isCloudAccountConnected) ?? azureRows[0];
   const scannerConnected = [wizScanner.data, tenableScanner.data, qualysScanner.data].some((s) => s?.connected);
   const activeScanner = [wizScanner.data, tenableScanner.data, qualysScanner.data].find((s) => s?.connected);
 
   const awsConnected = awsAccount?.status === "connected";
-  const cloudConnectedCount = accountsList.filter((a) => a.status === "connected").length;
+  const cloudConnectedCount = accountsList.filter(isCloudAccountConnected).length;
   const githubConnected = !!github.data;
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
