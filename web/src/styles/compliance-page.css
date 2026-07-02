@@ -345,11 +345,7 @@
 
 .control-detail-guidance__list {
   margin: 0;
-  padding: 0.7rem 0.85rem 0.7rem 1.35rem;
-  border: 1px solid var(--vt-border);
-  border-radius: 0.625rem;
-  background: var(--vt-surface);
-  box-shadow: 0 1px 1px rgb(15 23 42 / 0.02);
+  padding-left: 1.25rem;
   list-style: disc;
   display: flex;
   flex-direction: column;
@@ -360,7 +356,6 @@
   font-size: 0.875rem;
   line-height: 1.55;
   color: #667085;
-  padding-left: 0.1rem;
 }
 
 .control-detail-mapping-line {
