@@ -38,15 +38,26 @@ Veritrail's GCP and Azure integrations collect baseline posture evidence via RES
 
 ## Normalization APIs (phase two)
 
-Unified endpoints for Integrations KPIs, future Accounts page, and multi-cloud posture:
+Unified endpoints for Integrations KPIs, Accounts page detail panes, and multi-cloud posture. All open-finding counts use the same rules as `GET /v1/findings/summary`: `status == open`, org-scoped, excluding hidden checks and retired superseded check IDs.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /v1/integrations/cloud-accounts` | AWS accounts + GCP projects + Azure subscriptions in one list (`provider`, `id`, `external_id`, `label`, `status`, `last_scan_at`) |
-| `GET /v1/integrations/cloud-coverage` | Per-provider `connected_count`, `open_findings_count`, `last_scan_at` plus totals |
+| `GET /v1/integrations/cloud-accounts` | AWS accounts + GCP projects + Azure subscriptions in one list (`provider`, `id`, `external_id`, `label`, `status`, `last_scan_at`, **`open_findings_count` per row**) |
+| `GET /v1/integrations/cloud-accounts/{provider}/{id}/overview` | GCP/Azure detail KPIs: resources, coverage window, SOC 2 posture, **`open_findings_count`**, **`open_findings_trend`** from scan history |
+| `GET /v1/integrations/cloud-coverage` | Per-provider `connected_count`, `open_findings_count`, `last_scan_at` plus totals — **`total_open_findings` matches org-wide open count from findings/summary when all open findings are cloud-scoped** |
 | `POST /v1/integrations/cloud-scan-all` | Queue scans for every connected AWS account, GCP project, and Azure subscription |
 
-Findings from GCP/Azure checks include `account_provider` (`gcp` / `azure`) and scope labels resolved from project/subscription records, matching AWS account metadata on the findings list.
+### Counting model
+
+| Scope | Finding filter |
+|---|---|
+| AWS account row | `Finding.account_id == account.id` |
+| GCP project row | `Finding.gcp_project_id == project.id` |
+| Azure subscription row | `Finding.azure_subscription_id == subscription.id` |
+| Provider aggregate (coverage) | Non-null scope column for that provider |
+| Org cloud total | Sum of AWS + GCP + Azure provider aggregates |
+
+Findings from GCP/Azure checks include `account_provider` (`gcp` / `azure`) and scope labels resolved from project/subscription records, matching AWS account metadata on the findings list. After each GCP/Azure scan, `cloud_scan_runs.stats` stores `open_findings_count` and `posture_score` for Accounts overview trend cards.
 
 ## Composite control mapping
 

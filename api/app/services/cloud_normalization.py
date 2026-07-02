@@ -8,9 +8,11 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import AwsAccount, Finding
+from app.models import AwsAccount, Finding, Org
 from app.models.azure_subscription import AzureSubscription
 from app.models.gcp_project import GcpProject
+from app.services.check_settings import hidden_check_ids
+from app.services.finding_supersession import RETIRED_FINDING_CHECKS
 
 CloudProvider = Literal["aws", "gcp", "azure"]
 
@@ -20,23 +22,57 @@ def _max_scan_at(values: list[datetime | None]) -> datetime | None:
     return max(present) if present else None
 
 
-def open_findings_count(db: Session, *, org_id: uuid.UUID, provider: CloudProvider) -> int:
-    base = select(func.count()).select_from(Finding).where(
+def hidden_finding_check_ids(db: Session, org_id: uuid.UUID) -> set[str]:
+    """Match GET /v1/findings/summary hidden-check filtering."""
+    org = db.get(Org, org_id)
+    return hidden_check_ids(org.settings if org else {}) | RETIRED_FINDING_CHECKS
+
+
+def _open_findings_base(db: Session, *, org_id: uuid.UUID, hidden: set[str]):
+    q = select(func.count()).select_from(Finding).where(
         Finding.org_id == org_id,
         Finding.status == "open",
     )
+    if hidden:
+        q = q.where(Finding.check_id.notin_(hidden))
+    return q
+
+
+def account_open_findings_count(
+    db: Session,
+    *,
+    org_id: uuid.UUID,
+    provider: CloudProvider,
+    resource_id: uuid.UUID,
+) -> int:
+    """Open findings for one AWS account, GCP project, or Azure subscription."""
+    hidden = hidden_finding_check_ids(db, org_id)
+    q = _open_findings_base(db, org_id=org_id, hidden=hidden)
     if provider == "aws":
-        q = base.where(
-            Finding.check_id.notlike("gcp.%"),
-            Finding.check_id.notlike("azure.%"),
-            Finding.check_id.notlike("github.%"),
-            Finding.check_id.notlike("gitlab.%"),
-        )
+        q = q.where(Finding.account_id == resource_id)
     elif provider == "gcp":
-        q = base.where(Finding.check_id.like("gcp.%"))
+        q = q.where(Finding.gcp_project_id == resource_id)
     else:
-        q = base.where(Finding.check_id.like("azure.%"))
+        q = q.where(Finding.azure_subscription_id == resource_id)
     return int(db.scalar(q) or 0)
+
+
+def open_findings_count(db: Session, *, org_id: uuid.UUID, provider: CloudProvider) -> int:
+    """Open findings aggregated for a cloud provider within an org."""
+    hidden = hidden_finding_check_ids(db, org_id)
+    q = _open_findings_base(db, org_id=org_id, hidden=hidden)
+    if provider == "aws":
+        q = q.where(Finding.account_id.isnot(None))
+    elif provider == "gcp":
+        q = q.where(Finding.gcp_project_id.isnot(None))
+    else:
+        q = q.where(Finding.azure_subscription_id.isnot(None))
+    return int(db.scalar(q) or 0)
+
+
+def cloud_open_findings_total(db: Session, org_id: uuid.UUID) -> int:
+    """Sum of open findings across AWS, GCP, and Azure scopes."""
+    return sum(open_findings_count(db, org_id=org_id, provider=p) for p in ("aws", "gcp", "azure"))
 
 
 def list_cloud_accounts(db: Session, org_id: uuid.UUID) -> list[dict]:
@@ -55,6 +91,9 @@ def list_cloud_accounts(db: Session, org_id: uuid.UUID) -> list[dict]:
                 "label": (acc.label or acc.account_id or "AWS account").strip(),
                 "status": acc.status,
                 "last_scan_at": acc.last_scan_at,
+                "open_findings_count": account_open_findings_count(
+                    db, org_id=org_id, provider="aws", resource_id=acc.id
+                ),
             }
         )
 
@@ -70,6 +109,9 @@ def list_cloud_accounts(db: Session, org_id: uuid.UUID) -> list[dict]:
                 "label": (proj.label or proj.project_id).strip(),
                 "status": proj.status,
                 "last_scan_at": proj.last_scan_at,
+                "open_findings_count": account_open_findings_count(
+                    db, org_id=org_id, provider="gcp", resource_id=proj.id
+                ),
             }
         )
 
@@ -87,6 +129,9 @@ def list_cloud_accounts(db: Session, org_id: uuid.UUID) -> list[dict]:
                 "label": (sub.label or sub.subscription_id).strip(),
                 "status": sub.status,
                 "last_scan_at": sub.last_scan_at,
+                "open_findings_count": account_open_findings_count(
+                    db, org_id=org_id, provider="azure", resource_id=sub.id
+                ),
             }
         )
 

@@ -40,6 +40,7 @@ class CloudAccountOut(BaseModel):
     label: str
     status: str
     last_scan_at: datetime | None = None
+    open_findings_count: int = 0
 
 
 class CloudCoverageProviderOut(BaseModel):
@@ -66,9 +67,13 @@ class CloudAccountOverviewOut(BaseModel):
     resource_id: str
     resources_covered: int
     regions_count: int
+    open_findings_count: int = 0
+    soc2_controls_passed: int | None = None
+    soc2_controls_total: int | None = None
     compliance_posture_pct: int | None = None
     coverage: dict
     posture_trend: list[dict]
+    open_findings_trend: list[dict] = []
 
 
 @router.get("/cloud-accounts", response_model=list[CloudAccountOut])

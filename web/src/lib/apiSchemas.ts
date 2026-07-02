@@ -358,6 +358,7 @@ export const cloudAccountRowSchema = z.object({
   label: z.string(),
   status: z.string(),
   last_scan_at: z.string().nullable().default(null),
+  open_findings_count: z.number().default(0),
 });
 
 export const cloudAccountListSchema = z.array(cloudAccountRowSchema);

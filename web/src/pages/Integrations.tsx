@@ -50,6 +50,7 @@ type CloudAccountRow = {
   label: string;
   status: string;
   last_scan_at: string | null;
+  open_findings_count?: number;
 };
 
 type SettingsSlice = {

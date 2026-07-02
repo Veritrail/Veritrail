@@ -2,19 +2,19 @@
 
 Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-readiness.md](./enterprise-readiness.md). Use this doc to drive **continuous agent runs**: each run picks the next unchecked item, implements it fully (with tests), commits, and updates the checklist.
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03
 
 ## Executive summary
 
 | Scope | Done | Notes |
 |-------|------|-------|
 | **Phase-one enterprise batch** (direction `TODO`, pre-audit) | ~95% | Shipped 2026-06-26; documented in `enterprise-readiness.md` |
-| **Pipeline phases 0–9** (post-audit backlog) | **3 / 10 phases** (~30%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization |
+| **Pipeline phases 0–9** (post-audit backlog) | **4 / 10 phases** (~40%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization |
 | **Direction README specs wholesale** | **No** | Strategy/roadmap docs remain largely aspirational; only incremental slices shipped |
 
-**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–2 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization). **Most backlog remains** — start at Phase 3.
+**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–3 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity). **Most backlog remains** — start at Phase 4.1.
 
-**Next run:** Phase 3 (multi-cloud normalization polish) unless blocked — then Phase 4.1 (GCP OS Config vuln collector).
+**Next run:** Phase 4.1 (GCP OS Config vuln collector) unless blocked.
 
 ---
 
@@ -94,10 +94,10 @@ These were marked complete in `direction/TODO_Veritrail_Prioritized.txt` and ver
 
 Audit item: *"Unified coverage model across AWS/GCP/Azure beyond current `cloud_normalization.py` + composite mapping."*
 
-- [ ] `GET /v1/integrations/cloud-accounts` returns consistent `open_findings_count` per row
-- [ ] `GET /v1/integrations/cloud-coverage` aggregates match `GET /v1/findings/summary` totals (parity test)
-- [ ] Accounts page GCP/Azure overview cards match AWS card parity — `web/src/pages/Accounts.tsx`
-- [ ] Update `docs/multi-cloud-collectors.md` for phase-two normalization behavior
+- [x] `GET /v1/integrations/cloud-accounts` returns consistent `open_findings_count` per row — scope-column counts + hidden-check parity with findings/summary
+- [x] `GET /v1/integrations/cloud-coverage` aggregates match `GET /v1/findings/summary` totals (parity test) — `test_cloud_coverage_matches_findings_summary`
+- [x] Accounts page GCP/Azure overview cards match AWS card parity — `web/src/pages/Accounts.tsx` (open findings delta, SOC 2 summary from cloud overview API)
+- [x] Update `docs/multi-cloud-collectors.md` for phase-two normalization behavior
 
 ---
 
@@ -294,7 +294,7 @@ Items from `direction/README_Veritrail_Engineering_and_Evidence_Strategy.md` not
 - [ ] Cloud Asset Inventory collector — Phase 4.3
 - [ ] Security Command Center collector — Phase 4.2
 - [ ] OS Config vulnerability reports — Phase 4.1
-- [ ] Normalize all GCP findings into unified evidence model — Phase 3 dependency
+- [x] Normalize all GCP findings into unified evidence model — Phase 3 (`cloud_normalization.py`, overview API)
 
 #### Release 4 — Azure baseline
 
@@ -397,12 +397,12 @@ flowchart LR
 - [x] Extend virtualized table to Controls composite list — `VirtualizedCompositeControlsList.tsx`
 - [x] Update checklist in this file
 
-### Phase 3 — **start here**
+### Phase 3 — complete
 
-- [ ] Cloud-accounts `open_findings_count` per row
-- [ ] Cloud-coverage totals parity test
-- [ ] Accounts GCP/Azure overview parity
-- [ ] `multi-cloud-collectors.md` phase-two docs
+- [x] Cloud-accounts `open_findings_count` per row
+- [x] Cloud-coverage totals parity test
+- [x] Accounts GCP/Azure overview parity
+- [x] `multi-cloud-collectors.md` phase-two docs
 
 ### Phase 4 — GCP (one collector per run)
 

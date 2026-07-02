@@ -6,8 +6,17 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from app.routes.findings import _to_out
-from app.services.cloud_normalization import build_cloud_coverage, list_cloud_accounts
+from app.models import AwsAccount, Finding
+from app.models.azure_subscription import AzureSubscription
+from app.models.gcp_project import GcpProject
+from app.models.org import Org, User
+from app.routes.findings import _to_out, findings_summary
+from app.services.cloud_normalization import (
+    build_cloud_coverage,
+    cloud_open_findings_total,
+    list_cloud_accounts,
+    open_findings_count,
+)
 from app.services.cloud_scan_runs import list_cloud_scans
 
 
@@ -66,15 +75,19 @@ def test_list_cloud_accounts_normalizes_all_providers():
             )
         ])),
     ]
+    db.scalar.side_effect = [2, 1, 0]
 
     rows = list_cloud_accounts(db, org_id)
     assert len(rows) == 3
     assert rows[0]["provider"] == "aws"
     assert rows[0]["external_id"] == "123456789012"
+    assert rows[0]["open_findings_count"] == 2
     assert rows[1]["provider"] == "gcp"
     assert rows[1]["label"] == "Demo"
+    assert rows[1]["open_findings_count"] == 1
     assert rows[2]["provider"] == "azure"
     assert rows[2]["status"] == "pending"
+    assert rows[2]["open_findings_count"] == 0
 
 
 def test_build_cloud_coverage_aggregates_providers():
@@ -125,3 +138,95 @@ def test_to_out_gcp_includes_provider_and_scope():
     assert out.account_provider == "gcp"
     assert out.account_label == "Demo"
     assert out.account_name == "Demo"
+
+
+def _seed_org_user(db):
+    org = Org(name="Cloud Norm Co")
+    db.add(org)
+    db.flush()
+    user = User(org_id=org.id, email=f"u{uuid.uuid4().hex[:8]}@example.com", password_hash="x", role="admin")
+    db.add(user)
+    db.flush()
+    return org, user
+
+
+def _finding(org_id, **kwargs):
+    now = datetime.now(timezone.utc)
+    defaults = dict(
+        org_id=org_id,
+        check_id="iam.user.no_mfa",
+        resource_arn="arn:aws:iam::123456789012:user/alice",
+        title="No MFA",
+        severity="high",
+        risk_score=70,
+        status="open",
+        evidence={},
+        first_seen=now,
+        last_seen=now,
+    )
+    defaults.update(kwargs)
+    return Finding(**defaults)
+
+
+def test_cloud_coverage_matches_findings_summary(db_session):
+    org, user = _seed_org_user(db_session)
+    aws = AwsAccount(
+        org_id=org.id,
+        label="Prod AWS",
+        account_id="123456789012",
+        external_id="ext-aws",
+        status="connected",
+        last_scan_at=datetime.now(timezone.utc),
+    )
+    gcp = GcpProject(org_id=org.id, project_id="demo-gcp", label="Demo GCP", status="connected")
+    azure = AzureSubscription(
+        org_id=org.id,
+        subscription_id="sub-demo",
+        tenant_id="tenant-1",
+        client_id="client-1",
+        client_secret="secret",
+        label="Demo Azure",
+        status="connected",
+    )
+    db_session.add_all([aws, gcp, azure])
+    db_session.flush()
+
+    db_session.add(_finding(org.id, account_id=aws.id, severity="high"))
+    db_session.add(_finding(org.id, account_id=aws.id, severity="medium", check_id="s3.bucket.public_read"))
+    db_session.add(
+        _finding(
+            org.id,
+            account_id=None,
+            gcp_project_id=gcp.id,
+            check_id="gcp.logging.not_enabled",
+            resource_arn="gcp://logging/demo-gcp",
+            severity="critical",
+        )
+    )
+    db_session.add(
+        _finding(
+            org.id,
+            account_id=None,
+            azure_subscription_id=azure.id,
+            check_id="azure.defender.not_enabled",
+            resource_arn="azure://defender/sub-demo",
+            severity="high",
+        )
+    )
+    db_session.flush()
+
+    coverage = build_cloud_coverage(db_session, org.id)
+    summary = findings_summary(p={"org_id": str(org.id), "sub": str(user.id)}, db=db_session)
+
+    assert coverage["total_open_findings"] == summary.by_status.get("open", 0)
+    assert coverage["total_open_findings"] == cloud_open_findings_total(db_session, org.id)
+    assert open_findings_count(db_session, org_id=org.id, provider="aws") == 2
+    assert open_findings_count(db_session, org_id=org.id, provider="gcp") == 1
+    assert open_findings_count(db_session, org_id=org.id, provider="azure") == 1
+
+    rows = list_cloud_accounts(db_session, org.id)
+    by_provider = {row["provider"]: row for row in rows}
+    assert by_provider["aws"]["open_findings_count"] == 2
+    assert by_provider["gcp"]["open_findings_count"] == 1
+    assert by_provider["azure"]["open_findings_count"] == 1
+    assert sum(row["open_findings_count"] for row in rows) == coverage["total_open_findings"]

@@ -636,6 +636,7 @@ type CloudAccountRow = {
   label: string;
   status: string;
   last_scan_at: string | null;
+  open_findings_count?: number;
 };
 
 type CloudAccountOverview = {
@@ -643,9 +644,13 @@ type CloudAccountOverview = {
   resource_id: string;
   resources_covered: number;
   regions_count: number;
+  open_findings_count: number;
+  soc2_controls_passed: number | null;
+  soc2_controls_total: number | null;
   compliance_posture_pct: number | null;
   coverage: EvidenceCoverage;
   posture_trend: Array<{ timestamp: string; posture_score: number }>;
+  open_findings_trend: Array<{ timestamp: string; open_findings_count: number }>;
 };
 
 type FindingStats = { critHigh: number; medium: number; low: number; info: number; open: number };
@@ -5894,7 +5899,13 @@ function AccountSplitDetailPane({
     ? resourceStats.resources
     : cloudOverviewQ.data?.resources_covered ?? resourceStats.resources;
   const soc2CheckSummary = useMemo((): { passed: number; pending: number; total: number } | null => {
-    if (!hasScanned || !isAws) return null;
+    if (!hasScanned) return null;
+    if (!isAws) {
+      const total = cloudOverviewQ.data?.soc2_controls_total;
+      if (total == null || total <= 0) return null;
+      const passed = cloudOverviewQ.data?.soc2_controls_passed ?? 0;
+      return { passed, pending: total - passed, total };
+    }
     if (controlsQ.data && controlsQ.data.total > 0) {
       return {
         passed: controlsQ.data.passed,
@@ -5911,7 +5922,8 @@ function AccountSplitDetailPane({
       pending: total - summary.controls_passed,
       total,
     };
-  }, [hasScanned, isAws, controlsQ.data, historyQ.data?.current_summary]);
+  }, [hasScanned, isAws, controlsQ.data, historyQ.data?.current_summary, cloudOverviewQ.data]);
+
   const soc2PhaseLabel = soc2ReadinessPhaseLabel(compliancePct);
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
   const recentScanRows = useMemo(
@@ -5947,11 +5959,19 @@ function AccountSplitDetailPane({
   }, [isAws, historyQ.data, cloudOverviewQ.data?.posture_trend]);
 
   const openFindingsDelta = useMemo(() => {
-    if (!isAws || !hasScanned) return null;
-    const current = stats?.open;
-    const prior = valueAtOrBeforeDaysAgo(openFindingsSeries(historyQ.data, current), 7);
+    if (!hasScanned) return null;
+    const current = stats?.open ?? (isAws ? undefined : cloudOverviewQ.data?.open_findings_count);
+    if (isAws) {
+      const prior = valueAtOrBeforeDaysAgo(openFindingsSeries(historyQ.data, current), 7);
+      return relativePercentChange(current, prior);
+    }
+    const trend = (cloudOverviewQ.data?.open_findings_trend ?? []).map((point) => ({
+      timestamp: point.timestamp,
+      value: point.open_findings_count,
+    }));
+    const prior = valueAtOrBeforeDaysAgo(trend, 7);
     return relativePercentChange(current, prior);
-  }, [isAws, hasScanned, stats?.open, historyQ.data]);
+  }, [hasScanned, isAws, stats?.open, historyQ.data, cloudOverviewQ.data]);
 
   const complianceDelta = useMemo(() => {
     if (!hasScanned) return null;

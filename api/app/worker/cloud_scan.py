@@ -202,13 +202,18 @@ def execute_cloud_scan(
         )
         if scan_run and scope_column in {"gcp_project_id", "azure_subscription_id"}:
             from app.services.cloud_account_overview import compute_cloud_compliance_posture
+            from app.services.cloud_normalization import account_open_findings_count
 
             provider = "gcp" if scope_column == "gcp_project_id" else "azure"
             posture = compute_cloud_compliance_posture(db, org_id, provider, scope_id)
+            open_count = account_open_findings_count(
+                db, org_id=org_id, provider=provider, resource_id=scope_id
+            )
+            stats = dict(scan_run.stats or {})
+            stats["open_findings_count"] = open_count
             if posture is not None:
-                stats = dict(scan_run.stats or {})
                 stats["posture_score"] = posture
-                scan_run.stats = stats
+            scan_run.stats = stats
         if on_success:
             on_success()
         db.commit()

@@ -14,6 +14,7 @@ from app.models.cloud_scan_run import CloudScanRun
 from app.models.control import CheckControl
 from app.models.gcp_project import GcpComputeInstance, GcpLoggingAudit, GcpProject
 from app.services.check_settings import hidden_check_ids
+from app.services.cloud_normalization import account_open_findings_count
 from app.services.compliance_posture import posture_score
 from app.services.control_status import compute_control_status
 from app.services.evidence_coverage import _dates_in_period, parse_as_of
@@ -237,6 +238,19 @@ def compute_cloud_compliance_posture(
     resource_id: uuid.UUID,
 ) -> int | None:
     """Pass rate for SOC 2 controls that include provider-specific checks."""
+    summary = compute_cloud_soc2_summary(db, org_id, provider, resource_id)
+    if summary is None:
+        return None
+    return posture_score(passed=summary["passed"], total=summary["total"])
+
+
+def compute_cloud_soc2_summary(
+    db: Session,
+    org_id: uuid.UUID,
+    provider: str,
+    resource_id: uuid.UUID,
+) -> dict[str, int] | None:
+    """Passed/total SOC 2 controls mapped to provider-specific checks."""
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {})
     open_by_check, latest_checks_run, latest_failed_checks, has_scanned = _cloud_scan_context(
@@ -264,7 +278,39 @@ def compute_cloud_compliance_posture(
         if status == "pass":
             passed += 1
 
-    return posture_score(passed=passed, total=len(catalog))
+    total = len(catalog)
+    return {"passed": passed, "total": total, "pending": total - passed}
+
+
+def build_cloud_open_findings_trend(
+    db: Session,
+    provider: str,
+    resource_id: uuid.UUID,
+    *,
+    days: int = 14,
+) -> list[dict[str, Any]]:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    runs = db.scalars(
+        select(CloudScanRun)
+        .where(
+            CloudScanRun.provider == provider,
+            CloudScanRun.resource_id == resource_id,
+            CloudScanRun.status == "ok",
+            CloudScanRun.finished_at.isnot(None),
+            CloudScanRun.finished_at >= cutoff,
+        )
+        .order_by(CloudScanRun.finished_at.asc())
+    ).all()
+
+    out: list[dict[str, Any]] = []
+    for run in runs:
+        ts = run.finished_at or run.started_at
+        count: int | None = None
+        if isinstance(run.stats, dict) and run.stats.get("open_findings_count") is not None:
+            count = int(run.stats["open_findings_count"])
+        if count is not None:
+            out.append({"timestamp": ts.isoformat(), "open_findings_count": count})
+    return out
 
 
 def build_cloud_posture_trend(
@@ -314,14 +360,21 @@ def build_cloud_account_overview(
     resources, regions = count_cloud_resources(db, provider, resource_id)
     coverage = compute_cloud_evidence_coverage(db, provider, resource_id, since, end, period)
     posture = compute_cloud_compliance_posture(db, org_id, provider, resource_id)
+    soc2 = compute_cloud_soc2_summary(db, org_id, provider, resource_id)
     trend = build_cloud_posture_trend(db, org_id, provider, resource_id, days=14)
+    open_trend = build_cloud_open_findings_trend(db, provider, resource_id, days=14)
+    open_count = account_open_findings_count(db, org_id=org_id, provider=provider, resource_id=resource_id)
 
     return {
         "provider": provider,
         "resource_id": str(resource_id),
         "resources_covered": resources,
         "regions_count": regions,
+        "open_findings_count": open_count,
+        "soc2_controls_passed": soc2["passed"] if soc2 else None,
+        "soc2_controls_total": soc2["total"] if soc2 else None,
         "compliance_posture_pct": posture,
         "coverage": coverage,
         "posture_trend": trend,
+        "open_findings_trend": open_trend,
     }
