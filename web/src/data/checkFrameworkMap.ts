@@ -14,6 +14,7 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "azure.storage.public_blob_access": ["iso27001", "soc2"],
   "azure.compute.instance_public_ip": ["iso27001", "soc2"],
   "azure.entra.privileged_role_assignment": ["soc2"],
+  "azure.policy.non_compliant": ["soc2"],
   "backup.plan.missing": ["iso27001", "soc2"],
   "cloudtrail.event.anomalous_api_volume": ["iso27001", "soc2"],
   "cloudtrail.event.config_recorder_stopped": ["iso27001", "soc2"],

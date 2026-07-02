@@ -22,6 +22,11 @@ _AZURE_SCAN_PROBES: list[tuple[str, str, ProbeFn]] = [
         "azure.entra.privileged_role_assignment",
         lambda c, s: c.list_role_assignments(s),
     ),
+    (
+        "policy_insights",
+        "azure.policy.non_compliant",
+        lambda c, s: c.list_policy_states(s, compliance_filter=None),
+    ),
 ]
 
 

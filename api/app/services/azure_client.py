@@ -206,3 +206,30 @@ class AzureClient:
         if status and status >= 400:
             return [], status
         return list(data.get("value") or []), status
+
+    def list_policy_states(
+        self,
+        subscription_id: str,
+        *,
+        compliance_filter: str | None = "NonCompliant",
+    ) -> tuple[list[dict[str, Any]], int | None]:
+        """List latest policy states for a subscription, optionally filtered by compliance."""
+        sid = subscription_id.strip()
+        filter_clause = ""
+        if compliance_filter:
+            filter_clause = f"&$filter=complianceState eq '{compliance_filter}'"
+        path = (
+            f"/subscriptions/{sid}/providers/Microsoft.PolicyInsights/policyStates/latest"
+            f"/queryResults?api-version=2019-10-01&$top=1000{filter_clause}"
+        )
+        rows: list[dict[str, Any]] = []
+        last_status: int | None = 200
+        next_url = path
+        while next_url:
+            data, status = self._request_soft("GET", next_url)
+            last_status = status
+            if status and status >= 400:
+                return rows, status
+            rows.extend(list(data.get("value") or []))
+            next_url = str(data.get("@odata.nextLink") or data.get("nextLink") or "")
+        return rows, last_status

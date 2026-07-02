@@ -142,6 +142,7 @@ from app.checks import (
     azure_compute_instance_public_ip,
     azure_logging_not_enabled,
     azure_entra_privileged_role_assignment,
+    azure_policy_non_compliant,
 )
 
 ALL_CHECKS = [
@@ -309,4 +310,5 @@ ALL_CHECKS = [
     azure_compute_instance_public_ip,
     azure_logging_not_enabled,
     azure_entra_privileged_role_assignment,
+    azure_policy_non_compliant,
 ]

@@ -170,6 +170,7 @@
       "cloudtrail.trail.s3_bucket_no_logging",
       "aws.config.not_enabled",
       "aws.config.rules_non_compliant",
+      "azure.policy.non_compliant",
       "acm.certificate.expiring",
       "lambda.function.deprecated_runtime",
       "cloudtrail.event.root_activity",

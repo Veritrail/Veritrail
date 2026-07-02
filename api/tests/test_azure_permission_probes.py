@@ -25,9 +25,10 @@ def test_probe_azure_scan_permissions_reports_degraded_checks():
         client.list_storage_accounts_soft.return_value = ([], 200)
         client.query_resource_graph.return_value = ([], 200)
         client.list_subscription_diagnostic_settings.return_value = ([], 200)
-        client.list_role_assignments.return_value = ([], 403)
+        client.list_role_assignments.return_value = ([], 200)
+        client.list_policy_states.return_value = ([], 403)
 
         degraded = probe_azure_scan_permissions(subscription)
 
-    assert any(row["check_id"] == "azure.entra.privileged_role_assignment" for row in degraded)
+    assert any(row["check_id"] == "azure.policy.non_compliant" for row in degraded)
     assert all(row["api"] for row in degraded)

@@ -37,6 +37,8 @@ from app.models.azure_subscription import (
     AzureActivityLogSettings,
     AzureComputeInstance,
     AzureDefenderStatus,
+    AzurePolicyCompliance,
+    AzurePolicyNonCompliance,
     AzurePrivilegedRoleAssignment,
     AzureStorageAccount,
     AzureSubscription,
@@ -71,4 +73,5 @@ __all__ = [
     "GcpOsconfigVuln", "GcpSecurityCommandCenter", "GcpCloudAsset",
     "AzureSubscription", "AzureDefenderStatus", "AzureStorageAccount", "AzureComputeInstance",
     "AzureActivityLogSettings", "AzurePrivilegedRoleAssignment",
+    "AzurePolicyCompliance", "AzurePolicyNonCompliance",
 ]

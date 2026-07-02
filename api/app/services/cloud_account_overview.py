@@ -9,7 +9,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Control, Finding, Org
-from app.models.azure_subscription import AzureDefenderStatus, AzureStorageAccount, AzureSubscription
+from app.models.azure_subscription import (
+    AzureActivityLogSettings,
+    AzureComputeInstance,
+    AzureDefenderStatus,
+    AzurePolicyCompliance,
+    AzureStorageAccount,
+    AzureSubscription,
+)
 from app.models.cloud_scan_run import CloudScanRun
 from app.models.control import CheckControl
 from app.models.gcp_project import (
@@ -77,13 +84,37 @@ def count_cloud_resources(db: Session, provider: str, resource_id: uuid.UUID) ->
     storage_rows = db.scalars(
         select(AzureStorageAccount).where(AzureStorageAccount.azure_subscription_id == resource_id)
     ).all()
+    compute_rows = db.scalars(
+        select(AzureComputeInstance).where(AzureComputeInstance.azure_subscription_id == resource_id)
+    ).all()
     defender_row = db.scalar(
         select(AzureDefenderStatus).where(AzureDefenderStatus.azure_subscription_id == resource_id)
     )
-    resources = len(storage_rows) + (1 if defender_row else 0)
+    activity_log_row = db.scalar(
+        select(AzureActivityLogSettings).where(
+            AzureActivityLogSettings.azure_subscription_id == resource_id
+        )
+    )
+    policy_row = db.scalar(
+        select(AzurePolicyCompliance).where(
+            AzurePolicyCompliance.azure_subscription_id == resource_id
+        )
+    )
+    resources = (
+        len(storage_rows)
+        + len(compute_rows)
+        + (1 if defender_row else 0)
+        + (1 if activity_log_row else 0)
+        + (1 if policy_row else 0)
+    )
     groups = {row.resource_group for row in storage_rows if row.resource_group}
+    groups.update(row.location for row in compute_rows if row.location)
     if defender_row:
         groups.add("defender")
+    if activity_log_row:
+        groups.add("logging")
+    if policy_row:
+        groups.add("policy")
     return resources, len(groups)
 
 

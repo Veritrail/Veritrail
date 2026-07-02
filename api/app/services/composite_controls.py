@@ -137,6 +137,7 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "gcp.compute.instance_public_ip": "network_boundary",
     "gcp.asset.public_iam_binding": "network_boundary",
     "azure.entra.privileged_role_assignment": "identity_governance",
+    "azure.policy.non_compliant": "logging_monitoring",
     "gcp.osconfig.vuln_report_present": "vulnerability_management",
     "gcp.scc.not_enabled": "incident_response",
     # Flow logs stay attributed to logging even though the network composite

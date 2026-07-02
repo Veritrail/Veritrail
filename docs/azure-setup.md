@@ -21,7 +21,7 @@ Veritrail scans Azure subscriptions via an Entra ID **app registration** using c
 
 | Azure RBAC role | Purpose |
 |---|---|
-| **Reader** | Resource Graph VM inventory, storage accounts, Activity Log diagnostic settings, RBAC role assignments |
+| **Reader** | Resource Graph VM inventory, storage accounts, Activity Log diagnostic settings, RBAC role assignments, Azure Policy compliance states |
 | **Security Reader** | Defender for Cloud secure score and pricing tier |
 
 No Microsoft Graph **application permissions** are required for the Azure subscription integration. Entra directory checks (MFA, inactive users) use the separate **Microsoft Entra ID** OAuth integration.
@@ -76,6 +76,7 @@ The Integrations UI surfaces degraded check IDs after verify. Scans still run; a
 | Resource Graph VM inventory | `azure.compute.instance_public_ip` | Data protection / network boundary |
 | Activity Log diagnostic settings | `azure.logging.not_enabled` | Logging & monitoring |
 | Entra / Azure RBAC | `azure.entra.privileged_role_assignment` | Identity governance |
+| Azure Policy compliance | `azure.policy.non_compliant` | Logging & monitoring |
 | Defender for Cloud | `azure.defender.not_enabled` | Logging & monitoring |
 | Storage accounts | `azure.storage.public_blob_access` | Data protection / network boundary |
 

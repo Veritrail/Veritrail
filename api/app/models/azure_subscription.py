@@ -96,6 +96,41 @@ class AzurePrivilegedRoleAssignment(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class AzurePolicyCompliance(Base):
+    __tablename__ = "azure_policy_compliance"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azure_subscription_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("azure_subscriptions.id", ondelete="CASCADE"), unique=True
+    )
+    policy_insights_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    non_compliant_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AzurePolicyNonCompliance(Base):
+    __tablename__ = "azure_policy_non_compliance"
+    __table_args__ = (
+        UniqueConstraint(
+            "azure_subscription_id",
+            "policy_state_id",
+            name="uq_azure_policy_subscription_state",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    azure_subscription_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("azure_subscriptions.id", ondelete="CASCADE"), index=True
+    )
+    policy_state_id: Mapped[str] = mapped_column(String(500), nullable=False)
+    policy_definition_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    policy_assignment_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    resource_id: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    resource_type: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    compliance_state: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class AzureComputeInstance(Base):
     __tablename__ = "azure_compute_instances"
     __table_args__ = (

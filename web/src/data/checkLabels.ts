@@ -71,6 +71,7 @@ export const checkLabels: Record<string, string> = {
   "azure.storage.public_blob_access": "Azure storage public blob access",
   "azure.compute.instance_public_ip": "Azure compute instance public IP",
   "azure.entra.privileged_role_assignment": "Azure privileged RBAC role assignment",
+  "azure.policy.non_compliant": "Azure Policy non-compliant resource states",
   "vpc.flow_logs.not_enabled": "VPC flow logs disabled",
   "ec2.security_group.unrestricted_ssh": "Unrestricted SSH",
   "ec2.security_group.unrestricted_rdp": "Unrestricted RDP",

@@ -1045,11 +1045,13 @@ def run_azure_scan(subscription_id: str) -> dict:
     from app.collectors.azure.storage import collect_storage_accounts
     from app.collectors.azure.activity_log import collect_activity_log
     from app.collectors.azure.entra_rbac import collect_entra_rbac
+    from app.collectors.azure.policy_compliance import collect_policy_compliance
     from app.checks import (
         azure_compute_instance_public_ip,
         azure_defender_not_enabled,
         azure_entra_privileged_role_assignment,
         azure_logging_not_enabled,
+        azure_policy_non_compliant,
         azure_storage_public_blob_access,
     )
     from app.models.azure_subscription import AzureSubscription
@@ -1093,6 +1095,7 @@ def run_azure_scan(subscription_id: str) -> dict:
                 ("collect_resource_graph", collect_resource_graph),
                 ("collect_activity_log", collect_activity_log),
                 ("collect_entra_rbac", collect_entra_rbac),
+                ("collect_policy_compliance", collect_policy_compliance),
             ],
             checks=[
                 ("azure_defender_not_enabled", azure_defender_not_enabled.run),
@@ -1100,6 +1103,7 @@ def run_azure_scan(subscription_id: str) -> dict:
                 ("azure_compute_instance_public_ip", azure_compute_instance_public_ip.run),
                 ("azure_logging_not_enabled", azure_logging_not_enabled.run),
                 ("azure_entra_privileged_role_assignment", azure_entra_privileged_role_assignment.run),
+                ("azure_policy_non_compliant", azure_policy_non_compliant.run),
             ],
             target=row,
             scan_run=run,

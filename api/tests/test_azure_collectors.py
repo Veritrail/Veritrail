@@ -9,6 +9,7 @@ from app.collectors.azure.resource_graph import collect_resource_graph
 from app.collectors.azure.storage import collect_storage_accounts
 from app.collectors.azure.activity_log import collect_activity_log
 from app.collectors.azure.entra_rbac import collect_entra_rbac
+from app.collectors.azure.policy_compliance import collect_policy_compliance
 from app.services.azure_client import AzureClient, privileged_role_name
 
 
@@ -336,5 +337,98 @@ def test_collect_entra_rbac_skips_on_forbidden(mock_db):
     with patch("app.collectors.azure.entra_rbac.AzureClient") as client_cls:
         client_cls.return_value.list_role_assignments.return_value = ([], 403)
         count = collect_entra_rbac(mock_db, sub)
+    assert count == 0
+    mock_db.execute.assert_not_called()
+
+
+def test_azure_client_list_policy_states_pagination():
+    with patch.object(AzureClient, "_access_token", return_value="tok"):
+        with patch("app.services.azure_client.httpx.Client") as client_cls:
+            client = MagicMock()
+            client.__enter__.return_value = client
+            client.__exit__.return_value = False
+            client.request.side_effect = [
+                _resp(
+                    payload={
+                        "value": [
+                            {
+                                "id": "state-1",
+                                "properties": {
+                                    "resourceId": "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sa1",
+                                    "policyDefinitionName": "Storage HTTPS only",
+                                    "policyAssignmentName": "security-baseline",
+                                    "complianceState": "NonCompliant",
+                                    "resourceType": "Microsoft.Storage/storageAccounts",
+                                },
+                            }
+                        ],
+                        "@odata.nextLink": "https://management.azure.com/next",
+                    }
+                ),
+                _resp(payload={"value": []}),
+            ]
+            client_cls.return_value = client
+            rows, status = AzureClient(
+                tenant_id="t1", client_id="c1", client_secret="s1"
+            ).list_policy_states("sub-1")
+    assert status == 200
+    assert len(rows) == 1
+
+
+def test_azure_client_list_policy_states_soft_fail():
+    with patch.object(AzureClient, "_access_token", return_value="tok"):
+        with patch("app.services.azure_client.httpx.Client") as client_cls:
+            client = MagicMock()
+            client.__enter__.return_value = client
+            client.__exit__.return_value = False
+            client.request.return_value = _resp(status_code=403)
+            client_cls.return_value = client
+            rows, status = AzureClient(
+                tenant_id="t1", client_id="c1", client_secret="s1"
+            ).list_policy_states("sub-1")
+    assert status == 403
+    assert rows == []
+
+
+def test_collect_policy_compliance_persists_non_compliant_states(mock_db):
+    sub = MagicMock()
+    sub.id = uuid.uuid4()
+    sub.subscription_id = "sub-1"
+    sub.tenant_id = "t1"
+    sub.client_id = "c1"
+    sub.client_secret = "s1"
+
+    with patch("app.collectors.azure.policy_compliance.AzureClient") as client_cls:
+        client_cls.return_value.list_policy_states.return_value = (
+            [
+                {
+                    "id": "state-1",
+                    "properties": {
+                        "resourceId": "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/sa1",
+                        "policyDefinitionName": "Storage HTTPS only",
+                        "policyAssignmentName": "security-baseline",
+                        "complianceState": "NonCompliant",
+                        "resourceType": "Microsoft.Storage/storageAccounts",
+                    },
+                }
+            ],
+            200,
+        )
+        count = collect_policy_compliance(mock_db, sub)
+    assert count == 1
+    assert mock_db.execute.call_count == 2
+
+
+def test_collect_policy_compliance_skips_on_forbidden(mock_db):
+    sub = MagicMock()
+    sub.id = uuid.uuid4()
+    sub.subscription_id = "sub-1"
+    sub.tenant_id = "t1"
+    sub.client_id = "c1"
+    sub.client_secret = "s1"
+
+    with patch("app.collectors.azure.policy_compliance.AzureClient") as client_cls:
+        client_cls.return_value.list_policy_states.return_value = ([], 403)
+        count = collect_policy_compliance(mock_db, sub)
     assert count == 0
     mock_db.execute.assert_not_called()

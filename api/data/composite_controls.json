@@ -382,6 +382,7 @@
       "vpc.flow_logs.not_enabled",
       "azure.defender.not_enabled",
       "azure.logging.not_enabled",
+      "azure.policy.non_compliant",
       "gcp.logging.not_enabled",
       "gcp.scc.not_enabled"
     ],
