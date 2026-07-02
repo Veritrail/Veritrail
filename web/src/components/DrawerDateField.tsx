@@ -78,6 +78,8 @@ export function DrawerDateField({
   allowClear = true,
   triggerClassName,
   popoverPlacement = "above",
+  variant = "default",
+  todayLabel,
 }: {
   id?: string;
   value: string;
@@ -89,8 +91,15 @@ export function DrawerDateField({
   /** Extra classes on the trigger (e.g. panel input styles). */
   triggerClassName?: string;
   popoverPlacement?: "above" | "below";
+  /** `audit` matches Generate Audit Package date picker (blue accents, single Use today). */
+  variant?: "default" | "audit";
+  /** Footer today action label; defaults to "Today" or "Use today" for audit variant. */
+  todayLabel?: string;
 }) {
   const max = maxIso ?? toIsoDate(new Date(new Date().getFullYear() + 10, 11, 31));
+  const isAudit = variant === "audit";
+  const resolvedAllowClear = isAudit ? false : allowClear;
+  const resolvedTodayLabel = todayLabel ?? (isAudit ? "Use today" : "Today");
   const selectedIso = value.trim();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -318,8 +327,10 @@ export function DrawerDateField({
           })}
         </div>
 
-        <div className="drawer-date-field__footer">
-          {allowClear && (
+        <div
+          className={`drawer-date-field__footer${isAudit ? " drawer-date-field__footer--audit" : ""}`}
+        >
+          {resolvedAllowClear && (
             <button
               type="button"
               className="drawer-date-field__footer-btn"
@@ -333,21 +344,30 @@ export function DrawerDateField({
           )}
           <button
             type="button"
-            className="drawer-date-field__footer-btn drawer-date-field__footer-btn--today"
+            className={`drawer-date-field__footer-btn drawer-date-field__footer-btn--today${isAudit ? " drawer-date-field__footer-btn--use-today" : ""}`}
             onClick={() => {
+              if (isAudit) {
+                onChange("");
+                closePopover();
+                return;
+              }
               const t = todayIso();
               if (t >= minIso && t <= max) pick(t);
             }}
-            disabled={todayIso() < minIso || todayIso() > max}
+            disabled={!isAudit && (todayIso() < minIso || todayIso() > max)}
           >
-            Today
+            {resolvedTodayLabel}
           </button>
         </div>
       </div>
     ) : null;
 
+  const rootClass = ["drawer-date-field", isAudit ? "drawer-date-field--audit" : ""]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="drawer-date-field">
+    <div className={rootClass}>
       <button
         ref={triggerRef}
         id={id}

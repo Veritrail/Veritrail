@@ -525,6 +525,8 @@ export function ExternalEvidencePanel({
                 onChange={setPeriodEnd}
                 placeholder="Select date"
                 minIso={toIsoDate(new Date(new Date().getFullYear() - 20, 0, 1))}
+                maxIso={toIsoDate(new Date())}
+                variant="audit"
                 triggerClassName="compliance-external-evidence__input drawer-date-field__trigger"
                 popoverPlacement="below"
               />
