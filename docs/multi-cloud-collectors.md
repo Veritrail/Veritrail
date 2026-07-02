@@ -20,10 +20,14 @@ Veritrail's GCP and Azure integrations collect baseline posture evidence via RES
 
 ### Scans and data
 
-- **Scan:** Celery task `run_gcp_scan` collects audit-log export sinks and compute instances, then runs:
+- **Scan:** Celery task `run_gcp_scan` collects audit-log export sinks, compute instances, OS Config vulnerability reports, Security Command Center findings, and Cloud Asset Inventory IAM policies, then runs:
   - `gcp.logging.not_enabled`
   - `gcp.compute.instance_public_ip`
-- **Tables:** `gcp_projects` (WIF fields: `auth_method`, `project_number`, `pool_id`, `provider_id`, `service_account_email`, `wif_audience`, `wif_subject`), `gcp_logging_audit`, `gcp_compute_instances`
+  - `gcp.osconfig.vuln_report_present`
+  - `gcp.scc.not_enabled`
+  - `gcp.asset.public_iam_binding`
+- **Tables:** `gcp_projects` (WIF fields: `auth_method`, `project_number`, `pool_id`, `provider_id`, `service_account_email`, `wif_audience`, `wif_subject`), `gcp_logging_audit`, `gcp_compute_instances`, `gcp_osconfig_vuln`, `gcp_security_command_center`, `gcp_cloud_assets`
+- **Setup:** See [gcp-setup.md](./gcp-setup.md) for org-level onboarding, Terraform, and verify degraded-check messaging.
 - **Legacy:** `service_account_key` + JSON upload disabled unless `ALLOW_GCP_SA_JSON=true` (dev only).
 
 ## Azure
@@ -67,6 +71,9 @@ GCP and Azure baseline checks are mapped into existing composites in `api/data/c
 |---|---|
 | `gcp.logging.not_enabled` | `logging_monitoring` |
 | `gcp.compute.instance_public_ip` | `data_protection` |
+| `gcp.osconfig.vuln_report_present` | `vulnerability_management` |
+| `gcp.scc.not_enabled` | `incident_response`, `logging_monitoring` |
+| `gcp.asset.public_iam_binding` | `data_protection`, `network_boundary` |
 | `azure.defender.not_enabled` | `logging_monitoring` |
 | `azure.storage.public_blob_access` | `data_protection` |
 
@@ -81,8 +88,8 @@ Phase-one GCP and Azure are **intentionally thin baselines**. A connected projec
 
 | Dimension | AWS | GCP (phase one) | Azure (phase one) |
 |---|---|---|---|
-| Collectors | 32 (`api/app/collectors/` — IAM, S3, CloudTrail, VPC, RDS, EC2, EKS, GuardDuty, Config, Security Hub, …) | 2 (`logging_audit`, `compute`) | 2 (`defender`, `storage`) |
-| Registered checks | ~100 (`ALL_CHECKS` minus `gcp.*` / `azure.*`) | 2 | 2 |
+| Collectors | 32 (`api/app/collectors/` — IAM, S3, CloudTrail, VPC, RDS, EC2, EKS, GuardDuty, Config, Security Hub, …) | 5 (`logging_audit`, `compute`, `osconfig_vuln`, `security_command_center`, `cloud_asset_inventory`) | 2 (`defender`, `storage`) |
+| Registered checks | ~100 (`ALL_CHECKS` minus `gcp.*` / `azure.*`) | 5 | 2 |
 | Scan pipeline | `run_scan` → `ScanPipeline` (collectors + checks + evidence snapshots) | `run_gcp_scan` → `execute_cloud_scan` | `run_azure_scan` → `execute_cloud_scan` |
 | Finding scope | `account_id` | `gcp_project_id` | `azure_subscription_id` |
 

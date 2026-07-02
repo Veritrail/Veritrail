@@ -12,7 +12,14 @@ from app.models import Control, Finding, Org
 from app.models.azure_subscription import AzureDefenderStatus, AzureStorageAccount, AzureSubscription
 from app.models.cloud_scan_run import CloudScanRun
 from app.models.control import CheckControl
-from app.models.gcp_project import GcpComputeInstance, GcpLoggingAudit, GcpProject
+from app.models.gcp_project import (
+    GcpCloudAsset,
+    GcpComputeInstance,
+    GcpLoggingAudit,
+    GcpOsconfigVuln,
+    GcpProject,
+    GcpSecurityCommandCenter,
+)
 from app.services.check_settings import hidden_check_ids
 from app.services.cloud_normalization import account_open_findings_count
 from app.services.compliance_posture import posture_score
@@ -46,7 +53,24 @@ def count_cloud_resources(db: Session, provider: str, resource_id: uuid.UUID) ->
         logging_row = db.scalar(
             select(GcpLoggingAudit).where(GcpLoggingAudit.gcp_project_id == resource_id)
         )
-        resources = len(compute_rows) + (1 if logging_row else 0)
+        osconfig_row = db.scalar(
+            select(GcpOsconfigVuln).where(GcpOsconfigVuln.gcp_project_id == resource_id)
+        )
+        scc_row = db.scalar(
+            select(GcpSecurityCommandCenter).where(
+                GcpSecurityCommandCenter.gcp_project_id == resource_id
+            )
+        )
+        asset_rows = db.scalars(
+            select(GcpCloudAsset).where(GcpCloudAsset.gcp_project_id == resource_id)
+        ).all()
+        resources = (
+            len(compute_rows)
+            + (1 if logging_row else 0)
+            + (1 if osconfig_row else 0)
+            + (1 if scc_row else 0)
+            + len(asset_rows)
+        )
         regions = {_gcp_region_from_zone(row.zone) for row in compute_rows if row.zone}
         return resources, len(regions)
 

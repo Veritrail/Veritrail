@@ -134,6 +134,9 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "s3.bucket.public_access_not_blocked": "network_boundary",
     "azure.storage.public_blob_access": "network_boundary",
     "gcp.compute.instance_public_ip": "network_boundary",
+    "gcp.asset.public_iam_binding": "network_boundary",
+    "gcp.osconfig.vuln_report_present": "vulnerability_management",
+    "gcp.scc.not_enabled": "incident_response",
     # Flow logs stay attributed to logging even though the network composite
     # rolls them up for CC6 coverage.
     "vpc.flow_logs.not_enabled": "logging_monitoring",

@@ -209,6 +209,7 @@
       "ecs.task_definition.privileged_container",
       "azure.storage.public_blob_access",
       "gcp.compute.instance_public_ip",
+      "gcp.asset.public_iam_binding",
       "eks.cluster.public_endpoint",
       "eks.cluster.secrets_encryption_disabled",
       "elb.load_balancer.weak_tls_policy",
@@ -282,7 +283,8 @@
       "s3.bucket.public_access_not_blocked",
       "vpc.flow_logs.not_enabled",
       "azure.storage.public_blob_access",
-      "gcp.compute.instance_public_ip"
+      "gcp.compute.instance_public_ip",
+      "gcp.asset.public_iam_binding"
     ],
     "cis_criteria": [
       "5.1",
@@ -334,7 +336,8 @@
       "ec2.ami.aged",
       "ecr.registry.enhanced_scanning_disabled",
       "ecr.repository.image_scan_disabled",
-      "lambda.function.deprecated_runtime"
+      "lambda.function.deprecated_runtime",
+      "gcp.osconfig.vuln_report_present"
     ],
     "cis_criteria": [],
     "iso_criteria": [
@@ -375,7 +378,8 @@
       "guardduty.open_findings",
       "vpc.flow_logs.not_enabled",
       "azure.defender.not_enabled",
-      "gcp.logging.not_enabled"
+      "gcp.logging.not_enabled",
+      "gcp.scc.not_enabled"
     ],
     "cis_criteria": [
       "3.1",
@@ -407,7 +411,9 @@
       "aws.securityhub.not_enabled",
       "cloudtrail.event.guardduty_disabled",
       "guardduty.detector.not_enabled",
-      "guardduty.open_findings"
+      "guardduty.open_findings",
+      "azure.defender.not_enabled",
+      "gcp.scc.not_enabled"
     ],
     "cis_criteria": [],
     "iso_criteria": [

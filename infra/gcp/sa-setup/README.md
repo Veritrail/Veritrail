@@ -8,7 +8,7 @@ The **Integrations → Google Cloud** wizard is the primary customer path: it sh
 
 ## Prerequisites
 
-1. Enable APIs: `iam.googleapis.com`, `iamcredentials.googleapis.com`, `cloudresourcemanager.googleapis.com`, `logging.googleapis.com`, `compute.googleapis.com`
+1. Enable APIs: `iam.googleapis.com`, `iamcredentials.googleapis.com`, `cloudresourcemanager.googleapis.com`, `logging.googleapis.com`, `compute.googleapis.com`, `osconfig.googleapis.com`, `securitycenter.googleapis.com`, `cloudasset.googleapis.com`
 2. From Veritrail → **Integrations → Google Cloud**, choose **Service account access** and note the **Veritrail platform SA email**.
 
 ## Option A — Terraform

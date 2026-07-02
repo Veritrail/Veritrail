@@ -59,3 +59,45 @@ class GcpLoggingAudit(Base):
     audit_logging_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     sink_count: Mapped[int] = mapped_column(Integer, default=0)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GcpOsconfigVuln(Base):
+    __tablename__ = "gcp_osconfig_vuln"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gcp_project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("gcp_projects.id", ondelete="CASCADE"), unique=True
+    )
+    api_accessible: Mapped[bool] = mapped_column(Boolean, default=False)
+    report_count: Mapped[int] = mapped_column(Integer, default=0)
+    has_reports: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GcpSecurityCommandCenter(Base):
+    __tablename__ = "gcp_security_command_center"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gcp_project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("gcp_projects.id", ondelete="CASCADE"), unique=True
+    )
+    scc_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    active_finding_count: Mapped[int] = mapped_column(Integer, default=0)
+    high_severity_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GcpCloudAsset(Base):
+    __tablename__ = "gcp_cloud_assets"
+    __table_args__ = (
+        UniqueConstraint("gcp_project_id", "asset_name", name="uq_gcp_cloud_assets_project_asset"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gcp_project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("gcp_projects.id", ondelete="CASCADE"), index=True
+    )
+    asset_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    asset_type: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    has_public_iam: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

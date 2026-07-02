@@ -128,6 +128,75 @@ class GcpClient:
                 instances.append(inst)
         return instances
 
+    def _request_soft(self, method: str, url: str, **kwargs) -> tuple[dict[str, Any], int | None]:
+        """Like _request but returns (payload, status_code) instead of raising on 4xx."""
+        token = self._access_token()
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.request(method, url, headers=headers, **kwargs)
+        if resp.status_code >= 400:
+            return {}, resp.status_code
+        if not resp.content:
+            return {}, resp.status_code
+        return resp.json(), resp.status_code
+
+    def _paginate(self, url: str, collection_key: str) -> tuple[list[dict[str, Any]], int | None]:
+        items: list[dict[str, Any]] = []
+        page_token = ""
+        last_status: int | None = 200
+        while True:
+            params: dict[str, str] = {}
+            if page_token:
+                params["pageToken"] = page_token
+            data, status = self._request_soft("GET", url, params=params or None)
+            last_status = status
+            if status and status >= 400:
+                return items, status
+            items.extend(list(data.get(collection_key) or []))
+            page_token = str(data.get("nextPageToken") or "")
+            if not page_token:
+                break
+        return items, last_status
+
+    def list_osconfig_vuln_reports(self, project_id: str) -> tuple[list[dict[str, Any]], int | None]:
+        pid = project_id.strip()
+        url = f"https://osconfig.googleapis.com/v1/projects/{pid}/locations/-/vulnerabilityReports"
+        return self._paginate(url, "vulnerabilityReports")
+
+    def list_scc_findings(self, project_id: str) -> tuple[list[dict[str, Any]], int | None]:
+        pid = project_id.strip()
+        url = (
+            f"https://securitycenter.googleapis.com/v1/projects/{pid}/sources/-/findings"
+            "?filter=state%3D%22ACTIVE%22"
+        )
+        return self._paginate(url, "listFindingsResults")
+
+    def list_cloud_asset_iam_policies(self, project_id: str) -> tuple[list[dict[str, Any]], int | None]:
+        pid = project_id.strip()
+        url = (
+            f"https://cloudasset.googleapis.com/v1/projects/{pid}/assets"
+            "?contentType=IAM_POLICY&pageSize=1000"
+        )
+        assets, status = self._paginate(url, "assets")
+        if status and status >= 400:
+            return assets, status
+        # cloudasset returns assets under "assets" key; _paginate already collected them
+        return assets, status
+
+    @staticmethod
+    def asset_has_public_iam(asset: dict[str, Any]) -> bool:
+        policy = asset.get("iamPolicy") or {}
+        for binding in policy.get("bindings") or []:
+            members = binding.get("members") or []
+            if any(member in {"allUsers", "allAuthenticatedUsers"} for member in members):
+                return True
+        return False
+
+    @staticmethod
+    def scc_finding_severity(finding: dict[str, Any]) -> str:
+        row = finding.get("finding") if isinstance(finding.get("finding"), dict) else finding
+        return str((row or {}).get("severity") or "").upper()
+
 
 def _wif_token_for_project(project: GcpProject) -> str:
     if not project.wif_subject:

@@ -355,9 +355,13 @@ def verify_gcp_project(
     if row.auth_method == AUTH_SERVICE_ACCOUNT_IMPERSONATION and platform_err:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, platform_err)
     try:
-        result = GcpClient.from_project(row).verify(row.project_id)
+        client = GcpClient.from_project(row)
+        result = client.verify(row.project_id)
         if row.auth_method in {AUTH_WORKLOAD_IDENTITY, AUTH_SERVICE_ACCOUNT_IMPERSONATION}:
-            GcpClient.from_project(row).list_logging_sinks(row.project_id)
+            client.list_logging_sinks(row.project_id)
+        from app.services.gcp_permission_probes import probe_gcp_scan_permissions
+
+        degraded_checks = probe_gcp_scan_permissions(row)
     except ValueError as e:
         row.status = "error"
         row.last_error = str(e)[:1000]
@@ -374,7 +378,7 @@ def verify_gcp_project(
     if result.get("project_number") and not row.project_number:
         row.project_number = str(result["project_number"])
     db.commit()
-    return {"ok": True, **result}
+    return {"ok": True, **result, "degraded_checks": degraded_checks}
 
 
 @router.post("/gcp/projects/{project_row_id}/scan")

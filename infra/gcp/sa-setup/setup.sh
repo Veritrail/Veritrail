@@ -31,6 +31,24 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --condition=None \
   >/dev/null
 
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/osconfig.viewer" \
+  --condition=None \
+  >/dev/null
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/securitycenter.findingsViewer" \
+  --condition=None \
+  >/dev/null
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/cloudasset.viewer" \
+  --condition=None \
+  >/dev/null
+
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --project="$PROJECT_ID" \
   --role="roles/iam.serviceAccountTokenCreator" \

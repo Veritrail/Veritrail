@@ -36,6 +36,24 @@ resource "google_project_iam_member" "scanner_logging_viewer" {
   member  = "serviceAccount:${google_service_account.scanner.email}"
 }
 
+resource "google_project_iam_member" "scanner_osconfig_viewer" {
+  project = var.project_id
+  role    = "roles/osconfig.viewer"
+  member  = "serviceAccount:${google_service_account.scanner.email}"
+}
+
+resource "google_project_iam_member" "scanner_security_center_viewer" {
+  project = var.project_id
+  role    = "roles/securitycenter.findingsViewer"
+  member  = "serviceAccount:${google_service_account.scanner.email}"
+}
+
+resource "google_project_iam_member" "scanner_cloud_asset_viewer" {
+  project = var.project_id
+  role    = "roles/cloudasset.viewer"
+  member  = "serviceAccount:${google_service_account.scanner.email}"
+}
+
 resource "google_service_account_iam_member" "veritrail_token_creator" {
   service_account_id = google_service_account.scanner.name
   role               = "roles/iam.serviceAccountTokenCreator"

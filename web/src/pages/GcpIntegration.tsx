@@ -411,9 +411,22 @@ export default function GcpIntegration() {
   async function verifyProject(id: string) {
     setActionState(id);
     try {
-      await api(`/v1/integrations/gcp/projects/${id}/verify`, { method: "POST", body: "{}" });
+      const result = await api<{
+        ok: boolean;
+        degraded_checks?: Array<{ check_id: string; api: string; reason: string }>;
+      }>(`/v1/integrations/gcp/projects/${id}/verify`, { method: "POST", body: "{}" });
       qc.invalidateQueries({ queryKey: ["gcp-projects"] });
       setSaveError("");
+      const degraded = result.degraded_checks ?? [];
+      if (degraded.length > 0) {
+        const summary = degraded.map((row) => row.check_id).join(", ");
+        setListActionMessage({
+          tone: "ok",
+          text: `Connected with degraded checks (${summary}). Grant the scanner role additional read permissions and verify again.`,
+        });
+      } else {
+        setListActionMessage({ tone: "ok", text: "GCP connection verified." });
+      }
     } catch (e) {
       setSaveError(formatApiError(e));
     } finally {

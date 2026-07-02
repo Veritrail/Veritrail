@@ -25,7 +25,14 @@ from app.models.auditor import AuditorAccess, AuditActivityLog, TrustCenterConfi
 from app.models.org_team import OrgActivityLog, OrgDomain, OrgInvite, OrgJoinRequest, OrgMembership
 from app.models.saml import OrgSamlConfig
 from app.models.digest_snapshot import DigestSnapshot
-from app.models.gcp_project import GcpComputeInstance, GcpLoggingAudit, GcpProject
+from app.models.gcp_project import (
+    GcpCloudAsset,
+    GcpComputeInstance,
+    GcpLoggingAudit,
+    GcpOsconfigVuln,
+    GcpProject,
+    GcpSecurityCommandCenter,
+)
 from app.models.azure_subscription import AzureDefenderStatus, AzureStorageAccount, AzureSubscription
 
 __all__ = [
@@ -54,5 +61,6 @@ __all__ = [
     "DigestSnapshot",
     "UserSession",
     "GcpProject", "GcpComputeInstance", "GcpLoggingAudit",
+    "GcpOsconfigVuln", "GcpSecurityCommandCenter", "GcpCloudAsset",
     "AzureSubscription", "AzureDefenderStatus", "AzureStorageAccount",
 ]

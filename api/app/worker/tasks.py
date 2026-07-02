@@ -936,9 +936,18 @@ def run_gcp_scan(project_id: str) -> dict:
     """Run GCP baseline collectors and checks for a connected project."""
     from datetime import datetime, timezone
 
+    from app.collectors.gcp.cloud_asset_inventory import collect_cloud_asset_inventory
     from app.collectors.gcp.compute import collect_compute_instances
     from app.collectors.gcp.logging_audit import collect_logging_audit
-    from app.checks import gcp_compute_instance_public_ip, gcp_logging_not_enabled
+    from app.collectors.gcp.osconfig_vuln import collect_osconfig_vuln
+    from app.collectors.gcp.security_command_center import collect_security_command_center
+    from app.checks import (
+        gcp_asset_public_iam_binding,
+        gcp_compute_instance_public_ip,
+        gcp_logging_not_enabled,
+        gcp_osconfig_vuln_report_present,
+        gcp_scc_not_enabled,
+    )
     from app.models.cloud_scan_run import CloudScanRun
     from app.models.gcp_project import GcpProject
     from app.worker.cloud_scan import execute_cloud_scan
@@ -977,10 +986,16 @@ def run_gcp_scan(project_id: str) -> dict:
             collectors=[
                 ("collect_logging_audit", collect_logging_audit),
                 ("collect_compute_instances", collect_compute_instances),
+                ("collect_osconfig_vuln", collect_osconfig_vuln),
+                ("collect_security_command_center", collect_security_command_center),
+                ("collect_cloud_asset_inventory", collect_cloud_asset_inventory),
             ],
             checks=[
                 ("gcp_logging_not_enabled", gcp_logging_not_enabled.run),
                 ("gcp_compute_instance_public_ip", gcp_compute_instance_public_ip.run),
+                ("gcp_osconfig_vuln_report_present", gcp_osconfig_vuln_report_present.run),
+                ("gcp_scc_not_enabled", gcp_scc_not_enabled.run),
+                ("gcp_asset_public_iam_binding", gcp_asset_public_iam_binding.run),
             ],
             target=row,
             scan_run=run,

@@ -9,12 +9,12 @@ Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-rea
 | Scope | Done | Notes |
 |-------|------|-------|
 | **Phase-one enterprise batch** (direction `TODO`, pre-audit) | ~95% | Shipped 2026-06-26; documented in `enterprise-readiness.md` |
-| **Pipeline phases 0–9** (post-audit backlog) | **4 / 10 phases** (~40%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization |
+| **Pipeline phases 0–9** (post-audit backlog) | **5 / 10 phases** (~50%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3 |
 | **Direction README specs wholesale** | **No** | Strategy/roadmap docs remain largely aspirational; only incremental slices shipped |
 
-**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–3 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity). **Most backlog remains** — start at Phase 4.1.
+**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). **Most backlog remains** — start at Phase 5.1.
 
-**Next run:** Phase 4.1 (GCP OS Config vuln collector) unless blocked.
+**Next run:** Phase 5.1 (Azure Resource Graph collector) unless blocked.
 
 ---
 
@@ -109,33 +109,33 @@ Current collectors: `api/app/collectors/gcp/logging_audit.py`, `compute.py`.
 
 #### 4.1 — OS Config vulnerability reports
 
-- [ ] Collector `api/app/collectors/gcp/osconfig_vuln.py` persists normalized rows
-- [ ] Model + Alembic migration for OS Config vuln data
-- [ ] Check `gcp.osconfig.vuln_report_present` registered in `run_gcp_scan`
-- [ ] Mapped to composite in `composite_controls.json`
-- [ ] Tests with mocked GCP HTTP — `test_gcp_collectors.py`
+- [x] Collector `api/app/collectors/gcp/osconfig_vuln.py` persists normalized rows
+- [x] Model + Alembic migration for OS Config vuln data
+- [x] Check `gcp.osconfig.vuln_report_present` registered in `run_gcp_scan`
+- [x] Mapped to composite in `composite_controls.json`
+- [x] Tests with mocked GCP HTTP — `test_gcp_collectors.py`
 
 #### 4.2 — Security Command Center
 
-- [ ] Collector `api/app/collectors/gcp/security_command_center.py`
-- [ ] Model + migration for SCC findings summary
-- [ ] Check registered in `run_gcp_scan`
-- [ ] Mapped to composite in `composite_controls.json`
-- [ ] Tests with mocked GCP HTTP
+- [x] Collector `api/app/collectors/gcp/security_command_center.py`
+- [x] Model + migration for SCC findings summary
+- [x] Check registered in `run_gcp_scan`
+- [x] Mapped to composite in `composite_controls.json`
+- [x] Tests with mocked GCP HTTP
 
 #### 4.3 — Cloud Asset Inventory
 
-- [ ] Collector `api/app/collectors/gcp/cloud_asset_inventory.py`
-- [ ] Model + migration for CAI resource exposure
-- [ ] Check registered in `run_gcp_scan`
-- [ ] Mapped to composite in `composite_controls.json`
-- [ ] Tests with mocked GCP HTTP
+- [x] Collector `api/app/collectors/gcp/cloud_asset_inventory.py`
+- [x] Model + migration for CAI resource exposure
+- [x] Check registered in `run_gcp_scan`
+- [x] Mapped to composite in `composite_controls.json`
+- [x] Tests with mocked GCP HTTP
 
 #### 4.4 — GCP onboarding polish (from engineering README)
 
-- [ ] Organization-level onboarding flow documented
-- [ ] Setup guide + Terraform snippet for GCP connection
-- [ ] Test-connection detects missing permissions with degraded-check messaging
+- [x] Organization-level onboarding flow documented
+- [x] Setup guide + Terraform snippet for GCP connection
+- [x] Test-connection detects missing permissions with degraded-check messaging
 
 ---
 
@@ -291,9 +291,9 @@ Items from `direction/README_Veritrail_Engineering_and_Evidence_Strategy.md` not
 
 - [~] Cloud Audit Logs collector — `logging_audit.py` shipped
 - [~] IAM/service account checks — partial via `compute.py`
-- [ ] Cloud Asset Inventory collector — Phase 4.3
-- [ ] Security Command Center collector — Phase 4.2
-- [ ] OS Config vulnerability reports — Phase 4.1
+- [x] Cloud Asset Inventory collector — Phase 4.3
+- [x] Security Command Center collector — Phase 4.2
+- [x] OS Config vulnerability reports — Phase 4.1
 - [x] Normalize all GCP findings into unified evidence model — Phase 3 (`cloud_normalization.py`, overview API)
 
 #### Release 4 — Azure baseline
@@ -406,9 +406,9 @@ flowchart LR
 
 ### Phase 4 — GCP (one collector per run)
 
-- [ ] OS Config vulnerability reports collector + check + tests
-- [ ] Security Command Center collector + check + tests
-- [ ] Cloud Asset Inventory collector + check + tests
+- [x] OS Config vulnerability reports collector + check + tests
+- [x] Security Command Center collector + check + tests
+- [x] Cloud Asset Inventory collector + check + tests
 
 ### Phase 5 — Azure (one collector per run)
 

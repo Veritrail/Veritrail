@@ -104,6 +104,7 @@
       "eks.cluster.secrets_encryption_disabled",
       "ecs.service.public_ip_enabled",
       "gcp.compute.instance_public_ip",
+      "gcp.asset.public_iam_binding",
       "ecs.task_definition.privileged_container",
       "s3.bucket.no_default_encryption",
       "elb.load_balancer.weak_tls_policy",
@@ -189,6 +190,7 @@
     "checks": [
       "guardduty.detector.not_enabled",
       "azure.defender.not_enabled",
+      "gcp.scc.not_enabled",
       "guardduty.open_findings",
       "aws.securityhub.not_enabled",
       "aws.access_analyzer.not_enabled",
@@ -617,6 +619,7 @@
       "ecs.cluster.container_insights_disabled",
       "aws.vulnerability_monitoring.not_detected",
       "aws.inspector.active_critical_finding",
+      "gcp.osconfig.vuln_report_present",
       "ec2.ami.aged",
       "cloudtrail.event.guardduty_disabled",
       "cloudtrail.event.ec2_instance_tampering",
@@ -643,6 +646,7 @@
       "eks.cluster.secrets_encryption_disabled",
       "ecs.service.public_ip_enabled",
       "gcp.compute.instance_public_ip",
+      "gcp.asset.public_iam_binding",
       "ecs.task_definition.privileged_container",
       "cloudtrail.event.security_group_open_to_world"
     ],
