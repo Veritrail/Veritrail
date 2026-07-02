@@ -177,9 +177,6 @@ export function intakeConfigForComposite(compositeId: string): CategoryIntakeCon
   return DEFAULT_INTAKE;
 }
 
-export function scheduleOptionsForIntake(config: CategoryIntakeConfig) {
-  const placeholder = config.scheduleLabel.toLowerCase().includes("(optional)")
-    ? "Select schedule (optional)…"
-    : "Select schedule…";
-  return [{ value: "", label: placeholder }, ...VULN_SCAN_CADENCES.map((v) => ({ value: v, label: v }))];
+export function scheduleOptionsForIntake(_config: CategoryIntakeConfig) {
+  return [{ value: "", label: "None" }, ...VULN_SCAN_CADENCES.map((v) => ({ value: v, label: v }))];
 }
