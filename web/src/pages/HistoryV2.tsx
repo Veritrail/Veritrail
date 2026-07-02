@@ -31,6 +31,7 @@ import {
   postureSeries,
 } from "../lib/historyEvidence";
 import { ListPagination } from "../components/ListPagination";
+import { ProductShell } from "../components/ProductShell";
 import "../styles/history-page.css";
 
 const FRAMEWORKS = [
@@ -226,7 +227,8 @@ export default function HistoryV2() {
   }
 
   return (
-    <div className="history-page history-page--fill px-1 pb-8 pt-2 sm:px-0">
+    <ProductShell className="flex flex-1 flex-col">
+    <div className="history-page history-page--fill px-1 pt-2 sm:px-0">
       <HeaderSlot>
         <AppCommandBar className="history-filter-bar">
           <AccountFilterDropdown
@@ -480,5 +482,6 @@ export default function HistoryV2() {
         />
       )}
     </div>
+    </ProductShell>
   );
 }
