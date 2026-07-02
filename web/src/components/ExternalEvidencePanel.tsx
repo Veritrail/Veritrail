@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, apiUpload, formatApiError } from "../api";
+import { DrawerDateField } from "./DrawerDateField";
 import { Select, type SelectOption } from "./Select";
+import { toIsoDate } from "../lib/isoDate";
 import { labelForCheck } from "../data/checkLabels";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { EXTERNAL_EVIDENCE_TYPES, type ExternalEvidenceArtifact } from "../lib/externalEvidence";
@@ -517,12 +519,14 @@ export function ExternalEvidencePanel({
 
             <div className="compliance-external-evidence__field">
               <label htmlFor={`ext-period-${compositeId}`}>Coverage through (optional)</label>
-              <input
+              <DrawerDateField
                 id={`ext-period-${compositeId}`}
-                className="compliance-external-evidence__input"
-                type="date"
                 value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
+                onChange={setPeriodEnd}
+                placeholder="Select date"
+                minIso={toIsoDate(new Date(new Date().getFullYear() - 20, 0, 1))}
+                triggerClassName="compliance-external-evidence__input drawer-date-field__trigger"
+                popoverPlacement="below"
               />
             </div>
 
