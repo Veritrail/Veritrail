@@ -6301,50 +6301,50 @@ function AccountSplitDetailPane({
                   onClick={handleScan}
                   disabled={scanBusy}
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
                   </svg>
                   {scanBusy ? "Scanning…" : "Scan now"}
                 </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() => navigate(`/findings?account=${accountId}`)}
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75 19.5 7.5v5.25c0 4.25-3 7.1-7.5 8.25-4.5-1.15-7.5-4-7.5-8.25V7.5L12 3.75Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.5v4.25" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16h.01" />
-                  </svg>
-                  View findings
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() =>
-                    isAws
-                      ? setShowConnectorUpdate(true)
-                      : navigate(cloudIntegrationPath(cloud!.provider))
-                  }
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9M8 7.5h8a4.5 4.5 0 0 1 0 9H8a4.5 4.5 0 0 1 0-9Z" />
-                  </svg>
-                  Manage connection
-                </button>
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__secondary"
-                  onClick={() => {
-                    setTab("settings");
-                    if (isAws) setShowManageCapabilities(true);
-                  }}
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487 19.5 7.125 8.25 18.375l-4.125 1.125 1.125-4.125L16.862 4.487Z" />
-                  </svg>
-                  Edit account
-                </button>
+                <div className="accounts-detail-quick-actions__links">
+                  <button
+                    type="button"
+                    className="accounts-detail-quick-actions__link"
+                    onClick={() => navigate(`/findings?account=${accountId}`)}
+                  >
+                    <span className="accounts-detail-quick-actions__link-label">View findings</span>
+                    <span className="accounts-detail-quick-actions__link-chevron" aria-hidden>
+                      →
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="accounts-detail-quick-actions__link"
+                    onClick={() =>
+                      isAws
+                        ? setShowConnectorUpdate(true)
+                        : navigate(cloudIntegrationPath(cloud!.provider))
+                    }
+                  >
+                    <span className="accounts-detail-quick-actions__link-label">Manage connection</span>
+                    <span className="accounts-detail-quick-actions__link-chevron" aria-hidden>
+                      →
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="accounts-detail-quick-actions__link"
+                    onClick={() => {
+                      setTab("settings");
+                      if (isAws) setShowManageCapabilities(true);
+                    }}
+                  >
+                    <span className="accounts-detail-quick-actions__link-label">Edit account</span>
+                    <span className="accounts-detail-quick-actions__link-chevron" aria-hidden>
+                      →
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
 
