@@ -563,7 +563,6 @@
   gap: 0.75rem;
   padding: 0.9375rem 1.125rem;
   border-bottom: 1px solid var(--history-border);
-  background: var(--vt-surface-raised);
 }
 
 .history-toolbar__end {
@@ -812,28 +811,28 @@
   font-size: 0.8125rem;
 }
 
-/* Datetime is nowrap tabular text — needs a fixed width, not a percentage,
-   so it can't collide with the type badge at narrow content widths. */
 .history-col-datetime {
-  width: 10.75rem;
+  width: 13.5%;
 }
 
 .history-col-type {
-  width: 7.5rem;
+  width: 9%;
 }
 
 .history-col-control {
-  width: 5.5rem;
+  width: 8%;
 }
 
 .history-col-resource {
   width: 24%;
 }
 
-/* Detail: no explicit width — absorbs the remaining space. */
+.history-col-detail {
+  width: 37.5%;
+}
 
 .history-col-actions {
-  width: 4.75rem;
+  width: 8%;
 }
 
 .history-table thead th {
