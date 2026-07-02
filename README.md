@@ -112,7 +112,7 @@ ENV_FILE=.env.prod docker compose \
   up -d
 ```
 
-If `IAP_ENABLED=true`, add `-f compose.iap.yml --profile iap`; `scripts/launch-prod.sh` (which delegates to `scripts/bootstrap-ec2.sh` — the shared VPS bootstrap script) does this automatically. After bootstrap, `source .compose.prod.env` before manual compose commands.
+If `IAP_ENABLED=true`, also add `--profile iap` to start `oauth2-proxy`; `scripts/launch-prod.sh` (which delegates to `scripts/bootstrap-ec2.sh` — the shared VPS bootstrap script) does this automatically. After bootstrap, `source .compose.prod.env` before manual compose commands.
 
 `nginx/nginx.conf` and `nginx/iap/iap.*.conf` are generated on the host from `nginx/nginx.conf.template` and `infra/nginx/iap/` during bootstrap/redeploy — they are gitignored and should not be edited in git.
 
@@ -121,8 +121,7 @@ Compose file roles:
 | File | Use |
 |------|-----|
 | `compose.yml` | Base local/dev services plus shared prod-profile services such as `nginx` and `backup` |
-| `compose.prod.yml` | Production override: prod Dockerfiles, no bind mounts, no local dev ports, multi-worker API |
-| `compose.iap.yml` | Optional production override that makes nginx wait for `oauth2-proxy` when IAP is enabled |
+| `compose.prod.yml` | Production override: prod Dockerfiles, Hetzner IAM Roles Anywhere mounts, no local dev ports, multi-worker API |
 
 `var/log/nginx/` is intentionally kept in the repo with `.gitkeep`. In production nginx writes `access.log` and `error.log` there, and fail2ban reads `access.log`; the actual `*.log` files are ignored.
 
@@ -384,8 +383,7 @@ infra/
                   veritrail-remediation-ssm.yaml          ← SG/SSM remediation (SSM Automation)
 docs/             hetzner-vault-rolesanywhere.md, remediation-automation.md, evidence-vault.md
 compose.yml       base dev/shared compose file
-compose.prod.yml  production override
-compose.iap.yml   optional production IAP override
+compose.prod.yml  production override (Hetzner/VPS)
 ```
 
 ---

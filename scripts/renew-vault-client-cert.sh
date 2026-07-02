@@ -40,11 +40,7 @@ compose_recreate_aws_services() {
     --profile prod
   )
   if grep -qE '^IAP_ENABLED=true' "$env_path" 2>/dev/null; then
-    compose_args+=(-f "$REPO_DIR/compose.iap.yml" --profile iap)
-  fi
-  if [[ -f "$REPO_DIR/compose.hetzner-rolesanywhere.yml" ]] \
-    && grep -qE '^(AWS_PROFILE|TRUST_PRINCIPAL_ARN)=' "$env_path" 2>/dev/null; then
-    compose_args+=(-f "$REPO_DIR/compose.hetzner-rolesanywhere.yml")
+    compose_args+=(--profile iap)
   fi
 
   log "Recreating api/worker/beat after client cert rotation"

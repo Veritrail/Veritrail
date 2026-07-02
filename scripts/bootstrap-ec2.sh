@@ -91,7 +91,6 @@ compose_iap_args() {
   local iap_enabled
   iap_enabled="$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"
   if is_iap_enabled "$iap_enabled"; then
-    printf '%s\0%s\0' "-f" "$REPO_DIR/compose.iap.yml"
     printf '%s\0%s\0' "--profile" "iap"
   fi
 }
@@ -120,24 +119,14 @@ roles_anywhere_requested() {
   esac
 }
 
-compose_roles_anywhere_args() {
-  if roles_anywhere_enabled; then
-    printf '%s\0%s\0' "-f" "$REPO_DIR/compose.hetzner-rolesanywhere.yml"
-  fi
-}
-
 compose() {
   local -a iap_args=()
   while IFS= read -r -d '' arg; do iap_args+=("$arg"); done < <(compose_iap_args)
-  local -a ra_args=()
-  while IFS= read -r -d '' arg; do ra_args+=("$arg"); done < <(compose_roles_anywhere_args)
-  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${ra_args[@]}" "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${iap_args[@]}" --env-file "$ENV_FILE" --profile prod "$@")
 }
 
 compose_no_profile() {
-  local -a ra_args=()
-  while IFS= read -r -d '' arg; do ra_args+=("$arg"); done < <(compose_roles_anywhere_args)
-  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml "${ra_args[@]}" --env-file "$ENV_FILE" "$@")
+  (cd "$REPO_DIR" && COMPOSE_PROJECT_NAME="$COMPOSE_PROJECT_NAME" ENV_FILE="$ENV_FILE" APP_ENV=production docker_cmd compose -f compose.yml -f compose.prod.yml --env-file "$ENV_FILE" "$@")
 }
 
 install_system_packages() {
@@ -335,7 +324,7 @@ install_fail2ban() {
 install_renewal_cron() {
   local iap_suffix=""
   if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
-    iap_suffix=" -f compose.iap.yml --profile iap"
+    iap_suffix=" --profile iap"
   fi
   local compose_renew="cd $REPO_DIR && export COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME && ENV_FILE=$ENV_FILE docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
   local cron_job="0 3 * * * certbot renew --quiet --pre-hook \"$compose_renew stop nginx\" --post-hook \"$compose_renew up -d nginx oauth2-proxy\""
@@ -690,13 +679,9 @@ health_check() {
 print_checklist() {
   local iap_suffix=""
   if is_iap_enabled "$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"; then
-    iap_suffix=" -f compose.iap.yml --profile iap"
+    iap_suffix=" --profile iap"
   fi
-  local ra_suffix=""
-  if roles_anywhere_enabled; then
-    ra_suffix=" -f compose.hetzner-rolesanywhere.yml"
-  fi
-  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml${ra_suffix}${iap_suffix} --env-file $ENV_FILE --profile prod"
+  local compose_hint="cd $REPO_DIR && source .compose.prod.env && docker compose -f compose.yml -f compose.prod.yml${iap_suffix} --env-file $ENV_FILE --profile prod"
   cat <<EOF
 
 ================================================================================

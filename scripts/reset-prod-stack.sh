@@ -5,7 +5,7 @@ set -euo pipefail
 # Stops containers from both legacy (vigil) and current (veritrail) project names.
 # Does not remove the Postgres volume unless --wipe-volumes is passed explicitly.
 #
-# Primary cleanup uses `docker compose ... down` (same prod + IAP file set as bootstrap).
+# Primary cleanup uses `docker compose ... down` (same prod file set as bootstrap).
 # Orphan containers matching veritrail-* or vigil-* (e.g. stale veritrail-oauth2-proxy-1)
 # are removed only if they still exist after compose down.
 #
@@ -73,7 +73,6 @@ compose_iap_args() {
   local iap_enabled
   iap_enabled="$(get_env_value IAP_ENABLED "$REPO_DIR/$ENV_FILE")"
   if is_iap_enabled "$iap_enabled"; then
-    printf '%s\0%s\0' "-f" "$REPO_DIR/compose.iap.yml"
     printf '%s\0%s\0' "--profile" "iap"
   fi
 }

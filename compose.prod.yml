@@ -1,8 +1,25 @@
-# Production overrides — use with base compose.yml:
+# Production overrides — Hetzner/VPS prod host. Use with base compose.yml:
 #   ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod --profile prod up -d
+# When IAP_ENABLED=true, also pass --profile iap to start oauth2-proxy.
+
+x-hetzner-aws-runtime: &hetzner-aws-runtime
+  environment:
+    AWS_SDK_LOAD_CONFIG: ${AWS_SDK_LOAD_CONFIG:-1}
+    AWS_PROFILE: ${AWS_PROFILE}
+    AWS_CONFIG_FILE: /root/.aws/config
+    # Force boto3 onto the profile credential_process even if legacy static keys
+    # are still present in .env.prod. The app strips empty AWS_* values at boot.
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    AWS_SESSION_TOKEN: ""
+  volumes:
+    - ${AWS_CONFIG_DIR:-/root/.aws}:/root/.aws:ro
+    - /etc/veritrail/aws-ra:/etc/veritrail/aws-ra:ro
+    - /usr/local/bin/aws_signing_helper:/usr/local/bin/aws_signing_helper:ro
 
 services:
   api:
+    <<: *hetzner-aws-runtime
     build:
       context: .
       dockerfile: api/Dockerfile.prod
@@ -15,13 +32,10 @@ services:
       - "8000"
       - --workers
       - "2"
-    volumes:
-      - /root/.aws:/root/.aws:ro
-      - /etc/veritrail/aws-ra:/etc/veritrail/aws-ra:ro
-      - /usr/local/bin/aws_signing_helper:/usr/local/bin/aws_signing_helper:ro
     ports: !reset []
 
   worker:
+    <<: *hetzner-aws-runtime
     build:
       context: .
       dockerfile: api/Dockerfile.prod
@@ -32,12 +46,9 @@ services:
       - worker
       - --loglevel=info
       - --concurrency=4
-    volumes:
-      - /root/.aws:/root/.aws:ro
-      - /etc/veritrail/aws-ra:/etc/veritrail/aws-ra:ro
-      - /usr/local/bin/aws_signing_helper:/usr/local/bin/aws_signing_helper:ro
 
   beat:
+    <<: *hetzner-aws-runtime
     build:
       context: .
       dockerfile: api/Dockerfile.prod
@@ -47,10 +58,6 @@ services:
       - app.worker.celery_app
       - beat
       - --loglevel=info
-    volumes:
-      - /root/.aws:/root/.aws:ro
-      - /etc/veritrail/aws-ra:/etc/veritrail/aws-ra:ro
-      - /usr/local/bin/aws_signing_helper:/usr/local/bin/aws_signing_helper:ro
 
   web:
     build:
