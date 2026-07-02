@@ -53,6 +53,7 @@ import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import { useAccountsPlanUsage } from "../hooks/useAccountsPlanUsage";
+import { isCloudAccountConnected } from "../hooks/useConnectedAccountOptions";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
@@ -682,10 +683,6 @@ function accountListRowKey(row: AccountListRow): string {
 
 function parseAccountListRowKey(key: string, rows: AccountListRow[]): AccountListRow | null {
   return rows.find((row) => accountListRowKey(row) === key) ?? null;
-}
-
-function isCloudAccountConnected(row: CloudAccountRow): boolean {
-  return row.status === "connected";
 }
 
 function cloudProviderLabel(provider: string): string {
@@ -5441,65 +5438,7 @@ function securityScoreTone(score: number): SecurityScoreTone {
   return "critical";
 }
 
-function SecurityScoreGaugeSvg({
-  score,
-  size = 96,
-  stroke = 8,
-}: {
-  score: number;
-  size?: number;
-  stroke?: number;
-}) {
-  const r = (size - stroke) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circum = 2 * Math.PI * r;
-  const fraction = Math.max(0, Math.min(100, score)) / 100;
-  const dash = fraction * circum;
-  const tone = securityScoreTone(score);
-  const gradientId = `security-score-arc-${tone}`;
-
-  return (
-    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="shrink-0" aria-hidden>
-      <defs>
-        <linearGradient id="security-score-arc-good" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#b8e6c8" />
-          <stop offset="52%" stopColor="#7ecba0" />
-          <stop offset="100%" stopColor="#4f9f73" />
-        </linearGradient>
-        <linearGradient id="security-score-arc-fair" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#e8a86a" />
-          <stop offset="48%" stopColor="#efc27a" />
-          <stop offset="100%" stopColor="#fde8b0" />
-        </linearGradient>
-        <linearGradient id="security-score-arc-poor" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#e39a72" />
-          <stop offset="50%" stopColor="#e8b07e" />
-          <stop offset="100%" stopColor="#f5d9b0" />
-        </linearGradient>
-        <linearGradient id="security-score-arc-critical" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#efb4b4" />
-          <stop offset="52%" stopColor="#df8f8f" />
-          <stop offset="100%" stopColor="#c96a6a" />
-        </linearGradient>
-      </defs>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e4e8ed" strokeWidth={stroke} />
-      <circle
-        cx={cx}
-        cy={cy}
-        r={r}
-        fill="none"
-        stroke={`url(#${gradientId})`}
-        strokeWidth={stroke}
-        strokeDasharray={`${dash} ${circum - dash}`}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${cx} ${cy})`}
-      />
-    </svg>
-  );
-}
-
-function SecurityScoreGauge({
+function AccountScoreMetric({
   score,
   hasScanned,
 }: {
@@ -5511,23 +5450,31 @@ function SecurityScoreGauge({
   const tone = showScore ? securityScoreTone(score) : null;
 
   return (
-    <div className="accounts-security-gauge">
-      <div className="accounts-security-gauge__ring">
-        {showScore ? (
-          <SecurityScoreGaugeSvg score={score} />
-        ) : (
-          <div className="accounts-security-gauge__empty" aria-hidden />
-        )}
-      </div>
-      <div className="accounts-security-gauge__hub">
-        <span className="accounts-security-gauge__score">{showScore ? score : "—"}</span>
+    <>
+      <div className="accounts-detail-overview__metric-value-row">
+        <p className="accounts-detail-overview__metric-value">{showScore ? score : "—"}</p>
         {showScore && label && tone ? (
-          <span className={`accounts-security-gauge__badge accounts-security-gauge__badge--${tone}`}>
+          <span className={`accounts-detail-overview__score-pill accounts-detail-overview__score-pill--${tone}`}>
             {label}
           </span>
         ) : null}
       </div>
-    </div>
+      {showScore && tone ? (
+        <div
+          className="accounts-detail-overview__progress"
+          role="progressbar"
+          aria-valuenow={score ?? undefined}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Account score"
+        >
+          <div
+            className={`accounts-detail-overview__progress-fill accounts-detail-overview__progress-fill--${tone}`}
+            style={{ width: `${score}%` }}
+          />
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -6337,14 +6284,12 @@ function AccountSplitDetailPane({
         {tab === "overview" && (
           <>
             <div className="accounts-detail-overview__metrics" aria-label="Account overview metrics">
-              <div className="accounts-detail-overview__metric accounts-detail-overview__metric--security">
+              <div className="accounts-detail-overview__metric">
                 <p className="accounts-detail-overview__metric-label">
                   Account score
                   <MetricHelpTip metric="Account score" text={ACCOUNT_SCORE_HELP} />
                 </p>
-                <div className="accounts-detail-overview__metric-body accounts-detail-overview__metric-body--gauge">
-                  <SecurityScoreGauge score={securityScore} hasScanned={hasScanned} />
-                </div>
+                <AccountScoreMetric score={securityScore} hasScanned={hasScanned} />
                 <p className="accounts-detail-overview__metric-detail">
                   {hasScanned
                     ? "Based on findings, evidence coverage, and scan recency."

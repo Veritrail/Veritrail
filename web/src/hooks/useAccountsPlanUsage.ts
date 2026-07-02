@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { planUsageSchema } from "../lib/apiSchemas";
 
 export type AccountsPlanUsage = {
   plan: string;
@@ -12,7 +13,7 @@ export type AccountsPlanUsage = {
 export function useAccountsPlanUsage() {
   return useQuery({
     queryKey: ["accounts-plan-usage"],
-    queryFn: () => api<AccountsPlanUsage>("/v1/accounts/plan-usage"),
+    queryFn: () => api("/v1/accounts/plan-usage", { schema: planUsageSchema }),
     staleTime: 60_000,
   });
 }

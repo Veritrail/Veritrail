@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ApiInit } from "../api";
+import type { ComplianceHistoryResponse } from "./complianceHistory";
 
 /** Thrown when an API response does not match its Zod schema (dev only). */
 export class ApiValidationError extends Error {
@@ -358,7 +359,10 @@ export const cloudAccountRowSchema = z.object({
   label: z.string(),
   status: z.string(),
   last_scan_at: z.string().nullable().default(null),
-  open_findings_count: z.number().default(0),
+  open_findings_count: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? 0),
 });
 
 export const cloudAccountListSchema = z.array(cloudAccountRowSchema);
@@ -393,3 +397,88 @@ export const memberSchema = z.object({
 });
 
 export const memberListSchema = z.array(memberSchema);
+
+export const planUsageSchema = z.object({
+  plan: z.string(),
+  plan_label: z.string(),
+  max_accounts: z.number().nullable(),
+  used: z.number(),
+  can_add: z.boolean(),
+});
+
+export type PlanUsage = z.infer<typeof planUsageSchema>;
+
+export const scanStatsSchema = z.object({
+  scans_last_7_days: z.number(),
+  scans_prev_7_days: z.number(),
+});
+
+export type ScanStats = z.infer<typeof scanStatsSchema>;
+
+export const evidenceCoverageSchema = z
+  .object({
+    period_days: z.number().optional(),
+    period_start: z.string(),
+    period_end: z.string(),
+    coverage_ratio: z.number(),
+    coverage_label: z.string(),
+    warning: z.string().nullable(),
+    days_with_data: z.number().optional(),
+    days_requested: z.number().optional(),
+    successful_scans_in_period: z.number().optional(),
+    coverage_start: z.string().nullable().optional(),
+    scope_limitations: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+export type EvidenceCoverageData = z.infer<typeof evidenceCoverageSchema>;
+
+export const controlListItemSchema = z
+  .object({
+    id: z.string(),
+    framework: z.string().optional(),
+    control_id: z.string(),
+    title: z.string(),
+    description: z.string().optional(),
+    guidance: z.string().nullable().optional(),
+    status: z.string(),
+    finding_count: z.number().default(0),
+    check_ids: z.array(z.string()).default([]),
+    kind: z.string().optional(),
+  })
+  .passthrough();
+
+export const controlListSchema = z.array(controlListItemSchema);
+
+export const complianceTimelineSchema = z
+  .object({
+    framework: z.string(),
+    period_days: z.number(),
+    events: z.array(z.record(z.string(), z.unknown())).default([]),
+    current_summary: z
+      .object({
+        controls_passed: z.number(),
+        controls_failed: z.number(),
+        controls_no_data: z.number(),
+        open_findings_count: z.number().optional(),
+      })
+      .nullable()
+      .optional(),
+    current_posture_score: z.number().nullable(),
+    total_failing: z.number().optional(),
+    scan_count: z.number().optional(),
+    posture_trend: z
+      .array(
+        z.object({
+          timestamp: z.string(),
+          posture_score: z.number(),
+        }),
+      )
+      .optional(),
+    period_summary: z.record(z.string(), z.unknown()).optional(),
+    persistent_gaps: z.array(z.record(z.string(), z.unknown())).optional(),
+    scan_cadence: z.array(z.record(z.string(), z.unknown())).optional(),
+  })
+  .passthrough() as unknown as z.ZodType<ComplianceHistoryResponse>;
+
+export type ComplianceTimelineData = ComplianceHistoryResponse;
