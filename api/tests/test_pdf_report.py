@@ -17,6 +17,59 @@ def test_key_controls_for_review_sorted_by_finding_count():
     assert [c["control_id"] for c in top] == ["CC6.6", "CC6.1"]
 
 
+def test_key_controls_for_review_includes_at_risk_after_failures():
+    from app.services.pdf_report import _key_controls_for_review
+
+    controls = [
+        {"control_id": "CC6.1", "status": "at_risk", "finding_count": 50, "findings": [{"severity": "high"}]},
+        {"control_id": "CC6.6", "status": "fail", "finding_count": 2, "findings": [{"severity": "medium"}]},
+        {"control_id": "CC6.3", "status": "pass", "finding_count": 0, "findings": []},
+    ]
+    top = _key_controls_for_review(controls, limit=5)
+    assert [c["control_id"] for c in top] == ["CC6.6", "CC6.1"]
+
+
+def test_build_pdf_renders_at_risk_status():
+    from app.services.pdf_report import build_pdf
+
+    acc = SimpleNamespace(label="Demo", account_id="123456789012")
+    now = datetime.now(timezone.utc)
+    results = [
+        {
+            "control_id": "CC7.2",
+            "title": "Detection Monitoring",
+            "description": "Threat detection is monitored.",
+            "guidance": "",
+            "status": "at_risk",
+            "evidence_status": "complete",
+            "finding_count": 1,
+            "review_reason": "Supporting signal requires attention.",
+            "findings": [
+                {
+                    "severity": "medium",
+                    "title": "GuardDuty not enabled",
+                    "resource_arn": "arn:aws:guardduty:us-east-1:123:detector/abc",
+                    "first_seen": now.isoformat(),
+                    "last_seen": now.isoformat(),
+                }
+            ],
+        },
+    ]
+    pdf = build_pdf(
+        acc,
+        "soc2",
+        90,
+        now,
+        results,
+        since=now,
+        evidence_sources=["AWS GuardDuty"],
+        report_id="ATRISKTEST01",
+    )
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 3000
+    assert pdf.count(b"/Type /Page") >= 2
+
+
 def test_build_pdf_generates_bytes_with_review_section():
     from app.services.pdf_report import build_pdf
 

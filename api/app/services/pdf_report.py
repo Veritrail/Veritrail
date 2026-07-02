@@ -5,7 +5,7 @@ breaks, and neutral audit language rather than dashboard chrome.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -257,9 +257,28 @@ def _review_priority(control: dict[str, Any]) -> tuple[int, int, int, int, str]:
 
 
 def _key_controls_for_review(control_results: list[dict[str, Any]], *, limit: int = 5) -> list[dict[str, Any]]:
-    review = [r for r in control_results if r.get("status") == "fail"]
-    review.sort(key=_review_priority)
+    review = [r for r in control_results if r.get("status") in ("fail", "at_risk")]
+    review.sort(key=lambda c: (0 if c.get("status") == "fail" else 1,) + _review_priority(c))
     return review[:limit]
+
+
+def _finding_age_days(finding: dict[str, Any], *, ref: datetime | None = None) -> int | None:
+    raw = finding.get("first_seen") or finding.get("last_seen")
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        anchor = ref or datetime.now(timezone.utc)
+        return max(0, (anchor - dt).days)
+    except (TypeError, ValueError):
+        return None
+
+
+def _oldest_finding_days(findings: list[dict[str, Any]], *, ref: datetime | None = None) -> int | None:
+    ages = [d for f in findings if (d := _finding_age_days(f, ref=ref)) is not None]
+    return max(ages) if ages else None
 
 
 def _mark_path() -> Path | None:
@@ -560,9 +579,105 @@ def _draw_top_controls(pdf: FPDF, controls: list[dict[str, Any]]) -> None:
         pdf.set_font("Helvetica", "", _FONT["small"])
         pdf.set_text_color(*MUTED)
         pdf.cell(110, 4.2, _s(f"{count} findings  |  {_severity_summary(counts)}  |  Evidence {_EVIDENCE.get(control.get('evidence_status', 'missing'), _EVIDENCE['missing'])['label']}"))
+        st = control.get("status") or "fail"
+        status_style = _STATUS.get(st, _STATUS["fail"])
         pdf.set_xy(x0 + pdf.epw - 30, y + 3.5)
-        _pill(pdf, "Review", _STATUS["fail"], w=24, h=5.8)
+        _pill(pdf, status_style["label"], status_style, w=24, h=5.8)
     pdf.set_y(y0 + h + 5)
+
+
+def _draw_exception_register(pdf: FPDF, controls: list[dict[str, Any]], *, generated_at: datetime) -> None:
+    """Severity-weighted register for fail/at_risk controls and approved exceptions."""
+    actionable = [
+        c
+        for c in controls
+        if c.get("status") in ("fail", "at_risk")
+        and (c.get("findings") or c.get("exception_narratives"))
+    ]
+    if not actionable:
+        return
+
+    col_w = [20, 52, 24, 18, 18, 18, 18, 22]
+    headers = ["Control", "Objective", "Status", "Crit", "High", "Med", "Low", "Oldest"]
+
+    def header() -> None:
+        y = pdf.get_y()
+        x = pdf.l_margin
+        pdf.set_fill_color(*SOFT_BG)
+        pdf.set_draw_color(*SUBTLE)
+        pdf.set_font("Helvetica", "B", _FONT["tiny"])
+        pdf.set_text_color(*MUTED)
+        for width, label in zip(col_w, headers):
+            pdf.rect(x, y, width, 8, style="FD")
+            pdf.set_xy(x + 1.5, y + 2.2)
+            align = "C" if label not in {"Control", "Objective", "Status"} else "L"
+            pdf.cell(width - 3, 3.5, _s(label.upper()), align=align)
+            x += width
+        pdf.set_y(y + 8)
+
+    pdf.add_page()
+    _outline(pdf, "Exception Register")
+    _section(
+        pdf,
+        "Exception Register",
+        "Open findings by severity and age. Approved exceptions are listed below the table.",
+        gap=0,
+    )
+    header()
+    for control in sorted(actionable, key=_overview_sort_key):
+        findings = control.get("findings") or []
+        counts = _severity_counts(findings)
+        oldest = _oldest_finding_days(findings, ref=generated_at)
+        row_h = 10
+        if pdf.get_y() + row_h > _bottom(pdf):
+            pdf.add_page()
+            _section(pdf, "Exception Register", "Continued.", gap=0)
+            header()
+        y = pdf.get_y()
+        x = pdf.l_margin
+        pdf.set_draw_color(*SUBTLE)
+        pdf.rect(x, y, sum(col_w), row_h, style="D")
+        pdf.set_xy(x + 2, y + 2.2)
+        pdf.set_font("Helvetica", "B", _FONT["table"])
+        pdf.set_text_color(*INK)
+        pdf.cell(col_w[0] - 4, 4, _s(control.get("control_id", "-")))
+        x += col_w[0]
+        pdf.set_xy(x + 2, y + 2.2)
+        pdf.set_font("Helvetica", "", _FONT["table"])
+        pdf.set_text_color(51, 65, 85)
+        pdf.cell(col_w[1] - 4, 4, _s(_truncate_middle(_objective_text(control.get("title", "")), 42)))
+        x += col_w[1]
+        status_style = _STATUS.get(control.get("status"), _STATUS["no_data"])
+        pdf.set_xy(x + 2, y + 2)
+        _pill(pdf, status_style["label"], status_style, w=col_w[2] - 4, h=5.8)
+        x += col_w[2]
+        pdf.set_font("Helvetica", "B", _FONT["table"])
+        pdf.set_text_color(*INK)
+        for idx, sev in enumerate(("critical", "high", "medium", "low"), start=3):
+            pdf.set_xy(x + 2, y + 2.2)
+            pdf.cell(col_w[idx] - 4, 4, _s(str(counts.get(sev, 0))), align="C")
+            x += col_w[idx]
+        pdf.set_xy(x + 2, y + 2.2)
+        pdf.cell(col_w[7] - 4, 4, _s(f"{oldest}d" if oldest is not None else "-"), align="C")
+        pdf.set_y(y + row_h)
+
+    with_exceptions = [c for c in actionable if c.get("exception_narratives")]
+    if with_exceptions:
+        pdf.ln(4)
+        pdf.set_font("Helvetica", "B", _FONT["h3"])
+        pdf.set_text_color(*INK)
+        pdf.cell(0, 6, _s("Approved exceptions"), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", _FONT["small"])
+        pdf.set_text_color(51, 65, 85)
+        for control in with_exceptions:
+            cid = control.get("control_id", "-")
+            for line in (control.get("exception_narratives") or [])[:3]:
+                pdf.multi_cell(pdf.epw, 4.8, _s(f"{cid}: {line}"), align="L")
+            extra = len(control.get("exception_narratives") or []) - 3
+            if extra > 0:
+                pdf.set_text_color(*MUTED)
+                pdf.cell(0, 4.6, _s(f"{cid}: {extra} more in controls/{cid}/exceptions.json"), new_x="LMARGIN", new_y="NEXT")
+                pdf.set_text_color(51, 65, 85)
 
 
 def _draw_control_overview(pdf: FPDF, controls: list[dict[str, Any]]) -> None:
@@ -731,7 +846,7 @@ def _draw_control_detail(pdf: FPDF, control: dict[str, Any], framework: str) -> 
     # Keep the control header + meta + a few rows together; start a new page only
     # when there isn't room, so several small controls share a page.
     pdf.ln(5)
-    _ensure(pdf, 52 if st == "fail" else 34)
+    _ensure(pdf, 52 if st in ("fail", "at_risk") else 34)
 
     # Header band: soft filled bar with the control title left, status pill right.
     control_title = f"{cid}  {_objective_text(control.get('title', ''))}"
@@ -1034,6 +1149,17 @@ def build_pdf(
     if coverage:
         _draw_coverage_banner(pdf, coverage, period_days)
 
+    key_controls = _key_controls_for_review(control_results)
+    if key_controls:
+        pdf.ln(3)
+        _section(
+            pdf,
+            "Priority Review",
+            "Benchmark failures and at-risk controls ranked by finding severity.",
+            gap=3,
+        )
+        _draw_top_controls(pdf, key_controls)
+
     review_controls = [r for r in control_results if r.get("status") == "fail"]
     review_controls.sort(key=_review_priority)
     at_risk_controls = [r for r in control_results if r.get("status") == "at_risk"]
@@ -1051,6 +1177,8 @@ def build_pdf(
     pdf.set_font("Helvetica", "I", _FONT["tiny"])
     pdf.set_text_color(*MUTED)
     pdf.multi_cell(pdf.epw, 4, _s("Findings can map to more than one control, so per-control counts may exceed the total unique open findings."), align="L")
+
+    _draw_exception_register(pdf, control_results, generated_at=generated_at)
 
     # Every in-scope control gets a section — auditors need the affirmative
     # statement for passing controls, not only the failure list.
