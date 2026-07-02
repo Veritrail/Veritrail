@@ -12,13 +12,14 @@ Allow: /sitemap.xml
 Disallow: /findings
 Disallow: /dashboard
 Disallow: /accounts
-Disallow: /account
-Disallow: /settings
-Disallow: /detection
+Disallow: /profile
+Disallow: /workspace
 Disallow: /controls
 Disallow: /integrations
-Disallow: /timeline
-Disallow: /history/infrastructure
+Disallow: /history
+Disallow: /reference
+Disallow: /auditor/
 Disallow: /auth/
+Disallow: /invite/
 
 Sitemap: https://app.veritrail.io/sitemap.xml
