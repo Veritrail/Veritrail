@@ -94,22 +94,23 @@ export function EvidenceArtifactComments({
           )}
           {commentsQ.data?.map((c) => (
             <div key={c.id} className="compliance-external-evidence__comment">
-              <div className="compliance-external-evidence__comment-head">
-                <p className="compliance-external-evidence__comment-meta">
-                  <span>{c.author_email ?? "User"}</span>
-                  <span>{formatWhen(c.created_at)}</span>
-                </p>
-                {canDeleteComment(c) && (
-                  <button
-                    type="button"
-                    className="compliance-external-evidence__comment-delete"
-                    disabled={remove.isPending}
-                    onClick={() => setPendingDelete(c)}
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
+              {canDeleteComment(c) && (
+                <button
+                  type="button"
+                  className="compliance-external-evidence__comment-delete"
+                  aria-label="Delete comment"
+                  disabled={remove.isPending}
+                  onClick={() => setPendingDelete(c)}
+                >
+                  <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+              <p className="compliance-external-evidence__comment-meta">
+                <span>{c.author_email ?? "User"}</span>
+                <span>{formatWhen(c.created_at)}</span>
+              </p>
               <p className="compliance-external-evidence__comment-body">{c.body}</p>
             </div>
           ))}
