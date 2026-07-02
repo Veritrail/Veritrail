@@ -6,6 +6,7 @@ import { api, formatApiError, isSessionStaleError, logout } from "../api";
 import {
   accountListSchema,
   cloudAccountListSchema,
+  cloudAccountOverviewSchema,
   complianceTimelineSchema,
   controlListSchema,
   evidenceCoverageSchema,
@@ -24,7 +25,6 @@ import {
 } from "../lib/accountMetricDeltas";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import { controlPostureScore } from "../lib/controlPostureScore";
-import type { EvidenceCoverage } from "../lib/evidenceCoverage";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
   ADVANCED_POLICY_RAW_ACTIONS,
@@ -644,20 +644,6 @@ type CloudAccountRow = {
   status: string;
   last_scan_at: string | null;
   open_findings_count?: number;
-};
-
-type CloudAccountOverview = {
-  provider: string;
-  resource_id: string;
-  resources_covered: number;
-  regions_count: number;
-  open_findings_count: number;
-  soc2_controls_passed: number | null;
-  soc2_controls_total: number | null;
-  compliance_posture_pct: number | null;
-  coverage: EvidenceCoverage;
-  posture_trend: Array<{ timestamp: string; posture_score: number }>;
-  open_findings_trend: Array<{ timestamp: string; open_findings_count: number }>;
 };
 
 type FindingStats = { critHigh: number; medium: number; low: number; info: number; open: number };
@@ -5438,43 +5424,186 @@ function securityScoreTone(score: number): SecurityScoreTone {
   return "critical";
 }
 
-function AccountScoreMetric({
+type SecurityScoreDriver = {
+  driverValue: string;
+  kind: "findings" | "coverage" | "recency" | "none";
+};
+
+function computeSecurityScoreDriver(
+  stats: FindingStats,
+  coveragePct: number | null,
+  lastScanAt: string | null | undefined,
+  score: number,
+): SecurityScoreDriver {
+  const findingsHealth = computeFindingsHealthScore(stats);
+  const coverage = coveragePct ?? 0;
+  const recency = computeScanRecencyScore(lastScanAt);
+  const impacts = [
+    { kind: "findings" as const, impact: (100 - findingsHealth) * 0.5 },
+    { kind: "coverage" as const, impact: (100 - coverage) * 0.3 },
+    { kind: "recency" as const, impact: (100 - recency) * 0.2 },
+  ].sort((a, b) => b.impact - a.impact);
+  const top = impacts[0]?.kind ?? "findings";
+
+  if (score >= 80 && stats.critHigh === 0) {
+    return { driverValue: "No major issues", kind: "none" };
+  }
+
+  if (top === "findings" && stats.critHigh > 0) {
+    return {
+      driverValue: `${stats.critHigh.toLocaleString()} high finding${stats.critHigh === 1 ? "" : "s"}`,
+      kind: "findings",
+    };
+  }
+
+  if (top === "findings" && stats.open > 0) {
+    return {
+      driverValue: `${stats.open.toLocaleString()} open finding${stats.open === 1 ? "" : "s"}`,
+      kind: "findings",
+    };
+  }
+
+  if (top === "coverage") {
+    return { driverValue: "Evidence gaps", kind: "coverage" };
+  }
+
+  if (top === "recency") {
+    return { driverValue: "Stale scan data", kind: "recency" };
+  }
+
+  if (stats.critHigh > 0) {
+    return {
+      driverValue: `${stats.critHigh.toLocaleString()} high finding${stats.critHigh === 1 ? "" : "s"}`,
+      kind: "findings",
+    };
+  }
+
+  if (score >= 80) {
+    return { driverValue: "No major issues", kind: "none" };
+  }
+
+  return { driverValue: "Evidence gaps", kind: "coverage" };
+}
+
+function SecurityScoreGauge({
   score,
+  tone,
+}: {
+  score: number;
+  tone: SecurityScoreTone;
+}) {
+  const size = 76;
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circum = 2 * Math.PI * r;
+  const dash = (Math.max(0, Math.min(100, score)) / 100) * circum;
+  const gradientId = `security-score-arc-${tone}`;
+  const [filled, setFilled] = useState(false);
+
+  useEffect(() => {
+    setFilled(false);
+    const frame = requestAnimationFrame(() => setFilled(true));
+    return () => cancelAnimationFrame(frame);
+  }, [score]);
+
+  return (
+    <div className="accounts-security-gauge" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="accounts-security-gauge__svg" aria-hidden>
+        <defs>
+          <linearGradient id="security-score-arc-good" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#6ee7b7" />
+            <stop offset="100%" stopColor="#34d399" />
+          </linearGradient>
+          <linearGradient id="security-score-arc-fair" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#fcd34d" />
+            <stop offset="100%" stopColor="#f59e0b" />
+          </linearGradient>
+          <linearGradient id="security-score-arc-poor" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#fdba74" />
+            <stop offset="100%" stopColor="#f97316" />
+          </linearGradient>
+          <linearGradient id="security-score-arc-critical" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#fca5a5" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+        </defs>
+        <circle
+          className="accounts-security-gauge__track"
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          strokeWidth={stroke}
+        />
+        <circle
+          className="accounts-security-gauge__arc"
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth={stroke}
+          strokeDasharray={`${filled ? dash : 0} ${circum}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+      </svg>
+      <div className="accounts-security-gauge__hub">
+        <span className="accounts-security-gauge__score">{score}</span>
+      </div>
+    </div>
+  );
+}
+
+function SecurityScoreCard({
+  score,
+  stats,
+  coveragePct,
+  lastScanAt,
   hasScanned,
+  onViewHighFindings,
 }: {
   score: number | null;
+  stats: FindingStats;
+  coveragePct: number | null;
+  lastScanAt: string | null | undefined;
   hasScanned: boolean;
+  onViewHighFindings?: () => void;
 }) {
   const showScore = hasScanned && score != null;
   const label = showScore ? securityScoreLabel(score) : null;
   const tone = showScore ? securityScoreTone(score) : null;
+  const driver = showScore ? computeSecurityScoreDriver(stats, coveragePct, lastScanAt, score) : null;
+  const showHighFindingsLink = hasScanned && stats.critHigh > 0 && !!onViewHighFindings;
+
+  if (!showScore || !label || !tone || !driver) {
+    return <p className="accounts-detail-overview__metric-detail">Run a scan first</p>;
+  }
 
   return (
-    <>
-      <div className="accounts-detail-overview__metric-value-row">
-        <p className="accounts-detail-overview__metric-value">{showScore ? score : "—"}</p>
-        {showScore && label && tone ? (
-          <span className={`accounts-detail-overview__score-pill accounts-detail-overview__score-pill--${tone}`}>
-            {label}
-          </span>
+    <div className="accounts-security-score__body">
+      <div className="accounts-security-score__gauge-col">
+        <SecurityScoreGauge score={score} tone={tone} />
+        <span className={`accounts-detail-overview__score-pill accounts-detail-overview__score-pill--${tone}`}>
+          {label}
+        </span>
+      </div>
+      <div className="accounts-security-score__drivers">
+        <p className="accounts-security-score__driver-label">Main driver</p>
+        <p className="accounts-security-score__driver-value">{driver.driverValue}</p>
+        {showHighFindingsLink ? (
+          <button
+            type="button"
+            className="accounts-security-score__driver-link"
+            onClick={onViewHighFindings}
+          >
+            View high findings →
+          </button>
         ) : null}
       </div>
-      {showScore && tone ? (
-        <div
-          className="accounts-detail-overview__progress"
-          role="progressbar"
-          aria-valuenow={score ?? undefined}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Account score"
-        >
-          <div
-            className={`accounts-detail-overview__progress-fill accounts-detail-overview__progress-fill--${tone}`}
-            style={{ width: `${score}%` }}
-          />
-        </div>
-      ) : null}
-    </>
+    </div>
   );
 }
 
@@ -5714,7 +5843,7 @@ function DetailTabStub({ title, body, action }: { title: string; body: string; a
   );
 }
 
-const ACCOUNT_SCORE_HELP =
+const SECURITY_SCORE_HELP =
   "Composite score based on open findings severity, evidence coverage over the last 7 days, and how recently this account was scanned.";
 
 const SOC2_READINESS_HELP =
@@ -5850,8 +5979,9 @@ function AccountSplitDetailPane({
   const cloudOverviewQ = useQuery({
     queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7],
     queryFn: () =>
-      api<CloudAccountOverview>(
+      api(
         `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7`,
+        { schema: cloudAccountOverviewSchema },
       ),
     enabled: !isAws && connected && hasScanned,
   });
@@ -5859,8 +5989,9 @@ function AccountSplitDetailPane({
   const cloudOverviewPrevQ = useQuery({
     queryKey: ["cloud-account-overview", cloud?.provider, accountId, 7, "prev"],
     queryFn: () =>
-      api<CloudAccountOverview>(
+      api(
         `/v1/integrations/cloud-accounts/${cloud!.provider}/${accountId}/overview?period=7&as_of=${daysAgoIso(7)}`,
+        { schema: cloudAccountOverviewSchema },
       ),
     enabled: !isAws && connected && hasScanned,
   });
@@ -6284,17 +6415,19 @@ function AccountSplitDetailPane({
         {tab === "overview" && (
           <>
             <div className="accounts-detail-overview__metrics" aria-label="Account overview metrics">
-              <div className="accounts-detail-overview__metric">
+              <div className="accounts-detail-overview__metric accounts-detail-overview__metric--security">
                 <p className="accounts-detail-overview__metric-label">
-                  Account score
-                  <MetricHelpTip metric="Account score" text={ACCOUNT_SCORE_HELP} />
+                  Security score
+                  <MetricHelpTip metric="Security score" text={SECURITY_SCORE_HELP} />
                 </p>
-                <AccountScoreMetric score={securityScore} hasScanned={hasScanned} />
-                <p className="accounts-detail-overview__metric-detail">
-                  {hasScanned
-                    ? "Based on findings, evidence coverage, and scan recency."
-                    : "Run a scan first"}
-                </p>
+                <SecurityScoreCard
+                  score={securityScore}
+                  stats={displayStats}
+                  coveragePct={coveragePct}
+                  lastScanAt={lastScanAt}
+                  hasScanned={hasScanned}
+                  onViewHighFindings={() => setTab("findings")}
+                />
               </div>
               <div className="accounts-detail-overview__metric">
                 <p className="accounts-detail-overview__metric-label">
@@ -6309,18 +6442,20 @@ function AccountSplitDetailPane({
                     <MetricCardDelta delta={complianceDelta} betterWhen="up" />
                   ) : null}
                 </div>
-                {hasScanned && soc2PhaseLabel ? (
-                  <p className="accounts-detail-overview__metric-phase">{soc2PhaseLabel}</p>
-                ) : !hasScanned ? (
+                {!hasScanned ? (
                   <p className="accounts-detail-overview__metric-detail">Run a scan first</p>
-                ) : null}
-                {hasScanned ? (
-                  <p className="accounts-detail-overview__metric-detail">
-                    {soc2CheckSummary
-                      ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
-                      : "Awaiting control mapping"}
-                  </p>
-                ) : null}
+                ) : (
+                  <div className="accounts-detail-overview__metric-footer">
+                    {soc2PhaseLabel ? (
+                      <p className="accounts-detail-overview__metric-phase">{soc2PhaseLabel}</p>
+                    ) : null}
+                    <p className="accounts-detail-overview__metric-detail">
+                      {soc2CheckSummary
+                        ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
+                        : "Awaiting control mapping"}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="accounts-detail-overview__metric">
                 <p className="accounts-detail-overview__metric-label">

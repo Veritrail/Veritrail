@@ -4791,7 +4791,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-overview__metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.34fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.85rem;
   align-items: stretch;
 }
@@ -4809,6 +4809,103 @@ button.accounts-flow-step:hover {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
+.accounts-detail-overview__metric--security {
+  gap: 0.7rem;
+  padding: 1.05rem 1.15rem;
+}
+
+.accounts-security-score__body {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.accounts-security-score__gauge-col {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.accounts-security-score__drivers {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+}
+
+.accounts-security-score__driver-label {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #a1a1aa;
+}
+
+.accounts-security-score__driver-value {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #18181b;
+}
+
+.accounts-security-score__driver-link {
+  align-self: flex-start;
+  margin: 0.05rem 0 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #71717a;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.accounts-security-score__driver-link:hover {
+  color: #2563eb;
+}
+
+.accounts-security-gauge {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.accounts-security-gauge__svg {
+  display: block;
+}
+
+.accounts-security-gauge__track {
+  stroke: #f1f3f6;
+}
+
+.accounts-security-gauge__arc {
+  transition: stroke-dasharray 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.accounts-security-gauge__hub {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accounts-security-gauge__score {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #18181b;
+}
+
 .accounts-detail-overview__metric-label {
   display: inline-flex;
   align-items: center;
@@ -4824,11 +4921,11 @@ button.accounts-flow-step:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.18rem 0.55rem;
+  padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
@@ -4875,6 +4972,17 @@ button.accounts-flow-step:hover {
   font-weight: 500;
   line-height: 1.35;
   color: #3f3f46;
+}
+
+.accounts-detail-overview__metric-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: auto;
+}
+
+.accounts-detail-overview__metric-footer .accounts-detail-overview__metric-detail {
+  margin-top: 0;
 }
 
 .accounts-detail-overview__metric-detail {
@@ -5466,6 +5574,11 @@ button.accounts-flow-step:hover {
   .accounts-detail-overview__metrics {
     grid-template-columns: 1fr;
     gap: 0.75rem;
+  }
+
+  .accounts-security-score__body {
+    align-items: flex-start;
+    gap: 0.85rem;
   }
 
   .accounts-detail-overview__metric-value {
