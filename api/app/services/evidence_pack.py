@@ -42,6 +42,7 @@ from app.services.finding_history import (
 )
 from app.services.control_audit_block import build_control_audit_block
 from app.services.pack_provenance import build_pack_provenance
+from app.services.pdf_report import build_pdf
 from app.services.evidence_vault import (
     org_vault_override,
     plan_auditor_access,
@@ -70,16 +71,30 @@ def _control_status(
     pack_findings: list[tuple[Finding, str]],
     check_ids: list[str],
 ) -> tuple[str, list[tuple[Finding, str]]]:
-    """Return (pass|fail|no_data, matching (finding, state_at_end) rows).
+    """Return (pass|fail|at_risk|no_data, matching (finding, state_at_end) rows).
 
     Only benchmark-class checks in ``open`` state fail a control. Supporting and
-  hygiene findings are exported but do not change pass/fail. ``excepted`` never fails.
+    hygiene findings are exported but do not change pass/fail. ``excepted`` never
+    fails. Mirrors control_status.compute_control_status: a control whose checks
+    are all supporting/activity class reports at_risk (not a vacuous pass) when
+    those signals have open findings.
     """
     if not check_ids:
         return "no_data", []
     hits = [(f, st) for f, st in pack_findings if f.check_id in check_ids]
     if any(finding_open_for_control(f, st) for f, st in hits):
         return "fail", hits
+    from app.services.check_evidence import CLASS_ACTIVITY, CLASS_BENCHMARK, CLASS_SUPPORTING
+
+    if not any(evidence_class_for_check(cid) == CLASS_BENCHMARK for cid in check_ids):
+        supporting_open = [
+            (f, st)
+            for f, st in hits
+            if st == STATE_OPEN
+            and evidence_class_for_check(f.check_id) in (CLASS_SUPPORTING, CLASS_ACTIVITY)
+        ]
+        if supporting_open:
+            return "at_risk", hits
     return "pass", hits
 
 
@@ -934,6 +949,11 @@ def _control_status_note(
         )
     if status == "pass":
         return "PASS — no open benchmark findings mapped to this control"
+    if status == "at_risk":
+        return (
+            f"AT RISK — {supporting_open or open_count} open supporting finding(s) on a control "
+            "with no benchmark-class checks; monitored signals need attention"
+        )
     if status == "no_data":
         return "NO DATA — no automated checks mapped or no scan data in period"
     if exceptions:

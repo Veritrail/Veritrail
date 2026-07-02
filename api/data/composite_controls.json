@@ -89,8 +89,8 @@
   {
     "id": "asset_inventory",
     "control_id": "COMPOSITE.ASSET_INVENTORY",
-    "title": "Asset Inventory & Ownership",
-    "description": "Confirms IAM principals, identity accounts, and access credentials are inventoried, active, and attributable.",
+    "title": "Identity & Access Inventory",
+    "description": "Confirms IAM principals, identity-provider accounts, and access credentials are inventoried, active, and attributable to owners.",
     "guidance": "Review dormant users, unassumed roles, unused keys, and access-inventory gaps across AWS and connected identity providers.",
     "soc2_criteria": [
       "CC6.1"
@@ -256,6 +256,48 @@
     ]
   },
   {
+    "id": "network_boundary",
+    "control_id": "COMPOSITE.NETWORK_BOUNDARY",
+    "title": "Network & Boundary Security",
+    "description": "Confirms network boundaries are enforced: no unrestricted inbound access, no unintended public exposure of compute, storage, or data services, and flow logging is enabled.",
+    "guidance": "Close unrestricted security-group rules, block public access on storage and snapshots, keep cluster and function endpoints private, and enable VPC flow logs.",
+    "soc2_criteria": [
+      "CC6"
+    ],
+    "checks": [
+      "cloudtrail.event.s3_public_access_block_disabled",
+      "cloudtrail.event.security_group_open_to_world",
+      "ec2.ami.public",
+      "ec2.ebs.snapshot_public",
+      "ec2.instance.imdsv2_not_required",
+      "ec2.security_group.default_allows_traffic",
+      "ec2.security_group.unrestricted_rdp",
+      "ec2.security_group.unrestricted_ssh",
+      "ecs.service.public_ip_enabled",
+      "eks.cluster.public_endpoint",
+      "lambda.function.public_url",
+      "rds.instance.publicly_accessible",
+      "rds.snapshot.public",
+      "s3.account.public_access_not_blocked",
+      "s3.bucket.public_access_not_blocked",
+      "vpc.flow_logs.not_enabled",
+      "azure.storage.public_blob_access",
+      "gcp.compute.instance_public_ip"
+    ],
+    "cis_criteria": [
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.6"
+    ],
+    "iso_criteria": [
+      "A.13.1.1",
+      "A.13.1.2",
+      "A.13.1.3"
+    ]
+  },
+  {
     "id": "container_vulnerability_monitoring",
     "control_id": "COMPOSITE.CONTAINER_VULNERABILITY_MONITORING",
     "title": "Container Vulnerability Monitoring",
@@ -353,6 +395,28 @@
     ]
   },
   {
+    "id": "incident_response",
+    "control_id": "COMPOSITE.INCIDENT_RESPONSE",
+    "title": "Incident Response Readiness",
+    "description": "Confirms threat detection services are enabled and producing findings that are triaged, with alert routing in place for timely response.",
+    "guidance": "Keep GuardDuty and Security Hub enabled, triage open detector findings, and route alerts to your team via configured destinations.",
+    "soc2_criteria": [
+      "CC7"
+    ],
+    "checks": [
+      "aws.securityhub.not_enabled",
+      "cloudtrail.event.guardduty_disabled",
+      "guardduty.detector.not_enabled",
+      "guardduty.open_findings"
+    ],
+    "cis_criteria": [],
+    "iso_criteria": [
+      "A.16.1.1",
+      "A.16.1.2",
+      "A.16.1.4"
+    ]
+  },
+  {
     "id": "backup_resilience",
     "control_id": "COMPOSITE.BACKUP_RESILIENCE",
     "title": "Backup & Data Resilience",
@@ -387,7 +451,7 @@
     "control_id": "COMPOSITE.ENDPOINT_SECURITY",
     "title": "Endpoint Security & EDR",
     "description": "Confirms workstations and servers are monitored by endpoint protection outside native AWS visibility.",
-    "guidance": "Declare your EDR/MDM platform in Workspace \u2192 Evidence, or upload endpoint-security attestations when AWS cannot observe corporate devices.",
+    "guidance": "Declare your EDR/MDM platform in Workspace → Evidence, or upload endpoint-security attestations when AWS cannot observe corporate devices.",
     "soc2_criteria": [
       "CC6",
       "CC7"

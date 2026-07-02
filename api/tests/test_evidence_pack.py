@@ -44,11 +44,26 @@ def test_control_status_fails_when_open_benchmark_findings_exist():
     assert status == "fail"
 
 
-def test_control_status_passes_for_supporting_only_open():
+def test_control_status_at_risk_for_supporting_only_open():
+    """Supporting findings never FAIL a control, but a control mapped only to
+    supporting-class checks must not report a vacuous pass while those signals
+    are red (GuardDuty off) — it degrades to at_risk."""
     from app.services.evidence_pack import _control_status
 
     f = _finding(check_id="guardduty.detector.not_enabled", status="open")
     status, hits = _control_status([_pack_row(f, "open")], ["guardduty.detector.not_enabled"])
+    assert status == "at_risk"
+    assert len(hits) == 1
+
+
+def test_control_status_passes_with_benchmark_check_and_supporting_open():
+    from app.services.evidence_pack import _control_status
+
+    f = _finding(check_id="guardduty.detector.not_enabled", status="open")
+    status, hits = _control_status(
+        [_pack_row(f, "open")],
+        ["guardduty.detector.not_enabled", "iam.root.no_mfa"],
+    )
     assert status == "pass"
     assert len(hits) == 1
 

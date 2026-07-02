@@ -120,7 +120,7 @@
 
 .control-detail-panel__eyebrow {
   margin: 0 0 0.2rem;
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -284,8 +284,8 @@
 
 .control-detail-subsection__label {
   margin: 0;
-  font-size: 0.78rem;
-  font-weight: 650;
+  font-size: 0.8125rem;
+  font-weight: 600;
   color: #52525b;
 }
 
@@ -442,14 +442,14 @@
   background: #f4f4f5;
   padding: 0.15rem 0.5rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #3f3f46;
 }
 
 .control-mappings-summary__meta {
   margin: 0.15rem 0 0;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   line-height: 1.5;
   color: #71717a;
 }
@@ -581,7 +581,7 @@
 
 .control-detail-hint {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1.45;
   color: #a1a1aa;
 }
@@ -608,7 +608,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 .control-readiness__label {
@@ -719,7 +719,7 @@
   border-radius: 0.5rem;
   background: #fff;
   padding: 0.4rem 0.7rem;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #0f766e;
   transition: background 0.15s ease, color 0.15s ease;
@@ -927,7 +927,7 @@
 
 .control-resolve-path__body strong {
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #18181b;
 }
 
@@ -954,7 +954,7 @@
   border: 1px solid #e4e4e7;
   background: #fff;
   color: #52525b;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
@@ -967,7 +967,7 @@
   color: #fff;
   padding: 0.55rem 1rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   white-space: nowrap;
   cursor: pointer;
@@ -992,7 +992,7 @@
   color: var(--vt-teal, #0d9488);
   padding: 0.5rem 0.95rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   white-space: nowrap;
   cursor: pointer;
@@ -1114,7 +1114,7 @@
 
 .control-resolve-path__panel-label {
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #52525b;
 }
 
@@ -1196,7 +1196,7 @@
 
 .control-resolve-path__panel-segmented strong {
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #18181b;
 }
 
@@ -1224,7 +1224,7 @@
   padding: 0.5rem 0.95rem;
   border-radius: 0.4375rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   white-space: nowrap;
   cursor: pointer;
@@ -1358,7 +1358,7 @@
 }
 
 .control-resolve-copy > span:not(.control-resolve-badge) {
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
   color: #71717a;
 }
@@ -1370,7 +1370,7 @@
   padding: 0.1rem 0.55rem;
   border-radius: 999px;
   font-size: 0.6875rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .control-resolve-badge--warn {
@@ -1422,7 +1422,7 @@
   background: transparent;
   padding: 0;
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #0f766e;
   cursor: pointer;
 }
@@ -1459,8 +1459,8 @@
   background: var(--vt-teal);
   color: #fff;
   padding: 0.25rem 0.6rem;
-  font-size: 0.7rem;
-  font-weight: 650;
+  font-size: 0.6875rem;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -1508,7 +1508,7 @@
 
 .control-resolve-alt__text strong {
   font-size: 0.82rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #18181b;
   transition: color 0.15s ease;
 }
@@ -1563,7 +1563,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   font-size: 0.75rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.04em;
 }
 
@@ -1571,7 +1571,7 @@
   margin: 0.2rem 0 0;
   color: #0f172a;
   font-size: 1.05rem;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -1608,7 +1608,7 @@
 
 .control-detail-header__metrics strong {
   color: #0f172a;
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1635,7 +1635,7 @@
   padding: 0.6rem 0.85rem;
   color: #94a3b8;
   font-size: 0.6875rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1684,7 +1684,7 @@
   justify-self: end;
   color: #334155;
   font-size: 0.875rem;
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1781,7 +1781,7 @@
   margin: 0;
   color: #0f172a;
   font-size: 1.25rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.2;
 }
@@ -2386,7 +2386,7 @@
 
 .compliance-category-detail__account-expiry-label {
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #52525b;
 }
 
@@ -2435,7 +2435,7 @@
   margin: 0;
   color: #0f172a;
   font-size: 0.9375rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -2521,7 +2521,7 @@
   background: #0f9f9a;
   color: #ffffff;
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -2580,7 +2580,7 @@
   margin: 0;
   color: #64748b;
   font-size: 0.75rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   line-height: 1.35;
@@ -2609,7 +2609,7 @@
   background: transparent;
   color: #0f172a;
   font-size: 0.875rem;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -2638,7 +2638,7 @@
   color: #ffffff;
   font-family: inherit;
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -2658,7 +2658,7 @@
   color: #0f9b8e;
   font-family: inherit;
   font-size: 0.6875rem;
-  font-weight: 750;
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -2728,7 +2728,7 @@
   color: #ffffff;
   font-family: inherit;
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -3243,7 +3243,7 @@
   background: #ffffff;
   color: #334155;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
@@ -3371,7 +3371,7 @@
   margin: 0;
   color: #18181b;
   font-size: 0.9375rem;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .compliance-category-detail__checks-heading .compliance-category-detail__scope {
@@ -3457,13 +3457,13 @@
   white-space: nowrap;
   color: #18181b;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .compliance-category-detail__checks-count {
   color: #18181b;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

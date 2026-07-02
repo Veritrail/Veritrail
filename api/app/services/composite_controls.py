@@ -113,10 +113,35 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     # Data protection vs logging for CloudTrail events
     "cloudtrail.event.kms_key_disabled_or_deleted": "data_protection",
     "cloudtrail.event.s3_bucket_policy_change": "data_protection",
-    "cloudtrail.event.s3_public_access_block_disabled": "data_protection",
-    "cloudtrail.event.security_group_open_to_world": "data_protection",
     "ec2.instance.no_instance_profile": "identity_governance",
     "backup.plan.missing": "backup_resilience",
+    # Network boundary owns exposure checks (also listed under data protection
+    # and backup for criteria roll-up).
+    "cloudtrail.event.s3_public_access_block_disabled": "network_boundary",
+    "cloudtrail.event.security_group_open_to_world": "network_boundary",
+    "ec2.ami.public": "network_boundary",
+    "ec2.ebs.snapshot_public": "network_boundary",
+    "ec2.instance.imdsv2_not_required": "network_boundary",
+    "ec2.security_group.default_allows_traffic": "network_boundary",
+    "ec2.security_group.unrestricted_rdp": "network_boundary",
+    "ec2.security_group.unrestricted_ssh": "network_boundary",
+    "ecs.service.public_ip_enabled": "network_boundary",
+    "eks.cluster.public_endpoint": "network_boundary",
+    "lambda.function.public_url": "network_boundary",
+    "rds.instance.publicly_accessible": "network_boundary",
+    "rds.snapshot.public": "network_boundary",
+    "s3.account.public_access_not_blocked": "network_boundary",
+    "s3.bucket.public_access_not_blocked": "network_boundary",
+    "azure.storage.public_blob_access": "network_boundary",
+    "gcp.compute.instance_public_ip": "network_boundary",
+    # Flow logs stay attributed to logging even though the network composite
+    # rolls them up for CC6 coverage.
+    "vpc.flow_logs.not_enabled": "logging_monitoring",
+    # Incident response owns detection-service posture (also under logging).
+    "aws.securityhub.not_enabled": "incident_response",
+    "cloudtrail.event.guardduty_disabled": "incident_response",
+    "guardduty.detector.not_enabled": "incident_response",
+    "guardduty.open_findings": "incident_response",
 }
 
 

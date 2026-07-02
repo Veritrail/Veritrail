@@ -63,6 +63,12 @@ def build_control_audit_block(
         if supporting_open:
             current += f"; {supporting_open} supporting finding(s) do not change pass/fail"
         next_step = "Remediate open findings or document approved exceptions with expiry."
+    elif status == "at_risk":
+        current = (
+            f"AT RISK — {supporting_open or open_count} open supporting finding(s); "
+            "no benchmark-class checks map to this control, so it cannot formally fail"
+        )
+        next_step = "Address the monitored signals (e.g. enable the detection service) or document why they do not apply."
     else:
         current = "NO DATA — no automated checks mapped or insufficient scan data in period"
         next_step = "Run scans across the audit period or supply manual attestation."

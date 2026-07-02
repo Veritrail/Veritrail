@@ -192,7 +192,7 @@ export default function AuditorControls() {
             <span style={{ width: `${total ? (counts.fail / total) * 100 : 0}%`, background: "#f87171" }} />
             <span style={{ width: `${total ? (counts.no_data / total) * 100 : 0}%`, background: "#d4d4d8" }} />
           </div>
-          <span className="text-2xl font-extrabold tabular-nums text-zinc-900">{score}%</span>
+          <span className="text-2xl font-bold tabular-nums text-zinc-900">{score}%</span>
         </div>
       )}
 

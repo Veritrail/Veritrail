@@ -385,7 +385,7 @@
 
 .accounts-findings-donut__count {
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
   color: #09090b;
 }
@@ -1329,7 +1329,7 @@ button.accounts-flow-step:hover {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 0.9375rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #18181b;
 }
 
@@ -1374,7 +1374,7 @@ button.accounts-flow-step:hover {
   border-radius: 999px;
   padding: 0.18rem 0.55rem;
   font-size: 0.6875rem;
-  font-weight: 550;
+  font-weight: 600;
   background: #fafafa;
   color: #71717a;
   border: 1px solid #e4e4e7;
@@ -1441,7 +1441,7 @@ button.accounts-flow-step:hover {
   display: block;
   margin: 0;
   font-size: 0.75rem;
-  font-weight: 550;
+  font-weight: 600;
   color: #71717a;
 }
 
@@ -3048,7 +3048,7 @@ button.accounts-flow-step:hover {
   gap: 0.45rem;
   border-radius: 0.55rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -4536,6 +4536,7 @@ button.accounts-flow-step:hover {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   gap: 1rem 1.35rem;
   border-bottom: 1px solid #f4f4f5;
   padding: 1.25rem 1.6rem 1.2rem;
@@ -4551,12 +4552,18 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-pane__identity {
   display: flex;
+  flex: 1 1 16rem;
   min-width: 0;
   align-items: center;
   gap: 1rem;
 }
 
 .accounts-detail-pane__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
@@ -4568,10 +4575,19 @@ button.accounts-flow-step:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
   margin-top: 0.25rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
   color: #71717a;
+}
+
+.accounts-detail-pane__meta > span:not(.accounts-detail-pane__meta-sep):not(.accounts-detail-pane__meta-status) {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .accounts-detail-pane__meta-sep {
@@ -4782,14 +4798,8 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-overview__cards {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
   gap: 1rem;
-}
-
-@media (min-width: 720px) {
-  .accounts-detail-overview__cards {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 .accounts-detail-metric-card {
@@ -4823,7 +4833,7 @@ button.accounts-flow-step:hover {
 .accounts-detail-metric-card__label {
   min-width: 0;
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: 0.01em;
@@ -4914,7 +4924,7 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-metric-card__change {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.01em;
@@ -4932,7 +4942,7 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-metric-card__sub {
   margin: 0.2rem 0 0;
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   line-height: 1.45;
   color: #64748b;
 }
@@ -5061,6 +5071,7 @@ button.accounts-flow-step:hover {
   align-items: center;
   justify-content: flex-start;
   gap: 0.75rem;
+  min-width: 0;
   padding: 0.65rem 0;
   border-top: 1px solid #f8fafc;
 }
@@ -5071,6 +5082,9 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-capability-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin: 0;
   font-size: 0.84rem;
   font-weight: 700;
@@ -5106,7 +5120,7 @@ button.accounts-flow-step:hover {
   align-items: center;
   gap: 0.3rem;
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -5396,6 +5410,18 @@ button.accounts-flow-step:hover {
     padding: 1rem 1rem 0.95rem;
   }
 
+  .accounts-detail-pane__identity {
+    flex-basis: 100%;
+  }
+
+  .accounts-detail-pane__actions {
+    width: 100%;
+  }
+
+  .accounts-detail-header__scan-btn {
+    flex: 1 1 auto;
+  }
+
   .accounts-detail-pane__tabs {
     padding-inline: 1rem;
   }
@@ -5414,6 +5440,43 @@ button.accounts-flow-step:hover {
 
   .accounts-detail-capability-row__status {
     margin-top: 0.15rem;
+  }
+}
+
+@container (max-width: 28rem) {
+  .accounts-detail-pane__identity {
+    gap: 0.75rem;
+  }
+
+  .accounts-detail-pane__title {
+    font-size: 1.05rem;
+  }
+
+  .accounts-detail-pane__meta {
+    gap: 0.25rem;
+  }
+
+  .accounts-detail-pane__meta-sep {
+    display: none;
+  }
+
+  .accounts-detail-pane__actions {
+    gap: 0.35rem;
+  }
+
+  .accounts-detail-header__scan-btn {
+    padding-inline: 0.75rem;
+  }
+
+  .accounts-detail-capability-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.55rem 0.65rem;
+  }
+
+  .accounts-detail-capability-row__status {
+    grid-column: 2 / -1;
+    margin-left: 0;
   }
 }
 

@@ -361,6 +361,25 @@ NARRATIVES: dict[str, str] = {
         "Veritrail verifies RDS Multi-AZ deployment for production databases requiring "
         "high availability and automatic failover."
     ),
+    # ── SOC2 Availability (A-series) ────────────────────────────────────────
+    "A1.1": (
+        "Processing capacity is monitored and managed to meet demand. "
+        "Automated AWS capacity evidence is limited by design; capacity dashboards, scaling "
+        "policies, and utilization reviews are attached as external evidence where the "
+        "Availability criteria are in scope."
+    ),
+    "A1.2": (
+        "Data backup processes and recovery infrastructure are configured and monitored. "
+        "Veritrail verifies AWS Backup plan coverage, RDS automated backups, Multi-AZ "
+        "deployment, deletion protection on stateful services, and DynamoDB point-in-time "
+        "recovery. Evidence is collected at each scan and retained for the audit period."
+    ),
+    "A1.3": (
+        "Recovery procedures are tested to support system recovery objectives. "
+        "Restore tests and disaster-recovery exercises are performed by the customer team; "
+        "test reports and runbook execution records are attached as external evidence "
+        "alongside the automated backup-configuration evidence Veritrail collects."
+    ),
 }
 
 

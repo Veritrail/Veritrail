@@ -71,7 +71,41 @@ def compute_control_status(
     else:
         status = "no_data"
 
+    if status == "pass":
+        status, open_hits = _downgrade_supporting_only_pass(check_ids, hits, open_hits)
+
     return status, open_hits, len(open_hits)
+
+
+def _downgrade_supporting_only_pass(
+    check_ids: list[str],
+    hits: list[Finding],
+    open_hits: list[Finding],
+) -> tuple[str, list[Finding]]:
+    """A control whose checks are ALL supporting/activity class can never fail
+    through `finding_open_for_control` (benchmark-only), so a bare "pass" would
+    be vacuous — e.g. Incident Response showing "Passing" while GuardDuty is
+    off. When such a control has open supporting/activity findings, report
+    at_risk and surface them. Hygiene-class findings stay cosmetic and never
+    affect status."""
+    from app.services.check_evidence import (
+        CLASS_ACTIVITY,
+        CLASS_BENCHMARK,
+        CLASS_SUPPORTING,
+        evidence_class_for_check,
+    )
+
+    if any(evidence_class_for_check(cid) == CLASS_BENCHMARK for cid in check_ids):
+        return "pass", open_hits
+    supporting_open = [
+        f
+        for f in hits
+        if f.status == "open"
+        and evidence_class_for_check(f.check_id) in (CLASS_SUPPORTING, CLASS_ACTIVITY)
+    ]
+    if not supporting_open:
+        return "pass", open_hits
+    return "at_risk", supporting_open
 
 
 def severity_breakdown(open_hits: list[Finding]) -> dict[str, int]:

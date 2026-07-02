@@ -2799,7 +2799,10 @@ function buildCompositeTabs({
           <ControlDetailSection title="Blocking gaps">
             {isExternalOnly ? (
               <p className="control-detail-empty">
-                No automated checks map to this control — resolve it with external evidence below.
+                AWS APIs cannot observe corporate devices, so no cloud scan can ever cover this
+                control — that is a platform boundary, not missing scan data. Resolve it by
+                uploading evidence from your device-management or endpoint platform below, or mark
+                it out of scope if no managed devices are in your audit boundary.
               </p>
             ) : (
               <TopFailingChecksSeverityTable
@@ -2980,11 +2983,20 @@ const EXTERNAL_ONLY_COMPLIANCE_ROWS = [
     id: "endpoint_security",
     title: "Endpoint security",
     description: "Requires external endpoint security or EDR evidence.",
+    guidance:
+      "AWS APIs cannot observe corporate workstations, so this control can never be scanned from your cloud account. " +
+      "Export a device or agent coverage report from your EDR platform (CrowdStrike, SentinelOne, Microsoft Defender for Endpoint, …) " +
+      "and upload it as evidence. Auditors typically want agent coverage across the employee fleet and an alerting policy.",
   },
   {
     id: "mdm_endpoint",
     title: "Device management (MDM)",
     description: "Requires external mobile-device management evidence.",
+    guidance:
+      "AWS APIs cannot see laptops or mobile devices, so no automated check can ever cover MDM from a cloud scan — " +
+      "this is a platform boundary, not a missing scan. Export a device compliance report from your MDM " +
+      "(Intune, Jamf, Kandji, …) showing enrollment, disk encryption, and screen-lock enforcement, and upload it as evidence. " +
+      "If your workspace has no managed devices in audit scope, mark this control out of scope with a rationale instead.",
   },
 ];
 
@@ -2996,7 +3008,7 @@ function externalOnlyCompositeRow(
     control_id: row.id,
     title: row.title,
     description: row.description,
-    guidance: null,
+    guidance: row.guidance,
     soc2_criteria: [],
     check_ids: [],
     status: "no_data",

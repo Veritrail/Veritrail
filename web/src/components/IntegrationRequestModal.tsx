@@ -91,7 +91,7 @@ export function IntegrationRequestModal({ open, onClose }: IntegrationRequestMod
         ) : (
           <>
             <h2 id="integration-request-title" className="text-base font-semibold tracking-tight text-zinc-950">
-              ✨ Request an integration
+              Request an integration
             </h2>
             <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">
               Tell us which tool you&apos;d like to connect. We&apos;ll reach out about availability and timeline.

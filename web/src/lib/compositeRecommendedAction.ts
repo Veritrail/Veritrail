@@ -17,8 +17,18 @@ export type RecommendedAction = {
 
 export function compositeRecommendedAction(
   displayStatus: ComplianceDisplayStatus,
-  opts?: { submittedCount?: number; hasPermissionGaps?: boolean },
+  opts?: { submittedCount?: number; hasPermissionGaps?: boolean; externalEvidenceOnly?: boolean },
 ): RecommendedAction | null {
+  // Endpoint/MDM controls have no AWS-observable surface: scanning can never
+  // evaluate them, so "run a scan" advice would be wrong at any status.
+  if (opts?.externalEvidenceOnly && (displayStatus === "unevaluated" || displayStatus === "needs_evidence")) {
+    return {
+      title: "Upload evidence from your device platform",
+      detail:
+        "AWS APIs cannot observe corporate devices, so no cloud scan covers this control. Upload a coverage or compliance report from your MDM/EDR platform (Intune, Jamf, Kandji, CrowdStrike, ...), or mark the control out of scope.",
+      tone: "info",
+    };
+  }
   if (opts?.hasPermissionGaps) {
     return {
       title: "Fix collector permissions",

@@ -11,8 +11,6 @@ import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions"
 import { HistoryFilterDropdown } from "../components/HistoryFilterDropdown";
 import { HistoryPageSizeDropdown } from "../components/HistoryPageSizeDropdown";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
-import { HistoryControlChurnCell } from "../components/HistoryControlChurnCell";
-import { HistorySparkline } from "../components/HistorySparkline";
 import {
   type ComplianceHistoryResponse,
   type HistoryEvent,
@@ -31,7 +29,6 @@ import {
   matchesCompositeGroup,
   matchesEventFilter,
   postureSeries,
-  scanCoverageDays,
 } from "../lib/historyEvidence";
 import { ListPagination } from "../components/ListPagination";
 import "../styles/history-page.css";
@@ -64,8 +61,10 @@ const COMPOSITE_GROUP_ORDER = [
   "secure_sdlc",
   "change_management",
   "data_protection",
+  "network_boundary",
   "vulnerability_management",
   "logging_monitoring",
+  "incident_response",
   "backup_resilience",
   "container_vulnerability_monitoring",
 ] as const;
@@ -75,9 +74,6 @@ type CompositeControlSummary = {
   title: string;
   check_ids: string[];
 };
-
-/** Frameworks assessed at a point in time — no Type II day-coverage bar. */
-const POINT_IN_TIME_FRAMEWORKS = new Set(["cis_aws_l1", "iso27001"]);
 
 type DrawerPayload = {
   event: HistoryEvent;
@@ -212,18 +208,7 @@ export default function HistoryV2() {
     }));
   }, [historyQ.data?.posture_trend, fallbackSeries]);
 
-  const startScore = trendPoints[0]?.posture_score ?? null;
-  const currentScore =
-    historyQ.data?.current_posture_score ?? trendPoints[trendPoints.length - 1]?.posture_score ?? null;
-  const scoreDelta = startScore != null && currentScore != null ? currentScore - startScore : null;
-  const positive = (scoreDelta ?? 0) >= 0;
-
-  const periodSummary = historyQ.data?.period_summary;
-  const controlsPassed = periodSummary?.controls_improved ?? 0;
-  const findingsResolved = periodSummary?.findings_resolved ?? 0;
-  const regressed = periodSummary?.controls_regressed ?? 0;
   const scans = historyQ.data?.scan_count ?? 0;
-  const coverage = scanCoverageDays(historyQ.data?.scan_cadence, days);
 
   const onlyBaseline = events.length === 1 && events[0]?.type === "baseline_established";
 
@@ -318,71 +303,6 @@ export default function HistoryV2() {
 
       {isAwsAccount && !historyQ.isLoading && !historyQ.isError && historyQ.data && (
         <>
-          <div className="history-stats">
-            <div className="history-stats__cell history-stats__cell--posture">
-              <p className="history-stats__label">Posture</p>
-              <p className="history-stats__value">
-                {currentScore != null ? `${currentScore}%` : "—"}
-                {scoreDelta != null && scoreDelta !== 0 && (
-                  <span className={`history-stats__delta${positive ? "" : " history-stats__delta--down"}`}>
-                    {positive ? "▲" : "▼"} {Math.abs(scoreDelta)} pts
-                  </span>
-                )}
-              </p>
-            </div>
-
-            <div className="history-stats__cell history-stats__cell--chart">
-              <HistorySparkline points={trendPoints} />
-            </div>
-
-            <div className="history-stats__cell history-stats__cell--metric">
-              <p className="history-stats__label">Scans</p>
-              <p className="history-stats__value">{scans}</p>
-            </div>
-
-            <div
-              className="history-stats__cell history-stats__cell--metric"
-              title={
-                controlsPassed > 0
-                  ? `${controlsPassed} control${controlsPassed === 1 ? "" : "s"} fully passed on Compliance`
-                  : "Findings verified or cleared in the selected period"
-              }
-            >
-              <p className="history-stats__label history-stats__label--good">Findings resolved</p>
-              <p className="history-stats__value history-stats__num--good">{findingsResolved}</p>
-            </div>
-
-            <div className="history-stats__cell history-stats__cell--metric">
-              <p className="history-stats__label history-stats__label--bad">Regressed</p>
-              <p className="history-stats__value history-stats__num--bad">{regressed}</p>
-            </div>
-
-            <div className="history-stats__cell history-stats__cell--coverage">
-              {POINT_IN_TIME_FRAMEWORKS.has(framework) ? (
-                <HistoryControlChurnCell
-                  events={events}
-                  scanCadence={historyQ.data?.scan_cadence}
-                  periodDays={days}
-                  showActivity={false}
-                />
-              ) : (
-                <div className="history-coverage">
-                  <p className="history-stats__label">Coverage</p>
-                  <p className="history-coverage__stat">
-                    <span className="history-coverage__count">{coverage.covered}</span>
-                    <span className="history-coverage__suffix">/ {coverage.total} days</span>
-                  </p>
-                  <div className="history-coverage__bar">
-                    <div
-                      className="history-coverage__fill"
-                      style={{ width: `${coverage.total > 0 ? (coverage.covered / coverage.total) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
           <div className="history-panel history-panel--fill">
             <div className="history-toolbar">
               <div className="history-tabs" role="tablist" aria-label="Event type">

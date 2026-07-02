@@ -36,7 +36,7 @@
 .workspace-page__eyebrow {
   margin: 0 0 0.35rem;
   font-size: 0.625rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #0d9488;
@@ -64,7 +64,7 @@
 .workspace-page__title {
   margin: 0;
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.025em;
   color: #111827;
@@ -327,7 +327,7 @@
 .workspace-panel__eyebrow,
 .workspace-table__head {
   font-size: 0.625rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--workspace-meta);
@@ -397,8 +397,8 @@
 
 .workspace-panel__title {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.9375rem;
+  font-weight: 700;
   line-height: 1.25;
   color: #111827;
 }
@@ -463,7 +463,7 @@
 .workspace-row__title {
   margin: 0;
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #111827;
 }
 
@@ -667,7 +667,7 @@
 .workspace-overview-card__title {
   margin: 0;
   font-size: 1.125rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.25;
   color: #0f172a;
 }
@@ -777,7 +777,7 @@
 .workspace-readiness-panel__title {
   margin: 0;
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -844,7 +844,7 @@
 .workspace-readiness-panel__grade {
   margin: 0;
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #16a34a;
 }
 
@@ -867,7 +867,7 @@
 .workspace-readiness-panel__section-title {
   margin: 0 0 0.85rem;
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #334155;
 }
 
@@ -1069,8 +1069,8 @@
 .workspace-route-row__title {
   margin: 0;
   color: #0f172a;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.9375rem;
+  font-weight: 700;
   line-height: 1.3;
 }
 
@@ -1378,7 +1378,7 @@
 .workspace-notifications-section__description {
   margin: 0.45rem 0 0;
   color: #64748b;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   line-height: 1.45;
 }
 
@@ -1454,7 +1454,7 @@
   padding: 0.5rem 0.8rem;
   color: #64748b;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -1714,7 +1714,7 @@
 .workspace-schedule__completed-label {
   margin: 0;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #334155;
 }
 
@@ -1784,7 +1784,7 @@
   background: #f4f4f5;
   padding: 0.75rem 1rem;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
   text-decoration: none;
   transition: background 0.15s ease, color 0.15s ease;
@@ -1977,7 +1977,7 @@
 .workspace-detail__eyebrow {
   margin: 0 0 0.2rem;
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.12em;
   line-height: 1.2;
   text-transform: uppercase;
@@ -1987,7 +1987,7 @@
 .workspace-detail__title {
   margin: 0;
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.25;
   color: #0f172a;
 }
@@ -2081,7 +2081,7 @@
   margin: 0;
   color: #0f172a;
   font-size: 1.35rem;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -2115,7 +2115,7 @@
   border-radius: 999px;
   padding: 0.5rem 0.8rem;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -2160,7 +2160,7 @@
   margin: 0;
   color: #0f172a;
   font-size: 1rem;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.3;
 }
 
@@ -2168,7 +2168,7 @@
   margin: 0.85rem 0 0;
   max-width: 31rem;
   color: #64748b;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   line-height: 1.75;
 }
 
@@ -2189,7 +2189,7 @@
 .access-field > span:first-child {
   color: #64748b;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .access-input-shell {
@@ -2215,7 +2215,7 @@
   background: #ffffff;
   padding: 0 1rem;
   color: #0f172a;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -2239,7 +2239,7 @@
   border-color: #dbe2ea;
   border-radius: 0.5rem;
   padding-inline: 1rem;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
 }
 
 .access-primary-btn {
@@ -2253,7 +2253,7 @@
   background: #ffffff;
   padding: 0 1.45rem;
   color: var(--veritrail-neutral-text, #0f172a);
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   transition:
@@ -2289,7 +2289,7 @@
   margin: 0;
   color: #0f172a;
   font-size: 1rem;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.3;
 }
 
@@ -2323,7 +2323,7 @@
   justify-content: center;
   border-radius: 0.5rem;
   font-size: 1.15rem;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .access-row__identity {
@@ -2334,8 +2334,8 @@
   margin: 0;
   overflow: hidden;
   color: #0f172a;
-  font-size: 0.95rem;
-  font-weight: 850;
+  font-size: 0.9375rem;
+  font-weight: 700;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2380,7 +2380,7 @@
   background: transparent;
   padding: 0 0.65rem;
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 700;
   transition: background 0.15s ease;
 }
 
@@ -3506,7 +3506,7 @@
 .sharing-auditor-card__title {
   margin: 0;
   font-size: 1.2rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.25;
   color: #0f172a;
 }
@@ -3629,7 +3629,7 @@
 .sharing-trust-preview__company {
   margin: 0;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -3662,7 +3662,7 @@
   border: 1px solid #e8edf3;
   background: #ffffff;
   padding: 0.22rem 0.5rem;
-  font-size: 0.5625rem;
+  font-size: 0.625rem;
   font-weight: 600;
   color: #475569;
 }
@@ -3693,7 +3693,7 @@
 .sharing-trust-preview__section-title {
   margin: 0;
   font-size: 0.625rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #334155;
 }
 
@@ -3708,7 +3708,7 @@
   border: 1px solid #e2e8f0;
   background: #fff;
   padding: 0.16rem 0.4rem;
-  font-size: 0.5625rem;
+  font-size: 0.625rem;
   font-weight: 600;
   color: #475569;
 }
@@ -3735,7 +3735,7 @@
   border-radius: 999px;
   background: #eff6ff;
   padding: 0.15rem 0.45rem;
-  font-size: 0.5625rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: #2563eb;
 }
@@ -3743,7 +3743,7 @@
 .sharing-trust-card__settings-title {
   margin: 0;
   font-size: 0.9375rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -4044,7 +4044,7 @@
   margin: 0;
   color: #0f172a;
   font-size: 0.98rem;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -4060,7 +4060,7 @@
 }
 
 .sharing-trust-card__configure .workspace-field label {
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
 }
 
 .sharing-trust-card__configure .workspace-field input {
@@ -4075,7 +4075,7 @@
 .workspace-trust__disclosure-note {
   margin: -0.1rem 0 0;
   color: #94a3b8;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   line-height: 1.45;
 }
 
@@ -4152,7 +4152,7 @@
 }
 
 .sharing-auditor-card__form .sharing-field__label {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 
 .sharing-input-shell input,
@@ -4268,7 +4268,7 @@
   margin: 0.25rem 0 0;
   color: #0f172a;
   font-size: 1.15rem;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .sharing-config-modal__header p:not(.workspace-panel__eyebrow) {
@@ -4313,7 +4313,7 @@
   margin: 0;
   color: #92400e;
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .sharing-config-modal__notice > span {
@@ -4566,7 +4566,7 @@
 
 .sharing-trust-preview__headline {
   margin-top: 0.2rem;
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
 }
 
 .sharing-trust-preview__badges {
@@ -4624,8 +4624,8 @@
 
 .sharing-auditor-card--combined .sharing-field__label {
   color: #475569;
-  font-size: 0.7rem;
-  font-weight: 800;
+  font-size: 0.6875rem;
+  font-weight: 700;
 }
 
 .sharing-auditor-card--combined .sharing-input-shell input,
@@ -4918,7 +4918,7 @@
 
 .workspace-sharing-v2 .workspace-section-intro .access-invite-card__description {
   margin-top: 0.85rem;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
   line-height: 1.75;
 }
 
@@ -4947,7 +4947,7 @@
 }
 
 .sharing-trust-card__preview-column .sharing-trust-preview__tagline {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 
 .sharing-trust-card__preview-column .sharing-trust-preview__headline {

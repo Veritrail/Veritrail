@@ -4,7 +4,7 @@
 
 .aud-title {
   font-size: 1.625rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   color: #0f172a;
 }
@@ -70,7 +70,7 @@
 .aud-stat__value {
   margin-top: 0.5rem;
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.1;
   color: #0f172a;
@@ -106,7 +106,7 @@
 .aud-sev-tile__value {
   margin-top: 0.25rem;
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -410,7 +410,7 @@
 .aud-hero__title {
   margin-top: 0.4rem;
   font-size: 1.75rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.1;
 }
@@ -486,7 +486,7 @@
 .aud-posture-card__num {
   margin-top: 0.5rem;
   font-size: 2.75rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
   color: #0f172a;
@@ -532,7 +532,7 @@
 }
 .aud-sevlegend__count {
   font-size: 1.125rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
   font-variant-numeric: tabular-nums;
 }
@@ -593,7 +593,7 @@
 .aud-metric__value {
   margin-left: auto;
   font-size: 1.0625rem;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -638,7 +638,7 @@
   background: #eef2ff;
   color: #4f46e5;
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 .aud-fw-entry__name {

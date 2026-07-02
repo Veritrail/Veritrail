@@ -60,6 +60,7 @@ _FRAMEWORK_PACK_BADGE = {
 _STATUS = {
     "pass": {"label": "Pass", "fill": (236, 253, 245), "text": (4, 120, 87), "border": (167, 243, 208)},
     "fail": {"label": "Needs Review", "fill": (255, 251, 235), "text": (180, 83, 9), "border": (253, 230, 138)},
+    "at_risk": {"label": "At Risk", "fill": (255, 247, 237), "text": (194, 65, 12), "border": (254, 215, 170)},
     "no_data": {"label": "No Data", "fill": (248, 250, 252), "text": (100, 116, 139), "border": (226, 232, 240)},
 }
 
@@ -171,7 +172,7 @@ def _fit_text(
 
 
 def _overview_sort_key(control: dict[str, Any]) -> tuple:
-    rank = {"fail": 0, "no_data": 1, "pass": 2}.get(control.get("status"), 3)
+    rank = {"fail": 0, "at_risk": 1, "pass": 2, "no_data": 3}.get(control.get("status"), 4)
     return (rank,) + _review_priority(control)
 
 
@@ -359,6 +360,105 @@ def _metric_card(pdf: FPDF, x: float, y: float, w: float, h: float, label: str, 
     pdf.set_font("Helvetica", "", _FONT["small"])
     pdf.set_text_color(*MUTED)
     pdf.multi_cell(w - 10, 4, _s(detail), align="L")
+
+
+def _draw_cover(
+    pdf: VeritrailEvidencePDF,
+    *,
+    title: str,
+    framework_label: str,
+    pack_badge: str,
+    account_label: str,
+    account_id: str,
+    period_start,
+    period_end,
+    period_days: int,
+    generated_at: datetime,
+    report_id: str,
+) -> None:
+    """Dedicated cover page: brand, title, and the four facts an auditor files
+    the document under. Everything else starts on page 2."""
+    pdf.add_page()
+
+    # Top brand row
+    mark = _mark_path()
+    y = 34
+    if mark:
+        pdf.image(str(mark), x=(pdf.w - 14) / 2, y=y, w=14)
+        y += 20
+    pdf.set_y(y)
+    pdf.set_font("Helvetica", "B", 20)
+    pdf.set_text_color(*INK)
+    pdf.cell(0, 8, "Veritrail", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", _FONT["small"])
+    pdf.set_text_color(*MUTED)
+    pdf.cell(0, 5, _s("Continuous compliance evidence"), align="C", new_x="LMARGIN", new_y="NEXT")
+
+    # Title block
+    pdf.ln(24)
+    pdf.set_font("Helvetica", "B", 26)
+    pdf.set_text_color(*INK)
+    pdf.cell(0, 11, _s(title), align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(1)
+    pdf.set_font("Helvetica", "", 12)
+    pdf.set_text_color(51, 65, 85)
+    pdf.cell(0, 6, _s(framework_label), align="C", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(6)
+    rule_w = 34
+    pdf.set_draw_color(13, 148, 136)
+    pdf.set_line_width(0.9)
+    pdf.line((pdf.w - rule_w) / 2, pdf.get_y(), (pdf.w + rule_w) / 2, pdf.get_y())
+    pdf.set_line_width(0.2)
+
+    # Badge
+    pdf.ln(7)
+    badge_w = 62
+    bx = (pdf.w - badge_w) / 2
+    by = pdf.get_y()
+    pdf.set_fill_color(239, 246, 255)
+    pdf.set_draw_color(191, 219, 254)
+    pdf.rect(bx, by, badge_w, 9, style="FD", round_corners=True, corner_radius=2)
+    pdf.set_xy(bx, by + 2.8)
+    pdf.set_font("Helvetica", "B", _FONT["small"])
+    pdf.set_text_color(29, 78, 216)
+    pdf.cell(badge_w, 3.5, _s(pack_badge), align="C")
+
+    # Fact stack
+    pdf.set_y(by + 26)
+    facts = [
+        ("Account", f"{account_label} ({account_id})"),
+        ("Audit period", f"{period_start} to {period_end}  ({period_days} days)"),
+        ("Generated", generated_at.strftime("%Y-%m-%d %H:%M UTC")),
+        ("Report ID", report_id),
+    ]
+    label_w, value_w = 40, 92
+    x0 = (pdf.w - label_w - value_w) / 2
+    for label, value in facts:
+        yy = pdf.get_y()
+        pdf.set_xy(x0, yy)
+        pdf.set_font("Helvetica", "B", _FONT["body"])
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(label_w, 7, _s(label))
+        pdf.set_xy(x0 + label_w, yy)
+        pdf.set_font("Helvetica", "", _FONT["body"])
+        pdf.set_text_color(*INK)
+        pdf.cell(value_w, 7, _s(value), new_x="LMARGIN", new_y="NEXT")
+
+    # Bottom disclaimer
+    pdf.set_y(-40)
+    pdf.set_font("Helvetica", "", _FONT["small"])
+    pdf.set_text_color(148, 163, 184)
+    pdf.multi_cell(
+        pdf.epw,
+        4.6,
+        _s(
+            "This report summarizes automated evidence collected by Veritrail. It supports audit "
+            "review and is not a compliance attestation. The complete machine-readable evidence "
+            "population accompanies this document in the evidence pack archive."
+        ),
+        align="C",
+    )
 
 
 def _draw_header(pdf: VeritrailEvidencePDF, title: str, framework_label: str, pack_badge: str) -> None:
@@ -603,77 +703,153 @@ def _draw_coverage_banner(pdf: FPDF, coverage: dict[str, Any], period_days: int)
     pdf.set_y(y0 + h + 3)
 
 
-def _draw_review_control(pdf: FPDF, control: dict[str, Any]) -> None:
+def _label_value_row(pdf: FPDF, label: str, value: str, *, label_w: float = 32) -> None:
+    yy = pdf.get_y()
+    pdf.set_xy(pdf.l_margin, yy)
+    pdf.set_font("Helvetica", "B", _FONT["small"])
+    pdf.set_text_color(71, 85, 105)
+    pdf.cell(label_w, 5, _s(label))
+    pdf.set_xy(pdf.l_margin + label_w, yy)
+    pdf.set_font("Helvetica", "", _FONT["small"])
+    pdf.set_text_color(30, 41, 59)
+    pdf.multi_cell(pdf.epw - label_w, 5, _s(value), align="L", new_x="LMARGIN", new_y="NEXT")
+
+
+def _draw_control_detail(pdf: FPDF, control: dict[str, Any], framework: str) -> None:
+    """One section per in-scope control: status, narrative, tested scope,
+    exceptions, and (for failing controls) a findings sample."""
     findings = control.get("findings") or []
     counts = _severity_counts(findings)
     cid = control.get("control_id", "-")
+    st = control.get("status") or ("fail" if findings else "no_data")
+    style = _STATUS.get(st, _STATUS["no_data"])
     count = int(control.get("finding_count") or len(findings) or 0)
     shown = min(len(findings), _PDF_FINDING_SAMPLE)
+    audit_block = control.get("audit_block") or {}
+    exceptions = [str(x) for x in (control.get("exception_narratives") or []) if str(x).strip()]
 
     # Keep the control header + meta + a few rows together; start a new page only
     # when there isn't room, so several small controls share a page.
     pdf.ln(5)
-    _ensure(pdf, 52)
-    pdf.set_draw_color(*SUBTLE)
-    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-    pdf.ln(3.5)
+    _ensure(pdf, 52 if st == "fail" else 34)
 
+    # Header band: soft filled bar with the control title left, status pill right.
     control_title = f"{cid}  {_objective_text(control.get('title', ''))}"
     _outline(pdf, control_title, level=1)
-    y_title = pdf.get_y()
+    band_h = 11
+    y_band = pdf.get_y()
+    pdf.set_fill_color(*SOFT_BG)
+    pdf.set_draw_color(*SUBTLE)
+    pdf.rect(pdf.l_margin, y_band, pdf.epw, band_h, style="FD", round_corners=True, corner_radius=1.6)
+    pdf.set_xy(pdf.l_margin + 3.2, y_band + (band_h - 6.6) / 2)
     pdf.set_font("Helvetica", "B", _FONT["h2"])
     pdf.set_text_color(*INK)
-    pdf.multi_cell(pdf.epw - 34, 6.6, _s(control_title), align="L")
-    pdf.set_xy(pdf.w - pdf.r_margin - 30, y_title)
-    _pill(pdf, "Needs Review", _STATUS["fail"], w=30, h=6.2)
-    pdf.set_y(max(pdf.get_y(), y_title + 6.6))
-    pdf.ln(2)
+    pdf.cell(
+        pdf.epw - 40,
+        6.6,
+        _fit_text(pdf, _s(control_title), pdf.epw - 40, family="Helvetica", size=_FONT["h2"], style="B"),
+        align="L",
+    )
+    pdf.set_xy(pdf.w - pdf.r_margin - 32.5, y_band + (band_h - 6.2) / 2)
+    _pill(pdf, style["label"], style, w=30, h=6.2)
+    pdf.set_y(y_band + band_h + 2.5)
 
     ev = _EVIDENCE.get(control.get("evidence_status", "missing"), _EVIDENCE["missing"])["label"]
     pdf.set_font("Helvetica", "", _FONT["small"])
     pdf.set_text_color(*MUTED)
-    pdf.cell(0, 5, _s(f"{count} open findings    |    {_severity_summary(counts)}    |    Evidence {ev}"), new_x="LMARGIN", new_y="NEXT")
+    meta_bits = [f"{count} open findings"]
+    if findings:
+        meta_bits.append(_severity_summary(counts))
+    meta_bits.append(f"Evidence {ev}")
+    if exceptions:
+        meta_bits.append(f"{len(exceptions)} approved exception(s)")
+    pdf.cell(0, 5, _s("    |    ".join(meta_bits)), new_x="LMARGIN", new_y="NEXT")
 
-    desc = (control.get("description") or "").strip()
-    if desc:
-        pdf.ln(1)
+    # Auditor narrative — the affirmative statement of what this control covers
+    # and what evidence Veritrail collects for it.
+    try:
+        from app.data.control_narratives import narrative_for
+
+        narrative = narrative_for(framework, cid)
+    except Exception:
+        narrative = None
+    if narrative:
+        pdf.ln(1.5)
         pdf.set_font("Helvetica", "", _FONT["body"])
         pdf.set_text_color(51, 65, 85)
-        pdf.multi_cell(pdf.epw, 5.2, _s(desc), align="L")
+        pdf.multi_cell(pdf.epw, 5.2, _s(narrative), align="L")
+    else:
+        desc = (control.get("description") or "").strip()
+        if desc:
+            pdf.ln(1)
+            pdf.set_font("Helvetica", "", _FONT["body"])
+            pdf.set_text_color(51, 65, 85)
+            pdf.multi_cell(pdf.epw, 5.2, _s(desc), align="L")
     pdf.ln(2.5)
 
+    # Structured result block (from the v2 audit template when available).
+    current = (audit_block.get("current_result") or {}).get("summary")
+    if current:
+        _label_value_row(pdf, "Result", current)
+    tested = audit_block.get("what_veritrail_tested") or []
+    if tested:
+        preview = ", ".join(tested[:4])
+        if len(tested) > 4:
+            preview += f", and {len(tested) - 4} more"
+        _label_value_row(pdf, "Tested", f"{len(tested)} automated check(s): {preview}")
+    next_step = audit_block.get("recommended_next_step")
+    if next_step and st != "pass":
+        _label_value_row(pdf, "Next step", next_step)
+
     # Population aggregate — characterizes ALL findings without enumerating them.
-    # Each row is drawn label-then-value with X reset to the left margin so the
-    # next label never lands at the right edge.
     if findings:
         kind_str, age_str = _population_summary(findings)
-        for label, value in (("Resource types", kind_str), ("Evidence age", age_str)):
-            yy = pdf.get_y()
-            pdf.set_xy(pdf.l_margin, yy)
-            pdf.set_font("Helvetica", "B", _FONT["small"])
-            pdf.set_text_color(71, 85, 105)
-            pdf.cell(32, 5, _s(label))
-            pdf.set_xy(pdf.l_margin + 32, yy)
-            pdf.set_font("Helvetica", "", _FONT["small"])
-            pdf.set_text_color(30, 41, 59)
-            pdf.multi_cell(pdf.epw - 32, 5, _s(value), align="L", new_x="LMARGIN", new_y="NEXT")
+        _label_value_row(pdf, "Resource types", kind_str)
+        _label_value_row(pdf, "Evidence age", age_str)
+
+    # Approved exceptions — risk-accepted items the auditor should see inline,
+    # not buried in exceptions.json. Amber callout so they read as documented
+    # deviations, not findings.
+    if exceptions:
+        shown_exc = exceptions[:6]
+        pdf.ln(2)
+        _ensure(pdf, 12 + 5 * len(shown_exc))
+        x0, y0 = pdf.l_margin, pdf.get_y()
+        pad = 3
+        pdf.set_xy(x0 + pad, y0 + pad)
+        pdf.set_font("Helvetica", "B", _FONT["h3"])
+        pdf.set_text_color(146, 64, 14)
+        pdf.cell(0, 5, _s("Approved exceptions"), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", _FONT["small"])
+        pdf.set_text_color(120, 63, 4)
+        for narrative_line in shown_exc:
+            pdf.set_x(x0 + pad)
+            pdf.multi_cell(pdf.epw - 2 * pad, 4.8, _s(f"-  {narrative_line}"), align="L", new_x="LMARGIN", new_y="NEXT")
+        if len(exceptions) > 6:
+            pdf.set_x(x0 + pad)
+            pdf.cell(0, 4.6, _s(f"{len(exceptions) - 6} more in controls/{cid}/exceptions.json"), new_x="LMARGIN", new_y="NEXT")
+        y1 = pdf.get_y() + pad
+        pdf.set_draw_color(253, 230, 138)
+        pdf.rect(x0, y0, pdf.epw, y1 - y0, style="D", round_corners=True, corner_radius=1.6)
+        pdf.set_y(y1)
+
+    # Findings sample — only for controls that need attention.
+    if st in ("fail", "at_risk") and findings:
         pdf.ln(3)
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font("Helvetica", "B", _FONT["h3"])
+        pdf.set_text_color(*INK)
+        pdf.cell(0, 5.5, _s("Sample findings"), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font("Helvetica", "", _FONT["small"])
+        pdf.set_text_color(*MUTED)
+        pdf.cell(0, 4.6, _s(f"Showing {shown} of {count}. Complete population in controls/{cid}/findings.json."), new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
 
-    # Findings sample — a clear heading + subline, not a cramped uppercase label.
-    pdf.set_x(pdf.l_margin)
-    pdf.set_font("Helvetica", "B", _FONT["h3"])
-    pdf.set_text_color(*INK)
-    pdf.cell(0, 5.5, _s("Sample findings"), new_x="LMARGIN", new_y="NEXT")
-    pdf.set_x(pdf.l_margin)
-    pdf.set_font("Helvetica", "", _FONT["small"])
-    pdf.set_text_color(*MUTED)
-    pdf.cell(0, 4.6, _s(f"Showing {shown} of {count}. Complete population in controls/{cid}/findings.json."), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(2)
-
-    _ensure(pdf, 16)
-    _draw_findings_header(pdf)
-    for idx, finding in enumerate(findings[:_PDF_FINDING_SAMPLE], 1):
-        _draw_finding_row(pdf, finding, idx)
+        _ensure(pdf, 16)
+        _draw_findings_header(pdf)
+        for idx, finding in enumerate(findings[:_PDF_FINDING_SAMPLE], 1):
+            _draw_finding_row(pdf, finding, idx)
 
     pdf.ln(2.5)
     pdf.set_x(pdf.l_margin)
@@ -778,8 +954,22 @@ def build_pdf(
     pdf.alias_nb_pages()
     pdf.set_margins(14, 12, 14)
     pdf.set_auto_page_break(auto=True, margin=20)
-    pdf.add_page()
 
+    _draw_cover(
+        pdf,
+        title="Compliance Evidence Report",
+        framework_label=framework_label,
+        pack_badge=pack_badge,
+        account_label=getattr(acc, "label", "Account"),
+        account_id=getattr(acc, "account_id", None) or "unknown",
+        period_start=period_start,
+        period_end=period_end,
+        period_days=period_days,
+        generated_at=generated_at,
+        report_id=rid,
+    )
+
+    pdf.add_page()
     _draw_header(pdf, "Compliance Evidence Report", framework_label, pack_badge)
 
     coverage_label = None
@@ -814,9 +1004,13 @@ def build_pdf(
 
     passed = sum(1 for r in control_results if r.get("status") == "pass")
     failed = sum(1 for r in control_results if r.get("status") == "fail")
+    at_risk = sum(1 for r in control_results if r.get("status") == "at_risk")
     no_data = sum(1 for r in control_results if r.get("status") == "no_data")
     total = len(control_results)
-    score_pct = round((passed / total) * 100) if total else 0
+    # Pass rate over controls that were actually evaluated — policy-only /
+    # unevaluated controls (no automated checks) don't drag the rate to zero.
+    evaluated = passed + failed + at_risk
+    score_pct = round((passed / evaluated) * 100) if evaluated else 0
     # Unique open findings — a finding can map to several controls, so the sum of
     # per-control counts double-counts. Dedupe by finding id for the headline number.
     unique_ids = {f.get("id") for r in control_results for f in (r.get("findings") or []) if f.get("id")}
@@ -827,13 +1021,14 @@ def build_pdf(
     card_w = (pdf.epw - 9) / 4
     card_h = 28
     y0, x = pdf.get_y(), pdf.l_margin
-    _metric_card(pdf, x, y0, card_w, card_h, "Pass rate", f"{score_pct}%", f"{passed} of {total} controls passing", GREEN if score_pct == 100 else AMBER)
+    _metric_card(pdf, x, y0, card_w, card_h, "Pass rate", f"{score_pct}%", f"{passed} of {evaluated} evaluated controls passing", GREEN if score_pct == 100 else AMBER)
     x += card_w + 3
     _metric_card(pdf, x, y0, card_w, card_h, "Open findings", str(unique_open), "Unique; may map to multiple controls", RED if unique_open else GREEN)
     x += card_w + 3
-    _metric_card(pdf, x, y0, card_w, card_h, "Needs review", str(failed), "Controls with open findings", AMBER if failed else GREEN)
+    needs_detail = "Controls with open findings" if not at_risk else f"Plus {at_risk} at-risk (supporting signals)"
+    _metric_card(pdf, x, y0, card_w, card_h, "Needs review", str(failed), needs_detail, AMBER if failed else GREEN)
     x += card_w + 3
-    _metric_card(pdf, x, y0, card_w, card_h, "No data", str(no_data), "Not evaluated", (148, 163, 184))
+    _metric_card(pdf, x, y0, card_w, card_h, "Not evaluated", str(no_data), "No automated checks in scope", (148, 163, 184))
     pdf.set_y(y0 + card_h + 4)
 
     if coverage:
@@ -841,6 +1036,9 @@ def build_pdf(
 
     review_controls = [r for r in control_results if r.get("status") == "fail"]
     review_controls.sort(key=_review_priority)
+    at_risk_controls = [r for r in control_results if r.get("status") == "at_risk"]
+    passing_controls = [r for r in control_results if r.get("status") == "pass"]
+    other_controls = [r for r in control_results if r.get("status") not in ("fail", "at_risk", "pass")]
 
     # Control Overview starts on its own page so the table is contiguous (no
     # orphan split). With many controls (CIS/ISO) it flows across pages with a
@@ -854,11 +1052,23 @@ def build_pdf(
     pdf.set_text_color(*MUTED)
     pdf.multi_cell(pdf.epw, 4, _s("Findings can map to more than one control, so per-control counts may exceed the total unique open findings."), align="L")
 
-    if review_controls:
-        _outline(pdf, "Detailed Findings by Control")
-        _section(pdf, "Detailed Findings by Control", "Representative sample per control. The complete record is in each control's findings.json.", gap=6)
-        for control in review_controls:
-            _draw_review_control(pdf, control)
+    # Every in-scope control gets a section — auditors need the affirmative
+    # statement for passing controls, not only the failure list.
+    _outline(pdf, "Control Results & Narratives")
+    _section(
+        pdf,
+        "Control Results & Narratives",
+        "One section per control: narrative, tested scope, result, approved exceptions, and a findings sample where review is needed.",
+        gap=6,
+    )
+    for control in review_controls:
+        _draw_control_detail(pdf, control, framework)
+    for control in at_risk_controls:
+        _draw_control_detail(pdf, control, framework)
+    for control in passing_controls:
+        _draw_control_detail(pdf, control, framework)
+    for control in other_controls:
+        _draw_control_detail(pdf, control, framework)
 
     try:
         from app.data.control_narratives import scope_limitations_for

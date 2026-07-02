@@ -403,7 +403,7 @@ export default function Account() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500"><Icon name="lock" /></p>
-                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Change password</h2>
+                <h2 className="text-xl font-bold tracking-tight text-slate-950">Change password</h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Use a strong password that you do not use elsewhere.</p>
               </div>
               <button type="button" aria-label="Close" onClick={() => setPasswordDialogOpen(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>
@@ -455,7 +455,7 @@ export default function Account() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-blue-50 text-blue-600"><Icon name="shield" /></p>
-                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Set up two-factor authentication</h2>
+                <h2 className="text-xl font-bold tracking-tight text-slate-950">Set up two-factor authentication</h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Scan the QR code, then enter the 6-digit code from your authenticator app.</p>
               </div>
               <button type="button" aria-label="Close" onClick={() => { setMfaSetup(null); setMfaEnableCode(""); setMfaMsg(null); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>
@@ -485,7 +485,7 @@ export default function Account() {
                 <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
                   <Icon name={recoveryDialog.type === "email" ? "mail" : "phone"} />
                 </p>
-                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">
+                <h2 className="text-xl font-bold tracking-tight text-slate-950">
                   {recoveryDialog.type === "email" ? "Recovery email" : "Recovery phone"}
                 </h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Update the recovery method used to regain account access.</p>
@@ -516,7 +516,7 @@ export default function Account() {
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700"><Icon name="key" /></p>
-                <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Recovery codes</h2>
+                <h2 className="text-xl font-bold tracking-tight text-slate-950">Recovery codes</h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-slate-600">Save these now. They will not be shown again.</p>
               </div>
               <button type="button" aria-label="Close" onClick={() => setRecoveryCodes(null)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-xl leading-none text-slate-500 hover:bg-zinc-50">&times;</button>

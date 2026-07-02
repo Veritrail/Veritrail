@@ -515,7 +515,7 @@
   border: 1px solid transparent;
   padding: 2px 8px;
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 
@@ -550,7 +550,7 @@
 .impact-access-compare-title {
   margin: 0 0 12px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ia-title);
 }
 
@@ -739,7 +739,7 @@
 
 .impact-stat-value {
   font-size: 20px;
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   color: var(--ia-title);
@@ -790,7 +790,7 @@
 .impact-meta-val {
   min-width: 0;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ia-title);
   text-align: right;
 }
@@ -873,7 +873,7 @@
 .impact-meta-cell-value {
   margin-top: 2px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ia-title);
 }
 
@@ -885,7 +885,7 @@
 
 .impact-meta-cell-value.emphasis {
   font-size: 20px;
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
@@ -910,7 +910,7 @@
 .impact-section-label {
   padding: 0 2px;
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ia-muted);
@@ -925,7 +925,7 @@
 
 .impact-trusted-label {
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ia-title);
 }
 
@@ -959,7 +959,7 @@
   border: 1px solid var(--ia-primary-hover);
   background: var(--ia-primary);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: #ffffff;
   transition: background 0.15s ease;
 }
@@ -1005,7 +1005,7 @@
   border: 1px solid var(--ia-primary-hover);
   background: var(--ia-primary);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: #ffffff;
   transition: background 0.15s ease;
 }
@@ -1036,7 +1036,7 @@
 .service-activity-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ia-title);
 }
 
@@ -1146,7 +1146,7 @@
   padding: 3px 7px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   box-sizing: border-box;
@@ -1248,7 +1248,7 @@
   padding: 8px 16px 6px;
   border-bottom: 1px solid var(--ia-divider);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ia-subtitle);
 }
 
@@ -1296,7 +1296,7 @@
   border-radius: 4px;
   padding: 1px 4px;
   font-size: 9px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   background: #e0f2fe;

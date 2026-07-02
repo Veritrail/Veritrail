@@ -176,6 +176,10 @@ def test_hygiene_findings_do_not_fail_controls():
 
 
 def test_supporting_findings_do_not_fail_controls():
+    """Supporting findings never FAIL a control — but a control whose checks
+    are all supporting-class must not report a vacuous pass while those
+    signals are red (e.g. Incident Response with GuardDuty off). It degrades
+    to at_risk and surfaces the findings."""
     f = MagicMock()
     f.check_id = "iam.policy.wildcard_resource"  # supporting-only class
     f.status = "open"
@@ -183,6 +187,24 @@ def test_supporting_findings_do_not_fail_controls():
         ["iam.policy.wildcard_resource"],
         {"iam.policy.wildcard_resource": [f]},
         {"iam.policy.wildcard_resource"},
+        set(),
+        has_scanned_account=True,
+    )
+    assert status == "at_risk"
+    assert hits == [f]
+    assert count == 1
+
+
+def test_supporting_findings_do_not_downgrade_benchmark_controls():
+    """When a control has at least one benchmark-class check, open supporting
+    findings alone leave a clean pass untouched."""
+    f = MagicMock()
+    f.check_id = "iam.policy.wildcard_resource"  # supporting-only class
+    f.status = "open"
+    status, hits, count = compute_control_status(
+        ["iam.policy.wildcard_resource", "iam.root.no_mfa"],
+        {"iam.policy.wildcard_resource": [f]},
+        {"iam.policy.wildcard_resource", "iam.root.no_mfa"},
         set(),
         has_scanned_account=True,
     )
