@@ -4,26 +4,19 @@ Context for the severity-graded control status + cross-account coverage work
 (commit `ba63b5f`). Captures what's intentionally left for later so we can pick
 it up without re-deriving the reasoning.
 
-## Phase 5 — PDF / audit package graded model (NOT done)
+## Phase 5 — PDF / audit package graded model (done)
 
-The status model now grades controls as **fail / at_risk / pass / no_data**
-(`api/app/services/control_status.py`). The UI honors all four. The **PDF audit
-package does not yet** — `at_risk` falls through to a neutral "No Data" style.
+The status model grades controls as **fail / at_risk / pass / no_data**
+(`api/app/services/control_status.py`). The UI and **PDF audit package** both honor
+all four. See `api/app/services/pdf_report.py`:
 
-Where to update (`api/app/services/pdf_report.py`):
+- `_STATUS` map includes `at_risk` (amber pill)
+- Pass-rate rollups count `at_risk` in evaluated controls
+- **Priority Review** section (`_draw_top_controls`) lists fail + at_risk controls
+- **Exception Register** section: per-control severity columns, oldest finding age,
+  approved exception narratives
 
-- `_STATUS` map (~line 61): add an `at_risk` entry (label "At risk", amber
-  fill/border) so the control pill renders correctly instead of defaulting.
-- The pass/fail rollups that ignore `at_risk`:
-  - `passed = sum(... status == "pass")` (~815) — at_risk is not "passing".
-  - `review = [... status == "fail"]` (~259) — decide whether at_risk controls
-    belong in the review/exception section.
-- Add a **severity / exception register**: per control, show open findings by
-  severity (`severity_counts` is already on each composite) + remediation SLA,
-  so the report reflects materiality, not a binary pass/fail.
-
-Goal: the audit package mirrors the app — graded status + open exceptions by
-severity, not "controls failing."
+Implemented in Phase 1 of [implementation-pipeline.md](./implementation-pipeline.md).
 
 ## Flagged categorization calls (awaiting a decision)
 
