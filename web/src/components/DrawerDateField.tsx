@@ -209,26 +209,32 @@ export function DrawerDateField({
     const trigger = triggerRef.current;
     if (!trigger) return;
 
-    function onScrollOrResize() {
+    function onResize() {
       updatePosition();
     }
 
+    function onScroll() {
+      closePopover();
+    }
+
     const scrollParents = getScrollableAncestors(trigger);
-    window.addEventListener("resize", onScrollOrResize);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.visualViewport?.addEventListener("resize", onScrollOrResize);
-    window.visualViewport?.addEventListener("scroll", onScrollOrResize);
+    window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
+    document.addEventListener("scroll", onScroll, true);
+    window.visualViewport?.addEventListener("scroll", onScroll);
     for (const parent of scrollParents) {
-      parent.addEventListener("scroll", onScrollOrResize, { passive: true });
+      parent.addEventListener("scroll", onScroll, { passive: true });
     }
 
     return () => {
-      window.removeEventListener("resize", onScrollOrResize);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.visualViewport?.removeEventListener("resize", onScrollOrResize);
-      window.visualViewport?.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("scroll", onScroll, true);
+      window.visualViewport?.removeEventListener("scroll", onScroll);
       for (const parent of scrollParents) {
-        parent.removeEventListener("scroll", onScrollOrResize);
+        parent.removeEventListener("scroll", onScroll);
       }
     };
   }, [open, closing, updatePosition]);
