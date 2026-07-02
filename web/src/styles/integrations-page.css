@@ -290,7 +290,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .integrations-explore__request-row {
@@ -306,24 +306,22 @@
   border: none;
   font: inherit;
   font-weight: 600;
-  color: #334155;
+  color: var(--vt-info, #2563eb);
   background: transparent;
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: #cbd5e1;
-  text-underline-offset: 0.18em;
-  transition: color 0.15s, text-decoration-color 0.15s;
+  text-decoration: none;
+  transition: color 0.15s;
 }
 
 .integrations-explore-request:hover {
-  color: #0f172a;
-  text-decoration-color: #64748b;
+  color: #1d4ed8;
+  text-decoration: underline;
 }
 
 .integrations-explore-request:focus-visible {
   outline: none;
   border-radius: 0.25rem;
-  box-shadow: 0 0 0 3px rgb(15 23 42 / 0.12);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.2);
 }
 
 .integrations-explore h2 {
