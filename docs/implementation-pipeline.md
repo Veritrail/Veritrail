@@ -9,12 +9,12 @@ Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-rea
 | Scope | Done | Notes |
 |-------|------|-------|
 | **Phase-one enterprise batch** (direction `TODO`, pre-audit) | ~95% | Shipped 2026-06-26; documented in `enterprise-readiness.md` |
-| **Pipeline phases 0–9** (post-audit backlog) | **2 / 10 phases** (~20%) | Phase 0 doc + Phase 1 PDF only |
+| **Pipeline phases 0–9** (post-audit backlog) | **3 / 10 phases** (~30%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization |
 | **Direction README specs wholesale** | **No** | Strategy/roadmap docs remain largely aspirational; only incremental slices shipped |
 
-**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, only the pipeline doc (Phase 0) and PDF graded status (Phase 1) landed. **Most backlog remains** — start at Phase 2.
+**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–2 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization). **Most backlog remains** — start at Phase 3.
 
-**Next run:** Phase 2 (direction README gaps refresh + second virtualized table) unless `direction/` is unavailable locally — then Phase 3 or Phase 4.1.
+**Next run:** Phase 3 (multi-cloud normalization polish) unless blocked — then Phase 4.1 (GCP OS Config vuln collector).
 
 ---
 
@@ -83,10 +83,10 @@ These were marked complete in `direction/TODO_Veritrail_Prioritized.txt` and ver
 
 ### Phase 2 — Docs refresh + UI quick wins
 
-- [ ] Refresh `direction/README_Veritrail_Product_and_Market.md` "Current gaps" to match `enterprise-readiness.md` deferred table
-- [ ] Delete or archive superseded `direction/TODO_Veritrail_Prioritized.txt` locally (gitignored; not in repo)
-- [ ] Extend `@tanstack/react-virtual` to Controls composite list **or** Accounts cloud table
-- [ ] Verify no regression on Findings infinite scroll after virtualization change
+- [x] Refresh `direction/README_Veritrail_Product_and_Market.md` "Current gaps" to match `enterprise-readiness.md` deferred table — local gitignored file + tracked `enterprise-readiness.md#current-gaps`
+- [x] Delete or archive superseded `direction/TODO_Veritrail_Prioritized.txt` locally (gitignored; not in repo) — archived to `direction/archive/`
+- [x] Extend `@tanstack/react-virtual` to Controls composite list **or** Accounts cloud table — `VirtualizedCompositeControlsList.tsx`, `Controls.tsx`
+- [x] Verify no regression on Findings infinite scroll after virtualization change — shared `useAppScrollMargin` hook; Findings list unchanged behavior
 
 ---
 
@@ -391,13 +391,13 @@ flowchart LR
 - [x] PDF graded status: at_risk pill, rollups, priority review, exception register — `7a1a0d29`
 - [x] `test_pdf_report.py` at_risk coverage — `7a1a0d29`
 
-### Phase 2 — **start here**
+### Phase 2 — complete
 
-- [ ] Refresh direction README "Current gaps" (when `direction/` exists locally)
-- [ ] Extend virtualized table to Controls or Accounts page
-- [ ] Update checklist in this file
+- [x] Refresh direction README "Current gaps" (when `direction/` exists locally) — `enterprise-readiness.md#current-gaps` tracked
+- [x] Extend virtualized table to Controls composite list — `VirtualizedCompositeControlsList.tsx`
+- [x] Update checklist in this file
 
-### Phase 3
+### Phase 3 — **start here**
 
 - [ ] Cloud-accounts `open_findings_count` per row
 - [ ] Cloud-coverage totals parity test

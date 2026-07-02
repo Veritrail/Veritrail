@@ -44,6 +44,7 @@ import {
   openCrossAccountCoverableChecks,
 } from "../lib/evidenceGap";
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
+import { VirtualizedCompositeControlsList } from "../components/VirtualizedCompositeControlsList";
 import { DrawerDateField } from "../components/DrawerDateField";
 import {
   ControlDetailPillCard,
@@ -3103,113 +3104,132 @@ function CompositeControlsPanel({
 
   if (treeRows.length === 0 && externalOnlyRows.length === 0) return null;
 
+  type CompositeListItem =
+    | { kind: "tree"; row: CompositeControlRow; child: CompositeControlRow | null | undefined }
+    | { kind: "external"; row: (typeof EXTERNAL_ONLY_COMPLIANCE_ROWS)[number] };
+
+  const listItems: CompositeListItem[] = useMemo(() => {
+    const items: CompositeListItem[] = visibleTreeRows.map(({ row, child }) => ({
+      kind: "tree",
+      row,
+      child,
+    }));
+    for (const row of visibleExternalRows) {
+      items.push({ kind: "external", row });
+    }
+    return items;
+  }, [visibleTreeRows, visibleExternalRows]);
+
   return (
     <div className="compliance-category-board">
-      <div className="compliance-category-board__list">
-        {visibleTreeRows.map(({ row: ctrl, child }) => {
-          const isSelected = selectedId === ctrl.id;
-          const displayStatus = compositeDisplayStatus(
-            ctrl,
-            findingCountByCheck,
-            acceptedCompositeIds.has(ctrl.id),
-            expiredCompositeIds.has(ctrl.id),
-          );
-          const findingsHref = findingsHrefForChecks(
-            ctrl.check_ids,
-            findingCountByCheck,
-          );
-          return (
-            <div
-              key={ctrl.id}
-              className={`compliance-control-card${isSelected ? " is-expanded" : ""}`}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(ctrl.id)}
-                aria-expanded={isSelected}
-                className="compliance-control-card__summary"
+      <VirtualizedCompositeControlsList
+        className="compliance-category-board__list"
+        items={listItems}
+        getItemKey={(item) => item.row.id}
+        renderItem={(item) => {
+          if (item.kind === "tree") {
+            const { row: ctrl, child } = item;
+            const isSelected = selectedId === ctrl.id;
+            const displayStatus = compositeDisplayStatus(
+              ctrl,
+              findingCountByCheck,
+              acceptedCompositeIds.has(ctrl.id),
+              expiredCompositeIds.has(ctrl.id),
+            );
+            const findingsHref = findingsHrefForChecks(
+              ctrl.check_ids,
+              findingCountByCheck,
+            );
+            return (
+              <div
+                className={`compliance-control-card${isSelected ? " is-expanded" : ""}`}
               >
-                <div className="compliance-control-card__main">
-                  <span
-                    className={`compliance-control-card__chevron${isSelected ? " is-open" : ""}`}
-                    aria-hidden
-                  >
-                    ›
-                  </span>
-                  <CompositeGroupIcon id={ctrl.id} />
-                  <div className="compliance-control-card__title">
-                    <h3>{ctrl.title}</h3>
-                    <p>{ctrl.description}</p>
+                <button
+                  type="button"
+                  onClick={() => onSelect(ctrl.id)}
+                  aria-expanded={isSelected}
+                  className="compliance-control-card__summary"
+                >
+                  <div className="compliance-control-card__main">
+                    <span
+                      className={`compliance-control-card__chevron${isSelected ? " is-open" : ""}`}
+                      aria-hidden
+                    >
+                      ›
+                    </span>
+                    <CompositeGroupIcon id={ctrl.id} />
+                    <div className="compliance-control-card__title">
+                      <h3>{ctrl.title}</h3>
+                      <p>{ctrl.description}</p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="compliance-control-card__state">
-                  <ComplianceRowSummary
-                    displayStatus={displayStatus}
-                    href={findingsHref}
-                    onNavigate={(href) => navigate(href)}
-                  />
-                </div>
-              </button>
+                  <div className="compliance-control-card__state">
+                    <ComplianceRowSummary
+                      displayStatus={displayStatus}
+                      href={findingsHref}
+                      onNavigate={(href) => navigate(href)}
+                    />
+                  </div>
+                </button>
 
-              {child && compositeAppliesToFramework(child, frameworkRows) ? (
-                <div className="compliance-control-card__child-wrap">
-                  {(() => {
-                    const childSelected = selectedId === child.id;
-                    const childDisplayStatus = compositeDisplayStatus(
-                      child,
-                      findingCountByCheck,
-                      acceptedCompositeIds.has(child.id),
-                      expiredCompositeIds.has(child.id),
-                    );
-                    const childFindingsHref = findingsHrefForChecks(
-                      child.check_ids,
-                      findingCountByCheck,
-                    );
-                    const childDisplay = NESTED_COMPOSITE_DISPLAY[child.id];
-                    return (
-                      <div className={`compliance-control-card compliance-control-card--child${childSelected ? " is-expanded" : ""}`}>
-                        <button
-                          type="button"
-                          onClick={() => onSelect(child.id)}
-                          aria-expanded={childSelected}
-                          className="compliance-control-card__summary"
-                        >
-                          <div className="compliance-control-card__main">
-                            <span
-                              className={`compliance-control-card__chevron${childSelected ? " is-open" : ""}`}
-                              aria-hidden
-                            >
-                              ›
-                            </span>
-                            <CompositeGroupIcon id={child.id} />
-                            <div className="compliance-control-card__title">
-                              <h3>{childDisplay?.title ?? child.title}</h3>
-                              <p>{childDisplay?.hint ?? child.description}</p>
+                {child && compositeAppliesToFramework(child, frameworkRows) ? (
+                  <div className="compliance-control-card__child-wrap">
+                    {(() => {
+                      const childSelected = selectedId === child.id;
+                      const childDisplayStatus = compositeDisplayStatus(
+                        child,
+                        findingCountByCheck,
+                        acceptedCompositeIds.has(child.id),
+                        expiredCompositeIds.has(child.id),
+                      );
+                      const childFindingsHref = findingsHrefForChecks(
+                        child.check_ids,
+                        findingCountByCheck,
+                      );
+                      const childDisplay = NESTED_COMPOSITE_DISPLAY[child.id];
+                      return (
+                        <div className={`compliance-control-card compliance-control-card--child${childSelected ? " is-expanded" : ""}`}>
+                          <button
+                            type="button"
+                            onClick={() => onSelect(child.id)}
+                            aria-expanded={childSelected}
+                            className="compliance-control-card__summary"
+                          >
+                            <div className="compliance-control-card__main">
+                              <span
+                                className={`compliance-control-card__chevron${childSelected ? " is-open" : ""}`}
+                                aria-hidden
+                              >
+                                ›
+                              </span>
+                              <CompositeGroupIcon id={child.id} />
+                              <div className="compliance-control-card__title">
+                                <h3>{childDisplay?.title ?? child.title}</h3>
+                                <p>{childDisplay?.hint ?? child.description}</p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="compliance-control-card__state">
-                            <ComplianceRowSummary
-                              displayStatus={childDisplayStatus}
-                              href={childFindingsHref}
-                              onNavigate={(href) => navigate(href)}
-                            />
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+                            <div className="compliance-control-card__state">
+                              <ComplianceRowSummary
+                                displayStatus={childDisplayStatus}
+                                href={childFindingsHref}
+                                onNavigate={(href) => navigate(href)}
+                              />
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : null}
+              </div>
+            );
+          }
 
-        {visibleExternalRows.map((row) => {
+          const row = item.row;
           const isSelected = selectedId === row.id;
           return (
             <div
-              key={row.id}
               className={`compliance-control-card${isSelected ? " is-expanded" : ""}`}
             >
               <button
@@ -3241,8 +3261,8 @@ function CompositeControlsPanel({
               </button>
             </div>
           );
-        })}
-      </div>
+        }}
+      />
     </div>
   );
 }

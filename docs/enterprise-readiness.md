@@ -1,6 +1,6 @@
 # Enterprise readiness
 
-Summary of what Veritrail ships today versus deferred phase-two/phase-three work (as of 2026-06-26).
+Summary of what Veritrail ships today versus deferred phase-two/phase-three work (as of 2026-07-02).
 
 ## Shipped
 
@@ -39,6 +39,32 @@ Summary of what Veritrail ships today versus deferred phase-two/phase-three work
 ### UI shell
 
 - `CompliancePageHeader` on Compliance, Findings, Workspace, Accounts, Integrations, History, Dashboard
+- Graded control status (`pass` / `at_risk` / `fail` / `no_data`) in UI and PDF exports
+- Absence-gap CTAs and external-only control rules — controls do not hard-fail when the expected AWS-native source is unavailable
+- Findings infinite scroll + virtualized group list; Compliance composite control list virtualized (Phase 2)
+
+## Current gaps
+
+Tracks the deferred backlog from direction strategy docs. **Not** stale pre-June claims — external evidence, S3/ClamAV/vault storage, graded status, GCP/Azure phase-one, and shared page shells are **shipped** (see above).
+
+| Gap | Status | Notes |
+|-----|--------|-------|
+| Full HR / training / vendor-risk modules | Deferred P4 | Out of phase-one scope |
+| Full generic SOC 2 questionnaire | Deferred P4 | Use composite groups + external evidence instead |
+| Advanced custom frameworks | Deferred P4 | Per-control org mapping is Phase 7 |
+| AI evidence-pack summary | Deferred | Findings triage infra exists; pack-level narrative not wired |
+| Live Intune / Jamf API collectors | Phase-two | Registry + upload path shipped; no live sync |
+| Scanner API auto-import | Phase-two | Wiz/Tenable/Qualys creds + manual sync shipped |
+| Multi-cloud normalization polish | Phase 3 | AWS/GCP/Azure baselines shipped; parity APIs pending |
+| GCP phase-two collectors | Phase 4 | CAI, SCC, OS Config vuln beyond logging audit + compute |
+| Azure phase-two collectors | Phase 5 | Resource Graph, Activity Log, Entra/RBAC, Policy beyond Defender + storage |
+| Granular evidence RBAC | Phase 6 | Contributor / reviewer / auditor-viewer beyond coarse org roles |
+| Per-control org mapping | Phase 7 | Custom evidence categories shipped; mapping overrides pending |
+| Release 5 integrations | Phase 8 | Snyk/Orca/Aikido/Splunk/Datadog/SIEM; Okta live sync |
+| Auditor approval UI for vault objects | Deferred | Presign API exists; end-to-end share records minimal |
+| Separate EvidenceRequirement / ControlCoverage tables | Deferred P4 | Logic in composites + `category_evidence_coverage.py` today |
+
+Canonical pipeline: [implementation-pipeline.md](./implementation-pipeline.md).
 
 ## Deferred (intentional)
 
