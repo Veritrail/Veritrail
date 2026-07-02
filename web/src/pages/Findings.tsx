@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
-import { AppCommandBar } from "../components/AppCommandBar";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FilterChipBar } from "../components/FilterChipBar";
 import {
@@ -201,7 +200,7 @@ type ResourceOption = {
 };
 
 const FINDINGS_ROW_GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 sm:grid-cols-[auto_5.5rem_minmax(15rem,1fr)_minmax(7rem,0.45fr)_minmax(8rem,0.55fr)_minmax(8.5rem,0.6fr)_auto] sm:gap-4 sm:items-center";
+  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4 sm:items-center";
 
 const RESOURCE_CHILD_PREVIEW = 3;
 
@@ -226,23 +225,6 @@ function formatResourceDate(iso: string): string {
   const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
   return `${date} ${time}`;
-}
-
-function formatFindingRowDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function summarizeFindingAccounts(items: Finding[]): string {
-  const accounts = new Set(
-    items
-      .map((finding) => finding.account_label || finding.account_name || finding.account_id || "")
-      .filter(Boolean),
-  );
-  if (accounts.size === 0) return "—";
-  if (accounts.size === 1) return [...accounts][0] ?? "—";
-  return `${accounts.size} accounts`;
 }
 
 function ResourceProviderTile({ finding }: { finding: Finding }) {
@@ -485,18 +467,6 @@ function FindingRow({
   const visibleResources = showAllResources ? resources : resources.slice(0, RESOURCE_CHILD_PREVIEW);
   const showMoreRow = expanded && !showAllResources && hiddenResourceCount > 0;
   const hasMixedSeverity = new Set(items.map((f) => f.severity)).size > 1;
-  const accountSummary = useMemo(() => summarizeFindingAccounts(items), [items]);
-  const latestLastSeen = useMemo(
-    () =>
-      items.reduce((latest, finding) => {
-        const current = new Date(finding.last_seen).getTime();
-        const best = new Date(latest).getTime();
-        if (Number.isNaN(best)) return finding.last_seen;
-        if (Number.isNaN(current)) return latest;
-        return current > best ? finding.last_seen : latest;
-      }, items[0]?.last_seen ?? ""),
-    [items],
-  );
 
   useEffect(() => {
     if (!expanded) setShowAllResources(false);
@@ -535,7 +505,7 @@ function FindingRow({
           <div className="flex min-w-0 items-baseline gap-1">
             <span className="finding-title min-w-0 truncate">{title}</span>
             {canExpand && !expanded ? (
-              <span className="finding-resource-count sm:hidden">
+              <span className="finding-resource-count">
                 · {resources.length} {resources.length === 1 ? "resource" : "resources"}
               </span>
             ) : null}
@@ -543,23 +513,6 @@ function FindingRow({
           <div className="mt-1 sm:hidden">
             <SeverityIndicator severity={sev} />
           </div>
-        </div>
-
-        <div className="finding-row-meta min-w-0 sm:col-auto">
-          <span className="finding-row-meta__label">Resources</span>
-          <span className="finding-row-meta__value tabular-nums">
-            {resources.length}
-          </span>
-        </div>
-
-        <div className="finding-row-meta min-w-0 sm:col-auto">
-          <span className="finding-row-meta__label">Account</span>
-          <span className="finding-row-meta__value truncate">{accountSummary}</span>
-        </div>
-
-        <div className="finding-row-meta min-w-0 sm:col-auto">
-          <span className="finding-row-meta__label">Last seen</span>
-          <span className="finding-row-meta__value tabular-nums">{formatFindingRowDate(latestLastSeen)}</span>
         </div>
 
         <div
@@ -576,8 +529,10 @@ function FindingRow({
       {canExpand ? (
         <div className={`veritrail-accordion-panel ${expanded ? "is-open" : ""}`}>
           <div className="veritrail-accordion-panel__inner">
-            <div className="border-t border-zinc-100">
-              <div className="px-4 py-4 sm:px-5">
+            <div className="border-t border-zinc-100 sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:gap-4">
+              <span className="hidden sm:block" aria-hidden />
+              <span className="hidden w-[5.5rem] sm:block" aria-hidden />
+              <div className="py-4 pl-4 pr-5 sm:pl-0">
                 <AffectedResourcesCard
                   resources={visibleResources}
                   totalCount={resources.length}
@@ -589,6 +544,7 @@ function FindingRow({
                   onViewAll={() => onReview(items, undefined, "resources")}
                 />
               </div>
+              <span className="hidden sm:block" aria-hidden />
             </div>
           </div>
         </div>
@@ -960,9 +916,7 @@ export default function Findings() {
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
         {connectedAccounts.length > 0 && !providerScope && (
           <HeaderSlot>
-            <AppCommandBar>
-              <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
-            </AppCommandBar>
+            <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
           </HeaderSlot>
         )}
 
@@ -970,7 +924,7 @@ export default function Findings() {
 
         {!findingsQuery.isLoading && (
           <section className="min-w-0">
-            <div className="veritrail-list-card">
+            <div className="rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
               <div className="findings-v2-table-toolbar">
                 <div className="findings-v2-filter-cluster">
                   <FilterChipBar
@@ -1090,15 +1044,12 @@ export default function Findings() {
               ) : (
                 <>
                   <div
-                    className="findings-v2-col-head hidden sm:grid sm:grid-cols-[auto_5.5rem_minmax(15rem,1fr)_minmax(7rem,0.45fr)_minmax(8rem,0.55fr)_minmax(8.5rem,0.6fr)_auto] sm:items-center sm:gap-4"
+                    className="findings-v2-col-head hidden sm:grid sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4"
                     role="row"
                   >
                     <span className="w-5" aria-hidden />
                     <span className="w-[5.5rem]">Severity</span>
                     <span>Finding</span>
-                    <span>Resources</span>
-                    <span>Account</span>
-                    <span>Last seen</span>
                     <span className="w-16 text-center">Risk</span>
                   </div>
 
