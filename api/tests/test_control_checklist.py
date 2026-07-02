@@ -34,8 +34,8 @@ def test_checklist_returns_auto_and_manual(db_session):
     # No connected account → auto controls are no_data, no manual met → 0%.
     assert out.summary.met == 0
     assert out.summary.percent == 0
-    # Every control carries its CC family group.
-    assert all(c.group.startswith("CC") for c in out.controls)
+    # Every control carries its SOC 2 family group (CC* or availability A1*).
+    assert all(c.group.startswith(("CC", "A1")) for c in out.controls)
 
 
 def test_attestation_sets_status_and_bumps_readiness(db_session):
