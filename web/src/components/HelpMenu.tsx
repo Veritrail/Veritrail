@@ -40,7 +40,7 @@ export default function HelpMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-52 overflow-hidden rounded-lg border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-950/[0.08]">
+        <div className="veritrail-popover-panel absolute right-0 top-full z-40 mt-2 w-52 overflow-hidden py-1">
           <Link
             to="/reference"
             onClick={() => setOpen(false)}

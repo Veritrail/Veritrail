@@ -8,7 +8,7 @@
 
 /* Compliance toolbar keeps grey header band inside the list card (not Findings white). */
 .compliance-page .findings-v2-table-toolbar {
-  background: rgba(248, 250, 252, 0.8);
+  background: var(--vt-surface-raised);
 }
 
 /* Generate Audit Package — teal primary CTA in toolbar. */
@@ -53,10 +53,10 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden; /* clip rounded corners; the body owns scroll */
-  border: 1px solid #e4e4e7;
-  border-radius: 1rem;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--vt-border);
+  border-radius: var(--vt-radius-lg);
+  background: var(--vt-surface);
+  box-shadow: var(--vt-shadow-card);
   /* Content responds to the drawer's own width, not the viewport. */
   container-type: inline-size;
   container-name: control-detail;
@@ -66,7 +66,8 @@
   position: relative;
   flex-shrink: 0;
   padding: 1.25rem 3rem 1rem 1.35rem;
-  border-bottom: 1px solid #eef0f3;
+  border-bottom: 1px solid var(--vt-border);
+  background: linear-gradient(180deg, var(--vt-surface) 0%, var(--vt-surface-raised) 100%);
 }
 
 .control-detail-panel__close {
@@ -78,16 +79,16 @@
   width: 2rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--vt-border);
   border-radius: 0.5rem;
-  background: #fff;
-  color: #52525b;
+  background: var(--vt-surface);
+  color: var(--vt-text-muted);
   transition: background 0.15s, color 0.15s;
 }
 
 .control-detail-panel__close:hover {
-  background: #f4f4f5;
-  color: #18181b;
+  background: var(--vt-surface-muted);
+  color: var(--vt-text);
 }
 
 .control-detail-panel__close svg {
@@ -101,7 +102,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #71717a;
+  color: var(--vt-text-muted);
 }
 
 .control-detail-panel__title-row {
@@ -115,16 +116,16 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 1.25;
-  color: #18181b;
+  color: var(--vt-text);
 }
 
 .control-detail-panel__description {
   margin: 0.6rem 0 0;
   font-size: 0.8125rem;
   line-height: 1.55;
-  color: #71717a;
+  color: var(--vt-text-muted);
   max-width: 38rem;
 }
 
@@ -134,7 +135,7 @@
   gap: 0.25rem;
   overflow-x: auto;
   padding: 0 0.75rem;
-  border-bottom: 1px solid #e4e4e7;
+  border-bottom: 1px solid var(--vt-border);
 }
 
 .control-detail-panel__tab {
@@ -148,7 +149,7 @@
   padding: 0.65rem 0.6rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #71717a;
+  color: var(--vt-text-muted);
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -163,8 +164,8 @@
 }
 
 .control-detail-panel__tab.is-active {
-  border-bottom-color: #0d9488;
-  color: #0f172a;
+  border-bottom-color: var(--vt-teal);
+  color: var(--vt-text);
   font-weight: 700;
 }
 
@@ -206,33 +207,24 @@
 /* Detail drawer — right-anchored sheet, matching the Findings drawer.    */
 /* ---------------------------------------------------------------------- */
 
-.control-detail-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(9, 9, 11, 0.35);
-  backdrop-filter: blur(2px);
+.control-detail-backdrop {
+  background: rgb(15 23 42 / 0.28);
 }
 
-.control-detail-overlay .control-detail-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+.control-detail-shell {
   width: min(44rem, 100%);
-  max-height: none;
-  margin: 0;
+}
+
+.control-detail-panel--drawer {
+  height: 100%;
+  border: 0;
   border-radius: 0;
-  border-top: 0;
-  border-bottom: 0;
-  border-right: 0;
-  border-left: 1px solid #e0e2e8;
-  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
 }
 
 @media (max-width: 720px) {
-  .control-detail-overlay .control-detail-panel {
-    width: 100%;
+  .control-detail-shell {
+    max-width: 100%;
   }
 }
 
@@ -457,7 +449,7 @@
 .control-detail-stack--composite .control-detail-section__title {
   font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .control-detail-stack--composite .control-detail-section__head {
@@ -1762,7 +1754,7 @@
   color: #0f172a;
   font-size: 1.25rem;
   font-weight: 750;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 
@@ -1856,7 +1848,7 @@
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2060,7 +2052,7 @@
   color: #0f172a;
   font-size: 0.9375rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .compliance-category-detail__gap > p {
@@ -2416,7 +2408,7 @@
   color: #0f172a;
   font-size: 0.9375rem;
   font-weight: 750;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .compliance-category-detail__column-icon {

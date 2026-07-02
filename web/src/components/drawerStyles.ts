@@ -1,13 +1,13 @@
 /** Shared drawer panel chrome (FindingDrawer + sections). */
 export const drawerPanel =
-  "overflow-hidden rounded-xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]";
+  "overflow-hidden rounded-[var(--vt-radius-md)] border border-[var(--vt-border)] bg-[var(--vt-surface)] shadow-sm shadow-zinc-950/[0.035]";
 
 /** Scrollable tab content area below header + tabs. */
 export const drawerBody =
-  "min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-[#f7f9fc] px-5 pb-5 pt-4";
+  "min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-[var(--vt-surface-muted)] px-5 pb-5 pt-4";
 
 export const drawerSectionHead =
-  "border-b border-[#eef2f6] bg-[#f8fafc] px-4 py-3";
+  "border-b border-[var(--vt-border)] bg-[var(--vt-surface-subtle)] px-4 py-3";
 
 export const drawerSectionBody = "px-4 py-4 text-[13.5px] leading-[21px] text-[#344054]";
 

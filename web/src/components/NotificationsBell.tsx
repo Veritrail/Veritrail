@@ -170,7 +170,7 @@ export default function NotificationsBell() {
       ? createPortal(
           <div
             id="veritrail-notifications-panel"
-            className="fixed z-[200] w-[min(38rem,calc(100vw-1.5rem))] rounded-xl border border-zinc-200/90 bg-white shadow-xl shadow-zinc-900/15"
+            className="veritrail-popover-panel fixed z-[200] w-[min(38rem,calc(100vw-1.5rem))] overflow-hidden"
             style={{ top: panelPos.top, right: panelPos.right }}
           >
             <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3">

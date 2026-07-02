@@ -4,6 +4,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { AppCommandBar } from "../components/AppCommandBar";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
@@ -242,7 +243,7 @@ export default function HistoryV2() {
   return (
     <div className="history-page history-page--fill px-1 pb-8 pt-2 sm:px-0">
       <HeaderSlot>
-        <div className="history-filter-bar w-full">
+        <AppCommandBar className="history-filter-bar">
           <AccountFilterDropdown
             accounts={connectedAccounts}
             value={effectiveAccountId}
@@ -296,7 +297,7 @@ export default function HistoryV2() {
               patchSearchParams({ composite: value || null });
             }}
           />
-        </div>
+        </AppCommandBar>
       </HeaderSlot>
 
       {isAwsAccount && historyQ.isLoading && <p className="history-loading">Loading history…</p>}

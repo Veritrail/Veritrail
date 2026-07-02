@@ -6,6 +6,7 @@ import { api } from "../api";
 import { frameworkLabel } from "../data/frameworks";
 import { HistorySparkline } from "./HistorySparkline";
 import { InfrastructureEventsList } from "./InfrastructureEventsList";
+import { DrawerShell } from "./DrawerShell";
 import {
   drawerComparePreviousScan,
   drawerPostureDelta,
@@ -305,11 +306,15 @@ export function HistorySnapshotDrawer({
     comparePrevious != null ? reopeningsBetween(allEvents, comparePrevious.timestamp, event.timestamp) : 0;
 
   return (
-    <>
-      <div className="history-drawer__backdrop" onClick={onClose} aria-hidden />
-
-      <div className="history-drawer history-drawer__panel" role="dialog" aria-labelledby="history-snapshot-title">
-        <header className="history-drawer__header">
+    <DrawerShell
+      onClose={onClose}
+      labelledBy="history-snapshot-title"
+      size="sm"
+      backdropZIndexClassName="z-40"
+      panelZIndexClassName="z-50"
+      panelClassName="history-drawer history-drawer__panel"
+    >
+      <header className="history-drawer__header">
           <p className="history-drawer__eyebrow">{frameworkLabel(event.framework)} snapshot</p>
           <div className="history-drawer__title-row">
             <h2 id="history-snapshot-title" className="history-drawer__title">
@@ -632,7 +637,6 @@ export function HistorySnapshotDrawer({
             {downloading ? "Generating…" : "Download audit package"}
           </button>
         </div>
-      </div>
-    </>
+    </DrawerShell>
   );
 }

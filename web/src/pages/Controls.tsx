@@ -20,6 +20,7 @@ import {
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingFailsControl } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { AppCommandBar } from "../components/AppCommandBar";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import {
@@ -4213,11 +4214,13 @@ export default function Controls() {
     <div className="compliance-page compliance-v2-shell min-h-full w-full">
       {connectedAccounts.length > 0 && activeAccount && (
         <HeaderSlot>
-          <AccountFilterDropdown
-            accounts={connectedAccounts}
-            value={activeAccount.id}
-            onChange={handleAccountChange}
-          />
+          <AppCommandBar>
+            <AccountFilterDropdown
+              accounts={connectedAccounts}
+              value={activeAccount.id}
+              onChange={handleAccountChange}
+            />
+          </AppCommandBar>
         </HeaderSlot>
       )}
 

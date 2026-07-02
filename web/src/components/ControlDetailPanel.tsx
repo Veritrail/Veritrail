@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { ReadinessMetric } from "../lib/controlReadiness";
+import { DrawerShell } from "./DrawerShell";
 
 /** Concrete N-of-M readiness rows — semantic color as a thin rail only. */
 export function ControlReadinessBar({ metrics }: { metrics: ReadinessMetric[] }) {
@@ -100,7 +101,6 @@ export function ControlDetailPanel({
   const isOverlay = mode === "overlay";
   useEscapeDismiss(onClose, isOverlay);
   useBodyScrollLock(isOverlay);
-  const backdropPressedRef = useRef(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const tabRefs = useRef<Map<ControlDetailTabId, HTMLButtonElement>>(new Map());
   const active = tabs.find((t) => t.id === activeTab) ?? tabs[0];
@@ -128,10 +128,7 @@ export function ControlDetailPanel({
 
   const panel = (
     <div
-      className="control-detail-panel"
-      role={isOverlay ? "dialog" : undefined}
-      aria-modal={isOverlay ? true : undefined}
-      aria-labelledby="control-detail-panel-title"
+      className={`control-detail-panel${isOverlay ? " control-detail-panel--drawer" : ""}`}
     >
       <div className="control-detail-panel__header">
         <button
@@ -204,19 +201,17 @@ export function ControlDetailPanel({
   if (!isOverlay) return panel;
 
   return createPortal(
-    <div
-      className="control-detail-overlay"
-      role="presentation"
-      onMouseDown={(e) => {
-        backdropPressedRef.current = e.target === e.currentTarget;
-      }}
-      onMouseUp={(e) => {
-        if (backdropPressedRef.current && e.target === e.currentTarget) onClose();
-        backdropPressedRef.current = false;
-      }}
+    <DrawerShell
+      onClose={onClose}
+      labelledBy="control-detail-panel-title"
+      size="lg"
+      backdropZIndexClassName="z-[60]"
+      panelZIndexClassName="z-[70]"
+      panelClassName="control-detail-shell"
+      backdropClassName="control-detail-backdrop"
     >
       {panel}
-    </div>,
+    </DrawerShell>,
     document.body,
   );
 }

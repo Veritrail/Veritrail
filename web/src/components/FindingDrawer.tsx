@@ -65,6 +65,7 @@ import {
 import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
 import { ResourcesIcon } from "./ResourcesIcon";
+import { DrawerShell } from "./DrawerShell";
 import { fetchClientIpForRemediation } from "../lib/cliRemediation";
 import {
   BlastRadiusConsiderations,
@@ -6647,20 +6648,14 @@ export function FindingDrawer({
     remediationSplit || policyWorkspaceSplit ? "transition-none" : "transition-[max-width] duration-200 ease-out";
 
   const overlay = (
-    <>
-      <div
-        className="fixed -inset-px z-[100] bg-zinc-950/35 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div
-        ref={drawerSheetRef}
-        className={`finding-drawer-surface fixed top-0 right-0 bottom-0 z-[110] flex w-full flex-col overflow-hidden bg-white shadow-2xl ${drawerWidthTransitionClass} ${drawerWideClass}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="finding-drawer-title"
-      >
-    {verified && (
+    <DrawerShell
+      ref={drawerSheetRef}
+      onClose={onClose}
+      labelledBy="finding-drawer-title"
+      widthClassName={drawerWideClass}
+      panelClassName={`finding-drawer-surface ${drawerWidthTransitionClass}`}
+    >
+      {verified && (
       <div
         className="absolute inset-0 z-[60] flex flex-col items-center justify-center bg-gradient-to-b from-emerald-50 via-emerald-50/95 to-white px-8 text-center"
         role="status"
@@ -6989,8 +6984,7 @@ export function FindingDrawer({
         </div>
       )}
     </div>
-      </div>
-    </>
+    </DrawerShell>
   );
 
   return createPortal(overlay, document.body);
