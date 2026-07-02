@@ -1,6 +1,6 @@
 # Veritrail
 
-> Continuous AWS compliance monitoring and evidence automation for SOC 2, CIS AWS Foundations, and ISO 27001. Auditor-ready evidence packs, historical proof, and security findings with a read-only core scanner.
+> Continuous AWS compliance monitoring and evidence automation for SOC 2 and CIS AWS Foundations. Auditor-ready evidence packs, historical proof, and security findings with a read-only core scanner.
 
 ## What is Veritrail?
 
@@ -8,40 +8,26 @@ Veritrail helps security and compliance teams continuously verify AWS security c
 
 The core scanner connects to AWS through a read-only cross-account IAM role and automatically evaluates cloud configurations against mapped compliance controls. Evidence is collected over time, preserving historical snapshots that can be exported for SOC 2 Type I and Type II audits.
 
-Veritrail focuses on cloud and change evidence. It is not a GRC platform and does not manage policies, employee onboarding, device management, or HR workflows.
+Optional GCP and Azure baseline collectors add multi-cloud posture checks alongside AWS scans. Veritrail focuses on cloud and change evidence — not HR, MDM, vendor risk, or policy management.
 
 ## Core Capabilities
 
 ### Continuous Compliance Monitoring
 
-Veritrail continuously evaluates AWS environments across services including:
-
-* IAM
-* CloudTrail
-* S3
-* KMS
-* EC2
-* RDS
-* AWS Config
-* Security monitoring services
+Veritrail evaluates AWS environments across IAM, CloudTrail, S3, KMS, EC2, RDS, Config, GuardDuty, Security Hub, containers, and related services. GCP and Azure phase-one checks cover audit logging, compute exposure, Defender, and storage public access.
 
 Each finding is mapped to relevant compliance requirements and tracked over time.
 
 ### Evidence Automation
 
-For every control, Veritrail automatically captures and stores supporting evidence, allowing organizations to:
+For every control, Veritrail captures supporting evidence so organizations can:
 
 * Demonstrate compliance status at any point in time
 * Track control effectiveness historically
-* Produce auditor-ready evidence packages
+* Produce auditor-ready evidence packages (JSON, CSV, PDF, ZIP)
 * Reduce manual evidence collection effort
 
-Exports include:
-
-* PDF reports
-* CSV exports
-* JSON evidence
-* ZIP audit packages
+External evidence uploads, workspace tool registry, and optional S3 Object Lock vault copies are supported.
 
 ### Compliance Framework Coverage
 
@@ -51,24 +37,14 @@ Veritrail maps findings and evidence to:
 * SOC 2 CC7 (System Operations)
 * SOC 2 CC8 (Change Management)
 * CIS AWS Foundations Benchmark (selected controls)
-* ISO 27001 Annex A controls
 
-Control coverage is transparent. Veritrail does not claim full CIS benchmark coverage and publishes exact control mappings within generated evidence packs.
+Control coverage is transparent. Veritrail publishes exact control mappings inside generated evidence packs.
 
 ### What-If Analysis
 
-Before remediating findings, engineers can review operational impact and dependency information such as:
-
-* IAM Access Advisor data
-* Trust relationships
-* Resource dependencies
-* Recent credential usage
-
-This helps reduce remediation risk and avoid unintended outages.
+Before remediating findings, engineers can review operational impact: IAM Access Advisor data, trust relationships, resource dependencies, and recent credential usage.
 
 ## Evidence Categories
-
-Findings are classified into three categories:
 
 | Category   | Purpose                                             |
 | ---------- | --------------------------------------------------- |
@@ -78,50 +54,32 @@ Findings are classified into three categories:
 
 Hygiene findings are optional and disabled by default.
 
-Examples include:
-
-* Unattached IAM policies
-* CODEOWNERS enforcement
-* Other operational best-practice checks
-
 ## Security Model
 
-Veritrail operates using:
-
-* Cross-account IAM role assumption
-* ExternalId protection
+* Cross-account IAM role assumption with ExternalId
 * Read-only AWS permissions for the core scanner
-* Optional customer-approved analysis and remediation capabilities
+* Optional customer-approved analysis and remediation via SSM Automation
+* Production control plane on Hetzner/VPS can use Vault PKI + IAM Roles Anywhere instead of static AWS keys
 
-The core scanner cannot modify customer resources. Optional remediation modules require customer-owned SSM Automation and explicit approval.
+The core scanner cannot modify customer resources. Remediation requires customer-owned automation and explicit approval.
 
 ## Platform
 
-### Backend
-
-* FastAPI
-* PostgreSQL
-* Celery
-* Redis
-
-### Frontend
-
-* React
-* Vite
-* TanStack Query
+* Backend: FastAPI, PostgreSQL, Celery, Redis
+* Frontend: React, Vite, TanStack Query
+* Deploy: Docker Compose on a single VPS (Hetzner or similar)
 
 ## Public Pages
 
 * `/login`
-* `/security`
+* `/privacy`
+* `/terms`
 
 Authenticated application routes are not intended for indexing.
 
 ## Positioning
 
-Veritrail is designed for organizations that need continuous cloud compliance evidence and security verification without purchasing a full governance, risk, and compliance suite.
-
-It complements, rather than replaces, platforms such as Vanta or Drata by focusing specifically on cloud posture, change evidence, and auditor-ready evidence collection.
+Veritrail is designed for organizations that need continuous cloud compliance evidence without purchasing a full GRC suite. It complements platforms such as Vanta or Drata by focusing on cloud posture, change evidence, and auditor-ready evidence collection.
 
 ## Licensing
 

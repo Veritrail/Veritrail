@@ -169,4 +169,4 @@ Matrix: `api/data/cis_v5_level1_matrix.json` → `"veritrail_status": "automated
 
 ## Session log
 
-Documented in HANDOFF **Session 30** (2026-05-30): v6 map, Accounts/Controls/What If UX from same period, policy-gen clarify.
+Added 2026-05-30 alongside Accounts/Controls/What If UX work from the same period; policy-gen behavior clarified in [policy-generator-iam-last-accessed.md](./policy-generator-iam-last-accessed.md).

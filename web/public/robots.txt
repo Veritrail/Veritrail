@@ -3,7 +3,8 @@
 
 User-agent: *
 Allow: /login
-Allow: /security
+Allow: /privacy
+Allow: /terms
 Allow: /llms.txt
 Allow: /robots.txt
 Allow: /sitemap.xml

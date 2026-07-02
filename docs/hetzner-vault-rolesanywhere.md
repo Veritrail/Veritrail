@@ -72,7 +72,7 @@ Then re-run without `--skip-aws` once AWS bootstrap credentials are available.
 | `AWS_ACCOUNT_ID` | auto-detected | AWS control-plane account ID |
 | `AWS_PROFILE_NAME` | `veritrail-ra` | Local AWS profile name written to `~/.aws/config` |
 | `ENV_FILE` | `.env` | Veritrail env file to update |
-| `RA_ROLE_NAME` | `VeritrailHetznerControlPlaneRole` | IAM role assumed through Roles Anywhere |
+| `RA_ROLE_NAME` | `VeritrailControlPlaneRole` | IAM role assumed through Roles Anywhere |
 | `ASSUMABLE_ROLE_RESOURCE` | `*` | Which customer scanner roles Veritrail may assume |
 | `CERT_TTL` | `720h` | VPS client certificate lifetime |
 

@@ -99,7 +99,7 @@ Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue
 
 - DNS A records for UI + API hostnames pointing at the host
 - Firewall allows inbound TCP 80 and 443
-- AWS control-plane identity: Hetzner uses Vault PKI + IAM Roles Anywhere (`docs/hetzner-vault-rolesanywhere.md`); EC2 can use an instance profile for `TRUST_PRINCIPAL_ARN` auto-detect
+- AWS control-plane identity: **Hetzner/VPS** uses Vault PKI + IAM Roles Anywhere (`docs/hetzner-vault-rolesanywhere.md`). An EC2 instance profile still works if you host on AWS, but that is not the current production path.
 
 Production uses the base compose file plus the production override:
 
@@ -112,7 +112,7 @@ ENV_FILE=.env.prod docker compose \
   up -d
 ```
 
-If `IAP_ENABLED=true`, add `-f compose.iap.yml --profile iap`; `scripts/launch-prod.sh` and `scripts/bootstrap-ec2.sh` do this automatically. After bootstrap, `source .compose.prod.env` before manual compose commands.
+If `IAP_ENABLED=true`, add `-f compose.iap.yml --profile iap`; `scripts/launch-prod.sh` (which delegates to `scripts/bootstrap-ec2.sh` — the shared VPS bootstrap script) does this automatically. After bootstrap, `source .compose.prod.env` before manual compose commands.
 
 `nginx/nginx.conf` and `nginx/iap/iap.*.conf` are generated on the host from `nginx/nginx.conf.template` and `infra/nginx/iap/` during bootstrap/redeploy — they are gitignored and should not be edited in git.
 
@@ -233,7 +233,7 @@ Auditors use the **auditor portal** and downloaded pack — not the upload UI.
 
 ---
 
-## Checks (133 automated checks)
+## Checks (137 automated checks)
 
 Veritrail's automated check registry currently covers AWS posture, AWS activity detections,
 identity providers, source-control evidence, and change-management evidence. The
@@ -374,7 +374,7 @@ api/
     services/     evidence_pack, pdf_report, github_sync, gitlab_sync,
                     iac_snippets, remediation_plan, remediation_dispatch, remediation_iam
     worker/       celery_app + tasks (run_scan, scan_all_accounts, recheck_finding, send_weekly_digests)
-  migrations/     Alembic (0001 → 0031)
+  migrations/     Alembic (0001 → 0079)
 web/              React + Vite + Tailwind + TanStack Query
                   pages: Findings, Activity log, Compliance timeline, Controls, Accounts, …
 tools/
@@ -382,7 +382,7 @@ tools/
 infra/
   cfn/            veritrail-readonly-role.yaml
                   veritrail-remediation-ssm.yaml          ← SG/SSM remediation (SSM Automation)
-docs/             remediation-automation.md, evidence-vault.md
+docs/             hetzner-vault-rolesanywhere.md, remediation-automation.md, evidence-vault.md
 compose.yml       base dev/shared compose file
 compose.prod.yml  production override
 compose.iap.yml   optional production IAP override
@@ -423,7 +423,7 @@ Shipped in-repo (narrow design-partner launch):
 
 ### Deepsearch v3 alignment (architecture review)
 
-Most of [deepsearch/v3.txt](deepsearch/v3.txt) **phase 1–2 and navigation (phase 5)** are in the repo. Not everything is “exact” — gaps are intentional deferrals:
+Most of the **deepsearch v3** phase 1–2 and navigation (phase 5) recommendations are in the repo (see [`docs/deepsearch-v4-map.md`](docs/deepsearch-v4-map.md)). Not everything is “exact” — gaps are intentional deferrals:
 
 | v3 recommendation | Status |
 |-------------------|--------|
@@ -449,11 +449,10 @@ Still manual / planned (not blockers for first design partners):
 | **Cryptographic pack signing** | Set `EVIDENCE_PACK_SIGNING_KEY` — `pack_signature.json`; public key at `GET /v1/meta/evidence-pack-signing-key` |
 | **Full CIS v5 parity** | `cis_v5_level1_matrix.json`; ~24 core-mapped in Compliance |
 | **IAM history UI** | `GET /v1/accounts/:id/iam-history?as_of=` + pack JSON only |
-| **SSM Automation** | `runner_type: ssm` — same plan schema |
 | **GitLab MR + broader Terraform PR** | GitHub S3 PR only; SG/KMS repo patches later |
 | **Control copy template** | Standardize Controls UI blocks |
 | **Narrative audit automation** | Script: narrative ↔ `check_id` registry |
-| **Production deploy** | Your hosting + backups + secrets rotation |
+| **Ops hygiene** | Nightly backups (`docs/backup-restore-runbook.md`), secrets rotation, smoke tests — see `scripts/launch-prod.sh` checklist |
 
 ### Deepsearch v4 alignment (architecture review)
 
@@ -471,7 +470,7 @@ See [`docs/deepsearch-v4-map.md`](docs/deepsearch-v4-map.md) for the full featur
 | Repo-aware Terraform beyond S3/KMS patch | **Partial** |
 | Docs said vault “scaffold only” | **Fixed** — code was ahead of docs |
 
-**Reference docs:** Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). Product assessment: [`docs/product-assessment-2026-06.md`](docs/product-assessment-2026-06.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md). Multi-cloud collectors: [`docs/multi-cloud-collectors.md`](docs/multi-cloud-collectors.md). Integrations overview: [`docs/integrations-overview.md`](docs/integrations-overview.md).
+**Reference docs:** Hetzner/VPS deploy: [`docs/hetzner-vault-rolesanywhere.md`](docs/hetzner-vault-rolesanywhere.md). Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). Product assessment: [`docs/product-assessment-2026-06.md`](docs/product-assessment-2026-06.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md). Multi-cloud collectors: [`docs/multi-cloud-collectors.md`](docs/multi-cloud-collectors.md). Integrations overview: [`docs/integrations-overview.md`](docs/integrations-overview.md).
 
 **Ops hygiene:** Never distribute repo archives with `.env` / `.env.prod`. Use `git archive` or CI artifacts. Rotate any secret that ever appeared in a shared ZIP.
 
@@ -484,7 +483,7 @@ Served at the web app root (Vite `public/`):
 | File | Purpose |
 |------|---------|
 | `llms.txt` | Product summary for LLM crawlers |
-| `robots.txt` | Crawl rules (app routes disallowed; `/login`, `/security` allowed) |
+| `robots.txt` | Crawl rules (app routes disallowed; `/login`, `/privacy`, `/terms` allowed) |
 | `sitemap.xml` | Public URLs only — update `SITE_BASE` in file when the production hostname changes |
 
 Default canonical host in sitemap: `https://app.veritrail.io`.
