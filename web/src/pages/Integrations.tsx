@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,6 @@ import {
   StatusDot,
 } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
-import { IntegrationRequestModal } from "../components/IntegrationRequestModal";
 import "../styles/integrations-page.css";
 import "../styles/workspace-page.css";
 
@@ -228,24 +227,10 @@ function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
 }
 
 function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
-  const [requestOpen, setRequestOpen] = useState(false);
-
   return (
     <section className="integrations-explore">
       <div className="integrations-explore__header">
-        <div>
-          <h2>Explore more integrations</h2>
-          <p className="mt-1 text-sm text-zinc-500">Optional destinations and alerts you can connect next.</p>
-        </div>
-        <button
-          type="button"
-          className="integrations-explore-request"
-          onClick={() => setRequestOpen(true)}
-          aria-haspopup="dialog"
-        >
-          <span aria-hidden>💡</span>
-          Request an integration
-        </button>
+        <h2>Explore more integrations</h2>
       </div>
       <div className="integrations-explore-grid">
         {cards.map((card) => {
@@ -273,7 +258,7 @@ function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
           );
         })}
       </div>
-      <IntegrationRequestModal open={requestOpen} onClose={() => setRequestOpen(false)} />
+      <p className="integrations-explore-footer">Optional destinations and alerts you can connect next.</p>
     </section>
   );
 }
