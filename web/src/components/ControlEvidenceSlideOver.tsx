@@ -39,6 +39,11 @@ function formatEvidenceDate(iso: string | null) {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Normalize legacy artifact note copy for display. */
+function formatArtifactNote(note: string) {
+  return note.replace(/\bCadence:/g, "Schedule:");
+}
+
 /** Shared artifact list for control and composite detail drawers. */
 export function ExternalEvidenceArtifactList({
   artifacts,
@@ -63,38 +68,51 @@ export function ExternalEvidenceArtifactList({
           const uploadedOn = formatEvidenceDate(item.created_at);
           return (
             <li key={item.id} className="control-evidence-drawer__item">
-              <div className="min-w-0 flex-1">
+              <div className="control-evidence-drawer__item-head">
                 <p className="control-evidence-drawer__item-title">{item.title}</p>
-                <p className="control-evidence-drawer__item-meta">
-                  {uploadedOn && <span>Uploaded {uploadedOn}</span>}
-                  {item.source && <span>{item.source}</span>}
-                  {item.evidence_type && <span>{item.evidence_type}</span>}
-                  {item.check_id && <span>{labelForCheck(item.check_id)}</span>}
-                  {item.owner && <span>Owner: {item.owner}</span>}
-                  {item.period_end && <span>Through {item.period_end}</span>}
+                <span
+                  className={`compliance-external-evidence__status compliance-external-evidence__status--${
+                    stale ? "stale" : item.status
+                  }`}
+                >
+                  {statusLabel(item.status, stale)}
+                </span>
+              </div>
+              <p className="control-evidence-drawer__item-meta">
+                {uploadedOn && <span>Uploaded {uploadedOn}</span>}
+                {item.source && <span>{item.source}</span>}
+                {item.evidence_type && <span>{item.evidence_type}</span>}
+                {item.check_id && <span>{labelForCheck(item.check_id)}</span>}
+                {item.owner && <span>Owner: {item.owner}</span>}
+                {item.period_end && <span>Through {item.period_end}</span>}
+              </p>
+              {item.note && (
+                <p className="control-evidence-drawer__item-note">{formatArtifactNote(item.note)}</p>
+              )}
+              {item.review_notes && (
+                <p className="control-evidence-drawer__item-review-note">{item.review_notes}</p>
+              )}
+              {item.superseded_by && (
+                <p className="control-evidence-drawer__item-review-note">
+                  Superseded by newer accepted evidence.
                 </p>
-                {item.note && <p className="control-evidence-slideover__note">{item.note}</p>}
-                {item.review_notes && (
-                  <p className="control-evidence-slideover__review-note">{item.review_notes}</p>
-                )}
-                {item.superseded_by && (
-                  <p className="control-evidence-slideover__review-note">Superseded by newer accepted evidence.</p>
-                )}
+              )}
+              <div className="control-evidence-drawer__item-foot">
                 <EvidenceArtifactComments artifactId={item.id} canComment={canComment} />
-                <div className="control-evidence-slideover__item-actions">
+                <div className="control-evidence-drawer__item-actions">
                   {item.external_url ? (
                     <a
                       href={item.external_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="compliance-external-evidence__link"
+                      className="control-evidence-drawer__link"
                     >
                       Open link
                     </a>
                   ) : item.filename ? (
                     <button
                       type="button"
-                      className="compliance-external-evidence__link"
+                      className="control-evidence-drawer__link"
                       onClick={() =>
                         downloadEvidenceArtifact(item).catch((err) =>
                           setDownloadError(err instanceof Error ? err.message : "Download failed"),
@@ -111,13 +129,6 @@ export function ExternalEvidenceArtifactList({
                   )}
                 </div>
               </div>
-              <span
-                className={`compliance-external-evidence__status compliance-external-evidence__status--${
-                  stale ? "stale" : item.status
-                }`}
-              >
-                {statusLabel(item.status, stale)}
-              </span>
             </li>
           );
         })}
@@ -185,7 +196,7 @@ export function ControlEvidenceTabContent({
           {canEdit ? (
             <button
               type="button"
-              className="compliance-external-evidence__link"
+              className="control-evidence-drawer__link control-evidence-drawer__link--head"
               onClick={() => setUploadOpen(true)}
             >
               Add external evidence
