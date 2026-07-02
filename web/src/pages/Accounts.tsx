@@ -1091,23 +1091,35 @@ function buildRecentScanRows(
   fallbackResources?: number | null,
 ): RecentScanDisplayRow[] {
   if (isAws) {
-    if (awsEvents.length > 0) {
-      return awsEvents.slice(0, 3).map((evt) => ({
-        key: evt.scan_run_id + evt.timestamp,
-        timestamp: evt.timestamp,
-        succeeded: scanSucceeded(evt),
-        resourcesScanned: fallbackResources ?? null,
-      }));
-    }
+    const rows: RecentScanDisplayRow[] =
+      awsEvents.length > 0
+        ? awsEvents.slice(0, 3).map((evt) => ({
+            key: evt.scan_run_id + evt.timestamp,
+            timestamp: evt.timestamp,
+            succeeded: scanSucceeded(evt),
+            resourcesScanned: fallbackResources ?? null,
+          }))
+        : [];
     if (hasScanned && lastScanAt) {
-      return [{
-        key: "fallback",
-        timestamp: lastScanAt,
-        succeeded: true,
-        resourcesScanned: fallbackResources ?? null,
-      }];
+      const newestEventMs = rows[0] ? new Date(rows[0].timestamp).getTime() : 0;
+      const lastScanMs = new Date(lastScanAt).getTime();
+      if (lastScanMs > newestEventMs + 1000) {
+        rows.unshift({
+          key: `latest-${lastScanAt}`,
+          timestamp: lastScanAt,
+          succeeded: true,
+          resourcesScanned: fallbackResources ?? null,
+        });
+      } else if (rows.length === 0) {
+        rows.push({
+          key: "fallback",
+          timestamp: lastScanAt,
+          succeeded: true,
+          resourcesScanned: fallbackResources ?? null,
+        });
+      }
     }
-    return [];
+    return rows.slice(0, 3);
   }
   const completed = (cloudRuns ?? []).filter(
     (run) => run.status !== "running" && (run.finished_at ?? run.started_at),

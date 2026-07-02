@@ -102,6 +102,7 @@ export function useTriggeredScan(accountId: string | undefined, options?: UseTri
   const [scanTriggered, setScanTriggered] = useState(false);
   const [localScanStartedAt, setLocalScanStartedAt] = useState<Date | null>(null);
   const prevScanStatus = useRef<string | null>(null);
+  const completedRunIdRef = useRef<string | null>(null);
   const onScanCompleteRef = useRef(options?.onScanComplete);
   onScanCompleteRef.current = options?.onScanComplete;
   const backgroundPollMs = options?.backgroundPollMs;
@@ -151,9 +152,20 @@ export function useTriggeredScan(accountId: string | undefined, options?: UseTri
     const run = scanRun.data;
     const pending = pendingAt;
 
-    if (prevScanStatus.current === "running" && scanStatus === "ok") {
+    const completedViaTransition = prevScanStatus.current === "running" && scanStatus === "ok";
+    const completedViaPending =
+      !!run &&
+      !!pending &&
+      run.status === "ok" &&
+      pendingMatchesRun(pending, run);
+    if (
+      (completedViaTransition || completedViaPending) &&
+      run?.id &&
+      completedRunIdRef.current !== run.id
+    ) {
+      completedRunIdRef.current = run.id;
       onScanCompleteRef.current?.();
-      if (run?.started_at && run?.finished_at) {
+      if (run.started_at && run.finished_at) {
         saveScanDurationMs(run.started_at, run.finished_at);
       }
     }
