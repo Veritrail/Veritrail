@@ -48,7 +48,7 @@ export function registryKeyForComposite(compositeId: string): string | null {
 }
 
 export function buildExternalCoverageNote(scope: string, cadence?: string) {
-  const cadencePart = cadence?.trim() ? ` Cadence: ${cadence.trim()}.` : "";
+  const cadencePart = cadence?.trim() ? ` Schedule: ${cadence.trim()}.` : "";
   return `Managed outside AWS. Scope: ${scope.trim()}.${cadencePart}`;
 }
 
@@ -57,7 +57,7 @@ export function buildExternalWizardTitle(source: string, compositeTitle: string)
 }
 
 export function buildVulnWizardNote(scope: string, cadence: string) {
-  return `External vulnerability coverage via uploaded proof. Asset scope: ${scope}. Scan cadence: ${cadence}.`;
+  return `External vulnerability coverage via uploaded proof. Asset scope: ${scope}. Scan schedule: ${cadence}.`;
 }
 
 export function buildVulnWizardTitle(vendor: string, compositeTitle: string) {

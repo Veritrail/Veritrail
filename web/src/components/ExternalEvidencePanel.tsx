@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, apiUpload, formatApiError } from "../api";
 import { Select, type SelectOption } from "./Select";
 import { labelForCheck } from "../data/checkLabels";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { EXTERNAL_EVIDENCE_TYPES, type ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import { openAbsenceGapChecks } from "../lib/evidenceGap";
-import { cadenceOptionsForIntake, intakeConfigForComposite } from "../lib/evidenceCategoryIntake";
+import { intakeConfigForComposite, scheduleOptionsForIntake } from "../lib/evidenceCategoryIntake";
 import {
   buildExternalCoverageNote,
   buildExternalWizardTitle,
@@ -15,8 +15,6 @@ import {
   buildVulnWizardTitle,
   registryKeyForComposite,
 } from "../lib/evidenceSourceRegistry";
-import { settingsSchema } from "../lib/apiSchemas";
-
 type UnderlyingCriterion = {
   id: string;
   control_id: string;
@@ -74,17 +72,6 @@ export function ExternalEvidencePanel({
   );
   const showIntakeWizard = registryKey !== null || openAbsenceGaps.length > 0;
 
-  const settingsQ = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => api("/v1/settings", { schema: settingsSchema }),
-    staleTime: 60_000,
-  });
-
-  const registryEntry = useMemo(() => {
-    if (!registryKey) return null;
-    return settingsQ.data?.evidence_source_categories?.find((c) => c.key === registryKey)?.entry ?? null;
-  }, [registryKey, settingsQ.data?.evidence_source_categories]);
-
   const toolOptions = useMemo<SelectOption[]>(
     () => [
       { value: "", label: `Select ${intake.toolLabel.toLowerCase()}…` },
@@ -101,7 +88,7 @@ export function ExternalEvidencePanel({
     [intake],
   );
 
-  const cadenceOptions = useMemo<SelectOption[]>(() => cadenceOptionsForIntake(intake), [intake]);
+  const scheduleOptions = useMemo<SelectOption[]>(() => scheduleOptionsForIntake(intake), [intake]);
 
   const evidenceTypeOptions = useMemo<SelectOption[]>(
     () => [
@@ -223,24 +210,7 @@ export function ExternalEvidencePanel({
     if (!open) return;
     setError("");
     resetForm();
-    if (registryEntry?.vendor) {
-      const known =
-        intake.toolOptions && (intake.toolOptions as readonly string[]).includes(registryEntry.vendor)
-          ? registryEntry.vendor
-          : intake.useToolPicker
-            ? "Other"
-            : registryEntry.vendor;
-      if (intake.useToolPicker) {
-        setSource(known);
-        if (known === "Other") setCustomSource(registryEntry.vendor);
-      } else {
-        setCustomSource(registryEntry.vendor);
-      }
-      if (registryEntry.scope_description) setAssetScope(registryEntry.scope_description);
-      if (registryEntry.cadence) setCadence(registryEntry.cadence);
-      if (registryEntry.owner) setOwner(registryEntry.owner);
-    }
-  }, [open, registryEntry, intake]);
+  }, [open, compositeId]);
 
   function continueFromWizard() {
     const resolvedSource = (
@@ -384,11 +354,11 @@ export function ExternalEvidencePanel({
               )}
             </div>
             <div className="compliance-external-evidence__field">
-              <label>{intake.cadenceLabel}</label>
+              <label>{intake.scheduleLabel}</label>
               <Select
                 value={cadence}
                 onChange={setCadence}
-                options={cadenceOptions}
+                options={scheduleOptions}
                 className="w-full"
                 {...selectMenuProps}
               />
