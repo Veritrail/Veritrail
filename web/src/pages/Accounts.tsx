@@ -1033,6 +1033,35 @@ function FindingsMixDonutCompact({
   );
 }
 
+function OverviewSeverityChips({ stats, hasScanned }: { stats: FindingStats; hasScanned: boolean }) {
+  const rows = [
+    { label: "High", count: stats.critHigh, tone: "high" as const },
+    { label: "Medium", count: stats.medium, tone: "medium" as const },
+    { label: "Low", count: stats.low, tone: "low" as const },
+  ];
+
+  return (
+    <p className="accounts-detail-overview__severity-line">
+      {rows.map((row, index) => (
+        <span className="accounts-detail-overview__severity-group" key={row.label}>
+          {index > 0 ? (
+            <span className="accounts-detail-overview__severity-sep" aria-hidden>
+              ·
+            </span>
+          ) : null}
+          <span className={`accounts-detail-overview__severity-chip accounts-detail-overview__severity-chip--${row.tone}`}>
+            <i aria-hidden />
+            <span className="accounts-detail-overview__severity-count">
+              {hasScanned ? row.count.toLocaleString() : "—"}
+            </span>
+            <span className="accounts-detail-overview__severity-label">{row.label}</span>
+          </span>
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function FindingsSeverityLegend({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
   const critHigh = stats?.critHigh ?? 0;
   const medium = stats?.medium ?? 0;
@@ -6198,88 +6227,68 @@ function AccountSplitDetailPane({
       <div className="accounts-detail-pane__body">
         {tab === "overview" && (
           <>
-            <div className="accounts-detail-overview__cards">
-              <div className="accounts-detail-metric-card">
-                <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">Open findings</p>
-                </div>
-                <div className="accounts-detail-metric-card__value-row">
-                  <p className="accounts-detail-metric-card__value">{hasScanned ? displayStats.open : "—"}</p>
+            <div className="accounts-detail-overview__summary">
+              <div className="accounts-detail-overview__summary-main">
+                <p className="accounts-detail-overview__summary-headline">
+                  <span className="accounts-detail-overview__summary-count">
+                    {hasScanned ? displayStats.open.toLocaleString() : "—"}
+                  </span>
+                  <span className="accounts-detail-overview__summary-headline-text">open findings</span>
                   {hasScanned ? (
                     <MetricCardDelta delta={openFindingsDelta} betterWhen="down" />
                   ) : null}
-                </div>
-                <p className="accounts-detail-metric-card__sub">
-                  {hasScanned
-                    ? openFindingsDelta != null
-                      ? "Across severities · last 7 days"
-                      : "Across severities"
-                    : "Run a scan first"}
                 </p>
                 {hasScanned ? (
-                  <div className="accounts-detail-metric-card__findings">
-                    <FindingsMixDonutCompact stats={displayStats} hasScanned={hasScanned} size={92} stroke={5} />
-                    <FindingsSeverityLegend stats={displayStats} hasScanned={hasScanned} />
-                  </div>
-                ) : null}
+                  <OverviewSeverityChips stats={displayStats} hasScanned={hasScanned} />
+                ) : (
+                  <p className="accounts-detail-overview__summary-muted">Run a scan first</p>
+                )}
               </div>
-              <div className="accounts-detail-metric-card">
-                <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">SOC 2 readiness</p>
-                </div>
-                <div className="accounts-detail-metric-card__value-row">
-                  <p className="accounts-detail-metric-card__value">
-                    {compliancePct != null ? `${compliancePct}%` : hasScanned ? "—" : "—"}
+              <div className="accounts-detail-overview__summary-aside" aria-label="Posture metrics">
+                <div className="accounts-detail-overview__summary-aside-item">
+                  <p className="accounts-detail-overview__summary-aside-line">
+                    <span className="accounts-detail-overview__summary-aside-label">SOC 2</span>
+                    <span className="accounts-detail-overview__summary-aside-value">
+                      {hasScanned
+                        ? soc2PhaseLabel
+                          ? soc2PhaseLabel.toLowerCase()
+                          : compliancePct != null
+                            ? `${compliancePct}%`
+                            : "—"
+                        : "—"}
+                    </span>
+                    {hasScanned && compliancePct != null ? (
+                      <MetricCardDelta delta={complianceDelta} betterWhen="up" />
+                    ) : null}
                   </p>
-                  {hasScanned && compliancePct != null ? (
-                    <MetricCardDelta delta={complianceDelta} betterWhen="up" />
-                  ) : null}
-                </div>
-                <div className="accounts-detail-metric-card__detail">
-                  <p className="accounts-detail-metric-card__sub">
-                    {hasScanned
-                      ? soc2PhaseLabel ?? (complianceDelta != null ? "Last 7 days" : "Mapped controls")
-                      : "Run a scan first"}
-                  </p>
-                  <p className="accounts-detail-metric-card__sub">
+                  <p className="accounts-detail-overview__summary-aside-detail">
                     {hasScanned
                       ? soc2CheckSummary
                         ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
-                        : complianceDelta != null
-                          ? "Trend vs prior week"
-                          : "Awaiting control mapping"
-                      : "SOC 2 controls"}
+                        : "Awaiting control mapping"
+                      : "Run a scan first"}
                   </p>
                 </div>
-              </div>
-              <div className="accounts-detail-metric-card">
-                <div className="accounts-detail-metric-card__top">
-                  <div className="accounts-detail-metric-card__label-row">
-                    <p className="accounts-detail-metric-card__label">Coverage</p>
-                    <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
-                  </div>
-                </div>
-                <div className="accounts-detail-metric-card__value-row">
-                  <p className="accounts-detail-metric-card__value">
-                    {coveragePct != null ? `${coveragePct}%` : hasScanned ? "—" : "—"}
+                <div className="accounts-detail-overview__summary-aside-item">
+                  <p className="accounts-detail-overview__summary-aside-line">
+                    <span className="accounts-detail-overview__summary-aside-label">
+                      Coverage
+                      <MetricHelpTip metric="Coverage" text={COVERAGE_METRIC_HELP} />
+                    </span>
+                    <span className="accounts-detail-overview__summary-aside-value">
+                      {coveragePct != null ? `${coveragePct}%` : "—"}
+                    </span>
+                    {hasScanned && coveragePct != null ? (
+                      <MetricCardDelta delta={coverageDelta} betterWhen="up" />
+                    ) : null}
                   </p>
-                  {hasScanned && coveragePct != null ? (
-                    <MetricCardDelta delta={coverageDelta} betterWhen="up" />
-                  ) : null}
-                </div>
-                <div className="accounts-detail-metric-card__detail">
-                  <p className="accounts-detail-metric-card__sub">
-                    {coverageDelta != null ? "Evidence window · last 7 days" : "Last scan"}
+                  <p className="accounts-detail-overview__summary-aside-detail">
+                    {hasScanned
+                      ? coverageDelta != null
+                        ? "Evidence window · last 7 days"
+                        : "Last scan"
+                      : "Run a scan first"}
                   </p>
-                </div>
-                <div
-                  className={`accounts-detail-metric-card__progress${coveragePct == null ? " is-empty" : ""}`}
-                  aria-hidden={coveragePct == null}
-                >
-                  <span
-                    className="accounts-detail-metric-card__progress-fill"
-                    style={{ width: `${coveragePct ?? 0}%` }}
-                  />
                 </div>
               </div>
             </div>
