@@ -5035,7 +5035,11 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-detail-overview__lower {
-  margin-top: 1rem;
+  margin-top: 1.25rem;
+}
+
+.accounts-detail-overview__lower + .accounts-detail-recent-scans {
+  margin-top: 1.25rem;
 }
 
 .accounts-detail-scan-row__findings--placeholder {
@@ -5047,16 +5051,21 @@ button.accounts-flow-step:hover {
   flex-direction: column;
   box-sizing: border-box;
   min-height: 0;
-  border: 1px solid #f1f5f9;
-  border-radius: 0.75rem;
-  padding: 1.05rem 1.1rem;
+  border: 1px solid var(--vt-border);
+  border-radius: var(--vt-radius-md);
+  background: var(--vt-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
 }
 
 .accounts-detail-capabilities__title {
-  margin: 0 0 0.85rem;
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--vt-border);
   font-size: 0.9375rem;
   font-weight: 700;
   color: #09090b;
+  background: var(--vt-surface-raised);
 }
 
 .accounts-detail-capability-row {
@@ -5065,13 +5074,12 @@ button.accounts-flow-step:hover {
   justify-content: flex-start;
   gap: 0.75rem;
   min-width: 0;
-  padding: 0.65rem 0;
-  border-top: 1px solid #f8fafc;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--vt-border);
 }
 
 .accounts-detail-capability-row:first-of-type {
   border-top: 0;
-  padding-top: 0;
 }
 
 .accounts-detail-capability-row__name {
@@ -5195,9 +5203,11 @@ button.accounts-flow-step:hover {
 .accounts-detail-recent-scans {
   container-type: inline-size;
   container-name: recent-scans;
-  margin-top: 1rem;
-  border: 1px solid #f1f5f9;
-  border-radius: 0.75rem;
+  margin-top: 1.25rem;
+  border: 1px solid var(--vt-border);
+  border-radius: var(--vt-radius-md);
+  background: var(--vt-surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   overflow: hidden;
 }
 
@@ -5206,8 +5216,9 @@ button.accounts-flow-step:hover {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--vt-border);
   padding: 0.95rem 1rem;
+  background: var(--vt-surface-raised);
 }
 
 .accounts-detail-recent-scans__title {
@@ -5223,7 +5234,7 @@ button.accounts-flow-step:hover {
   align-items: center;
   gap: 0.65rem 0.85rem;
   padding: 0.85rem 1rem;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid var(--vt-border);
   font-size: 0.8125rem;
   min-width: 0;
 }
@@ -5472,8 +5483,9 @@ button.accounts-flow-step:hover {
 .accounts-detail-recent-scans__footer {
   display: flex;
   justify-content: center;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid var(--vt-border);
   padding: 0.7rem;
+  background: var(--vt-surface-raised);
 }
 
 .accounts-detail-recent-scans__footer a,
