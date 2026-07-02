@@ -357,8 +357,6 @@ def verify_gcp_project(
     try:
         client = GcpClient.from_project(row)
         result = client.verify(row.project_id)
-        if row.auth_method in {AUTH_WORKLOAD_IDENTITY, AUTH_SERVICE_ACCOUNT_IMPERSONATION}:
-            client.list_logging_sinks(row.project_id)
         from app.services.gcp_permission_probes import probe_gcp_scan_permissions
 
         degraded_checks = probe_gcp_scan_permissions(row)
