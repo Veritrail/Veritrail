@@ -13,6 +13,7 @@ import {
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { FindingsChecksFilter, FindingsChecksFilterSummary } from "../components/FindingsChecksFilter";
 import { api, token } from "../api";
+import { checkFrameworksSchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
@@ -581,7 +582,7 @@ export default function Findings() {
 
   const frameworkMapQ = useQuery({
     queryKey: ["check-frameworks"],
-    queryFn: () => api<{ checks: Record<string, string[]> }>("/v1/controls/check-frameworks"),
+    queryFn: () => api("/v1/controls/check-frameworks", { schema: checkFrameworksSchema }),
     staleTime: 300_000,
   });
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =

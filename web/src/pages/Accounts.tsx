@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError, isSessionStaleError, logout } from "../api";
+import { accountListSchema, cloudAccountListSchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import {
   delta7d,
@@ -7484,13 +7485,16 @@ export default function Accounts() {
 
   const accounts = useQuery({
     queryKey: ["accounts"],
-    queryFn: () => api<Account[]>("/v1/accounts"),
+    queryFn: async () => {
+      const rows = await api("/v1/accounts", { schema: accountListSchema });
+      return rows as Account[];
+    },
     refetchOnMount: "always",
   });
 
   const cloudAccounts = useQuery({
     queryKey: ["cloud-accounts"],
-    queryFn: () => api<CloudAccountRow[]>("/v1/integrations/cloud-accounts"),
+    queryFn: () => api("/v1/integrations/cloud-accounts", { schema: cloudAccountListSchema }),
     refetchOnMount: "always",
   });
 

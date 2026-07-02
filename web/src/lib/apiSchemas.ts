@@ -320,6 +320,58 @@ export const scanRunSchema = z.object({
 
 export const scanRunListSchema = z.array(scanRunSchema);
 
+/** Latest scan run (accounts + cloud integrations). Matches API ScanRunOut. */
+export const scanRunLatestSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+  started_at: z.string(),
+  finished_at: z.string().nullable(),
+  error: z.string().nullable().optional(),
+  failed_at: z.string().nullable().optional(),
+  error_type: z.string().nullable().optional(),
+  findings_opened: z.number().optional(),
+  findings_resolved: z.number().optional(),
+  progress_step: z.number().nullable().optional(),
+  progress_total: z.number().nullable().optional(),
+  progress_phase: z.number().nullable().optional(),
+  progress_step_name: z.string().nullable().optional(),
+  progress_collector_index: z.number().nullable().optional(),
+  progress_collector_total: z.number().nullable().optional(),
+  duration_seconds: z.number().nullable().optional(),
+  checks_run_count: z.number().nullable().optional(),
+  check_error_count: z.number().nullable().optional(),
+  resources_collected: z.number().nullable().optional(),
+  regions_collected: z.number().nullable().optional(),
+});
+
+export const scanRunLatestNullableSchema = scanRunLatestSchema.nullable();
+
+export type ScanRunLatest = z.infer<typeof scanRunLatestSchema>;
+
+export const cloudAccountRowSchema = z.object({
+  provider: z.string(),
+  id: z.string(),
+  external_id: z.string().nullable(),
+  label: z.string(),
+  status: z.string(),
+  last_scan_at: z.string().nullable(),
+});
+
+export const cloudAccountListSchema = z.array(cloudAccountRowSchema);
+
+export type CloudAccountRow = z.infer<typeof cloudAccountRowSchema>;
+
+export const checkFrameworksSchema = z.object({
+  frameworks: z.array(z.record(z.string(), z.string())).default([]),
+  checks: z.record(z.string(), z.array(z.string())).default({}),
+  coverage_tiers: z.record(z.string(), z.string()).default({}),
+  evidence_classes: z.record(z.string(), z.string()).default({}),
+  evidence_class_labels: z.record(z.string(), z.string()).default({}),
+  cis_benchmark_coverage: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+export type CheckFrameworks = z.infer<typeof checkFrameworksSchema>;
+
 export const digestSnapshotSchema = z.object({
   id: z.string(),
   org_id: z.string(),

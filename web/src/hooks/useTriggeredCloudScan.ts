@@ -1,25 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { scanRunLatestNullableSchema, type ScanRunLatest } from "../lib/apiSchemas";
 import { saveScanDurationMs, useScanProgress, type WorkerProgress } from "./useScanProgress";
 
-export type ScanRunLatest = {
-  id: string;
-  status: string;
-  started_at: string;
-  finished_at: string | null;
-  error?: string | null;
-  failed_at?: string | null;
-  error_type?: string | null;
-  progress_step?: number | null;
-  progress_total?: number | null;
-  progress_phase?: number | null;
-  progress_step_name?: string | null;
-  progress_collector_index?: number | null;
-  progress_collector_total?: number | null;
-  resources_collected?: number | null;
-  regions_collected?: number | null;
-};
+export type { ScanRunLatest } from "../lib/apiSchemas";
 
 const STARTING_TIMEOUT_MS = 5 * 60 * 1000;
 const pendingScanAtMs = new Map<string, number>();
@@ -120,9 +105,9 @@ export function useTriggeredCloudScan(
     queryKey: ["cloud-scan-run-latest", provider, resourceId],
     queryFn: () =>
       provider && resourceId
-        ? api<ScanRunLatest | null>(
-            `/v1/integrations/cloud-accounts/${provider}/${resourceId}/scan-runs/latest`,
-          )
+        ? api(`/v1/integrations/cloud-accounts/${provider}/${resourceId}/scan-runs/latest`, {
+            schema: scanRunLatestNullableSchema,
+          })
         : null,
     enabled: !!provider && !!resourceId,
     refetchOnMount: "always",

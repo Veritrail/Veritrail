@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { accountListSchema } from "../lib/apiSchemas";
+import { accountListSchema, scanRunLatestNullableSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { readPendingScan, type ScanRunLatest } from "../hooks/useTriggeredScan";
@@ -497,7 +497,8 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
   const monitoredScanRuns = useQueries({
     queries: connectedAccounts.map((account) => ({
       queryKey: ["scan-run-latest", account.id],
-      queryFn: () => api<ScanRunLatest | null>(`/v1/accounts/${account.id}/scan-runs/latest`),
+      queryFn: () =>
+        api(`/v1/accounts/${account.id}/scan-runs/latest`, { schema: scanRunLatestNullableSchema }),
       refetchInterval: (query: { state: { data?: ScanRunLatest | null } }) => {
         if (readPendingScan(account.id) || query.state.data?.status === "running") return 2_000;
         return SCAN_FAILURE_MONITOR_POLL_MS;

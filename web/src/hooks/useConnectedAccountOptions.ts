@@ -1,18 +1,11 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import { accountListSchema } from "../lib/apiSchemas";
+import { accountListSchema, cloudAccountListSchema, type CloudAccountRow } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import type { AccountOption, CloudProvider } from "../components/AccountSelect";
 
-export type CloudAccountRow = {
-  provider: string;
-  id: string;
-  external_id: string | null;
-  label: string;
-  status: string;
-  last_scan_at: string | null;
-};
+export type { CloudAccountRow };
 
 export type ConnectedAccountOption = AccountOption & {
   last_scan_at?: string | null;
@@ -67,7 +60,7 @@ export function useConnectedAccountOptions() {
   });
   const cloudAccountsQ = useQuery({
     queryKey: ["cloud-accounts"],
-    queryFn: () => api<CloudAccountRow[]>("/v1/integrations/cloud-accounts"),
+    queryFn: () => api("/v1/integrations/cloud-accounts", { schema: cloudAccountListSchema }),
   });
 
   const options = useMemo(() => {

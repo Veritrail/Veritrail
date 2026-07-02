@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatApiError, token } from "../api";
+import { checkFrameworksSchema } from "../lib/apiSchemas";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS, frameworkLabel } from "../data/frameworks";
@@ -3854,10 +3855,7 @@ export default function Controls() {
 
   const checkFrameworksQ = useQuery({
     queryKey: ["check-frameworks"],
-    queryFn: () =>
-      api<{ evidence_classes: Record<string, string> }>(
-        "/v1/controls/check-frameworks",
-      ),
+    queryFn: () => api("/v1/controls/check-frameworks", { schema: checkFrameworksSchema }),
     staleTime: 300_000,
   });
 

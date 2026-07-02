@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { scanRunLatestNullableSchema } from "../lib/apiSchemas";
 
 export type ScanRun = {
   id: string;
@@ -22,7 +23,10 @@ export type ScanRun = {
 export function useAccountScanRun(accountId: string | null | undefined) {
   const scanRun = useQuery({
     queryKey: ["scan-run-latest", accountId],
-    queryFn: () => (accountId ? api<ScanRun | null>(`/v1/accounts/${accountId}/scan-runs/latest`) : null),
+    queryFn: () =>
+      accountId
+        ? api(`/v1/accounts/${accountId}/scan-runs/latest`, { schema: scanRunLatestNullableSchema })
+        : null,
     enabled: !!accountId,
     refetchInterval: (query) => (query.state.data?.status === "running" ? 3000 : false),
   });

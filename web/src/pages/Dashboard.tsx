@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import { accountListSchema } from "../lib/apiSchemas";
+import { accountListSchema, scanRunLatestNullableSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 
@@ -89,7 +89,9 @@ export default function Dashboard() {
     queryKey: ["scan-run-latest", connectedAccount?.id],
     queryFn: () =>
       connectedAccount
-        ? api<ScanRun | null>(`/v1/accounts/${connectedAccount.id}/scan-runs/latest`)
+        ? api(`/v1/accounts/${connectedAccount.id}/scan-runs/latest`, {
+            schema: scanRunLatestNullableSchema,
+          })
         : null,
     enabled: !!connectedAccount,
   });

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { cloudAccountListSchema } from "../lib/apiSchemas";
 import { ProductShell } from "../components/ProductShell";
 import { PostureMetricCell } from "./Workspace";
 
@@ -309,7 +310,7 @@ function IntegrationsContent() {
   const entra = useQuery({ queryKey: ["entra-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/entra") });
   const cloudAccounts = useQuery({
     queryKey: ["cloud-accounts"],
-    queryFn: () => api<CloudAccountRow[]>("/v1/integrations/cloud-accounts"),
+    queryFn: () => api("/v1/integrations/cloud-accounts", { schema: cloudAccountListSchema }),
   });
   const wizScanner = useQuery({ queryKey: ["scanner-wiz"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/wiz") });
   const tenableScanner = useQuery({ queryKey: ["scanner-tenable"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/tenable") });
