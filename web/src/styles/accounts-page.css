@@ -4619,8 +4619,14 @@ button.accounts-flow-step:hover {
 
 .accounts-detail-overview__cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  grid-template-columns: 1fr;
   gap: 1rem;
+}
+
+@media (min-width: 720px) {
+  .accounts-detail-overview__cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .accounts-detail-metric-card {

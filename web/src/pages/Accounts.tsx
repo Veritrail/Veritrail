@@ -5768,9 +5768,6 @@ function AccountSplitDetailPane({
   const resourceCount = isAws
     ? resourceStats.resources
     : cloudOverviewQ.data?.resources_covered ?? resourceStats.resources;
-  const resourceRegions = isAws
-    ? resourceStats.regions
-    : cloudOverviewQ.data?.regions_count ?? resourceStats.regions;
   const soc2CheckSummary = useMemo((): { passed: number; pending: number; total: number } | null => {
     if (!hasScanned || !isAws) return null;
     if (controlsQ.data && controlsQ.data.total > 0) {
@@ -5830,15 +5827,6 @@ function AccountSplitDetailPane({
     const prior = valueAtOrBeforeDaysAgo(openFindingsSeries(historyQ.data, current), 7);
     return relativePercentChange(current, prior);
   }, [isAws, hasScanned, stats?.open, historyQ.data]);
-
-  const resourcesDelta = useMemo(() => {
-    if (!hasScanned || isAws) return null;
-    if (cloudOverviewQ.data == null || cloudOverviewPrevQ.data == null) return null;
-    return relativePercentChange(
-      cloudOverviewQ.data.resources_covered,
-      cloudOverviewPrevQ.data.resources_covered,
-    );
-  }, [hasScanned, isAws, cloudOverviewQ.data, cloudOverviewPrevQ.data]);
 
   const complianceDelta = useMemo(() => {
     if (!hasScanned) return null;
@@ -6064,26 +6052,6 @@ function AccountSplitDetailPane({
                     <FindingsSeverityLegend stats={displayStats} hasScanned={hasScanned} />
                   </div>
                 ) : null}
-              </div>
-              <div className="accounts-detail-metric-card">
-                <div className="accounts-detail-metric-card__top">
-                  <p className="accounts-detail-metric-card__label">Resources covered</p>
-                </div>
-                <div className="accounts-detail-metric-card__value-row">
-                  <p className="accounts-detail-metric-card__value">
-                    {hasScanned ? resourceCount.toLocaleString() : "—"}
-                  </p>
-                  {hasScanned ? (
-                    <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
-                  ) : null}
-                </div>
-                <p className="accounts-detail-metric-card__sub">
-                  {hasScanned
-                    ? resourcesDelta != null
-                      ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
-                      : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
-                    : "From latest scan"}
-                </p>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
