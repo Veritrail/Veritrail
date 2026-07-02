@@ -40,7 +40,7 @@ const DEFAULT_INTAKE: CategoryIntakeConfig = {
   scopeLabel: "Scope covered",
   scopePlaceholder: "e.g. Production AWS accounts, all regions",
   useScopePicker: false,
-  cadenceLabel: "Review cadence (optional)",
+  cadenceLabel: "Schedule (optional)",
   defaultEvidenceType: "Policy / attestation",
 };
 
@@ -68,7 +68,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Population reviewed",
     scopePlaceholder: "e.g. All production users, privileged access",
     useScopePicker: false,
-    cadenceLabel: "Review cadence (optional)",
+    cadenceLabel: "Schedule (optional)",
     defaultEvidenceType: "Policy / attestation",
   },
   logging_monitoring: {
@@ -80,7 +80,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Log sources covered",
     scopePlaceholder: "e.g. VPC, CloudTrail, application tiers",
     useScopePicker: false,
-    cadenceLabel: "Review cadence (optional)",
+    cadenceLabel: "Schedule (optional)",
     defaultEvidenceType: "Dashboard screenshot",
   },
   change_management: {
@@ -92,7 +92,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Systems in scope",
     scopePlaceholder: "e.g. Production repos, infrastructure changes",
     useScopePicker: false,
-    cadenceLabel: "Review cadence (optional)",
+    cadenceLabel: "Schedule (optional)",
     defaultEvidenceType: "Policy / attestation",
   },
   secure_sdlc: {
@@ -116,7 +116,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Data or systems covered",
     scopePlaceholder: "e.g. Customer PII stores, production databases",
     useScopePicker: false,
-    cadenceLabel: "Review cadence (optional)",
+    cadenceLabel: "Schedule (optional)",
     defaultEvidenceType: "Policy / attestation",
   },
   backup_resilience: {
@@ -153,7 +153,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Endpoint population",
     scopePlaceholder: "e.g. All employee laptops, production servers",
     useScopePicker: false,
-    cadenceLabel: "Coverage review cadence (optional)",
+    cadenceLabel: "Coverage schedule (optional)",
     defaultEvidenceType: "Policy / attestation",
   },
   mdm_endpoint: {
@@ -166,7 +166,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Managed device population",
     scopePlaceholder: "e.g. Corporate laptops, mobile devices",
     useScopePicker: false,
-    cadenceLabel: "Compliance review cadence (optional)",
+    cadenceLabel: "Compliance schedule (optional)",
     defaultEvidenceType: "Policy / attestation",
   },
 };
