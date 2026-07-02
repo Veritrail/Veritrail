@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type WheelEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type WheelEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, formatApiError, isSessionStaleError, logout } from "../api";
@@ -13,7 +13,6 @@ import {
   postureTrendSeries,
   relativePercentChange,
   type BetterWhen,
-  type TimestampedValue,
   valueAtOrBeforeDaysAgo,
 } from "../lib/accountMetricDeltas";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
@@ -5211,193 +5210,6 @@ function AccountRowProviderMark({ provider }: { provider: CloudProvider }) {
   );
 }
 
-function formatSparklinePointLabel(point: TimestampedValue): string {
-  const date = new Date(point.timestamp);
-  const dateLabel = Number.isNaN(date.getTime())
-    ? point.timestamp
-    : date.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-  return `${dateLabel}: ${point.value}%`;
-}
-
-function changedPosturePoints(points: TimestampedValue[]): TimestampedValue[] {
-  const sorted = [...points]
-    .filter((point) => Number.isFinite(point.value))
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  const changed: TimestampedValue[] = [];
-  for (const point of sorted) {
-    const value = Math.max(0, Math.min(100, Math.round(point.value)));
-    const last = changed[changed.length - 1];
-    if (!last || last.value !== value) {
-      changed.push({ timestamp: point.timestamp, value });
-    }
-  }
-  return changed;
-}
-
-const SPARK_VB_W = 320;
-const SPARK_VB_H = 160;
-const SPARK_DOT_HALO_R = 8.75;
-const SPARK_X_INSET = 0.1;
-const SPARK_Y_TOP = 52;
-const SPARK_Y_BASE = 122;
-
-/** Monotone cubic (Fritsch–Carlson) — smooth curve without overshoot at endpoints. */
-function monotoneSparkPath(pts: Array<{ x: number; y: number }>): string {
-  const n = pts.length;
-  if (n === 0) return "";
-  if (n === 1) return `M ${pts[0].x} ${pts[0].y}`;
-  if (n === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
-
-  const dx: number[] = [];
-  const slope: number[] = [];
-  for (let i = 0; i < n - 1; i += 1) {
-    const h = pts[i + 1].x - pts[i].x;
-    dx.push(h);
-    slope.push((pts[i + 1].y - pts[i].y) / h);
-  }
-
-  const m: number[] = new Array(n);
-  m[0] = slope[0];
-  m[n - 1] = slope[n - 2];
-  for (let i = 1; i < n - 1; i += 1) {
-    m[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
-  }
-  for (let i = 0; i < n - 1; i += 1) {
-    if (slope[i] === 0) {
-      m[i] = 0;
-      m[i + 1] = 0;
-    } else {
-      const a = m[i] / slope[i];
-      const b = m[i + 1] / slope[i];
-      const s = a * a + b * b;
-      if (s > 9) {
-        const t = 3 / Math.sqrt(s);
-        m[i] = t * a * slope[i];
-        m[i + 1] = t * b * slope[i];
-      }
-    }
-  }
-
-  const parts = [`M ${pts[0].x} ${pts[0].y}`];
-  for (let i = 0; i < n - 1; i += 1) {
-    const c1x = pts[i].x + dx[i] / 3;
-    const c1y = pts[i].y + (m[i] * dx[i]) / 3;
-    const c2x = pts[i + 1].x - dx[i] / 3;
-    const c2y = pts[i + 1].y - (m[i + 1] * dx[i]) / 3;
-    parts.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${pts[i + 1].x} ${pts[i + 1].y}`);
-  }
-  return parts.join(" ");
-}
-
-function buildComplianceSparkCoords(
-  changed: TimestampedValue[],
-): Array<TimestampedValue & { x: number; y: number }> {
-  const xEdge = SPARK_VB_W * SPARK_X_INSET;
-  const xMin = xEdge + SPARK_DOT_HALO_R;
-  const xMax = SPARK_VB_W - xEdge - SPARK_DOT_HALO_R;
-  const plotH = SPARK_Y_BASE - SPARK_Y_TOP;
-
-  const values = changed.map((p) => p.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min;
-  const yPad = range === 0 ? 8 : Math.max(range * 0.12, 2);
-  const low = Math.max(0, min - yPad);
-  const high = Math.min(100, max + yPad);
-  const span = high - low || 1;
-
-  return changed.map((point, idx) => {
-    const t = idx / (changed.length - 1);
-    const normalized = (point.value - low) / span;
-    return {
-      ...point,
-      x: xMin + t * (xMax - xMin),
-      y: SPARK_Y_BASE - Math.max(0, Math.min(1, normalized)) * plotH,
-    };
-  });
-}
-
-function CompliancePostureSparkline({ points }: { points: TimestampedValue[] }) {
-  const gradientId = useId().replace(/:/g, "");
-  const changed = changedPosturePoints(points);
-  const hasRealTrend = changed.length >= 2;
-  const chartPoints = hasRealTrend ? buildComplianceSparkCoords(changed) : [];
-  const xEdge = SPARK_VB_W * SPARK_X_INSET;
-  const xMin = xEdge + SPARK_DOT_HALO_R;
-  const xMax = SPARK_VB_W - xEdge - SPARK_DOT_HALO_R;
-  const linePath = hasRealTrend ? monotoneSparkPath(chartPoints) : "";
-  const areaPath =
-    hasRealTrend && chartPoints.length > 0
-      ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${SPARK_Y_BASE} L ${chartPoints[0].x} ${SPARK_Y_BASE} Z`
-      : "";
-
-  return (
-    <span
-      className="accounts-detail-metric-card__sparkline"
-      role="img"
-      aria-label={
-        hasRealTrend
-          ? "SOC 2 readiness trend over time."
-          : "SOC 2 readiness trend placeholder."
-      }
-    >
-      <svg viewBox={`0 0 ${SPARK_VB_W} ${SPARK_VB_H}`} preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id={`${gradientId}-fill`} x1="160" y1="42" x2="160" y2="126" gradientUnits="userSpaceOnUse">
-	            <stop offset="0" stopColor="#2F75FF" stopOpacity={hasRealTrend ? 0.11 : 0.09} />
-            <stop offset="1" stopColor="#3478F6" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={`M${xMin} ${SPARK_Y_BASE}H${xMax}`} stroke="#E8EDF5" strokeWidth="2.25" strokeLinecap="round" />
-        {hasRealTrend ? (
-          <>
-            <path d={areaPath} fill={`url(#${gradientId}-fill)`} />
-            <path
-              d={linePath}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="4.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {chartPoints.map((point, idx) => {
-              const isLast = idx === chartPoints.length - 1;
-              if (!isLast) return null;
-              return (
-                <g key={`${point.timestamp}-${point.value}-${idx}`}>
-                  <title>{formatSparklinePointLabel(point)}</title>
-                  <circle className="accounts-detail-metric-card__spark-dot-halo" cx={point.x} cy={point.y} r={SPARK_DOT_HALO_R} />
-                  <circle className="accounts-detail-metric-card__spark-dot" cx={point.x} cy={point.y} r="4.75" />
-                </g>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            <path
-              d="M38 101 C56 96 72 97 88 99 C105 101 112 99 126 86 C138 75 153 78 166 84 C181 91 190 88 204 77 C220 64 233 50 250 60 C263 68 273 78 286 74 L286 122 L38 122 Z"
-              fill={`url(#${gradientId}-fill)`}
-            />
-            <path
-              d="M38 101 C56 96 72 97 88 99 C105 101 112 99 126 86 C138 75 153 78 166 84 C181 91 190 88 204 77 C220 64 233 50 250 60 C263 68 273 78 286 74"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="4.25"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="286" cy="74" r="4.15" fill="currentColor" />
-          </>
-        )}
-      </svg>
-    </span>
-  );
-}
-
 function MetricCardDelta({
   delta,
   betterWhen,
@@ -6193,29 +6005,24 @@ function AccountSplitDetailPane({
                 ) : null}
               </div>
               <div className="accounts-detail-metric-card">
-                <div className="accounts-detail-metric-card__content">
-                  <div className="accounts-detail-metric-card__top">
-                    <p className="accounts-detail-metric-card__label">Resources covered</p>
-                  </div>
-                  <div className="accounts-detail-metric-card__value-row">
-                    <p className="accounts-detail-metric-card__value">
-                      {hasScanned ? resourceCount.toLocaleString() : "—"}
-                    </p>
-                    {hasScanned ? (
-                      <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
-                    ) : null}
-                  </div>
-                  <p className="accounts-detail-metric-card__sub">
-                    {hasScanned
-                      ? resourcesDelta != null
-                        ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
-                        : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
-                      : "From latest scan"}
-                  </p>
+                <div className="accounts-detail-metric-card__top">
+                  <p className="accounts-detail-metric-card__label">Resources covered</p>
                 </div>
-                <span className="accounts-detail-metric-card__watermark accounts-detail-metric-card__watermark--cloud" aria-hidden>
-                  <img src="/icons/veritrail-cloud-watermark-cloud-only.svg" alt="" />
-                </span>
+                <div className="accounts-detail-metric-card__value-row">
+                  <p className="accounts-detail-metric-card__value">
+                    {hasScanned ? resourceCount.toLocaleString() : "—"}
+                  </p>
+                  {hasScanned ? (
+                    <MetricCardDelta delta={resourcesDelta} betterWhen="up" />
+                  ) : null}
+                </div>
+                <p className="accounts-detail-metric-card__sub">
+                  {hasScanned
+                    ? resourcesDelta != null
+                      ? `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"} · last 7 days`
+                      : `Across ${resourceRegions || "—"} region${resourceRegions === 1 ? "" : "s"}`
+                    : "From latest scan"}
+                </p>
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
@@ -6230,7 +6037,6 @@ function AccountSplitDetailPane({
                   ) : null}
                 </div>
                 <p className="accounts-detail-metric-card__sub">Last 7 days</p>
-                <CompliancePostureSparkline points={complianceTrendPoints} />
               </div>
               <div className="accounts-detail-metric-card">
                 <div className="accounts-detail-metric-card__top">
