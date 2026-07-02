@@ -5081,61 +5081,37 @@ button.accounts-flow-step:hover {
   cursor: not-allowed;
 }
 
-.accounts-detail-quick-actions__links {
-  display: flex;
-  flex-direction: column;
-  margin-top: 0.1rem;
-}
-
-.accounts-detail-quick-actions__link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+.accounts-detail-quick-actions__secondary {
+  display: inline-flex;
   width: 100%;
   min-height: 2.35rem;
-  border: 0;
-  background: transparent;
-  padding: 0.5rem 0;
-  text-align: left;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.accounts-detail-quick-actions__link + .accounts-detail-quick-actions__link {
-  border-top: 1px solid #f4f4f5;
-}
-
-.accounts-detail-quick-actions__link:hover:not(:disabled) {
-  color: #0f766e;
-}
-
-.accounts-detail-quick-actions__link:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.accounts-detail-quick-actions__link-label {
-  font-size: 0.875rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.65rem;
+  background: #fff;
+  padding: 0 1rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #334155;
-  transition: color 0.15s ease;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.accounts-detail-quick-actions__link:hover:not(:disabled) .accounts-detail-quick-actions__link-label {
-  color: #0f766e;
+.accounts-detail-quick-actions__secondary:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #18181b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.accounts-detail-quick-actions__link-chevron {
-  flex-shrink: 0;
-  font-size: 1rem;
-  line-height: 1;
-  color: #cbd5e1;
-  transition: color 0.15s ease;
-}
-
-.accounts-detail-quick-actions__link:hover:not(:disabled) .accounts-detail-quick-actions__link-chevron {
-  color: #94a3b8;
+.accounts-detail-quick-actions__secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .accounts-detail-recent-scans {

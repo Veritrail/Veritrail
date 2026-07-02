@@ -6306,45 +6306,34 @@ function AccountSplitDetailPane({
                   </svg>
                   {scanBusy ? "Scanning…" : "Scan now"}
                 </button>
-                <div className="accounts-detail-quick-actions__links">
-                  <button
-                    type="button"
-                    className="accounts-detail-quick-actions__link"
-                    onClick={() => navigate(`/findings?account=${accountId}`)}
-                  >
-                    <span className="accounts-detail-quick-actions__link-label">View findings</span>
-                    <span className="accounts-detail-quick-actions__link-chevron" aria-hidden>
-                      →
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="accounts-detail-quick-actions__link"
-                    onClick={() =>
-                      isAws
-                        ? setShowConnectorUpdate(true)
-                        : navigate(cloudIntegrationPath(cloud!.provider))
-                    }
-                  >
-                    <span className="accounts-detail-quick-actions__link-label">Manage connection</span>
-                    <span className="accounts-detail-quick-actions__link-chevron" aria-hidden>
-                      →
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="accounts-detail-quick-actions__link"
-                    onClick={() => {
-                      setTab("settings");
-                      if (isAws) setShowManageCapabilities(true);
-                    }}
-                  >
-                    <span className="accounts-detail-quick-actions__link-label">Edit account</span>
-                    <span className="accounts-detail-quick-actions__link-chevron" aria-hidden>
-                      →
-                    </span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() => navigate(`/findings?account=${accountId}`)}
+                >
+                  View findings
+                </button>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() =>
+                    isAws
+                      ? setShowConnectorUpdate(true)
+                      : navigate(cloudIntegrationPath(cloud!.provider))
+                  }
+                >
+                  Manage connection
+                </button>
+                <button
+                  type="button"
+                  className="accounts-detail-quick-actions__secondary"
+                  onClick={() => {
+                    setTab("settings");
+                    if (isAws) setShowManageCapabilities(true);
+                  }}
+                >
+                  Edit account
+                </button>
               </div>
             </div>
 
