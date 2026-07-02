@@ -1,4 +1,4 @@
-import { useRef, type ComponentType } from "react";
+import { type ComponentType } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAppScrollMargin } from "../hooks/useAppScrollMargin";
 import type { FindingDrawerTab } from "./FindingDrawer";
@@ -46,8 +46,7 @@ export function VirtualizedFindingsGroups({
   keyPrefix = "",
   className = "",
 }: Props) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const scrollMargin = useAppScrollMargin(parentRef);
+  const { ref: parentRef, scrollMargin } = useAppScrollMargin();
   const virtualizer = useVirtualizer({
     count: groups.length,
     getScrollElement: () => document.querySelector<HTMLElement>(APP_SCROLL_SELECTOR),

@@ -84,8 +84,8 @@ export type Account = z.infer<typeof accountSchema>;
 
 export const findingSchema = z.object({
   id: z.string(),
-  // GCP/Azure findings use gcp_project_id / azure_subscription_id; account_id is null.
-  account_id: z.string().nullable(),
+  // GCP/Azure findings use gcp_project_id / azure_subscription_id; account_id is null or omitted.
+  account_id: z.string().nullable().optional(),
   aws_account_id: z.string().nullable().optional(),
   account_label: z.string().nullable().optional(),
   account_name: z.string().nullable().optional(),
@@ -96,7 +96,7 @@ export const findingSchema = z.object({
   severity: z.string(),
   risk_score: z.number(),
   status: z.string(),
-  evidence: z.record(z.string(), z.unknown()),
+  evidence: z.record(z.string(), z.unknown()).nullable().optional().default({}),
   first_seen: z.string(),
   last_seen: z.string(),
   exception_reason: z.string().nullable().optional(),
@@ -354,7 +354,7 @@ export const cloudAccountRowSchema = z.object({
   external_id: z.string().nullable(),
   label: z.string(),
   status: z.string(),
-  last_scan_at: z.string().nullable(),
+  last_scan_at: z.string().nullable().default(null),
 });
 
 export const cloudAccountListSchema = z.array(cloudAccountRowSchema);

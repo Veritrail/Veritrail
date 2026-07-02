@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 
 const APP_SCROLL_SELECTOR = "[data-app-scroll]";
 
@@ -10,13 +10,16 @@ function appScrollMargin(el: HTMLElement, scrollRoot: HTMLElement): number {
 }
 
 /** Scroll margin for `@tanstack/react-virtual` when the list lives inside the app scroll pane. */
-export function useAppScrollMargin(ref: RefObject<HTMLElement | null>) {
+export function useAppScrollMargin() {
   const [scrollMargin, setScrollMargin] = useState(0);
+  const [el, setEl] = useState<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
-    const el = ref.current;
     const scrollRoot = document.querySelector<HTMLElement>(APP_SCROLL_SELECTOR);
-    if (!el || !scrollRoot) return;
+    if (!el || !scrollRoot) {
+      setScrollMargin(0);
+      return;
+    }
 
     const update = () => setScrollMargin(appScrollMargin(el, scrollRoot));
 
@@ -31,7 +34,11 @@ export function useAppScrollMargin(ref: RefObject<HTMLElement | null>) {
       scrollRoot.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [ref]);
+  }, [el]);
 
-  return scrollMargin;
+  const ref = useCallback((node: HTMLElement | null) => {
+    setEl(node);
+  }, []);
+
+  return { ref, scrollMargin };
 }

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAppScrollMargin } from "../hooks/useAppScrollMargin";
 
@@ -20,8 +20,7 @@ export function VirtualizedCompositeControlsList<T>({
   estimateSize = () => 72,
   className = "",
 }: Props<T>) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const scrollMargin = useAppScrollMargin(parentRef);
+  const { ref: parentRef, scrollMargin } = useAppScrollMargin();
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => document.querySelector<HTMLElement>(APP_SCROLL_SELECTOR),
