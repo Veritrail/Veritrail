@@ -73,14 +73,14 @@ AWS in dev: mount `~/.aws` (already in `compose.yml`) and set `AWS_PROFILE` in `
 
 ---
 
-## Production deploy (EC2)
+## Production deploy (Hetzner / VPS)
 
-Fresh Ubuntu EC2 (22.04/24.04): clone the repo, copy your secrets to `.env.prod`, then bootstrap once:
+Fresh Ubuntu VPS (22.04/24.04 — Hetzner or similar): clone the repo, copy your secrets to `.env.prod`, then bootstrap once:
 
 ```bash
 git clone https://github.com/awakzdev/Veritrail.git && cd Veritrail
 # scp or edit .env.prod with prod secrets (JWT, OAuth, Postgres password, etc.)
-sudo EMAIL=you@example.com bash scripts/launch-prod.sh
+sudo EMAIL=you@example.com bash scripts/launch-prod.sh --hetzner-roles-anywhere
 ```
 
 `launch-prod.sh` defaults to `ENV_FILE=.env.prod`, installs Docker + certbot on a bare host, copies `.env.prod` → `.env`, sets `APP_ENV=production`, obtains TLS certs, runs migrations, and starts the prod compose profile. **Git auth is not required to build** — compose only uses git optionally for image labels (disabled by default). Do not run `npm install` in `web/` on the host before building; if you did, `rm -rf web/node_modules` before deploy.
@@ -88,16 +88,18 @@ sudo EMAIL=you@example.com bash scripts/launch-prod.sh
 **Redeploy** on an already-bootstrapped host (git pull + migrate + rebuild):
 
 ```bash
-./scripts/deploy-ec2.sh
+./scripts/launch-prod.sh --deploy-only --git-pull
 ```
 
-Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue certs with `--force-cert`. Skip git pull with `GIT_PULL=0`.
+Or use the repo shortcut after `source .aliases`: **`d`** (same as above). **`h`** is the one-time Hetzner bootstrap with Vault PKI + IAM Roles Anywhere.
+
+Optional env vars: `DOMAIN` (UI hostname), `API_DOMAIN` (API hostname). Re-issue Let's Encrypt certs with `--force-cert`. Skip git pull with `GIT_PULL=0` or omit `--git-pull`.
 
 **Prerequisites**
 
-- DNS A records for UI + API hostnames pointing at the instance
-- Security group allows inbound TCP 80 and 443
-- EC2 instance profile IAM role (used to auto-detect `TRUST_PRINCIPAL_ARN` when unset)
+- DNS A records for UI + API hostnames pointing at the host
+- Firewall allows inbound TCP 80 and 443
+- AWS control-plane identity: Hetzner uses Vault PKI + IAM Roles Anywhere (`docs/hetzner-vault-rolesanywhere.md`); EC2 can use an instance profile for `TRUST_PRINCIPAL_ARN` auto-detect
 
 Production uses the base compose file plus the production override:
 
@@ -111,6 +113,8 @@ ENV_FILE=.env.prod docker compose \
 ```
 
 If `IAP_ENABLED=true`, add `-f compose.iap.yml --profile iap`; `scripts/launch-prod.sh` and `scripts/bootstrap-ec2.sh` do this automatically. After bootstrap, `source .compose.prod.env` before manual compose commands.
+
+`nginx/nginx.conf` and `nginx/iap/iap.*.conf` are generated on the host from `nginx/nginx.conf.template` and `infra/nginx/iap/` during bootstrap/redeploy — they are gitignored and should not be edited in git.
 
 Compose file roles:
 
@@ -337,6 +341,8 @@ Veritrail's Core Scanner is read-only. If you explicitly enable remediation modu
 Full runbook: [docs/remediation-automation.md](docs/remediation-automation.md).
 
 **Deferred:** broader repo-aware Terraform patching and optional SSM execution callback keyed by `plan_id`.
+
+**Development only:** `scripts/deploy-ssm-docs.sh` deploys SSM Automation documents directly to AWS (bypasses CloudFormation). It is blocked unless `VERITRAIL_ALLOW_DIRECT_SSM_DOC_DEPLOY=1`. Supported customer path: `./scripts/upload-cfn.sh` + [`infra/cfn/veritrail-remediation-ssm.yaml`](infra/cfn/veritrail-remediation-ssm.yaml).
 
 ---
 

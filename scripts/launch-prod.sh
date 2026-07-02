@@ -18,10 +18,12 @@ set -euo pipefail
 #
 #   ./scripts/launch-prod.sh
 #   ./scripts/launch-prod.sh --force-cert
-#   ./scripts/launch-prod.sh --deploy-only   # redeploy on an already-bootstrapped host
+#   ./scripts/launch-prod.sh --deploy-only          # redeploy on an already-bootstrapped host
+#   ./scripts/launch-prod.sh --deploy-only --git-pull
 #   ./scripts/launch-prod.sh --hetzner-roles-anywhere
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 export EMAIL="${EMAIL:-zenmyx@gmail.com}"
 export ENV_FILE="${ENV_FILE:-.env.prod}"
@@ -38,8 +40,22 @@ export RA_ROLE_NAME="${RA_ROLE_NAME:-VeritrailControlPlaneRole}"
 export ASSUMABLE_ROLE_RESOURCE="${ASSUMABLE_ROLE_RESOURCE:-arn:aws:iam::*:role/VeritrailScannerRole}"
 export AWS_CONFIG_DIR="${AWS_CONFIG_DIR:-}"
 
+GIT_PULL="${GIT_PULL:-0}"
+BOOTSTRAP_ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --git-pull) GIT_PULL=1 ;;
+    *) BOOTSTRAP_ARGS+=("$arg") ;;
+  esac
+done
+
+if [[ "$GIT_PULL" == "1" ]] && [[ -d "$REPO_DIR/.git" ]]; then
+  echo "==> git pull --ff-only"
+  git -C "$REPO_DIR" pull --ff-only
+fi
+
 if [[ "$(id -u)" -eq 0 ]]; then
-  exec "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"
+  exec "$SCRIPT_DIR/bootstrap-ec2.sh" "${BOOTSTRAP_ARGS[@]}"
 fi
 
 exec sudo -E EMAIL="$EMAIL" ENV_FILE="$ENV_FILE" DOMAIN="$DOMAIN" API_DOMAIN="$API_DOMAIN" \
@@ -53,4 +69,4 @@ exec sudo -E EMAIL="$EMAIL" ENV_FILE="$ENV_FILE" DOMAIN="$DOMAIN" API_DOMAIN="$A
   RA_ROLE_NAME="$RA_ROLE_NAME" \
   ASSUMABLE_ROLE_RESOURCE="$ASSUMABLE_ROLE_RESOURCE" \
   AWS_CONFIG_DIR="$AWS_CONFIG_DIR" \
-  "$SCRIPT_DIR/bootstrap-ec2.sh" "$@"
+  "$SCRIPT_DIR/bootstrap-ec2.sh" "${BOOTSTRAP_ARGS[@]}"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Safely tear down legacy / duplicate Veritrail Docker Compose stacks on EC2.
+# Safely tear down legacy / duplicate Veritrail Docker Compose stacks on a prod host.
 # Stops containers from both legacy (vigil) and current (veritrail) project names.
 # Does not remove the Postgres volume unless --wipe-volumes is passed explicitly.
 #
@@ -142,7 +142,7 @@ Next steps:
        cd $REPO_DIR && git pull --ff-only
        ./scripts/launch-prod.sh --deploy-only
      — or —
-       ./scripts/deploy-ec2.sh
+       ./scripts/launch-prod.sh --deploy-only --git-pull
 
 Containers will be named ${COMPOSE_PROJECT_NAME}-<service>-1 (e.g. ${COMPOSE_PROJECT_NAME}-api-1).
 $(if [[ "$WIPE_VOLUMES" -eq 0 ]]; then

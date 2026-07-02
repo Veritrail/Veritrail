@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One-shot EC2 production bootstrap for Veritrail.
+# Production host bootstrap for Veritrail (Ubuntu VPS — Hetzner, EC2, or similar).
 # Usage: sudo EMAIL=you@example.com ./scripts/bootstrap-ec2.sh [--force-cert]
 
 DOMAIN="${DOMAIN:-app.veritrail.io}"
@@ -25,7 +25,7 @@ usage() {
   cat <<EOF
 Usage: sudo EMAIL=you@example.com $0 [OPTIONS]
 
-Bootstrap Veritrail on Ubuntu EC2: base packages, Docker, Let's Encrypt, nginx, .env.prod, compose prod profile.
+Bootstrap Veritrail on a production Ubuntu host: base packages, Docker, Let's Encrypt, nginx, .env.prod, compose prod profile.
 
 Environment variables:
   DOMAIN       UI hostname (default: app.veritrail.io)
@@ -44,11 +44,11 @@ Options:
   -h, --help     Show this help
 
 Prerequisites:
-  - Ubuntu 22.04/24.04 EC2 (or Debian with apt)
+  - Ubuntu 22.04/24.04 VPS (Hetzner, EC2, or Debian with apt)
   - Place secrets in $ENV_FILE before first run (or let the script seed from .env.example)
   - DNS A records for DOMAIN and API_DOMAIN pointing at this host
-  - Security group allows inbound TCP 80 and 443
-  - EC2 instance profile IAM role (for TRUST_PRINCIPAL_ARN auto-detect)
+  - Firewall allows inbound TCP 80 and 443
+  - AWS identity for the control plane: EC2 instance profile or Hetzner IAM Roles Anywhere (see docs/hetzner-vault-rolesanywhere.md)
 EOF
 }
 
@@ -146,7 +146,7 @@ install_system_packages() {
     return 0
   fi
 
-  log "Installing base packages for Ubuntu EC2..."
+  log "Installing base packages for Ubuntu production host..."
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y -qq \
@@ -199,7 +199,7 @@ install_certbot() {
     apt-get update -qq
     apt-get install -y -qq certbot
   else
-    die "certbot install via apt is only supported on Debian/Ubuntu EC2"
+    die "certbot install via apt is only supported on Debian/Ubuntu hosts"
   fi
 }
 
@@ -318,7 +318,7 @@ install_fail2ban() {
       apt-get update -qq
       apt-get install -y -qq fail2ban
     else
-      warn "fail2ban install via apt is only supported on Debian/Ubuntu EC2 — skipping"
+      warn "fail2ban install via apt is only supported on Debian/Ubuntu hosts — skipping"
       return 0
     fi
   fi
@@ -342,6 +342,16 @@ install_renewal_cron() {
 
   log "Installing certbot renewal cron job..."
   (crontab -l 2>/dev/null | grep -v "certbot renew" || true; echo "$cron_job") | crontab -
+}
+
+install_vault_client_renewal_cron() {
+  roles_anywhere_enabled || return 0
+  local renew_script="$SCRIPT_DIR/renew-vault-client-cert.sh"
+  [[ -x "$renew_script" ]] || { warn "Missing $renew_script — skip Vault client cert cron"; return 0; }
+
+  local cron_job="15 4 * * * REPO_DIR=$REPO_DIR ENV_FILE=$ENV_FILE COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME $renew_script >>/var/log/veritrail-vault-client-renew.log 2>&1"
+  log "Installing Vault client certificate renewal cron..."
+  (crontab -l 2>/dev/null | grep -v "renew-vault-client-cert.sh" || true; echo "$cron_job") | crontab -
 }
 
 get_env_value() {
@@ -729,6 +739,7 @@ main() {
     sync_dotenv_from_prod
     render_nginx_conf
     render_iap_nginx
+    install_vault_client_renewal_cron
     deploy_compose
     health_check || true
     print_checklist
@@ -746,6 +757,7 @@ main() {
   render_iap_nginx
   install_fail2ban
   install_renewal_cron
+  install_vault_client_renewal_cron
   deploy_compose
   health_check || true
   print_checklist

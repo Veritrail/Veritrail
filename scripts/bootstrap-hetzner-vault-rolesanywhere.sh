@@ -520,7 +520,8 @@ Veritrail env:
 Hardening:
   1. Replace ASSUMABLE_ROLE_RESOURCE='*' with the exact customer scanner role pattern.
   2. Back up $VAULT_INIT_FILE securely.
-  3. Rotate the client cert periodically with --force-cert.
+  3. Rotate the client cert periodically with --force-cert (or rely on the daily
+     renew-vault-client-cert.sh cron installed by bootstrap-ec2.sh).
 ================================================================================
 EOF
 }

@@ -21,6 +21,8 @@ build/
 celerybeat-schedule
 celerybeat-schedule.*
 var/log/nginx/*.log
+nginx/nginx.conf
+nginx/iap/iap.*.conf
 data/uploads/*
 !data/uploads/.gitkeep
 *.dump

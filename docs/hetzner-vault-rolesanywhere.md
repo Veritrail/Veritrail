@@ -108,8 +108,20 @@ It is created with `0600` permissions. Treat it like a production credential, ev
 
 ## Rotate the VPS certificate
 
+Automatic: when IAM Roles Anywhere is enabled, bootstrap installs a daily cron job
+(`scripts/renew-vault-client-cert.sh`) that re-issues the Vault client cert when it
+expires within 7 days and recreates `api`/`worker`/`beat`.
+
+Manual (immediate rotation):
+
 ```bash
-sudo ./scripts/bootstrap-hetzner-vault-rolesanywhere.sh --force-cert
+sudo ./scripts/bootstrap-hetzner-vault-rolesanywhere.sh --force-cert --skip-aws --skip-env
+```
+
+Or use the renewal helper directly:
+
+```bash
+sudo RENEW_WITHIN_DAYS=365 ./scripts/renew-vault-client-cert.sh
 ```
 
 Restart the Veritrail services after rotation if they keep long-running AWS SDK clients:
