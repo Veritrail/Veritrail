@@ -31,6 +31,12 @@ import {
 import type { ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import { evidenceIsStale } from "../lib/externalEvidence";
 import {
+  EXTERNAL_ONLY_CONTROLS,
+  externalOnlyBlockingGapSummary,
+  externalOnlyGuidance,
+  isExternalOnlyComposite,
+} from "../lib/externalOnlyControls";
+import {
   absenceGapEnableItems,
   findingsHrefForAbsenceGaps,
   isAbsenceGapCheck,
@@ -2796,7 +2802,7 @@ function buildCompositeTabs({
     hasAbsenceGaps,
     regularFailing,
   });
-  const isExternalOnly = ctrl.check_ids.length === 0;
+  const isExternalOnly = isExternalOnlyComposite(ctrl.check_ids);
   const isVerified = displayStatus === "passing";
   const mappedControls = compositeMappedControls(ctrl, framework);
   const linkedEvidence = evidenceArtifactsForComposite(externalEvidence, ctrl.id);
@@ -2810,10 +2816,7 @@ function buildCompositeTabs({
           <ControlDetailSection title="Blocking gaps">
             {isExternalOnly ? (
               <p className="control-detail-empty">
-                AWS APIs cannot observe corporate devices, so no cloud scan can ever cover this
-                control — that is a platform boundary, not missing scan data. Resolve it by
-                uploading evidence from your device-management or endpoint platform below, or mark
-                it out of scope if no managed devices are in your audit boundary.
+                {externalOnlyBlockingGapSummary(ctrl.id)}
               </p>
             ) : (
               <TopFailingChecksSeverityTable
@@ -2861,7 +2864,10 @@ function buildCompositeTabs({
           </ControlDetailSection>
 
           {!isVerified ? (
-            <ControlGuidanceFooter guidance={ctrl.guidance} mappedControls={mappedControls} />
+            <ControlGuidanceFooter
+              guidance={externalOnlyGuidance(ctrl.id, ctrl.guidance)}
+              mappedControls={mappedControls}
+            />
           ) : null}
         </div>
       ),
@@ -2989,27 +2995,7 @@ function buildDetailedTabs({
   return tabs;
 }
 
-const EXTERNAL_ONLY_COMPLIANCE_ROWS = [
-  {
-    id: "endpoint_security",
-    title: "Endpoint security",
-    description: "Requires external endpoint security or EDR evidence.",
-    guidance:
-      "AWS APIs cannot observe corporate workstations, so this control can never be scanned from your cloud account. " +
-      "Export a device or agent coverage report from your EDR platform (CrowdStrike, SentinelOne, Microsoft Defender for Endpoint, …) " +
-      "and upload it as evidence. Auditors typically want agent coverage across the employee fleet and an alerting policy.",
-  },
-  {
-    id: "mdm_endpoint",
-    title: "Device management (MDM)",
-    description: "Requires external mobile-device management evidence.",
-    guidance:
-      "AWS APIs cannot see laptops or mobile devices, so no automated check can ever cover MDM from a cloud scan — " +
-      "this is a platform boundary, not a missing scan. Export a device compliance report from your MDM " +
-      "(Intune, Jamf, Kandji, …) showing enrollment, disk encryption, and screen-lock enforcement, and upload it as evidence. " +
-      "If your workspace has no managed devices in audit scope, mark this control out of scope with a rationale instead.",
-  },
-];
+const EXTERNAL_ONLY_COMPLIANCE_ROWS = EXTERNAL_ONLY_CONTROLS;
 
 function externalOnlyCompositeRow(
   row: (typeof EXTERNAL_ONLY_COMPLIANCE_ROWS)[number],

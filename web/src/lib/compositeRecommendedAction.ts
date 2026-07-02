@@ -25,7 +25,7 @@ export function compositeRecommendedAction(
     return {
       title: "Upload evidence from your device platform",
       detail:
-        "AWS APIs cannot observe corporate devices, so no cloud scan covers this control. Upload a coverage or compliance report from your MDM/EDR platform (Intune, Jamf, Kandji, CrowdStrike, ...), or mark the control out of scope.",
+        "No cloud scan covers corporate devices — upload external evidence or mark out of scope. See Guidance for export steps.",
       tone: "info",
     };
   }
