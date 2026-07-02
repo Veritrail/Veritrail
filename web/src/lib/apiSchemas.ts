@@ -14,12 +14,10 @@ export class ApiValidationError extends Error {
   }
 }
 
-/** Validate JSON at the fetch boundary; throw in dev, log and pass through in prod. */
+/** Validate JSON at the fetch boundary; warn and pass through on mismatch (never throw). */
 export function parseApiResponse<T>(path: string, schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (result.success) return result.data;
-  const err = new ApiValidationError(path, result.error.issues);
-  if (import.meta.env.DEV) throw err;
   console.error("[api] response validation failed", path, result.error.issues);
   return data as T;
 }
@@ -82,32 +80,37 @@ export const accountListSchema = z.array(accountSchema);
 
 export type Account = z.infer<typeof accountSchema>;
 
-export const findingSchema = z.object({
-  id: z.string(),
-  // GCP/Azure findings use gcp_project_id / azure_subscription_id; account_id is null or omitted.
-  account_id: z.string().nullable().optional(),
-  aws_account_id: z.string().nullable().optional(),
-  account_label: z.string().nullable().optional(),
-  account_name: z.string().nullable().optional(),
-  account_provider: z.string().optional(),
-  check_id: z.string(),
-  resource_arn: z.string(),
-  title: z.string(),
-  severity: z.string(),
-  risk_score: z.number(),
-  status: z.string(),
-  evidence: z.record(z.string(), z.unknown()).nullable().optional().default({}),
-  first_seen: z.string(),
-  last_seen: z.string(),
-  exception_reason: z.string().nullable().optional(),
-  exception_approved_by: z.string().nullable().optional(),
-  exception_expires_at: z.string().nullable().optional(),
-});
+export const findingSchema = z
+  .object({
+    id: z.string(),
+    // GCP/Azure findings use gcp_project_id / azure_subscription_id; account_id is null or omitted.
+    account_id: z.string().nullish(),
+    aws_account_id: z.string().nullish(),
+    account_label: z.string().nullish(),
+    account_name: z.string().nullish(),
+    account_provider: z.string().optional(),
+    check_id: z.string(),
+    resource_arn: z.string(),
+    title: z.string(),
+    severity: z.string(),
+    risk_score: z.coerce.number(),
+    status: z.string(),
+    evidence: z
+      .record(z.string(), z.unknown())
+      .nullish()
+      .transform((value) => value ?? {}),
+    first_seen: z.string(),
+    last_seen: z.string(),
+    exception_reason: z.string().nullish(),
+    exception_approved_by: z.string().nullish(),
+    exception_expires_at: z.string().nullish(),
+  })
+  .passthrough();
 
 export const findingPageSchema = z.object({
-  items: z.array(findingSchema),
-  total: z.number(),
-  next_cursor: z.string().nullable(),
+  items: z.array(findingSchema).default([]),
+  total: z.number().optional().default(0),
+  next_cursor: z.string().nullish(),
 });
 
 export type FindingPage = z.infer<typeof findingPageSchema>;

@@ -12,7 +12,7 @@ import {
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { FindingsChecksFilter, FindingsChecksFilterSummary } from "../components/FindingsChecksFilter";
-import { api, token } from "../api";
+import { api, formatApiError, token } from "../api";
 import { checkFrameworksSchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
@@ -606,9 +606,13 @@ export default function Findings() {
         status,
         ...scopeParams,
       }),
-    enabled: !!providerScope || !!effectiveAccountId || connectedAccounts.length > 0,
+    enabled:
+      !accountsLoading &&
+      (!!providerScope || !!effectiveAccountId || connectedAccounts.length > 0),
     refetchInterval: pendingRecheck ? 3000 : false,
   });
+  const showFindingsLoading =
+    findingsQuery.isFetching && !findingsQuery.data && !findingsQuery.isError;
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
     awsScanAccountId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
@@ -921,9 +925,23 @@ export default function Findings() {
           </HeaderSlot>
         )}
 
-        {findingsQuery.isLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
+        {showFindingsLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
 
-        {!findingsQuery.isLoading && (
+        {findingsQuery.isError && (
+          <div className="py-16 text-center">
+            <p className="text-sm font-semibold text-red-700">Could not load findings</p>
+            <p className="mt-1 text-xs text-red-600/80">{formatApiError(findingsQuery.error)}</p>
+            <button
+              type="button"
+              onClick={() => findingsQuery.refetch()}
+              className="mt-4 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!showFindingsLoading && !findingsQuery.isError && (
           <section className="findings-v2-content min-w-0">
             <div className="findings-v2-card rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
               <div className="findings-v2-table-toolbar">

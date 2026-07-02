@@ -22,6 +22,9 @@ export type FetchAllFindingsParams = {
  * tab. Callers surface `truncated` so the cap is never silent. */
 export const FINDINGS_FETCH_CAP = 5000;
 
+/** Safety cap on pagination loops (500 findings/page → 50k rows max). */
+const FINDINGS_MAX_PAGES = 100;
+
 /** Cursor-walk /v1/findings (API max page size 500), bounded by maxItems. */
 export async function fetchAllFindings<T>(
   params: FetchAllFindingsParams = {},
@@ -40,18 +43,20 @@ export async function fetchAllFindings<T>(
   let cursor: string | null = null;
   let total = 0;
 
-  for (;;) {
+  for (let pageNum = 0; pageNum < FINDINGS_MAX_PAGES; pageNum += 1) {
     const qs = new URLSearchParams(search);
     if (cursor) qs.set("cursor", cursor);
     const page = await api(`/v1/findings?${qs.toString()}`, { schema: findingPageSchema });
+    const prevLen = items.length;
     items.push(...(page.items as T[]));
-    total = page.total;
+    total = page.total ?? items.length;
     if (items.length >= maxItems) {
       items.length = maxItems; // keep the top-N highest-risk; drop the rest
       break;
     }
-    if (!page.next_cursor) break;
-    cursor = page.next_cursor;
+    const next = page.next_cursor ?? null;
+    if (!next || (items.length === prevLen && next === cursor)) break;
+    cursor = next;
   }
 
   return { items, total, truncated: total > items.length };
