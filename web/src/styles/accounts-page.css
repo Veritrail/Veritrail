@@ -5065,15 +5065,15 @@ button.accounts-flow-step:hover {
 
 .metric-help-tip__content {
   pointer-events: none;
-  max-width: min(18rem, 72vw);
+  max-width: min(14rem, 68vw);
   border: 1px solid #e4e4e7;
   border-radius: 0.55rem;
   background: #fff;
-  padding: 0.625rem 0.75rem;
+  padding: 0.5rem 0.625rem;
   text-align: left;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.4;
   color: #52525b;
   box-shadow:
     0 10px 24px rgba(15, 23, 42, 0.08),

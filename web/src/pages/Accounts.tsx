@@ -5774,7 +5774,7 @@ const SOC2_READINESS_HELP =
   "Share of mapped SOC 2 controls currently passing for this account. Higher means closer to audit readiness.";
 
 const COVERAGE_METRIC_HELP =
-  "Share of days in the last 7 days with scan or snapshot evidence. Higher means more continuous monitoring for audit readiness—not how many cloud resources were scanned.";
+  "Days with scan evidence in the last 7 days. Measures monitoring continuity, not resource count.";
 
 function AccountSplitDetailPane({
   row,
