@@ -4329,6 +4329,10 @@ button.accounts-flow-step:hover {
     min-width: 0;
     overflow: hidden;
     align-items: stretch;
+    /* Viewport-anchored height keeps the detail pane stable when switching tabs. */
+    height: clamp(50rem, calc(100dvh - 14rem), 56rem);
+    min-height: clamp(50rem, calc(100dvh - 14rem), 56rem);
+    max-height: clamp(50rem, calc(100dvh - 14rem), 56rem);
     border: 1px solid var(--accounts-border);
     border-radius: 1rem;
     background: #fff;
@@ -4350,7 +4354,9 @@ button.accounts-flow-step:hover {
 @media (min-width: 1440px) {
   .accounts-split__list,
   .accounts-split__detail {
-    min-height: 50rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
   .accounts-split__detail {
@@ -4358,7 +4364,8 @@ button.accounts-flow-step:hover {
   }
 
   .accounts-split .accounts-list-shell,
-  .accounts-split .accounts-detail-pane {
+  .accounts-split .accounts-detail-pane,
+  .accounts-split .accounts-detail-empty {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
@@ -4367,6 +4374,10 @@ button.accounts-flow-step:hover {
     border: 0;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .accounts-split .accounts-detail-empty {
+    min-height: 0;
   }
 
   .accounts-split .accounts-list-table-scroll {
@@ -4380,6 +4391,11 @@ button.accounts-flow-step:hover {
   .accounts-split .accounts-list-head,
   .accounts-split .accounts-list-item__main {
     min-width: var(--accounts-row-min-width);
+  }
+
+  .accounts-split .accounts-detail-pane__header,
+  .accounts-split .accounts-detail-pane__tabs {
+    flex-shrink: 0;
   }
 
   .accounts-split .accounts-detail-pane__body {
