@@ -32,7 +32,7 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Identity providers",
     blurb: "Directory sync, MFA posture, and access-review evidence.",
     entries: [
-      { key: "entra", brand: "entra", name: "Microsoft Entra ID", description: "User inventory, MFA enforcement, admin review.", href: "/integrations/entra" },
+      { key: "entra", brand: "entra", name: "Microsoft Entra ID", description: "Directory and MFA evidence", href: "/integrations/entra" },
       { key: "google-workspace", brand: "google-workspace", name: "Google Workspace", description: "User activity and admin governance evidence.", href: "/integrations/google-workspace" },
       { key: "okta", brand: "okta", name: "Okta", description: "Identity directory sync and access reviews.", href: "/integrations/okta" },
     ],
@@ -42,7 +42,7 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Vulnerability scanners",
     blurb: "Bring scanner results into vulnerability-management evidence.",
     entries: [
-      { key: "snyk", brand: "snyk", name: "Snyk", description: "Import open code and dependency issues.", href: "/integrations/scanners/snyk" },
+      { key: "snyk", brand: "snyk", name: "Snyk", description: "Code and dependency scans", href: "/integrations/scanners/snyk" },
       { key: "wiz", brand: "wiz", name: "Wiz", description: "Cloud vulnerability findings as evidence.", href: "/integrations/scanners/wiz" },
       { key: "tenable", brand: "tenable", name: "Tenable", description: "Vulnerability management coverage evidence.", href: "/integrations/scanners/tenable" },
       { key: "qualys", brand: "qualys", name: "Qualys", description: "Scanner coverage and findings export.", href: "/integrations/scanners/qualys" },
@@ -65,8 +65,8 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Ticketing & remediation",
     blurb: "Turn findings into tracked remediation work.",
     entries: [
-      { key: "jira", brand: "jira", name: "Jira", description: "Create Jira issues from findings for remediation tracking.", href: "/integrations/jira" },
-      { key: "iac-repository", brand: "iac", name: "IaC repository", description: "Link Terraform/Terragrunt repos where cloud fixes land as PRs.", href: "/integrations/iac-repository" },
+      { key: "jira", brand: "jira", name: "Jira", description: "Remediation tickets with sync", href: "/integrations/jira" },
+      { key: "iac-repository", brand: "iac", name: "IaC repository", description: "Terraform PRs from findings", href: "/integrations/iac-repository" },
       { key: "azure-devops", brand: "azure-devops", name: "Azure DevOps Pipelines", description: "Track work and pipelines.", comingSoon: true },
     ],
   },
