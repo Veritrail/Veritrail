@@ -51,7 +51,7 @@ const rows: ReferenceRow[] = [
   { key: "github.repo", value: "GitHub repository change-management findings — branch protection, environment protection, self-merge, and review coverage.", examples: ["github.repo.no_branch_protection", "github.repo.no_env_protection", "github.repo.self_merge_allowed"], group: "GitHub" },
   { key: "gitlab.org", value: "GitLab group-level identity findings — MFA enforcement and dormant members.", examples: ["gitlab.org.mfa_not_enforced", "gitlab.org.dormant_members"], group: "GitLab" },
   { key: "gitlab.repo", value: "GitLab project change-management findings — protected branches, self-merge, and MR review coverage.", examples: ["gitlab.repo.no_branch_protection", "gitlab.repo.self_merge_allowed", "gitlab.repo.insufficient_reviews"], group: "GitLab" },
-  { key: "github://", value: "GitHub resource URIs in the format github://<org>/<repo>. Searchable by org name or repo name.", examples: ["github://awakzdev", "github://awakzdev/my-repo"], group: "GitHub" },
+  { key: "github://", value: "GitHub resource URIs in the format github://<org>/<repo>. Searchable by org name or repo name.", examples: ["github://acme-corp", "github://acme-corp/terraform-live"], group: "GitHub" },
   { key: "gitlab://", value: "GitLab resource URIs in the format gitlab://<group>/<project>. Searchable by group or project name.", examples: ["gitlab://my-group", "gitlab://my-group/my-project"], group: "GitLab" },
 ];
 

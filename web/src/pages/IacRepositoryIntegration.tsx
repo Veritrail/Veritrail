@@ -65,7 +65,7 @@ function RepoFields({
             <label className="integration-setup__field-label">Owner</label>
             <input
               className="integration-setup__input"
-              placeholder="e.g. awakzdev"
+              placeholder="e.g. acme-corp"
               value={form.owner}
               onChange={(e) => set({ owner: e.target.value })}
             />
@@ -74,7 +74,7 @@ function RepoFields({
             <label className="integration-setup__field-label">Repo</label>
             <input
               className="integration-setup__input"
-              placeholder="e.g. eks-production-iac"
+              placeholder="e.g. terraform-live"
               value={form.repo}
               onChange={(e) => set({ repo: e.target.value })}
             />
@@ -86,7 +86,7 @@ function RepoFields({
             <label className="integration-setup__field-label">Project path</label>
             <input
               className="integration-setup__input"
-              placeholder="e.g. group/eks-production-iac"
+              placeholder="e.g. acme-corp/infrastructure"
               value={form.repoRef}
               onChange={(e) => set({ repoRef: e.target.value })}
             />
