@@ -7,11 +7,16 @@
   --is-success: #0f766e;
   --is-success-soft: #ecfdf5;
   --is-success-border: #99f6e4;
-  --is-action: var(--veritrail-primary, #0f172a);
-  --is-action-hover: var(--veritrail-primary-hover, #1e293b);
-  --is-selected-bg: var(--vt-info-soft, #eff6ff);
-  --is-selected-border: #93c5fd;
-  --is-selected-ring: rgba(37, 99, 235, 0.08);
+  --primary: #2454d6;
+  --primary-hover: #1e46b8;
+  --primary-soft: #eef4ff;
+  --primary-border: #9bbcff;
+  --primary-text: #1f3f8f;
+  --is-action: var(--primary);
+  --is-action-hover: var(--primary-hover);
+  --is-selected-bg: var(--primary-soft);
+  --is-selected-border: var(--primary-border);
+  --is-selected-ring: rgba(36, 84, 214, 0.08);
   --is-step-inactive-bg: #f8fafc;
   --is-step-inactive-text: #64748b;
   --is-step-inactive-border: #dbe3ef;
@@ -400,12 +405,21 @@
 .integration-setup--iac .integration-setup__btn--primary {
   border-color: var(--is-action);
   background: var(--is-action);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 1px 2px rgba(36, 84, 214, 0.2);
 }
 
 .integration-setup--iac .integration-setup__btn--primary:hover:not(:disabled) {
   border-color: var(--is-action-hover);
   background: var(--is-action-hover);
+}
+
+.integration-setup--iac .integration-setup__btn--primary:disabled {
+  border-color: #9ca3af;
+  background: #9ca3af;
+  color: #fff;
+  cursor: not-allowed;
+  opacity: 1;
+  box-shadow: none;
 }
 
 .integration-setup__btn--secondary {
