@@ -218,21 +218,88 @@ function DashboardPreview() {
   );
 }
 
+const DIAGRAM_ICON_SIZE = 68;
+
 function IntegrationDiagram() {
   const clouds: Array<"aws" | "gcp" | "azure"> = ["aws", "gcp", "azure"];
+  const arrowStroke = {
+    fill: "none",
+    stroke: "#94a3b8",
+    strokeWidth: 2,
+    strokeDasharray: "5 4",
+    strokeLinecap: "round",
+  } as const;
 
   return (
     <div className="homepage-diagram" aria-hidden>
       <div className="homepage-diagram__sources">
         {clouds.map((brand) => (
-          <IntegrationBrandIcon key={brand} brand={brand} size={88} variant="plain" />
+          <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} />
         ))}
       </div>
-      <div className="homepage-diagram__connectors">
-        {clouds.map((brand) => (
-          <div key={brand} className="homepage-diagram__line" />
-        ))}
-      </div>
+
+      <svg
+        className="homepage-diagram__arrows homepage-diagram__arrows--desktop"
+        viewBox="0 0 120 240"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <defs>
+          <marker
+            id="homepage-diagram-arrow"
+            markerWidth="7"
+            markerHeight="7"
+            refX="6"
+            refY="3.5"
+            orient="auto"
+          >
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#94a3b8" />
+          </marker>
+        </defs>
+        <path
+          d="M0,42 C48,42 68,78 120,120"
+          markerEnd="url(#homepage-diagram-arrow)"
+          {...arrowStroke}
+        />
+        <path d="M0,120 C58,120 62,120 120,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
+        <path
+          d="M0,198 C48,198 68,162 120,120"
+          markerEnd="url(#homepage-diagram-arrow)"
+          {...arrowStroke}
+        />
+      </svg>
+
+      <svg
+        className="homepage-diagram__arrows homepage-diagram__arrows--mobile"
+        viewBox="0 0 240 72"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <defs>
+          <marker
+            id="homepage-diagram-arrow-mobile"
+            markerWidth="7"
+            markerHeight="7"
+            refX="6"
+            refY="3.5"
+            orient="auto"
+          >
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="#94a3b8" />
+          </marker>
+        </defs>
+        <path
+          d="M40,0 C40,28 52,48 120,72"
+          markerEnd="url(#homepage-diagram-arrow-mobile)"
+          {...arrowStroke}
+        />
+        <path d="M120,0 L120,72" markerEnd="url(#homepage-diagram-arrow-mobile)" {...arrowStroke} />
+        <path
+          d="M200,0 C200,28 188,48 120,72"
+          markerEnd="url(#homepage-diagram-arrow-mobile)"
+          {...arrowStroke}
+        />
+      </svg>
+
       <div className="homepage-diagram__target">
         <img src="/brand/veritrail-mark.png" alt="" className="homepage-diagram__mark" />
       </div>
