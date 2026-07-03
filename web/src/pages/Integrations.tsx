@@ -684,19 +684,19 @@ function IntegrationsContent() {
 
       {awsScanRunning && <ScanProgressBanner />}
 
-      <div className="integrations-page__actions">
-        <div className="integrations-page__actions-copy">
-          <h2>Connected integrations</h2>
-          <p>Manage the connectors already configured for this workspace.</p>
-        </div>
-        <Link to="/integrations/catalog" className="integrations-page__catalog-btn">
-          Browse integration catalog
-          <span aria-hidden>&rarr;</span>
-        </Link>
+      <div className="integrations-page__section-head">
+        <h2>Connected integrations</h2>
+        <p>Manage the connectors already configured for this workspace.</p>
       </div>
 
       <div className="integrations-page__body">
         <IntegrationsTable rows={activeRows} />
+        <div className="integrations-page__catalog-footer">
+          <Link to="/integrations/catalog" className="integrations-page__catalog-btn">
+            Browse integration catalog
+            <span aria-hidden>&rarr;</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
