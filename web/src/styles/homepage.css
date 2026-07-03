@@ -287,17 +287,9 @@
   flex: 1;
 }
 
-.homepage-evidence-card {
-  padding: 0.75rem 0.85rem 0.8rem;
-  border-radius: 0.625rem;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px rgb(9 9 11 / 0.04);
-}
-
 .homepage-evidence-table {
   width: 100%;
-  margin-top: 0.65rem;
+  margin-top: 0.85rem;
   border-collapse: collapse;
   font-size: 0.75rem;
 }
@@ -323,31 +315,8 @@
   border-bottom: none;
 }
 
-.homepage-evidence-table__source {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.homepage-evidence-table__status {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.125rem;
-  height: 1.125rem;
-}
-
-.homepage-evidence-table__status-mark {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: hue-rotate(88deg) saturate(1.35) brightness(0.92);
-}
-
-.homepage-evidence-table__label {
-  min-width: 0;
+.homepage-evidence-table__item {
+  max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -355,12 +324,10 @@
   font-weight: 600;
 }
 
-.homepage-evidence-table__provider {
+.homepage-evidence-table__source {
   display: inline-flex;
-  flex-shrink: 0;
   align-items: center;
   gap: 0.35rem;
-  margin-left: auto;
   color: #475569;
   font-weight: 500;
   white-space: nowrap;
@@ -445,15 +412,21 @@
 .homepage-diagram {
   width: fit-content;
   max-width: 100%;
-  padding-block: 1rem;
   margin-inline: auto;
+  padding: 2rem 2.25rem;
+  background: #fff;
+  border: 1px solid #e8edf2;
+  border-radius: 1.125rem;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 8px 28px rgb(15 23 42 / 0.07);
 }
 
 .homepage-diagram__body {
   position: relative;
   display: grid;
   grid-template-columns: auto auto;
-  column-gap: 2.75rem;
+  column-gap: 3.25rem;
   align-items: center;
   justify-content: center;
   width: fit-content;
@@ -474,12 +447,20 @@
   display: none;
 }
 
+.homepage-diagram__line {
+  vector-effect: non-scaling-stroke;
+}
+
+.homepage-diagram__dot {
+  vector-effect: non-scaling-stroke;
+}
+
 .homepage-diagram__sources {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.375rem;
   align-items: flex-end;
   flex-shrink: 0;
 }
@@ -491,39 +472,73 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 6rem;
-  height: 6rem;
-  border-radius: 1.125rem;
+  width: 6.75rem;
+  height: 6.75rem;
+  border-radius: 50%;
   background: #fff;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgb(15 23 42 / 0.08);
+  box-shadow: 0 4px 18px rgb(15 23 42 / 0.08);
+}
+
+.homepage-diagram__target-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgb(45 212 191 / 0.14);
+  pointer-events: none;
+}
+
+.homepage-diagram__target-ring--inner {
+  inset: -10px;
+}
+
+.homepage-diagram__target-ring--outer {
+  inset: -22px;
+  border-color: rgb(45 212 191 / 0.07);
 }
 
 .homepage-diagram__mark {
-  width: 3rem;
-  height: 3rem;
+  position: relative;
+  z-index: 1;
+  width: 3.125rem;
+  height: 3.125rem;
   object-fit: contain;
 }
 
 @media (max-width: 1023px) {
+  .homepage-diagram {
+    padding: 1.75rem 2rem;
+  }
+
+  .homepage-diagram__body {
+    column-gap: 2.75rem;
+  }
+
   .homepage-diagram__sources {
-    gap: 1rem;
+    gap: 1.125rem;
   }
 
   .homepage-diagram__target {
-    width: 5.25rem;
-    height: 5.25rem;
+    width: 6rem;
+    height: 6rem;
+  }
+
+  .homepage-diagram__target-ring--inner {
+    inset: -8px;
+  }
+
+  .homepage-diagram__target-ring--outer {
+    inset: -18px;
   }
 
   .homepage-diagram__mark {
-    width: 2.625rem;
-    height: 2.625rem;
+    width: 2.875rem;
+    height: 2.875rem;
   }
 }
 
 @media (max-width: 639px) {
   .homepage-diagram {
-    padding-block: 0.5rem;
+    padding: 1.5rem 1.25rem;
     text-align: center;
   }
 
@@ -549,13 +564,27 @@
   }
 
   .homepage-diagram__target {
-    width: 5rem;
-    height: 5rem;
+    width: 5.5rem;
+    height: 5.5rem;
     margin-inline: auto;
   }
 
+  .homepage-diagram__target-ring--inner {
+    inset: -7px;
+  }
+
+  .homepage-diagram__target-ring--outer {
+    inset: -15px;
+  }
+
   .homepage-diagram__mark {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.625rem;
+    height: 2.625rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homepage-diagram__dot {
+    display: none;
   }
 }

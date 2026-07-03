@@ -33,7 +33,16 @@ const RECENT_EVIDENCE = [
   { brand: "github" as const, source: "GitHub", label: "GitHub Branch Protection Enabled", updated: "1d ago" },
   { brand: "gcp" as const, source: "GCP", label: "CloudTrail Logging Enabled", updated: "1d ago" },
   { brand: "azure" as const, source: "Azure", label: "Storage Account Encryption Enabled", updated: "3d ago" },
+  { brand: "gitlab" as const, source: "GitLab", label: "Merge Request Approval Required", updated: "5d ago" },
 ];
+
+function HomepageEvidenceStatusMark() {
+  return (
+    <span className="homepage-evidence-table__status" aria-hidden>
+      <img src="/brand/veritrail-mark.png" alt="" className="homepage-evidence-table__status-mark" />
+    </span>
+  );
+}
 
 function SparklineIcon({ className = "", path }: { className?: string; path?: string }) {
   return (
@@ -200,32 +209,36 @@ function DashboardPreview() {
 
         <div className="homepage-dashboard__body">
           <div className="homepage-dashboard__evidence">
-            <h3 className="homepage-dashboard__section-title">Recent evidence</h3>
-            <table className="homepage-evidence-table">
-              <thead>
-                <tr>
-                  <th scope="col">Item</th>
-                  <th scope="col">Source</th>
-                  <th scope="col" className="homepage-evidence-table__updated">
-                    Updated
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {RECENT_EVIDENCE.map((row) => (
-                  <tr key={row.label}>
-                    <td className="homepage-evidence-table__item">{row.label}</td>
-                    <td>
-                      <span className="homepage-evidence-table__source">
-                        <IntegrationBrandIcon brand={row.brand} size={18} variant="plain" />
-                        <span>{row.source}</span>
-                      </span>
-                    </td>
-                    <td className="homepage-evidence-table__updated">{row.updated}</td>
+            <div className="homepage-evidence-card">
+              <h3 className="homepage-dashboard__section-title">Recent evidence</h3>
+              <table className="homepage-evidence-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Source</th>
+                    <th scope="col" className="homepage-evidence-table__updated">
+                      Updated
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {RECENT_EVIDENCE.map((row) => (
+                    <tr key={row.label}>
+                      <td>
+                        <span className="homepage-evidence-table__source">
+                          <HomepageEvidenceStatusMark />
+                          <span className="homepage-evidence-table__label">{row.label}</span>
+                          <span className="homepage-evidence-table__provider">
+                            <IntegrationBrandIcon brand={row.brand} size={18} variant="plain" />
+                            <span>{row.source}</span>
+                          </span>
+                        </span>
+                      </td>
+                      <td className="homepage-evidence-table__updated">{row.updated}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="homepage-dashboard__gauge-panel">
