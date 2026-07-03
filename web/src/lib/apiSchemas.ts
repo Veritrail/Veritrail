@@ -795,6 +795,28 @@ export const integrationStatusNullableSchema = integrationStatusSchema.nullable(
 
 export type IntegrationStatus = z.infer<typeof integrationStatusSchema>;
 
+/** GET /v1/integrations/{github|gitlab|google-workspace|entra}/connect-url */
+export const integrationConnectUrlSchema = z.object({
+  url: z.string(),
+});
+
+export type IntegrationConnectUrl = z.infer<typeof integrationConnectUrlSchema>;
+
+/** PUT /v1/integrations/google-workspace/scope */
+export const googleWorkspaceScopeSchema = z.object({
+  domain: z.string().nullable(),
+});
+
+export type GoogleWorkspaceScope = z.infer<typeof googleWorkspaceScopeSchema>;
+
+/** POST /v1/integrations/google-workspace/sync */
+export const googleWorkspaceSyncSchema = z.object({
+  identity_users: z.number(),
+  admin_users: z.number(),
+});
+
+export type GoogleWorkspaceSync = z.infer<typeof googleWorkspaceSyncSchema>;
+
 export const scannerIntegrationSchema = z
   .object({
     connected: z.boolean(),

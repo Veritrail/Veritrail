@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
-import { integrationStatusNullableSchema } from "../lib/apiSchemas";
+import { api, formatApiError } from "../api";
+import {
+  googleWorkspaceSyncSchema,
+  integrationConnectUrlSchema,
+  integrationStatusNullableSchema,
+} from "../lib/apiSchemas";
 import { formatSync, Spinner, StatusDot } from "../components/IntegrationsUi";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import "../styles/integration-setup.css";
@@ -19,8 +24,20 @@ type Provider = {
 
 const SYNC_KEY = "google-workspace";
 
+function connectErrorMessage(error: unknown): string {
+  const msg = formatApiError(error);
+  if (msg.toLowerCase().includes("oauth not configured")) {
+    return "Google Workspace OAuth is not configured on this server. Set GOOGLE_WORKSPACE_CLIENT_ID and GOOGLE_WORKSPACE_CLIENT_SECRET in the API environment.";
+  }
+  return msg;
+}
+
 export default function GoogleWorkspaceIntegration() {
   const qc = useQueryClient();
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const connectedBanner = params.get("connected") === "1";
+  const oauthError = params.get("error");
+
   const { data: provider, isLoading } = useQuery({
     queryKey: ["integration", SYNC_KEY],
     queryFn: () => api("/v1/integrations/google-workspace", { schema: integrationStatusNullableSchema }),
@@ -28,7 +45,9 @@ export default function GoogleWorkspaceIntegration() {
   const { isSyncing } = useIntegrationSyncState(SYNC_KEY);
 
   const connect = useMutation({
-    mutationFn: () => api<{ url: string }>("/v1/integrations/google-workspace/connect-url"),
+    mutationFn: () =>
+      api("/v1/integrations/google-workspace/connect-url", { schema: integrationConnectUrlSchema }),
+    retry: false,
     onSuccess: (data) => {
       window.location.href = data.url;
     },
@@ -36,7 +55,11 @@ export default function GoogleWorkspaceIntegration() {
 
   const sync = useMutation({
     mutationFn: () =>
-      api("/v1/integrations/google-workspace/sync", { method: "POST", body: JSON.stringify({}) }),
+      api("/v1/integrations/google-workspace/sync", {
+        method: "POST",
+        body: JSON.stringify({}),
+        schema: googleWorkspaceSyncSchema,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] });
       setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
@@ -63,6 +86,17 @@ export default function GoogleWorkspaceIntegration() {
         </p>
       </header>
 
+      {connectedBanner && (
+        <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Google Workspace connected. Run a sync to collect directory evidence.
+        </div>
+      )}
+      {oauthError && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Google Workspace connection failed: {oauthError.replace(/_/g, " ")}
+        </div>
+      )}
+
       {isLoading && <p className="integration-setup__loading">Loading…</p>}
 
       {!isLoading && !p && (
@@ -77,6 +111,9 @@ export default function GoogleWorkspaceIntegration() {
             >
               {connect.isPending ? "Redirecting…" : "Connect Google Workspace"}
             </button>
+            {connect.isError && (
+              <p className="mt-3 text-sm text-red-700">{connectErrorMessage(connect.error)}</p>
+            )}
           </div>
         </section>
       )}
@@ -122,8 +159,8 @@ export default function GoogleWorkspaceIntegration() {
           >
             {disconnect.isPending ? "Disconnecting…" : "Disconnect"}
           </button>
-          {(sync.error) && (
-            <p className="text-sm text-red-700">{(sync.error as Error).message}</p>
+          {sync.isError && (
+            <p className="text-sm text-red-700">{formatApiError(sync.error)}</p>
           )}
         </div>
       )}
