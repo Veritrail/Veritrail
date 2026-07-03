@@ -132,11 +132,11 @@ def _provider_out(db: Session, provider: IdentityProvider) -> GoogleWorkspacePro
 
 
 def _connect_url(p: dict) -> str:
-    if not settings.GOOGLE_WORKSPACE_CLIENT_ID:
+    if not settings.effective_google_workspace_client_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Google Workspace OAuth not configured")
     state = _issue_state(p["sub"], p["org_id"])
     params = {
-        "client_id": settings.GOOGLE_WORKSPACE_CLIENT_ID,
+        "client_id": settings.effective_google_workspace_client_id,
         "redirect_uri": _callback_uri(),
         "response_type": "code",
         "scope": WORKSPACE_SCOPES,
@@ -170,8 +170,8 @@ def google_workspace_callback(
             token_resp = client.post(
                 GOOGLE_TOKEN_URL,
                 data={
-                    "client_id": settings.GOOGLE_WORKSPACE_CLIENT_ID,
-                    "client_secret": settings.GOOGLE_WORKSPACE_CLIENT_SECRET,
+                    "client_id": settings.effective_google_workspace_client_id,
+                    "client_secret": settings.effective_google_workspace_client_secret,
                     "code": code,
                     "grant_type": "authorization_code",
                     "redirect_uri": _callback_uri(),

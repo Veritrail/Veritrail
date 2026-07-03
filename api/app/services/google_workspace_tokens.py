@@ -57,8 +57,8 @@ def refresh_google_workspace_token(db: Session, provider: IdentityProvider) -> s
         resp = client.post(
             GOOGLE_TOKEN_URL,
             data={
-                "client_id": settings.GOOGLE_WORKSPACE_CLIENT_ID,
-                "client_secret": settings.GOOGLE_WORKSPACE_CLIENT_SECRET,
+                "client_id": settings.effective_google_workspace_client_id,
+                "client_secret": settings.effective_google_workspace_client_secret,
                 "refresh_token": refresh,
                 "grant_type": "refresh_token",
             },

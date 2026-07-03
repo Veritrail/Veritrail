@@ -43,10 +43,19 @@ class Settings(BaseSettings):
     # IaC push/MR scan trigger. Empty => the webhook endpoint rejects everything (fail closed).
     GITLAB_WEBHOOK_SECRET: str = ""
 
-    # Google Workspace Admin Directory (identity evidence — separate OAuth app from login)
+    # Google Workspace Admin Directory (identity evidence). Optional separate OAuth app;
+    # when GOOGLE_WORKSPACE_* are empty, effective_* fall back to GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET.
     GOOGLE_WORKSPACE_CLIENT_ID: str = ""
     GOOGLE_WORKSPACE_CLIENT_SECRET: str = ""
     GOOGLE_WORKSPACE_INTEGRATION_CALLBACK_PATH: str = "/v1/integrations/google-workspace/callback"
+
+    @property
+    def effective_google_workspace_client_id(self) -> str:
+        return (self.GOOGLE_WORKSPACE_CLIENT_ID or self.GOOGLE_CLIENT_ID).strip()
+
+    @property
+    def effective_google_workspace_client_secret(self) -> str:
+        return (self.GOOGLE_WORKSPACE_CLIENT_SECRET or self.GOOGLE_CLIENT_SECRET).strip()
 
     # Microsoft Entra ID directory read (identity evidence)
     ENTRA_CLIENT_ID: str = ""
