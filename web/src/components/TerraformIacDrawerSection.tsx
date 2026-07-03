@@ -17,6 +17,13 @@ type Props = {
 const BTN =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60";
 
+const BTN_PRIMARY =
+  "inline-flex h-9 items-center justify-center gap-1.5 rounded-[10px] bg-[#439385] px-3.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(67,147,133,0.18)] transition hover:bg-[#367a6f] hover:shadow-[0_8px_18px_rgba(54,122,111,0.22)]";
+
+const INFO_BOX = "rounded-xl border border-zinc-200/90 bg-[#f8fafc] px-4 py-3";
+
+const SECTION_CARD = "rounded-xl border border-zinc-200 bg-white px-4 py-3";
+
 const VCS_LABELS: Record<string, string> = {
   github: "GitHub",
   gitlab: "GitLab",
@@ -37,9 +44,15 @@ function pathHint(resourceArn?: string | null): string {
 
 function ConnectSteps() {
   return (
-    <ol className="mt-3 list-decimal space-y-2 pl-4 text-[12px] leading-relaxed text-amber-950/90">
+    <ol className="mt-3 list-decimal space-y-2 pl-4 text-[12px] leading-relaxed text-zinc-600">
       <li>
-        Open <Link to="/integrations/iac-repository" className="font-semibold underline">Integrations → IaC repository</Link>
+        Open{" "}
+        <Link
+          to="/integrations/iac-repository"
+          className="font-semibold text-indigo-600 hover:text-indigo-700"
+        >
+          Integrations → IaC repository
+        </Link>
       </li>
       <li>Choose your VCS provider (GitHub, GitLab, Azure DevOps, or CodeCommit)</li>
       <li>Tell us whether you use Terragrunt and if modules and live stacks share one repo or two</li>
@@ -79,30 +92,27 @@ export function TerraformIacDrawerSection({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-indigo-200/80 bg-indigo-50/50 px-4 py-3">
-        <p className="text-[13px] font-semibold text-indigo-950">Terraform / IaC</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-indigo-900/90">
+      <div className={INFO_BOX}>
+        <p className="text-[13px] font-semibold text-zinc-900">Terraform / IaC</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-zinc-600">
           For teams where cloud fixes land as Terraform or Terragrunt pull requests. Link your IaC repository once —
           Veritrail shows which paths to edit and can open a tracked remediation ticket for this finding.
         </p>
       </div>
 
       {!iacRepo?.connected ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-[12px] leading-relaxed text-amber-950">
-          <p className="font-semibold">IaC repository not connected</p>
+        <div className={`${SECTION_CARD} text-[12px] leading-relaxed text-zinc-600`}>
+          <p className="font-semibold text-zinc-900">IaC repository not connected</p>
           <p className="mt-1">
             Connect the repo where your team implements cloud fixes before using Terraform remediation from findings.
           </p>
           <ConnectSteps />
-          <Link
-            to="/integrations/iac-repository"
-            className="mt-3 inline-flex rounded-lg bg-amber-900 px-3 py-2 text-[12px] font-semibold text-white hover:bg-amber-950"
-          >
+          <Link to="/integrations/iac-repository" className={`mt-3 ${BTN_PRIMARY}`}>
             Link IaC repository
           </Link>
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 px-4 py-3 text-[12px] text-zinc-800">
+        <div className={`${SECTION_CARD} text-[12px] text-zinc-800`}>
           <p className="font-semibold text-zinc-900">Linked layout</p>
           <dl className="mt-2 grid gap-2 sm:grid-cols-2">
             <div>
@@ -142,9 +152,9 @@ export function TerraformIacDrawerSection({
           )}
 
           {iacRepo.pr_path && (
-            <div className="mt-2 rounded-lg border border-indigo-200/60 bg-indigo-50/40 px-3 py-2">
-              <p className="text-[11px] font-semibold text-indigo-900">Suggested PR target</p>
-              <p className="font-mono text-[11px] text-indigo-950">
+            <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/40 px-3 py-2">
+              <p className="text-[11px] font-semibold text-indigo-800">Suggested PR target</p>
+              <p className="font-mono text-[11px] text-indigo-900/90">
                 {dual ? iacRepo.terragrunt_repo?.repo_ref : iacRepo.terraform_repo?.repo_ref} @ {iacRepo.pr_path}
               </p>
             </div>
