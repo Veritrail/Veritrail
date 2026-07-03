@@ -14,22 +14,13 @@ import {
   settingsSchema,
 } from "../lib/apiSchemas";
 import { ProductShell } from "../components/ProductShell";
-import { PostureMetricCell } from "./Workspace";
-
-// d-path icons for the Workspace-style KPI strip.
-const IK = {
-  connected: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
-  syncing: "M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05",
-  errors: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z",
-  sources: "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z",
-} as const;
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
-import { useConnectedCatalogState } from "../hooks/useConnectedCatalogState";
 import { isCloudAccountConnected } from "../hooks/useConnectedAccountOptions";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { IntegrationRequestModal } from "../components/IntegrationRequestModal";
 import {
   catalogExploreEntries,
+  connectedCatalogKeys,
   INTEGRATION_CATALOG,
   type CatalogEntry,
 } from "../lib/integrationCatalog";
@@ -41,8 +32,17 @@ import {
   StatusDot,
 } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
+import { PostureMetricCell } from "./Workspace";
 import "../styles/integrations-page.css";
 import "../styles/workspace-page.css";
+
+// d-path icons for the Workspace-style KPI strip.
+const IK = {
+  connected: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  syncing: "M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05",
+  errors: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z",
+  sources: "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z",
+} as const;
 
 type ProviderSummary = {
   id: string;
@@ -408,6 +408,60 @@ function IntegrationsContent() {
   const datadogConnected = !!datadogSiem.data?.connected;
   const snykConnected = !!snykScanner.data?.connected;
 
+  const hiddenKeys = useMemo(
+    () =>
+      connectedCatalogKeys({
+        awsConnected,
+        githubConnected,
+        gitlabConnected,
+        googleConnected,
+        entraConnected,
+        oktaConnected,
+        slackConnected,
+        gcpConnected,
+        azureConnected,
+        iacRepositoryConnected,
+        jiraConnected,
+        azureBoardsConnected,
+        splunkConnected,
+        datadogConnected,
+        connectedScanners: {
+          snyk: snykConnected,
+          wiz: !!wizScanner.data?.connected,
+          tenable: !!tenableScanner.data?.connected,
+          qualys: !!qualysScanner.data?.connected,
+          orca: !!orcaScanner.data?.connected,
+          aikido: !!aikidoScanner.data?.connected,
+        },
+      }),
+    [
+      awsConnected,
+      githubConnected,
+      gitlabConnected,
+      googleConnected,
+      entraConnected,
+      oktaConnected,
+      slackConnected,
+      gcpConnected,
+      azureConnected,
+      iacRepositoryConnected,
+      jiraConnected,
+      azureBoardsConnected,
+      splunkConnected,
+      datadogConnected,
+      snykConnected,
+      wizScanner.data?.connected,
+      tenableScanner.data?.connected,
+      qualysScanner.data?.connected,
+      orcaScanner.data?.connected,
+      aikidoScanner.data?.connected,
+    ],
+  );
+  const exploreEntries = useMemo(
+    () => catalogExploreEntries(INTEGRATION_CATALOG, hiddenKeys),
+    [hiddenKeys],
+  );
+
   const connectedCount = [
     awsConnected,
     githubConnected,
@@ -747,11 +801,6 @@ function IntegrationsContent() {
   ];
 
   const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
-  const { hiddenKeys } = useConnectedCatalogState();
-  const exploreEntries = useMemo(
-    () => catalogExploreEntries(INTEGRATION_CATALOG, hiddenKeys),
-    [hiddenKeys],
-  );
 
   return (
     <div className="integrations-page">

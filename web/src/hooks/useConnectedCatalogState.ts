@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { api } from "../api";
 import {
@@ -80,11 +81,11 @@ export function useConnectedCatalogState() {
     queryFn: () => api("/v1/integrations/azure-boards", { schema: azureBoardsIntegrationSchema }),
   });
   const splunkSiem = useQuery({
-    queryKey: ["siem-splunk"],
+    queryKey: ["siem-integration", "splunk"],
     queryFn: () => api("/v1/integrations/siem/splunk", { schema: scannerIntegrationSchema }),
   });
   const datadogSiem = useQuery({
-    queryKey: ["siem-datadog"],
+    queryKey: ["siem-integration", "datadog"],
     queryFn: () => api("/v1/integrations/siem/datadog", { schema: scannerIntegrationSchema }),
   });
 
@@ -94,34 +95,81 @@ export function useConnectedCatalogState() {
   const azureRows = accountsList.filter((a) => a.provider === "azure");
   const awsAccount = awsRows.find((a) => a.status === "connected") ?? awsRows[0];
 
+  const awsConnected = awsAccount?.status === "connected";
+  const githubConnected = !!github.data;
+  const gitlabConnected = !!gitlab.data;
+  const googleConnected = !!googleWorkspace.data;
+  const entraConnected = !!entra.data;
+  const oktaConnected = !!okta.data?.connected;
+  const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
+  const gcpConnected = gcpRows.some(isCloudAccountConnected);
+  const azureConnected = azureRows.some(isCloudAccountConnected);
+  const iacRepositoryConnected = !!iacRepository.data?.connected;
+  const jiraConnected = !!jira.data?.connected;
+  const azureBoardsConnected = !!azureBoards.data?.connected;
+  const splunkConnected = !!splunkSiem.data?.connected;
+  const datadogConnected = !!datadogSiem.data?.connected;
+  const snykConnected = !!snykScanner.data?.connected;
+  const wizConnected = !!wizScanner.data?.connected;
+  const tenableConnected = !!tenableScanner.data?.connected;
+  const qualysConnected = !!qualysScanner.data?.connected;
+  const orcaConnected = !!orcaScanner.data?.connected;
+  const aikidoConnected = !!aikidoScanner.data?.connected;
+
   const state: ConnectedCatalogState = {
-    awsConnected: awsAccount?.status === "connected",
-    githubConnected: !!github.data,
-    gitlabConnected: !!gitlab.data,
-    googleConnected: !!googleWorkspace.data,
-    entraConnected: !!entra.data,
-    oktaConnected: !!okta.data?.connected,
-    slackConnected: !!settings.data?.notifications.slack_webhook_url?.trim(),
-    gcpConnected: gcpRows.some(isCloudAccountConnected),
-    azureConnected: azureRows.some(isCloudAccountConnected),
-    iacRepositoryConnected: !!iacRepository.data?.connected,
-    jiraConnected: !!jira.data?.connected,
-    azureBoardsConnected: !!azureBoards.data?.connected,
-    splunkConnected: !!splunkSiem.data?.connected,
-    datadogConnected: !!datadogSiem.data?.connected,
+    awsConnected,
+    githubConnected,
+    gitlabConnected,
+    googleConnected,
+    entraConnected,
+    oktaConnected,
+    slackConnected,
+    gcpConnected,
+    azureConnected,
+    iacRepositoryConnected,
+    jiraConnected,
+    azureBoardsConnected,
+    splunkConnected,
+    datadogConnected,
     connectedScanners: {
-      snyk: !!snykScanner.data?.connected,
-      wiz: !!wizScanner.data?.connected,
-      tenable: !!tenableScanner.data?.connected,
-      qualys: !!qualysScanner.data?.connected,
-      orca: !!orcaScanner.data?.connected,
-      aikido: !!aikidoScanner.data?.connected,
+      snyk: snykConnected,
+      wiz: wizConnected,
+      tenable: tenableConnected,
+      qualys: qualysConnected,
+      orca: orcaConnected,
+      aikido: aikidoConnected,
     },
   };
 
+  const hiddenKeys = useMemo(
+    () => connectedCatalogKeys(state),
+    [
+      awsConnected,
+      githubConnected,
+      gitlabConnected,
+      googleConnected,
+      entraConnected,
+      oktaConnected,
+      slackConnected,
+      gcpConnected,
+      azureConnected,
+      iacRepositoryConnected,
+      jiraConnected,
+      azureBoardsConnected,
+      splunkConnected,
+      datadogConnected,
+      snykConnected,
+      wizConnected,
+      tenableConnected,
+      qualysConnected,
+      orcaConnected,
+      aikidoConnected,
+    ],
+  );
+
   return {
     state,
-    hiddenKeys: connectedCatalogKeys(state),
+    hiddenKeys,
     isLoading:
       settings.isLoading ||
       github.isLoading ||
