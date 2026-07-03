@@ -74,6 +74,19 @@ function emptyRepoForm(): RepoForm {
   };
 }
 
+function repoFormReady(vcs: VcsProvider, form: RepoForm): boolean {
+  if (vcs === "github") {
+    return !!form.repoRef.trim();
+  }
+  if (vcs === "gitlab") {
+    return !!form.repoRef.trim();
+  }
+  if (vcs === "azure_devops" || vcs === "codecommit") {
+    return !!form.repoRef.trim() && !!form.accessToken.trim();
+  }
+  return false;
+}
+
 type GitHubAppRepo = {
   id: number;
   full_name: string;
@@ -535,9 +548,26 @@ function RepoFields({
           />
         </div>
       )}
+      {vcs === "codecommit" && (
+        <div className="integration-setup__field--wide">
+          <label className="integration-setup__field-label">AWS region (optional)</label>
+          <input
+            className="integration-setup__input"
+            placeholder="us-east-1"
+            value={form.baseUrl}
+            onChange={(e) => set({ baseUrl: e.target.value })}
+          />
+        </div>
+      )}
       {(vcs === "github" || vcs === "gitlab" || vcs === "azure_devops" || vcs === "codecommit") && (
         <div>
-          <label className="integration-setup__field-label">Access token (optional)</label>
+          <label className="integration-setup__field-label">
+            {vcs === "azure_devops"
+              ? "Personal access token"
+              : vcs === "codecommit"
+                ? "Git credentials (username:password)"
+                : "Access token (optional)"}
+          </label>
           <input
             type="password"
             className="integration-setup__input"
@@ -735,11 +765,22 @@ export default function IacRepositoryIntegration() {
     (githubRepoSelected &&
       (usesGithubOAuth || (usesGithubAppFallback && githubAppRepoSelected)) &&
       githubTerragruntReady);
+  const terraformRepoReady =
+    vcsProvider === "github" ? githubRepoReady : repoFormReady(vcsProvider, terraformForm);
+  const terragruntDualReady =
+    !usesTerragrunt ||
+    repoMode !== "dual" ||
+    (vcsProvider === "github"
+      ? usesGithubOAuth
+        ? !!terragruntForm.repoRef
+        : !!terragruntForm.repositoryId
+      : repoFormReady(vcsProvider, terragruntForm));
+  const step4Ready = terraformRepoReady && terragruntDualReady;
   const canAdvance =
     step === 1 ||
     step === 2 ||
     (step === 3 && (!usesTerragrunt || repoMode)) ||
-    (step === 4 && githubRepoReady);
+    (step === 4 && step4Ready);
 
   if (!isLoading && data?.connected && !isManageMode && !showVerified) {
     return <Navigate to="/integrations" replace />;
@@ -1057,7 +1098,7 @@ export default function IacRepositoryIntegration() {
                 <button
                   type="button"
                   className="integration-setup__btn integration-setup__btn--primary"
-                  disabled={save.isPending || !githubRepoReady}
+                  disabled={save.isPending || !step4Ready}
                   onClick={() => save.mutate()}
                 >
                   {save.isPending ? "Saving…" : data?.connected ? "Update connection" : "Save connection"}

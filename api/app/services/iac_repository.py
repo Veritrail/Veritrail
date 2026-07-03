@@ -16,14 +16,23 @@ Legacy ``github_issues`` rows (owner + repo only) migrate to single-repo GitHub 
 """
 from __future__ import annotations
 
+import base64
+import re
 import uuid
 from typing import Any, Literal
+from urllib.parse import quote, urlparse
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.github import IdentityProvider
 from app.services.github_sync import provider_config, set_provider_config
+from app.services.integration_input import (
+    api_access_error,
+    normalize_azure_devops_org_url,
+    normalize_azure_devops_project,
+)
 
 IAC_REPOSITORY_TYPE = "iac_repository"
 LEGACY_GITHUB_ISSUES_TYPE = "github_issues"
@@ -345,6 +354,158 @@ def resolve_vcs_token(db: Session, org_id: uuid.UUID, link: dict[str, Any]) -> s
 def resolve_github_token(db: Session, org_id: uuid.UUID, cfg: dict[str, Any]) -> str:
     target = ticket_target_repo(cfg)
     return resolve_vcs_token(db, org_id, target)
+
+
+_AWS_ACCESS_KEY_RE = re.compile(r"^AKIA[0-9A-Z]{16}$")
+_CODECOMMIT_DEFAULT_REGION = "us-east-1"
+
+
+def parse_azure_devops_repo_link(link: dict[str, Any]) -> tuple[str, str, str]:
+    """Return org URL, project name, and repository name from an IaC repo link."""
+    repo_ref = (link.get("repo_ref") or "").strip()
+    parts = [part for part in repo_ref.split("/") if part]
+    base_url = (link.get("base_url") or "").strip()
+
+    if base_url:
+        org_url = normalize_azure_devops_org_url(base_url)
+        if len(parts) < 2:
+            raise ValueError(
+                "Azure DevOps repository reference must be project/repo when org URL is set separately"
+            )
+        project = normalize_azure_devops_project(parts[0])
+        repo_name = parts[1]
+        return org_url, project, repo_name
+
+    if len(parts) >= 3:
+        org_url = normalize_azure_devops_org_url(parts[0])
+        project = normalize_azure_devops_project(parts[1])
+        return org_url, project, parts[2]
+
+    raise ValueError(
+        "Azure DevOps repository reference must be org/project/repo (e.g. myorg/MyProject/my-repo)"
+    )
+
+
+def verify_azure_devops_repo(link: dict[str, Any]) -> None:
+    """Confirm PAT works and the Git repository exists."""
+    pat = (link.get("access_token") or "").strip()
+    if not pat:
+        raise ValueError("Azure DevOps personal access token is required")
+
+    org_url, project, repo_name = parse_azure_devops_repo_link(link)
+    if not repo_name:
+        raise ValueError("Azure DevOps repository name is required")
+
+    token = base64.b64encode(f":{pat}".encode()).decode()
+    headers = {"Authorization": f"Basic {token}"}
+    project_enc = quote(project, safe="")
+    repo_enc = quote(repo_name, safe="")
+    url = f"{org_url}/{project_enc}/_apis/git/repositories/{repo_enc}?api-version=7.0"
+
+    with httpx.Client(timeout=30.0, headers=headers) as client:
+        resp = client.get(url)
+    if resp.status_code >= 400:
+        raise ValueError(
+            api_access_error(
+                "Azure DevOps Git",
+                resp.status_code,
+                hint="Use org/project/repo (e.g. myorg/MyProject/my-repo) and a PAT with Code read scope.",
+            )
+        )
+
+
+def _codecommit_region(link: dict[str, Any]) -> str:
+    base = (link.get("base_url") or "").strip()
+    if not base:
+        return _CODECOMMIT_DEFAULT_REGION
+    if "://" in base:
+        host = urlparse(base).netloc.lower()
+    else:
+        host = base.lower().split("/")[0]
+    match = re.search(r"git-codecommit\.([a-z0-9-]+)\.amazonaws\.com", host)
+    if match:
+        return match.group(1)
+    if re.fullmatch(r"[a-z]{2}-[a-z]+-\d+", base):
+        return base
+    raise ValueError(
+        "CodeCommit region is required in base_url (e.g. us-east-1 or https://git-codecommit.us-east-1.amazonaws.com)"
+    )
+
+
+def _codecommit_git_credentials(link: dict[str, Any]) -> tuple[str, str]:
+    token = (link.get("access_token") or "").strip()
+    if not token:
+        raise ValueError("CodeCommit Git credentials are required (username:password)")
+    if ":" in token:
+        username, _, password = token.partition(":")
+        username = username.strip()
+        password = password.strip()
+        if username and password:
+            return username, password
+    owner = (link.get("owner") or "").strip()
+    if owner and token:
+        return owner, token
+    raise ValueError("CodeCommit Git credentials are required as username:password")
+
+
+def _verify_codecommit_via_git_https(link: dict[str, Any], *, region: str, repo_name: str) -> None:
+    username, password = _codecommit_git_credentials(link)
+    auth = base64.b64encode(f"{username}:{password}".encode()).decode()
+    repo_enc = quote(repo_name, safe="")
+    url = f"https://git-codecommit.{region}.amazonaws.com/v1/repos/{repo_enc}"
+    with httpx.Client(timeout=30.0) as client:
+        resp = client.get(url, headers={"Authorization": f"Basic {auth}"})
+    if resp.status_code >= 400:
+        raise ValueError(
+            api_access_error(
+                "CodeCommit",
+                resp.status_code,
+                hint="Use repository name and IAM Git credentials (username:password).",
+            )
+        )
+
+
+def _verify_codecommit_via_boto3(link: dict[str, Any], *, region: str, repo_name: str) -> None:
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    token = (link.get("access_token") or "").strip()
+    access_key, _, secret_key = token.partition(":")
+    if not _AWS_ACCESS_KEY_RE.match(access_key) or not secret_key:
+        raise ValueError("CodeCommit AWS credentials must be access_key_id:secret_access_key")
+
+    client = boto3.client(
+        "codecommit",
+        region_name=region,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+    )
+    try:
+        client.get_repository(repositoryName=repo_name)
+    except ClientError as exc:
+        code = exc.response.get("Error", {}).get("Code", "")
+        status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 400)
+        if code == "RepositoryDoesNotExistException":
+            raise ValueError(api_access_error("CodeCommit", 404)) from exc
+        raise ValueError(api_access_error("CodeCommit", status)) from exc
+    except BotoCoreError as exc:
+        raise ValueError(f"CodeCommit verification failed: {exc}") from exc
+
+
+def verify_codecommit_repo(link: dict[str, Any]) -> None:
+    """Confirm CodeCommit repository is reachable with provided credentials."""
+    repo_name = (link.get("repo_ref") or link.get("repo") or "").strip()
+    if not repo_name:
+        raise ValueError("CodeCommit repository name is required")
+
+    region = _codecommit_region(link)
+    token = (link.get("access_token") or "").strip()
+    if ":" in token:
+        access_key = token.partition(":")[0]
+        if _AWS_ACCESS_KEY_RE.match(access_key):
+            _verify_codecommit_via_boto3(link, region=region, repo_name=repo_name)
+            return
+    _verify_codecommit_via_git_https(link, region=region, repo_name=repo_name)
 
 
 def build_remediation_ticket_body(

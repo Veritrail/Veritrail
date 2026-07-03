@@ -1,6 +1,8 @@
 """IaC repository config helpers."""
 from __future__ import annotations
 
+import pytest
+
 from app.services.iac_repository import (
     build_remediation_ticket_body,
     normalize_iac_config,
@@ -210,3 +212,169 @@ def test_should_infer_iac_path_for_new_default_path():
         incoming_repo_ref="org/iac",
         existing_repo_ref="",
     )
+
+
+def test_parse_azure_devops_repo_link_full_ref():
+    from app.services.iac_repository import parse_azure_devops_repo_link
+
+    org_url, project, repo = parse_azure_devops_repo_link(
+        {"repo_ref": "myorg/MyProject/my-repo"}
+    )
+    assert org_url == "https://dev.azure.com/myorg"
+    assert project == "MyProject"
+    assert repo == "my-repo"
+
+
+def test_parse_azure_devops_repo_link_with_base_url():
+    from app.services.iac_repository import parse_azure_devops_repo_link
+
+    org_url, project, repo = parse_azure_devops_repo_link(
+        {
+            "base_url": "https://dev.azure.com/myorg",
+            "repo_ref": "MyProject/my-repo",
+        }
+    )
+    assert org_url == "https://dev.azure.com/myorg"
+    assert project == "MyProject"
+    assert repo == "my-repo"
+
+
+def test_verify_azure_devops_repo_success(monkeypatch):
+    from app.services.iac_repository import verify_azure_devops_repo
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"name": "my-repo"}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url):
+            assert "/_apis/git/repositories/my-repo" in url
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.iac_repository.httpx.Client", FakeClient)
+    verify_azure_devops_repo(
+        {
+            "repo_ref": "myorg/MyProject/my-repo",
+            "access_token": "pat-token",
+        }
+    )
+
+
+def test_verify_azure_devops_repo_rejects_bad_credentials(monkeypatch):
+    from app.services.iac_repository import verify_azure_devops_repo
+
+    class FakeResponse:
+        status_code = 401
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url):
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.iac_repository.httpx.Client", FakeClient)
+    with pytest.raises(ValueError, match="authentication failed"):
+        verify_azure_devops_repo(
+            {
+                "repo_ref": "myorg/MyProject/my-repo",
+                "access_token": "bad",
+            }
+        )
+
+
+def test_verify_codecommit_repo_via_git_https(monkeypatch):
+    from app.services.iac_repository import verify_codecommit_repo
+
+    class FakeResponse:
+        status_code = 200
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url, headers=None):
+            assert "git-codecommit.us-west-2.amazonaws.com/v1/repos/demo-repo" in url
+            assert headers["Authorization"].startswith("Basic ")
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.iac_repository.httpx.Client", FakeClient)
+    verify_codecommit_repo(
+        {
+            "repo_ref": "demo-repo",
+            "base_url": "us-west-2",
+            "access_token": "git-user:git-pass",
+        }
+    )
+
+
+def test_verify_codecommit_repo_rejects_missing_repo():
+    from app.services.iac_repository import verify_codecommit_repo
+
+    with pytest.raises(ValueError, match="repository name is required"):
+        verify_codecommit_repo({"access_token": "user:pass"})
+
+
+def test_verify_repo_link_azure_devops(monkeypatch):
+    from app.routes.iac_repository_integration import _verify_repo_link
+
+    called = {"azure": False}
+
+    def fake_verify(link):
+        called["azure"] = True
+        assert link["vcs_provider"] == "azure_devops"
+
+    monkeypatch.setattr(
+        "app.routes.iac_repository_integration.verify_azure_devops_repo",
+        fake_verify,
+    )
+    _verify_repo_link(
+        None,
+        None,
+        {"vcs_provider": "azure_devops", "repo_ref": "org/proj/repo", "access_token": "pat"},
+    )
+    assert called["azure"]
+
+
+def test_verify_repo_link_codecommit(monkeypatch):
+    from app.routes.iac_repository_integration import _verify_repo_link
+
+    called = {"codecommit": False}
+
+    def fake_verify(link):
+        called["codecommit"] = True
+        assert link["vcs_provider"] == "codecommit"
+
+    monkeypatch.setattr(
+        "app.routes.iac_repository_integration.verify_codecommit_repo",
+        fake_verify,
+    )
+    _verify_repo_link(
+        None,
+        None,
+        {"vcs_provider": "codecommit", "repo_ref": "demo", "access_token": "u:p"},
+    )
+    assert called["codecommit"]

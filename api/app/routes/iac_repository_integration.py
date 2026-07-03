@@ -38,6 +38,8 @@ from app.services.iac_repository import (
     remediation_paths,
     resolve_github_token,
     ticket_target_repo,
+    verify_azure_devops_repo,
+    verify_codecommit_repo,
 )
 
 router = APIRouter()
@@ -286,6 +288,12 @@ def _verify_repo_link(db: Session, org_id: uuid.UUID, link: dict) -> None:
         return
     if vcs == "gitlab":
         _verify_gitlab_repo(db, org_id, link)
+        return
+    if vcs == "azure_devops":
+        verify_azure_devops_repo(link)
+        return
+    if vcs == "codecommit":
+        verify_codecommit_repo(link)
         return
     if not link.get("repo_ref"):
         raise ValueError("repo_ref is required")
