@@ -43,13 +43,13 @@ const RECENT_EVIDENCE = [
   { brand: "azure" as const, source: "Azure", label: "Storage Account Encryption Enabled", updated: "3d ago" },
 ];
 
-function SparklineIcon({ className = "" }: { className?: string }) {
+function SparklineIcon({ className = "", path }: { className?: string; path?: string }) {
   return (
     <svg className={className} viewBox="0 0 48 16" fill="none" aria-hidden>
       <path
-        d="M1 12 L10 9 L18 11 L26 6 L34 8 L42 3 L47 5"
+        d={path ?? "M1 12 L10 9 L18 11 L26 6 L34 8 L42 3 L47 5"}
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -144,9 +144,13 @@ function DashboardPreview() {
             <div className="homepage-stat-card__label">Controls covered</div>
             <SparklineIcon className="homepage-stat-card__sparkline" />
           </div>
-          <div className="homepage-stat-card">
+          <div className="homepage-stat-card homepage-stat-card--sparkline">
             <div className="homepage-stat-card__value homepage-stat-card__value--navy">2,472</div>
             <div className="homepage-stat-card__label">Evidence items</div>
+            <SparklineIcon
+              className="homepage-stat-card__sparkline homepage-stat-card__sparkline--navy"
+              path="M1 10 L9 12 L17 8 L25 9 L33 5 L41 7 L47 4"
+            />
           </div>
           <div className="homepage-stat-card">
             <div className="homepage-stat-card__value homepage-stat-card__value--green">96%</div>

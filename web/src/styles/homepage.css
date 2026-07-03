@@ -30,8 +30,8 @@
 
 .homepage-dashboard-stack {
   position: relative;
-  padding-top: 0.75rem;
-  padding-right: 0.75rem;
+  padding-top: 1.1rem;
+  padding-right: 2.25rem;
 }
 
 .homepage-dashboard-card {
@@ -42,20 +42,26 @@
 
 .homepage-dashboard-card--back-2 {
   position: absolute;
-  inset: 0 0 0.5rem 0.5rem;
+  top: 0;
+  right: -1.35rem;
+  bottom: 1.1rem;
+  left: 1.75rem;
   z-index: 0;
-  opacity: 0.45;
-  box-shadow: 0 4px 12px rgb(15 23 42 / 0.06);
-  transform: translate(0.65rem, -0.65rem);
+  opacity: 0.55;
+  box-shadow: 0 6px 20px rgb(15 23 42 / 0.1);
+  transform: translate(1.35rem, -1rem);
 }
 
 .homepage-dashboard-card--back-1 {
   position: absolute;
-  inset: 0 0.25rem 0.25rem 0.25rem;
+  top: 0.4rem;
+  right: -0.65rem;
+  bottom: 0.55rem;
+  left: 0.85rem;
   z-index: 1;
-  opacity: 0.65;
-  box-shadow: 0 6px 18px rgb(15 23 42 / 0.08);
-  transform: translate(0.35rem, -0.35rem);
+  opacity: 0.78;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.12);
+  transform: translate(0.85rem, -0.55rem);
 }
 
 .homepage-dashboard-card--main {
@@ -69,11 +75,11 @@
 
 .homepage-dashboard-card__ghost-title {
   display: block;
-  padding: 1rem 1.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #94a3b8;
-  letter-spacing: 0.02em;
+  padding: 0.9rem 1.1rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: -0.01em;
 }
 
 .homepage-dashboard__header {
@@ -82,24 +88,27 @@
 }
 
 .homepage-dashboard__title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.1875rem;
+  font-weight: 700;
   color: #0f172a;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .homepage-dashboard__subtitle {
-  margin-top: 0.2rem;
-  font-size: 0.75rem;
-  color: #64748b;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #475569;
+  line-height: 1.35;
 }
 
 .homepage-dashboard__section-title {
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: 0.6875rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #94a3b8;
+  letter-spacing: 0.1em;
+  color: #64748b;
 }
 
 /* ── Stat cards ── */
@@ -131,39 +140,46 @@
 }
 
 .homepage-stat-card__value {
-  font-size: 1.125rem;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .homepage-stat-card__value--navy {
-  color: #1e293b;
+  color: #0f172a;
 }
 
 .homepage-stat-card__value--green {
-  color: #059669;
+  color: #047857;
 }
 
 .homepage-stat-card__value--orange {
-  color: #ea580c;
+  color: #c2410c;
 }
 
 .homepage-stat-card__label {
-  margin-top: 0.15rem;
-  font-size: 0.65rem;
+  margin-top: 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
   line-height: 1.3;
-  color: #64748b;
+  color: #475569;
 }
 
 .homepage-stat-card__sparkline {
   position: absolute;
-  right: 0.5rem;
-  bottom: 0.35rem;
-  left: 0.5rem;
-  width: calc(100% - 1rem);
-  height: 0.875rem;
-  color: #10b981;
+  right: 0.45rem;
+  bottom: 0.3rem;
+  left: 0.45rem;
+  width: calc(100% - 0.9rem);
+  height: 1rem;
+  color: #16a34a;
+}
+
+.homepage-stat-card__sparkline--navy {
+  color: #475569;
+  opacity: 0.75;
 }
 
 /* ── Evidence table + donut ── */
@@ -193,21 +209,24 @@
   width: 100%;
   margin-top: 0.65rem;
   border-collapse: collapse;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .homepage-evidence-table th {
-  padding: 0 0 0.45rem;
-  font-weight: 600;
+  padding: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   text-align: left;
-  color: #94a3b8;
-  border-bottom: 1px solid #f1f5f9;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .homepage-evidence-table td {
-  padding: 0.45rem 0.5rem 0.45rem 0;
+  padding: 0.5rem 0.5rem 0.5rem 0;
   vertical-align: middle;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .homepage-evidence-table tr:last-child td {
@@ -219,21 +238,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #334155;
-  font-weight: 500;
+  color: #1e293b;
+  font-weight: 600;
 }
 
 .homepage-evidence-table__source {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: #64748b;
+  color: #475569;
+  font-weight: 500;
   white-space: nowrap;
 }
 
 .homepage-evidence-table__updated {
   text-align: right;
-  color: #94a3b8;
+  color: #64748b;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -261,15 +282,15 @@
 }
 
 .homepage-donut {
-  --donut-size: 92px;
-  --donut-thickness: 11px;
+  --donut-size: 100px;
+  --donut-thickness: 14px;
   width: var(--donut-size);
   height: var(--donut-size);
   border-radius: 50%;
   background: conic-gradient(
-    #10b981 0 94.67%,
-    #f59e0b 94.67% 98.67%,
-    #ef4444 98.67% 100%
+    #16a34a 0 94.67%,
+    #eab308 94.67% 98.67%,
+    #dc2626 98.67% 100%
   );
   display: grid;
   place-items: center;
@@ -291,28 +312,30 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #1e293b;
-  line-height: 1.1;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }
 
 .homepage-donut__sublabel {
-  margin-top: 0.1rem;
-  font-size: 0.55rem;
-  font-weight: 600;
-  color: #94a3b8;
+  margin-top: 0.15rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .homepage-donut-legend {
-  margin-top: 0.65rem;
+  margin-top: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.65rem;
-  color: #64748b;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #334155;
 }
 
 .homepage-donut-legend li {
@@ -322,26 +345,28 @@
 }
 
 .homepage-donut-legend__dot {
-  width: 0.45rem;
-  height: 0.45rem;
+  width: 0.5625rem;
+  height: 0.5625rem;
   border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.8);
 }
 
 .homepage-donut-legend__dot--green {
-  background: #10b981;
+  background: #16a34a;
 }
 
 .homepage-donut-legend__dot--yellow {
-  background: #f59e0b;
+  background: #eab308;
 }
 
 .homepage-donut-legend__dot--red {
-  background: #ef4444;
+  background: #dc2626;
 }
 
 .homepage-donut-legend__count {
-  color: #94a3b8;
+  font-weight: 500;
+  color: #64748b;
 }
 
 /* ── Integration diagram ── */
