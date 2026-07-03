@@ -23,6 +23,13 @@ from app.models.evidence_artifact_comment import EvidenceArtifactComment
 from app.models.evidence_source import EvidenceSource
 from app.models.ai_triage import AITriageResult
 from app.models.auditor import AuditorAccess, AuditActivityLog, TrustCenterConfig
+from app.models.phase9 import (
+    ControlCoverage,
+    EvidenceRequirement,
+    MdmDeviceSnapshot,
+    OrgFramework,
+    VaultExportShare,
+)
 from app.models.org_team import OrgActivityLog, OrgDomain, OrgInvite, OrgJoinRequest, OrgMembership
 from app.models.saml import OrgSamlConfig
 from app.models.digest_snapshot import DigestSnapshot
@@ -67,6 +74,7 @@ __all__ = [
     "EvidenceSource",
     "AITriageResult",
     "AuditorAccess", "AuditActivityLog", "TrustCenterConfig",
+    "VaultExportShare", "OrgFramework", "EvidenceRequirement", "ControlCoverage", "MdmDeviceSnapshot",
     "OrgInvite", "OrgActivityLog", "OrgDomain", "OrgJoinRequest", "OrgMembership",
     "OrgSamlConfig",
     "DigestSnapshot",
