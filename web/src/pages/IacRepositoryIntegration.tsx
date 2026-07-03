@@ -258,7 +258,7 @@ function GitHubOAuthRepositoryPicker({
     <div className="integration-setup__github-picker">
       <div className="integration-setup__github-picker-head">
         <div>
-          <p className="integration-setup__github-app-eyebrow">GitHub connected</p>
+          <p className="integration-setup__github-app-eyebrow integration-setup__github-app-eyebrow--success">GitHub connected</p>
           <h3>{title}</h3>
           <p>
             {oauthLogin
@@ -433,7 +433,7 @@ function GitHubAppRepositoryPicker({
     <div className="integration-setup__github-picker">
       <div className="integration-setup__github-picker-head">
         <div>
-          <p className="integration-setup__github-app-eyebrow">GitHub App installed</p>
+          <p className="integration-setup__github-app-eyebrow integration-setup__github-app-eyebrow--success">GitHub App installed</p>
           <h3>{title}</h3>
           <p>{account ? `Repository access is scoped to ${account}.` : "Repository access is scoped by the GitHub App installation."}</p>
         </div>

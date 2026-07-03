@@ -4,6 +4,17 @@
   --is-text: #0f172a;
   --is-teal: var(--vt-teal, #0d9488);
   --is-teal-strong: var(--vt-teal-hover, #0f766e);
+  --is-success: #0f766e;
+  --is-success-soft: #ecfdf5;
+  --is-success-border: #99f6e4;
+  --is-action: var(--veritrail-primary, #0f172a);
+  --is-action-hover: var(--veritrail-primary-hover, #1e293b);
+  --is-selected-bg: var(--vt-info-soft, #eff6ff);
+  --is-selected-border: #93c5fd;
+  --is-selected-ring: rgba(37, 99, 235, 0.08);
+  --is-step-inactive-bg: #f8fafc;
+  --is-step-inactive-text: #64748b;
+  --is-step-inactive-border: #dbe3ef;
   width: 100%;
   max-width: 52rem;
   padding-bottom: 2.5rem;
@@ -110,9 +121,9 @@
   min-width: 0;
   border: 1px solid #dbe4ee;
   border-radius: 0.875rem;
-  padding: 0.75rem 0.875rem;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  padding: 0.625rem 0.75rem;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .integration-setup__flow-node + .integration-setup__flow-node::before {
@@ -154,9 +165,9 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #047857;
-  background: #ecfdf5;
-  box-shadow: inset 0 0 0 1px #a7f3d0;
+  color: var(--is-success);
+  background: var(--is-success-soft);
+  box-shadow: inset 0 0 0 1px var(--is-success-border);
 }
 
 .integration-setup__card {
@@ -286,7 +297,7 @@
 }
 
 .integration-setup__feedback--ok {
-  color: #047857;
+  color: var(--is-success);
 }
 
 .integration-setup__verified {
@@ -305,17 +316,17 @@
   justify-content: center;
   width: 4rem;
   height: 4rem;
-  border: 1px solid #a7f3d0;
+  border: 1px solid var(--is-success-border);
   border-radius: 9999px;
-  background: #ecfdf5;
-  color: #059669;
+  background: var(--is-success-soft);
+  color: var(--is-success);
 }
 
 .integration-setup__verified-label {
   margin: 0;
   font-size: 1.125rem;
   font-weight: 700;
-  color: #047857;
+  color: var(--is-success);
 }
 
 .integration-setup__actions {
@@ -386,6 +397,17 @@
   background: var(--vt-teal, #0d9488);
 }
 
+.integration-setup--iac .integration-setup__btn--primary {
+  border-color: var(--is-action);
+  background: var(--is-action);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.integration-setup--iac .integration-setup__btn--primary:hover:not(:disabled) {
+  border-color: var(--is-action-hover);
+  background: var(--is-action-hover);
+}
+
 .integration-setup__btn--secondary {
   border: 1px solid #e2e8f0;
   background: #fff;
@@ -406,6 +428,16 @@
 
 .integration-setup__btn--danger:hover:not(:disabled) {
   color: #991b1b;
+}
+
+.integration-setup--iac .integration-setup__btn--danger {
+  font-weight: 500;
+  color: #b91c1c;
+}
+
+.integration-setup--iac .integration-setup__btn--danger:hover:not(:disabled) {
+  color: #991b1b;
+  background: #fef2f2;
 }
 
 .integration-setup__loading {
@@ -489,6 +521,9 @@
 
 .integration-setup--iac .integration-setup__step {
   padding: 0.4rem 0.8rem;
+  border-color: var(--is-step-inactive-border);
+  color: var(--is-step-inactive-text);
+  background: var(--is-step-inactive-bg);
 }
 
 .integration-setup__step--active {
@@ -504,15 +539,15 @@
 }
 
 .integration-setup--iac .integration-setup__step--active {
-  border-color: var(--is-teal-strong);
-  background: var(--is-teal-strong);
+  border-color: var(--is-action);
+  background: var(--is-action);
   color: #fff;
 }
 
 .integration-setup--iac .integration-setup__step--done {
-  border-color: #99f6e4;
-  background: #ecfdf5;
-  color: var(--is-teal-strong);
+  border-color: var(--is-step-inactive-border);
+  background: var(--is-step-inactive-bg);
+  color: var(--is-step-inactive-text);
 }
 
 .integration-setup__step-panel {
@@ -570,9 +605,9 @@
 }
 
 .integration-setup__provider-card--selected {
-  border-color: #5eead4;
-  background: #f0fdfa;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14), 0 10px 24px rgba(15, 23, 42, 0.06);
+  border-color: var(--is-selected-border);
+  background: var(--is-selected-bg);
+  box-shadow: 0 0 0 2px var(--is-selected-ring), 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .integration-setup__provider-copy {
@@ -620,10 +655,10 @@
 }
 
 .integration-setup__choice-btn--selected {
-  border-color: #5eead4;
-  color: #0f766e;
-  background: #f0fdfa;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
+  border-color: var(--is-selected-border);
+  color: var(--is-text);
+  background: var(--is-selected-bg);
+  box-shadow: 0 0 0 2px var(--is-selected-ring);
 }
 
 .integration-setup__github-app-card,
@@ -670,7 +705,11 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #0f766e;
+  color: #64748b;
+}
+
+.integration-setup__github-app-eyebrow--success {
+  color: var(--is-success);
 }
 
 .integration-setup__github-picker {
@@ -720,9 +759,10 @@
 }
 
 .integration-setup__github-owner-chip.is-selected {
-  border-color: #5eead4;
-  background: #f0fdfa;
-  color: #0f766e;
+  border-color: var(--is-selected-border);
+  background: var(--is-selected-bg);
+  color: var(--is-text);
+  box-shadow: 0 0 0 2px var(--is-selected-ring);
 }
 
 .integration-setup__repo-picker-list {
@@ -755,9 +795,9 @@
 }
 
 .integration-setup__repo-picker-row.is-selected {
-  border-color: #5eead4;
-  background: #f0fdfa;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+  border-color: var(--is-selected-border);
+  background: var(--is-selected-bg);
+  box-shadow: 0 0 0 2px var(--is-selected-ring);
 }
 
 .integration-setup__repo-picker-row strong,
@@ -788,8 +828,9 @@
 }
 
 .integration-setup__repo-picker-row.is-selected .integration-setup__repo-picker-check {
-  color: #0f766e;
-  background: #ccfbf1;
+  color: var(--is-success);
+  background: var(--is-success-soft);
+  box-shadow: inset 0 0 0 1px var(--is-success-border);
 }
 
 .integration-setup__repo-picker-empty {
@@ -961,7 +1002,7 @@
   margin: 0.75rem 1.5rem 0;
   font-size: 0.875rem;
   line-height: 1.45;
-  color: #047857;
+  color: var(--is-success);
 }
 
 .integration-setup__section-title {
@@ -1062,8 +1103,9 @@
 }
 
 .integration-setup__status--connected {
-  color: #047857;
-  background: #ecfdf5;
+  color: var(--is-success);
+  background: var(--is-success-soft);
+  box-shadow: inset 0 0 0 1px var(--is-success-border);
 }
 
 .integration-setup__status--pending {
