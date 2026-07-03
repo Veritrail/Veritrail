@@ -558,13 +558,15 @@
 
 .integration-catalog__grid {
   grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: 1rem;
 }
 
 .integration-catalog-card {
-  min-height: 5rem;
+  gap: 1.125rem;
+  min-height: 6.75rem;
   border-color: #e2e8f0;
   border-radius: 0.75rem;
-  padding: 0.9rem 1rem;
+  padding: 1.25rem 1.375rem;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
@@ -580,8 +582,8 @@
 }
 
 .integration-catalog-card__icon {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 3.25rem;
+  height: 3.25rem;
 }
 
 .integration-catalog-card .integrations-connect-btn {

@@ -63,7 +63,7 @@ export default function IntegrationCatalog() {
                       key={entry.key}
                       className={`integrations-explore-card integration-catalog-card${isComingSoon ? " integrations-explore-card--coming-soon" : ""}`}
                     >
-                      <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon integration-catalog-card__icon" />
+                      <IntegrationBrandIcon brand={entry.brand} size={52} variant="plain" className="integrations-explore-card__icon integration-catalog-card__icon" />
                       <div className="integrations-explore-card__body">
                         <div className="integrations-explore-card__name">{entry.name}</div>
                         <p className="integrations-explore-card__desc">{entry.description}</p>
