@@ -18,7 +18,7 @@ import {
 } from "./PolicyProposalReview";
 import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import { DrawerDateField } from "./DrawerDateField";
-import { GitHubIssuesFindingAction } from "./GitHubIssuesFindingAction";
+import { TerraformIacDrawerSection } from "./TerraformIacDrawerSection";
 import { JiraFindingAction } from "./JiraFindingAction";
 import { todayIso } from "../lib/isoDate";
 import {
@@ -6444,10 +6444,11 @@ export function FindingDrawer({
       | {
           jira?: { issue_key?: string; issue_url?: string };
           github_issue?: { issue_key?: string; issue_url?: string };
+          iac_remediation_ticket?: { issue_key?: string; issue_url?: string };
         }
       | undefined;
 
-    const storedGithub = evidence?.github_issue;
+    const storedGithub = evidence?.iac_remediation_ticket ?? evidence?.github_issue;
     if (storedGithub?.issue_key && storedGithub.issue_url) {
       setGithubIssue({ issue_key: storedGithub.issue_key, issue_url: storedGithub.issue_url });
     } else {
@@ -6790,7 +6791,7 @@ export function FindingDrawer({
             rel="noreferrer"
             className="font-medium text-sky-800 underline"
           >
-            {githubIssue ? `GitHub #${githubIssue.issue_key}` : jiraIssue!.issue_key}
+            {githubIssue ? `Ticket #${githubIssue.issue_key}` : jiraIssue!.issue_key}
           </a>
         </div>
       )}
@@ -6930,10 +6931,12 @@ export function FindingDrawer({
                   )
                 )}
                 {!isIdentityCheck && remDetailMode === "terraform" && (
-                  <IaCRemediationSection
-                    embedMode="terraform"
+                  <TerraformIacDrawerSection
                     findingId={finding.id}
                     checkId={finding.check_id}
+                    resourceArn={finding.resource_arn}
+                    existing={githubIssue}
+                    onCreated={setGithubIssue}
                   />
                 )}
                 {!isIdentityCheck && remDetailMode === "automation" && (
@@ -6992,7 +6995,6 @@ export function FindingDrawer({
             className={drawerFooterExceptionGhost}
             sheetContainerRef={drawerSheetRef}
           />
-          <GitHubIssuesFindingAction findingId={finding.id} existing={githubIssue} onCreated={setGithubIssue} />
           <JiraFindingAction findingId={finding.id} existing={jiraIssue} onCreated={setJiraIssue} />
           <button
             type="button"

@@ -1,5 +1,6 @@
 export type IntegrationBrandId =
   | "aws"
+  | "iac"
   | "github"
   | "gitlab"
   | "google-workspace"
@@ -40,6 +41,7 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
     compactSrc: "/aws-account-icon.png",
     compactFallback: "/aws.png",
   },
+  iac: { src: "/integrations/iac.svg", tileScale: 1.1, tilePadding: 6 },
   github: { src: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" },
   gitlab: { src: "/integrations/gitlab.png", tileScale: 1.32, tilePadding: 4 },
   "google-workspace": { src: "https://www.google.com/favicon.ico" },

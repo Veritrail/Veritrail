@@ -27,8 +27,10 @@ import VulnScannerIntegration from "./pages/VulnScannerIntegration";
 import OktaIntegration from "./pages/OktaIntegration";
 import SiemIntegration from "./pages/SiemIntegration";
 import GitHubIssuesIntegration from "./pages/GitHubIssuesIntegration";
+import IacRepositoryIntegration from "./pages/IacRepositoryIntegration";
 import AzureBoardsIntegration from "./pages/AzureBoardsIntegration";
 import Integrations from "./pages/Integrations";
+import IntegrationCatalog from "./pages/IntegrationCatalog";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
 import Layout from "./Layout";
@@ -89,6 +91,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/timeline" element={<Navigate to="/history" replace />} />
             <Route path="/history/infrastructure" element={<Navigate to="/history" replace />} />
             <Route path="/integrations" element={<Integrations />} />
+            <Route path="/integrations/catalog" element={<IntegrationCatalog />} />
             <Route path="/integrations/github" element={<GitHubIntegration />} />
             <Route path="/integrations/github/edit" element={<GitHubIntegrationEdit />} />
             <Route path="/integrations/gitlab" element={<GitLabIntegration />} />
@@ -103,6 +106,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/okta" element={<OktaIntegration />} />
             <Route path="/integrations/siem/:vendor" element={<SiemIntegration />} />
             <Route path="/integrations/github-issues" element={<GitHubIssuesIntegration />} />
+            <Route path="/integrations/iac-repository" element={<IacRepositoryIntegration />} />
             <Route path="/integrations/azure-boards" element={<AzureBoardsIntegration />} />
           </Route>
           <Route path="/auditor/verify/:token" element={<AuditorLogin />} />

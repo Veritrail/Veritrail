@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,7 +6,7 @@ import { api } from "../api";
 import {
   azureBoardsIntegrationSchema,
   cloudAccountListSchema,
-  githubIssuesIntegrationSchema,
+  iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
   jiraIntegrationSchema,
   oktaIntegrationSchema,
@@ -34,7 +34,6 @@ import {
   StatusDot,
 } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
-import { IntegrationRequestModal } from "../components/IntegrationRequestModal";
 import "../styles/integrations-page.css";
 import "../styles/workspace-page.css";
 
@@ -81,15 +80,6 @@ type IntegrationRow = {
   permissionsLabel: string;
   permissionsVerified?: boolean;
   capabilities: string[];
-};
-
-type ExploreCard = {
-  key: string;
-  brand: IntegrationBrandId;
-  name: string;
-  description: string;
-  href?: string;
-  comingSoon?: boolean;
 };
 
 function integrationCta(connected: boolean): string {
@@ -232,56 +222,6 @@ function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
   );
 }
 
-function ExploreIntegrationsSection({ cards }: { cards: ExploreCard[] }) {
-  const [requestOpen, setRequestOpen] = useState(false);
-
-  return (
-    <section className="integrations-explore">
-      <div className="integrations-explore__header">
-        <h2>Explore more integrations</h2>
-        <p className="integrations-explore__request-row">
-          Don&apos;t see the tool you need?{" "}
-          <button
-            type="button"
-            className="integrations-explore-request"
-            onClick={() => setRequestOpen(true)}
-            aria-haspopup="dialog"
-          >
-            Request an integration
-          </button>
-        </p>
-      </div>
-      <div className="integrations-explore-grid">
-        {cards.map((card) => {
-          const isComingSoon = card.comingSoon || !card.href;
-          return (
-            <article
-              key={card.key}
-              className={`integrations-explore-card${isComingSoon ? " integrations-explore-card--coming-soon" : ""}`}
-            >
-              <IntegrationBrandIcon brand={card.brand} size={48} variant="plain" className="integrations-explore-card__icon" />
-              <div className="integrations-explore-card__body">
-                <div className="integrations-explore-card__name">{card.name}</div>
-                <p className="integrations-explore-card__desc">{card.description}</p>
-              </div>
-              {isComingSoon ? (
-                <button type="button" className="integrations-connect-btn integrations-connect-btn--coming-soon" disabled>
-                  Coming soon
-                </button>
-              ) : (
-                <Link to={card.href!} className="integrations-connect-btn">
-                  Connect
-                </Link>
-              )}
-            </article>
-          );
-        })}
-      </div>
-      <IntegrationRequestModal open={requestOpen} onClose={() => setRequestOpen(false)} />
-    </section>
-  );
-}
-
 function ScanProgressBanner() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
@@ -353,9 +293,9 @@ function IntegrationsContent() {
     queryKey: ["okta-integration"],
     queryFn: () => api("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
   });
-  const githubIssues = useQuery({
-    queryKey: ["github-issues-integration"],
-    queryFn: () => api("/v1/integrations/github-issues", { schema: githubIssuesIntegrationSchema }),
+  const iacRepository = useQuery({
+    queryKey: ["iac-repository-integration"],
+    queryFn: () => api("/v1/integrations/iac-repository", { schema: iacRepositoryIntegrationSchema }),
   });
   const jira = useQuery({
     queryKey: ["jira-integration"],
@@ -414,7 +354,7 @@ function IntegrationsContent() {
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
   const oktaConnected = !!okta.data?.connected;
-  const githubIssuesConnected = !!githubIssues.data?.connected;
+  const iacRepositoryConnected = !!iacRepository.data?.connected;
   const jiraConnected = !!jira.data?.connected;
   const azureBoardsConnected = !!azureBoards.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
@@ -432,7 +372,7 @@ function IntegrationsContent() {
     gcpConnected,
     azureConnected,
     scannerConnected,
-    githubIssuesConnected,
+    iacRepositoryConnected,
     jiraConnected,
     azureBoardsConnected,
     splunkConnected,
@@ -651,26 +591,31 @@ function IntegrationsContent() {
           } satisfies IntegrationRow,
         ]
       : []),
-    ...(githubIssuesConnected
+    ...(iacRepositoryConnected
       ? [
           {
-            key: "github-issues",
-            name: "GitHub Issues",
-            description: "Create remediation issues from findings in a target repository.",
-            icon: <IntegrationBrandIcon brand="github" size={48} />,
-            href: "/integrations/github-issues",
+            key: "iac-repository",
+            name: "IaC repository",
+            description: "Link Terraform/Terragrunt repo for finding remediation PRs and tickets.",
+            icon: <IntegrationBrandIcon brand="iac" size={48} />,
+            href: "/integrations/iac-repository",
             connected: true,
-            loading: githubIssues.isLoading,
+            loading: iacRepository.isLoading,
             lastSyncAt: null,
             lastSyncLabel:
-              githubIssues.data?.owner && githubIssues.data?.repo
-                ? `${githubIssues.data.owner}/${githubIssues.data.repo}`
-                : "Repository configured",
-            healthLabel: githubIssues.data?.status === "error" ? "Needs reconnect" : "Healthy",
-            healthTone: (githubIssues.data?.status === "error" ? "danger" : "ok") as Tone,
-            permissionsLabel: githubIssues.data?.has_access_token ? "Token configured" : "GitHub OAuth",
+              iacRepository.data?.terraform_repo?.repo_ref ??
+              iacRepository.data?.repo_ref ??
+              (iacRepository.data?.owner && iacRepository.data?.repo
+                ? `${iacRepository.data.owner}/${iacRepository.data.repo}`
+                : "Repository configured"),
+            healthLabel: iacRepository.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (iacRepository.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: iacRepository.data?.has_access_token ? "Token configured" : "OAuth or token",
             permissionsVerified: true,
-            capabilities: ["Remediation tickets", "Create issues from findings"],
+            capabilities: [
+              iacRepository.data?.uses_terragrunt ? "Terragrunt paths" : "Terraform path",
+              "Remediation tickets",
+            ],
           } satisfies IntegrationRow,
         ]
       : []),
@@ -756,119 +701,6 @@ function IntegrationsContent() {
 
   const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
 
-  const exploreCards: ExploreCard[] = [
-    ...(!slackConnected
-      ? [
-          {
-            key: "slack",
-            brand: "slack",
-            name: "Slack",
-            description: "Send alerts and updates",
-            href: "/integrations/slack",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!gcpConnected
-      ? [
-          {
-            key: "gcp-explore",
-            brand: "gcp",
-            name: "Google Cloud",
-            description: "Multi-cloud posture checks",
-            href: "/integrations/gcp",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!azureConnected
-      ? [
-          {
-            key: "azure-explore",
-            brand: "azure",
-            name: "Microsoft Azure",
-            description: "Defender and storage checks",
-            href: "/integrations/azure",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!jiraConnected
-      ? [
-          {
-            key: "jira",
-            brand: "jira",
-            name: "Jira",
-            description: "Sync issues and tickets",
-            href: "/integrations/jira",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!githubIssuesConnected
-      ? [
-          {
-            key: "github-issues",
-            brand: "github",
-            name: "GitHub Issues",
-            description: "Create GitHub issues from findings in a target repo",
-            href: "/integrations/github-issues",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!azureBoardsConnected
-      ? [
-          {
-            key: "azure-boards",
-            brand: "azure-devops",
-            name: "Azure Boards",
-            description: "Create work items from findings",
-            href: "/integrations/azure-boards",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!snykConnected
-      ? [
-          {
-            key: "snyk-explore",
-            brand: "snyk",
-            name: "Snyk",
-            description: "Import open Snyk issues",
-            href: "/integrations/scanners/snyk",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!oktaConnected
-      ? [
-          {
-            key: "okta-explore",
-            brand: "okta",
-            name: "Okta",
-            description: "Identity directory sync",
-            href: "/integrations/okta",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!splunkConnected
-      ? [
-          {
-            key: "splunk-explore",
-            brand: "splunk",
-            name: "Splunk",
-            description: "SIEM signal evidence",
-            href: "/integrations/siem/splunk",
-          } satisfies ExploreCard,
-        ]
-      : []),
-    ...(!datadogConnected
-      ? [
-          {
-            key: "datadog-explore",
-            brand: "datadog",
-            name: "Datadog",
-            description: "Monitoring signal evidence",
-            href: "/integrations/siem/datadog",
-          } satisfies ExploreCard,
-        ]
-      : []),
-  ];
-
   return (
     <div className="integrations-page">
       <div className="workspace-summary workspace-summary--metrics">
@@ -880,9 +712,19 @@ function IntegrationsContent() {
 
       {awsScanRunning && <ScanProgressBanner />}
 
+      <div className="integrations-page__actions">
+        <div className="integrations-page__actions-copy">
+          <h2>Connected integrations</h2>
+          <p>Manage the connectors already configured for this workspace.</p>
+        </div>
+        <Link to="/integrations/catalog" className="integrations-page__catalog-btn">
+          Browse integration catalog
+          <span aria-hidden>&rarr;</span>
+        </Link>
+      </div>
+
       <div className="integrations-page__body">
         <IntegrationsTable rows={activeRows} />
-        <ExploreIntegrationsSection cards={exploreCards} />
       </div>
     </div>
   );

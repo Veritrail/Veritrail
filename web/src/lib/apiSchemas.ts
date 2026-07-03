@@ -695,6 +695,53 @@ export const githubIssuesIntegrationSchema = z
 
 export type GitHubIssuesIntegration = z.infer<typeof githubIssuesIntegrationSchema>;
 
+export const iacRepositoryIntegrationSchema = z
+  .object({
+    connected: z.boolean(),
+    status: z.string().optional(),
+    vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).nullable().optional(),
+    uses_terragrunt: z.boolean().optional(),
+    repo_mode: z.enum(["single", "dual"]).optional(),
+    terraform_repo: z
+      .object({
+        vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).optional(),
+        repo_ref: z.string(),
+        owner: z.string().nullable().optional(),
+        repo: z.string().nullable().optional(),
+        path: z.string().optional(),
+        has_access_token: z.boolean().optional(),
+        base_url: z.string().nullable().optional(),
+      })
+      .nullable()
+      .optional(),
+    terragrunt_repo: z
+      .object({
+        vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).optional(),
+        repo_ref: z.string(),
+        owner: z.string().nullable().optional(),
+        repo: z.string().nullable().optional(),
+        path: z.string().optional(),
+        has_access_token: z.boolean().optional(),
+        base_url: z.string().nullable().optional(),
+      })
+      .nullable()
+      .optional(),
+    repo_ref: z.string().nullable().optional(),
+    owner: z.string().nullable().optional(),
+    repo: z.string().nullable().optional(),
+    terraform_path: z.string().optional(),
+    terragrunt_path: z.string().nullable().optional(),
+    paths_differ: z.boolean().optional(),
+    pr_path: z.string().nullable().optional(),
+    labels: z.array(z.string()).optional(),
+    has_access_token: z.boolean().optional(),
+    remediation_available: z.boolean().optional(),
+    remediation_unavailable_reason: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export type IacRepositoryIntegration = z.infer<typeof iacRepositoryIntegrationSchema>;
+
 export const azureBoardsIntegrationSchema = z
   .object({
     connected: z.boolean(),
