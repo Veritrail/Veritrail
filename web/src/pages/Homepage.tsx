@@ -39,7 +39,16 @@ const RECENT_EVIDENCE = [
 function HomepageEvidenceStatusMark() {
   return (
     <span className="homepage-evidence-table__status" aria-hidden>
-      <img src="/brand/veritrail-mark.png" alt="" className="homepage-evidence-table__status-mark" />
+      <svg className="homepage-evidence-table__status-icon" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="8" fill="#dcfce7" stroke="#22c55e" strokeWidth="1" />
+        <path
+          d="M5.5 9.25 7.75 11.5 12.5 6.5"
+          stroke="#16a34a"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </span>
   );
 }
@@ -212,8 +221,16 @@ function DashboardPreview() {
             <div className="homepage-evidence-card">
               <h3 className="homepage-dashboard__section-title">Recent evidence</h3>
               <table className="homepage-evidence-table">
+                <colgroup>
+                  <col className="homepage-evidence-table__col-status" />
+                  <col className="homepage-evidence-table__col-source" />
+                  <col className="homepage-evidence-table__col-updated" />
+                </colgroup>
                 <thead>
                   <tr>
+                    <th scope="col" className="homepage-evidence-table__status-head">
+                      <span className="sr-only">Status</span>
+                    </th>
                     <th scope="col">Source</th>
                     <th scope="col" className="homepage-evidence-table__updated">
                       Updated
@@ -223,15 +240,17 @@ function DashboardPreview() {
                 <tbody>
                   {RECENT_EVIDENCE.map((row) => (
                     <tr key={row.label}>
+                      <td className="homepage-evidence-table__status-cell">
+                        <HomepageEvidenceStatusMark />
+                      </td>
                       <td>
-                        <span className="homepage-evidence-table__source">
-                          <HomepageEvidenceStatusMark />
+                        <div className="homepage-evidence-table__source">
                           <span className="homepage-evidence-table__label">{row.label}</span>
                           <span className="homepage-evidence-table__provider">
-                            <IntegrationBrandIcon brand={row.brand} size={18} variant="plain" />
+                            <IntegrationBrandIcon brand={row.brand} size={16} variant="plain" />
                             <span>{row.source}</span>
                           </span>
-                        </span>
+                        </div>
                       </td>
                       <td className="homepage-evidence-table__updated">{row.updated}</td>
                     </tr>
@@ -446,8 +465,7 @@ export default function Homepage() {
             <div>
               <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Why teams use Veritrail</h2>
               <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
-                One read-only evidence layer across your cloud and engineering stack — built for SOC 2, not a broad GRC
-                suite.
+                One read-only evidence layer across your cloud and engineering stack — built for SOC 2.
               </p>
               <ul className="mt-8 space-y-6">
                 {WHY_ITEMS.map((item) => (
