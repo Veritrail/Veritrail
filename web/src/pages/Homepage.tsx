@@ -241,10 +241,10 @@ export default function Homepage() {
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4 sm:gap-8 sm:py-10">
             {FEATURES.map((feature) => (
               <div key={feature.label} className="flex flex-col items-center text-center sm:items-start sm:text-left">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+                <div className="homepage-feature__icon flex h-11 w-11 items-center justify-center rounded-xl">
                   {feature.icon}
                 </div>
-                <p className="mt-3 text-sm font-semibold text-teal-900">{feature.label}</p>
+                <p className="homepage-feature__label mt-3 text-sm font-semibold">{feature.label}</p>
               </div>
             ))}
           </div>
