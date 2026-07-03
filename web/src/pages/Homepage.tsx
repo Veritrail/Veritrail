@@ -382,7 +382,7 @@ function IntegrationDiagram() {
 
         <div className="homepage-diagram__sources">
           {clouds.map((brand) => (
-            <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} />
+            <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} variant="plain" />
           ))}
         </div>
 
