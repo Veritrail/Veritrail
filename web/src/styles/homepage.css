@@ -74,13 +74,91 @@
     0 16px 48px -20px rgb(15 23 42 / 0.18);
 }
 
-.homepage-dashboard-card__ghost-title {
-  display: block;
-  padding: 0.9rem 1.1rem;
-  font-size: 0.8125rem;
+/* Peek cards behind main dashboard */
+
+.homepage-peek-card {
+  padding: 0.85rem 1rem 1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.homepage-peek-card__title {
+  font-size: 0.75rem;
   font-weight: 700;
   color: #64748b;
   letter-spacing: -0.01em;
+}
+
+.homepage-peek-card__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.homepage-peek-card__icon-box {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 0.375rem;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.homepage-peek-card__icon-box--shield {
+  background: #f0fdfa;
+  color: #5eead4;
+}
+
+.homepage-peek-card__icon-box svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.homepage-peek-card__skeleton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.homepage-peek-card__skeleton--stacked {
+  margin-top: 0.15rem;
+}
+
+.homepage-peek-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.1rem;
+}
+
+.homepage-peek-card__bar {
+  display: block;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.homepage-peek-card__bar--wide {
+  width: 72%;
+}
+
+.homepage-peek-card__bar--medium {
+  width: 58%;
+}
+
+.homepage-peek-card__bar--narrow {
+  width: 42%;
+}
+
+.homepage-peek-card__bar--short {
+  width: 36%;
 }
 
 .homepage-dashboard__header {
@@ -283,15 +361,15 @@
 }
 
 .homepage-donut {
-  --donut-size: 100px;
-  --donut-thickness: 14px;
+  --donut-size: 104px;
+  --donut-thickness: 18px;
   width: var(--donut-size);
   height: var(--donut-size);
   border-radius: 50%;
   background: conic-gradient(
-    #16a34a 0 94.67%,
-    #eab308 94.67% 98.67%,
-    #dc2626 98.67% 100%
+    #22c55e 0 94.67%,
+    #fbbf24 94.67% 98.67%,
+    #ef4444 98.67% 100%
   );
   display: grid;
   place-items: center;
@@ -313,7 +391,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 800;
   color: #0f172a;
   line-height: 1.05;
@@ -322,11 +400,11 @@
 
 .homepage-donut__sublabel {
   margin-top: 0.15rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  color: #64748b;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 .homepage-donut-legend {
@@ -354,15 +432,15 @@
 }
 
 .homepage-donut-legend__dot--green {
-  background: #16a34a;
+  background: #22c55e;
 }
 
 .homepage-donut-legend__dot--yellow {
-  background: #eab308;
+  background: #fbbf24;
 }
 
 .homepage-donut-legend__dot--red {
-  background: #dc2626;
+  background: #ef4444;
 }
 
 .homepage-donut-legend__count {
