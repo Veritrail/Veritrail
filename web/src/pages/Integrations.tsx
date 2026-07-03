@@ -23,8 +23,15 @@ const IK = {
   sources: "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z",
 } as const;
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
+import { useConnectedCatalogState } from "../hooks/useConnectedCatalogState";
 import { isCloudAccountConnected } from "../hooks/useConnectedAccountOptions";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
+import { IntegrationRequestModal } from "../components/IntegrationRequestModal";
+import {
+  catalogExploreEntries,
+  INTEGRATION_CATALOG,
+  type CatalogEntry,
+} from "../lib/integrationCatalog";
 import {
   formatSyncDetail,
   IconShield,
@@ -347,6 +354,46 @@ function IntegrationsInventory({
         </div>
       )}
     </div>
+  );
+}
+
+function ExploreIntegrationsSection({ entries }: { entries: CatalogEntry[] }) {
+  const [requestOpen, setRequestOpen] = useState(false);
+
+  if (entries.length === 0) return null;
+
+  return (
+    <section className="integrations-explore">
+      <div className="integrations-explore__header">
+        <h2>Explore more integrations</h2>
+        <p className="integrations-explore__request-row">
+          Don&apos;t see the tool you need?{" "}
+          <button
+            type="button"
+            className="integrations-explore-request"
+            onClick={() => setRequestOpen(true)}
+            aria-haspopup="dialog"
+          >
+            Request an integration
+          </button>
+        </p>
+      </div>
+      <div className="integrations-explore-grid">
+        {entries.map((entry) => (
+          <article key={entry.key} className="integrations-explore-card">
+            <IntegrationBrandIcon brand={entry.brand} size={48} variant="plain" className="integrations-explore-card__icon" />
+            <div className="integrations-explore-card__body">
+              <div className="integrations-explore-card__name">{entry.name}</div>
+              <p className="integrations-explore-card__desc">{entry.description}</p>
+            </div>
+            <Link to={entry.href!} className="integrations-connect-btn">
+              Connect
+            </Link>
+          </article>
+        ))}
+      </div>
+      <IntegrationRequestModal open={requestOpen} onClose={() => setRequestOpen(false)} />
+    </section>
   );
 }
 
@@ -829,6 +876,11 @@ function IntegrationsContent() {
 
   const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
   const attentionCount = activeRows.filter(rowNeedsAttention).length;
+  const { hiddenKeys } = useConnectedCatalogState();
+  const exploreEntries = useMemo(
+    () => catalogExploreEntries(INTEGRATION_CATALOG, hiddenKeys),
+    [hiddenKeys],
+  );
   const connectedDetail = `${connectedCount} active connector${connectedCount === 1 ? "" : "s"}`;
   const attentionDetail =
     attentionCount === 1
@@ -856,6 +908,7 @@ function IntegrationsContent() {
 
       <div className="integrations-page__body">
         <IntegrationsInventory rows={activeRows} attentionCount={attentionCount} />
+        <ExploreIntegrationsSection entries={exploreEntries} />
       </div>
     </div>
   );
