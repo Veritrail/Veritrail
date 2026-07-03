@@ -31,7 +31,6 @@ import Questionnaire from "./pages/Questionnaire";
 import SiemIntegration from "./pages/SiemIntegration";
 import GitHubIssuesIntegration from "./pages/GitHubIssuesIntegration";
 import IacRepositoryIntegration from "./pages/IacRepositoryIntegration";
-import AzureBoardsIntegration from "./pages/AzureBoardsIntegration";
 import Integrations from "./pages/Integrations";
 import IntegrationCatalog from "./pages/IntegrationCatalog";
 import History from "./pages/History";
@@ -113,7 +112,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/siem/:vendor" element={<SiemIntegration />} />
             <Route path="/integrations/github-issues" element={<GitHubIssuesIntegration />} />
             <Route path="/integrations/iac-repository" element={<IacRepositoryIntegration />} />
-            <Route path="/integrations/azure-boards" element={<AzureBoardsIntegration />} />
+            {/* Azure Boards removed from product — legacy bookmarks redirect to hub */}
+            <Route path="/integrations/azure-boards" element={<Navigate to="/integrations" replace />} />
           </Route>
           <Route path="/auditor/verify/:token" element={<AuditorLogin />} />
           <Route path="/auditor/login" element={<AuditorLogin />} />

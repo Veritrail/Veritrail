@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import {
-  azureBoardsIntegrationSchema,
   cloudAccountListSchema,
   iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
@@ -348,10 +347,6 @@ function IntegrationsContent() {
     queryKey: ["jira-integration"],
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
   });
-  const azureBoards = useQuery({
-    queryKey: ["azure-boards-integration"],
-    queryFn: () => api("/v1/integrations/azure-boards", { schema: azureBoardsIntegrationSchema }),
-  });
   const splunkSiem = useQuery({
     queryKey: ["siem-integration", "splunk"],
     queryFn: () => api("/v1/integrations/siem/splunk", { schema: scannerIntegrationSchema }),
@@ -403,7 +398,6 @@ function IntegrationsContent() {
   const oktaConnected = !!okta.data?.connected;
   const iacRepositoryConnected = !!iacRepository.data?.connected;
   const jiraConnected = !!jira.data?.connected;
-  const azureBoardsConnected = !!azureBoards.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
   const snykConnected = !!snykScanner.data?.connected;
@@ -422,7 +416,6 @@ function IntegrationsContent() {
         azureConnected,
         iacRepositoryConnected,
         jiraConnected,
-        azureBoardsConnected,
         splunkConnected,
         datadogConnected,
         connectedScanners: {
@@ -446,7 +439,6 @@ function IntegrationsContent() {
       azureConnected,
       iacRepositoryConnected,
       jiraConnected,
-      azureBoardsConnected,
       splunkConnected,
       datadogConnected,
       snykConnected,
@@ -475,7 +467,6 @@ function IntegrationsContent() {
     scannerConnected,
     iacRepositoryConnected,
     jiraConnected,
-    azureBoardsConnected,
     splunkConnected,
     datadogConnected,
   ].filter(Boolean).length;
@@ -737,26 +728,6 @@ function IntegrationsContent() {
             permissionsLabel: "API token",
             permissionsVerified: true,
             capabilities: ["Remediation tickets", "Create issues from findings"],
-          } satisfies IntegrationRow,
-        ]
-      : []),
-    ...(azureBoardsConnected
-      ? [
-          {
-            key: "azure-boards",
-            name: "Azure Boards",
-            description: "Create Azure DevOps work items from findings.",
-            icon: <IntegrationBrandIcon brand="azure-devops" size={48} />,
-            href: "/integrations/azure-boards",
-            connected: true,
-            loading: azureBoards.isLoading,
-            lastSyncAt: null,
-            lastSyncLabel: azureBoards.data?.project ? `Project ${azureBoards.data.project}` : "Project configured",
-            healthLabel: azureBoards.data?.status === "error" ? "Needs reconnect" : "Healthy",
-            healthTone: (azureBoards.data?.status === "error" ? "danger" : "ok") as Tone,
-            permissionsLabel: "PAT configured",
-            permissionsVerified: true,
-            capabilities: ["Work items", "Create work items from findings"],
           } satisfies IntegrationRow,
         ]
       : []),

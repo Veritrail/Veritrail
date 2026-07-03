@@ -3,7 +3,6 @@ import { useMemo } from "react";
 
 import { api } from "../api";
 import {
-  azureBoardsIntegrationSchema,
   cloudAccountListSchema,
   iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
@@ -76,10 +75,6 @@ export function useConnectedCatalogState() {
     queryKey: ["jira-integration"],
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
   });
-  const azureBoards = useQuery({
-    queryKey: ["azure-boards-integration"],
-    queryFn: () => api("/v1/integrations/azure-boards", { schema: azureBoardsIntegrationSchema }),
-  });
   const splunkSiem = useQuery({
     queryKey: ["siem-integration", "splunk"],
     queryFn: () => api("/v1/integrations/siem/splunk", { schema: scannerIntegrationSchema }),
@@ -106,7 +101,6 @@ export function useConnectedCatalogState() {
   const azureConnected = azureRows.some(isCloudAccountConnected);
   const iacRepositoryConnected = !!iacRepository.data?.connected;
   const jiraConnected = !!jira.data?.connected;
-  const azureBoardsConnected = !!azureBoards.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
   const snykConnected = !!snykScanner.data?.connected;
@@ -128,7 +122,6 @@ export function useConnectedCatalogState() {
     azureConnected,
     iacRepositoryConnected,
     jiraConnected,
-    azureBoardsConnected,
     splunkConnected,
     datadogConnected,
     connectedScanners: {
@@ -155,7 +148,6 @@ export function useConnectedCatalogState() {
       azureConnected,
       iacRepositoryConnected,
       jiraConnected,
-      azureBoardsConnected,
       splunkConnected,
       datadogConnected,
       snykConnected,
@@ -186,7 +178,6 @@ export function useConnectedCatalogState() {
       aikidoScanner.isLoading ||
       iacRepository.isLoading ||
       jira.isLoading ||
-      azureBoards.isLoading ||
       splunkSiem.isLoading ||
       datadogSiem.isLoading,
   };

@@ -764,19 +764,6 @@ export const iacRepositoryIntegrationSchema = z
 
 export type IacRepositoryIntegration = z.infer<typeof iacRepositoryIntegrationSchema>;
 
-export const azureBoardsIntegrationSchema = z
-  .object({
-    connected: z.boolean(),
-    status: z.string().optional(),
-    org_url: z.string().nullable().optional(),
-    project: z.string().nullable().optional(),
-    work_item_type: z.string().optional(),
-    has_pat: z.boolean().optional(),
-  })
-  .passthrough();
-
-export type AzureBoardsIntegration = z.infer<typeof azureBoardsIntegrationSchema>;
-
 /** GET /v1/integrations/{github|gitlab|google-workspace|entra} — null when disconnected. */
 export const integrationStatusSchema = z
   .object({

@@ -77,7 +77,6 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     entries: [
       { key: "jira", brand: "jira", name: "Jira", description: "Create Jira issues from findings for remediation tracking.", href: "/integrations/jira" },
       { key: "iac-repository", brand: "iac", name: "IaC repository", description: "Link Terraform/Terragrunt repos where cloud fixes land as PRs.", href: "/integrations/iac-repository" },
-      { key: "azure-boards", brand: "azure-devops", name: "Azure Boards", description: "Create work items from findings.", href: "/integrations/azure-boards" },
       { key: "azure-devops", brand: "azure-devops", name: "Azure DevOps Pipelines", description: "Track work and pipelines.", comingSoon: true },
     ],
   },
@@ -103,7 +102,6 @@ export type ConnectedCatalogState = {
   azureConnected: boolean;
   iacRepositoryConnected: boolean;
   jiraConnected: boolean;
-  azureBoardsConnected: boolean;
   splunkConnected: boolean;
   datadogConnected: boolean;
   connectedScanners: Partial<Record<"snyk" | "wiz" | "tenable" | "qualys" | "orca" | "aikido", boolean>>;
@@ -123,7 +121,6 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   if (state.azureConnected) hidden.add("azure");
   if (state.iacRepositoryConnected) hidden.add("iac-repository");
   if (state.jiraConnected) hidden.add("jira");
-  if (state.azureBoardsConnected) hidden.add("azure-boards");
   if (state.splunkConnected) hidden.add("splunk");
   if (state.datadogConnected) hidden.add("datadog");
   for (const [vendor, connected] of Object.entries(state.connectedScanners)) {
