@@ -684,21 +684,87 @@ function IntegrationsContent() {
 
       {awsScanRunning && <ScanProgressBanner />}
 
-      <div className="integrations-page__section-head">
-        <h2>Connected integrations</h2>
-        <p>Manage the connectors already configured for this workspace.</p>
-      </div>
-
       <div className="integrations-page__body">
         <IntegrationsTable rows={activeRows} />
-        <div className="integrations-page__catalog-footer">
-          <Link to="/integrations/catalog" className="integrations-page__catalog-btn">
-            Browse integration catalog
-            <span aria-hidden>&rarr;</span>
-          </Link>
-        </div>
+        <RecommendedIntegrations
+          entraConnected={entraConnected}
+          jiraConnected={jiraConnected}
+          iacConnected={iacRepositoryConnected}
+          snykConnected={!!snykScanner.data?.connected}
+        />
       </div>
     </div>
+  );
+}
+
+type RecommendedCard = {
+  key: string;
+  brand: IntegrationBrandId;
+  name: string;
+  description: string;
+  href: string;
+};
+
+/** A small curated set of high-value NON-cloud connectors surfaced inline; the
+    full list lives behind "Browse integration catalog". Each card hides once
+    connected. Cloud providers are intentionally excluded — they onboard from
+    the Accounts page, not here. */
+function RecommendedIntegrations({
+  entraConnected,
+  jiraConnected,
+  iacConnected,
+  snykConnected,
+}: {
+  entraConnected: boolean;
+  jiraConnected: boolean;
+  iacConnected: boolean;
+  snykConnected: boolean;
+}) {
+  const cards: RecommendedCard[] = [
+    ...(!iacConnected
+      ? [{ key: "iac-repository", brand: "iac", name: "IaC repository", description: "Link your Terraform or Terragrunt repo so cloud fixes land as reviewed pull requests instead of manual console changes.", href: "/integrations/iac-repository" } satisfies RecommendedCard]
+      : []),
+    ...(!entraConnected
+      ? [{ key: "entra", brand: "entra", name: "Microsoft Entra ID", description: "Collect user inventory, MFA enforcement, and privileged-admin review evidence from your directory.", href: "/integrations/entra" } satisfies RecommendedCard]
+      : []),
+    ...(!jiraConnected
+      ? [{ key: "jira", brand: "jira", name: "Jira", description: "Turn findings into tracked remediation tickets with two-way status sync.", href: "/integrations/jira" } satisfies RecommendedCard]
+      : []),
+    ...(!snykConnected
+      ? [{ key: "snyk", brand: "snyk", name: "Snyk", description: "Import open code and dependency vulnerabilities as vulnerability-management evidence.", href: "/integrations/scanners/snyk" } satisfies RecommendedCard]
+      : []),
+  ];
+
+  return (
+    <section className="integrations-recommended">
+      <div className="integrations-recommended__head">
+        <div>
+          <h2>Recommended integrations</h2>
+          <p>High-value connectors for compliance evidence — {cards.length ? "add one below or browse the full catalog." : "you've connected them all."}</p>
+        </div>
+        <Link to="/integrations/catalog" className="integrations-recommended__browse">
+          Browse integration catalog
+          <span aria-hidden>&rarr;</span>
+        </Link>
+      </div>
+
+      {cards.length > 0 && (
+        <div className="integrations-recommended__grid">
+          {cards.map((card) => (
+            <article key={card.key} className="integrations-recommended-card">
+              <IntegrationBrandIcon brand={card.brand} size={40} variant="plain" className="integrations-recommended-card__icon" />
+              <div className="integrations-recommended-card__body">
+                <div className="integrations-recommended-card__name">{card.name}</div>
+                <p className="integrations-recommended-card__desc">{card.description}</p>
+              </div>
+              <Link to={card.href} className="integrations-recommended-card__connect">
+                Connect
+              </Link>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
