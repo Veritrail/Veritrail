@@ -17,7 +17,7 @@ from app.models.finding import Finding, FindingEvent
 from app.models.github import IdentityProvider
 from app.models.org import Org
 from app.services.digest import _findings_app_url
-from app.services.github_issues_client import GitHubIssuesClient
+from app.services.github_issues_client import GitHubIssuesClient, normalize_github_repo_ref
 from app.services.github_sync import provider_config, set_provider_config
 
 router = APIRouter()
@@ -109,8 +109,9 @@ def put_github_issues(
     provider = _issues_provider(db, org.id)
     existing = provider_config(provider) if provider else {}
     config = dict(existing)
-    config["owner"] = body.owner.strip()
-    config["repo"] = body.repo.strip()
+    owner, repo = normalize_github_repo_ref(body.owner, body.repo)
+    config["owner"] = owner
+    config["repo"] = repo
     if body.labels is not None:
         config["labels"] = [label.strip() for label in body.labels if label.strip()]
     if body.access_token and body.access_token.strip():
