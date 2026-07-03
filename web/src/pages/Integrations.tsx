@@ -24,6 +24,10 @@ import {
   StatusDot,
 } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
+import {
+  catalogEntryByKey,
+  RECOMMENDED_INTEGRATION_KEYS,
+} from "../lib/integrationCatalog";
 import { PostureMetricCell } from "./Workspace";
 import "../styles/integrations-page.css";
 import "../styles/workspace-page.css";
@@ -697,14 +701,6 @@ function IntegrationsContent() {
   );
 }
 
-type RecommendedCard = {
-  key: string;
-  brand: IntegrationBrandId;
-  name: string;
-  description: string;
-  href: string;
-};
-
 /** A small curated set of high-value NON-cloud connectors surfaced inline; the
     full list lives behind "Browse integration catalog". Each card hides once
     connected. Cloud providers are intentionally excluded — they onboard from
@@ -720,20 +716,16 @@ function RecommendedIntegrations({
   iacConnected: boolean;
   snykConnected: boolean;
 }) {
-  const cards: RecommendedCard[] = [
-    ...(!iacConnected
-      ? [{ key: "iac-repository", brand: "iac", name: "IaC repository", description: "Link your Terraform or Terragrunt repo so cloud fixes land as reviewed pull requests instead of manual console changes.", href: "/integrations/iac-repository" } satisfies RecommendedCard]
-      : []),
-    ...(!entraConnected
-      ? [{ key: "entra", brand: "entra", name: "Microsoft Entra ID", description: "Collect user inventory, MFA enforcement, and privileged-admin review evidence from your directory.", href: "/integrations/entra" } satisfies RecommendedCard]
-      : []),
-    ...(!jiraConnected
-      ? [{ key: "jira", brand: "jira", name: "Jira", description: "Turn findings into tracked remediation tickets with two-way status sync.", href: "/integrations/jira" } satisfies RecommendedCard]
-      : []),
-    ...(!snykConnected
-      ? [{ key: "snyk", brand: "snyk", name: "Snyk", description: "Import open code and dependency vulnerabilities as vulnerability-management evidence.", href: "/integrations/scanners/snyk" } satisfies RecommendedCard]
-      : []),
-  ];
+  const connectedByKey: Record<string, boolean> = {
+    "iac-repository": iacConnected,
+    entra: entraConnected,
+    jira: jiraConnected,
+    snyk: snykConnected,
+  };
+
+  const cards = RECOMMENDED_INTEGRATION_KEYS.filter((key) => !connectedByKey[key])
+    .map((key) => catalogEntryByKey(key))
+    .filter((entry): entry is NonNullable<typeof entry> => !!entry?.href);
 
   return (
     <section className="integrations-recommended">
@@ -749,15 +741,15 @@ function RecommendedIntegrations({
       </div>
 
       {cards.length > 0 && (
-        <div className="integrations-recommended__grid">
-          {cards.map((card) => (
-            <article key={card.key} className="integrations-recommended-card">
-              <IntegrationBrandIcon brand={card.brand} size={40} variant="plain" className="integrations-recommended-card__icon" />
-              <div className="integrations-recommended-card__body">
-                <div className="integrations-recommended-card__name">{card.name}</div>
-                <p className="integrations-recommended-card__desc">{card.description}</p>
+        <div className="integrations-explore-grid">
+          {cards.map((entry) => (
+            <article key={entry.key} className="integrations-explore-card">
+              <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
+              <div className="integrations-explore-card__body">
+                <div className="integrations-explore-card__name">{entry.name}</div>
+                <p className="integrations-explore-card__desc">{entry.description}</p>
               </div>
-              <Link to={card.href} className="integrations-recommended-card__connect">
+              <Link to={entry.href!} className="integrations-connect-btn">
                 Connect
               </Link>
             </article>

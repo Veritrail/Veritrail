@@ -149,3 +149,21 @@ export function catalogEntryCount(catalog: CatalogCategory[], hiddenKeys: Readon
     0,
   );
 }
+
+/** Curated keys surfaced on the main Integrations page when not yet connected. */
+export const RECOMMENDED_INTEGRATION_KEYS = [
+  "iac-repository",
+  "entra",
+  "jira",
+  "snyk",
+] as const;
+
+export type RecommendedIntegrationKey = (typeof RECOMMENDED_INTEGRATION_KEYS)[number];
+
+export function catalogEntryByKey(key: string): CatalogEntry | undefined {
+  for (const category of INTEGRATION_CATALOG) {
+    const entry = category.entries.find((e) => e.key === key);
+    if (entry) return entry;
+  }
+  return undefined;
+}
