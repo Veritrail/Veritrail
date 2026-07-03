@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -136,6 +136,53 @@ def _mfa_policy_enforced(client: httpx.Client, org_url: str) -> bool:
     return False
 
 
+_BROAD_SCOPE_HINTS = ("admin", "manage", "write", "delete", "full")
+
+
+def _collect_risky_app_grants(client: httpx.Client, org_url: str) -> list[dict[str, Any]]:
+    risky: list[dict[str, Any]] = []
+    apps = _paginate(client, f"{org_url}/api/v1/apps")
+    for app in apps[:50]:
+        app_id = app.get("id")
+        if not app_id:
+            continue
+        grants_resp = client.get(f"{org_url}/api/v1/apps/{app_id}/grants")
+        if grants_resp.status_code >= 400:
+            continue
+        scopes: list[str] = []
+        for grant in grants_resp.json() if isinstance(grants_resp.json(), list) else []:
+            for scope in grant.get("scope") or []:
+                scopes.append(str(scope))
+        if any(any(h in s.lower() for h in _BROAD_SCOPE_HINTS) for s in scopes):
+            risky.append(
+                {
+                    "app_id": app_id,
+                    "app_name": (app.get("label") or app.get("name")),
+                    "scopes": scopes,
+                }
+            )
+    return risky
+
+
+def _collect_stale_api_tokens(client: httpx.Client, org_url: str) -> list[dict[str, Any]]:
+    stale: list[dict[str, Any]] = []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    resp = client.get(f"{org_url}/api/v1/api/tokens")
+    if resp.status_code >= 400:
+        return stale
+    for token in resp.json() if isinstance(resp.json(), list) else []:
+        updated = _parse_dt(token.get("lastUpdated"))
+        if updated and updated < cutoff:
+            stale.append(
+                {
+                    "id": token.get("id"),
+                    "name": token.get("name"),
+                    "last_updated": updated.isoformat(),
+                }
+            )
+    return stale
+
+
 def sync_okta_provider(db: Session, provider: IdentityProvider) -> OktaSyncStats:
     config = provider_config(provider)
     org_url = _org_url(config.get("org_url") or "")
@@ -163,6 +210,8 @@ def sync_okta_provider(db: Session, provider: IdentityProvider) -> OktaSyncStats
 
         config["mfa_policy_enforced"] = mfa_enforced
         config["admin_user_count"] = stats.admin_users
+        config["risky_app_grants"] = _collect_risky_app_grants(client, org_url)
+        config["stale_api_tokens"] = _collect_stale_api_tokens(client, org_url)
 
     set_provider_config(provider, config)
     provider.status = "connected"

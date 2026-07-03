@@ -865,12 +865,14 @@ def delete_evidence_comment(
 
 
 @router.get("/check-frameworks", response_model=CheckFrameworksOut)
-def get_check_frameworks(p=Depends(current_principal)):
+def get_check_frameworks(p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.services.check_evidence import CLASS_LABELS
     from app.services.check_coverage import check_coverage_tier_map
+    from app.services.org_frameworks import framework_catalog_for_org
 
+    org_id = uuid.UUID(p["org_id"])
     return CheckFrameworksOut(
-        frameworks=framework_catalog(),
+        frameworks=framework_catalog_for_org(db, org_id),
         checks=check_framework_map(),
         coverage_tiers=check_coverage_tier_map(),
         evidence_classes=all_evidence_classes(),
@@ -1581,3 +1583,151 @@ def _entity_types_for_check_ids(check_ids: list[str]) -> list[str]:
             types.add("ebs_snapshot")
             types.add("ec2_ami")
     return list(types)
+
+
+@router.get("/questionnaire")
+def get_questionnaire(
+    framework: str = Query(...),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.services.questionnaire import build_questionnaire
+
+    org_id = uuid.UUID(p["org_id"])
+    try:
+        return build_questionnaire(db, org_id, framework)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+class OrgFrameworkControlIn(BaseModel):
+    control_id: str
+    title: str
+    description: str | None = None
+    check_ids: list[str] = []
+
+
+class OrgFrameworkIn(BaseModel):
+    slug: str
+    label: str
+    description: str | None = None
+    control_definitions: list[OrgFrameworkControlIn] = []
+
+
+class OrgFrameworkOut(BaseModel):
+    slug: str
+    label: str
+    description: str | None
+    control_definitions: list[dict]
+    updated_at: str
+
+
+@router.get("/org-frameworks", response_model=list[OrgFrameworkOut])
+def list_org_frameworks_route(p=Depends(current_principal), db: Session = Depends(get_db)):
+    from app.services.org_frameworks import list_org_frameworks
+
+    org_id = uuid.UUID(p["org_id"])
+    return [
+        OrgFrameworkOut(
+            slug=row.slug,
+            label=row.label,
+            description=row.description,
+            control_definitions=row.control_definitions or [],
+            updated_at=row.updated_at.isoformat() if row.updated_at else "",
+        )
+        for row in list_org_frameworks(db, org_id)
+    ]
+
+
+@router.put("/org-frameworks/{slug}", response_model=OrgFrameworkOut)
+def put_org_framework(
+    slug: str,
+    body: OrgFrameworkIn,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.services.org_frameworks import upsert_org_framework
+
+    org_id = uuid.UUID(p["org_id"])
+    try:
+        row = upsert_org_framework(
+            db,
+            org_id,
+            slug=body.slug or slug,
+            label=body.label,
+            description=body.description,
+            control_definitions=[c.model_dump() for c in body.control_definitions],
+        )
+        db.commit()
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return OrgFrameworkOut(
+        slug=row.slug,
+        label=row.label,
+        description=row.description,
+        control_definitions=row.control_definitions or [],
+        updated_at=row.updated_at.isoformat() if row.updated_at else "",
+    )
+
+
+@router.delete("/org-frameworks/{slug}", status_code=204)
+def delete_org_framework_route(
+    slug: str,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.services.org_frameworks import delete_org_framework
+
+    org_id = uuid.UUID(p["org_id"])
+    if not delete_org_framework(db, org_id, slug):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "framework not found")
+    db.commit()
+
+
+@router.get("/coverage-rows")
+def list_control_coverage_rows(
+    framework: str = Query(...),
+    account_id: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.models.phase9 import ControlCoverage, EvidenceRequirement
+
+    org_id = uuid.UUID(p["org_id"])
+    acc_uuid = uuid.UUID(account_id) if account_id else None
+    req_q = select(EvidenceRequirement).where(
+        EvidenceRequirement.org_id == org_id,
+        EvidenceRequirement.framework == framework,
+    )
+    cov_q = select(ControlCoverage).where(
+        ControlCoverage.org_id == org_id,
+        ControlCoverage.framework == framework,
+    )
+    if acc_uuid:
+        cov_q = cov_q.where(ControlCoverage.account_id == acc_uuid)
+    requirements = db.scalars(req_q).all()
+    coverages = db.scalars(cov_q).all()
+    return {
+        "requirements": [
+            {
+                "composite_control_id": r.composite_control_id,
+                "requirement_key": r.requirement_key,
+                "label": r.label,
+                "source": r.source,
+                "category_key": r.category_key,
+            }
+            for r in requirements
+        ],
+        "coverages": [
+            {
+                "control_id": c.control_id,
+                "status": c.status,
+                "coverage_source": c.coverage_source,
+                "details": c.details,
+                "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+            }
+            for c in coverages
+        ],
+    }

@@ -262,6 +262,49 @@ class ScopedExportLinkOut(BaseModel):
     url: str
     expires_at: str
     instructions: str | None = None
+    share_id: str | None = None
+
+
+class VaultExportShareOut(BaseModel):
+    id: str
+    export_id: str
+    auditor_access_id: str
+    auditor_email: str
+    link_type: str
+    share_url: str
+    expires_at: str
+    status: str
+    created_at: str
+    approved_by: str | None = None
+
+
+def _record_vault_share(
+    db: Session,
+    *,
+    org_id: uuid.UUID,
+    export_id: uuid.UUID,
+    auditor_access_id: uuid.UUID,
+    approved_by: uuid.UUID | None,
+    link_type: str,
+    share_url: str,
+    expires_at: datetime,
+) -> uuid.UUID:
+    from app.models.phase9 import VaultExportShare
+
+    row = VaultExportShare(
+        id=uuid.uuid4(),
+        org_id=org_id,
+        export_id=export_id,
+        auditor_access_id=auditor_access_id,
+        approved_by=approved_by,
+        link_type=link_type,
+        share_url=share_url,
+        expires_at=expires_at,
+        status="active",
+    )
+    db.add(row)
+    db.commit()
+    return row.id
 
 
 @router.get("/exports", response_model=list[EvidenceExportOut])
@@ -330,6 +373,7 @@ def create_scoped_export_link(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "auditor grant not found")
 
     expires_at = datetime.now(timezone.utc) + timedelta(hours=body.ttl_hours)
+    approver_id = uuid.UUID(p["sub"]) if p.get("sub") else None
 
     if export_row.vault_s3_uri and export_row.report_id:
         plan = plan_from_stored_s3_uri(
@@ -344,6 +388,18 @@ def create_scoped_export_link(
         if plan and cfg["auditor_access_mode"] != AuditorAccessMode.NONE:
             access = plan_auditor_access(plan, ttl_hours=body.ttl_hours)
             if access and access.presigned_url:
+                share_id = _record_vault_share(
+                    db,
+                    org_id=org.id,
+                    export_id=export_row.id,
+                    auditor_access_id=grant.id,
+                    approved_by=approver_id,
+                    link_type="vault_presigned",
+                    share_url=access.presigned_url,
+                    expires_at=datetime.fromisoformat(
+                        (access.expires_at or expires_at.isoformat()).replace("Z", "+00:00")
+                    ),
+                )
                 return ScopedExportLinkOut(
                     export_id=str(export_row.id),
                     report_id=export_row.report_id,
@@ -351,9 +407,20 @@ def create_scoped_export_link(
                     url=access.presigned_url,
                     expires_at=access.expires_at or expires_at.isoformat(),
                     instructions="Time-limited download link for the immutable vault object. Share only with the approved auditor.",
+                    share_id=str(share_id),
                 )
             presigned = generate_presigned_get(plan, ttl_seconds=body.ttl_hours * 3600)
             if presigned:
+                share_id = _record_vault_share(
+                    db,
+                    org_id=org.id,
+                    export_id=export_row.id,
+                    auditor_access_id=grant.id,
+                    approved_by=approver_id,
+                    link_type="vault_presigned",
+                    share_url=presigned,
+                    expires_at=expires_at,
+                )
                 return ScopedExportLinkOut(
                     export_id=str(export_row.id),
                     report_id=export_row.report_id,
@@ -361,6 +428,7 @@ def create_scoped_export_link(
                     url=presigned,
                     expires_at=expires_at.isoformat(),
                     instructions="Time-limited download link for the immutable vault object.",
+                    share_id=str(share_id),
                 )
 
     portal_url = (
@@ -370,6 +438,16 @@ def create_scoped_export_link(
         f"&period={export_row.period_days}"
     )
     verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/auditor/verify/{grant.access_token}"
+    share_id = _record_vault_share(
+        db,
+        org_id=org.id,
+        export_id=export_row.id,
+        auditor_access_id=grant.id,
+        approved_by=approver_id,
+        link_type="auditor_portal",
+        share_url=portal_url,
+        expires_at=grant.expires_at,
+    )
     return ScopedExportLinkOut(
         export_id=str(export_row.id),
         report_id=export_row.report_id,
@@ -379,4 +457,40 @@ def create_scoped_export_link(
         instructions=(
             f"Auditor must verify access first ({verify_url}), then open the export page to download this pack."
         ),
+        share_id=str(share_id),
     )
+
+
+@router.get("/vault-shares", response_model=list[VaultExportShareOut])
+def list_vault_shares(
+    limit: int = Query(default=50, ge=1, le=200),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    from app.models.phase9 import VaultExportShare
+
+    org = _get_org(p, db)
+    rows = db.scalars(
+        select(VaultExportShare)
+        .where(VaultExportShare.org_id == org.id)
+        .order_by(VaultExportShare.created_at.desc())
+        .limit(limit)
+    ).all()
+    out: list[VaultExportShareOut] = []
+    for row in rows:
+        grant = db.get(AuditorAccess, row.auditor_access_id)
+        out.append(
+            VaultExportShareOut(
+                id=str(row.id),
+                export_id=str(row.export_id),
+                auditor_access_id=str(row.auditor_access_id),
+                auditor_email=grant.email if grant else "",
+                link_type=row.link_type,
+                share_url=row.share_url,
+                expires_at=row.expires_at.isoformat(),
+                status=row.status,
+                created_at=row.created_at.isoformat(),
+                approved_by=str(row.approved_by) if row.approved_by else None,
+            )
+        )
+    return out

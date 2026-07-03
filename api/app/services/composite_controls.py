@@ -156,6 +156,10 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "cloudtrail.event.guardduty_disabled": "incident_response",
     "guardduty.detector.not_enabled": "incident_response",
     "guardduty.open_findings": "incident_response",
+    "intune.device.not_encrypted": "mdm_endpoint",
+    "jamf.device.not_encrypted": "mdm_endpoint",
+    "okta.app.overprivileged_grant": "identity_governance",
+    "okta.service.api_token_stale": "identity_governance",
 }
 
 

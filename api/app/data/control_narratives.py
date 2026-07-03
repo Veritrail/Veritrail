@@ -69,6 +69,19 @@ NARRATIVES: dict[str, str] = {
         "required pull request reviews, absence of self-merged PRs, and protected deployment environments. "
         "CloudTrail write events for infrastructure changes are included in evidence packs for correlation."
     ),
+    "CC1.1": (
+        "The entity demonstrates commitment to integrity and ethical values. "
+        "Security awareness training completion and HR onboarding attestations are tracked via "
+        "external evidence uploads in the HR & training category."
+    ),
+    "CC1.2": (
+        "Board and management exercise oversight of internal control development and performance. "
+        "Upload training and policy attestation evidence to support CC1 criteria."
+    ),
+    "CC9.1": (
+        "The entity identifies, assesses, and manages risks associated with vendors and business partners. "
+        "Vendor risk questionnaires, SOC reports, and monitoring attestations are collected as external evidence."
+    ),
 
     # ── CIS AWS L1 ──────────────────────────────────────────────────────────
     "CIS 1.4": (

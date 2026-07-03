@@ -29,9 +29,10 @@ def test_composite_definitions_load():
         "logging_monitoring",
         "backup_resilience",
     }
+    external_only = {"endpoint_security", "hr_training", "vendor_risk"}
     for entry in defs:
-        if entry["id"] == "endpoint_security":
-            continue  # AWS cannot observe corporate endpoints — external evidence only
+        if entry["id"] in external_only:
+            continue  # external evidence only — no automated checks
         assert entry.get("checks"), f"{entry['id']} must map checks"
         assert entry.get("control_id", "").startswith("COMPOSITE.")
 

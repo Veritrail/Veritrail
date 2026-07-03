@@ -77,6 +77,10 @@ def _external_evidence_category_status(
         if has_accepted and registry_vendor:
             return "externally_covered"
         return "needs_evidence"
+    if cat_key in ("hr_training", "vendor_risk"):
+        if has_accepted:
+            return "externally_covered"
+        return "needs_evidence"
     # endpoint_security
     if has_accepted:
         return "externally_covered"

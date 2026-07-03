@@ -33,6 +33,10 @@
       "okta.admin.unreviewed",
       "okta.org.mfa_not_enforced",
       "okta.user.inactive_90d",
+      "okta.app.overprivileged_grant",
+      "okta.service.api_token_stale",
+      "intune.device.not_encrypted",
+      "jamf.device.not_encrypted",
       "iam.access_inventory_gap",
       "iam.access_key.multiple_active",
       "iam.access_key.no_rotation_90d",
@@ -477,5 +481,41 @@
     "checks": [],
     "cis_criteria": [],
     "iso_criteria": []
+  },
+  {
+    "id": "mdm_endpoint",
+    "control_id": "COMPOSITE.MDM_ENDPOINT",
+    "title": "Device Management (MDM)",
+    "description": "Validates corporate device encryption and compliance via live Intune or Jamf API sync.",
+    "guidance": "Connect Microsoft Intune or Jamf Pro to sync managed device inventory. Upload attestation when live API is unavailable.",
+    "soc2_criteria": ["CC6"],
+    "checks": [
+      "intune.device.not_encrypted",
+      "jamf.device.not_encrypted"
+    ],
+    "cis_criteria": [],
+    "iso_criteria": []
+  },
+  {
+    "id": "hr_training",
+    "control_id": "COMPOSITE.HR_TRAINING",
+    "title": "HR & Security Awareness Training",
+    "description": "Security awareness and role-based training completion for personnel.",
+    "guidance": "Upload annual security training completion report or LMS export. Declare your HR/training platform in Workspace → Evidence.",
+    "soc2_criteria": ["CC1", "CC2"],
+    "checks": [],
+    "cis_criteria": [],
+    "iso_criteria": ["A.7.2.2"]
+  },
+  {
+    "id": "vendor_risk",
+    "control_id": "COMPOSITE.VENDOR_RISK",
+    "title": "Vendor Risk Management",
+    "description": "Third-party vendor security assessments and ongoing monitoring.",
+    "guidance": "Upload vendor risk register, SOC reports, or questionnaire responses for critical vendors.",
+    "soc2_criteria": ["CC9"],
+    "checks": [],
+    "cis_criteria": [],
+    "iso_criteria": ["A.15.1.1"]
   }
 ]

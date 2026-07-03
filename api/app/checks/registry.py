@@ -47,6 +47,10 @@ from app.checks import (
     okta_org_mfa,
     okta_user_inactive,
     okta_admin_unreviewed,
+    okta_app_overprivileged,
+    okta_api_token_stale,
+    intune_device_not_encrypted,
+    jamf_device_not_encrypted,
     identity_center_user_inactive,
     backup_plan_missing,
     access_analyzer_not_enabled,
@@ -272,6 +276,10 @@ ALL_CHECKS = [
     okta_org_mfa,
     okta_user_inactive,
     okta_admin_unreviewed,
+    okta_app_overprivileged,
+    okta_api_token_stale,
+    intune_device_not_encrypted,
+    jamf_device_not_encrypted,
     identity_center_user_inactive,
     # AWS gap checks (session 18)
     s3_no_default_encryption,
@@ -321,4 +329,9 @@ ALL_CHECKS = [
     azure_logging_not_enabled,
     azure_entra_privileged_role_assignment,
     azure_policy_non_compliant,
+    # Phase 9 — MDM + extended Okta API
+    intune_device_not_encrypted,
+    jamf_device_not_encrypted,
+    okta_app_overprivileged,
+    okta_api_token_stale,
 ]

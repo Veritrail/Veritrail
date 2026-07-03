@@ -53,12 +53,24 @@ EVIDENCE_SOURCE_CATEGORIES: list[dict[str, Any]] = [
     {
         "key": "mdm_endpoint",
         "label": "Device management (MDM)",
-        "composite_ids": [],
+        "composite_ids": ["mdm_endpoint"],
+    },
+    {
+        "key": "hr_training",
+        "label": "HR & security training",
+        "composite_ids": ["hr_training"],
+    },
+    {
+        "key": "vendor_risk",
+        "label": "Vendor risk management",
+        "composite_ids": ["vendor_risk"],
     },
 ]
 
 # AWS cannot verify corporate laptops/EDR/MDM — coverage requires external proof.
-EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS = frozenset({"endpoint_security", "mdm_endpoint"})
+EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS = frozenset(
+    {"endpoint_security", "mdm_endpoint", "hr_training", "vendor_risk"}
+)
 
 ENDPOINT_SECURITY_TOOLS = [
     "CrowdStrike",
@@ -74,6 +86,22 @@ MDM_ENDPOINT_TOOLS = [
     "Jamf Pro",
     "Jamf Protect",
     "Kandji",
+    "Other",
+]
+
+HR_TRAINING_TOOLS = [
+    "KnowBe4",
+    "Curricula",
+    "Rippling",
+    "Lattice",
+    "Other",
+]
+
+VENDOR_RISK_TOOLS = [
+    "OneTrust",
+    "Vanta",
+    "Secureframe",
+    "Whistic",
     "Other",
 ]
 

@@ -244,6 +244,11 @@ def build_evidence_pack(
         )
         control_results.append(cr_dict)
 
+    from app.services.control_coverage_store import sync_control_coverages, sync_evidence_requirements
+
+    sync_evidence_requirements(db, org_id, framework)
+    sync_control_coverages(db, org_id, account_id, framework, control_results)
+
     scan_runs = db.scalars(
         select(ScanRun)
         .where(
@@ -380,6 +385,21 @@ def build_evidence_pack(
         _write(
             "access_review_summary.json",
             json.dumps(build_access_review_summary(db, org_id), indent=2, default=str),
+        )
+        from app.services.ai_pack_summary import build_ai_pack_summary
+
+        _write(
+            "ai_pack_summary.json",
+            json.dumps(
+                build_ai_pack_summary(
+                    control_results,
+                    framework=framework,
+                    period_days=period_days,
+                    account_label=acc.label or acc.account_id,
+                ),
+                indent=2,
+                default=str,
+            ),
         )
         _write(
             "scanner_integrations.json",
