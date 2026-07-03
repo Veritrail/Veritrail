@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("public launch pages", () => {
+  test("homepage renders branding content without auth", async ({ page }) => {
+    await page.goto("/homepage");
+    await expect(page.getByRole("heading", { name: "Veritrail", level: 1 })).toBeVisible();
+    await expect(page.getByText("read-only cloud compliance-evidence tool")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Privacy Policy" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Terms of Service" })).toBeVisible();
+  });
+
   test("privacy and terms render without the authenticated app shell", async ({ page }) => {
     await page.goto("/privacy");
     await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();

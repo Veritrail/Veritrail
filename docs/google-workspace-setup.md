@@ -7,6 +7,19 @@ Read-only Admin Directory sync for identity governance evidence (MFA enforcement
 - A **Google Workspace** organization (not a personal `@gmail.com` account — Admin SDK requires a Workspace super-admin).
 - A Google Cloud **OAuth 2.0 client** (Web application) with the Admin SDK API enabled.
 
+## Application home page (OAuth branding verification)
+
+Google Cloud Console → **APIs & Services** → **OAuth consent screen** → **App information** requires a public **Application home page** URL.
+
+Use your deployed web origin plus `/homepage`:
+
+| Environment | Application home page URL |
+|-------------|---------------------------|
+| Local dev | `http://localhost:5173/homepage` |
+| Production | `https://app.your-domain.com/homepage` |
+
+The page is public (no sign-in required) and includes the app name, product description, privacy policy link, and contact email — suitable for Google OAuth app verification crawlers.
+
 ## Redirect URIs (fix `redirect_uri_mismatch`)
 
 OAuth callbacks hit the **API** host, not the Vite dev server. Google redirects to `API_PUBLIC_URL` + callback path on port **8000** in local dev — **not** `http://localhost:5173`.
