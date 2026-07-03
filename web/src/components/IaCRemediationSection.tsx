@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import {
   generatedPolicySchema,
+  iacRepositoryIntegrationSchema,
   iacSnippetsSchema,
   remediationRunnerStatusSchema,
 } from "../lib/apiSchemas";
@@ -1049,6 +1050,13 @@ export function IaCRemediationSection({
       }),
   });
 
+  const { data: iacRepo } = useQuery({
+    queryKey: ["iac-repository-integration"],
+    queryFn: () => api("/v1/integrations/iac-repository", { schema: iacRepositoryIntegrationSchema }),
+    staleTime: 60_000,
+    enabled: embedMode === "terraform",
+  });
+
   if (isLoading) {
     return <p className="text-[13px] text-zinc-500">Loading remediation templates…</p>;
   }
@@ -1070,10 +1078,12 @@ export function IaCRemediationSection({
     }
 
     const providers = data.pr_automation?.providers ?? [];
-    const showPrPaused =
-      (data.pr_automation?.github_connected || data.pr_automation?.gitlab_connected) &&
-      !data.apply_paths?.terraform_pr;
-    const showPrReady = data.apply_paths?.terraform_pr && data.pr_automation?.github_connected;
+    const iacRepoConnected = !!iacRepo?.connected;
+    const vcsConnected =
+      !!data.pr_automation?.github_connected || !!data.pr_automation?.gitlab_connected;
+    const showPrPaused = iacRepoConnected && vcsConnected && !data.apply_paths?.terraform_pr;
+    const showPrReady =
+      iacRepoConnected && data.apply_paths?.terraform_pr && data.pr_automation?.github_connected;
 
     return (
       <div className="space-y-4">
