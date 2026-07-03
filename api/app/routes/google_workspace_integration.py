@@ -16,7 +16,12 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser
-from app.services.google_workspace_sync import provider_config, set_provider_config, sync_google_workspace_provider
+from app.services.google_workspace_sync import (
+    REQUIRED_DIRECTORY_SCOPES,
+    provider_config,
+    set_provider_config,
+    sync_google_workspace_provider,
+)
 from app.core.route_deps import RequireAdmin
 from app.services.google_workspace_tokens import (
     GoogleWorkspaceReconnectRequired,
@@ -89,6 +94,11 @@ def _oauth_error_redirect(error: str | None) -> RedirectResponse:
     return RedirectResponse(
         f"{_frontend_url()}/integrations/google-workspace?error={quote(code)}"
     )
+
+
+def _missing_directory_scopes(token_data: dict) -> list[str]:
+    granted = set((token_data.get("scope") or "").split())
+    return [scope for scope in REQUIRED_DIRECTORY_SCOPES if scope not in granted]
 
 
 def _issue_state(user_id: str, org_id: str) -> str:
@@ -193,6 +203,10 @@ def google_workspace_callback(
             access_token = token_data.get("access_token")
             if not access_token:
                 return RedirectResponse(f"{_frontend_url()}/integrations/google-workspace?error=oauth_failed")
+            if _missing_directory_scopes(token_data):
+                return RedirectResponse(
+                    f"{_frontend_url()}/integrations/google-workspace?error=insufficient_scopes"
+                )
 
             user_resp = client.get(GOOGLE_USERINFO_URL, headers={"Authorization": f"Bearer {access_token}"})
             user_resp.raise_for_status()

@@ -13,6 +13,11 @@ from sqlalchemy.orm import Session
 from app.models.github import IdentityProvider, IdentityUser
 
 DIRECTORY_API = "https://admin.googleapis.com/admin/directory/v1"
+GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+REQUIRED_DIRECTORY_SCOPES = (
+    "https://www.googleapis.com/auth/admin.directory.user.readonly",
+    "https://www.googleapis.com/auth/admin.directory.rolemanagement.readonly",
+)
 ADMIN_ROLE_IDS = {
     "_SEED_ADMIN_ROLE",
     "_SUPER_ADMIN_ROLE",
@@ -49,6 +54,55 @@ def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _google_error_message(resp: httpx.Response) -> str:
+    try:
+        payload = resp.json()
+        err = payload.get("error") or {}
+        if isinstance(err, dict):
+            message = err.get("message") or err.get("status")
+            if message:
+                return str(message)
+        if isinstance(err, str):
+            return err
+    except (json.JSONDecodeError, ValueError):
+        pass
+    text = (resp.text or "").strip()
+    return text[:500] if text else f"HTTP {resp.status_code}"
+
+
+def _raise_directory_error(resp: httpx.Response) -> None:
+    detail = _google_error_message(resp)
+    if resp.status_code == 403:
+        if "insufficient" in detail.lower():
+            raise ValueError(
+                "Google Workspace access token lacks Admin Directory scopes. "
+                "Disconnect and reconnect with a Workspace super-admin account. "
+                "Enable Admin SDK API in Google Cloud and ensure your OAuth client requests "
+                "admin.directory.user.readonly and admin.directory.rolemanagement.readonly."
+            )
+        raise ValueError(
+            "Google Workspace Admin Directory API denied access "
+            f"({detail}). Connect with a Workspace super-admin account and enable Admin SDK API "
+            "in the Google Cloud project that owns your OAuth client."
+        )
+    resp.raise_for_status()
+
+
+def assert_admin_directory_scopes(token: str) -> None:
+    with httpx.Client(timeout=10) as client:
+        resp = client.get(GOOGLE_TOKENINFO_URL, params={"access_token": token})
+    if resp.status_code != 200:
+        return
+    granted = set((resp.json().get("scope") or "").split())
+    missing = [scope for scope in REQUIRED_DIRECTORY_SCOPES if scope not in granted]
+    if missing:
+        short = ", ".join(scope.rsplit("/", 1)[-1] for scope in missing)
+        raise ValueError(
+            "Google Workspace access token lacks Admin Directory scopes "
+            f"({short}). Disconnect and reconnect with a Workspace super-admin account."
+        )
+
+
 def _paginate_users(client: httpx.Client, domain: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     page_token: str | None = None
@@ -63,9 +117,8 @@ def _paginate_users(client: httpx.Client, domain: str) -> list[dict[str, Any]]:
         if page_token:
             params["pageToken"] = page_token
         resp = client.get(f"{DIRECTORY_API}/users", params=params)
-        if resp.status_code in (403, 404):
-            return rows
-        resp.raise_for_status()
+        if not resp.is_success:
+            _raise_directory_error(resp)
         data = resp.json()
         rows.extend(data.get("users") or [])
         page_token = data.get("nextPageToken")
@@ -82,9 +135,8 @@ def _paginate_role_assignments(client: httpx.Client) -> list[dict[str, Any]]:
         if page_token:
             params["pageToken"] = page_token
         resp = client.get(f"{DIRECTORY_API}/customer/my_customer/roleassignments", params=params)
-        if resp.status_code in (403, 404):
-            return rows
-        resp.raise_for_status()
+        if not resp.is_success:
+            _raise_directory_error(resp)
         data = resp.json()
         rows.extend(data.get("items") or [])
         page_token = data.get("nextPageToken")
@@ -143,6 +195,8 @@ def sync_google_workspace_provider(
     sync_domain = (domain or config.get("domain") or "").strip()
     if not sync_domain:
         raise ValueError("Google Workspace domain is required")
+
+    assert_admin_directory_scopes(token)
 
     now = datetime.now(timezone.utc)
     stats = GoogleWorkspaceSyncStats()

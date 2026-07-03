@@ -8,7 +8,7 @@ import {
   integrationStatusNullableSchema,
 } from "../lib/apiSchemas";
 import { formatSync, Spinner, StatusDot } from "../components/IntegrationsUi";
-import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
+import { GOOGLE_WORKSPACE_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import "../styles/integration-setup.css";
 
 type Provider = {
@@ -42,6 +42,8 @@ function workspaceOauthErrorMessage(code: string): string {
       return "Redirect URI not registered in Google Cloud Console. Add http://localhost:8000/v1/integrations/google-workspace/callback (local dev) or {API_PUBLIC_URL}/v1/integrations/google-workspace/callback to Authorized redirect URIs. See docs/google-workspace-setup.md.";
     case "access_denied":
       return "Google denied access. Connect with a Google Workspace super-admin account (personal @gmail.com cannot use Admin SDK).";
+    case "insufficient_scopes":
+      return "Google did not grant Admin Directory read-only scopes. Enable Admin SDK API in Google Cloud, add admin.directory.user.readonly and admin.directory.rolemanagement.readonly to your OAuth consent screen, then disconnect and connect again with a Workspace super-admin account.";
     case "server_error":
       return "Server error while completing Google Workspace connection. Try again or check API logs.";
     default:
@@ -71,6 +73,7 @@ export default function GoogleWorkspaceIntegration() {
   });
 
   const sync = useMutation({
+    mutationKey: GOOGLE_WORKSPACE_SYNC_KEY,
     mutationFn: () =>
       api("/v1/integrations/google-workspace/sync", {
         method: "POST",
@@ -82,6 +85,8 @@ export default function GoogleWorkspaceIntegration() {
       setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
     },
   });
+
+  const syncing = isSyncing || sync.isPending;
 
   const disconnect = useMutation({
     mutationFn: () => api("/v1/integrations/google-workspace", { method: "DELETE" }),
@@ -155,10 +160,10 @@ export default function GoogleWorkspaceIntegration() {
                 <button
                   type="button"
                   onClick={() => sync.mutate()}
-                  disabled={isSyncing || needsReconnect}
+                  disabled={syncing || needsReconnect}
                   className="integration-setup__btn integration-setup__btn--primary"
                 >
-                  {isSyncing ? "Syncing…" : "Sync now"}
+                  {syncing ? "Syncing…" : "Sync now"}
                 </button>
               </div>
               <dl className="mt-4 grid gap-3 sm:grid-cols-3 text-sm">
@@ -181,7 +186,7 @@ export default function GoogleWorkspaceIntegration() {
           )}
         </div>
       )}
-      {isSyncing && (
+      {syncing && (
         <p className="mt-4 flex items-center gap-2 text-sm text-sky-700"><Spinner className="h-4 w-4" /> Syncing directory…</p>
       )}
     </div>
