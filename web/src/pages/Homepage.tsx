@@ -25,17 +25,6 @@ function PrimaryButton({ to, children }: { to: string; children: ReactNode }) {
   );
 }
 
-function OutlineButton({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a
-      href={href}
-      className="inline-flex items-center justify-center rounded-lg border border-teal-600 bg-white px-4 py-2.5 text-sm font-semibold text-teal-700 shadow-sm transition hover:bg-teal-50"
-    >
-      {children}
-    </a>
-  );
-}
-
 const RECENT_EVIDENCE = [
   { brand: "aws" as const, source: "AWS", label: "S3 Bucket Public Access Disabled", updated: "2h ago" },
   { brand: "github" as const, source: "GitHub", label: "GitHub Branch Protection Enabled", updated: "1d ago" },
@@ -379,17 +368,13 @@ export default function Homepage() {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-600">
                 Cloud compliance evidence
               </p>
-              <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight text-teal-900 sm:text-4xl lg:text-[2.65rem] lg:leading-[1.15]">
+              <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-[2.65rem] lg:leading-[1.15]">
                 Continuous SOC 2 evidence for cloud and engineering teams.
               </h1>
               <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-zinc-600 sm:text-base">
                 Veritrail connects to AWS, Google Cloud, Azure, GitHub, and GitLab to collect read-only evidence,
                 map findings to SOC 2 controls, and produce auditor-ready exports on demand.
               </p>
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
-                <OutlineButton href="#how-it-works">See how it works →</OutlineButton>
-              </div>
             </div>
             <DashboardPreview />
           </div>
