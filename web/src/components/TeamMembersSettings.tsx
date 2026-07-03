@@ -13,6 +13,7 @@ import {
   accessInput,
   accessPrimaryBtn,
 } from "./accessUi";
+import { SsoPolicySettings } from "./SsoPolicySettings";
 
 type MemberEntry = {
   id: string;
@@ -107,7 +108,9 @@ export function TeamMembersSettings() {
   const memberCount = members?.length ?? 0;
 
   return (
-    <AccessCard
+    <div className="space-y-4">
+      <SsoPolicySettings />
+      <AccessCard
       title="Workspace members"
       description="Teammates who can sign in here. Roles control what they're allowed to change."
       status={<StatusPill tone="muted">{memberCount} member{memberCount === 1 ? "" : "s"}</StatusPill>}
@@ -245,5 +248,6 @@ export function TeamMembersSettings() {
         </div>
       )}
     </AccessCard>
+    </div>
   );
 }

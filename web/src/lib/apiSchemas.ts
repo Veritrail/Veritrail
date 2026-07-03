@@ -231,6 +231,12 @@ export const settingsSchema = z
   features: z.object({
     ai_finding_review_enabled: z.boolean(),
   }),
+  security: z
+    .object({
+      sso_required: z.boolean(),
+    })
+    .optional()
+    .default({ sso_required: false }),
   scanning: z.object({
     enabled: z.boolean(),
     interval: z.enum(["daily", "weekly", "custom", "manual"]),
