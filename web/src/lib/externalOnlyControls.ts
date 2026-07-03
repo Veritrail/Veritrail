@@ -30,7 +30,7 @@ export const EXTERNAL_ONLY_CONTROLS: ExternalOnlyControlCopy[] = [
     description:
       "Corporate device enrollment and compliance live outside AWS. Connect Intune or Jamf for supplemental sync, and upload accepted manual evidence for audit.",
     blockingGapSummary:
-      "No cloud scan coverage — managed devices are outside AWS and require manual evidence or a connected MDM integration.",
+      "No cloud scan coverage — managed devices are outside AWS",
     guidance:
       "Upload a device compliance report from your MDM platform and declare the vendor in Workspace → Evidence.\n\n" +
       "- Microsoft Intune and Jamf Pro can be connected for live device inventory sync, but audit coverage still requires accepted external evidence\n" +
