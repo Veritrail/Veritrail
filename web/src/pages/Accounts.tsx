@@ -995,36 +995,50 @@ function FindingsMixDonutSvg({
 function FindingsMixDonutCompact({
   stats,
   hasScanned,
+  loading = false,
   size = 64,
   stroke = 3.5,
 }: {
   stats: FindingStats | undefined;
   hasScanned: boolean;
+  loading?: boolean;
   size?: number;
   stroke?: number;
 }) {
   const total = stats?.open ?? 0;
   const segments = getMixSegments(stats);
-  const showChart = hasScanned && segments.length > 0;
+  const showChart = hasScanned && !loading && segments.length > 0;
 
   return (
     <div className="accounts-findings-donut">
       <div className="accounts-findings-donut__ring">
-        {showChart ? (
+        {loading ? (
+          <div className="accounts-findings-donut__empty animate-pulse bg-zinc-100" aria-hidden />
+        ) : showChart ? (
           <FindingsMixDonutSvg segments={segments} size={size} stroke={stroke} premium gapPx={1.5} />
         ) : (
           <div className="accounts-findings-donut__empty" aria-hidden />
         )}
       </div>
       <div className="accounts-findings-donut__hub">
-        <span className="accounts-findings-donut__count">{hasScanned ? total : "—"}</span>
+        <span className="accounts-findings-donut__count">
+          {loading ? "…" : hasScanned ? total : "—"}
+        </span>
         <span className="accounts-findings-donut__label">Open</span>
       </div>
     </div>
   );
 }
 
-function FindingsSeverityLegend({ stats, hasScanned }: { stats: FindingStats | undefined; hasScanned: boolean }) {
+function FindingsSeverityLegend({
+  stats,
+  hasScanned,
+  loading = false,
+}: {
+  stats: FindingStats | undefined;
+  hasScanned: boolean;
+  loading?: boolean;
+}) {
   const critHigh = stats?.critHigh ?? 0;
   const medium = stats?.medium ?? 0;
   const low = stats?.low ?? 0;
@@ -1040,7 +1054,9 @@ function FindingsSeverityLegend({ stats, hasScanned }: { stats: FindingStats | u
       {rows.map((row) => (
         <div className="accounts-findings-legend__row" key={row.label}>
           <span className="accounts-findings-legend__dot" style={{ background: row.color }} aria-hidden />
-          <span className="accounts-findings-legend__count">{hasScanned ? row.count : "—"}</span>
+          <span className="accounts-findings-legend__count">
+            {loading ? "…" : hasScanned ? row.count : "—"}
+          </span>
           <span className="accounts-findings-legend__label">{row.label}</span>
         </div>
       ))}
@@ -5421,6 +5437,10 @@ function computeScanRecencyScore(lastScanAt: string | null | undefined): number 
   return 20;
 }
 
+function clampCoveragePct(ratio: number): number {
+  return Math.min(100, Math.round(ratio * 100));
+}
+
 function computeSecurityScore(
   stats: FindingStats,
   coveragePct: number | null,
@@ -5453,15 +5473,47 @@ type SecurityScoreDriver = {
   kind: "findings" | "coverage" | "recency" | "none";
 };
 
-function computeSecurityScoreDriver(
+const EVIDENCE_COVERAGE_GOOD_THRESHOLD = 80;
+const EVIDENCE_COVERAGE_FAIR_THRESHOLD = 60;
+const LOW_EVIDENCE_COVERAGE_DRIVER_THRESHOLD = EVIDENCE_COVERAGE_FAIR_THRESHOLD;
+
+type EvidenceCoverageTier = "low" | "fair" | "good";
+
+function evidenceCoverageTier(pct: number): EvidenceCoverageTier {
+  if (pct >= EVIDENCE_COVERAGE_GOOD_THRESHOLD) return "good";
+  if (pct >= EVIDENCE_COVERAGE_FAIR_THRESHOLD) return "fair";
+  return "low";
+}
+
+function evidenceCoverageTierLabel(pct: number): string {
+  const tier = evidenceCoverageTier(pct);
+  if (tier === "good") return "Good";
+  if (tier === "fair") return "Fair";
+  return "Low";
+}
+
+function evidenceCoverageDriverLabel(pct: number): string {
+  const tier = evidenceCoverageTier(pct);
+  if (tier === "good") return "Good evidence coverage";
+  if (tier === "fair") return "Fair evidence coverage";
+  return "Low evidence coverage";
+}
+
+function computeSecurityScoreDrivers(
   stats: FindingStats,
   coveragePct: number | null,
   lastScanAt: string | null | undefined,
   score: number,
-): SecurityScoreDriver {
+): SecurityScoreDriver[] {
   const findingsHealth = computeFindingsHealthScore(stats);
   const coverage = coveragePct ?? 0;
   const recency = computeScanRecencyScore(lastScanAt);
+  const drivers: SecurityScoreDriver[] = [];
+  const pushDriver = (driver: SecurityScoreDriver) => {
+    if (!drivers.some((item) => item.kind === driver.kind && item.driverValue === driver.driverValue)) {
+      drivers.push(driver);
+    }
+  };
   const impacts = [
     { kind: "findings" as const, impact: (100 - findingsHealth) * 0.5 },
     { kind: "coverage" as const, impact: (100 - coverage) * 0.3 },
@@ -5470,43 +5522,56 @@ function computeSecurityScoreDriver(
   const top = impacts[0]?.kind ?? "findings";
 
   if (score >= 80 && stats.critHigh === 0) {
-    return { driverValue: "No major issues", kind: "none" };
+    return [{ driverValue: "No major issues", kind: "none" }];
   }
 
   if (top === "findings" && stats.critHigh > 0) {
-    return {
+    pushDriver({
       driverValue: `${stats.critHigh.toLocaleString()} high finding${stats.critHigh === 1 ? "" : "s"}`,
       kind: "findings",
-    };
-  }
-
-  if (top === "findings" && stats.open > 0) {
-    return {
+    });
+  } else if (top === "findings" && stats.open > 0) {
+    pushDriver({
       driverValue: `${stats.open.toLocaleString()} open finding${stats.open === 1 ? "" : "s"}`,
       kind: "findings",
-    };
-  }
-
-  if (top === "coverage") {
-    return { driverValue: "Evidence gaps", kind: "coverage" };
-  }
-
-  if (top === "recency") {
-    return { driverValue: "Stale scan data", kind: "recency" };
+    });
+  } else if (top === "coverage" && coveragePct != null) {
+    pushDriver({ driverValue: evidenceCoverageDriverLabel(coveragePct), kind: "coverage" });
+  } else if (top === "recency") {
+    pushDriver({ driverValue: "Stale scan data", kind: "recency" });
   }
 
   if (stats.critHigh > 0) {
-    return {
+    pushDriver({
       driverValue: `${stats.critHigh.toLocaleString()} high finding${stats.critHigh === 1 ? "" : "s"}`,
       kind: "findings",
-    };
+    });
+  } else if (stats.open > 0 && drivers.length === 0) {
+    pushDriver({
+      driverValue: `${stats.open.toLocaleString()} open finding${stats.open === 1 ? "" : "s"}`,
+      kind: "findings",
+    });
+  }
+
+  if (
+    coveragePct != null &&
+    coveragePct < LOW_EVIDENCE_COVERAGE_DRIVER_THRESHOLD
+  ) {
+    pushDriver({
+      driverValue: evidenceCoverageDriverLabel(coveragePct),
+      kind: "coverage",
+    });
   }
 
   if (score >= 80) {
-    return { driverValue: "No major issues", kind: "none" };
+    return drivers.length > 0 ? drivers : [{ driverValue: "No major issues", kind: "none" }];
   }
 
-  return { driverValue: "Evidence gaps", kind: "coverage" };
+  if (drivers.length === 0 && coveragePct != null) {
+    pushDriver({ driverValue: evidenceCoverageDriverLabel(coveragePct), kind: "coverage" });
+  }
+
+  return drivers;
 }
 
 function SecurityScoreGauge({
@@ -5581,25 +5646,51 @@ function SecurityScoreGauge({
   );
 }
 
+function OverviewMetricLoadingSkeleton() {
+  return (
+    <div className="animate-pulse space-y-2" aria-hidden>
+      <div className="h-8 w-16 rounded bg-zinc-100" />
+      <div className="h-3 w-28 rounded bg-zinc-100" />
+    </div>
+  );
+}
+
 function SecurityScoreCard({
   score,
   stats,
   coveragePct,
   lastScanAt,
   hasScanned,
+  loading = false,
 }: {
   score: number | null;
-  stats: FindingStats;
+  stats: FindingStats | undefined;
   coveragePct: number | null;
   lastScanAt: string | null | undefined;
   hasScanned: boolean;
+  loading?: boolean;
 }) {
-  const showScore = hasScanned && score != null;
+  if (loading) {
+    return (
+      <div className="accounts-security-score__body animate-pulse" aria-hidden>
+        <div className="accounts-security-score__gauge-col">
+          <div className="mx-auto h-[76px] w-[76px] rounded-full bg-zinc-100" />
+          <div className="mx-auto mt-2 h-5 w-16 rounded-full bg-zinc-100" />
+        </div>
+        <div className="accounts-security-score__drivers">
+          <div className="h-3 w-20 rounded bg-zinc-100" />
+          <div className="mt-2 h-3 w-32 rounded bg-zinc-100" />
+        </div>
+      </div>
+    );
+  }
+
+  const showScore = hasScanned && score != null && stats != null;
   const label = showScore ? securityScoreLabel(score) : null;
   const tone = showScore ? securityScoreTone(score) : null;
-  const driver = showScore ? computeSecurityScoreDriver(stats, coveragePct, lastScanAt, score) : null;
+  const drivers = showScore ? computeSecurityScoreDrivers(stats, coveragePct, lastScanAt, score) : null;
 
-  if (!showScore || !label || !tone || !driver) {
+  if (!showScore || !label || !tone || !drivers) {
     return <p className="accounts-detail-overview__metric-detail">Run a scan first</p>;
   }
 
@@ -5612,8 +5703,16 @@ function SecurityScoreCard({
         </span>
       </div>
       <div className="accounts-security-score__drivers">
-        <p className="accounts-security-score__driver-label">Main driver</p>
-        <p className="accounts-detail-overview__metric-detail">{driver.driverValue}</p>
+        <p className="accounts-security-score__driver-label">
+          Main driver{drivers.length === 1 ? "" : "s"}
+        </p>
+        <div className="accounts-security-score__driver-list">
+          {drivers.map((driver) => (
+            <p className="accounts-detail-overview__metric-detail" key={`${driver.kind}:${driver.driverValue}`}>
+              {driver.driverValue}
+            </p>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -5868,6 +5967,7 @@ function AccountSplitDetailPane({
   row,
   stats,
   findingsItems,
+  findingsLoading = false,
   setupInitialStep,
   onManageSetup,
   onDismissSetup,
@@ -5875,6 +5975,7 @@ function AccountSplitDetailPane({
   row: AccountListRow;
   stats: FindingStats | undefined;
   findingsItems: Finding[] | undefined;
+  findingsLoading?: boolean;
   setupInitialStep?: number;
   onManageSetup?: () => void;
   onDismissSetup?: () => void;
@@ -6043,7 +6144,16 @@ function AccountSplitDetailPane({
     );
   }, [findingsItems, accountId, cloud, isAws, cloudOverviewQ.data]);
 
-  const displayStats = stats ?? EMPTY_FINDING_STATS;
+  const overviewMetricsLoading =
+    findingsLoading ||
+    (hasScanned &&
+      isAws &&
+      (coverageQ.isPending || controlsQ.isPending || historyQ.isPending)) ||
+    (hasScanned &&
+      !isAws &&
+      (cloudOverviewQ.isPending || cloudOverviewPrevQ.isPending || cloudScanHistoryQ.isPending));
+
+  const displayStats = overviewMetricsLoading ? undefined : (stats ?? EMPTY_FINDING_STATS);
 
   const accountFindings = useMemo(
     () => filterOpenFindingsForAccount(findingsItems, accountId, isAws, cloud),
@@ -6126,10 +6236,10 @@ function AccountSplitDetailPane({
   const scanBusy = isAws ? isScanActive : cloudScan.isScanActive;
   const coveragePct = isAws
     ? coverageQ.data != null
-      ? Math.round(coverageQ.data.coverage_ratio * 100)
+      ? clampCoveragePct(coverageQ.data.coverage_ratio)
       : null
     : cloudOverviewQ.data != null
-      ? Math.round(cloudOverviewQ.data.coverage.coverage_ratio * 100)
+      ? clampCoveragePct(cloudOverviewQ.data.coverage.coverage_ratio)
       : null;
   const compliancePct = isAws
     ? controlsQ.data?.passRate ?? historyQ.data?.current_posture_score ?? null
@@ -6165,9 +6275,9 @@ function AccountSplitDetailPane({
 
   const soc2PhaseLabel = soc2ReadinessPhaseLabel(compliancePct);
   const securityScore = useMemo(() => {
-    if (!hasScanned) return null;
+    if (!hasScanned || !displayStats || overviewMetricsLoading) return null;
     return computeSecurityScore(displayStats, coveragePct, lastScanAt);
-  }, [hasScanned, displayStats, coveragePct, lastScanAt]);
+  }, [hasScanned, displayStats, coveragePct, lastScanAt, overviewMetricsLoading]);
   const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
   const recentScanRows = useMemo(
     () =>
@@ -6244,13 +6354,13 @@ function AccountSplitDetailPane({
     let delta: number | null = null;
     if (isAws) {
       if (coverageQ.data == null || coveragePrevQ.data == null) return null;
-      const current = Math.round(coverageQ.data.coverage_ratio * 100);
-      const prior = Math.round(coveragePrevQ.data.coverage_ratio * 100);
+      const current = clampCoveragePct(coverageQ.data.coverage_ratio);
+      const prior = clampCoveragePct(coveragePrevQ.data.coverage_ratio);
       delta = delta7d(current, prior);
     } else {
       if (cloudOverviewQ.data == null || cloudOverviewPrevQ.data == null) return null;
-      const current = Math.round(cloudOverviewQ.data.coverage.coverage_ratio * 100);
-      const prior = Math.round(cloudOverviewPrevQ.data.coverage.coverage_ratio * 100);
+      const current = clampCoveragePct(cloudOverviewQ.data.coverage.coverage_ratio);
+      const prior = clampCoveragePct(cloudOverviewPrevQ.data.coverage.coverage_ratio);
       delta = delta7d(current, prior);
     }
     return delta != null && delta !== 0 ? delta : null;
@@ -6438,6 +6548,7 @@ function AccountSplitDetailPane({
                   coveragePct={coveragePct}
                   lastScanAt={lastScanAt}
                   hasScanned={hasScanned}
+                  loading={overviewMetricsLoading}
                 />
               </div>
               <div className="accounts-detail-overview__metric">
@@ -6445,6 +6556,10 @@ function AccountSplitDetailPane({
                   SOC 2 readiness
                   <MetricHelpTip metric="SOC 2 readiness" text={SOC2_READINESS_HELP} />
                 </p>
+                {overviewMetricsLoading ? (
+                  <OverviewMetricLoadingSkeleton />
+                ) : (
+                  <>
                 <div className="accounts-detail-overview__metric-value-row">
                   <p className="accounts-detail-overview__metric-value">
                     {hasScanned && compliancePct != null ? `${compliancePct}%` : "—"}
@@ -6467,15 +6582,21 @@ function AccountSplitDetailPane({
                     </p>
                   </div>
                 )}
+                  </>
+                )}
               </div>
               <div className="accounts-detail-overview__metric">
                 <p className="accounts-detail-overview__metric-label">
                   Evidence coverage
                   <MetricHelpTip metric="Evidence coverage" text={COVERAGE_METRIC_HELP} />
                 </p>
+                {overviewMetricsLoading ? (
+                  <OverviewMetricLoadingSkeleton />
+                ) : (
+                  <>
                 <div className="accounts-detail-overview__metric-value-row">
                   <p className="accounts-detail-overview__metric-value">
-                    {coveragePct != null ? `${coveragePct}%` : "—"}
+                    {coveragePct != null ? evidenceCoverageTierLabel(coveragePct) : "—"}
                   </p>
                   {hasScanned && coveragePct != null ? (
                     <MetricCardDelta delta={coverageDelta} betterWhen="up" />
@@ -6492,13 +6613,15 @@ function AccountSplitDetailPane({
                   >
                     <div
                       className="accounts-detail-overview__progress-fill"
-                      style={{ width: `${coveragePct}%` }}
+                      style={{ width: `${Math.min(100, coveragePct)}%` }}
                     />
                   </div>
                 ) : null}
                 <p className="accounts-detail-overview__metric-detail">
                   {hasScanned ? "Evidence window · last 7 days" : "Run a scan first"}
                 </p>
+                  </>
+                )}
               </div>
             </div>
 
@@ -6558,31 +6681,35 @@ function AccountSplitDetailPane({
                         </svg>
                       )}
                     </span>
-                    <div>
+                    <div className="accounts-detail-scan-row__when-block">
                       <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
                       <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
                     </div>
-                    <p className="accounts-detail-scan-row__resources">
-                      {scanResourcesLabel(row.resourcesScanned, hasScanned)}
-                    </p>
-                    {hasScanned ? (
-                      <div className="accounts-detail-scan-row__findings">
-                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
-                          <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
-                        </span>
-                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
-                          <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
-                        </span>
-                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
-                          <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
-                    )}
+                    <div className="accounts-detail-scan-row__meta">
+                      <p className="accounts-detail-scan-row__resources">
+                        {scanResourcesLabel(row.resourcesScanned, hasScanned)}
+                      </p>
+                      {hasScanned && displayStats ? (
+                        <div className="accounts-detail-scan-row__findings">
+                          <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
+                            <i aria-hidden />
+                            <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
+                          </span>
+                          <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
+                            <i aria-hidden />
+                            <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
+                          </span>
+                          <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
+                            <i aria-hidden />
+                            <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
+                          </span>
+                        </div>
+                      ) : hasScanned ? (
+                        <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
+                      ) : (
+                        <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
+                      )}
+                    </div>
                     <button
                       type="button"
                       className="accounts-detail-scan-row__view"
@@ -6618,7 +6745,7 @@ function AccountSplitDetailPane({
           <AccountDetailFindingsTab
             accountId={accountId}
             hasScanned={hasScanned}
-            openCount={displayStats.open}
+            openCount={displayStats?.open ?? 0}
             findings={accountFindings}
             onOpenWorkspace={() => navigate(`/findings?account=${accountId}`)}
             onOpenGroup={(groupKey) =>
@@ -6664,31 +6791,35 @@ function AccountSplitDetailPane({
                       </svg>
                     )}
                   </span>
-                  <div>
+                  <div className="accounts-detail-scan-row__when-block">
                     <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
                     <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
                   </div>
-                  <p className="accounts-detail-scan-row__resources">
-                    {scanResourcesLabel(row.resourcesScanned, hasScanned)}
-                  </p>
-                  {hasScanned ? (
-                    <div className="accounts-detail-scan-row__findings">
-                      <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
-                        <i aria-hidden />
-                        <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
-                      </span>
-                      <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
-                        <i aria-hidden />
-                        <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
-                      </span>
-                      <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
-                        <i aria-hidden />
-                        <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
-                  )}
+                  <div className="accounts-detail-scan-row__meta">
+                    <p className="accounts-detail-scan-row__resources">
+                      {scanResourcesLabel(row.resourcesScanned, hasScanned)}
+                    </p>
+                    {hasScanned && displayStats ? (
+                      <div className="accounts-detail-scan-row__findings">
+                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
+                          <i aria-hidden />
+                          <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
+                        </span>
+                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
+                          <i aria-hidden />
+                          <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
+                        </span>
+                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
+                          <i aria-hidden />
+                          <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
+                        </span>
+                      </div>
+                    ) : hasScanned ? (
+                      <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
+                    ) : (
+                      <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -6901,6 +7032,7 @@ function CredentialAlert({
 function IntegrationCloudAccountCard({
   cloud,
   stats,
+  findingsLoading = false,
   selected = false,
   splitLayout = false,
   suppressSelectionStyle = false,
@@ -6908,6 +7040,7 @@ function IntegrationCloudAccountCard({
 }: {
   cloud: CloudAccountRow;
   stats: FindingStats | undefined;
+  findingsLoading?: boolean;
   selected?: boolean;
   splitLayout?: boolean;
   suppressSelectionStyle?: boolean;
@@ -6992,8 +7125,8 @@ function IntegrationCloudAccountCard({
               <p className="accounts-coverage__next">On-demand scan</p>
             </div>
             <div className="accounts-findings-cell">
-              <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
-              <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
+              <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} loading={findingsLoading} />
+              <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} loading={findingsLoading} />
             </div>
             <AccountStatusIndicator label={rowStatus.label} tone={rowStatus.tone} />
             {!splitLayout ? (
@@ -7053,6 +7186,7 @@ function IntegrationCloudAccountCard({
 function AccountPremiumCard({
   acc,
   stats,
+  findingsLoading = false,
   expanded,
   onToggle,
   setupInitialStep = 1,
@@ -7064,6 +7198,7 @@ function AccountPremiumCard({
 }: {
   acc: Account;
   stats: FindingStats | undefined;
+  findingsLoading?: boolean;
   expanded: boolean;
   onToggle: () => void;
   setupInitialStep?: number;
@@ -7323,8 +7458,8 @@ function AccountPremiumCard({
                 </p>
               </div>
               <div className="accounts-findings-cell">
-                <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} />
-                <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} />
+                <FindingsMixDonutCompact stats={stats} hasScanned={hasScanned} loading={findingsLoading} />
+                <FindingsSeverityLegend stats={stats} hasScanned={hasScanned} loading={findingsLoading} />
               </div>
               <AccountStatusIndicator label={rowStatus.label} tone={rowStatus.tone} />
               {!splitLayout ? (
@@ -7797,6 +7932,11 @@ export default function Accounts() {
 
   const statsMap = useMemo(() => buildStatsMap(allFindings.data?.items), [allFindings.data?.items]);
 
+  const findingsSnapshotEnabled =
+    (accounts.data?.length ?? 0) > 0 || (cloudAccounts.data?.length ?? 0) > 0;
+  const findingsSnapshotLoading =
+    findingsSnapshotEnabled && !allFindings.isSuccess && !allFindings.isError;
+
   const integrationAccounts = useMemo(
     () =>
       (cloudAccounts.data ?? []).filter(
@@ -8170,6 +8310,7 @@ export default function Accounts() {
                           key={`aws-${row.account.id}`}
                           acc={row.account}
                           stats={statsMap.get(row.account.id)}
+                          findingsLoading={findingsSnapshotLoading}
                           expanded={expandedId === row.account.id}
                           setupInitialStep={expandedId === row.account.id ? setupInitialStep : 1}
                           selected={isSelected}
@@ -8198,6 +8339,7 @@ export default function Accounts() {
                           key={`${row.cloud.provider}-${row.cloud.id}`}
                           cloud={row.cloud}
                           stats={integrationStatsMap.get(row.cloud.id)}
+                          findingsLoading={findingsSnapshotLoading}
                           selected={isSelected}
                           splitLayout
                           suppressSelectionStyle={stackedAccountsLayout}
@@ -8251,6 +8393,7 @@ export default function Accounts() {
                         : integrationStatsMap.get(selectedRow.cloud.id)
                     }
                     findingsItems={allFindings.data?.items}
+                    findingsLoading={findingsSnapshotLoading}
                     setupInitialStep={setupInitialStep}
                     onManageSetup={() => {
                       if (selectedRow.kind === "aws" && !isAccountConnected(selectedRow.account)) {
