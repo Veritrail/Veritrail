@@ -261,6 +261,12 @@ function DashboardPreview() {
 }
 
 const DIAGRAM_ICON_SIZE = 68;
+const DIAGRAM_ICON_GAP = 20;
+const DIAGRAM_CONNECTOR_GAP = 44;
+const DIAGRAM_TARGET_SIZE = 96;
+const DIAGRAM_MOBILE_ICON_GAP = 14;
+const DIAGRAM_MOBILE_ROW_GAP = 12;
+const DIAGRAM_MOBILE_TARGET_SIZE = 80;
 
 function IntegrationDiagram() {
   const clouds: Array<"aws" | "gcp" | "azure"> = ["aws", "gcp", "azure"];
@@ -272,37 +278,79 @@ function IntegrationDiagram() {
     strokeLinejoin: "round",
   } as const;
 
+  const desktopWidth = DIAGRAM_ICON_SIZE + DIAGRAM_CONNECTOR_GAP + DIAGRAM_TARGET_SIZE;
+  const desktopHeight = DIAGRAM_ICON_SIZE * 3 + DIAGRAM_ICON_GAP * 2;
+  const iconCenterY = (index: number) =>
+    DIAGRAM_ICON_SIZE * index + DIAGRAM_ICON_GAP * index + DIAGRAM_ICON_SIZE / 2;
+  const lineStartX = DIAGRAM_ICON_SIZE;
+  const lineEndX = DIAGRAM_ICON_SIZE + DIAGRAM_CONNECTOR_GAP;
+  const hubY = desktopHeight / 2;
+
+  const mobileWidth = DIAGRAM_ICON_SIZE * 3 + DIAGRAM_MOBILE_ICON_GAP * 2;
+  const mobileHeight = DIAGRAM_ICON_SIZE + DIAGRAM_MOBILE_ROW_GAP + DIAGRAM_MOBILE_TARGET_SIZE;
+  const iconCenterX = (index: number) =>
+    DIAGRAM_ICON_SIZE * index + DIAGRAM_MOBILE_ICON_GAP * index + DIAGRAM_ICON_SIZE / 2;
+  const iconBottomY = DIAGRAM_ICON_SIZE;
+  const targetTopY = DIAGRAM_ICON_SIZE + DIAGRAM_MOBILE_ROW_GAP;
+  const targetCenterX = mobileWidth / 2;
+
+  const arrowMarker = (id: string) => (
+    <marker id={id} markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8" />
+    </marker>
+  );
+
   return (
     <div className="homepage-diagram" aria-hidden>
-      <svg className="homepage-diagram__overlay" viewBox="0 0 240 240" preserveAspectRatio="xMidYMid meet" aria-hidden>
-        <defs>
-          <marker
-            id="homepage-diagram-arrow"
-            markerUnits="userSpaceOnUse"
-            markerWidth="8"
-            markerHeight="8"
-            refX="7"
-            refY="4"
-            orient="auto"
-          >
-            <path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8" />
-          </marker>
-        </defs>
-
-        <g className="homepage-diagram__paths homepage-diagram__paths--desktop">
-          <path d="M52,52 C108,52 148,88 176,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
-          <path d="M52,120 C132,120 156,120 176,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
-          <path d="M52,188 C108,188 148,152 176,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
-        </g>
-
-        <g className="homepage-diagram__paths homepage-diagram__paths--mobile">
-          <path d="M56,52 C56,96 88,132 120,168" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
-          <path d="M120,52 L120,168" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
-          <path d="M184,52 C184,96 152,132 120,168" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
-        </g>
-      </svg>
-
       <div className="homepage-diagram__body">
+        <svg
+          className="homepage-diagram__overlay homepage-diagram__overlay--desktop"
+          viewBox={`0 0 ${desktopWidth} ${desktopHeight}`}
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <defs>{arrowMarker("homepage-diagram-arrow-desktop")}</defs>
+          <path
+            d={`M${lineStartX},${iconCenterY(0)} C${lineStartX + 18},${iconCenterY(0)} ${lineEndX - 12},${hubY - 28} ${lineEndX},${hubY}`}
+            markerEnd="url(#homepage-diagram-arrow-desktop)"
+            {...arrowStroke}
+          />
+          <path
+            d={`M${lineStartX},${iconCenterY(1)} L${lineEndX},${hubY}`}
+            markerEnd="url(#homepage-diagram-arrow-desktop)"
+            {...arrowStroke}
+          />
+          <path
+            d={`M${lineStartX},${iconCenterY(2)} C${lineStartX + 18},${iconCenterY(2)} ${lineEndX - 12},${hubY + 28} ${lineEndX},${hubY}`}
+            markerEnd="url(#homepage-diagram-arrow-desktop)"
+            {...arrowStroke}
+          />
+        </svg>
+
+        <svg
+          className="homepage-diagram__overlay homepage-diagram__overlay--mobile"
+          viewBox={`0 0 ${mobileWidth} ${mobileHeight}`}
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <defs>{arrowMarker("homepage-diagram-arrow-mobile")}</defs>
+          <path
+            d={`M${iconCenterX(0)},${iconBottomY} C${iconCenterX(0)},${targetTopY - 6} ${targetCenterX - 36},${targetTopY - 4} ${targetCenterX},${targetTopY}`}
+            markerEnd="url(#homepage-diagram-arrow-mobile)"
+            {...arrowStroke}
+          />
+          <path
+            d={`M${iconCenterX(1)},${iconBottomY} L${targetCenterX},${targetTopY}`}
+            markerEnd="url(#homepage-diagram-arrow-mobile)"
+            {...arrowStroke}
+          />
+          <path
+            d={`M${iconCenterX(2)},${iconBottomY} C${iconCenterX(2)},${targetTopY - 6} ${targetCenterX + 36},${targetTopY - 4} ${targetCenterX},${targetTopY}`}
+            markerEnd="url(#homepage-diagram-arrow-mobile)"
+            {...arrowStroke}
+          />
+        </svg>
+
         <div className="homepage-diagram__sources">
           {clouds.map((brand) => (
             <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} />
