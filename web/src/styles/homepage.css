@@ -68,7 +68,7 @@
 .homepage-dashboard-card--main {
   position: relative;
   z-index: 2;
-  padding: 1.25rem 1.35rem;
+  padding: 1.75rem 1.85rem;
   box-shadow:
     0 1px 2px rgb(9 9 11 / 0.04),
     0 16px 48px -20px rgb(15 23 42 / 0.18);
@@ -162,7 +162,7 @@
 }
 
 .homepage-dashboard__header {
-  padding-bottom: 1rem;
+  padding-bottom: 1.35rem;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -175,7 +175,7 @@
 }
 
 .homepage-dashboard__subtitle {
-  margin-top: 0.25rem;
+  margin-top: 0.4rem;
   font-size: 0.8125rem;
   font-weight: 500;
   color: #475569;
@@ -183,6 +183,7 @@
 }
 
 .homepage-dashboard__section-title {
+  margin-bottom: 0.15rem;
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -195,8 +196,8 @@
 .homepage-dashboard__stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-  margin-top: 1rem;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 @media (min-width: 480px) {
@@ -207,7 +208,7 @@
 
 .homepage-stat-card {
   position: relative;
-  padding: 0.65rem 0.75rem 0.7rem;
+  padding: 0.85rem 0.9rem 0.9rem;
   border-radius: 0.625rem;
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -216,7 +217,7 @@
 }
 
 .homepage-stat-card--sparkline {
-  padding-bottom: 1.35rem;
+  padding-bottom: 1.5rem;
 }
 
 .homepage-stat-card__value {
@@ -267,8 +268,8 @@
 .homepage-dashboard__body {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  margin-top: 1.1rem;
+  gap: 1.75rem;
+  margin-top: 1.65rem;
 }
 
 @media (min-width: 640px) {
@@ -276,7 +277,7 @@
     flex-direction: row;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 1.5rem;
+    gap: 2.5rem;
   }
 }
 
@@ -287,13 +288,13 @@
 
 .homepage-evidence-table {
   width: 100%;
-  margin-top: 0.65rem;
+  margin-top: 0.85rem;
   border-collapse: collapse;
   font-size: 0.75rem;
 }
 
 .homepage-evidence-table th {
-  padding: 0 0 0.5rem;
+  padding: 0 0 0.65rem;
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -304,7 +305,7 @@
 }
 
 .homepage-evidence-table td {
-  padding: 0.5rem 0.5rem 0.5rem 0;
+  padding: 0.65rem 0.75rem 0.65rem 0;
   vertical-align: middle;
   border-bottom: 1px solid #f1f5f9;
 }
@@ -314,7 +315,7 @@
 }
 
 .homepage-evidence-table__item {
-  max-width: 9.5rem;
+  max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -352,21 +353,23 @@
 @media (min-width: 640px) {
   .homepage-dashboard__gauge-panel {
     align-items: flex-end;
-    min-width: 7.5rem;
+    min-width: 8.5rem;
+    padding-top: 0.15rem;
   }
 }
 
 .homepage-dashboard__gauge {
-  margin-top: 0.65rem;
+  margin-top: 1rem;
+  padding: 0.25rem 0;
   display: flex;
   justify-content: center;
 }
 
 .homepage-gauge-legend {
-  margin-top: 0.75rem;
+  margin-top: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
   font-size: 0.6875rem;
   font-weight: 600;
   color: #334155;
