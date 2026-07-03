@@ -158,6 +158,9 @@ export const RECOMMENDED_INTEGRATION_KEYS = [
   "snyk",
 ] as const;
 
+/** Connector cards shown inline; browse-catalog card is always the 4th slot. */
+export const MAX_INLINE_RECOMMENDED_CARDS = 3;
+
 export type RecommendedIntegrationKey = (typeof RECOMMENDED_INTEGRATION_KEYS)[number];
 
 export function catalogEntryByKey(key: string): CatalogEntry | undefined {

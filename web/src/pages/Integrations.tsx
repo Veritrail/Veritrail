@@ -26,6 +26,7 @@ import {
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import {
   catalogEntryByKey,
+  MAX_INLINE_RECOMMENDED_CARDS,
   RECOMMENDED_INTEGRATION_KEYS,
 } from "../lib/integrationCatalog";
 import { PostureMetricCell } from "./Workspace";
@@ -705,8 +706,9 @@ function IntegrationsContent() {
 
 /** A small curated set of high-value NON-cloud connectors surfaced inline; the
     full list lives behind "Browse integration catalog". Each card hides once
-    connected. Cloud providers are intentionally excluded — they onboard from
-    the Accounts page, not here. */
+    connected. At most {@link MAX_INLINE_RECOMMENDED_CARDS} connector cards
+    plus the browse-catalog card (4 total). Cloud providers are intentionally
+    excluded — they onboard from the Accounts page, not here. */
 function RecommendedIntegrations({
   entraConnected,
   jiraConnected,
@@ -726,6 +728,7 @@ function RecommendedIntegrations({
   };
 
   const cards = RECOMMENDED_INTEGRATION_KEYS.filter((key) => !connectedByKey[key])
+    .slice(0, MAX_INLINE_RECOMMENDED_CARDS)
     .map((key) => catalogEntryByKey(key))
     .filter((entry): entry is NonNullable<typeof entry> => !!entry?.href);
 
