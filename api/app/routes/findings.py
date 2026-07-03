@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.db import get_db
 from app.core.security import current_principal
@@ -21,6 +22,38 @@ from app.services.finding_supersession import (
 )
 
 router = APIRouter()
+
+REMEDIATION_TICKET_EVIDENCE_KEYS = (
+    "jira",
+    "github_issue",
+    "iac_remediation_ticket",
+    "linear",
+    "azure_boards",
+)
+
+
+def clear_finding_remediation_ticket(finding: Finding) -> list[str]:
+    """Unlink all remediation tickets stored on a finding. Returns removed issue keys."""
+    removed: list[str] = []
+
+    if finding.remediation_ticket_key:
+        removed.append(finding.remediation_ticket_key)
+
+    evidence = dict(finding.evidence or {})
+    for key in REMEDIATION_TICKET_EVIDENCE_KEYS:
+        entry = evidence.pop(key, None)
+        if isinstance(entry, dict):
+            issue_key = entry.get("issue_key")
+            if isinstance(issue_key, str) and issue_key and issue_key not in removed:
+                removed.append(issue_key)
+
+    if removed or finding.remediation_ticket_key or finding.remediation_ticket_url:
+        finding.remediation_ticket_key = None
+        finding.remediation_ticket_url = None
+        finding.evidence = evidence
+        flag_modified(finding, "evidence")
+
+    return removed
 
 
 class FindingOut(BaseModel):
@@ -588,6 +621,33 @@ def create_exception(finding_id: str, body: ExceptionIn, _rbac: RequireEditor, p
         actor=p["sub"],
         note=f"Approved by {body.approved_by}: {body.reason}",
     ))
+    db.commit()
+    accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
+    return _to_out(f, accounts, gcp_projects, azure_subscriptions)
+
+
+@router.delete("/{finding_id}/remediation-ticket", response_model=FindingOut)
+def clear_remediation_ticket_link(
+    finding_id: str,
+    _rbac: RequireEditor,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Remove remediation ticket link(s) from a finding without closing external issues."""
+    f = _get_owned(db, p, finding_id)
+    removed = clear_finding_remediation_ticket(f)
+    if removed:
+        keys = ", ".join(removed)
+        suffix = "s" if len(removed) > 1 else ""
+        db.add(
+            FindingEvent(
+                id=uuid.uuid4(),
+                finding_id=f.id,
+                action="note",
+                actor=p.get("sub"),
+                note=f"Removed remediation ticket link{suffix}: {keys}",
+            )
+        )
     db.commit()
     accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
     return _to_out(f, accounts, gcp_projects, azure_subscriptions)

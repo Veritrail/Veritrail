@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { createPortal } from "react-dom";
 import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import { accountTimelineSchema, blastRadiusSchema, controlsByCheckSchema, generatedPolicySchema } from "../lib/apiSchemas";
 import AwsServiceIcon from "./AwsServiceIcon";
@@ -20,6 +20,7 @@ import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import { DrawerDateField } from "./DrawerDateField";
 import { TerraformIacDrawerSection } from "./TerraformIacDrawerSection";
 import { JiraFindingAction } from "./JiraFindingAction";
+import ConfirmDialog from "./ConfirmDialog";
 import { todayIso } from "../lib/isoDate";
 import {
   drawerBody,
@@ -6408,6 +6409,7 @@ export function FindingDrawer({
   verifying,
   onDismissVerifyOutcome,
   onFocusFinding,
+  onFindingPatched,
 }: {
   finding: Finding | null;
   groupFindings?: Finding[];
@@ -6415,6 +6417,7 @@ export function FindingDrawer({
   onClose: () => void;
   onAction: (id: string, action: "recheck" | "reopen") => void;
   onFocusFinding?: (finding: Finding) => void;
+  onFindingPatched?: (finding: Finding) => void;
   tab: FindingDrawerTab;
   onTabChange: (tab: FindingDrawerTab) => void;
   remTab: FindingRemediationMode;
@@ -6433,6 +6436,20 @@ export function FindingDrawer({
   const [policyReviewAcknowledged, setPolicyReviewAcknowledged] = useState(false);
   const [jiraIssue, setJiraIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
   const [githubIssue, setGithubIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
+  const [confirmRemoveTicket, setConfirmRemoveTicket] = useState(false);
+  const qc = useQueryClient();
+
+  const clearRemediationTicket = useMutation({
+    mutationFn: (findingId: string) =>
+      api<Finding>(`/v1/findings/${findingId}/remediation-ticket`, { method: "DELETE" }),
+    onSuccess: (updated) => {
+      setGithubIssue(null);
+      setJiraIssue(null);
+      setConfirmRemoveTicket(false);
+      onFindingPatched?.(updated);
+      qc.invalidateQueries({ queryKey: ["findings"] });
+    },
+  });
 
   useEffect(() => {
     if (!finding) {
@@ -6783,18 +6800,39 @@ export function FindingDrawer({
         </div>
       )}
       {(githubIssue ?? jiraIssue) && (
-        <div className="rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-[12px] text-sky-950">
-          <span className="font-semibold">Remediation ticket: </span>
-          <a
-            href={(githubIssue ?? jiraIssue)!.issue_url}
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium text-sky-800 underline"
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-[12px] text-sky-950">
+          <p className="min-w-0 flex-1">
+            <span className="font-semibold">Remediation ticket: </span>
+            <a
+              href={(githubIssue ?? jiraIssue)!.issue_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-sky-800 underline"
+            >
+              {githubIssue ? `Ticket #${githubIssue.issue_key}` : jiraIssue!.issue_key}
+            </a>
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmRemoveTicket(true)}
+            className="shrink-0 text-[11px] font-medium text-sky-900/80 hover:text-sky-950"
           >
-            {githubIssue ? `Ticket #${githubIssue.issue_key}` : jiraIssue!.issue_key}
-          </a>
+            Remove
+          </button>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmRemoveTicket}
+        title="Remove remediation ticket link?"
+        description="This clears the ticket link from this finding in Veritrail. The external issue (Jira, GitHub, etc.) will not be closed or deleted."
+        confirmLabel="Remove link"
+        variant="danger"
+        loading={clearRemediationTicket.isPending}
+        onCancel={() => !clearRemediationTicket.isPending && setConfirmRemoveTicket(false)}
+        onConfirm={() => {
+          if (finding) clearRemediationTicket.mutate(finding.id);
+        }}
+      />
       {tab === "resources" && (
         <div className="space-y-3.5">
           <FindingResourcesTab

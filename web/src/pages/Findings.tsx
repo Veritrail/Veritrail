@@ -1138,6 +1138,10 @@ export default function Findings() {
           if (action === "recheck") startRecheck(id, selected?.check_id ?? "");
           act.mutate({ id, action });
         }}
+        onFindingPatched={(f) => {
+          setSelected(f);
+          setSelectedGroup((g) => g.map((x) => (x.id === f.id ? f : x)));
+        }}
       />
     </div>
   );
