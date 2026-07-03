@@ -2,23 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
+import { githubIssuesIntegrationSchema } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/integration-setup.css";
-
-type GitHubIssuesConfig = {
-  connected: boolean;
-  status: string;
-  owner?: string | null;
-  repo?: string | null;
-  labels?: string[];
-  has_access_token?: boolean;
-};
 
 export default function GitHubIssuesIntegration() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["github-issues-integration"],
-    queryFn: () => api<GitHubIssuesConfig>("/v1/integrations/github-issues"),
+    queryFn: () => api("/v1/integrations/github-issues", { schema: githubIssuesIntegrationSchema }),
   });
   const [owner, setOwner] = useState("");
   const [repo, setRepo] = useState("");
@@ -35,8 +27,9 @@ export default function GitHubIssuesIntegration() {
 
   const save = useMutation({
     mutationFn: () =>
-      api<GitHubIssuesConfig>("/v1/integrations/github-issues", {
+      api("/v1/integrations/github-issues", {
         method: "PUT",
+        schema: githubIssuesIntegrationSchema,
         body: JSON.stringify({
           owner: owner.trim(),
           repo: repo.trim(),
@@ -71,8 +64,8 @@ export default function GitHubIssuesIntegration() {
       {!isLoading && (
         <div className="integration-setup__card">
           <div className="integration-setup__grid integration-setup__grid--2">
-            <div><label className="integration-setup__field-label">Owner</label><input className="integration-setup__input" value={owner} onChange={(e) => setOwner(e.target.value)} /></div>
-            <div><label className="integration-setup__field-label">Repo</label><input className="integration-setup__input" value={repo} onChange={(e) => setRepo(e.target.value)} /></div>
+            <div><label className="integration-setup__field-label">Owner</label><input className="integration-setup__input" placeholder="e.g. awakzdev" value={owner} onChange={(e) => setOwner(e.target.value)} /></div>
+            <div><label className="integration-setup__field-label">Repo</label><input className="integration-setup__input" placeholder="e.g. eks-production-iac" value={repo} onChange={(e) => setRepo(e.target.value)} /></div>
             <div className="integration-setup__field--wide"><label className="integration-setup__field-label">Labels (comma-separated)</label><input className="integration-setup__input" value={labels} onChange={(e) => setLabels(e.target.value)} /></div>
             <div><label className="integration-setup__field-label">Access token (optional)</label><input type="password" className="integration-setup__input" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} /></div>
           </div>

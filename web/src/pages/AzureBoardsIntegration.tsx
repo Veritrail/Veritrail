@@ -2,23 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
+import { azureBoardsIntegrationSchema } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/integration-setup.css";
-
-type AzureBoardsConfig = {
-  connected: boolean;
-  status: string;
-  org_url?: string | null;
-  project?: string | null;
-  work_item_type?: string;
-  has_pat?: boolean;
-};
 
 export default function AzureBoardsIntegration() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["azure-boards-integration"],
-    queryFn: () => api<AzureBoardsConfig>("/v1/integrations/azure-boards"),
+    queryFn: () => api("/v1/integrations/azure-boards", { schema: azureBoardsIntegrationSchema }),
   });
   const [orgUrl, setOrgUrl] = useState("");
   const [project, setProject] = useState("");
@@ -35,8 +27,9 @@ export default function AzureBoardsIntegration() {
 
   const save = useMutation({
     mutationFn: () =>
-      api<AzureBoardsConfig>("/v1/integrations/azure-boards", {
+      api("/v1/integrations/azure-boards", {
         method: "PUT",
+        schema: azureBoardsIntegrationSchema,
         body: JSON.stringify({
           org_url: orgUrl.trim(),
           project: project.trim(),

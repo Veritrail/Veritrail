@@ -2,25 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
+import { oktaIntegrationSchema, type OktaIntegration } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/integration-setup.css";
-
-type OktaProvider = {
-  connected: boolean;
-  status: string;
-  org_url?: string | null;
-  last_synced_at?: string | null;
-  identity_users?: number;
-  admin_users?: number;
-  mfa_policy_enforced?: boolean | null;
-  has_api_token?: boolean;
-};
 
 export default function OktaIntegration() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["okta-integration"],
-    queryFn: () => api<OktaProvider>("/v1/integrations/okta"),
+    queryFn: () => api<OktaIntegration>("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
   });
   const [orgUrl, setOrgUrl] = useState("");
   const [apiToken, setApiToken] = useState("");
@@ -33,8 +23,9 @@ export default function OktaIntegration() {
 
   const save = useMutation({
     mutationFn: () =>
-      api<OktaProvider>("/v1/integrations/okta", {
+      api<OktaIntegration>("/v1/integrations/okta", {
         method: "PUT",
+        schema: oktaIntegrationSchema,
         body: JSON.stringify({ org_url: orgUrl.trim(), api_token: apiToken.trim() || undefined }),
       }),
     onSuccess: () => {

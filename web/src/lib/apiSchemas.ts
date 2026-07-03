@@ -15,19 +15,42 @@ export class ApiValidationError extends Error {
   }
 }
 
+/** Paths already reported this session — one log per path, not one per refetch. */
+const _reportedValidationPaths = new Set<string>();
+
 /** Validate JSON at the fetch boundary; warn and pass through on mismatch (never throw). */
 export function parseApiResponse<T>(path: string, schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (result.success) return result.data;
-  console.error("[api] response validation failed", path, result.error.issues);
+  if (!_reportedValidationPaths.has(path)) {
+    _reportedValidationPaths.add(path);
+    const issues = result.error.issues;
+    const summary = issues
+      .slice(0, 3)
+      .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+      .join("  |  ");
+    const extra = issues.length > 3 ? `  (+${issues.length - 3} more)` : "";
+    console.warn(`[api] schema drift on ${path} — ${summary}${extra}`);
+    if (import.meta.env.DEV) {
+      console.debug("[api] full validation issues for", path, issues);
+    }
+  }
   return data as T;
 }
 
-/** In dev mode, warn when a GET call omits a schema. This surfaces untyped boundaries. */
+/** In dev mode, warn once when a GET call omits a schema. Surfaces untyped boundaries. */
+const _reportedMissingSchemaPaths = new Set<string>();
+
 export function warnMissingSchema(path: string, init?: ApiInit): void {
   if (import.meta.env.DEV && !init?.schema) {
     const method = (init?.method ?? "GET").toUpperCase();
-    if (method === "GET" && !path.includes("export") && !path.includes("download")) {
+    if (
+      method === "GET" &&
+      !path.includes("export") &&
+      !path.includes("download") &&
+      !_reportedMissingSchemaPaths.has(path)
+    ) {
+      _reportedMissingSchemaPaths.add(path);
       console.warn(`[api] missing schema for GET ${path}`);
     }
   }
@@ -189,8 +212,13 @@ export const loginResponseSchema = z.object({
   mfa_token: z.string().nullable().optional(),
 });
 
-export const settingsSchema = z.object({
-  optional_checks: z.array(
+export const settingsSchema = z
+  .object({
+    checks: z
+      .record(z.string(), z.object({ enabled: z.boolean() }).passthrough())
+      .optional()
+      .default({}),
+    optional_checks: z.array(
     z.object({
       check_id: z.string(),
       label: z.string(),
@@ -208,13 +236,17 @@ export const settingsSchema = z.object({
     interval: z.enum(["daily", "weekly", "custom", "manual"]),
     custom_hours: z.number().nullable(),
   }),
-  notifications: z.object({
-    email_digest_enabled: z.boolean(),
-    digest_email: z.string().nullable(),
-    slack_webhook_url: z.string().nullable(),
-    scan_failure_email_enabled: z.boolean(),
-    critical_alert_enabled: z.boolean(),
-  }),
+  notifications: z
+    .object({
+      email_digest_enabled: z.boolean(),
+      digest_email: z.string().nullable(),
+      slack_webhook_url: z.string().nullable(),
+      scan_failure_email_enabled: z.boolean(),
+      critical_alert_enabled: z.boolean(),
+    })
+    .passthrough(),
+  evidence_classes: z.record(z.string(), z.string()).optional().default({}),
+  cis_benchmark_coverage: z.record(z.string(), z.unknown()).nullable().optional(),
   scan_status: z.object({
     account_connected: z.boolean(),
     last_scan_at: z.string().nullable(),
@@ -248,7 +280,8 @@ export const settingsSchema = z.object({
     .array(z.object({ key: z.string(), label: z.string() }))
     .optional()
     .default([]),
-});
+})
+  .passthrough();
 
 export type SettingsData = z.infer<typeof settingsSchema>;
 
@@ -632,6 +665,48 @@ export const jiraIntegrationSchema = z
   .passthrough();
 
 export type JiraIntegration = z.infer<typeof jiraIntegrationSchema>;
+
+/** GET/PUT /v1/integrations/okta — OktaProviderOut. */
+export const oktaIntegrationSchema = z
+  .object({
+    connected: z.boolean(),
+    status: z.string(),
+    org_url: z.string().nullable().optional(),
+    last_synced_at: z.string().nullable().optional(),
+    identity_users: z.number().default(0),
+    admin_users: z.number().default(0),
+    mfa_policy_enforced: z.boolean().nullable().optional(),
+    has_api_token: z.boolean().optional(),
+  })
+  .passthrough();
+
+export type OktaIntegration = z.infer<typeof oktaIntegrationSchema>;
+
+export const githubIssuesIntegrationSchema = z
+  .object({
+    connected: z.boolean(),
+    status: z.string().optional(),
+    owner: z.string().nullable().optional(),
+    repo: z.string().nullable().optional(),
+    labels: z.array(z.string()).optional(),
+    has_access_token: z.boolean().optional(),
+  })
+  .passthrough();
+
+export type GitHubIssuesIntegration = z.infer<typeof githubIssuesIntegrationSchema>;
+
+export const azureBoardsIntegrationSchema = z
+  .object({
+    connected: z.boolean(),
+    status: z.string().optional(),
+    org_url: z.string().nullable().optional(),
+    project: z.string().nullable().optional(),
+    work_item_type: z.string().optional(),
+    has_pat: z.boolean().optional(),
+  })
+  .passthrough();
+
+export type AzureBoardsIntegration = z.infer<typeof azureBoardsIntegrationSchema>;
 
 /** GET /v1/integrations/{github|gitlab|google-workspace|entra} — null when disconnected. */
 export const integrationStatusSchema = z

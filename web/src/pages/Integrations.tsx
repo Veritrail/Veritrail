@@ -4,9 +4,14 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import {
+  azureBoardsIntegrationSchema,
   cloudAccountListSchema,
+  githubIssuesIntegrationSchema,
   integrationStatusNullableSchema,
+  jiraIntegrationSchema,
+  oktaIntegrationSchema,
   scannerIntegrationSchema,
+  settingsSchema,
 } from "../lib/apiSchemas";
 import { ProductShell } from "../components/ProductShell";
 import { PostureMetricCell } from "./Workspace";
@@ -56,13 +61,6 @@ type CloudAccountRow = {
   status: string;
   last_scan_at: string | null;
   open_findings_count?: number;
-};
-
-type SettingsSlice = {
-  notifications: {
-    slack_webhook_url: string | null;
-    email_digest_enabled: boolean;
-  };
 };
 
 type Tone = "ok" | "warn" | "idle" | "sync" | "danger";
@@ -353,9 +351,32 @@ function IntegrationsContent() {
   });
   const okta = useQuery({
     queryKey: ["okta-integration"],
-    queryFn: () => api<{ connected?: boolean; last_synced_at?: string | null }>("/v1/integrations/okta"),
+    queryFn: () => api("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
   });
-  const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<SettingsSlice>("/v1/settings") });
+  const githubIssues = useQuery({
+    queryKey: ["github-issues-integration"],
+    queryFn: () => api("/v1/integrations/github-issues", { schema: githubIssuesIntegrationSchema }),
+  });
+  const jira = useQuery({
+    queryKey: ["jira-integration"],
+    queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
+  });
+  const azureBoards = useQuery({
+    queryKey: ["azure-boards-integration"],
+    queryFn: () => api("/v1/integrations/azure-boards", { schema: azureBoardsIntegrationSchema }),
+  });
+  const splunkSiem = useQuery({
+    queryKey: ["siem-integration", "splunk"],
+    queryFn: () => api("/v1/integrations/siem/splunk", { schema: scannerIntegrationSchema }),
+  });
+  const datadogSiem = useQuery({
+    queryKey: ["siem-integration", "datadog"],
+    queryFn: () => api("/v1/integrations/siem/datadog", { schema: scannerIntegrationSchema }),
+  });
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api("/v1/settings", { schema: settingsSchema }),
+  });
 
   const accountsList = cloudAccounts.data ?? [];
   const awsRows = accountsList.filter((a) => a.provider === "aws");
@@ -393,10 +414,30 @@ function IntegrationsContent() {
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
   const oktaConnected = !!okta.data?.connected;
+  const githubIssuesConnected = !!githubIssues.data?.connected;
+  const jiraConnected = !!jira.data?.connected;
+  const azureBoardsConnected = !!azureBoards.data?.connected;
+  const splunkConnected = !!splunkSiem.data?.connected;
+  const datadogConnected = !!datadogSiem.data?.connected;
+  const snykConnected = !!snykScanner.data?.connected;
 
-  const connectedCount = [awsConnected, githubConnected, gitlabConnected, googleConnected, entraConnected, oktaConnected, slackConnected, gcpConnected, azureConnected, scannerConnected].filter(
-    Boolean,
-  ).length;
+  const connectedCount = [
+    awsConnected,
+    githubConnected,
+    gitlabConnected,
+    googleConnected,
+    entraConnected,
+    oktaConnected,
+    slackConnected,
+    gcpConnected,
+    azureConnected,
+    scannerConnected,
+    githubIssuesConnected,
+    jiraConnected,
+    azureBoardsConnected,
+    splunkConnected,
+    datadogConnected,
+  ].filter(Boolean).length;
   const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(
     Boolean,
   ).length;
@@ -610,6 +651,107 @@ function IntegrationsContent() {
           } satisfies IntegrationRow,
         ]
       : []),
+    ...(githubIssuesConnected
+      ? [
+          {
+            key: "github-issues",
+            name: "GitHub Issues",
+            description: "Create remediation issues from findings in a target repository.",
+            icon: <IntegrationBrandIcon brand="github" size={48} />,
+            href: "/integrations/github-issues",
+            connected: true,
+            loading: githubIssues.isLoading,
+            lastSyncAt: null,
+            lastSyncLabel:
+              githubIssues.data?.owner && githubIssues.data?.repo
+                ? `${githubIssues.data.owner}/${githubIssues.data.repo}`
+                : "Repository configured",
+            healthLabel: githubIssues.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (githubIssues.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: githubIssues.data?.has_access_token ? "Token configured" : "GitHub OAuth",
+            permissionsVerified: true,
+            capabilities: ["Remediation tickets", "Findings export"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(jiraConnected
+      ? [
+          {
+            key: "jira",
+            name: "Jira",
+            description: "Create Jira issues from findings for remediation tracking.",
+            icon: <IntegrationBrandIcon brand="jira" size={48} />,
+            href: "/integrations/jira",
+            connected: true,
+            loading: jira.isLoading,
+            lastSyncAt: null,
+            lastSyncLabel: jira.data?.project_key ? `Project ${jira.data.project_key}` : "Project configured",
+            healthLabel: jira.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (jira.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "API token",
+            permissionsVerified: true,
+            capabilities: ["Remediation tickets", "Findings export"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(azureBoardsConnected
+      ? [
+          {
+            key: "azure-boards",
+            name: "Azure Boards",
+            description: "Create Azure DevOps work items from findings.",
+            icon: <IntegrationBrandIcon brand="azure-devops" size={48} />,
+            href: "/integrations/azure-boards",
+            connected: true,
+            loading: azureBoards.isLoading,
+            lastSyncAt: null,
+            lastSyncLabel: azureBoards.data?.project ? `Project ${azureBoards.data.project}` : "Project configured",
+            healthLabel: azureBoards.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (azureBoards.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "PAT configured",
+            permissionsVerified: true,
+            capabilities: ["Work items", "Findings export"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(splunkConnected
+      ? [
+          {
+            key: "siem-splunk",
+            name: "Splunk",
+            description: "SIEM signal evidence from Splunk searches.",
+            icon: <IntegrationBrandIcon brand="splunk" size={48} />,
+            href: "/integrations/siem/splunk",
+            connected: true,
+            loading: splunkSiem.isLoading,
+            lastSyncAt: splunkSiem.data?.config.last_synced_at ?? null,
+            healthLabel: splunkSiem.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (splunkSiem.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "API connected",
+            permissionsVerified: true,
+            capabilities: ["SIEM signals", "Evidence"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(datadogConnected
+      ? [
+          {
+            key: "siem-datadog",
+            name: "Datadog",
+            description: "Monitoring signal evidence from Datadog.",
+            icon: <IntegrationBrandIcon brand="datadog" size={48} />,
+            href: "/integrations/siem/datadog",
+            connected: true,
+            loading: datadogSiem.isLoading,
+            lastSyncAt: datadogSiem.data?.config.last_synced_at ?? null,
+            healthLabel: datadogSiem.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (datadogSiem.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "API connected",
+            permissionsVerified: true,
+            capabilities: ["SIEM signals", "Evidence"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
   ];
 
   const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
@@ -648,62 +790,83 @@ function IntegrationsContent() {
           } satisfies ExploreCard,
         ]
       : []),
-    {
-      key: "jira",
-      brand: "jira",
-      name: "Jira",
-      description: "Sync issues and tickets",
-      href: "/integrations/jira",
-    },
-    {
-      key: "github-issues",
-      brand: "github",
-      name: "GitHub Issues",
-      description: "Create remediation issues from findings",
-      href: "/integrations/github-issues",
-    },
-    {
-      key: "azure-boards",
-      brand: "azure-devops",
-      name: "Azure Boards",
-      description: "Create work items from findings",
-      href: "/integrations/azure-boards",
-    },
-    {
-      key: "snyk-explore",
-      brand: "snyk",
-      name: "Snyk",
-      description: "Import open Snyk issues",
-      href: "/integrations/scanners/snyk",
-    },
-    {
-      key: "okta-explore",
-      brand: "okta",
-      name: "Okta",
-      description: "Identity directory sync",
-      href: "/integrations/okta",
-    },
-    {
-      key: "splunk-explore",
-      brand: "splunk",
-      name: "Splunk",
-      description: "SIEM signal evidence",
-      href: "/integrations/siem/splunk",
-    },
-    {
-      key: "datadog-explore",
-      brand: "datadog",
-      name: "Datadog",
-      description: "Monitoring signal evidence",
-      href: "/integrations/siem/datadog",
-    },
-    {
-      key: "azure-devops",
-      brand: "azure-devops",
-      name: "Azure DevOps",
-      description: "Track work and pipelines",
-      href: "/integrations/azure-boards",
-    },
+    ...(!jiraConnected
+      ? [
+          {
+            key: "jira",
+            brand: "jira",
+            name: "Jira",
+            description: "Sync issues and tickets",
+            href: "/integrations/jira",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!githubIssuesConnected
+      ? [
+          {
+            key: "github-issues",
+            brand: "github",
+            name: "GitHub Issues",
+            description: "Create remediation issues from findings",
+            href: "/integrations/github-issues",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!azureBoardsConnected
+      ? [
+          {
+            key: "azure-boards",
+            brand: "azure-devops",
+            name: "Azure Boards",
+            description: "Create work items from findings",
+            href: "/integrations/azure-boards",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!snykConnected
+      ? [
+          {
+            key: "snyk-explore",
+            brand: "snyk",
+            name: "Snyk",
+            description: "Import open Snyk issues",
+            href: "/integrations/scanners/snyk",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!oktaConnected
+      ? [
+          {
+            key: "okta-explore",
+            brand: "okta",
+            name: "Okta",
+            description: "Identity directory sync",
+            href: "/integrations/okta",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!splunkConnected
+      ? [
+          {
+            key: "splunk-explore",
+            brand: "splunk",
+            name: "Splunk",
+            description: "SIEM signal evidence",
+            href: "/integrations/siem/splunk",
+          } satisfies ExploreCard,
+        ]
+      : []),
+    ...(!datadogConnected
+      ? [
+          {
+            key: "datadog-explore",
+            brand: "datadog",
+            name: "Datadog",
+            description: "Monitoring signal evidence",
+            href: "/integrations/siem/datadog",
+          } satisfies ExploreCard,
+        ]
+      : []),
   ];
 
   return (
