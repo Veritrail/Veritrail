@@ -287,7 +287,7 @@ export default function Account() {
     { label: "Backup sign-in connected", done: providerCount > 0 },
   ];
   const postureScore = Math.round((postureItems.filter((i) => i.done).length / postureItems.length) * 100);
-  const postureTone: Tone = postureScore >= 90 ? "ok" : postureScore >= 70 ? "warn" : "danger";
+  const postureTone: Tone = postureScore >= 90 ? "ok" : postureScore > 50 ? "warn" : "danger";
   const postureLabel = postureScore >= 90 ? "Ready" : postureScore >= 70 ? "Review" : "Setup";
   const postureMessage =
     postureScore >= 100 ? "Everything looks good. Keep it up." : postureScore >= 70 ? "A few items left to finish." : "Finish setup to secure your account.";

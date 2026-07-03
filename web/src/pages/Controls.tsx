@@ -1333,6 +1333,7 @@ function ComplianceToolbarLoadingSkeleton() {
       <div className="h-8 w-20 rounded-full bg-zinc-100" />
       <div className="h-8 w-24 rounded-full bg-zinc-100" />
       <div className="h-8 w-20 rounded-full bg-zinc-100" />
+      <div className="h-8 w-28 rounded-full bg-zinc-100" />
     </div>
   );
 }
@@ -1378,28 +1379,30 @@ function ComplianceUnifiedToolbar({
         {toolbarLoading ? (
           <ComplianceToolbarLoadingSkeleton />
         ) : (
-          showStatusFilter && (
-            <ComplianceStatusFilterBar
-              total={statusCounts.total}
-              passed={statusCounts.passed}
-              failed={statusCounts.failed}
-              noData={statusCounts.noData}
-              needsEvidence={statusCounts.needsEvidence}
-              externallyCovered={statusCounts.externallyCovered}
-              pendingReview={statusCounts.pendingReview}
-              staleEvidence={statusCounts.staleEvidence}
-              expiredEvidence={statusCounts.expiredEvidence}
-              statusFilter={statusFilter}
-              onChange={onStatusFilterChange}
-              compositeMode={compositeStatusFilter}
+          <>
+            {showStatusFilter && (
+              <ComplianceStatusFilterBar
+                total={statusCounts.total}
+                passed={statusCounts.passed}
+                failed={statusCounts.failed}
+                noData={statusCounts.noData}
+                needsEvidence={statusCounts.needsEvidence}
+                externallyCovered={statusCounts.externallyCovered}
+                pendingReview={statusCounts.pendingReview}
+                staleEvidence={statusCounts.staleEvidence}
+                expiredEvidence={statusCounts.expiredEvidence}
+                statusFilter={statusFilter}
+                onChange={onStatusFilterChange}
+                compositeMode={compositeStatusFilter}
+              />
+            )}
+            <ComplianceFrameworkSelect
+              selectedId={framework}
+              statsById={frameworkStatsById}
+              onSelect={onFrameworkChange}
             />
-          )
+          </>
         )}
-        <ComplianceFrameworkSelect
-          selectedId={framework}
-          statsById={frameworkStatsById}
-          onSelect={onFrameworkChange}
-        />
       </div>
       <div className="findings-v2-control-cluster">
         {toolbarLoading ? (

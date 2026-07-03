@@ -79,7 +79,10 @@
 }
 
 .workspace-summary {
+  --workspace-summary-cell-min-height: 10rem;
+
   display: grid;
+  align-items: stretch;
   overflow: hidden;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
@@ -134,7 +137,8 @@
 .workspace-summary__cell {
   display: flex;
   min-width: 0;
-  min-height: 7.5rem;
+  min-height: var(--workspace-summary-cell-min-height);
+  align-self: stretch;
   align-items: center;
   gap: 0.875rem;
   /* Tighter horizontal padding: five columns share ~1030px of content width,
@@ -243,6 +247,9 @@
 }
 
 .workspace-summary__heading {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.25;
@@ -314,7 +321,6 @@
   }
 
   .workspace-summary__cell {
-    min-height: 0;
     border-bottom: 0;
     border-right: 1px solid #eef2f6;
   }
@@ -1883,6 +1889,7 @@
 
 .workspace-summary__pill-row {
   margin-top: 0.5rem;
+  min-height: 1.5rem;
 }
 
 .workspace-summary__pill {

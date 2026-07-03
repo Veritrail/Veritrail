@@ -51,6 +51,10 @@ def normalize_repo_path(value: str | None, *, default: str = DEFAULT_TERRAFORM_P
 def _blank_repo_link(vcs_provider: VcsProvider = "github") -> dict[str, Any]:
     return {
         "vcs_provider": vcs_provider,
+        "auth_method": "",
+        "installation_id": "",
+        "installation_account": "",
+        "repository_id": "",
         "owner": "",
         "repo": "",
         "repo_ref": "",
@@ -76,6 +80,10 @@ def _normalize_repo_link(raw: dict[str, Any] | None, *, default_provider: VcsPro
     link["owner"] = owner
     link["repo"] = repo
     link["repo_ref"] = repo_ref
+    link["auth_method"] = (raw.get("auth_method") or "").strip()
+    link["installation_id"] = str(raw.get("installation_id") or "").strip()
+    link["installation_account"] = (raw.get("installation_account") or "").strip()
+    link["repository_id"] = str(raw.get("repository_id") or "").strip()
     link["path"] = normalize_repo_path(raw.get("path") or raw.get("terraform_path"))
     link["access_token"] = (raw.get("access_token") or "").strip()
     link["base_url"] = (raw.get("base_url") or "").strip()
@@ -305,6 +313,25 @@ def resolve_vcs_token(db: Session, org_id: uuid.UUID, link: dict[str, Any]) -> s
     if token:
         return token
     vcs = link.get("vcs_provider", "github")
+    installation_id = str(link.get("installation_id") or "").strip()
+    if vcs == "github" and (link.get("auth_method") == "github_app" or installation_id):
+        if not installation_id:
+            raise ValueError("GitHub App installation is required for this IaC repository")
+        from app.services.github_app import create_installation_token
+
+        repository_id = str(link.get("repository_id") or "").strip()
+        if not repository_id.isdigit():
+            raise ValueError("Select an authorized GitHub repository from the GitHub App installation")
+        return create_installation_token(
+            int(installation_id),
+            repository_ids=[int(repository_id)],
+            permissions={
+                "contents": "write",
+                "issues": "write",
+                "metadata": "read",
+                "pull_requests": "write",
+            },
+        )
     oauth = oauth_provider(db, org_id, vcs)
     if oauth:
         oauth_cfg = provider_config(oauth)

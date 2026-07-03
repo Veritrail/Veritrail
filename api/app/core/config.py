@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
     GITHUB_INTEGRATION_CALLBACK_PATH: str = "/v1/auth/github/callback"
+    # GitHub App for least-privilege IaC repository access. The GitHub App setup URL should
+    # point to {API_PUBLIC_URL}/v1/integrations/iac-repository/github-app/setup.
+    GITHUB_APP_ID: str = ""
+    GITHUB_APP_SLUG: str = ""
+    GITHUB_APP_PRIVATE_KEY: str = ""
     # Shared secret for verifying inbound GitHub webhook signatures (X-Hub-Signature-256) on the
     # IaC PR/push scan trigger. Empty => the webhook endpoint rejects everything (fail closed).
     GITHUB_WEBHOOK_SECRET: str = ""

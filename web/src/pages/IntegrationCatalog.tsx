@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { useConnectedCatalogState } from "../hooks/useConnectedCatalogState";
 import {
-  catalogEntryCount,
   filterCatalog,
   INTEGRATION_CATALOG,
 } from "../lib/integrationCatalog";
@@ -13,7 +12,6 @@ import "../styles/integrations-page.css";
 export default function IntegrationCatalog() {
   const [query, setQuery] = useState("");
   const { hiddenKeys } = useConnectedCatalogState();
-  const total = catalogEntryCount(INTEGRATION_CATALOG, hiddenKeys);
 
   const filtered = useMemo(
     () => filterCatalog(INTEGRATION_CATALOG, hiddenKeys, query),
@@ -23,13 +21,6 @@ export default function IntegrationCatalog() {
   return (
     <div className="integrations-page integration-catalog">
       <div className="integration-catalog__header">
-        <div className="integration-catalog__intro">
-          <p className="integration-catalog__eyebrow">Available sources</p>
-          <h2 className="integration-catalog__title">Integration catalog</h2>
-          <p className="integration-catalog__subtitle">
-            Connect cloud, identity, scanner, SIEM, and workflow tools used for evidence collection.
-          </p>
-        </div>
         <div className="integration-catalog__actions">
           <Link to="/integrations" className="integration-catalog__back">
             <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -48,21 +39,6 @@ export default function IntegrationCatalog() {
         </div>
       </div>
 
-      <nav className="integration-catalog__category-nav" aria-label="Integration categories">
-        <a href="#all-integrations" className="integration-catalog__category-chip">
-          All <span>{total}</span>
-        </a>
-        {INTEGRATION_CATALOG.map((cat) => {
-          const visible = cat.entries.filter((entry) => !hiddenKeys.has(entry.key)).length;
-          if (visible === 0) return null;
-          return (
-            <a key={cat.id} href={`#${cat.id}`} className="integration-catalog__category-chip">
-              {cat.title} <span>{visible}</span>
-            </a>
-          );
-        })}
-      </nav>
-
       {filtered.length === 0 ? (
         <p className="integration-catalog__empty">
           {query.trim()
@@ -78,9 +54,6 @@ export default function IntegrationCatalog() {
                   <h3>{cat.title}</h3>
                   <p>{cat.blurb}</p>
                 </div>
-                <span className="integration-catalog__section-count">
-                  {cat.entries.length} integration{cat.entries.length === 1 ? "" : "s"}
-                </span>
               </div>
               <div className="integrations-explore-grid integration-catalog__grid">
                 {cat.entries.map((entry) => {
