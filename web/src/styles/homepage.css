@@ -233,7 +233,8 @@
 }
 
 .homepage-stat-card__value--green {
-  color: #047857;
+  color: #10b981;
+  font-weight: 600;
 }
 
 .homepage-stat-card__value--orange {
