@@ -12,7 +12,13 @@ export type IntegrationBrandId =
   | "azure"
   | "wiz"
   | "tenable"
-  | "qualys";
+  | "qualys"
+  | "snyk"
+  | "orca"
+  | "aikido"
+  | "okta"
+  | "splunk"
+  | "elastic";
 
 type BrandAsset = {
   src: string;
@@ -49,4 +55,10 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   wiz: { src: "https://www.wiz.io/favicon.ico" },
   tenable: { src: "https://www.tenable.com/favicon.ico" },
   qualys: { src: "https://www.qualys.com/favicon.ico" },
+  snyk: { src: "https://snyk.io/favicon.ico" },
+  orca: { src: "https://orca.security/favicon.ico" },
+  aikido: { src: "https://www.aikido.dev/favicon.ico" },
+  okta: { src: "https://www.okta.com/favicon.ico" },
+  splunk: { src: "https://www.splunk.com/favicon.ico" },
+  elastic: { src: "https://www.elastic.co/favicon.ico" },
 };

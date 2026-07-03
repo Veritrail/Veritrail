@@ -339,6 +339,22 @@ function IntegrationsContent() {
     queryKey: ["scanner-qualys"],
     queryFn: () => api("/v1/integrations/scanners/qualys", { schema: scannerIntegrationSchema }),
   });
+  const snykScanner = useQuery({
+    queryKey: ["scanner-snyk"],
+    queryFn: () => api("/v1/integrations/scanners/snyk", { schema: scannerIntegrationSchema }),
+  });
+  const orcaScanner = useQuery({
+    queryKey: ["scanner-orca"],
+    queryFn: () => api("/v1/integrations/scanners/orca", { schema: scannerIntegrationSchema }),
+  });
+  const aikidoScanner = useQuery({
+    queryKey: ["scanner-aikido"],
+    queryFn: () => api("/v1/integrations/scanners/aikido", { schema: scannerIntegrationSchema }),
+  });
+  const okta = useQuery({
+    queryKey: ["okta-integration"],
+    queryFn: () => api<{ connected?: boolean; last_synced_at?: string | null }>("/v1/integrations/okta"),
+  });
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<SettingsSlice>("/v1/settings") });
 
   const accountsList = cloudAccounts.data ?? [];
@@ -367,8 +383,8 @@ function IntegrationsContent() {
   const gcpProject = gcpRows.find(isCloudAccountConnected) ?? gcpRows[0];
   const azureConnected = azureRows.some(isCloudAccountConnected);
   const azureSub = azureRows.find(isCloudAccountConnected) ?? azureRows[0];
-  const scannerConnected = [wizScanner.data, tenableScanner.data, qualysScanner.data].some((s) => s?.connected);
-  const activeScanner = [wizScanner.data, tenableScanner.data, qualysScanner.data].find((s) => s?.connected);
+  const scannerConnected = [wizScanner.data, tenableScanner.data, qualysScanner.data, snykScanner.data, orcaScanner.data, aikidoScanner.data].some((s) => s?.connected);
+  const activeScanner = [wizScanner.data, tenableScanner.data, qualysScanner.data, snykScanner.data, orcaScanner.data, aikidoScanner.data].find((s) => s?.connected);
 
   const awsConnected = awsAccount?.status === "connected";
   const cloudConnectedCount = accountsList.filter(isCloudAccountConnected).length;
@@ -376,8 +392,9 @@ function IntegrationsContent() {
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
+  const oktaConnected = !!okta.data?.connected;
 
-  const connectedCount = [awsConnected, githubConnected, gitlabConnected, googleConnected, entraConnected, slackConnected, gcpConnected, azureConnected, scannerConnected].filter(
+  const connectedCount = [awsConnected, githubConnected, gitlabConnected, googleConnected, entraConnected, oktaConnected, slackConnected, gcpConnected, azureConnected, scannerConnected].filter(
     Boolean,
   ).length;
   const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(
@@ -492,6 +509,25 @@ function IntegrationsContent() {
             healthLabel: entraSync.isSyncing ? "Syncing" : "Healthy",
             healthTone: (entraSync.isSyncing ? "sync" : "ok") as Tone,
             permissionsLabel: "OAuth connected",
+            permissionsVerified: true,
+            capabilities: ["MFA posture", "Inactive users", "Admin review"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(oktaConnected
+      ? [
+          {
+            key: "okta",
+            name: "Okta",
+            description: "Directory sync for MFA posture, inactive users, and admin access review",
+            icon: <IntegrationBrandIcon brand="okta" size={48} />,
+            href: "/integrations/okta",
+            connected: true,
+            loading: okta.isLoading,
+            lastSyncAt: okta.data?.last_synced_at ?? null,
+            healthLabel: "Healthy",
+            healthTone: "ok" as Tone,
+            permissionsLabel: "API token",
             permissionsVerified: true,
             capabilities: ["MFA posture", "Inactive users", "Admin review"],
           } satisfies IntegrationRow,
@@ -620,11 +656,53 @@ function IntegrationsContent() {
       href: "/integrations/jira",
     },
     {
+      key: "github-issues",
+      brand: "github",
+      name: "GitHub Issues",
+      description: "Create remediation issues from findings",
+      href: "/integrations/github-issues",
+    },
+    {
+      key: "azure-boards",
+      brand: "azure-devops",
+      name: "Azure Boards",
+      description: "Create work items from findings",
+      href: "/integrations/azure-boards",
+    },
+    {
+      key: "snyk-explore",
+      brand: "snyk",
+      name: "Snyk",
+      description: "Import open Snyk issues",
+      href: "/integrations/scanners/snyk",
+    },
+    {
+      key: "okta-explore",
+      brand: "okta",
+      name: "Okta",
+      description: "Identity directory sync",
+      href: "/integrations/okta",
+    },
+    {
+      key: "splunk-explore",
+      brand: "splunk",
+      name: "Splunk",
+      description: "SIEM signal evidence",
+      href: "/integrations/siem/splunk",
+    },
+    {
+      key: "datadog-explore",
+      brand: "datadog",
+      name: "Datadog",
+      description: "Monitoring signal evidence",
+      href: "/integrations/siem/datadog",
+    },
+    {
       key: "azure-devops",
       brand: "azure-devops",
       name: "Azure DevOps",
       description: "Track work and pipelines",
-      comingSoon: true,
+      href: "/integrations/azure-boards",
     },
   ];
 

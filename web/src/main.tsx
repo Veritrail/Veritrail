@@ -24,6 +24,10 @@ import JiraIntegration from "./pages/JiraIntegration";
 import GcpIntegration from "./pages/GcpIntegration";
 import AzureIntegration from "./pages/AzureIntegration";
 import VulnScannerIntegration from "./pages/VulnScannerIntegration";
+import OktaIntegration from "./pages/OktaIntegration";
+import SiemIntegration from "./pages/SiemIntegration";
+import GitHubIssuesIntegration from "./pages/GitHubIssuesIntegration";
+import AzureBoardsIntegration from "./pages/AzureBoardsIntegration";
 import Integrations from "./pages/Integrations";
 import History from "./pages/History";
 import Reference from "./pages/Reference";
@@ -96,6 +100,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/gcp" element={<GcpIntegration />} />
             <Route path="/integrations/azure" element={<AzureIntegration />} />
             <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
+            <Route path="/integrations/okta" element={<OktaIntegration />} />
+            <Route path="/integrations/siem/:vendor" element={<SiemIntegration />} />
+            <Route path="/integrations/github-issues" element={<GitHubIssuesIntegration />} />
+            <Route path="/integrations/azure-boards" element={<AzureBoardsIntegration />} />
           </Route>
           <Route path="/auditor/verify/:token" element={<AuditorLogin />} />
           <Route path="/auditor/login" element={<AuditorLogin />} />

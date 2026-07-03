@@ -30,6 +30,21 @@ const VENDOR_META: Record<string, { brand: IntegrationBrandId; title: string; hi
     title: "Qualys",
     hint: "Qualys platform URL (e.g. https://qualysapi.qg2.apps.qualys.com) and API user credentials.",
   },
+  snyk: {
+    brand: "snyk",
+    title: "Snyk",
+    hint: "Snyk org ID and API token from Organization settings → General.",
+  },
+  orca: {
+    brand: "orca",
+    title: "Orca Security",
+    hint: "Orca API token from Settings → API tokens.",
+  },
+  aikido: {
+    brand: "aikido",
+    title: "Aikido",
+    hint: "Aikido API token from Integrations → API.",
+  },
 };
 
 export default function VulnScannerIntegration() {
@@ -51,6 +66,8 @@ export default function VulnScannerIntegration() {
   const [secretKey, setSecretKey] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [apiToken, setApiToken] = useState("");
+  const [orgId, setOrgId] = useState("");
   const [saveError, setSaveError] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
 
@@ -60,6 +77,7 @@ export default function VulnScannerIntegration() {
     setApiUrl(String(c.api_url ?? ""));
     setPlatformUrl(String(c.platform_url ?? ""));
     setUsername(String(c.username ?? ""));
+    setOrgId(String(c.org_id ?? ""));
   }, [data]);
 
   const save = useMutation({
@@ -75,6 +93,8 @@ export default function VulnScannerIntegration() {
           secret_key: secretKey.trim() || undefined,
           username: username.trim() || undefined,
           password: password.trim() || undefined,
+          api_token: apiToken.trim() || undefined,
+          org_id: orgId.trim() || undefined,
         }),
       }),
     onSuccess: (saved) => {
@@ -83,6 +103,7 @@ export default function VulnScannerIntegration() {
       setClientSecret("");
       setSecretKey("");
       setPassword("");
+      setApiToken("");
     },
     onError: (e) => setSaveError(formatApiError(e)),
   });
@@ -120,7 +141,7 @@ export default function VulnScannerIntegration() {
               {connected && <span className="integration-setup__badge">Connected</span>}
             </div>
             <p className="integration-setup__subtitle">
-              Pull vulnerability scanner summary counts into Veritrail for external evidence coverage.
+              Pull open vulnerability findings into Veritrail for the Vulnerability Management composite.
             </p>
           </div>
         </div>
@@ -172,6 +193,20 @@ export default function VulnScannerIntegration() {
               <div>
                 <label className="integration-setup__field-label">Password</label>
                 <input type="password" className="integration-setup__input" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+            </div>
+          )}
+          {["snyk", "orca", "aikido"].includes(key) && (
+            <div className="integration-setup__grid integration-setup__grid--2">
+              {key === "snyk" && (
+                <div>
+                  <label className="integration-setup__field-label">Org ID</label>
+                  <input className="integration-setup__input" value={orgId} onChange={(e) => setOrgId(e.target.value)} />
+                </div>
+              )}
+              <div className={key === "snyk" ? "" : "integration-setup__field--wide"}>
+                <label className="integration-setup__field-label">API token</label>
+                <input type="password" className="integration-setup__input" value={apiToken} onChange={(e) => setApiToken(e.target.value)} />
               </div>
             </div>
           )}
