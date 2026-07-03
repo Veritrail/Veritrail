@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { integrationConnectUrlSchema, integrationStatusNullableSchema } from "../lib/apiSchemas";
-import { formatSync, Spinner, StatusDot } from "../components/IntegrationsUi";
+import { formatSync, IntegrationBrandIcon, Spinner, StatusDot } from "../components/IntegrationsUi";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import "../styles/integration-setup.css";
 
@@ -85,10 +85,15 @@ export default function EntraIntegration() {
         <Link to="/integrations">Integrations</Link>
       </p>
       <header className="integration-setup__header">
-        <h1 className="integration-setup__title">Microsoft Entra ID</h1>
-        <p className="integration-setup__subtitle">
-          Read-only Microsoft Graph directory sync for identity governance: MFA posture, inactive users, and privileged role assignments.
-        </p>
+        <div className="integration-setup__brand">
+          <IntegrationBrandIcon brand="entra" size={48} />
+          <div>
+            <h1 className="integration-setup__title">Microsoft Entra ID</h1>
+            <p className="integration-setup__subtitle">
+              Read-only Microsoft Graph directory sync for identity governance: MFA posture, inactive users, and privileged role assignments.
+            </p>
+          </div>
+        </div>
       </header>
 
       {connectedBanner && (
