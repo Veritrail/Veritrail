@@ -6,7 +6,7 @@ import { DrawerDateField } from "./DrawerDateField";
 import { Select, type SelectOption } from "./Select";
 import { toIsoDate } from "../lib/isoDate";
 import { labelForCheck } from "../data/checkLabels";
-import { roleAtLeast, useMe } from "../hooks/useMe";
+import { canUploadEvidence, useMe } from "../hooks/useMe";
 import { EXTERNAL_EVIDENCE_TYPES, type ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import { openAbsenceGapChecks } from "../lib/evidenceGap";
 import { intakeConfigForComposite, scheduleOptionsForIntake } from "../lib/evidenceCategoryIntake";
@@ -46,7 +46,7 @@ export function ExternalEvidencePanel({
   onOpenChange: (open: boolean) => void;
 }) {
   const meQ = useMe();
-  const canEdit = roleAtLeast(meQ.data?.role, "editor");
+  const canEdit = canUploadEvidence(meQ.data);
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 

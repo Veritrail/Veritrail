@@ -5,7 +5,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import { EvidenceArtifactComments } from "./EvidenceArtifactComments";
 import { CriterionEvidenceUploadModal } from "./CriterionEvidenceUploadModal";
 import { labelForCheck } from "../data/checkLabels";
-import { roleAtLeast, useMe } from "../hooks/useMe";
+import { canReviewEvidence, canUploadEvidence, useMe } from "../hooks/useMe";
 import { downloadEvidenceArtifact } from "../lib/downloadEvidenceArtifact";
 import { evidenceIsStale, type ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import type { ComplianceDisplayStatus } from "../lib/compositeRecommendedAction";
@@ -98,8 +98,8 @@ export function ExternalEvidenceArtifactList({
 }) {
   const meQ = useMe();
   const qc = useQueryClient();
-  const canDelete = roleAtLeast(meQ.data?.role, "editor");
-  const canReview = roleAtLeast(meQ.data?.role, "admin");
+  const canDelete = canUploadEvidence(meQ.data);
+  const canReview = canReviewEvidence(meQ.data);
 
   const [downloadError, setDownloadError] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);

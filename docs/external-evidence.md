@@ -6,8 +6,9 @@ Veritrail treats customer-uploaded proof and declared external tools as first-cl
 
 1. **Never silently fail** because the customer does not use Veritrail's preferred AWS source (Inspector, GuardDuty, etc.).
 2. **Two paths** on every absence gap: upload external evidence **or** enable/fix the capability in AWS.
-3. **Reviewer gate**: engineers submit; admins accept or reject before evidence counts as coverage.
-4. **Integrity**: SHA-256 on uploads; optional ClamAV scan (or strict quarantine mode); signed download URLs; audit log on download.
+3. **Reviewer gate**: engineers submit; reviewers accept or reject before evidence counts as coverage.
+4. **Granular evidence roles** (`org_memberships.evidence_role`): upload/review/read permissions beyond coarse org roles (see [Evidence roles](#evidence-roles)).
+5. **Integrity**: SHA-256 on uploads; optional ClamAV scan (or strict quarantine mode); signed download URLs; audit log on download.
 
 ## Where to work in the UI
 
@@ -54,6 +55,20 @@ Registry rows live in Postgres (`evidence_sources` table). Legacy `org.settings.
 | `expired` | Past `expires_at` (daily Celery task) |
 
 **Coverage overrides** (`out_of_scope`, `not_applicable`) are set per composite via org settings and appear in the coverage dashboard.
+
+## Evidence roles
+
+Per-member `evidence_role` on `org_memberships` (migration `0085`). Defaults are derived from the workspace org role at invite/join time:
+
+| evidence_role | Upload / delete | Accept / reject | Read evidence |
+|---------------|-----------------|-----------------|---------------|
+| `contributor` | yes | no | yes (full org scope) |
+| `reviewer` | yes | yes | yes (full org scope) |
+| `auditor-viewer` | no | no | yes (pack scope: non-rejected artifacts only) |
+
+Org role defaults: `owner`/`admin` → `reviewer`; `editor` → `contributor`; `viewer` → `auditor-viewer`.
+
+The API returns `evidence_role` on `GET /v1/auth/me`. Evidence mutate routes return **403** when the role is insufficient; auditor-viewers listing or downloading rejected artifacts receive **404** (hidden from pack scope).
 
 ## Comments vs review notes
 

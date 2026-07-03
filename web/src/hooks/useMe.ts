@@ -3,6 +3,7 @@ import { api } from "../api";
 import { meSchema, type Me } from "../lib/apiSchemas";
 
 export type OrgRole = Me["role"];
+export type EvidenceRole = Me["evidence_role"];
 
 const ROLE_RANK: Record<OrgRole, number> = {
   viewer: 0,
@@ -10,6 +11,31 @@ const ROLE_RANK: Record<OrgRole, number> = {
   admin: 2,
   owner: 3,
 };
+
+export function defaultEvidenceRole(orgRole: OrgRole | undefined): EvidenceRole {
+  if (!orgRole) return "auditor-viewer";
+  if (orgRole === "owner" || orgRole === "admin") return "reviewer";
+  if (orgRole === "editor") return "contributor";
+  return "auditor-viewer";
+}
+
+export function effectiveEvidenceRole(me: Me | undefined): EvidenceRole {
+  return me?.evidence_role ?? defaultEvidenceRole(me?.role);
+}
+
+export function canUploadEvidence(me: Me | undefined): boolean {
+  const role = effectiveEvidenceRole(me);
+  return role === "contributor" || role === "reviewer";
+}
+
+export function canReviewEvidence(me: Me | undefined): boolean {
+  return effectiveEvidenceRole(me) === "reviewer";
+}
+
+export function canCommentEvidence(me: Me | undefined): boolean {
+  const role = effectiveEvidenceRole(me);
+  return role === "contributor" || role === "reviewer";
+}
 
 export function roleAtLeast(role: OrgRole | undefined, minimum: OrgRole): boolean {
   if (!role) return false;

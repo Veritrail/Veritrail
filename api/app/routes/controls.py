@@ -15,6 +15,15 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.rbac import get_org_user, role_at_least
+from app.core.evidence_rbac import (
+    assert_evidence_readable,
+    is_auditor_viewer,
+    membership_evidence_role,
+    require_evidence_comment,
+    require_evidence_delete,
+    require_evidence_review,
+    require_evidence_upload,
+)
 from app.core.security import current_principal
 from app.data.control_narratives import narrative_for, narrative_detail_for
 from app.models import Finding, AwsAccount, EvidenceSnapshot, ScanRun
@@ -333,7 +342,11 @@ def list_evidence_artifacts(
     db: Session = Depends(get_db),
 ):
     org_id = uuid.UUID(p["org_id"])
+    user = get_org_user(db, p)
+    evidence_role = membership_evidence_role(db, user.id, org_id, fallback_org_role=user.role)
     q = select(EvidenceArtifact).where(EvidenceArtifact.org_id == org_id)
+    if is_auditor_viewer(evidence_role):
+        q = q.where(EvidenceArtifact.status != "rejected")
     if framework:
         q = q.where(EvidenceArtifact.framework == framework)
     if control_id:
@@ -372,6 +385,9 @@ def download_evidence_artifact(
     row = db.get(EvidenceArtifact, art_id)
     if not row or row.org_id != org_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    evidence_role = membership_evidence_role(db, user.id, org_id, fallback_org_role=user.role)
+    assert_evidence_readable(row, evidence_role)
 
     if row.external_url:
         return RedirectResponse(row.external_url, status_code=status.HTTP_302_FOUND)
@@ -438,8 +454,7 @@ async def upload_evidence_artifact(
     db: Session = Depends(get_db),
 ):
     user = get_org_user(db, p)
-    if not role_at_least(user.role, "editor"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "editor role required")
+    require_evidence_upload(db, user.id, user.org_id, org_role=user.role)
     form = await request.form()
     file = form.get("file")
     has_file = file is not None and hasattr(file, "read")
@@ -606,8 +621,7 @@ def delete_evidence_artifact(
     db: Session = Depends(get_db),
 ):
     user = get_org_user(db, p)
-    if not role_at_least(user.role, "editor"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "editor role required")
+    require_evidence_delete(db, user.id, user.org_id, org_role=user.role)
 
     try:
         art_id = uuid.UUID(artifact_id)
@@ -652,8 +666,7 @@ def review_evidence_artifact(
     db: Session = Depends(get_db),
 ):
     user = get_org_user(db, p)
-    if not role_at_least(user.role, "admin"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+    require_evidence_review(db, user.id, user.org_id, org_role=user.role)
     if body.status not in {"accepted", "rejected"}:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "status must be accepted or rejected")
 
@@ -717,6 +730,7 @@ def list_evidence_comments(
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
+    user = get_org_user(db, p)
     try:
         art_id = uuid.UUID(artifact_id)
     except ValueError:
@@ -726,6 +740,9 @@ def list_evidence_comments(
     artifact = db.get(EvidenceArtifact, art_id)
     if not artifact or artifact.org_id != org_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    evidence_role = membership_evidence_role(db, user.id, org_id, fallback_org_role=user.role)
+    assert_evidence_readable(artifact, evidence_role)
 
     rows = db.scalars(
         select(EvidenceArtifactComment)
@@ -748,6 +765,7 @@ def add_evidence_comment(
     db: Session = Depends(get_db),
 ):
     user = get_org_user(db, p)
+    require_evidence_comment(db, user.id, user.org_id, org_role=user.role)
     text = body.body.strip()
     if not text:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "comment body is required")
@@ -763,6 +781,9 @@ def add_evidence_comment(
     artifact = db.get(EvidenceArtifact, art_id)
     if not artifact or artifact.org_id != org_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence not found")
+
+    evidence_role = membership_evidence_role(db, user.id, org_id, fallback_org_role=user.role)
+    assert_evidence_readable(artifact, evidence_role)
 
     row = EvidenceArtifactComment(
         org_id=org_id,

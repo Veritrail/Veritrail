@@ -34,6 +34,7 @@ export function warnMissingSchema(path: string, init?: ApiInit): void {
 }
 
 const orgRole = z.enum(["owner", "admin", "editor", "viewer"]);
+const evidenceRole = z.enum(["contributor", "reviewer", "auditor-viewer"]);
 
 export const accessTokenSchema = z.object({
   access_token: z.string(),
@@ -47,6 +48,7 @@ export const meSchema = z.object({
   id: z.string(),
   email: z.string(),
   role: orgRole,
+  evidence_role: evidenceRole,
   org_id: z.string(),
   org_name: z.string(),
   github_id: z.string().nullable().optional(),

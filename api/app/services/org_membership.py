@@ -7,8 +7,18 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.rbac import normalize_role
 from app.models.org import Org, User
 from app.models.org_team import OrgMembership
+
+
+def _default_evidence_role_for_org_role(org_role: str) -> str:
+    r = normalize_role(org_role)
+    if r in ("owner", "admin"):
+        return "reviewer"
+    if r == "editor":
+        return "contributor"
+    return "auditor-viewer"
 
 
 def list_memberships(db: Session, user_id: uuid.UUID) -> list[tuple[OrgMembership, Org]]:
@@ -51,6 +61,7 @@ def add_membership(
         user_id=user_id,
         org_id=org_id,
         role=role,
+        evidence_role=_default_evidence_role_for_org_role(role),
     )
     db.add(membership)
     return membership

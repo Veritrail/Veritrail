@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 
 ORG_ROLES = frozenset({"owner", "admin", "editor", "viewer"})
+EVIDENCE_ROLES = frozenset({"contributor", "reviewer", "auditor-viewer"})
 
 
 class OrgDomain(Base):
@@ -40,6 +41,7 @@ class OrgMembership(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orgs.id", ondelete="CASCADE"), index=True)
     role: Mapped[str] = mapped_column(String(40), default="viewer")
+    evidence_role: Mapped[str] = mapped_column(String(40), default="contributor", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

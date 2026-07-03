@@ -531,6 +531,7 @@ class MeOut(BaseModel):
     id: str
     email: str
     role: str
+    evidence_role: str
     org_id: str
     org_name: str
     github_id: str | None
@@ -588,6 +589,7 @@ def get_current_user(
 
 @router.get("/me", response_model=MeOut)
 def get_me(principal: dict = Depends(current_principal), db: Session = Depends(get_db)):
+    from app.core.evidence_rbac import membership_evidence_role
     from app.core.rbac import normalize_role
 
     user = db.get(User, uuid.UUID(principal["sub"]))
@@ -598,6 +600,9 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
         id=str(user.id),
         email=user.email,
         role=normalize_role(user.role),
+        evidence_role=membership_evidence_role(
+            db, user.id, user.org_id, fallback_org_role=user.role
+        ),
         org_id=str(user.org_id),
         org_name=(org.name if org else None) or "Workspace",
         github_id=user.github_id,

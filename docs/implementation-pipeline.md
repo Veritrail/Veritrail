@@ -9,12 +9,12 @@ Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-rea
 | Scope | Done | Notes |
 |-------|------|-------|
 | **Phase-one enterprise batch** (direction `TODO`, pre-audit) | ~95% | Shipped 2026-06-26; documented in `enterprise-readiness.md` |
-| **Pipeline phases 0–9** (post-audit backlog) | **5.3 / 5.4 / 5.5 / 10 phases** (~58%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3, Phase 5.1–5.4 Azure collectors, Phase 5.5 Azure onboarding |
+| **Pipeline phases 0–9** (post-audit backlog) | **6 / 10 phases** (~60%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3, Phase 5.1–5.5 Azure collectors, Phase 6 evidence RBAC |
 | **Direction README specs wholesale** | **No** | Strategy/roadmap docs remain largely aspirational; only incremental slices shipped |
 
-**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). Phase 5.1 (Azure Resource Graph VM inventory + public IP check), Phase 5.2 (Activity Log / diagnostic settings), Phase 5.3 (Entra / Azure RBAC privileged role assignments), Phase 5.4 (Azure Policy compliance), and Phase 5.5 (Azure onboarding polish with degraded-check verify) are complete. **Most backlog remains** — start at Phase 6.
+**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). Phase 5.1 (Azure Resource Graph VM inventory + public IP check), Phase 5.2 (Activity Log / diagnostic settings), Phase 5.3 (Entra / Azure RBAC privileged role assignments), Phase 5.4 (Azure Policy compliance), and Phase 5.5 (Azure onboarding polish with degraded-check verify) and Phase 6 (granular evidence RBAC) are complete. **Most backlog remains** — start at Phase 7.
 
-**Next run:** Phase 6 (Evidence RBAC) unless blocked.
+**Next run:** Phase 7 (custom control mapping) unless blocked.
 
 ---
 
@@ -189,12 +189,12 @@ Current collectors: `api/app/collectors/azure/defender.py`, `storage.py`.
 
 Audit item: *"Contributor / reviewer / auditor-viewer roles beyond coarse org roles."*
 
-- [ ] Role matrix documented: contributor (upload), reviewer (accept/reject), auditor-viewer (read-only pack)
-- [ ] `evidence_role` enum or equivalent on org team model + Alembic migration
-- [ ] API enforces role on evidence mutate routes (403 on unauthorized)
-- [ ] API enforces role on evidence read routes for auditor-viewer scope
-- [ ] UI hides upload/review/accept actions based on role — `Controls.tsx`, evidence slide-over
-- [ ] Tests for 403 on unauthorized evidence actions
+- [x] Role matrix documented: contributor (upload), reviewer (accept/reject), auditor-viewer (read-only pack) — `docs/external-evidence.md#evidence-roles`
+- [x] `evidence_role` enum or equivalent on org team model + Alembic migration — `0085_evidence_role.py`, `OrgMembership.evidence_role`
+- [x] API enforces role on evidence mutate routes (403 on unauthorized) — `evidence_rbac.py`, `controls.py`
+- [x] API enforces role on evidence read routes for auditor-viewer scope — pack scope filter on list; 404 on rejected download
+- [x] UI hides upload/review/accept actions based on role — `Controls.tsx`, `ControlEvidenceSlideOver.tsx`, `useMe.ts`
+- [x] Tests for 403 on unauthorized evidence actions — `test_evidence_rbac.py`
 
 ---
 

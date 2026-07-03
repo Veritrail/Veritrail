@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatApiError, token } from "../api";
 import { checkFrameworksSchema } from "../lib/apiSchemas";
-import { roleAtLeast, useMe } from "../hooks/useMe";
+import { canUploadEvidence, roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS, frameworkLabel } from "../data/frameworks";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
@@ -39,6 +39,7 @@ import {
 } from "../lib/externalOnlyControls";
 import {
   absenceGapEnableItems,
+  capabilityForAbsenceCheck,
   findingsHrefForAbsenceGaps,
   isAbsenceGapCheck,
   openAbsenceGapChecks,
@@ -355,6 +356,11 @@ function ComplianceRowSummary({
     not_applicable: "bg-sky-50 text-sky-700 ring-sky-200/70",
   };
   const chipClass = `inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ring-1 ${chipToneClass[displayStatus]}`;
+  const tooltip: Partial<Record<ComplianceDisplayStatus, string>> = {
+    needs_evidence:
+      "A service Veritrail collects from is not enabled in this account. Enable it — or upload external evidence — to close the gap. Open the control for details.",
+    at_risk: "Supporting checks have open findings worth reviewing before audit.",
+  };
   const content = (
     <>
       <span
@@ -369,7 +375,7 @@ function ComplianceRowSummary({
     return (
       <button
         type="button"
-        title="View open findings"
+        title={tooltip[displayStatus] ?? "View open findings"}
         onClick={(e) => {
           e.stopPropagation();
           onNavigate(href);
@@ -381,7 +387,7 @@ function ComplianceRowSummary({
     );
   }
 
-  return <span className={chipClass}>{content}</span>;
+  return <span className={chipClass} title={tooltip[displayStatus]}>{content}</span>;
 }
 
 /** Matches api/app/services/check_controls.py — open findings may use legacy check_ids. */
@@ -1466,6 +1472,71 @@ function remediationActionForChecks(
     title: opts.hasAbsenceGaps && opts.regularFailing === 0 ? "Enable in AWS" : "Fix in AWS",
     detail: "Address the failing checks directly in your AWS environment.",
   };
+}
+
+/** Plain-English answer to "why does the pill say Coverage gap?" — names the
+    services that are off so the status is traceable to a concrete cause.
+    Rendered first in the drawer as a quiet white card: amber left rail +
+    small-caps eyebrow, a headline that carries the quantified fact, and a
+    short body. No icons, no pills — the sentence is the signal. */
+function CoverageGapExplainer({ absenceChecks }: { absenceChecks: string[] }) {
+  const hasAnalyzer = absenceChecks.includes("aws.access_analyzer.not_enabled");
+  const others = absenceChecks.filter((id) => id !== "aws.access_analyzer.not_enabled");
+  const names = others.map(capabilityForAbsenceCheck);
+  const analyzerOnly = hasAnalyzer && others.length === 0;
+  const total = absenceChecks.length;
+  const list = names.map((name, i) => (
+    <span key={name}>
+      {i > 0 && (i === names.length - 1 && !hasAnalyzer ? " and " : ", ")}
+      <strong>{name}</strong>
+    </span>
+  ));
+  return (
+    <div className="coverage-gap-card" role="note">
+      <p className="coverage-gap-card__eyebrow">Coverage gap</p>
+      {analyzerOnly ? (
+        <>
+          <h3 className="coverage-gap-card__headline">
+            IAM Access Analyzer is not visible from this account
+          </h3>
+          <p className="coverage-gap-card__body">
+            Veritrail has nothing to collect for this control. Enable the analyzer and
+            evidence is gathered automatically on the next scan — or upload external evidence
+            below if another tool covers this.
+          </p>
+        </>
+      ) : (
+        <>
+          <h3 className="coverage-gap-card__headline">
+            This control has {total} missing service{total === 1 ? "" : "s"}
+          </h3>
+          <p className="coverage-gap-card__body">
+            {list}
+            {hasAnalyzer ? (
+              <>
+                {names.length > 0 ? " and " : ""}
+                <strong>IAM Access Analyzer</strong>
+              </>
+            ) : null}{" "}
+            {total === 1 ? "is" : "are"} not enabled in this account, so Veritrail has nothing
+            to collect {total === 1 ? "for it" : "for them"}. Enable the missing service
+            {total === 1 ? "" : "s"} and re-scan, or upload external evidence if another tool
+            covers this control.
+          </p>
+        </>
+      )}
+      {hasAnalyzer ? (
+        <p className="coverage-gap-card__body coverage-gap-card__note">
+          <strong>Organization-analyzer note:</strong> analyzers are deployed only in the
+          management (or delegated administrator) account and leave{" "}
+          <strong>no API trace</strong> in member accounts — scanning this account can never
+          prove one exists. Connect the management account and re-scan to verify coverage
+          automatically, or attest it below for now (marked unverified until that account is
+          connected).
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function sortedTopFailingChecks(
@@ -2870,6 +2941,10 @@ function buildCompositeTabs({
       label: "Gaps",
       content: (
         <div className="control-detail-stack control-detail-stack--composite">
+          {displayStatus === "needs_evidence" && hasAbsenceGaps ? (
+            <CoverageGapExplainer absenceChecks={absenceChecks} />
+          ) : null}
+
           <ControlDetailSection title="Blocking gaps">
             {isExternalOnly ? (
               <p className="control-detail-empty">
@@ -3719,7 +3794,7 @@ export default function Controls() {
 
   const meQ = useMe();
   const canAttest = roleAtLeast(meQ.data?.role, "admin");
-  const canEditEvidence = roleAtLeast(meQ.data?.role, "editor");
+  const canEditEvidence = canUploadEvidence(meQ.data);
   const attest = useMutation({
     mutationFn: (v: { id: string; status: string }) =>
       api(`/v1/controls/${v.id}/attestation`, {
