@@ -732,32 +732,35 @@ function RecommendedIntegrations({
   return (
     <section className="integrations-recommended">
       <div className="integrations-recommended__head">
-        <div>
-          <h2>Recommended integrations</h2>
-          <p>High-value connectors for compliance evidence — {cards.length ? "add one below or browse the full catalog." : "you've connected them all."}</p>
-        </div>
-        <Link to="/integrations/catalog" className="integrations-recommended__browse">
-          Browse integration catalog
-          <span aria-hidden>&rarr;</span>
-        </Link>
+        <h2>Recommended integrations</h2>
+        <p>High-value connectors for compliance evidence.</p>
       </div>
 
-      {cards.length > 0 && (
-        <div className="integrations-explore-grid">
-          {cards.map((entry) => (
-            <article key={entry.key} className="integrations-explore-card">
-              <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
-              <div className="integrations-explore-card__body">
-                <div className="integrations-explore-card__name">{entry.name}</div>
-                <p className="integrations-explore-card__desc">{entry.description}</p>
-              </div>
-              <Link to={entry.href!} className="integrations-connect-btn">
-                Connect
-              </Link>
-            </article>
-          ))}
-        </div>
-      )}
+      <div className="integrations-explore-grid">
+        {cards.map((entry) => (
+          <article key={entry.key} className="integrations-explore-card">
+            <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
+            <div className="integrations-explore-card__body">
+              <div className="integrations-explore-card__name">{entry.name}</div>
+              <p className="integrations-explore-card__desc">{entry.description}</p>
+            </div>
+            <Link to={entry.href!} className="integrations-connect-btn">
+              Connect
+            </Link>
+          </article>
+        ))}
+        <Link to="/integrations/catalog" className="integrations-catalog-card">
+          <span className="integrations-catalog-card__icon" aria-hidden>
+            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d={IK.sources} />
+            </svg>
+          </span>
+          <div className="integrations-catalog-card__body">
+            <div className="integrations-catalog-card__name">Browse catalog</div>
+            <p className="integrations-catalog-card__desc">View all integrations &rarr;</p>
+          </div>
+        </Link>
+      </div>
     </section>
   );
 }
