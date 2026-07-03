@@ -46,7 +46,8 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   gitlab: { src: "/integrations/gitlab.png", tileScale: 1.32, tilePadding: 4 },
   "google-workspace": { src: "https://www.google.com/favicon.ico" },
   entra: {
-    src: "https://aadcdn.msftauth.net/shared/1.0/content/images/favicon_a_eupayfgghqiai7k9sol6lg2.ico",
+    src: "/integrations/entra.png",
+    compactSrc: "/integrations/entra.png",
   },
   slack: { src: "https://a.slack-edge.com/80588/marketing/img/icons/icon_slack_hash_colored.png" },
   jira: { src: "https://jira.atlassian.com/favicon.ico" },
@@ -60,7 +61,7 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   snyk: { src: "/integrations/snyk.png", tileScale: 0.92 },
   orca: { src: "/integrations/orca.png" },
   aikido: { src: "/integrations/aikido.png", tileScale: 1.08 },
-  okta: { src: "https://www.okta.com/favicon.ico" },
+  okta: { src: "/integrations/okta.png" },
   splunk: { src: "https://www.splunk.com/favicon.ico" },
   elastic: { src: "https://www.elastic.co/favicon.ico" },
 };
