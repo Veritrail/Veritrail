@@ -16,18 +16,8 @@ export type CatalogCategory = {
   entries: CatalogEntry[];
 };
 
-/** Full integration directory — connected tiles are filtered at render time. */
+/** Integration catalog — cloud providers (AWS, GCP, Azure) are added via Accounts, not here. */
 export const INTEGRATION_CATALOG: CatalogCategory[] = [
-  {
-    id: "cloud",
-    title: "Cloud providers",
-    blurb: "Posture scanning, audit evidence, and findings across your cloud accounts.",
-    entries: [
-      { key: "aws", brand: "aws", name: "AWS", description: "Cloud posture, audit evidence, and automated remediation.", href: "/accounts" },
-      { key: "gcp", brand: "gcp", name: "Google Cloud", description: "Multi-cloud posture checks and security findings.", href: "/integrations/gcp" },
-      { key: "azure", brand: "azure", name: "Microsoft Azure", description: "Defender, storage, RBAC, and policy compliance checks.", href: "/integrations/azure" },
-    ],
-  },
   {
     id: "source-control",
     title: "Source control & SDLC",
@@ -110,15 +100,12 @@ export type ConnectedCatalogState = {
 /** Catalog keys to hide because the workspace already has that connector active. */
 export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<string> {
   const hidden = new Set<string>();
-  if (state.awsConnected) hidden.add("aws");
   if (state.githubConnected) hidden.add("github");
   if (state.gitlabConnected) hidden.add("gitlab");
   if (state.googleConnected) hidden.add("google-workspace");
   if (state.entraConnected) hidden.add("entra");
   if (state.oktaConnected) hidden.add("okta");
   if (state.slackConnected) hidden.add("slack");
-  if (state.gcpConnected) hidden.add("gcp");
-  if (state.azureConnected) hidden.add("azure");
   if (state.iacRepositoryConnected) hidden.add("iac-repository");
   if (state.jiraConnected) hidden.add("jira");
   if (state.splunkConnected) hidden.add("splunk");
