@@ -17,34 +17,34 @@ const VCS_OPTIONS: {
   brand: IntegrationBrandId;
   authHint: string;
 }[] = [
-  { id: "github", label: "GitHub", brand: "github", authHint: "Uses your existing GitHub connection — pick an owner and repository, same as Configure GitHub access." },
-  { id: "gitlab", label: "GitLab", brand: "gitlab", authHint: "Reuses GitLab OAuth when no token is set." },
+  { id: "github", label: "GitHub", brand: "github", authHint: "Reuse your GitHub connection and select a repository." },
+  { id: "gitlab", label: "GitLab", brand: "gitlab", authHint: "Reuse GitLab OAuth or connect with a token." },
   {
     id: "azure_devops",
     label: "Azure DevOps",
     brand: "azure-devops",
-    authHint: "Provide org URL and personal access token.",
+    authHint: "Connect with an organization URL and access token.",
   },
-  { id: "codecommit", label: "AWS CodeCommit", brand: "aws", authHint: "Provide repository name and Git credentials." },
+  { id: "codecommit", label: "AWS CodeCommit", brand: "aws", authHint: "Connect with a repository name and Git credentials." },
 ];
 
 const STEP_LABELS = ["Provider", "Terragrunt", "Layout", "Link repos"] as const;
 const FLOW_NODES = [
-  { title: "Findings", detail: "Cloud issue" },
-  { title: "Remediation", detail: "Fix plan" },
-  { title: "IaC PR", detail: "Reviewed change" },
+  { title: "Findings", detail: "Detected risk" },
+  { title: "Remediation", detail: "Suggested fix" },
+  { title: "IaC PR", detail: "Code change" },
 ] as const;
 
 function repoLinkCallout(vcs: VcsProvider, providerLabel: string): string {
   switch (vcs) {
     case "github":
-      return `Enter owner and repo only — not a full https://github.com/… URL. Veritrail connects over HTTPS to ${providerLabel}'s API (OAuth or token) and assembles the repository from your provider choice plus those fields.`;
+      return `Enter owner and repo — not a full GitHub URL. Veritrail connects using your ${providerLabel} authentication.`;
     case "gitlab":
-      return `Enter the group/project path (e.g. acme-corp/infrastructure) — not a browser URL. Veritrail connects over HTTPS to ${providerLabel}'s API (OAuth or token) and resolves the project from that path.`;
+      return `Enter the group/project path (e.g. acme-corp/infrastructure) — not a browser URL. Veritrail connects using your ${providerLabel} authentication.`;
     case "azure_devops":
-      return `Enter org/project/repo — not a full Azure DevOps web URL. Veritrail connects over HTTPS to Azure DevOps using your token and builds the repository from that reference.`;
+      return `Enter org/project/repo — not a full Azure DevOps web URL. Veritrail connects using your access token.`;
     case "codecommit":
-      return `Enter the repository name — not an AWS console or clone URL. Veritrail connects over HTTPS to CodeCommit using your Git credentials.`;
+      return `Enter the repository name — not an AWS console or clone URL. Veritrail connects using your Git credentials.`;
   }
 }
 
@@ -262,8 +262,8 @@ function GitHubOAuthRepositoryPicker({
           <h3>{title}</h3>
           <p>
             {oauthLogin
-              ? `Authenticated as ${oauthLogin}. Pick an owner and repository — same flow as Configure GitHub access.`
-              : "Pick an owner and repository from your connected GitHub account."}
+              ? `Authenticated as ${oauthLogin}. Choose the owner and repository Veritrail should use.`
+              : "Choose the owner and repository Veritrail should use."}
           </p>
         </div>
         <Link to="/integrations/github/edit" className="integration-setup__btn">
@@ -792,10 +792,10 @@ export default function IacRepositoryIntegration() {
         <div className="integration-setup__hero-mark">
           <IntegrationBrandIcon brand="iac" size={64} />
         </div>
-        <h1 className="integration-setup__title">Link Terraform / Terragrunt repository</h1>
+        <h1 className="integration-setup__title">Link your IaC repository</h1>
         <p className="integration-setup__subtitle">
-          Connect the repository where cloud fixes land as infrastructure-as-code pull requests. Veritrail uses this
-          layout for snippets, path guidance, and remediation tickets.
+          Connect the infrastructure-as-code repository Veritrail should use for remediation pull requests, code
+          references, and ticket context.
         </p>
         <div className="integration-setup__flow" aria-label="Remediation workflow">
           {FLOW_NODES.map((node) => (
@@ -835,10 +835,10 @@ export default function IacRepositoryIntegration() {
 
           {step === 1 && (
             <section className="integration-setup__step-panel">
-              <h2 className="integration-setup__panel-title">Pick your version control provider</h2>
+              <h2 className="integration-setup__panel-title">Choose a source control provider</h2>
               <p className="integration-setup__panel-copy">
-                GitHub reuses your source-control connection (owner + repository picker). GitLab can reuse OAuth,
-                while Azure DevOps and CodeCommit use repository references plus optional tokens.
+                Choose where your Terraform or Terragrunt repository is hosted. Existing GitHub and GitLab connections
+                can be reused.
               </p>
               <div className="integration-setup__provider-grid">
                 {VCS_OPTIONS.map((option) => (
@@ -866,8 +866,8 @@ export default function IacRepositoryIntegration() {
             <section className="integration-setup__step-panel">
               <h2 className="integration-setup__panel-title">Do you use Terragrunt with Terraform?</h2>
               <p className="integration-setup__panel-copy">
-                Terragrunt wraps Terraform modules into per-environment live stacks. If yes, we&apos;ll ask how your
-                repos are organized next.
+                Tell us whether your Terraform setup uses Terragrunt live stacks. This helps Veritrail understand how
+                your IaC is organized.
               </p>
               <div className="integration-setup__choice-row">
                 {[
@@ -898,13 +898,13 @@ export default function IacRepositoryIntegration() {
               {usesTerragrunt ? (
                 <>
                   <p className="integration-setup__panel-copy">
-                    <strong>One repo</strong> keeps modules and live stacks in different folders.{" "}
-                    <strong>Two repos</strong> separates modules from live-stack repositories.
+                    Tell us whether your Terraform modules and Terragrunt live stacks live in the same repository or
+                    separate repositories.
                   </p>
                   <div className="integration-setup__choice-row">
                     {[
-                      { value: "single" as RepoMode, label: "One repo, different paths" },
-                      { value: "dual" as RepoMode, label: "Two separate repos" },
+                      { value: "single" as RepoMode, label: "Same repo, different paths" },
+                      { value: "dual" as RepoMode, label: "Separate repositories" },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -933,16 +933,28 @@ export default function IacRepositoryIntegration() {
             <section className="integration-setup__step-panel integration-setup__step-panel--stacked">
               <h2 className="integration-setup__panel-title">Link your repositories</h2>
               <p className="integration-setup__panel-copy">
-                {selectedVcs.authHint} Layout (Terraform modules vs Terragrunt live stacks) is inferred from your
-                repository using the same HCL analysis pipeline as remediation scans — you only pick the repo.
+                Select the repository Veritrail should analyze. We&apos;ll detect modules, live stacks, and relevant
+                paths automatically.
               </p>
-              {data?.connected && isManageMode && data.terraform_path ? (
+              {data?.connected && isManageMode && (data.terraform_path || data.terragrunt_path) ? (
                 <p className="integration-setup__field-hint">
-                  Current layout: Terraform @ <code>{data.terraform_path}</code>
+                  Detected layout: Terraform
+                  {data.terraform_path && data.terraform_path !== "." ? (
+                    <>
+                      {" "}
+                      @ <code>{data.terraform_path}</code>
+                    </>
+                  ) : null}
                   {data.terragrunt_path ? (
                     <>
                       {" "}
-                      · Terragrunt @ <code>{data.terragrunt_path}</code>
+                      · Terragrunt
+                      {data.terragrunt_path !== "." ? (
+                        <>
+                          {" "}
+                          @ <code>{data.terragrunt_path}</code>
+                        </>
+                      ) : null}
                     </>
                   ) : null}
                 </p>
@@ -951,7 +963,7 @@ export default function IacRepositoryIntegration() {
               {vcsProvider === "github" ? (
                 usesGithubOAuth ? (
                   <GitHubOAuthRepositoryPicker
-                    title={usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
+                    title="Terraform repository"
                     form={terraformForm}
                     onChange={setTerraformForm}
                     oauthLogin={githubProvider.data?.login ?? data?.github_oauth_login}
@@ -969,7 +981,7 @@ export default function IacRepositoryIntegration() {
                     />
                     {usesGithubAppFallback ? (
                       <GitHubAppRepositoryPicker
-                        title={usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
+                        title="Terraform repository"
                         form={terraformForm}
                         onChange={setTerraformForm}
                         repos={githubAppRepos.data ?? []}
@@ -995,9 +1007,7 @@ export default function IacRepositoryIntegration() {
                   </div>
 
                   <div>
-                    <h3 className="text-[13px] font-semibold text-zinc-800">
-                      {usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
-                    </h3>
+                    <h3 className="text-[13px] font-semibold text-zinc-800">Terraform repository</h3>
                     <RepoFields vcs={vcsProvider} form={terraformForm} onChange={setTerraformForm} />
                   </div>
                 </>
@@ -1046,10 +1056,10 @@ export default function IacRepositoryIntegration() {
 
               {vcsProvider === "github" && (
                 <div className="integration-setup__field--wide">
-                  <label className="integration-setup__field-label">Ticket labels (comma-separated)</label>
+                  <label className="integration-setup__field-label">Ticket labels</label>
                   <input className="integration-setup__input" value={labels} onChange={(e) => setLabels(e.target.value)} />
                   <p className="mt-1 text-[11px] text-zinc-500">
-                    Applied when creating remediation tickets from findings (GitHub provider).
+                    Optional labels to add when Veritrail creates remediation tickets.
                   </p>
                 </div>
               )}
@@ -1101,7 +1111,7 @@ export default function IacRepositoryIntegration() {
                   disabled={save.isPending || !step4Ready}
                   onClick={() => save.mutate()}
                 >
-                  {save.isPending ? "Saving…" : data?.connected ? "Update connection" : "Save connection"}
+                  {save.isPending ? "Saving…" : data?.connected ? "Save changes" : "Save connection"}
                 </button>
               )}
             </div>
