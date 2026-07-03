@@ -79,6 +79,87 @@ def test_dual_repo_mode():
     assert ticket_target_repo(cfg)["repo_ref"] == "awakzdev/eks-production-iac"
 
 
+def test_github_app_repository_metadata_is_preserved():
+    cfg = normalize_iac_config(
+        {
+            "terraform_repo": {
+                "vcs_provider": "github",
+                "owner": "awakzdev",
+                "repo": "terraform-live",
+                "repo_ref": "awakzdev/terraform-live",
+                "auth_method": "github_app",
+                "installation_id": "12345",
+                "installation_account": "awakzdev",
+                "repository_id": "98765",
+            }
+        }
+    )
+
+    repo = cfg["terraform_repo"]
+    assert repo["auth_method"] == "github_app"
+    assert repo["installation_id"] == "12345"
+    assert repo["installation_account"] == "awakzdev"
+    assert repo["repository_id"] == "98765"
+
+
+def test_oauth_auth_method_is_preserved():
+    cfg = normalize_iac_config(
+        {
+            "terraform_repo": {
+                "vcs_provider": "github",
+                "owner": "awakzdev",
+                "repo": "terraform-live",
+                "repo_ref": "awakzdev/terraform-live",
+                "auth_method": "oauth",
+            }
+        }
+    )
+
+    repo = cfg["terraform_repo"]
+    assert repo["auth_method"] == "oauth"
+    assert repo["installation_id"] == ""
+    assert repo["repository_id"] == ""
+
+
+def test_prepare_github_repo_link_prefers_oauth(monkeypatch):
+    from app.routes.iac_repository_integration import _prepare_github_repo_link
+
+    link = {"owner": "awakzdev", "repo": "iac", "repo_ref": "awakzdev/iac"}
+    github_app = {"installation_id": "999", "account_login": "awakzdev"}
+
+    monkeypatch.setattr(
+        "app.routes.iac_repository_integration._github_oauth_status",
+        lambda db, org_id: (True, "user"),
+    )
+
+    _prepare_github_repo_link(None, None, link, github_app)  # type: ignore[arg-type]
+    assert link["auth_method"] == "oauth"
+    assert link["repository_id"] == ""
+
+
+def test_prepare_github_repo_link_uses_app_when_explicit(monkeypatch):
+    from app.routes.iac_repository_integration import _prepare_github_repo_link
+
+    link = {
+        "owner": "awakzdev",
+        "repo": "iac",
+        "repo_ref": "awakzdev/iac",
+        "auth_method": "github_app",
+        "repository_id": "123",
+        "installation_id": "456",
+    }
+    github_app = {"installation_id": "456", "account_login": "awakzdev"}
+
+    monkeypatch.setattr(
+        "app.routes.iac_repository_integration._github_oauth_status",
+        lambda db, org_id: (True, "user"),
+    )
+
+    _prepare_github_repo_link(None, None, link, github_app)  # type: ignore[arg-type]
+    assert link["auth_method"] == "github_app"
+    assert link["repository_id"] == "123"
+
+
 def test_remediation_ticket_body_includes_both_paths():
     body = build_remediation_ticket_body(
         finding_title="S3 bucket public",

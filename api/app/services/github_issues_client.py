@@ -55,13 +55,13 @@ def normalize_github_repo_ref(owner: str, repo: str) -> tuple[str, str]:
 def _repo_access_error(status_code: int) -> str:
     if status_code == 404:
         return (
-            "GitHub repository not found. Use the repo name only (e.g. eks-production-iac), "
-            "not a full URL. For private repos, connect GitHub OAuth or provide an access token."
+            "GitHub repository not found or not visible to your connected GitHub account. "
+            "Pick an owner and repository you can access, or update GitHub permissions under Integrations → Source control."
         )
     if status_code in (401, 403):
         return (
             f"GitHub authentication failed or insufficient permissions ({status_code}). "
-            "Connect GitHub OAuth or provide an access token with repo access."
+            "Reconnect GitHub under Integrations → Source control and ensure the repository is in scope."
         )
     return f"GitHub repo not accessible ({status_code})"
 

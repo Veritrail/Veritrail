@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatApiError } from "../api";
-import { iacRepositoryIntegrationSchema } from "../lib/apiSchemas";
+import { iacRepositoryIntegrationSchema, integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import "../styles/integration-setup.css";
@@ -17,7 +17,7 @@ const VCS_OPTIONS: {
   brand: IntegrationBrandId;
   authHint: string;
 }[] = [
-  { id: "github", label: "GitHub", brand: "github", authHint: "Reuses GitHub OAuth when no token is set." },
+  { id: "github", label: "GitHub", brand: "github", authHint: "Uses your existing GitHub connection — pick an owner and repository, same as Configure GitHub access." },
   { id: "gitlab", label: "GitLab", brand: "gitlab", authHint: "Reuses GitLab OAuth when no token is set." },
   {
     id: "azure_devops",
@@ -55,11 +55,34 @@ type RepoForm = {
   path: string;
   accessToken: string;
   baseUrl: string;
+  authMethod: string;
+  installationId: string;
+  installationAccount: string;
+  repositoryId: string;
 };
 
 function emptyRepoForm(): RepoForm {
-  return { owner: "", repo: "", repoRef: "", path: ".", accessToken: "", baseUrl: "" };
+  return {
+    owner: "",
+    repo: "",
+    repoRef: "",
+    path: ".",
+    accessToken: "",
+    baseUrl: "",
+    authMethod: "",
+    installationId: "",
+    installationAccount: "",
+    repositoryId: "",
+  };
 }
+
+type GitHubAppRepo = {
+  id: number;
+  full_name: string;
+  private: boolean;
+  default_branch: string | null;
+  html_url: string | null;
+};
 
 function VerifiedSuccessCard() {
   return (
@@ -70,6 +93,411 @@ function VerifiedSuccessCard() {
         </svg>
       </span>
       <p className="integration-setup__verified-label">Verified</p>
+    </div>
+  );
+}
+
+function splitRepoFullName(fullName: string): { owner: string; repo: string } {
+  const [owner = "", repo = ""] = fullName.split("/");
+  return { owner, repo };
+}
+
+type GitHubOAuthRepo = {
+  full_name: string;
+  private: boolean;
+  default_branch: string | null;
+};
+
+type GitHubOAuthOrg = {
+  login: string;
+};
+
+function GitHubConnectCard({
+  isAppConfigured,
+  connectPending,
+  connectError,
+  onConnect,
+}: {
+  isAppConfigured: boolean;
+  connectPending: boolean;
+  connectError: string;
+  onConnect: () => void;
+}) {
+  return (
+    <div className="integration-setup__github-app-card">
+      <div>
+        <p className="integration-setup__github-app-eyebrow">GitHub connection required</p>
+        <h3>Connect GitHub first</h3>
+        <p>
+          Link the same GitHub account you use for source-control evidence. You&apos;ll pick an owner and repository on
+          the next screen — no separate GitHub App install is required.
+        </p>
+        {connectError ? <p className="integration-setup__error">{connectError}</p> : null}
+      </div>
+      <div className="integration-setup__github-connect-actions">
+        <button
+          type="button"
+          className="integration-setup__btn integration-setup__btn--primary"
+          onClick={onConnect}
+          disabled={connectPending}
+        >
+          {connectPending ? "Opening GitHub…" : "Connect GitHub"}
+        </button>
+        <Link to="/integrations/github/edit" className="integration-setup__btn">
+          Configure GitHub access
+        </Link>
+      </div>
+      {isAppConfigured ? (
+        <p className="integration-setup__field-hint">
+          Or install the Veritrail GitHub App below if you prefer repository-scoped app access.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function GitHubOAuthRepositoryPicker({
+  title,
+  form,
+  onChange,
+  oauthLogin,
+  initialOrgLogins,
+  filter,
+  onFilterChange,
+  pathLabel,
+  pathPlaceholder,
+}: {
+  title: string;
+  form: RepoForm;
+  onChange: (next: RepoForm) => void;
+  oauthLogin?: string | null;
+  initialOrgLogins: string[];
+  filter: string;
+  onFilterChange: (value: string) => void;
+  pathLabel: string;
+  pathPlaceholder: string;
+}) {
+  const [orgLogins, setOrgLogins] = useState<string[]>(initialOrgLogins);
+
+  useEffect(() => {
+    setOrgLogins(initialOrgLogins);
+  }, [initialOrgLogins]);
+
+  const orgs = useQuery({
+    queryKey: ["github-orgs"],
+    queryFn: () => api<GitHubOAuthOrg[]>("/v1/integrations/github/orgs"),
+  });
+
+  const repos = useQuery({
+    queryKey: ["github-repos", orgLogins],
+    queryFn: async () => {
+      const lists = await Promise.all(
+        orgLogins.map((owner) => api<GitHubOAuthRepo[]>(`/v1/integrations/github/repos?owner=${encodeURIComponent(owner)}`))
+      );
+      return lists.flat();
+    },
+    enabled: orgLogins.length > 0,
+  });
+
+  const availableOwners = useMemo(() => {
+    const discovered = (orgs.data || []).map((org) => org.login);
+    return Array.from(new Set([...discovered, ...orgLogins])).filter(Boolean);
+  }, [orgLogins, orgs.data]);
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const rows = repos.data || [];
+    if (!q) return rows;
+    return rows.filter((repo) => repo.full_name.toLowerCase().includes(q));
+  }, [filter, repos.data]);
+
+  function toggleOwner(owner: string) {
+    if (orgLogins.includes(owner)) {
+      const nextOwners = orgLogins.filter((item) => item !== owner);
+      setOrgLogins(nextOwners);
+      if (form.repoRef.toLowerCase().startsWith(`${owner.toLowerCase()}/`)) {
+        onChange({
+          ...form,
+          owner: "",
+          repo: "",
+          repoRef: "",
+          authMethod: "oauth",
+          installationId: "",
+          installationAccount: "",
+          repositoryId: "",
+        });
+      }
+      return;
+    }
+    setOrgLogins((current) => [...current, owner]);
+  }
+
+  function selectRepo(repo: GitHubOAuthRepo) {
+    const parts = splitRepoFullName(repo.full_name);
+    onChange({
+      ...form,
+      owner: parts.owner,
+      repo: parts.repo,
+      repoRef: repo.full_name,
+      accessToken: "",
+      authMethod: "oauth",
+      installationId: "",
+      installationAccount: parts.owner,
+      repositoryId: "",
+    });
+  }
+
+  return (
+    <div className="integration-setup__github-picker">
+      <div className="integration-setup__github-picker-head">
+        <div>
+          <p className="integration-setup__github-app-eyebrow">GitHub connected</p>
+          <h3>{title}</h3>
+          <p>
+            {oauthLogin
+              ? `Authenticated as ${oauthLogin}. Pick an owner and repository — same flow as Configure GitHub access.`
+              : "Pick an owner and repository from your connected GitHub account."}
+          </p>
+        </div>
+        <Link to="/integrations/github/edit" className="integration-setup__btn">
+          Manage access
+        </Link>
+      </div>
+
+      {availableOwners.length > 0 ? (
+        <div className="integration-setup__github-owner-list">
+          <p className="integration-setup__field-label">Owners</p>
+          <div className="integration-setup__github-owner-chips">
+            {availableOwners.map((owner) => {
+              const selected = orgLogins.includes(owner);
+              return (
+                <button
+                  key={owner}
+                  type="button"
+                  className={`integration-setup__github-owner-chip${selected ? " is-selected" : ""}`}
+                  onClick={() => toggleOwner(owner)}
+                  aria-pressed={selected}
+                >
+                  {owner}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      <label className="integration-setup__field-label" htmlFor={`${title}-repo-filter`}>
+        Repository
+      </label>
+      <input
+        id={`${title}-repo-filter`}
+        className="integration-setup__input"
+        value={filter}
+        onChange={(e) => onFilterChange(e.target.value)}
+        placeholder="Search repositories..."
+        disabled={!orgLogins.length}
+      />
+      <div className="integration-setup__repo-picker-list">
+        {!orgLogins.length ? (
+          <p className="integration-setup__repo-picker-empty">Select at least one owner to list repositories.</p>
+        ) : null}
+        {orgLogins.length > 0 && repos.isLoading ? (
+          <p className="integration-setup__repo-picker-empty">Loading repositories...</p>
+        ) : null}
+        {orgLogins.length > 0 && !repos.isLoading && filtered.length === 0 ? (
+          <p className="integration-setup__repo-picker-empty">No repositories match this search.</p>
+        ) : null}
+        {orgLogins.length > 0 &&
+          !repos.isLoading &&
+          filtered.slice(0, 80).map((repo) => {
+            const selected = form.repoRef === repo.full_name;
+            return (
+              <button
+                type="button"
+                key={repo.full_name}
+                className={`integration-setup__repo-picker-row${selected ? " is-selected" : ""}`}
+                onClick={() => selectRepo(repo)}
+                aria-pressed={selected}
+              >
+                <span>
+                  <strong>{repo.full_name}</strong>
+                  <small>
+                    {repo.private ? "Private" : "Public"}
+                    {repo.default_branch ? ` · ${repo.default_branch}` : ""}
+                  </small>
+                </span>
+                <span className="integration-setup__repo-picker-check">{selected ? "Selected" : "Select"}</span>
+              </button>
+            );
+          })}
+      </div>
+
+      <div className="integration-setup__field--wide">
+        <label className="integration-setup__field-label">{pathLabel}</label>
+        <input
+          className="integration-setup__input"
+          placeholder={pathPlaceholder}
+          value={form.path}
+          onChange={(e) => onChange({ ...form, path: e.target.value })}
+        />
+        <p className="integration-setup__field-hint">Folder inside the selected repository where files live.</p>
+      </div>
+    </div>
+  );
+}
+
+function GitHubAppRepositoryPicker({
+  title,
+  form,
+  onChange,
+  repos,
+  isLoading,
+  isInstalled,
+  isConfigured,
+  account,
+  installationId,
+  manageUrl,
+  installPending,
+  installError,
+  onInstall,
+  filter,
+  onFilterChange,
+  pathLabel,
+  pathPlaceholder,
+}: {
+  title: string;
+  form: RepoForm;
+  onChange: (next: RepoForm) => void;
+  repos: GitHubAppRepo[];
+  isLoading: boolean;
+  isInstalled: boolean;
+  isConfigured: boolean;
+  account?: string | null;
+  installationId?: string | null;
+  manageUrl?: string | null;
+  installPending: boolean;
+  installError: string;
+  onInstall: () => void;
+  filter: string;
+  onFilterChange: (value: string) => void;
+  pathLabel: string;
+  pathPlaceholder: string;
+}) {
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return repos;
+    return repos.filter((repo) => repo.full_name.toLowerCase().includes(q));
+  }, [filter, repos]);
+
+  function selectRepo(repo: GitHubAppRepo) {
+    const parts = splitRepoFullName(repo.full_name);
+    onChange({
+      ...form,
+      owner: parts.owner,
+      repo: parts.repo,
+      repoRef: repo.full_name,
+      accessToken: "",
+      authMethod: "github_app",
+      installationId: installationId || form.installationId,
+      installationAccount: account || parts.owner,
+      repositoryId: String(repo.id),
+    });
+  }
+
+  if (!isConfigured) {
+    return (
+      <div className="integration-setup__github-app-card integration-setup__github-app-card--warning">
+        <h3>{title}</h3>
+        <p>GitHub App installation is not configured for this Veritrail environment.</p>
+      </div>
+    );
+  }
+
+  if (!isInstalled) {
+    return (
+      <div className="integration-setup__github-app-card">
+        <div>
+          <p className="integration-setup__github-app-eyebrow">GitHub App required</p>
+          <h3>{title}</h3>
+          <p>
+            Install Veritrail on the GitHub account that owns your IaC repository, then select exactly which
+            repositories Veritrail can access.
+          </p>
+          {installError ? <p className="integration-setup__error">{installError}</p> : null}
+        </div>
+        <button
+          type="button"
+          className="integration-setup__btn integration-setup__btn--primary"
+          onClick={onInstall}
+          disabled={installPending}
+        >
+          {installPending ? "Opening GitHub..." : "Install GitHub App"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="integration-setup__github-picker">
+      <div className="integration-setup__github-picker-head">
+        <div>
+          <p className="integration-setup__github-app-eyebrow">GitHub App installed</p>
+          <h3>{title}</h3>
+          <p>{account ? `Repository access is scoped to ${account}.` : "Repository access is scoped by the GitHub App installation."}</p>
+        </div>
+        {manageUrl ? (
+          <a className="integration-setup__btn" href={manageUrl} target="_blank" rel="noreferrer">
+            Manage access
+          </a>
+        ) : null}
+      </div>
+
+      <label className="integration-setup__field-label" htmlFor={`${title}-repo-filter`}>
+        Repository
+      </label>
+      <input
+        id={`${title}-repo-filter`}
+        className="integration-setup__input"
+        value={filter}
+        onChange={(e) => onFilterChange(e.target.value)}
+        placeholder="Search authorized repositories..."
+      />
+      <div className="integration-setup__repo-picker-list">
+        {isLoading ? <p className="integration-setup__repo-picker-empty">Loading repositories...</p> : null}
+        {!isLoading && filtered.length === 0 ? (
+          <p className="integration-setup__repo-picker-empty">No authorized repositories match this search.</p>
+        ) : null}
+        {!isLoading &&
+          filtered.slice(0, 80).map((repo) => {
+            const selected = form.repoRef === repo.full_name;
+            return (
+              <button
+                type="button"
+                key={repo.id}
+                className={`integration-setup__repo-picker-row${selected ? " is-selected" : ""}`}
+                onClick={() => selectRepo(repo)}
+                aria-pressed={selected}
+              >
+                <span>
+                  <strong>{repo.full_name}</strong>
+                  <small>{repo.private ? "Private" : "Public"}{repo.default_branch ? ` · ${repo.default_branch}` : ""}</small>
+                </span>
+                <span className="integration-setup__repo-picker-check">{selected ? "Selected" : "Select"}</span>
+              </button>
+            );
+          })}
+      </div>
+
+      <div className="integration-setup__field--wide">
+        <label className="integration-setup__field-label">{pathLabel}</label>
+        <input
+          className="integration-setup__input"
+          placeholder={pathPlaceholder}
+          value={form.path}
+          onChange={(e) => onChange({ ...form, path: e.target.value })}
+        />
+        <p className="integration-setup__field-hint">Folder inside the selected repository where files live.</p>
+      </div>
     </div>
   );
 }
@@ -190,6 +618,52 @@ export default function IacRepositoryIntegration() {
   const [samePaths, setSamePaths] = useState(true);
   const [labels, setLabels] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [githubRepoFilter, setGithubRepoFilter] = useState("");
+  const [githubTerragruntRepoFilter, setGithubTerragruntRepoFilter] = useState("");
+  const [githubInstallError, setGithubInstallError] = useState("");
+  const [githubConnectError, setGithubConnectError] = useState("");
+
+  const githubProvider = useQuery({
+    queryKey: ["github-provider"],
+    queryFn: () => api("/v1/integrations/github", { schema: integrationStatusNullableSchema }),
+    enabled: vcsProvider === "github",
+  });
+
+  const githubOAuthOrgLogins = useMemo(() => {
+    const provider = githubProvider.data;
+    if (!provider) return [];
+    if (provider.org_logins?.length) return provider.org_logins;
+    if (provider.org_login) return [provider.org_login];
+    if (provider.login) return [provider.login];
+    return [];
+  }, [githubProvider.data]);
+
+  const usesGithubOAuth = vcsProvider === "github" && !!githubProvider.data;
+  const usesGithubAppFallback = vcsProvider === "github" && !githubProvider.data && !!data?.github_app_configured;
+
+  const connectGithub = useMutation({
+    mutationFn: () => api<{ url: string }>("/v1/integrations/github/connect-url"),
+    onSuccess: ({ url }) => {
+      setGithubConnectError("");
+      window.location.assign(url);
+    },
+    onError: (e) => setGithubConnectError(formatApiError(e)),
+  });
+
+  const githubAppRepos = useQuery({
+    queryKey: ["iac-repository-github-app-repos", data?.github_app_installation_id],
+    queryFn: () => api<GitHubAppRepo[]>("/v1/integrations/iac-repository/github-app/repositories"),
+    enabled: usesGithubAppFallback && !!data?.github_app_installed,
+  });
+
+  const installGithubApp = useMutation({
+    mutationFn: () => api<{ url: string }>("/v1/integrations/iac-repository/github-app/install-url"),
+    onSuccess: ({ url }) => {
+      setGithubInstallError("");
+      window.location.assign(url);
+    },
+    onError: (e) => setGithubInstallError(formatApiError(e)),
+  });
 
   useEffect(() => {
     if (!showVerified) return;
@@ -211,6 +685,10 @@ export default function IacRepositoryIntegration() {
         path: tf.path ?? data.terraform_path ?? ".",
         accessToken: "",
         baseUrl: tf.base_url ?? "",
+        authMethod: tf.auth_method ?? "",
+        installationId: tf.installation_id ?? data.github_app_installation_id ?? "",
+        installationAccount: tf.installation_account ?? data.github_app_account ?? "",
+        repositoryId: tf.repository_id ?? "",
       });
     }
     const tg = data.terragrunt_repo;
@@ -222,6 +700,10 @@ export default function IacRepositoryIntegration() {
         path: tg.path ?? data.terragrunt_path ?? ".",
         accessToken: "",
         baseUrl: tg.base_url ?? "",
+        authMethod: tg.auth_method ?? "",
+        installationId: tg.installation_id ?? data.github_app_installation_id ?? "",
+        installationAccount: tg.installation_account ?? data.github_app_account ?? "",
+        repositoryId: tg.repository_id ?? "",
       });
     } else if (data.terragrunt_path) {
       setSamePaths(false);
@@ -244,6 +726,10 @@ export default function IacRepositoryIntegration() {
       path: terraformForm.path.trim() || ".",
       access_token: terraformForm.accessToken.trim() || undefined,
       base_url: terraformForm.baseUrl.trim() || undefined,
+      auth_method: terraformForm.authMethod || undefined,
+      installation_id: terraformForm.installationId || undefined,
+      installation_account: terraformForm.installationAccount || undefined,
+      repository_id: terraformForm.repositoryId || undefined,
     };
     const body: Record<string, unknown> = {
       vcs_provider: vcsProvider,
@@ -261,6 +747,10 @@ export default function IacRepositoryIntegration() {
         path: terragruntForm.path.trim() || ".",
         access_token: terragruntForm.accessToken.trim() || undefined,
         base_url: terragruntForm.baseUrl.trim() || undefined,
+        auth_method: terragruntForm.authMethod || undefined,
+        installation_id: terragruntForm.installationId || undefined,
+        installation_account: terragruntForm.installationAccount || undefined,
+        repository_id: terragruntForm.repositoryId || undefined,
       };
     } else if (usesTerragrunt && !samePaths) {
       body.terragrunt_path = terragruntForm.path.trim() || terraformForm.path.trim() || ".";
@@ -296,11 +786,20 @@ export default function IacRepositoryIntegration() {
   });
 
   const maxStep: WizardStep = 4;
+  const githubRepoSelected = !!terraformForm.repoRef;
+  const githubAppRepoSelected = !!terraformForm.repositoryId;
+  const githubTerragruntReady =
+    !usesTerragrunt || repoMode !== "dual" || (usesGithubOAuth ? !!terragruntForm.repoRef : !!terragruntForm.repositoryId);
+  const githubRepoReady =
+    vcsProvider !== "github" ||
+    (githubRepoSelected &&
+      (usesGithubOAuth || (usesGithubAppFallback && githubAppRepoSelected)) &&
+      githubTerragruntReady);
   const canAdvance =
     step === 1 ||
     step === 2 ||
     (step === 3 && (!usesTerragrunt || repoMode)) ||
-    step === 4;
+    (step === 4 && githubRepoReady);
 
   if (!isLoading && data?.connected && !isManageMode && !showVerified) {
     return <Navigate to="/integrations" replace />;
@@ -357,8 +856,8 @@ export default function IacRepositoryIntegration() {
             <section className="integration-setup__step-panel">
               <h2 className="integration-setup__panel-title">Pick your version control provider</h2>
               <p className="integration-setup__panel-copy">
-                GitHub and GitLab can reuse existing OAuth connections. Azure DevOps and CodeCommit use repository
-                references plus optional tokens.
+                GitHub reuses your source-control connection (owner + repository picker). GitLab can reuse OAuth,
+                while Azure DevOps and CodeCommit use repository references plus optional tokens.
               </p>
               <div className="integration-setup__provider-grid">
                 {VCS_OPTIONS.map((option) => (
@@ -454,22 +953,70 @@ export default function IacRepositoryIntegration() {
               <h2 className="integration-setup__panel-title">Link your repositories</h2>
               <p className="integration-setup__panel-copy">{selectedVcs.authHint}</p>
 
-              <div className="integration-setup__callout integration-setup__callout--neutral">
-                {repoLinkCallout(vcsProvider, selectedVcs.label)}
-              </div>
+              {vcsProvider === "github" ? (
+                usesGithubOAuth ? (
+                  <GitHubOAuthRepositoryPicker
+                    title={usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
+                    form={terraformForm}
+                    onChange={setTerraformForm}
+                    oauthLogin={githubProvider.data?.login ?? data?.github_oauth_login}
+                    initialOrgLogins={githubOAuthOrgLogins}
+                    filter={githubRepoFilter}
+                    onFilterChange={setGithubRepoFilter}
+                    pathLabel="Terraform path"
+                    pathPlaceholder="e.g. modules or ."
+                  />
+                ) : (
+                  <>
+                    <GitHubConnectCard
+                      isAppConfigured={!!data?.github_app_configured}
+                      connectPending={connectGithub.isPending}
+                      connectError={githubConnectError}
+                      onConnect={() => connectGithub.mutate()}
+                    />
+                    {usesGithubAppFallback ? (
+                      <GitHubAppRepositoryPicker
+                        title={usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
+                        form={terraformForm}
+                        onChange={setTerraformForm}
+                        repos={githubAppRepos.data ?? []}
+                        isLoading={githubAppRepos.isLoading}
+                        isInstalled={!!data?.github_app_installed}
+                        isConfigured={!!data?.github_app_configured}
+                        account={data?.github_app_account}
+                        installationId={data?.github_app_installation_id}
+                        manageUrl={data?.github_app_manage_url}
+                        installPending={installGithubApp.isPending}
+                        installError={githubInstallError}
+                        onInstall={() => installGithubApp.mutate()}
+                        filter={githubRepoFilter}
+                        onFilterChange={setGithubRepoFilter}
+                        pathLabel="Terraform path"
+                        pathPlaceholder="e.g. modules or ."
+                      />
+                    ) : null}
+                  </>
+                )
+              ) : (
+                <>
+                  <div className="integration-setup__callout integration-setup__callout--neutral">
+                    {repoLinkCallout(vcsProvider, selectedVcs.label)}
+                  </div>
 
-              <div>
-                <h3 className="text-[13px] font-semibold text-zinc-800">
-                  {usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
-                </h3>
-                <RepoFields
-                  vcs={vcsProvider}
-                  form={terraformForm}
-                  onChange={setTerraformForm}
-                  pathLabel="Terraform path"
-                  pathPlaceholder="e.g. modules or ."
-                />
-              </div>
+                  <div>
+                    <h3 className="text-[13px] font-semibold text-zinc-800">
+                      {usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
+                    </h3>
+                    <RepoFields
+                      vcs={vcsProvider}
+                      form={terraformForm}
+                      onChange={setTerraformForm}
+                      pathLabel="Terraform path"
+                      pathPlaceholder="e.g. modules or ."
+                    />
+                  </div>
+                </>
+              )}
 
               {usesTerragrunt && repoMode === "single" && (
                 <div>
@@ -479,27 +1026,77 @@ export default function IacRepositoryIntegration() {
                     Same path as Terraform
                   </label>
                   {!samePaths && (
-                    <RepoFields
-                      vcs={vcsProvider}
-                      form={{ ...terragruntForm, owner: terraformForm.owner, repo: terraformForm.repo, repoRef: terraformForm.repoRef }}
-                      onChange={(next) => setTerragruntForm({ ...next, owner: terraformForm.owner, repo: terraformForm.repo, repoRef: terraformForm.repoRef })}
-                      pathLabel="Terragrunt path"
-                      pathPlaceholder="e.g. environments/prod/us-east-1"
-                    />
+                    vcsProvider === "github" ? (
+                      <div className="integration-setup__field--wide">
+                        <label className="integration-setup__field-label">Terragrunt path</label>
+                        <input
+                          className="integration-setup__input"
+                          value={terragruntForm.path}
+                          onChange={(e) => setTerragruntForm({ ...terragruntForm, path: e.target.value })}
+                          placeholder="e.g. environments/prod/us-east-1"
+                        />
+                      </div>
+                    ) : (
+                      <RepoFields
+                        vcs={vcsProvider}
+                        form={{ ...terragruntForm, owner: terraformForm.owner, repo: terraformForm.repo, repoRef: terraformForm.repoRef }}
+                        onChange={(next) => setTerragruntForm({ ...next, owner: terraformForm.owner, repo: terraformForm.repo, repoRef: terraformForm.repoRef })}
+                        pathLabel="Terragrunt path"
+                        pathPlaceholder="e.g. environments/prod/us-east-1"
+                      />
+                    )
                   )}
                 </div>
               )}
 
               {usesTerragrunt && repoMode === "dual" && (
                 <div>
-                  <h3 className="text-[13px] font-semibold text-zinc-800">Terragrunt live stacks repository</h3>
-                  <RepoFields
-                    vcs={vcsProvider}
-                    form={terragruntForm}
-                    onChange={setTerragruntForm}
-                    pathLabel="Live stack path"
-                    pathPlaceholder="e.g. . or prod/us-east-1"
-                  />
+                  {vcsProvider === "github" ? (
+                    usesGithubOAuth ? (
+                      <GitHubOAuthRepositoryPicker
+                        title="Terragrunt live stacks repository"
+                        form={terragruntForm}
+                        onChange={setTerragruntForm}
+                        oauthLogin={githubProvider.data?.login ?? data?.github_oauth_login}
+                        initialOrgLogins={githubOAuthOrgLogins}
+                        filter={githubTerragruntRepoFilter}
+                        onFilterChange={setGithubTerragruntRepoFilter}
+                        pathLabel="Live stack path"
+                        pathPlaceholder="e.g. . or prod/us-east-1"
+                      />
+                    ) : usesGithubAppFallback ? (
+                      <GitHubAppRepositoryPicker
+                        title="Terragrunt live stacks repository"
+                        form={terragruntForm}
+                        onChange={setTerragruntForm}
+                        repos={githubAppRepos.data ?? []}
+                        isLoading={githubAppRepos.isLoading}
+                        isInstalled={!!data?.github_app_installed}
+                        isConfigured={!!data?.github_app_configured}
+                        account={data?.github_app_account}
+                        installationId={data?.github_app_installation_id}
+                        manageUrl={data?.github_app_manage_url}
+                        installPending={installGithubApp.isPending}
+                        installError={githubInstallError}
+                        onInstall={() => installGithubApp.mutate()}
+                        filter={githubTerragruntRepoFilter}
+                        onFilterChange={setGithubTerragruntRepoFilter}
+                        pathLabel="Live stack path"
+                        pathPlaceholder="e.g. . or prod/us-east-1"
+                      />
+                    ) : null
+                  ) : (
+                    <>
+                      <h3 className="text-[13px] font-semibold text-zinc-800">Terragrunt live stacks repository</h3>
+                      <RepoFields
+                        vcs={vcsProvider}
+                        form={terragruntForm}
+                        onChange={setTerragruntForm}
+                        pathLabel="Live stack path"
+                        pathPlaceholder="e.g. . or prod/us-east-1"
+                      />
+                    </>
+                  )}
                 </div>
               )}
 
@@ -546,7 +1143,7 @@ export default function IacRepositoryIntegration() {
               <button
                 type="button"
                 className="integration-setup__btn integration-setup__btn--primary"
-                disabled={save.isPending}
+                disabled={save.isPending || !githubRepoReady}
                 onClick={() => save.mutate()}
               >
                 {save.isPending ? "Saving…" : data?.connected ? "Update connection" : "Save connection"}

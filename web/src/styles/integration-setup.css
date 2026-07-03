@@ -626,9 +626,191 @@
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
 }
 
+.integration-setup__github-app-card,
+.integration-setup__github-picker {
+  border: 1px solid #dbe4ee;
+  border-radius: 0.875rem;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.integration-setup__github-app-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.125rem;
+}
+
+.integration-setup__github-app-card--warning {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.integration-setup__github-app-card h3,
+.integration-setup__github-picker h3 {
+  margin: 0;
+  font-size: 0.975rem;
+  font-weight: 750;
+  color: #111827;
+}
+
+.integration-setup__github-app-card p,
+.integration-setup__github-picker-head p {
+  margin: 0.375rem 0 0;
+  max-width: 36rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #536179;
+}
+
+.integration-setup__github-app-eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.integration-setup__github-picker {
+  padding: 1.125rem;
+}
+
+.integration-setup__github-picker-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.integration-setup__github-connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-top: 1rem;
+}
+
+.integration-setup__github-owner-list {
+  margin-bottom: 1rem;
+}
+
+.integration-setup__github-owner-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+}
+
+.integration-setup__github-owner-chip {
+  border: 1px solid #dbe3ee;
+  border-radius: 999px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #334155;
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.integration-setup__github-owner-chip:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.integration-setup__github-owner-chip.is-selected {
+  border-color: #5eead4;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.integration-setup__repo-picker-list {
+  display: flex;
+  max-height: 17.5rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  overflow: auto;
+  padding-right: 0.125rem;
+}
+
+.integration-setup__repo-picker-row {
+  display: flex;
+  min-height: 3.625rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  text-align: left;
+  background: #fff;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.integration-setup__repo-picker-row:hover {
+  border-color: #b8c7d9;
+  background: #fcfdff;
+}
+
+.integration-setup__repo-picker-row.is-selected {
+  border-color: #5eead4;
+  background: #f0fdfa;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+.integration-setup__repo-picker-row strong,
+.integration-setup__repo-picker-row small {
+  display: block;
+  min-width: 0;
+}
+
+.integration-setup__repo-picker-row strong {
+  font-size: 0.875rem;
+  color: #102033;
+}
+
+.integration-setup__repo-picker-row small {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.integration-setup__repo-picker-check {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.integration-setup__repo-picker-row.is-selected .integration-setup__repo-picker-check {
+  color: #0f766e;
+  background: #ccfbf1;
+}
+
+.integration-setup__repo-picker-empty {
+  margin: 0;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: #64748b;
+  background: #f8fafc;
+}
+
 @media (max-width: 720px) {
   .integration-setup--iac {
     padding-inline: 1rem;
+  }
+
+  .integration-setup__github-app-card,
+  .integration-setup__github-picker-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .integration-setup__provider-grid,
