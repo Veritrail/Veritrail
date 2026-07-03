@@ -284,11 +284,9 @@ export default function Homepage() {
         <section className="border-y border-zinc-200/80 bg-white">
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4 sm:gap-8 sm:py-10">
             {FEATURES.map((feature) => (
-              <div key={feature.label} className="flex flex-col items-center text-center sm:items-start sm:text-left">
-                <div className="homepage-feature__icon flex items-center justify-center">
-                  {feature.icon}
-                </div>
-                <p className="homepage-feature__label mt-3 text-sm font-semibold">{feature.label}</p>
+              <div key={feature.label} className="homepage-feature">
+                <div className="homepage-feature__icon">{feature.icon}</div>
+                <p className="homepage-feature__label">{feature.label}</p>
               </div>
             ))}
           </div>
