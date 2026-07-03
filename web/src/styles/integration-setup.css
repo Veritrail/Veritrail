@@ -26,6 +26,14 @@
 }
 
 .integration-setup--iac {
+  --is-action: #0f766e;
+  --is-action-hover: #115e59;
+  --is-selected-bg: #ecfdf5;
+  --is-selected-border: #5eead4;
+  --is-selected-ring: rgba(20, 184, 166, 0.08);
+  --is-step-inactive-bg: #fff;
+  --is-step-inactive-text: #64748b;
+  --is-step-inactive-border: #dbe3ef;
   max-width: 58rem;
   margin: 0 auto;
   padding: 2.25rem 1.5rem 3rem;
@@ -403,20 +411,20 @@
 }
 
 .integration-setup--iac .integration-setup__btn--primary {
-  border-color: var(--is-action);
-  background: var(--is-action);
-  box-shadow: 0 1px 2px rgba(36, 84, 214, 0.2);
+  border-color: #0f766e;
+  background: #0f766e;
+  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.2);
 }
 
 .integration-setup--iac .integration-setup__btn--primary:hover:not(:disabled) {
-  border-color: var(--is-action-hover);
-  background: var(--is-action-hover);
+  border-color: #115e59;
+  background: #115e59;
 }
 
 .integration-setup--iac .integration-setup__btn--primary:disabled {
-  border-color: #9ca3af;
-  background: #9ca3af;
-  color: #fff;
+  border: 1px solid #e5e7eb;
+  background: #e5e7eb;
+  color: #94a3b8;
   cursor: not-allowed;
   opacity: 1;
   box-shadow: none;
@@ -553,9 +561,33 @@
 }
 
 .integration-setup--iac .integration-setup__step--active {
-  border-color: var(--is-action);
-  background: var(--is-action);
+  border-color: #0f766e;
+  background: #0f766e;
   color: #fff;
+}
+
+.integration-setup--iac .integration-setup__provider-card--selected,
+.integration-setup--iac .integration-setup__choice-btn--selected,
+.integration-setup--iac .integration-setup__github-owner-chip.is-selected,
+.integration-setup--iac .integration-setup__repo-picker-row.is-selected {
+  border-color: #5eead4;
+  background: #ecfdf5;
+  box-shadow: 0 0 0 3px var(--is-selected-ring);
+  color: #0f172a;
+}
+
+.integration-setup--iac .integration-setup__provider-card:hover:not(.integration-setup__provider-card--selected),
+.integration-setup--iac .integration-setup__choice-btn:hover:not(.integration-setup__choice-btn--selected),
+.integration-setup--iac .integration-setup__github-owner-chip:hover:not(.is-selected),
+.integration-setup--iac .integration-setup__repo-picker-row:hover:not(.is-selected) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+.integration-setup--iac .integration-setup__input:focus {
+  border-color: #5eead4;
+  box-shadow: 0 0 0 3px var(--is-selected-ring);
 }
 
 .integration-setup--iac .integration-setup__step--done {

@@ -23,7 +23,7 @@ const VCS_OPTIONS: {
     id: "azure_devops",
     label: "Azure DevOps",
     brand: "azure-devops",
-    authHint: "Connect with an organization URL and access token.",
+    authHint: "Connect with your organization URL and access token.",
   },
   { id: "codecommit", label: "AWS CodeCommit", brand: "aws", authHint: "Connect with a repository name and Git credentials." },
 ];
@@ -32,7 +32,7 @@ const STEP_LABELS = ["Provider", "Terragrunt", "Layout", "Link repos"] as const;
 const FLOW_NODES = [
   { title: "Findings", detail: "Detected risk" },
   { title: "Remediation", detail: "Suggested fix" },
-  { title: "IaC PR", detail: "Code change" },
+  { title: "IaC PR", detail: "Proposed change" },
 ] as const;
 
 function repoLinkCallout(vcs: VcsProvider, providerLabel: string): string {
@@ -42,7 +42,7 @@ function repoLinkCallout(vcs: VcsProvider, providerLabel: string): string {
     case "gitlab":
       return `Enter the group/project path (e.g. acme-corp/infrastructure) — not a browser URL. Veritrail connects using your ${providerLabel} authentication.`;
     case "azure_devops":
-      return `Enter org/project/repo — not a full Azure DevOps web URL. Veritrail connects using your access token.`;
+      return "Use org/project/repo, not the full Azure DevOps URL. Veritrail will reuse this reference with your access token.";
     case "codecommit":
       return `Enter the repository name — not an AWS console or clone URL. Veritrail connects using your Git credentials.`;
   }
@@ -794,7 +794,7 @@ export default function IacRepositoryIntegration() {
         </div>
         <h1 className="integration-setup__title">Link your IaC repository</h1>
         <p className="integration-setup__subtitle">
-          Connect the infrastructure-as-code repository Veritrail should use for remediation pull requests, code
+          Connect the infrastructure-as-code repository Veritrail should reuse for remediation pull requests, code
           references, and ticket context.
         </p>
         <div className="integration-setup__flow" aria-label="Remediation workflow">
@@ -837,8 +837,8 @@ export default function IacRepositoryIntegration() {
             <section className="integration-setup__step-panel">
               <h2 className="integration-setup__panel-title">Choose a source control provider</h2>
               <p className="integration-setup__panel-copy">
-                Choose where your Terraform or Terragrunt repository is hosted. Existing GitHub and GitLab connections
-                can be reused.
+                Choose where your Terraform or Terragrunt repository is hosted. Veritrail can reuse existing GitHub and
+                GitLab connections.
               </p>
               <div className="integration-setup__provider-grid">
                 {VCS_OPTIONS.map((option) => (
@@ -866,8 +866,8 @@ export default function IacRepositoryIntegration() {
             <section className="integration-setup__step-panel">
               <h2 className="integration-setup__panel-title">Do you use Terragrunt with Terraform?</h2>
               <p className="integration-setup__panel-copy">
-                Tell us whether your Terraform setup uses Terragrunt live stacks. This helps Veritrail understand how
-                your IaC is organized.
+                Select whether your Terraform setup uses Terragrunt live stacks. This helps Veritrail understand your IaC
+                layout.
               </p>
               <div className="integration-setup__choice-row">
                 {[
@@ -931,9 +931,11 @@ export default function IacRepositoryIntegration() {
 
           {step === 4 && (
             <section className="integration-setup__step-panel integration-setup__step-panel--stacked">
-              <h2 className="integration-setup__panel-title">Link your repositories</h2>
+              <h2 className="integration-setup__panel-title">
+                {usesTerragrunt && repoMode === "dual" ? "Link your repositories" : "Link your repository"}
+              </h2>
               <p className="integration-setup__panel-copy">
-                Select the repository Veritrail should analyze. We&apos;ll detect modules, live stacks, and relevant
+                Select the repository Veritrail should analyze. Veritrail will detect modules, live stacks, and relevant
                 paths automatically.
               </p>
               {data?.connected && isManageMode && (data.terraform_path || data.terragrunt_path) ? (
