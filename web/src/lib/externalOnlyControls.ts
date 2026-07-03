@@ -27,11 +27,13 @@ export const EXTERNAL_ONLY_CONTROLS: ExternalOnlyControlCopy[] = [
   {
     id: "mdm_endpoint",
     title: "Device management (MDM)",
-    description: "Requires external mobile-device management evidence.",
-    blockingGapSummary: "No cloud scan coverage — managed devices are outside AWS.",
+    description:
+      "Corporate device enrollment and compliance live outside AWS. Connect Intune or Jamf for supplemental sync, and upload accepted manual evidence for audit.",
+    blockingGapSummary:
+      "No cloud scan coverage — managed devices are outside AWS and require manual evidence or a connected MDM integration.",
     guidance:
-      "Export a device compliance report from your MDM platform and upload it below.\n\n" +
-      "- Intune, Jamf Pro, and Kandji are common sources\n" +
+      "Upload a device compliance report from your MDM platform and declare the vendor in Workspace → Evidence.\n\n" +
+      "- Microsoft Intune and Jamf Pro can be connected for live device inventory sync, but audit coverage still requires accepted external evidence\n" +
       "- Auditors want proof that in-scope laptops and mobile devices are enrolled\n" +
       "- Show disk encryption and screen-lock enforcement on enrolled devices\n\n" +
       "If no managed devices are in your audit boundary, mark this control out of scope with a rationale instead.",
@@ -44,7 +46,10 @@ export function externalOnlyControlCopy(compositeId: string): ExternalOnlyContro
   return BY_ID.get(compositeId) ?? null;
 }
 
-export function isExternalOnlyComposite(checkIds: string[]): boolean {
+export function isExternalOnlyComposite(checkIds: string[], compositeId?: string): boolean {
+  if (compositeId && EXTERNAL_ONLY_CONTROLS.some((row) => row.id === compositeId)) {
+    return true;
+  }
   return checkIds.length === 0;
 }
 

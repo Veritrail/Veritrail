@@ -61,6 +61,47 @@ def _worst_scan_status(statuses: list[str]) -> str:
     return min(statuses, key=lambda s: _STATUS_PRIORITY.get(s, 99))
 
 
+def resolve_composite_display_status(
+    composite_id: str,
+    *,
+    status: str,
+    check_ids: list[str],
+    check_tiers: dict[str, str],
+    has_accepted: bool,
+    registry_vendor: str | None,
+    open_by_check: dict[str, list],
+    coverage_override: str | None = None,
+    cross_account_verified: bool = False,
+) -> str:
+    """Map scan status + external evidence registry to UI display_status."""
+    from app.services.evidence_source_registry import category_for_composite
+
+    if coverage_override:
+        return coverage_override
+    if cross_account_verified:
+        return "externally_covered"
+
+    composite = {
+        "status": status,
+        "check_ids": check_ids,
+        "check_tiers": check_tiers,
+    }
+    base = _composite_display_status(
+        composite,
+        has_accepted=has_accepted,
+        open_by_check=open_by_check,
+    )
+    cat_key = category_for_composite(composite_id)
+    if not cat_key:
+        return base
+    return _external_evidence_category_status(
+        cat_key,
+        display_status=base,
+        has_accepted=has_accepted,
+        registry_vendor=registry_vendor,
+    )
+
+
 def _external_evidence_category_status(
     cat_key: str,
     *,

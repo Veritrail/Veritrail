@@ -486,13 +486,10 @@
     "id": "mdm_endpoint",
     "control_id": "COMPOSITE.MDM_ENDPOINT",
     "title": "Device Management (MDM)",
-    "description": "Validates corporate device encryption and compliance via live Intune or Jamf API sync.",
-    "guidance": "Connect Microsoft Intune or Jamf Pro to sync managed device inventory. Upload attestation when live API is unavailable.",
+    "description": "Corporate device enrollment, encryption, and compliance live outside AWS. Veritrail cannot verify MDM from cloud posture alone — connect Intune or Jamf for supplemental device sync, and upload accepted manual evidence for audit.",
+    "guidance": "Upload a device compliance report from your MDM platform and declare the vendor in Workspace → Evidence.\n\n- Microsoft Intune and Jamf Pro can be connected for live device inventory sync, but audit coverage still requires accepted external evidence\n- Auditors want proof that in-scope laptops and mobile devices are enrolled with disk encryption and screen-lock enforcement\n- Include a recent export dated within your audit period\n\nIf no managed devices are in your audit boundary, mark this control out of scope with a rationale instead.",
     "soc2_criteria": ["CC6"],
-    "checks": [
-      "intune.device.not_encrypted",
-      "jamf.device.not_encrypted"
-    ],
+    "checks": [],
     "cis_criteria": [],
     "iso_criteria": []
   },

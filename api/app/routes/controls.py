@@ -126,6 +126,9 @@ class CompositeControlOut(BaseModel):
     check_tiers: dict[str, str] = {}
     check_evidence_classes: dict[str, str] = {}
     status: str
+    display_status: str | None = None
+    evidence_category_key: str | None = None
+    registry_vendor: str | None = None
     finding_count: int
     severity_counts: dict[str, int] = {}
     open_finding_ids: list[str]

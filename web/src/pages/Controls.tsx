@@ -45,6 +45,7 @@ import {
   externalOnlyGuidance,
   isExternalOnlyComposite,
 } from "../lib/externalOnlyControls";
+import { externalEvidenceCompositeDisplayStatus } from "../lib/externalEvidenceCompositeStatus";
 import {
   absenceGapEnableItems,
   capabilityForAbsenceCheck,
@@ -101,6 +102,9 @@ type CompositeControlRow = {
   coverage_tier?: "core" | "extended" | "mixed" | "no_data";
   check_tiers?: Record<string, string>;
   status: "pass" | "fail" | "at_risk" | "no_data";
+  display_status?: ComplianceDisplayStatus;
+  evidence_category_key?: string | null;
+  registry_vendor?: string | null;
   finding_count: number;
   severity_counts?: { critical: number; high: number; medium: number; low: number };
   open_finding_ids: string[];
@@ -246,28 +250,49 @@ function compositeDisplayStatus(
   // Verified coverage in another connected account closes the gap. Attested
   // (not yet verified) cross-account coverage stays a gap until confirmed.
   if (ctrl.cross_account_coverage_detail?.verified) return "externally_covered";
-  if (ctrl.status === "pass") return "passing";
-  // Control present, only sub-threshold (medium) findings open — tracked, not a gap.
-  if (ctrl.status === "at_risk") return "at_risk";
-  if (ctrl.status === "no_data") return "unevaluated";
   if (hasExpiredEvidence && !hasAcceptedExternalEvidence) return "expired";
-  if (ctrl.status === "fail" && hasAcceptedExternalEvidence)
-    return "externally_covered";
-  if (
+
+  let base: ComplianceDisplayStatus;
+  if (ctrl.display_status) {
+    base = ctrl.display_status;
+  } else if (ctrl.status === "pass") {
+    base = "passing";
+  } else if (ctrl.status === "at_risk") {
+    base = "at_risk";
+  } else if (ctrl.status === "no_data") {
+    base = "unevaluated";
+  } else if (ctrl.status === "fail" && hasAcceptedExternalEvidence) {
+    base = "externally_covered";
+  } else if (
     ctrl.status === "fail" &&
     !hasAcceptedExternalEvidence &&
     openAbsenceGapChecks(ctrl.check_ids, findingCountByCheck).length > 0
   ) {
-    return "needs_evidence";
+    base = "needs_evidence";
+  } else {
+    const failingChecks = ctrl.check_ids.filter(
+      (id) => (findingCountByCheck.get(id) ?? 0) > 0,
+    );
+    if (failingChecks.length === 0) {
+      base = "failing";
+    } else {
+      const hasCoreFailure = failingChecks.some(
+        (id) => (ctrl.check_tiers?.[id] ?? "core") === "core",
+      );
+      base = hasCoreFailure ? "failing" : "at_risk";
+    }
   }
-  const failingChecks = ctrl.check_ids.filter(
-    (id) => (findingCountByCheck.get(id) ?? 0) > 0,
+
+  if (ctrl.display_status) {
+    return base;
+  }
+
+  return externalEvidenceCompositeDisplayStatus(
+    ctrl.id,
+    base,
+    hasAcceptedExternalEvidence,
+    ctrl.registry_vendor,
   );
-  if (failingChecks.length === 0) return "failing";
-  const hasCoreFailure = failingChecks.some(
-    (id) => (ctrl.check_tiers?.[id] ?? "core") === "core",
-  );
-  return hasCoreFailure ? "failing" : "at_risk";
 }
 
 function compositeMatchesStatusFilter(
@@ -3001,7 +3026,7 @@ function buildCompositeTabs({
     hasAbsenceGaps,
     regularFailing,
   });
-  const isExternalOnly = isExternalOnlyComposite(ctrl.check_ids);
+  const isExternalOnly = isExternalOnlyComposite(ctrl.check_ids, ctrl.id);
   const isVerified = displayStatus === "passing";
   const mappedControls = compositeMappedControls(ctrl, framework);
   const linkedEvidence = evidenceArtifactsForComposite(externalEvidence, ctrl.id);

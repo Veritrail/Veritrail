@@ -374,9 +374,24 @@ def list_composite_controls(
     from app.services.sdlc_evidence import sdlc_insights_for_org
 
     from app.services.org_control_mappings import effective_composite_check_ids, load_org_mapping_index
+    from app.models.evidence_artifact import EvidenceArtifact
+    from app.services.category_evidence_coverage import resolve_composite_display_status
+    from app.services.evidence_source_registry import category_for_composite
+    from app.services.evidence_source_store import load_evidence_sources
 
     sdlc_insights = sdlc_insights_for_org(db, org_id)
     mapping_index = load_org_mapping_index(db, org_id)
+    evidence_registry = load_evidence_sources(db, org_id)
+    accepted_composite_ids = {
+        row.composite_control_id
+        for row in db.scalars(
+            select(EvidenceArtifact).where(
+                EvidenceArtifact.org_id == org_id,
+                EvidenceArtifact.status == "accepted",
+            )
+        ).all()
+        if row.composite_control_id
+    }
 
     result: list[dict[str, Any]] = []
     for entry in composite_control_definitions():
@@ -391,6 +406,24 @@ def list_composite_controls(
             fail_severities=fail_severities,
         )
         cov_tier = control_coverage_tier(check_ids)
+        check_tiers = {cid: tier_for_check(cid) for cid in check_ids}
+        cross_account_detail = _cross_account_detail(
+            cross_account_coverage.get(entry["id"]), check_ids, cross_account_ctx
+        )
+        cat_key = category_for_composite(entry["id"])
+        registry_entry = evidence_registry.get(cat_key) if cat_key else None
+        registry_vendor = registry_entry.get("vendor") if registry_entry else None
+        display_status = resolve_composite_display_status(
+            entry["id"],
+            status=status,
+            check_ids=check_ids,
+            check_tiers=check_tiers,
+            has_accepted=entry["id"] in accepted_composite_ids,
+            registry_vendor=registry_vendor,
+            open_by_check=open_by_check,
+            coverage_override=coverage_overrides.get(entry["id"]),
+            cross_account_verified=bool(cross_account_detail and cross_account_detail.get("verified")),
+        )
         row: dict[str, Any] = {
                 "id": entry["id"],
                 "control_id": entry["control_id"],
@@ -404,18 +437,19 @@ def list_composite_controls(
                 "coverage_tier": cov_tier,
                 "coverage_label": tier_display_label(cov_tier),
                 "extended_check_ids": extended_checks_in_list(check_ids),
-                "check_tiers": {cid: tier_for_check(cid) for cid in check_ids},
+                "check_tiers": check_tiers,
                 "check_evidence_classes": {cid: evidence_class_for_check(cid) for cid in check_ids},
                 "status": status,
+                "display_status": display_status,
+                "evidence_category_key": cat_key,
+                "registry_vendor": registry_vendor,
                 "finding_count": finding_count,
                 "severity_counts": severity_breakdown(open_hits),
                 "open_finding_ids": [str(f.id) for f in open_hits],
                 "scan_errors": [errors_by_check[cid] for cid in check_ids if cid in errors_by_check],
                 "coverage_override": coverage_overrides.get(entry["id"]),
                 "coverage_override_detail": coverage_override_details.get(entry["id"]),
-                "cross_account_coverage_detail": _cross_account_detail(
-                    cross_account_coverage.get(entry["id"]), check_ids, cross_account_ctx
-                ),
+                "cross_account_coverage_detail": cross_account_detail,
             }
         if entry["id"] == "secure_sdlc":
             row["sdlc_insights"] = sdlc_insights

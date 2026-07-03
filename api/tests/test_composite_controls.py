@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from app.services.control_status import compute_control_status
 from app.services.composite_controls import (
     assert_control_mapping_composite_coverage,
     composite_control_definitions,
@@ -29,7 +30,7 @@ def test_composite_definitions_load():
         "logging_monitoring",
         "backup_resilience",
     }
-    external_only = {"endpoint_security", "hr_training", "vendor_risk"}
+    external_only = {"endpoint_security", "mdm_endpoint", "hr_training", "vendor_risk"}
     for entry in defs:
         if entry["id"] in external_only:
             continue  # external evidence only — no automated checks
@@ -251,3 +252,10 @@ def test_supporting_findings_do_not_downgrade_benchmark_controls():
     assert status == "pass"
     assert hits == []
     assert count == 0
+
+
+def test_mdm_endpoint_is_external_evidence_only():
+    by_id = {d["id"]: d for d in composite_control_definitions()}
+    mdm = by_id["mdm_endpoint"]
+    assert mdm["checks"] == []
+    assert "manual evidence" in mdm["description"].lower()

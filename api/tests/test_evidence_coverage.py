@@ -6,6 +6,7 @@ from app.services.category_evidence_coverage import (
     _artifact_is_stale,
     _composite_display_status,
     _external_evidence_category_status,
+    resolve_composite_display_status,
 )
 
 
@@ -112,6 +113,39 @@ def test_external_evidence_category_mdm_requires_vendor_and_artifact():
             display_status="unevaluated",
             has_accepted=True,
             registry_vendor="Jamf Pro",
+        )
+        == "externally_covered"
+    )
+
+
+def test_resolve_composite_display_status_mdm_pass_is_coverage_gap():
+    assert (
+        resolve_composite_display_status(
+            "mdm_endpoint",
+            status="pass",
+            check_ids=["intune.device.not_encrypted", "jamf.device.not_encrypted"],
+            check_tiers={
+                "intune.device.not_encrypted": "core",
+                "jamf.device.not_encrypted": "core",
+            },
+            has_accepted=False,
+            registry_vendor="Microsoft Intune",
+            open_by_check={},
+        )
+        == "needs_evidence"
+    )
+
+
+def test_resolve_composite_display_status_mdm_externally_covered_with_artifact_and_vendor():
+    assert (
+        resolve_composite_display_status(
+            "mdm_endpoint",
+            status="no_data",
+            check_ids=[],
+            check_tiers={},
+            has_accepted=True,
+            registry_vendor="Jamf Pro",
+            open_by_check={},
         )
         == "externally_covered"
     )
