@@ -690,13 +690,14 @@ function IntegrationsContent() {
 
       <div className="integrations-page__body">
         <IntegrationsTable rows={activeRows} />
-        <RecommendedIntegrations
-          entraConnected={entraConnected}
-          jiraConnected={jiraConnected}
-          iacConnected={iacRepositoryConnected}
-          snykConnected={!!snykScanner.data?.connected}
-        />
       </div>
+
+      <RecommendedIntegrations
+        entraConnected={entraConnected}
+        jiraConnected={jiraConnected}
+        iacConnected={iacRepositoryConnected}
+        snykConnected={!!snykScanner.data?.connected}
+      />
     </div>
   );
 }
