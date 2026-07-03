@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/homepage.css";
@@ -262,80 +262,46 @@ function IntegrationDiagram() {
   const arrowStroke = {
     fill: "none",
     stroke: "#94a3b8",
-    strokeWidth: 2,
-    strokeDasharray: "5 4",
+    strokeWidth: 1.75,
     strokeLinecap: "round",
+    strokeLinejoin: "round",
   } as const;
 
   return (
     <div className="homepage-diagram" aria-hidden>
+      <svg className="homepage-diagram__overlay" viewBox="0 0 240 240" preserveAspectRatio="xMidYMid meet" aria-hidden>
+        <defs>
+          <marker
+            id="homepage-diagram-arrow"
+            markerUnits="userSpaceOnUse"
+            markerWidth="8"
+            markerHeight="8"
+            refX="7"
+            refY="4"
+            orient="auto"
+          >
+            <path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8" />
+          </marker>
+        </defs>
+
+        <g className="homepage-diagram__paths homepage-diagram__paths--desktop">
+          <path d="M52,52 C108,52 148,88 176,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
+          <path d="M52,120 C132,120 156,120 176,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
+          <path d="M52,188 C108,188 148,152 176,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
+        </g>
+
+        <g className="homepage-diagram__paths homepage-diagram__paths--mobile">
+          <path d="M56,52 C56,96 88,132 120,168" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
+          <path d="M120,52 L120,168" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
+          <path d="M184,52 C184,96 152,132 120,168" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
+        </g>
+      </svg>
+
       <div className="homepage-diagram__sources">
         {clouds.map((brand) => (
           <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} />
         ))}
       </div>
-
-      <svg
-        className="homepage-diagram__arrows homepage-diagram__arrows--desktop"
-        viewBox="0 0 120 240"
-        preserveAspectRatio="none"
-        aria-hidden
-      >
-        <defs>
-          <marker
-            id="homepage-diagram-arrow"
-            markerWidth="7"
-            markerHeight="7"
-            refX="6"
-            refY="3.5"
-            orient="auto"
-          >
-            <path d="M0,0 L7,3.5 L0,7 Z" fill="#94a3b8" />
-          </marker>
-        </defs>
-        <path
-          d="M0,42 C48,42 68,78 120,120"
-          markerEnd="url(#homepage-diagram-arrow)"
-          {...arrowStroke}
-        />
-        <path d="M0,120 C58,120 62,120 120,120" markerEnd="url(#homepage-diagram-arrow)" {...arrowStroke} />
-        <path
-          d="M0,198 C48,198 68,162 120,120"
-          markerEnd="url(#homepage-diagram-arrow)"
-          {...arrowStroke}
-        />
-      </svg>
-
-      <svg
-        className="homepage-diagram__arrows homepage-diagram__arrows--mobile"
-        viewBox="0 0 240 72"
-        preserveAspectRatio="none"
-        aria-hidden
-      >
-        <defs>
-          <marker
-            id="homepage-diagram-arrow-mobile"
-            markerWidth="7"
-            markerHeight="7"
-            refX="6"
-            refY="3.5"
-            orient="auto"
-          >
-            <path d="M0,0 L7,3.5 L0,7 Z" fill="#94a3b8" />
-          </marker>
-        </defs>
-        <path
-          d="M40,0 C40,28 52,48 120,72"
-          markerEnd="url(#homepage-diagram-arrow-mobile)"
-          {...arrowStroke}
-        />
-        <path d="M120,0 L120,72" markerEnd="url(#homepage-diagram-arrow-mobile)" {...arrowStroke} />
-        <path
-          d="M200,0 C200,28 188,48 120,72"
-          markerEnd="url(#homepage-diagram-arrow-mobile)"
-          {...arrowStroke}
-        />
-      </svg>
 
       <div className="homepage-diagram__target">
         <img src="/brand/veritrail-mark.png" alt="" className="homepage-diagram__mark" />
@@ -351,7 +317,12 @@ export default function Homepage() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <VeritrailWordmark />
-          <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
+          <div className="flex items-center gap-4">
+            <Link to="/login" className="text-sm font-medium text-zinc-500 hover:text-zinc-700">
+              Sign in
+            </Link>
+            <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
+          </div>
         </div>
       </header>
 
