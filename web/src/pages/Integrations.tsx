@@ -612,10 +612,7 @@ function IntegrationsContent() {
             healthTone: (iacRepository.data?.status === "error" ? "danger" : "ok") as Tone,
             permissionsLabel: iacRepository.data?.has_access_token ? "Token configured" : "OAuth or token",
             permissionsVerified: true,
-            capabilities: [
-              iacRepository.data?.uses_terragrunt ? "Terragrunt paths" : "Terraform path",
-              "Remediation tickets",
-            ],
+            capabilities: ["Stack paths", "Remediation PRs"],
           } satisfies IntegrationRow,
         ]
       : []),
