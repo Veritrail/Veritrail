@@ -105,6 +105,7 @@ def _oauth_login_redirect(
     remember_me: bool = True,
     request: Request | None = None,
     db: Session | None = None,
+    auth_method: str = "google",
 ) -> RedirectResponse:
     uid, oid = str(user.id), str(user.org_id)
     if user.totp_enabled:
@@ -113,7 +114,7 @@ def _oauth_login_redirect(
     token = issue_token(uid, oid)
     refresh = issue_refresh_token(uid, oid, remember_me=remember_me)
     if request is not None and db is not None:
-        record_user_session(db, user.id, refresh, request)
+        record_user_session(db, user.id, refresh, request, auth_method=auth_method)
         db.commit()
     resp = RedirectResponse(f"{_frontend_url()}/auth/callback?token={quote(token, safe='')}")
     attach_refresh_cookie(resp, refresh, remember_me=remember_me)
@@ -381,6 +382,7 @@ def google_callback(
             remember_me=_remember_me_from_oauth_state(state),
             request=request,
             db=db,
+            auth_method="google",
         )
 
     except Exception as e:
@@ -532,6 +534,7 @@ def github_callback(
             remember_me=_remember_me_from_oauth_state(state),
             request=request,
             db=db,
+            auth_method="github",
         )
 
     except Exception as e:
@@ -688,6 +691,7 @@ def gitlab_callback(
             remember_me=_remember_me_from_oauth_state(state),
             request=request,
             db=db,
+            auth_method="gitlab",
         )
 
     except Exception as e:

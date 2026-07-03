@@ -137,6 +137,7 @@ from app.checks import (
     lambda_public_function_url,
     gcp_logging_not_enabled,
     gcp_compute_instance_public_ip,
+    gcp_firewall_open_ingress,
     gcp_osconfig_vuln_report_present,
     gcp_scc_not_enabled,
     gcp_asset_public_iam_binding,
@@ -309,6 +310,7 @@ ALL_CHECKS = [
     # GCP / Azure phase-one
     gcp_logging_not_enabled,
     gcp_compute_instance_public_ip,
+    gcp_firewall_open_ingress,
     gcp_osconfig_vuln_report_present,
     gcp_scc_not_enabled,
     gcp_asset_public_iam_binding,

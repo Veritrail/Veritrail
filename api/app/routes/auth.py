@@ -117,11 +117,19 @@ def _issue_login_tokens(
     user: User,
     *,
     remember_me: bool = False,
+    auth_method: str = "password",
 ) -> JSONResponse:
+    from app.models.org import Org
+    from app.services.org_sso_policy import assert_password_auth_allowed
+
+    org = db.get(Org, user.org_id)
+    if auth_method == "password" and org:
+        assert_password_auth_allowed(org)
+
     uid, oid = str(user.id), str(user.org_id)
     access = issue_token(uid, oid)
     refresh = issue_refresh_token(uid, oid, remember_me=remember_me)
-    record_user_session(db, user.id, refresh, request)
+    record_user_session(db, user.id, refresh, request, auth_method=auth_method)
     db.commit()
     return _token_json_response(access, refresh, oid, remember_me=remember_me)
 
@@ -341,7 +349,8 @@ def switch_workspace(
     principal: dict = Depends(current_user_principal),
     db: Session = Depends(get_db),
 ):
-    from app.services.org_membership import set_active_workspace
+    from app.models.org import Org
+    from app.services.org_sso_policy import assert_session_allowed_for_org
 
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
@@ -350,9 +359,19 @@ def switch_workspace(
         org_uuid = uuid.UUID(body.org_id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid org_id") from exc
+
+    raw = refresh_token_from_request(request, None)
+    session = get_session_for_refresh(db, user.id, raw) if raw else None
+    target_org = db.get(Org, org_uuid)
+    if target_org:
+        assert_session_allowed_for_org(target_org, session)
+
+    from app.services.org_membership import set_active_workspace
+
     set_active_workspace(db, user, org_uuid)
     db.commit()
-    return _issue_login_tokens(request, db, user, remember_me=True)
+    auth_method = session.auth_method if session and session.auth_method else "password"
+    return _issue_login_tokens(request, db, user, remember_me=True, auth_method=auth_method)
 
 
 @router.post("/login", response_model=LoginOut)
@@ -361,10 +380,16 @@ def login(request: Request, body: LoginIn, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == body.email))
     if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "bad credentials")
+    from app.models.org import Org
+    from app.services.org_sso_policy import assert_password_auth_allowed
+
+    org = db.get(Org, user.org_id)
+    if org:
+        assert_password_auth_allowed(org)
     out = _login_response(user, remember_me=body.remember_me)
     if out.mfa_required:
         return out
-    return _issue_login_tokens(request, db, user, remember_me=body.remember_me)
+    return _issue_login_tokens(request, db, user, remember_me=body.remember_me, auth_method="password")
 
 
 class MfaVerifyIn(BaseModel):
@@ -494,6 +519,9 @@ def generate_mfa_backup_codes(
 
 @router.post("/refresh")
 def refresh(request: Request, body: RefreshIn, db: Session = Depends(get_db)):
+    from app.models.org import Org
+    from app.services.org_sso_policy import assert_session_allowed_for_org
+
     raw = refresh_token_from_request(request, body.refresh_token)
     if not raw:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing refresh token")
@@ -501,8 +529,12 @@ def refresh(request: Request, body: RefreshIn, db: Session = Depends(get_db)):
     user = db.get(User, uuid.UUID(payload["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
-    if not get_session_for_refresh(db, user.id, raw):
+    session = get_session_for_refresh(db, user.id, raw)
+    if not session:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session ended — sign in again")
+    org = db.get(Org, user.org_id)
+    if org:
+        assert_session_allowed_for_org(org, session)
     uid, oid = str(user.id), str(user.org_id)
     remember_me = bool(payload.get("remember_me"))
     new_refresh = issue_refresh_token(uid, oid, remember_me=remember_me)
@@ -697,9 +729,12 @@ def change_password(
     principal: dict = Depends(current_principal),
     db: Session = Depends(get_db),
 ):
+    from app.services.org_sso_policy import assert_password_auth_allowed_for_user
+
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "user not found")
+    assert_password_auth_allowed_for_user(db, user)
     if user.password_hash:
         # existing password — must verify current
         if not body.current_password or not verify_password(body.current_password, user.password_hash):
@@ -729,11 +764,16 @@ class PasswordResetRequestIn(BaseModel):
 @router.post("/password-reset/request", status_code=204)
 @limiter.limit("5/minute")
 def password_reset_request(request: Request, body: PasswordResetRequestIn, db: Session = Depends(get_db)):
+    from app.models.org import Org
+    from app.services.org_sso_policy import org_sso_required
+
     user = db.scalar(select(User).where(func.lower(User.email) == body.email.lower()))
     if user:
-        token = issue_password_reset_token(str(user.id), _password_fingerprint(user))
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-        send_password_reset_email(to=user.email, reset_url=reset_url)
+        org = db.get(Org, user.org_id)
+        if not org or not org_sso_required(org):
+            token = issue_password_reset_token(str(user.id), _password_fingerprint(user))
+            reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+            send_password_reset_email(to=user.email, reset_url=reset_url)
     # Always 204 — never reveal whether an account exists for this email.
     return Response(status_code=204)
 
@@ -745,10 +785,13 @@ class PasswordResetConfirmIn(BaseModel):
 
 @router.post("/password-reset/confirm", status_code=204)
 def password_reset_confirm(body: PasswordResetConfirmIn, db: Session = Depends(get_db)):
+    from app.services.org_sso_policy import assert_password_auth_allowed_for_user
+
     payload = decode_password_reset_token(body.token)
     user = db.get(User, uuid.UUID(payload["sub"]))
     if not user or payload.get("fp") != _password_fingerprint(user):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "reset link expired or already used — request a new one")
+    assert_password_auth_allowed_for_user(db, user)
     if len(body.new_password) < 12:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "password must be at least 12 characters")
     count = pwned_count(body.new_password)

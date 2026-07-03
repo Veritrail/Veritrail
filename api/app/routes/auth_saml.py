@@ -174,7 +174,7 @@ def _login_redirect(user: User, *, request: Request, db: Session) -> RedirectRes
     uid, oid = str(user.id), str(user.org_id)
     access = issue_token(uid, oid)
     refresh = issue_refresh_token(uid, oid, remember_me=True)
-    record_user_session(db, user.id, refresh, request)
+    record_user_session(db, user.id, refresh, request, auth_method="saml")
     db.commit()
     resp = RedirectResponse(f"{settings.FRONTEND_URL}/auth/callback?token={quote(access, safe='')}")
     attach_refresh_cookie(resp, refresh, remember_me=True)

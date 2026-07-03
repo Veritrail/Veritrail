@@ -29,6 +29,7 @@ from app.models.digest_snapshot import DigestSnapshot
 from app.models.gcp_project import (
     GcpCloudAsset,
     GcpComputeInstance,
+    GcpFirewallRule,
     GcpLoggingAudit,
     GcpOsconfigVuln,
     GcpProject,
@@ -70,7 +71,7 @@ __all__ = [
     "OrgSamlConfig",
     "DigestSnapshot",
     "UserSession",
-    "GcpProject", "GcpComputeInstance", "GcpLoggingAudit",
+    "GcpProject", "GcpComputeInstance", "GcpFirewallRule", "GcpLoggingAudit",
     "GcpOsconfigVuln", "GcpSecurityCommandCenter", "GcpCloudAsset",
     "AzureSubscription", "AzureDefenderStatus", "AzureStorageAccount", "AzureComputeInstance",
     "AzureActivityLogSettings", "AzurePrivilegedRoleAssignment",

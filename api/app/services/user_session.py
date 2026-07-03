@@ -43,7 +43,14 @@ def _find_session_by_hash_or_grace(db: Session, user_id: uuid.UUID, token_hash: 
     )
 
 
-def record_user_session(db: Session, user_id: uuid.UUID, refresh_token: str, request: Request) -> UserSession:
+def record_user_session(
+    db: Session,
+    user_id: uuid.UUID,
+    refresh_token: str,
+    request: Request,
+    *,
+    auth_method: str | None = None,
+) -> UserSession:
     ip = client_ip_from_request(request)
     geo = lookup_ip_geolocation(ip)
     ua = request.headers.get("user-agent")
@@ -55,6 +62,7 @@ def record_user_session(db: Session, user_id: uuid.UUID, refresh_token: str, req
         region=geo["region"],
         country=geo["country"],
         user_agent=(ua[:512] if ua else None),
+        auth_method=auth_method,
     )
     db.add(row)
     return row
@@ -66,6 +74,8 @@ def rotate_user_session(
     old_refresh_token: str,
     new_refresh_token: str,
     request: Request,
+    *,
+    auth_method: str | None = None,
 ) -> UserSession | None:
     old_hash = hash_refresh_token(old_refresh_token)
     row = _find_session_by_hash_or_grace(db, user_id, old_hash)
@@ -74,8 +84,10 @@ def rotate_user_session(
         row.prev_token_rotated_at = datetime.now(timezone.utc)
         row.token_hash = hash_refresh_token(new_refresh_token)
         row.last_seen_at = datetime.now(timezone.utc)
+        if auth_method is not None:
+            row.auth_method = auth_method
         return row
-    return record_user_session(db, user_id, new_refresh_token, request)
+    return record_user_session(db, user_id, new_refresh_token, request, auth_method=auth_method)
 
 
 def get_session_for_refresh(db: Session, user_id: uuid.UUID, refresh_token: str) -> UserSession | None:

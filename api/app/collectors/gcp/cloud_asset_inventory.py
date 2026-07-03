@@ -37,6 +37,7 @@ def collect_cloud_asset_inventory(db: Session, project: GcpProject) -> int:
         public_iam = client.asset_has_public_iam(asset)
         if not public_iam:
             continue
+        public_roles = client.public_iam_roles(asset)
         asset_type = str(asset.get("assetType") or "")
         stmt = pg_insert(GcpCloudAsset).values(
             id=uuid.uuid5(uuid.NAMESPACE_URL, f"{project.id}:cai:{asset_name}"),
@@ -44,12 +45,14 @@ def collect_cloud_asset_inventory(db: Session, project: GcpProject) -> int:
             asset_name=asset_name,
             asset_type=asset_type,
             has_public_iam=True,
+            public_iam_roles=public_roles or None,
             last_seen=_now(),
         ).on_conflict_do_update(
             index_elements=["gcp_project_id", "asset_name"],
             set_={
                 "asset_type": asset_type,
                 "has_public_iam": True,
+                "public_iam_roles": public_roles or None,
                 "last_seen": _now(),
             },
         )

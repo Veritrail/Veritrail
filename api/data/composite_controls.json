@@ -215,6 +215,7 @@
       "azure.storage.public_blob_access",
       "azure.compute.instance_public_ip",
       "gcp.compute.instance_public_ip",
+      "gcp.firewall.open_ingress",
       "gcp.asset.public_iam_binding",
       "eks.cluster.public_endpoint",
       "eks.cluster.secrets_encryption_disabled",
@@ -291,6 +292,7 @@
       "azure.storage.public_blob_access",
       "azure.compute.instance_public_ip",
       "gcp.compute.instance_public_ip",
+      "gcp.firewall.open_ingress",
       "gcp.asset.public_iam_binding",
       "gcp.asset.public_invoker"
     ],

@@ -128,6 +128,14 @@ class GcpClient:
                 instances.append(inst)
         return instances
 
+    def list_firewall_rules(self, project_id: str) -> list[dict[str, Any]]:
+        pid = project_id.strip()
+        data = self._request(
+            "GET",
+            f"https://compute.googleapis.com/compute/v1/projects/{pid}/global/firewalls",
+        )
+        return list(data.get("items") or [])
+
     def _request_soft(self, method: str, url: str, **kwargs) -> tuple[dict[str, Any], int | None]:
         """Like _request but returns (payload, status_code) instead of raising on 4xx."""
         token = self._access_token()
@@ -185,12 +193,19 @@ class GcpClient:
 
     @staticmethod
     def asset_has_public_iam(asset: dict[str, Any]) -> bool:
+        return bool(GcpClient.public_iam_roles(asset))
+
+    @staticmethod
+    def public_iam_roles(asset: dict[str, Any]) -> list[str]:
         policy = asset.get("iamPolicy") or {}
+        roles: list[str] = []
         for binding in policy.get("bindings") or []:
             members = binding.get("members") or []
             if any(member in {"allUsers", "allAuthenticatedUsers"} for member in members):
-                return True
-        return False
+                role = str(binding.get("role") or "").strip()
+                if role:
+                    roles.append(role)
+        return roles
 
     @staticmethod
     def scc_finding_severity(finding: dict[str, Any]) -> str:

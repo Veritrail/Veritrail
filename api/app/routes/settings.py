@@ -62,6 +62,9 @@ DEFAULT_SETTINGS: dict = {
     "features": {
         "ai_finding_review_enabled": True,
     },
+    "security": {
+        "sso_required": False,
+    },
 }
 
 
@@ -71,6 +74,7 @@ def _merged(stored: dict) -> dict:
     merged["scanning"] = get_scanning_settings(stored)
     merged["notifications"] = {**DEFAULT_SETTINGS["notifications"], **stored.get("notifications", {})}
     merged["features"] = {**DEFAULT_SETTINGS["features"], **stored.get("features", {})}
+    merged["security"] = {**DEFAULT_SETTINGS["security"], **stored.get("security", {})}
     return merged
 
 
@@ -92,6 +96,10 @@ class NotificationsIn(BaseModel):
 
 class FeaturesIn(BaseModel):
     ai_finding_review_enabled: bool = True
+
+
+class SecurityIn(BaseModel):
+    sso_required: bool = False
 
 
 class EvidenceSourceEntryIn(BaseModel):
@@ -180,6 +188,7 @@ class SettingsPatch(BaseModel):
     scanning: ScanningIn | None = None
     notifications: NotificationsIn | None = None
     features: FeaturesIn | None = None
+    security: SecurityIn | None = None
     evidence_sources: EvidenceSourcesIn | None = None
     coverage_overrides: CoverageOverridesIn | None = None
     cross_account_coverage: CrossAccountCoverageIn | None = None
@@ -204,6 +213,7 @@ class SettingsOut(BaseModel):
     scanning: dict
     notifications: dict
     features: dict
+    security: dict
     evidence_source_categories: list[EvidenceSourceCategoryOut] = []
     custom_evidence_categories: list[dict[str, str]] = []
     scan_status: ScanStatusOut
@@ -316,6 +326,11 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
         features = dict(current.get("features", {}))
         features["ai_finding_review_enabled"] = body.features.ai_finding_review_enabled
         current["features"] = features
+
+    if body.security is not None:
+        security = dict(current.get("security", {}))
+        security["sso_required"] = body.security.sso_required
+        current["security"] = security
 
     if body.evidence_sources is not None:
         patches = {k: v.model_dump() for k, v in body.evidence_sources.entries.items()}

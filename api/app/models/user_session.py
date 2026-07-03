@@ -26,3 +26,5 @@ class UserSession(Base):
     # forced to sign in again — see get_session_for_refresh.
     prev_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     prev_token_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # password | saml | google | github | gitlab — used when org requires SSO.
+    auth_method: Mapped[str | None] = mapped_column(String(40), nullable=True)

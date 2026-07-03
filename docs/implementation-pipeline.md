@@ -264,19 +264,19 @@ Gaps surfaced while hardening the compliance model in early July 2026; they clos
 promises the product now makes in its own UI copy. Parallel-safe with Phase 8 runs
 (disjoint files), size S–M each.
 
-- [ ] **GCP firewall-rules collector + paired exposure check** — `gcp.compute.instance_public_ip`
+- [x] **GCP firewall-rules collector + paired exposure check** — `gcp.compute.instance_public_ip`
       was downgraded to medium on the explicit rationale that GCP VPC ingress is
       default-deny and "the high signal is public IP + permissive firewall — grade that
       combination once a firewall-rules collector exists" (comment in
       `gcp_compute_instance_public_ip.py`). Build the collector, add
       `gcp.firewall.open_ingress` (high when 0.0.0.0/0 allow + instance has external IP),
       map into `network_boundary` + CC6.6.
-- [ ] **Org-level "require SSO" enforcement** — no `sso_required` flag exists anywhere.
+- [x] **Org-level "require SSO" enforcement** — no `sso_required` flag exists anywhere.
       Today password login and 30-day remember-me refresh sessions work forever alongside
       SAML, and IdP deprovisioning never ends Veritrail sessions. Shape: org setting; when
       set, block password login/reset for the org, stamp the auth method into the session,
       and reject non-SSO sessions at `/v1/auth/refresh`. Auditor- and enterprise-facing.
-- [ ] **IAM-binding role capture in GCP CAI collector** — store the binding roles in
+- [x] **IAM-binding role capture in GCP CAI collector** — store the binding roles in
       finding evidence so `gcp.asset.public_iam_binding` can grade `allUsers` +
       `roles/editor` (severe) differently from `allUsers` + `objectViewer`; today only the
       boolean `has_public_iam` survives collection.
@@ -457,7 +457,7 @@ flowchart LR
 - [x] Per-control org mapping table + API + UI
 - [ ] Scanner auto-import (8.1 — first)
 - [ ] Release 5: pick one vendor in value order (Snyk → Orca/Aikido → Okta → Splunk/Datadog/SIEM)
-- [ ] Phase 8.5 fast-follows: GCP firewall collector; org "require SSO"; CAI binding roles
+- [x] Phase 8.5 fast-follows: GCP firewall collector; org "require SSO"; CAI binding roles
 
 ### Phase 9 — P4 deferred (one per run, after Phase 8)
 

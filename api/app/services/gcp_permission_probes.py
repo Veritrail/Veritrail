@@ -11,6 +11,7 @@ ProbeFn = Callable[[GcpClient, str], tuple[Any, int | None]]
 _GCP_SCAN_PROBES: list[tuple[str, str, ProbeFn]] = [
     ("logging", "gcp.logging.not_enabled", lambda c, p: (c.list_logging_sinks(p), 200)),
     ("compute", "gcp.compute.instance_public_ip", lambda c, p: (c.list_compute_instances(p), 200)),
+    ("firewall", "gcp.firewall.open_ingress", lambda c, p: (c.list_firewall_rules(p), 200)),
     ("osconfig", "gcp.osconfig.vuln_report_present", lambda c, p: c.list_osconfig_vuln_reports(p)),
     ("security_command_center", "gcp.scc.not_enabled", lambda c, p: c.list_scc_findings(p)),
     ("cloud_asset_inventory", "gcp.asset.public_iam_binding", lambda c, p: c.list_cloud_asset_iam_policies(p)),

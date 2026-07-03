@@ -26,6 +26,19 @@ def _has_public_ip(instance: dict) -> bool:
     return False
 
 
+def _instance_network(instance: dict) -> str | None:
+    for nic in instance.get("networkInterfaces") or []:
+        network = nic.get("network")
+        if network:
+            return str(network)
+    return None
+
+
+def _instance_tags(instance: dict) -> list[str]:
+    items = (instance.get("tags") or {}).get("items") or []
+    return [str(tag) for tag in items if tag]
+
+
 def _zone_from_url(zone_url: str) -> str:
     return (zone_url or "").rsplit("/", 1)[-1]
 
@@ -40,6 +53,8 @@ def collect_compute_instances(db: Session, project: GcpProject) -> int:
             continue
         zone = _zone_from_url(inst.get("zone") or "")
         public_ip = _has_public_ip(inst)
+        network = _instance_network(inst)
+        tags = _instance_tags(inst)
         stmt = pg_insert(GcpComputeInstance).values(
             id=uuid.uuid5(uuid.NAMESPACE_URL, f"{project.id}:compute:{instance_id}"),
             gcp_project_id=project.id,
@@ -47,6 +62,8 @@ def collect_compute_instances(db: Session, project: GcpProject) -> int:
             name=str(inst.get("name") or instance_id),
             zone=zone,
             has_public_ip=public_ip,
+            network=network,
+            tags=tags or None,
             status=inst.get("status"),
             last_seen=_now(),
         ).on_conflict_do_update(
@@ -55,6 +72,8 @@ def collect_compute_instances(db: Session, project: GcpProject) -> int:
                 "name": str(inst.get("name") or instance_id),
                 "zone": zone,
                 "has_public_ip": public_ip,
+                "network": network,
+                "tags": tags or None,
                 "status": inst.get("status"),
                 "last_seen": _now(),
             },
