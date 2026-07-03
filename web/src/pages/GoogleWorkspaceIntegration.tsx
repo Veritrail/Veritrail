@@ -27,9 +27,26 @@ const SYNC_KEY = "google-workspace";
 function connectErrorMessage(error: unknown): string {
   const msg = formatApiError(error);
   if (msg.toLowerCase().includes("oauth not configured")) {
-    return "Google Workspace OAuth is not configured on this server. Set GOOGLE_WORKSPACE_CLIENT_ID and GOOGLE_WORKSPACE_CLIENT_SECRET in the API environment.";
+    return "Google Workspace OAuth is not configured on this server. Set GOOGLE_WORKSPACE_CLIENT_ID / GOOGLE_WORKSPACE_CLIENT_SECRET (or GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET) in the API environment.";
   }
   return msg;
+}
+
+function workspaceOauthErrorMessage(code: string): string {
+  switch (code) {
+    case "oauth_denied":
+      return "Connection cancelled or denied at Google.";
+    case "oauth_failed":
+      return "Google did not return a valid authorization code. Try connecting again.";
+    case "redirect_uri_mismatch":
+      return "Redirect URI not registered in Google Cloud Console. Add http://localhost:8000/v1/integrations/google-workspace/callback (local dev) or {API_PUBLIC_URL}/v1/integrations/google-workspace/callback to Authorized redirect URIs. See docs/google-workspace-setup.md.";
+    case "access_denied":
+      return "Google denied access. Connect with a Google Workspace super-admin account (personal @gmail.com cannot use Admin SDK).";
+    case "server_error":
+      return "Server error while completing Google Workspace connection. Try again or check API logs.";
+    default:
+      return code.replace(/_/g, " ");
+  }
 }
 
 export default function GoogleWorkspaceIntegration() {
@@ -93,7 +110,7 @@ export default function GoogleWorkspaceIntegration() {
       )}
       {oauthError && (
         <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          Google Workspace connection failed: {oauthError.replace(/_/g, " ")}
+          Google Workspace connection failed: {workspaceOauthErrorMessage(oauthError)}
         </div>
       )}
 

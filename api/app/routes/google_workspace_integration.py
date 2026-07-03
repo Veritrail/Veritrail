@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -79,7 +79,16 @@ def _callback_uri() -> str:
     path_or_url = settings.GOOGLE_WORKSPACE_INTEGRATION_CALLBACK_PATH
     if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
         return path_or_url
-    return f"{settings.API_PUBLIC_URL}{path_or_url}"
+    base = settings.API_PUBLIC_URL.rstrip("/")
+    path = path_or_url if path_or_url.startswith("/") else f"/{path_or_url}"
+    return f"{base}{path}"
+
+
+def _oauth_error_redirect(error: str | None) -> RedirectResponse:
+    code = (error or "oauth_denied").strip() or "oauth_denied"
+    return RedirectResponse(
+        f"{_frontend_url()}/integrations/google-workspace?error={quote(code)}"
+    )
 
 
 def _issue_state(user_id: str, org_id: str) -> str:
@@ -160,7 +169,7 @@ def google_workspace_callback(
     db: Session = Depends(get_db),
 ):
     if error or not code or not state:
-        return RedirectResponse(f"{_frontend_url()}/integrations/google-workspace?error=oauth_denied")
+        return _oauth_error_redirect(error)
     try:
         payload = _decode_state(state)
         org_id = payload["org_id"]
