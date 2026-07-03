@@ -5476,6 +5476,8 @@ type SecurityScoreDriver = {
 const EVIDENCE_COVERAGE_GOOD_THRESHOLD = 80;
 const EVIDENCE_COVERAGE_FAIR_THRESHOLD = 60;
 const LOW_EVIDENCE_COVERAGE_DRIVER_THRESHOLD = EVIDENCE_COVERAGE_FAIR_THRESHOLD;
+/** Below this security score, the gauge hub shows the severity label instead of the numeric score. */
+const SECURITY_SCORE_NUMERIC_THRESHOLD = EVIDENCE_COVERAGE_FAIR_THRESHOLD;
 
 type EvidenceCoverageTier = "low" | "fair" | "good";
 
@@ -5577,9 +5579,13 @@ function computeSecurityScoreDrivers(
 function SecurityScoreGauge({
   score,
   tone,
+  hubDisplay,
+  hubKind,
 }: {
   score: number;
   tone: SecurityScoreTone;
+  hubDisplay: string;
+  hubKind: "numeric" | "label";
 }) {
   const size = 76;
   const stroke = 5;
@@ -5640,7 +5646,11 @@ function SecurityScoreGauge({
         />
       </svg>
       <div className="accounts-security-gauge__hub">
-        <span className="accounts-security-gauge__score">{score}</span>
+        <span
+          className={`accounts-security-gauge__score${hubKind === "label" ? " accounts-security-gauge__score--label" : ""}`}
+        >
+          {hubDisplay}
+        </span>
       </div>
     </div>
   );
@@ -5689,6 +5699,9 @@ function SecurityScoreCard({
   const label = showScore ? securityScoreLabel(score) : null;
   const tone = showScore ? securityScoreTone(score) : null;
   const drivers = showScore ? computeSecurityScoreDrivers(stats, coveragePct, lastScanAt, score) : null;
+  const showNumericHub = showScore && score >= SECURITY_SCORE_NUMERIC_THRESHOLD;
+  const hubDisplay = showScore ? (showNumericHub ? String(score) : (label ?? String(score))) : "";
+  const hubKind: "numeric" | "label" = showNumericHub ? "numeric" : "label";
 
   if (!showScore || !label || !tone || !drivers) {
     return <p className="accounts-detail-overview__metric-detail">Run a scan first</p>;
@@ -5697,10 +5710,12 @@ function SecurityScoreCard({
   return (
     <div className="accounts-security-score__body">
       <div className="accounts-security-score__gauge-col">
-        <SecurityScoreGauge score={score} tone={tone} />
-        <span className={`accounts-detail-overview__score-pill accounts-detail-overview__score-pill--${tone}`}>
-          {label}
-        </span>
+        <SecurityScoreGauge score={score} tone={tone} hubDisplay={hubDisplay} hubKind={hubKind} />
+        {showNumericHub ? (
+          <span className={`accounts-detail-overview__score-pill accounts-detail-overview__score-pill--${tone}`}>
+            {label}
+          </span>
+        ) : null}
       </div>
       <div className="accounts-security-score__drivers">
         <p className="accounts-security-score__driver-label">
@@ -6596,7 +6611,7 @@ function AccountSplitDetailPane({
                   <>
                 <div className="accounts-detail-overview__metric-value-row">
                   <p className="accounts-detail-overview__metric-value">
-                    {coveragePct != null ? evidenceCoverageTierLabel(coveragePct) : "—"}
+                    {coveragePct != null ? `${coveragePct}%` : "—"}
                   </p>
                   {hasScanned && coveragePct != null ? (
                     <MetricCardDelta delta={coverageDelta} betterWhen="up" />

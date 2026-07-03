@@ -4891,6 +4891,16 @@ button.accounts-flow-step:hover {
   color: #18181b;
 }
 
+.accounts-security-gauge__score--label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-variant-numeric: normal;
+  text-align: center;
+  line-height: 1.15;
+  max-width: 3.25rem;
+}
+
 .accounts-detail-overview__metric-label {
   display: inline-flex;
   align-items: center;
