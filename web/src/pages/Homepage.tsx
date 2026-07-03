@@ -351,12 +351,7 @@ export default function Homepage() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <VeritrailWordmark />
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-zinc-500 hover:text-zinc-700">
-              Sign in
-            </Link>
-            <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
-          </div>
+          <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
         </div>
       </header>
 
