@@ -337,12 +337,14 @@ export default function HistoryV2() {
                   />
                 ) : null}
                 <div className="history-search">
-                  <label className="history-search__input-wrap">
+                  <label className="history-search__input-wrap" htmlFor="history-search">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={2} aria-hidden>
                       <circle cx="11" cy="11" r="7" />
                       <path strokeLinecap="round" d="M20 20l-3-3" />
                     </svg>
                     <input
+                      id="history-search"
+                      name="history-search"
                       type="search"
                       placeholder="Search events…"
                       value={search}
