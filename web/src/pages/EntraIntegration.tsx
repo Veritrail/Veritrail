@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
-import { integrationStatusNullableSchema } from "../lib/apiSchemas";
+import { api, formatApiError } from "../api";
+import { integrationConnectUrlSchema, integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { formatSync, Spinner, StatusDot } from "../components/IntegrationsUi";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import "../styles/integration-setup.css";
@@ -19,8 +20,33 @@ type Provider = {
 
 const SYNC_KEY = "entra";
 
+function connectErrorMessage(error: unknown): string {
+  const msg = formatApiError(error);
+  if (msg.toLowerCase().includes("oauth not configured")) {
+    return "Microsoft Entra OAuth is not configured on this server. Set ENTRA_CLIENT_ID and ENTRA_CLIENT_SECRET in the API environment.";
+  }
+  return msg;
+}
+
+function entraOauthErrorMessage(code: string): string {
+  switch (code) {
+    case "oauth_denied":
+      return "Connection cancelled or denied at Microsoft.";
+    case "oauth_failed":
+      return "Microsoft did not return a valid authorization code. Try connecting again.";
+    case "server_error":
+      return "Server error while completing Entra connection. Try again or check API logs.";
+    default:
+      return code.replace(/_/g, " ");
+  }
+}
+
 export default function EntraIntegration() {
   const qc = useQueryClient();
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const connectedBanner = params.get("connected") === "1";
+  const oauthError = params.get("error");
+
   const { data: provider, isLoading } = useQuery({
     queryKey: ["integration", SYNC_KEY],
     queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
@@ -28,7 +54,9 @@ export default function EntraIntegration() {
   const { isSyncing } = useIntegrationSyncState(SYNC_KEY);
 
   const connect = useMutation({
-    mutationFn: () => api<{ url: string }>("/v1/integrations/entra/connect-url"),
+    mutationFn: () =>
+      api("/v1/integrations/entra/connect-url", { schema: integrationConnectUrlSchema }),
+    retry: false,
     onSuccess: (data) => {
       window.location.href = data.url;
     },
@@ -63,6 +91,17 @@ export default function EntraIntegration() {
         </p>
       </header>
 
+      {connectedBanner && (
+        <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Microsoft Entra ID connected. Run a sync to collect directory evidence.
+        </div>
+      )}
+      {oauthError && (
+        <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          Entra connection failed: {entraOauthErrorMessage(oauthError)}
+        </div>
+      )}
+
       {isLoading && <p className="integration-setup__loading">Loading…</p>}
 
       {!isLoading && !p && (
@@ -77,6 +116,9 @@ export default function EntraIntegration() {
             >
               {connect.isPending ? "Redirecting…" : "Connect Entra ID"}
             </button>
+            {connect.isError && (
+              <p className="mt-3 text-sm text-red-700">{connectErrorMessage(connect.error)}</p>
+            )}
           </div>
         </section>
       )}
