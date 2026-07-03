@@ -25,6 +25,12 @@ func main() {
 		}
 		out := patchRequest(req)
 		emit(out)
+	case "detect-layout":
+		var req LayoutRequest
+		if err := json.NewDecoder(os.Stdin).Decode(&req); err != nil {
+			fail(err)
+		}
+		emit(detectLayout(req))
 	case "validate-syntax":
 		var req struct {
 			Files []TfFile `json:"files"`

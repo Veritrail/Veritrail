@@ -526,6 +526,23 @@ def put_iac_repository(
         if repo_ref:
             terraform["repo_ref"] = repo_ref
 
+    from app.services.iac_path_infer import apply_inferred_path
+
+    incoming_tf_path = None
+    if body.terraform_repo and body.terraform_repo.path is not None:
+        incoming_tf_path = body.terraform_repo.path
+    elif body.terraform_path is not None:
+        incoming_tf_path = body.terraform_path
+
+    terraform_layout = apply_inferred_path(
+        db,
+        org.id,
+        terraform,
+        existing_link=terraform_existing,
+        incoming_path=incoming_tf_path,
+        uses_terragrunt=body.uses_terragrunt,
+    )
+
     if not terraform.get("repo_ref"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Terraform repository reference is required")
 
@@ -546,12 +563,23 @@ def put_iac_repository(
             if body.vcs_provider == "github":
                 github_app = config.get("github_app") or {}
                 _prepare_github_repo_link(db, org.id, terragrunt, github_app)
+            incoming_tg_path = body.terragrunt_repo.path if body.terragrunt_repo else None
+            apply_inferred_path(
+                db,
+                org.id,
+                terragrunt,
+                existing_link=terragrunt_existing,
+                incoming_path=incoming_tg_path,
+                uses_terragrunt=True,
+            )
             config["terragrunt_repo"] = terragrunt
             config["terragrunt_path"] = terragrunt.get("path")
         else:
             terragrunt_path = body.terragrunt_path
             if terragrunt_path is not None and terragrunt_path.strip():
                 config["terragrunt_path"] = terragrunt_path.strip()
+            elif terraform_layout and terraform_layout.get("paths_differ"):
+                config["terragrunt_path"] = terraform_layout["terragrunt_path"]
             elif body.terraform_repo and body.terraform_repo.path:
                 pass
             elif existing.get("terragrunt_path"):

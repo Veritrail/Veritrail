@@ -33,6 +33,22 @@ def fetch_terraform_files(
     token = cfg.get("access_token")
     if not token:
         raise ValueError("GitHub integration has no access token")
+    return fetch_terraform_files_with_token(
+        token,
+        repo_full_name,
+        ref=ref,
+        max_files=max_files,
+    )
+
+
+def fetch_terraform_files_with_token(
+    token: str,
+    repo_full_name: str,
+    *,
+    ref: str | None = None,
+    max_files: int = _MAX_FILES,
+) -> list[dict[str, str]]:
+    """Return .tf / .hcl file paths + contents using a bearer token."""
 
     if "/" not in repo_full_name:
         raise ValueError("repo must be owner/name")

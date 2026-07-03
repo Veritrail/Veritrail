@@ -52,7 +52,6 @@ type RepoForm = {
   owner: string;
   repo: string;
   repoRef: string;
-  path: string;
   accessToken: string;
   baseUrl: string;
   authMethod: string;
@@ -66,7 +65,6 @@ function emptyRepoForm(): RepoForm {
     owner: "",
     repo: "",
     repoRef: "",
-    path: ".",
     accessToken: "",
     baseUrl: "",
     authMethod: "",
@@ -100,68 +98,6 @@ function VerifiedSuccessCard() {
 function splitRepoFullName(fullName: string): { owner: string; repo: string } {
   const [owner = "", repo = ""] = fullName.split("/");
   return { owner, repo };
-}
-
-const DEFAULT_REPO_PATH = ".";
-const TERRAFORM_PATH_HINT =
-  "Defaults to the repository root. Only change this if your Terraform files live in a subfolder (e.g. modules/).";
-const TERRAGRUNT_PATH_HINT =
-  "Folder inside the selected repository where Terragrunt live stacks live (e.g. environments/prod).";
-
-type RepoPathMode = "advanced" | "inline";
-
-function RepoPathField({
-  pathLabel,
-  pathPlaceholder,
-  pathHint,
-  value,
-  onChange,
-  mode,
-}: {
-  pathLabel: string;
-  pathPlaceholder: string;
-  pathHint: string;
-  value: string;
-  onChange: (path: string) => void;
-  mode: RepoPathMode;
-}) {
-  const isNonDefault = value.trim() !== "" && value.trim() !== DEFAULT_REPO_PATH;
-
-  if (mode === "inline") {
-    return (
-      <div className="integration-setup__repo-path-section">
-        <label className="integration-setup__field-label">{pathLabel}</label>
-        <input
-          className="integration-setup__input"
-          placeholder={pathPlaceholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <p className="integration-setup__field-hint">{pathHint}</p>
-      </div>
-    );
-  }
-
-  return (
-    <details className="integration-setup__path-advanced" open={isNonDefault}>
-      <summary className="integration-setup__path-advanced-summary">
-        <span>Advanced: subdirectory path</span>
-        <span className="integration-setup__path-advanced-chevron" aria-hidden>
-          ▾
-        </span>
-      </summary>
-      <div className="integration-setup__path-advanced-body">
-        <label className="integration-setup__field-label">{pathLabel}</label>
-        <input
-          className="integration-setup__input"
-          placeholder={pathPlaceholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        <p className="integration-setup__field-hint">{pathHint}</p>
-      </div>
-    </details>
-  );
 }
 
 type GitHubOAuthRepo = {
@@ -226,10 +162,6 @@ function GitHubOAuthRepositoryPicker({
   initialOrgLogins,
   filter,
   onFilterChange,
-  pathLabel,
-  pathPlaceholder,
-  pathHint,
-  pathMode,
 }: {
   title: string;
   form: RepoForm;
@@ -238,10 +170,6 @@ function GitHubOAuthRepositoryPicker({
   initialOrgLogins: string[];
   filter: string;
   onFilterChange: (value: string) => void;
-  pathLabel: string;
-  pathPlaceholder: string;
-  pathHint: string;
-  pathMode: RepoPathMode;
 }) {
   const [orgLogins, setOrgLogins] = useState<string[]>(initialOrgLogins);
 
@@ -397,15 +325,6 @@ function GitHubOAuthRepositoryPicker({
             );
           })}
       </div>
-
-      <RepoPathField
-        pathLabel={pathLabel}
-        pathPlaceholder={pathPlaceholder}
-        pathHint={pathHint}
-        value={form.path}
-        onChange={(path) => onChange({ ...form, path })}
-        mode={pathMode}
-      />
     </div>
   );
 }
@@ -426,10 +345,6 @@ function GitHubAppRepositoryPicker({
   onInstall,
   filter,
   onFilterChange,
-  pathLabel,
-  pathPlaceholder,
-  pathHint,
-  pathMode,
 }: {
   title: string;
   form: RepoForm;
@@ -446,10 +361,6 @@ function GitHubAppRepositoryPicker({
   onInstall: () => void;
   filter: string;
   onFilterChange: (value: string) => void;
-  pathLabel: string;
-  pathPlaceholder: string;
-  pathHint: string;
-  pathMode: RepoPathMode;
 }) {
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -555,15 +466,6 @@ function GitHubAppRepositoryPicker({
             );
           })}
       </div>
-
-      <RepoPathField
-        pathLabel={pathLabel}
-        pathPlaceholder={pathPlaceholder}
-        pathHint={pathHint}
-        value={form.path}
-        onChange={(path) => onChange({ ...form, path })}
-        mode={pathMode}
-      />
     </div>
   );
 }
@@ -572,18 +474,10 @@ function RepoFields({
   vcs,
   form,
   onChange,
-  pathLabel,
-  pathPlaceholder,
-  pathHint = TERRAFORM_PATH_HINT,
-  pathMode = "advanced",
 }: {
   vcs: VcsProvider;
   form: RepoForm;
   onChange: (next: RepoForm) => void;
-  pathLabel: string;
-  pathPlaceholder: string;
-  pathHint?: string;
-  pathMode?: RepoPathMode;
 }) {
   const set = (patch: Partial<RepoForm>) => onChange({ ...form, ...patch });
   return (
@@ -641,16 +535,6 @@ function RepoFields({
           />
         </div>
       )}
-      <div className="integration-setup__field--wide">
-        <RepoPathField
-          pathLabel={pathLabel}
-          pathPlaceholder={pathPlaceholder}
-          pathHint={pathHint}
-          value={form.path}
-          onChange={(path) => set({ path })}
-          mode={pathMode}
-        />
-      </div>
       {(vcs === "github" || vcs === "gitlab" || vcs === "azure_devops" || vcs === "codecommit") && (
         <div>
           <label className="integration-setup__field-label">Access token (optional)</label>
@@ -683,7 +567,6 @@ export default function IacRepositoryIntegration() {
   const [repoMode, setRepoMode] = useState<RepoMode>("single");
   const [terraformForm, setTerraformForm] = useState<RepoForm>(emptyRepoForm());
   const [terragruntForm, setTerragruntForm] = useState<RepoForm>(emptyRepoForm());
-  const [samePaths, setSamePaths] = useState(true);
   const [labels, setLabels] = useState("");
   const [saveError, setSaveError] = useState("");
   const [githubRepoFilter, setGithubRepoFilter] = useState("");
@@ -750,7 +633,6 @@ export default function IacRepositoryIntegration() {
         owner: tf.owner ?? "",
         repo: tf.repo ?? "",
         repoRef: tf.repo_ref ?? "",
-        path: tf.path ?? data.terraform_path ?? ".",
         accessToken: "",
         baseUrl: tf.base_url ?? "",
         authMethod: tf.auth_method ?? "",
@@ -765,7 +647,6 @@ export default function IacRepositoryIntegration() {
         owner: tg.owner ?? "",
         repo: tg.repo ?? "",
         repoRef: tg.repo_ref ?? "",
-        path: tg.path ?? data.terragrunt_path ?? ".",
         accessToken: "",
         baseUrl: tg.base_url ?? "",
         authMethod: tg.auth_method ?? "",
@@ -773,11 +654,6 @@ export default function IacRepositoryIntegration() {
         installationAccount: tg.installation_account ?? data.github_app_account ?? "",
         repositoryId: tg.repository_id ?? "",
       });
-    } else if (data.terragrunt_path) {
-      setSamePaths(false);
-      setTerragruntForm((prev) => ({ ...prev, path: data.terragrunt_path ?? "." }));
-    } else {
-      setSamePaths(true);
     }
     setLabels((data.labels ?? []).join(", "));
     setStep(4);
@@ -791,7 +667,6 @@ export default function IacRepositoryIntegration() {
       owner: terraformForm.owner.trim(),
       repo: terraformForm.repo.trim(),
       repo_ref: terraformForm.repoRef.trim() || undefined,
-      path: terraformForm.path.trim() || ".",
       access_token: terraformForm.accessToken.trim() || undefined,
       base_url: terraformForm.baseUrl.trim() || undefined,
       auth_method: terraformForm.authMethod || undefined,
@@ -812,7 +687,6 @@ export default function IacRepositoryIntegration() {
         owner: terragruntForm.owner.trim(),
         repo: terragruntForm.repo.trim(),
         repo_ref: terragruntForm.repoRef.trim() || undefined,
-        path: terragruntForm.path.trim() || ".",
         access_token: terragruntForm.accessToken.trim() || undefined,
         base_url: terragruntForm.baseUrl.trim() || undefined,
         auth_method: terragruntForm.authMethod || undefined,
@@ -820,11 +694,9 @@ export default function IacRepositoryIntegration() {
         installation_account: terragruntForm.installationAccount || undefined,
         repository_id: terragruntForm.repositoryId || undefined,
       };
-    } else if (usesTerragrunt && !samePaths) {
-      body.terragrunt_path = terragruntForm.path.trim() || terraformForm.path.trim() || ".";
     }
     return body;
-  }, [vcsProvider, usesTerragrunt, repoMode, terraformForm, terragruntForm, samePaths, labels]);
+  }, [vcsProvider, usesTerragrunt, repoMode, terraformForm, terragruntForm, labels]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -863,9 +735,6 @@ export default function IacRepositoryIntegration() {
     (githubRepoSelected &&
       (usesGithubOAuth || (usesGithubAppFallback && githubAppRepoSelected)) &&
       githubTerragruntReady);
-  const terraformPathMode: RepoPathMode =
-    usesTerragrunt && (repoMode === "dual" || !samePaths) ? "inline" : "advanced";
-  const terragruntPathMode: RepoPathMode = "inline";
   const canAdvance =
     step === 1 ||
     step === 2 ||
@@ -1012,8 +881,8 @@ export default function IacRepositoryIntegration() {
                 </>
               ) : (
                 <p className="integration-setup__panel-copy">
-                  Terraform-only teams link a single repository. We assume Terraform lives at the repo root — use
-                  Advanced on the next step only if your <code>.tf</code> files are in a subfolder.
+                  Terraform-only teams link a single repository. Veritrail detects where your <code>.tf</code> files
+                  live when you save — no subdirectory path to configure.
                 </p>
               )}
             </section>
@@ -1022,7 +891,21 @@ export default function IacRepositoryIntegration() {
           {step === 4 && (
             <section className="integration-setup__step-panel integration-setup__step-panel--stacked">
               <h2 className="integration-setup__panel-title">Link your repositories</h2>
-              <p className="integration-setup__panel-copy">{selectedVcs.authHint}</p>
+              <p className="integration-setup__panel-copy">
+                {selectedVcs.authHint} Layout (Terraform modules vs Terragrunt live stacks) is inferred from your
+                repository using the same HCL analysis pipeline as remediation scans — you only pick the repo.
+              </p>
+              {data?.connected && isManageMode && data.terraform_path ? (
+                <p className="integration-setup__field-hint">
+                  Current layout: Terraform @ <code>{data.terraform_path}</code>
+                  {data.terragrunt_path ? (
+                    <>
+                      {" "}
+                      · Terragrunt @ <code>{data.terragrunt_path}</code>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
 
               {vcsProvider === "github" ? (
                 usesGithubOAuth ? (
@@ -1034,10 +917,6 @@ export default function IacRepositoryIntegration() {
                     initialOrgLogins={githubOAuthOrgLogins}
                     filter={githubRepoFilter}
                     onFilterChange={setGithubRepoFilter}
-                    pathLabel="Terraform path"
-                    pathPlaceholder="e.g. modules"
-                    pathHint={TERRAFORM_PATH_HINT}
-                    pathMode={terraformPathMode}
                   />
                 ) : (
                   <>
@@ -1064,10 +943,6 @@ export default function IacRepositoryIntegration() {
                         onInstall={() => installGithubApp.mutate()}
                         filter={githubRepoFilter}
                         onFilterChange={setGithubRepoFilter}
-                        pathLabel="Terraform path"
-                        pathPlaceholder="e.g. modules"
-                        pathHint={TERRAFORM_PATH_HINT}
-                        pathMode={terraformPathMode}
                       />
                     ) : null}
                   </>
@@ -1082,49 +957,9 @@ export default function IacRepositoryIntegration() {
                     <h3 className="text-[13px] font-semibold text-zinc-800">
                       {usesTerragrunt ? "Terraform modules repository" : "IaC repository"}
                     </h3>
-                    <RepoFields
-                      vcs={vcsProvider}
-                      form={terraformForm}
-                      onChange={setTerraformForm}
-                      pathLabel="Terraform path"
-                      pathPlaceholder="e.g. modules"
-                      pathHint={TERRAFORM_PATH_HINT}
-                      pathMode={terraformPathMode}
-                    />
+                    <RepoFields vcs={vcsProvider} form={terraformForm} onChange={setTerraformForm} />
                   </div>
                 </>
-              )}
-
-              {usesTerragrunt && repoMode === "single" && (
-                <div>
-                  <h3 className="text-[13px] font-semibold text-zinc-800">Terragrunt live stacks (same repo)</h3>
-                  <label className="mt-1 flex items-center gap-2 text-[12px] text-zinc-600">
-                    <input type="checkbox" checked={samePaths} onChange={(e) => setSamePaths(e.target.checked)} />
-                    Same path as Terraform
-                  </label>
-                  {!samePaths && (
-                    vcsProvider === "github" ? (
-                      <RepoPathField
-                        pathLabel="Terragrunt path"
-                        pathPlaceholder="e.g. environments/prod/us-east-1"
-                        pathHint={TERRAGRUNT_PATH_HINT}
-                        value={terragruntForm.path}
-                        onChange={(path) => setTerragruntForm({ ...terragruntForm, path })}
-                        mode={terragruntPathMode}
-                      />
-                    ) : (
-                      <RepoFields
-                        vcs={vcsProvider}
-                        form={{ ...terragruntForm, owner: terraformForm.owner, repo: terraformForm.repo, repoRef: terraformForm.repoRef }}
-                        onChange={(next) => setTerragruntForm({ ...next, owner: terraformForm.owner, repo: terraformForm.repo, repoRef: terraformForm.repoRef })}
-                        pathLabel="Terragrunt path"
-                        pathPlaceholder="e.g. environments/prod/us-east-1"
-                        pathHint={TERRAGRUNT_PATH_HINT}
-                        pathMode={terragruntPathMode}
-                      />
-                    )
-                  )}
-                </div>
               )}
 
               {usesTerragrunt && repoMode === "dual" && (
@@ -1139,10 +974,6 @@ export default function IacRepositoryIntegration() {
                         initialOrgLogins={githubOAuthOrgLogins}
                         filter={githubTerragruntRepoFilter}
                         onFilterChange={setGithubTerragruntRepoFilter}
-                        pathLabel="Live stack path"
-                        pathPlaceholder="e.g. environments/prod"
-                        pathHint={TERRAGRUNT_PATH_HINT}
-                        pathMode={terragruntPathMode}
                       />
                     ) : usesGithubAppFallback ? (
                       <GitHubAppRepositoryPicker
@@ -1161,24 +992,12 @@ export default function IacRepositoryIntegration() {
                         onInstall={() => installGithubApp.mutate()}
                         filter={githubTerragruntRepoFilter}
                         onFilterChange={setGithubTerragruntRepoFilter}
-                        pathLabel="Live stack path"
-                        pathPlaceholder="e.g. environments/prod"
-                        pathHint={TERRAGRUNT_PATH_HINT}
-                        pathMode={terragruntPathMode}
                       />
                     ) : null
                   ) : (
                     <>
                       <h3 className="text-[13px] font-semibold text-zinc-800">Terragrunt live stacks repository</h3>
-                      <RepoFields
-                        vcs={vcsProvider}
-                        form={terragruntForm}
-                        onChange={setTerragruntForm}
-                        pathLabel="Live stack path"
-                        pathPlaceholder="e.g. environments/prod"
-                        pathHint={TERRAGRUNT_PATH_HINT}
-                        pathMode={terragruntPathMode}
-                      />
+                      <RepoFields vcs={vcsProvider} form={terragruntForm} onChange={setTerragruntForm} />
                     </>
                   )}
                 </div>

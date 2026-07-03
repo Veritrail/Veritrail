@@ -17,10 +17,14 @@ def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _api_base_url(base_url: str | None) -> str:
+    base = (base_url or "https://gitlab.com").rstrip("/")
+    return f"{base}/api/v4"
+
+
 def _api_base(provider: IdentityProvider) -> str:
     config = provider_config(provider)
-    base = (config.get("base_url") or "https://gitlab.com").rstrip("/")
-    return f"{base}/api/v4"
+    return _api_base_url(config.get("base_url"))
 
 
 def fetch_terraform_files(
@@ -37,7 +41,26 @@ def fetch_terraform_files(
     The repo_full_name should be URL-encoded project path, e.g. "group/subgroup/project".
     """
     token = ensure_gitlab_token(db, provider)
-    api = _api_base(provider)
+    config = provider_config(provider)
+    return fetch_gitlab_terraform_files_with_token(
+        token,
+        repo_full_name,
+        base_url=config.get("base_url"),
+        ref=ref,
+        max_files=max_files,
+    )
+
+
+def fetch_gitlab_terraform_files_with_token(
+    token: str,
+    repo_full_name: str,
+    *,
+    base_url: str | None = None,
+    ref: str | None = None,
+    max_files: int = _MAX_FILES,
+) -> list[dict[str, str]]:
+    """Return .tf / .hcl file paths + contents using a bearer token."""
+    api = _api_base_url(base_url)
 
     # GitLab v4 API requires project path to be URL-encoded
     from urllib.parse import quote

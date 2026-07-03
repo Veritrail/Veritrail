@@ -177,3 +177,36 @@ def test_remediation_ticket_body_includes_both_paths():
     assert "Terraform modules: `org/iac` @ `modules`" in body
     assert "Terragrunt live stacks" in body
     assert "Suggested PR target: `environments/prod`" in body
+
+
+def test_should_infer_iac_path_preserves_custom_path():
+    from app.services.iac_path_infer import should_infer_iac_path
+
+    assert not should_infer_iac_path(
+        incoming_path="modules",
+        existing_path="modules",
+        incoming_repo_ref="org/iac",
+        existing_repo_ref="org/iac",
+    )
+
+
+def test_should_infer_iac_path_when_repo_changes():
+    from app.services.iac_path_infer import should_infer_iac_path
+
+    assert should_infer_iac_path(
+        incoming_path=None,
+        existing_path="modules",
+        incoming_repo_ref="org/new-iac",
+        existing_repo_ref="org/iac",
+    )
+
+
+def test_should_infer_iac_path_for_new_default_path():
+    from app.services.iac_path_infer import should_infer_iac_path
+
+    assert should_infer_iac_path(
+        incoming_path=None,
+        existing_path=None,
+        incoming_repo_ref="org/iac",
+        existing_repo_ref="",
+    )

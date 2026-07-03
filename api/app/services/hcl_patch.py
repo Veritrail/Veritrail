@@ -35,6 +35,18 @@ def hcl_validate_syntax(files: list[dict[str, str]]) -> dict[str, Any]:
     return _run_hclpatch("validate-syntax", {"files": files})
 
 
+def hcl_detect_layout(
+    files: list[dict[str, str]],
+    *,
+    uses_terragrunt: bool = False,
+) -> dict[str, Any]:
+    """Infer Terraform/Terragrunt subdirectory layout from fetched repo files."""
+    return _run_hclpatch(
+        "detect-layout",
+        {"uses_terragrunt": uses_terragrunt, "files": files},
+    )
+
+
 def hcl_repo_scan(
     *,
     check_id: str,
