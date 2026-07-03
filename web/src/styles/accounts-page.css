@@ -4857,50 +4857,6 @@ button.accounts-flow-step:hover {
   margin-top: 0;
 }
 
-.accounts-security-gauge {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.accounts-security-gauge__svg {
-  display: block;
-}
-
-.accounts-security-gauge__track {
-  stroke: #f1f3f6;
-}
-
-.accounts-security-gauge__arc {
-  transition: stroke-dasharray 0.85s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.accounts-security-gauge__hub {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.accounts-security-gauge__score {
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-  color: #18181b;
-}
-
-.accounts-security-gauge__score--label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  font-variant-numeric: normal;
-  text-align: center;
-  line-height: 1.15;
-  max-width: 3.25rem;
-}
-
 .accounts-detail-overview__metric-label {
   display: inline-flex;
   align-items: center;

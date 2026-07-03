@@ -1,6 +1,7 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
+import { SecurityScoreGauge } from "../components/SecurityScoreGauge";
 import "../styles/homepage.css";
 
 const CONTACT_EMAIL = "support@veritrail.io";
@@ -26,93 +27,6 @@ function PrimaryButton({ to, children }: { to: string; children: ReactNode }) {
 }
 
 const GAUGE_COVERAGE_PERCENT = 98;
-const GAUGE_TICK_COUNT = 60;
-
-function hexToRgb(hex: string): [number, number, number] {
-  const normalized = hex.replace("#", "");
-  return [
-    parseInt(normalized.slice(0, 2), 16),
-    parseInt(normalized.slice(2, 4), 16),
-    parseInt(normalized.slice(4, 6), 16),
-  ];
-}
-
-function lerpHex(from: string, to: string, t: number): string {
-  const [r1, g1, b1] = hexToRgb(from);
-  const [r2, g2, b2] = hexToRgb(to);
-  const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
-  const r = mix(r1, r2);
-  const g = mix(g1, g2);
-  const b = mix(b1, b2);
-  return `rgb(${r} ${g} ${b})`;
-}
-
-function gaugeFilledTickColor(index: number, filledCount: number): string {
-  if (filledCount <= 1) return "#10b981";
-  const t = index / (filledCount - 1);
-  if (t < 0.5) return lerpHex("#6ee7b7", "#10b981", t * 2);
-  return lerpHex("#10b981", "#047857", (t - 0.5) * 2);
-}
-
-function HomepageRadialGauge({ percent }: { percent: number }) {
-  const size = 120;
-  const cx = size / 2;
-  const cy = size / 2;
-  const innerR = 36;
-  const outerR = 50;
-  const filledCount = Math.round((percent / 100) * GAUGE_TICK_COUNT);
-
-  const ticks = Array.from({ length: GAUGE_TICK_COUNT }, (_, index) => {
-    const angleDeg = (index / GAUGE_TICK_COUNT) * 360 - 90;
-    const angleRad = (angleDeg * Math.PI) / 180;
-    const x1 = cx + innerR * Math.cos(angleRad);
-    const y1 = cy + innerR * Math.sin(angleRad);
-    const x2 = cx + outerR * Math.cos(angleRad);
-    const y2 = cy + outerR * Math.sin(angleRad);
-    const filled = index < filledCount;
-
-    return {
-      index,
-      x1,
-      y1,
-      x2,
-      y2,
-      filled,
-      color: filled ? gaugeFilledTickColor(index, filledCount) : "#e2e8f0",
-    };
-  });
-
-  return (
-    <div className="homepage-gauge-wrap">
-      <svg
-        className="homepage-gauge"
-        viewBox={`0 0 ${size} ${size}`}
-        width={size}
-        height={size}
-        aria-hidden
-      >
-        {ticks.map((tick) => (
-          <line
-            key={tick.index}
-            className={`homepage-gauge__tick${tick.filled ? " homepage-gauge__tick--filled" : " homepage-gauge__tick--empty"}`}
-            style={{ "--tick-i": tick.index } as CSSProperties}
-            x1={tick.x1}
-            y1={tick.y1}
-            x2={tick.x2}
-            y2={tick.y2}
-            stroke={tick.color}
-            strokeWidth={2.25}
-            strokeLinecap="round"
-          />
-        ))}
-      </svg>
-      <div className="homepage-gauge__label">
-        <span>{percent}%</span>
-        <span className="homepage-gauge__sublabel">Covered</span>
-      </div>
-    </div>
-  );
-}
 
 const RECENT_EVIDENCE = [
   { brand: "aws" as const, source: "AWS", label: "S3 Bucket Public Access Disabled", updated: "2h ago" },
@@ -316,7 +230,15 @@ function DashboardPreview() {
 
           <div className="homepage-dashboard__gauge-panel">
             <h3 className="homepage-dashboard__section-title">Controls by status</h3>
-            <HomepageRadialGauge percent={GAUGE_COVERAGE_PERCENT} />
+            <div className="homepage-dashboard__gauge">
+              <SecurityScoreGauge
+                score={GAUGE_COVERAGE_PERCENT}
+                tone="good"
+                hubDisplay={`${GAUGE_COVERAGE_PERCENT}%`}
+                sublabel="Covered"
+                size={104}
+              />
+            </div>
             <ul className="homepage-gauge-legend">
               <li>
                 <span className="homepage-gauge-legend__dot homepage-gauge-legend__dot--green" aria-hidden />
@@ -400,12 +322,7 @@ export default function Homepage() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <VeritrailWordmark />
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-zinc-500 hover:text-zinc-700">
-              Sign in
-            </Link>
-            <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
-          </div>
+          <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
         </div>
       </header>
 

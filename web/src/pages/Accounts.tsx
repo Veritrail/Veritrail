@@ -47,6 +47,7 @@ import {
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ProductShell } from "../components/ProductShell";
 import { MetricHelpTip } from "../components/MetricHelpTip";
+import { SecurityScoreGauge } from "../components/SecurityScoreGauge";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
 import { ProviderMark, type CloudProvider } from "../components/AccountSelect";
 import { Select } from "../components/Select";
@@ -5574,86 +5575,6 @@ function computeSecurityScoreDrivers(
   }
 
   return drivers;
-}
-
-function SecurityScoreGauge({
-  score,
-  tone,
-  hubDisplay,
-  hubKind,
-}: {
-  score: number;
-  tone: SecurityScoreTone;
-  hubDisplay: string;
-  hubKind: "numeric" | "label";
-}) {
-  const size = 76;
-  const stroke = 5;
-  const r = (size - stroke) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circum = 2 * Math.PI * r;
-  const dash = (Math.max(0, Math.min(100, score)) / 100) * circum;
-  const gradientId = `security-score-arc-${tone}`;
-  const [filled, setFilled] = useState(false);
-
-  useEffect(() => {
-    setFilled(false);
-    const frame = requestAnimationFrame(() => setFilled(true));
-    return () => cancelAnimationFrame(frame);
-  }, [score]);
-
-  return (
-    <div className="accounts-security-gauge" style={{ width: size, height: size }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="accounts-security-gauge__svg" aria-hidden>
-        <defs>
-          <linearGradient id="security-score-arc-good" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#6ee7b7" />
-            <stop offset="100%" stopColor="#34d399" />
-          </linearGradient>
-          <linearGradient id="security-score-arc-fair" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#fcd34d" />
-            <stop offset="100%" stopColor="#f59e0b" />
-          </linearGradient>
-          <linearGradient id="security-score-arc-poor" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#fdba74" />
-            <stop offset="100%" stopColor="#f97316" />
-          </linearGradient>
-          <linearGradient id="security-score-arc-critical" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#fca5a5" />
-            <stop offset="100%" stopColor="#ef4444" />
-          </linearGradient>
-        </defs>
-        <circle
-          className="accounts-security-gauge__track"
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          strokeWidth={stroke}
-        />
-        <circle
-          className="accounts-security-gauge__arc"
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke={`url(#${gradientId})`}
-          strokeWidth={stroke}
-          strokeDasharray={`${filled ? dash : 0} ${circum}`}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-        />
-      </svg>
-      <div className="accounts-security-gauge__hub">
-        <span
-          className={`accounts-security-gauge__score${hubKind === "label" ? " accounts-security-gauge__score--label" : ""}`}
-        >
-          {hubDisplay}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 function OverviewMetricLoadingSkeleton() {
