@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,13 +16,6 @@ import { ProductShell } from "../components/ProductShell";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
 import { isCloudAccountConnected } from "../hooks/useConnectedAccountOptions";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
-import { IntegrationRequestModal } from "../components/IntegrationRequestModal";
-import {
-  catalogExploreEntries,
-  connectedCatalogKeys,
-  INTEGRATION_CATALOG,
-  type CatalogEntry,
-} from "../lib/integrationCatalog";
 import {
   formatSyncDetail,
   IconShield,
@@ -228,46 +221,6 @@ function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
   );
 }
 
-function ExploreIntegrationsSection({ entries }: { entries: CatalogEntry[] }) {
-  const [requestOpen, setRequestOpen] = useState(false);
-
-  if (entries.length === 0) return null;
-
-  return (
-    <section className="integrations-explore">
-      <div className="integrations-explore__header">
-        <h2>Explore more integrations</h2>
-        <p className="integrations-explore__request-row">
-          Don&apos;t see the tool you need?{" "}
-          <button
-            type="button"
-            className="integrations-explore-request"
-            onClick={() => setRequestOpen(true)}
-            aria-haspopup="dialog"
-          >
-            Request an integration
-          </button>
-        </p>
-      </div>
-      <div className="integrations-explore-grid">
-        {entries.map((entry) => (
-          <article key={entry.key} className="integrations-explore-card">
-            <IntegrationBrandIcon brand={entry.brand} size={48} variant="plain" className="integrations-explore-card__icon" />
-            <div className="integrations-explore-card__body">
-              <div className="integrations-explore-card__name">{entry.name}</div>
-              <p className="integrations-explore-card__desc">{entry.description}</p>
-            </div>
-            <Link to={entry.href!} className="integrations-connect-btn">
-              Connect
-            </Link>
-          </article>
-        ))}
-      </div>
-      <IntegrationRequestModal open={requestOpen} onClose={() => setRequestOpen(false)} />
-    </section>
-  );
-}
-
 function ScanProgressBanner() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
@@ -400,59 +353,6 @@ function IntegrationsContent() {
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
-  const snykConnected = !!snykScanner.data?.connected;
-
-  const hiddenKeys = useMemo(
-    () =>
-      connectedCatalogKeys({
-        awsConnected,
-        githubConnected,
-        gitlabConnected,
-        googleConnected,
-        entraConnected,
-        oktaConnected,
-        slackConnected,
-        gcpConnected,
-        azureConnected,
-        iacRepositoryConnected,
-        jiraConnected,
-        splunkConnected,
-        datadogConnected,
-        connectedScanners: {
-          snyk: snykConnected,
-          wiz: !!wizScanner.data?.connected,
-          tenable: !!tenableScanner.data?.connected,
-          qualys: !!qualysScanner.data?.connected,
-          orca: !!orcaScanner.data?.connected,
-          aikido: !!aikidoScanner.data?.connected,
-        },
-      }),
-    [
-      awsConnected,
-      githubConnected,
-      gitlabConnected,
-      googleConnected,
-      entraConnected,
-      oktaConnected,
-      slackConnected,
-      gcpConnected,
-      azureConnected,
-      iacRepositoryConnected,
-      jiraConnected,
-      splunkConnected,
-      datadogConnected,
-      snykConnected,
-      wizScanner.data?.connected,
-      tenableScanner.data?.connected,
-      qualysScanner.data?.connected,
-      orcaScanner.data?.connected,
-      aikidoScanner.data?.connected,
-    ],
-  );
-  const exploreEntries = useMemo(
-    () => catalogExploreEntries(INTEGRATION_CATALOG, hiddenKeys),
-    [hiddenKeys],
-  );
 
   const connectedCount = [
     awsConnected,
@@ -797,7 +697,6 @@ function IntegrationsContent() {
 
       <div className="integrations-page__body">
         <IntegrationsTable rows={activeRows} />
-        <ExploreIntegrationsSection entries={exploreEntries} />
       </div>
     </div>
   );
