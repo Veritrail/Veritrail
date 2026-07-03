@@ -14,7 +14,8 @@
       "gitlab.org.dormant_members",
       "identity_center.user.inactive_90d",
       "google_workspace.user.inactive_90d",
-      "entra.user.inactive_90d"
+      "entra.user.inactive_90d",
+      "okta.user.inactive_90d"
     ],
     "soc2_scope_category": "security"
   },
@@ -36,6 +37,7 @@
       "gitlab.org.mfa_not_enforced",
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
+      "okta.org.mfa_not_enforced",
       "cloudtrail.event.iam_access_key_created"
     ],
     "soc2_scope_category": "security"
@@ -63,6 +65,8 @@
       "entra.admin.unreviewed",
       "github.org.admin_unreviewed",
       "google_workspace.admin.unreviewed",
+      "okta.admin.unreviewed",
+      "okta.user.inactive_90d",
       "iam.user.admin_policy_attached"
     ],
     "soc2_scope_category": "security"
@@ -116,6 +120,7 @@
       "cloudtrail.event.s3_public_access_block_disabled",
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
+      "okta.org.mfa_not_enforced",
       "iam.user.admin_policy_attached",
       "azure.entra.privileged_role_assignment",
       "gcp.asset.public_invoker"

@@ -155,6 +155,9 @@ export const checkLabels: Record<string, string> = {
   "entra.org.mfa_not_enforced": "Entra MFA not enforced",
   "entra.user.inactive_90d": "Entra inactive user",
   "entra.admin.unreviewed": "Entra admin unreviewed",
+  "okta.admin.unreviewed": "Okta admin unreviewed",
+  "okta.org.mfa_not_enforced": "Okta MFA not enforced",
+  "okta.user.inactive_90d": "Okta inactive user",
   "identity_center.user.inactive_90d": "Identity Center user stale",
 };
 
