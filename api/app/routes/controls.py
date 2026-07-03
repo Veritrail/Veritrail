@@ -58,6 +58,15 @@ from app.services.evidence_artifact_safety import EvidenceUploadRejected, valida
 from app.services.evidence_artifact_clamav import scan_bytes as clamav_scan_bytes
 from app.services.evidence_artifact_supersession import supersede_prior_accepted
 from app.services.category_evidence_coverage import build_category_evidence_coverage
+from app.services.org_control_mappings import (
+    FRAMEWORKS as MAPPING_FRAMEWORKS,
+    delete_org_mapping,
+    global_control_checks,
+    load_org_mapping_index,
+    mapping_out,
+    upsert_org_mapping,
+)
+from app.services.seed_controls import effective_checks_for_control_row
 
 router = APIRouter()
 
@@ -878,11 +887,129 @@ def benchmark_coverage(framework: str, p=Depends(current_principal)):
 
 
 @router.get("/by-check/{check_id}")
-def controls_for_check(check_id: str, p=Depends(current_principal)):
+def controls_for_check_route(
+    check_id: str,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
     """Control documentation for a finding's check_id (SOC 2 → CIS → ISO priority)."""
     from app.services.check_controls import check_control_bundle
 
-    return check_control_bundle(check_id)
+    return check_control_bundle(check_id, org_id=uuid.UUID(p["org_id"]), db=db)
+
+
+class ControlMappingOut(BaseModel):
+    framework: str
+    control_id: str
+    global_check_ids: list[str]
+    added_check_ids: list[str]
+    removed_check_ids: list[str]
+    effective_check_ids: list[str]
+    has_override: bool
+
+
+class ControlMappingIn(BaseModel):
+    added_check_ids: list[str] = []
+    removed_check_ids: list[str] = []
+
+
+@router.get("/control-mappings", response_model=list[ControlMappingOut])
+def list_control_mappings(
+    framework: str = Query(...),
+    overrides_only: bool = Query(default=False),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    if framework not in MAPPING_FRAMEWORKS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(MAPPING_FRAMEWORKS)}"
+        )
+    org_id = uuid.UUID(p["org_id"])
+    mapping_index = load_org_mapping_index(db, org_id)
+    controls = db.scalars(
+        select(Control).where(Control.framework == framework).order_by(Control.control_id)
+    ).all()
+    out: list[ControlMappingOut] = []
+    for ctrl in controls:
+        global_checks = global_control_checks(framework, ctrl.control_id)
+        if not global_checks:
+            continue
+        row = mapping_index.get((framework, ctrl.control_id))
+        payload = mapping_out(framework, ctrl.control_id, global_checks, row)
+        if overrides_only and not payload["has_override"]:
+            continue
+        out.append(ControlMappingOut(**payload))
+    return out
+
+
+@router.put("/control-mappings/{framework}/{control_ref}", response_model=ControlMappingOut)
+def put_control_mapping(
+    framework: str,
+    control_ref: str,
+    body: ControlMappingIn,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+    if not role_at_least(user.role, "admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+    if framework not in MAPPING_FRAMEWORKS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(MAPPING_FRAMEWORKS)}"
+        )
+    org_id = uuid.UUID(p["org_id"])
+    global_checks = global_control_checks(framework, control_ref)
+    if not global_checks:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "control not found in global mappings")
+    try:
+        row = upsert_org_mapping(
+            db,
+            org_id,
+            framework,
+            control_ref,
+            added_check_ids=body.added_check_ids,
+            removed_check_ids=body.removed_check_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    log_org_activity(
+        db,
+        org_id=org_id,
+        actor_user_id=user.id,
+        actor_email=user.email,
+        action="control_mapping.updated",
+        target_type="control",
+        target_id=control_ref,
+        target_label=control_ref,
+        detail={
+            "framework": framework,
+            "added_check_ids": body.added_check_ids,
+            "removed_check_ids": body.removed_check_ids,
+        },
+    )
+    db.commit()
+    payload = mapping_out(framework, control_ref, global_checks, row)
+    return ControlMappingOut(**payload)
+
+
+@router.delete("/control-mappings/{framework}/{control_ref}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_control_mapping_route(
+    framework: str,
+    control_ref: str,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    user = get_org_user(db, p)
+    if not role_at_least(user.role, "admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+    if framework not in MAPPING_FRAMEWORKS:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(MAPPING_FRAMEWORKS)}"
+        )
+    org_id = uuid.UUID(p["org_id"])
+    delete_org_mapping(db, org_id, framework, control_ref)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/composites", response_model=list[CompositeControlOut])
@@ -947,6 +1074,8 @@ def list_controls(
 
     org = db.get(Org, uuid.UUID(p["org_id"]))
     hidden = hidden_check_ids(org.settings if org else {})
+    org_id = uuid.UUID(p["org_id"])
+    mapping_index = load_org_mapping_index(db, org_id)
 
     open_findings: list[Finding] = []
     latest_checks_run: set[str] = set()
@@ -1000,7 +1129,10 @@ def list_controls(
                 select(CheckControl.check_id).where(CheckControl.control_id == ctrl.id)
             ).all()
         )
-        check_ids = [cid for cid in mapped_check_ids if cid not in hidden]
+        effective_ids = effective_checks_for_control_row(
+            db, org_id, ctrl, mapped_check_ids, mapping_index=mapping_index
+        )
+        check_ids = [cid for cid in effective_ids if cid not in hidden]
 
         kind = "auto"
         attestation_status: str | None = None
@@ -1126,6 +1258,7 @@ def control_checklist(
 
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {})
+    mapping_index = load_org_mapping_index(db, org_id)
 
     open_by_check: dict[str, list[Finding]] = {}
     latest_checks_run: set[str] = set()
@@ -1170,7 +1303,10 @@ def control_checklist(
         )
         group = ctrl.control_id.split(".")[0]
         if mapped:  # automated control — status from scan
-            check_ids = [c for c in mapped if c not in hidden]
+            effective = effective_checks_for_control_row(
+                db, org_id, ctrl, mapped, mapping_index=mapping_index
+            )
+            check_ids = [c for c in effective if c not in hidden]
             ctrl_status, hits, _ = compute_control_status(
                 check_ids,
                 open_by_check,
@@ -1311,11 +1447,13 @@ def control_evidence(
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
 
-    check_ids = list(
+    org_id = uuid.UUID(p["org_id"])
+    global_checks = list(
         db.scalars(select(CheckControl.check_id).where(CheckControl.control_id == ctrl.id)).all()
     )
+    check_ids = effective_checks_for_control_row(db, org_id, ctrl, global_checks)
 
-    if not check_ids:
+    if not global_checks and not check_ids:
         return {
             "control_id": ctrl.control_id,
             "title": ctrl.title,

@@ -67,13 +67,12 @@ def assert_control_mapping_composite_coverage() -> None:
         )
 
 
-def soc2_control_checks(control_id: str) -> list[str]:
-    from app.services.check_controls import _mapping_entries
+def soc2_control_checks(control_id: str, *, org_id: uuid.UUID | None = None, db: Session | None = None) -> list[str]:
+    from app.services.check_controls import global_control_checks
+    from app.services.org_control_mappings import effective_checks_for_control
 
-    for entry in _mapping_entries():
-        if entry.get("framework") == "soc2" and entry.get("control_id") == control_id:
-            return list(entry.get("checks", []))
-    return []
+    global_checks = global_control_checks("soc2", control_id)
+    return effective_checks_for_control(db, org_id, "soc2", control_id, global_checks)
 
 
 # Primary composite when a check rolls up to multiple composites (Finding Drawer / by-check API).
@@ -183,15 +182,27 @@ def _composite_summary(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def composite_defs_for_check(check_id: str) -> list[dict[str, Any]]:
+def composite_defs_for_check(
+    check_id: str,
+    *,
+    org_id: uuid.UUID | None = None,
+    db: Session | None = None,
+) -> list[dict[str, Any]]:
     """Composite control definitions that include this check_id, primary first."""
     from app.services.check_controls import resolve_check_id_for_controls
+    from app.services.org_control_mappings import effective_composite_check_ids, load_org_mapping_index
 
     mapped_id = resolve_check_id_for_controls(check_id)
+    mapping_index = load_org_mapping_index(db, org_id) if org_id and db else None
     rows: list[dict[str, Any]] = []
     for entry in composite_control_definitions():
-        if mapped_id in entry.get("checks", []):
-            rows.append(_composite_summary(entry))
+        if mapping_index is not None and org_id and db:
+            effective = effective_composite_check_ids(db, org_id, entry, mapping_index=mapping_index)
+        else:
+            effective = list(entry.get("checks") or [])
+        if mapped_id not in effective:
+            continue
+        rows.append(_composite_summary(entry))
 
     preferred_id = primary_composite_id_for_check(check_id)
     if preferred_id:
@@ -350,11 +361,15 @@ def list_composite_controls(
     errors_by_check = {e["check_id"]: e for e in scan_check_errors}
     from app.services.sdlc_evidence import sdlc_insights_for_org
 
+    from app.services.org_control_mappings import effective_composite_check_ids, load_org_mapping_index
+
     sdlc_insights = sdlc_insights_for_org(db, org_id)
+    mapping_index = load_org_mapping_index(db, org_id)
 
     result: list[dict[str, Any]] = []
     for entry in composite_control_definitions():
-        check_ids = [cid for cid in entry.get("checks", []) if cid not in hidden]
+        base_check_ids = effective_composite_check_ids(db, org_id, entry, mapping_index=mapping_index)
+        check_ids = [cid for cid in base_check_ids if cid not in hidden]
         status, open_hits, finding_count = compute_control_status(
             check_ids,
             open_by_check,

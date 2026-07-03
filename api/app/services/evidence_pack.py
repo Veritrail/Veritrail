@@ -32,7 +32,7 @@ from app.models.github import CiPipeline, IdentityProvider, IdentityUser, PullRe
 from app.models.iam import IamUser
 from app.models.resources import IdentityCenterUser
 from app.services.access_review_summary import build_access_review_summary
-from app.services.evidence_coverage import compute_evidence_coverage
+from app.services.evidence_coverage import compute_evidence_coverage, period_bounds
 from app.services.sdlc_evidence import build_sdlc_evidence
 from app.services.finding_history import (
     STATE_EXCEPTED,
@@ -113,19 +113,26 @@ def build_evidence_pack(
     end = as_of if as_of else datetime.now(timezone.utc)
     if end.tzinfo is None:
         end = end.replace(tzinfo=timezone.utc)
-    since = end - timedelta(days=period_days)
-    coverage = compute_evidence_coverage(db, account_id, since, end, period_days)
+    since, period_end = period_bounds(end, period_days)
+    coverage = compute_evidence_coverage(db, account_id, since, period_end, period_days)
 
     controls = db.scalars(
         select(Control).where(Control.framework == framework).order_by(Control.control_id)
     ).all()
+
+    from app.services.seed_controls import effective_checks_for_control_row
+    from app.services.org_control_mappings import load_org_mapping_index
+
+    mapping_index = load_org_mapping_index(db, org_id)
 
     check_map: dict[uuid.UUID, list[str]] = {}
     for c in controls:
         links = db.scalars(
             select(CheckControl.check_id).where(CheckControl.control_id == c.id)
         ).all()
-        check_map[c.id] = list(links)
+        check_map[c.id] = effective_checks_for_control_row(
+            db, org_id, c, list(links), mapping_index=mapping_index
+        )
 
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {})

@@ -9,12 +9,12 @@ Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-rea
 | Scope | Done | Notes |
 |-------|------|-------|
 | **Phase-one enterprise batch** (direction `TODO`, pre-audit) | ~95% | Shipped 2026-06-26; documented in `enterprise-readiness.md` |
-| **Pipeline phases 0–9** (post-audit backlog) | **6 / 10 phases** (~60%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3, Phase 5.1–5.5 Azure collectors, Phase 6 evidence RBAC |
+| **Pipeline phases 0–9** (post-audit backlog) | **7 / 10 phases** (~70%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3, Phase 5.1–5.5 Azure collectors, Phase 6 evidence RBAC, Phase 7 per-org control mapping |
 | **Direction README specs wholesale** | **No** | Strategy/roadmap docs remain largely aspirational; only incremental slices shipped |
 
-**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). Phase 5.1 (Azure Resource Graph VM inventory + public IP check), Phase 5.2 (Activity Log / diagnostic settings), Phase 5.3 (Entra / Azure RBAC privileged role assignments), Phase 5.4 (Azure Policy compliance), and Phase 5.5 (Azure onboarding polish with degraded-check verify) and Phase 6 (granular evidence RBAC) are complete. **Most backlog remains** — start at Phase 7.
+**Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). Phase 5.1 (Azure Resource Graph VM inventory + public IP check), Phase 5.2 (Activity Log / diagnostic settings), Phase 5.3 (Entra / Azure RBAC privileged role assignments), Phase 5.4 (Azure Policy compliance), and Phase 5.5 (Azure onboarding polish with degraded-check verify), Phase 6 (granular evidence RBAC), and Phase 7 (per-org control mapping) are complete. **Most backlog remains** — start at Phase 8.
 
-**Next run:** Phase 7 (custom control mapping) unless blocked.
+**Next run:** Phase 8 (Release 5 integrations) unless blocked.
 
 ---
 
@@ -203,12 +203,12 @@ Audit item: *"Contributor / reviewer / auditor-viewer roles beyond coarse org ro
 Audit item: *"Custom evidence categories shipped; per-control mapping still partial."*
 
 - [x] Custom evidence categories in org settings — phase-one complete
-- [ ] `org_control_mappings` table + Alembic migration
-- [ ] API: org can add/remove `check_ids` for a `control_id` without forking global mappings
-- [ ] Pack export respects org overrides — `seed_controls.py`, `check_controls.py`
-- [ ] Composite status respects org overrides
-- [ ] Falls back to global `control_mappings.json` when no override
-- [ ] Settings UI for per-control mapping (Workspace or Compliance)
+- [x] `org_control_mappings` table + Alembic migration — `0086_org_control_mappings.py`
+- [x] API: org can add/remove `check_ids` for a `control_id` without forking global mappings — `GET/PUT/DELETE /v1/controls/control-mappings`
+- [x] Pack export respects org overrides — `seed_controls.py`, `check_controls.py`, `evidence_pack.py`
+- [x] Composite status respects org overrides — `composite_controls.py`
+- [x] Falls back to global `control_mappings.json` when no override — `org_control_mappings.py`
+- [x] Settings UI for per-control mapping (Workspace or Compliance) — `ControlMappingSettings.tsx` on Controls page
 
 ---
 
@@ -419,8 +419,8 @@ flowchart LR
 
 ### Phase 6–8
 
-- [ ] Evidence RBAC role matrix + API guards + UI + tests
-- [ ] Per-control org mapping table + API + UI
+- [x] Evidence RBAC role matrix + API guards + UI + tests
+- [x] Per-control org mapping table + API + UI
 - [ ] Release 5: pick one vendor (Snyk / Orca / Aikido / Splunk / Datadog / SIEM)
 - [ ] Okta live sync
 - [ ] Scanner auto-import

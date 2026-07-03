@@ -94,3 +94,24 @@ def seed_controls(db: Session, *, commit: bool = True) -> int:
     else:
         db.flush()
     return upserted
+
+
+def effective_checks_for_control_row(
+    db: Session,
+    org_id: uuid.UUID,
+    control: Control,
+    global_checks: list[str],
+    *,
+    mapping_index: dict | None = None,
+) -> list[str]:
+    """Org-aware check list for a seeded Control row (pack export, API)."""
+    from app.services.org_control_mappings import effective_checks_for_db_control
+
+    return effective_checks_for_db_control(
+        db,
+        org_id,
+        control.framework,
+        control.control_id,
+        global_checks,
+        mapping_index=mapping_index,
+    )

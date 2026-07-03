@@ -13,6 +13,7 @@ import { TrustCenterSettings } from "../components/TrustCenterSettings";
 import { AccessCard } from "../components/accessUi";
 import { WorkspaceActivity } from "../components/WorkspaceActivity";
 import { AuditorScopedExportPanel } from "../components/AuditorScopedExportPanel";
+import { ControlMappingSettings } from "../components/ControlMappingSettings";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import "../styles/findings-v2.css";
@@ -1338,6 +1339,13 @@ export default function Workspace() {
                     {canEditWorkspace ? <AuditorScopedExportPanel embedded /> : null}
                   </div>
                 </div>
+                <Panel
+                  title="Control mapping overrides"
+                  eyebrow="Compliance"
+                  icon={<PanelIcon path={PANEL_ICONS.evidence} />}
+                >
+                  <ControlMappingSettings canEdit={canEditWorkspace} />
+                </Panel>
               </div>
             </section>
           </WorkspaceDetailSection>

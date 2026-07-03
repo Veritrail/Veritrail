@@ -10,6 +10,7 @@ from app.models.resources import (
     IamPasswordPolicy, AccessAnalyzer, ConfigRecorder, SecurityHubStatus,
     AccountGovernance, IamServerCertificate,
 )
+from app.models.org_control_mapping import OrgControlMapping
 from app.models.control import Control, CheckControl
 from app.models.control_attestation import ControlAttestation
 from app.models.evidence_snapshot import EvidenceSnapshot
@@ -53,7 +54,7 @@ __all__ = [
     "Ec2Instance", "EbsVolume", "EbsEncryptionDefault",
     "IamPasswordPolicy", "AccessAnalyzer", "ConfigRecorder", "SecurityHubStatus",
     "AccountGovernance", "IamServerCertificate",
-    "Control", "CheckControl", "ControlAttestation",
+    "Control", "CheckControl", "ControlAttestation", "OrgControlMapping",
     "EvidenceSnapshot",
     "IdentityProvider", "IdentityUser", "Repo", "RepoProtection", "PullRequest",
     "WorkflowRun", "CiPipeline",
