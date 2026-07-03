@@ -1027,41 +1027,43 @@ export default function IacRepositoryIntegration() {
                 Back
               </button>
             )}
-            {step < maxStep ? (
-              <button
-                type="button"
-                className="integration-setup__btn integration-setup__btn--primary"
-                disabled={!canAdvance}
-                onClick={() => {
-                  if (step === 2 && !usesTerragrunt) {
-                    setStep(4);
-                    return;
-                  }
-                  setStep((s) => Math.min(maxStep, s + 1) as WizardStep);
-                }}
-              >
-                Continue
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="integration-setup__btn integration-setup__btn--primary"
-                disabled={save.isPending || !githubRepoReady}
-                onClick={() => save.mutate()}
-              >
-                {save.isPending ? "Saving…" : data?.connected ? "Update connection" : "Save connection"}
-              </button>
-            )}
-            {data?.connected && step === 4 && (
-              <button
-                type="button"
-                className="integration-setup__btn integration-setup__btn--danger"
-                disabled={disconnect.isPending}
-                onClick={() => disconnect.mutate()}
-              >
-                Disconnect
-              </button>
-            )}
+            <div className="integration-setup__actions-primary integration-setup__actions-secondary">
+              {data?.connected && step === maxStep && (
+                <button
+                  type="button"
+                  className="integration-setup__btn integration-setup__btn--danger"
+                  disabled={disconnect.isPending}
+                  onClick={() => disconnect.mutate()}
+                >
+                  Disconnect
+                </button>
+              )}
+              {step < maxStep ? (
+                <button
+                  type="button"
+                  className="integration-setup__btn integration-setup__btn--primary"
+                  disabled={!canAdvance}
+                  onClick={() => {
+                    if (step === 2 && !usesTerragrunt) {
+                      setStep(4);
+                      return;
+                    }
+                    setStep((s) => Math.min(maxStep, s + 1) as WizardStep);
+                  }}
+                >
+                  Continue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="integration-setup__btn integration-setup__btn--primary"
+                  disabled={save.isPending || !githubRepoReady}
+                  onClick={() => save.mutate()}
+                >
+                  {save.isPending ? "Saving…" : data?.connected ? "Update connection" : "Save connection"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
