@@ -25,6 +25,95 @@ function PrimaryButton({ to, children }: { to: string; children: ReactNode }) {
   );
 }
 
+const GAUGE_COVERAGE_PERCENT = 98;
+const GAUGE_TICK_COUNT = 60;
+
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace("#", "");
+  return [
+    parseInt(normalized.slice(0, 2), 16),
+    parseInt(normalized.slice(2, 4), 16),
+    parseInt(normalized.slice(4, 6), 16),
+  ];
+}
+
+function lerpHex(from: string, to: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(from);
+  const [r2, g2, b2] = hexToRgb(to);
+  const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
+  const r = mix(r1, r2);
+  const g = mix(g1, g2);
+  const b = mix(b1, b2);
+  return `rgb(${r} ${g} ${b})`;
+}
+
+function gaugeFilledTickColor(index: number, filledCount: number): string {
+  if (filledCount <= 1) return "#10b981";
+  const t = index / (filledCount - 1);
+  if (t < 0.5) return lerpHex("#6ee7b7", "#10b981", t * 2);
+  return lerpHex("#10b981", "#047857", (t - 0.5) * 2);
+}
+
+function HomepageRadialGauge({ percent }: { percent: number }) {
+  const size = 120;
+  const cx = size / 2;
+  const cy = size / 2;
+  const innerR = 36;
+  const outerR = 50;
+  const filledCount = Math.round((percent / 100) * GAUGE_TICK_COUNT);
+
+  const ticks = Array.from({ length: GAUGE_TICK_COUNT }, (_, index) => {
+    const angleDeg = (index / GAUGE_TICK_COUNT) * 360 - 90;
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const x1 = cx + innerR * Math.cos(angleRad);
+    const y1 = cy + innerR * Math.sin(angleRad);
+    const x2 = cx + outerR * Math.cos(angleRad);
+    const y2 = cy + outerR * Math.sin(angleRad);
+    const filled = index < filledCount;
+
+    return {
+      index,
+      x1,
+      y1,
+      x2,
+      y2,
+      filled,
+      color: filled ? gaugeFilledTickColor(index, filledCount) : "#e2e8f0",
+    };
+  });
+
+  return (
+    <div className="homepage-gauge-wrap">
+      <svg
+        className="homepage-gauge"
+        viewBox={`0 0 ${size} ${size}`}
+        width={size}
+        height={size}
+        aria-hidden
+      >
+        {ticks.map((tick) => (
+          <line
+            key={tick.index}
+            className={`homepage-gauge__tick${tick.filled ? " homepage-gauge__tick--filled" : " homepage-gauge__tick--empty"}`}
+            style={{ "--tick-i": tick.index } as CSSProperties}
+            x1={tick.x1}
+            y1={tick.y1}
+            x2={tick.x2}
+            y2={tick.y2}
+            stroke={tick.color}
+            strokeWidth={2.25}
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
+      <div className="homepage-gauge__label">
+        <span>{percent}%</span>
+        <span className="homepage-gauge__sublabel">Covered</span>
+      </div>
+    </div>
+  );
+}
+
 const RECENT_EVIDENCE = [
   { brand: "aws" as const, source: "AWS", label: "S3 Bucket Public Access Disabled", updated: "2h ago" },
   { brand: "github" as const, source: "GitHub", label: "GitHub Branch Protection Enabled", updated: "1d ago" },
@@ -225,27 +314,21 @@ function DashboardPreview() {
             </table>
           </div>
 
-          <div className="homepage-dashboard__donut-panel">
+          <div className="homepage-dashboard__gauge-panel">
             <h3 className="homepage-dashboard__section-title">Controls by status</h3>
-            <div className="homepage-donut-wrap">
-              <div className="homepage-donut" aria-hidden />
-              <div className="homepage-donut__label">
-                <span>98%</span>
-                <span className="homepage-donut__sublabel">Covered</span>
-              </div>
-            </div>
-            <ul className="homepage-donut-legend">
+            <HomepageRadialGauge percent={GAUGE_COVERAGE_PERCENT} />
+            <ul className="homepage-gauge-legend">
               <li>
-                <span className="homepage-donut-legend__dot homepage-donut-legend__dot--green" aria-hidden />
-                In place <span className="homepage-donut-legend__count">(142)</span>
+                <span className="homepage-gauge-legend__dot homepage-gauge-legend__dot--green" aria-hidden />
+                In place <span className="homepage-gauge-legend__count">(142)</span>
               </li>
               <li>
-                <span className="homepage-donut-legend__dot homepage-donut-legend__dot--yellow" aria-hidden />
-                Partial <span className="homepage-donut-legend__count">(6)</span>
+                <span className="homepage-gauge-legend__dot homepage-gauge-legend__dot--yellow" aria-hidden />
+                Partial <span className="homepage-gauge-legend__count">(6)</span>
               </li>
               <li>
-                <span className="homepage-donut-legend__dot homepage-donut-legend__dot--red" aria-hidden />
-                Not in place <span className="homepage-donut-legend__count">(2)</span>
+                <span className="homepage-gauge-legend__dot homepage-gauge-legend__dot--red" aria-hidden />
+                Not in place <span className="homepage-gauge-legend__count">(2)</span>
               </li>
             </ul>
           </div>
