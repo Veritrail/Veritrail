@@ -65,9 +65,9 @@ export default function IntegrationCatalog() {
                     >
                       <div className="integration-catalog-card__main">
                         <IntegrationBrandIcon brand={entry.brand} size={52} variant="plain" className="integrations-explore-card__icon integration-catalog-card__icon" />
-                        <div className="integrations-explore-card__body">
-                          <div className="integrations-explore-card__name">{entry.name}</div>
-                          <p className="integrations-explore-card__desc">{entry.description}</p>
+                        <div className="integration-catalog-card__body">
+                          <div className="integration-catalog-card__name">{entry.name}</div>
+                          <p className="integration-catalog-card__desc">{entry.description}</p>
                         </div>
                         {isComingSoon ? (
                           <button type="button" className="integrations-connect-btn integrations-connect-btn--coming-soon" disabled>
