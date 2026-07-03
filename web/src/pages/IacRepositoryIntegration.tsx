@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatApiError } from "../api";
 import { iacRepositoryIntegrationSchema } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
@@ -29,6 +29,11 @@ const VCS_OPTIONS: {
 ];
 
 const STEP_LABELS = ["Provider", "Terragrunt", "Layout", "Link repos"] as const;
+const FLOW_NODES = [
+  { title: "Findings", detail: "Cloud issue" },
+  { title: "Remediation", detail: "Fix plan" },
+  { title: "IaC PR", detail: "Reviewed change" },
+] as const;
 
 type RepoForm = {
   owner: string;
@@ -41,6 +46,19 @@ type RepoForm = {
 
 function emptyRepoForm(): RepoForm {
   return { owner: "", repo: "", repoRef: "", path: ".", accessToken: "", baseUrl: "" };
+}
+
+function VerifiedSuccessCard() {
+  return (
+    <div className="integration-setup__verified" role="status" aria-live="polite">
+      <span className="integration-setup__verified-icon" aria-hidden>
+        <svg className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m8.5 12 2.5 2.5 4.5-5" />
+        </svg>
+      </span>
+      <p className="integration-setup__verified-label">Verified</p>
+    </div>
+  );
 }
 
 function RepoFields({
@@ -74,7 +92,7 @@ function RepoFields({
             <label className="integration-setup__field-label">Repo</label>
             <input
               className="integration-setup__input"
-              placeholder="e.g. terraform-live"
+              placeholder="e.g. infrastructure-live"
               value={form.repo}
               onChange={(e) => set({ repo: e.target.value })}
             />
@@ -138,12 +156,16 @@ function RepoFields({
 
 export default function IacRepositoryIntegration() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isManageMode = searchParams.get("manage") === "1";
   const { data, isLoading } = useQuery({
     queryKey: ["iac-repository-integration"],
     queryFn: () => api("/v1/integrations/iac-repository", { schema: iacRepositoryIntegrationSchema }),
   });
 
   const [step, setStep] = useState<WizardStep>(1);
+  const [showVerified, setShowVerified] = useState(false);
   const [vcsProvider, setVcsProvider] = useState<VcsProvider>("github");
   const [usesTerragrunt, setUsesTerragrunt] = useState(false);
   const [repoMode, setRepoMode] = useState<RepoMode>("single");
@@ -154,7 +176,13 @@ export default function IacRepositoryIntegration() {
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
-    if (!data?.connected) return;
+    if (!showVerified) return;
+    const id = window.setTimeout(() => navigate("/integrations", { replace: true }), 1500);
+    return () => window.clearTimeout(id);
+  }, [showVerified, navigate]);
+
+  useEffect(() => {
+    if (!data?.connected || !isManageMode) return;
     if (data.vcs_provider) setVcsProvider(data.vcs_provider);
     setUsesTerragrunt(!!data.uses_terragrunt);
     setRepoMode(data.repo_mode ?? "single");
@@ -187,7 +215,7 @@ export default function IacRepositoryIntegration() {
     }
     setLabels((data.labels ?? []).join(", "));
     setStep(4);
-  }, [data]);
+  }, [data, isManageMode]);
 
   const selectedVcs = VCS_OPTIONS.find((o) => o.id === vcsProvider) ?? VCS_OPTIONS[0];
 
@@ -235,6 +263,7 @@ export default function IacRepositoryIntegration() {
       qc.invalidateQueries({ queryKey: ["iac-repository-integration"] });
       qc.invalidateQueries({ queryKey: ["github-issues-integration"] });
       setSaveError("");
+      setShowVerified(true);
     },
     onError: (e) => setSaveError(formatApiError(e)),
   });
@@ -257,26 +286,40 @@ export default function IacRepositoryIntegration() {
     (step === 3 && (!usesTerragrunt || repoMode)) ||
     step === 4;
 
+  if (!isLoading && data?.connected && !isManageMode && !showVerified) {
+    return <Navigate to="/integrations" replace />;
+  }
+
   return (
-    <div className="integration-setup">
-      <p className="integration-setup__breadcrumb">
-        <Link to="/integrations">Integrations</Link> / IaC repository
-      </p>
-      <header className="integration-setup__header">
-        <IntegrationBrandIcon brand="iac" size={48} />
-        <div>
-          <h1 className="integration-setup__title">Link Terraform / Terragrunt repository</h1>
-          <p className="integration-setup__subtitle">
-            Connect where your team lands cloud fixes as infrastructure-as-code pull requests. Findings → Remediation →
-            <strong> Terraform</strong> uses this layout for snippets, path guidance, and remediation tickets.
-          </p>
+    <div className="integration-setup integration-setup--iac">
+      <header className="integration-setup__header integration-setup__hero">
+        <div className="integration-setup__hero-mark">
+          <IntegrationBrandIcon brand="iac" size={64} />
+        </div>
+        <h1 className="integration-setup__title">Link Terraform / Terragrunt repository</h1>
+        <p className="integration-setup__subtitle">
+          Connect the repository where cloud fixes land as infrastructure-as-code pull requests. Veritrail uses this
+          layout for snippets, path guidance, and remediation tickets.
+        </p>
+        <div className="integration-setup__flow" aria-label="Remediation workflow">
+          {FLOW_NODES.map((node) => (
+            <div className="integration-setup__flow-node" key={node.title}>
+              <span className="integration-setup__flow-title">{node.title}</span>
+              <span className="integration-setup__flow-detail">{node.detail}</span>
+            </div>
+          ))}
         </div>
       </header>
 
       {isLoading && <p className="integration-setup__loading">Loading…</p>}
-      {!isLoading && (
+      {!isLoading && showVerified && (
         <div className="integration-setup__card">
-          <ol className="mb-6 flex flex-wrap gap-2">
+          <VerifiedSuccessCard />
+        </div>
+      )}
+      {!isLoading && !showVerified && (
+        <div className="integration-setup__card">
+          <ol className="integration-setup__steps">
             {STEP_LABELS.map((label, i) => {
               const n = (i + 1) as WizardStep;
               const active = step === n;
@@ -284,12 +327,8 @@ export default function IacRepositoryIntegration() {
               return (
                 <li
                   key={label}
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                    active
-                      ? "bg-indigo-600 text-white"
-                      : done
-                        ? "bg-indigo-100 text-indigo-800"
-                        : "bg-zinc-100 text-zinc-500"
+                  className={`integration-setup__step ${active ? "integration-setup__step--active" : ""} ${
+                    done ? "integration-setup__step--done" : ""
                   }`}
                 >
                   {i + 1}. {label}
@@ -299,28 +338,27 @@ export default function IacRepositoryIntegration() {
           </ol>
 
           {step === 1 && (
-            <section className="space-y-3">
-              <h2 className="text-[15px] font-semibold text-zinc-900">Pick your version control provider</h2>
-              <p className="text-[12px] text-zinc-600">
+            <section className="integration-setup__step-panel">
+              <h2 className="integration-setup__panel-title">Pick your version control provider</h2>
+              <p className="integration-setup__panel-copy">
                 GitHub and GitLab can reuse existing OAuth connections. Azure DevOps and CodeCommit use repository
                 references plus optional tokens.
               </p>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="integration-setup__provider-grid">
                 {VCS_OPTIONS.map((option) => (
                   <button
                     key={option.id}
                     type="button"
                     onClick={() => setVcsProvider(option.id)}
-                    className={`flex items-start gap-2 rounded-lg border px-3 py-3 text-left transition ${
-                      vcsProvider === option.id
-                        ? "border-indigo-400 bg-indigo-50 text-indigo-950"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                    aria-pressed={vcsProvider === option.id}
+                    className={`integration-setup__provider-card ${
+                      vcsProvider === option.id ? "integration-setup__provider-card--selected" : ""
                     }`}
                   >
-                    <IntegrationBrandIcon brand={option.brand} size={24} />
-                    <span>
-                      <span className="block text-[13px] font-semibold">{option.label}</span>
-                      <span className="mt-0.5 block text-[11px] text-zinc-500">{option.authHint}</span>
+                    <IntegrationBrandIcon brand={option.brand} size={44} />
+                    <span className="integration-setup__provider-copy">
+                      <span className="integration-setup__provider-name">{option.label}</span>
+                      <span className="integration-setup__provider-hint">{option.authHint}</span>
                     </span>
                   </button>
                 ))}
@@ -329,25 +367,24 @@ export default function IacRepositoryIntegration() {
           )}
 
           {step === 2 && (
-            <section className="space-y-3">
-              <h2 className="text-[15px] font-semibold text-zinc-900">Do you use Terragrunt with Terraform?</h2>
-              <p className="text-[12px] text-zinc-600">
+            <section className="integration-setup__step-panel">
+              <h2 className="integration-setup__panel-title">Do you use Terragrunt with Terraform?</h2>
+              <p className="integration-setup__panel-copy">
                 Terragrunt wraps Terraform modules into per-environment live stacks. If yes, we&apos;ll ask how your
                 repos are organized next.
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="integration-setup__choice-row">
                 {[
-                  { value: false, label: "No — Terraform only" },
-                  { value: true, label: "Yes — Terragrunt live stacks" },
+                  { value: false, label: "No, Terraform only" },
+                  { value: true, label: "Yes, Terragrunt live stacks" },
                 ].map((opt) => (
                   <button
                     key={String(opt.value)}
                     type="button"
                     onClick={() => setUsesTerragrunt(opt.value)}
-                    className={`rounded-lg border px-4 py-2.5 text-[13px] font-medium transition ${
-                      usesTerragrunt === opt.value
-                        ? "border-indigo-400 bg-indigo-50 text-indigo-950"
-                        : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                    aria-pressed={usesTerragrunt === opt.value}
+                    className={`integration-setup__choice-btn ${
+                      usesTerragrunt === opt.value ? "integration-setup__choice-btn--selected" : ""
                     }`}
                   >
                     {opt.label}
@@ -358,17 +395,17 @@ export default function IacRepositoryIntegration() {
           )}
 
           {step === 3 && (
-            <section className="space-y-3">
-              <h2 className="text-[15px] font-semibold text-zinc-900">
+            <section className="integration-setup__step-panel">
+              <h2 className="integration-setup__panel-title">
                 {usesTerragrunt ? "One repository or two?" : "Repository layout"}
               </h2>
               {usesTerragrunt ? (
                 <>
-                  <p className="text-[12px] text-zinc-600">
-                    <strong>One repo</strong> — modules and live stacks in different folders (common).{" "}
-                    <strong>Two repos</strong> — separate module and live-stack repositories.
+                  <p className="integration-setup__panel-copy">
+                    <strong>One repo</strong> keeps modules and live stacks in different folders.{" "}
+                    <strong>Two repos</strong> separates modules from live-stack repositories.
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="integration-setup__choice-row">
                     {[
                       { value: "single" as RepoMode, label: "One repo, different paths" },
                       { value: "dual" as RepoMode, label: "Two separate repos" },
@@ -377,10 +414,9 @@ export default function IacRepositoryIntegration() {
                         key={opt.value}
                         type="button"
                         onClick={() => setRepoMode(opt.value)}
-                        className={`rounded-lg border px-4 py-2.5 text-[13px] font-medium transition ${
-                          repoMode === opt.value
-                            ? "border-indigo-400 bg-indigo-50 text-indigo-950"
-                            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                        aria-pressed={repoMode === opt.value}
+                        className={`integration-setup__choice-btn ${
+                          repoMode === opt.value ? "integration-setup__choice-btn--selected" : ""
                         }`}
                       >
                         {opt.label}
@@ -389,7 +425,7 @@ export default function IacRepositoryIntegration() {
                   </div>
                 </>
               ) : (
-                <p className="text-[12px] text-zinc-600">
+                <p className="integration-setup__panel-copy">
                   Terraform-only teams link a single repository. You can set an optional subdirectory path on the next
                   step.
                 </p>
@@ -398,9 +434,9 @@ export default function IacRepositoryIntegration() {
           )}
 
           {step === 4 && (
-            <section className="space-y-5">
-              <h2 className="text-[15px] font-semibold text-zinc-900">Link your repositories</h2>
-              <p className="text-[12px] text-zinc-600">{selectedVcs.authHint}</p>
+            <section className="integration-setup__step-panel integration-setup__step-panel--stacked">
+              <h2 className="integration-setup__panel-title">Link your repositories</h2>
+              <p className="integration-setup__panel-copy">{selectedVcs.authHint}</p>
 
               <div>
                 <h3 className="text-[13px] font-semibold text-zinc-800">

@@ -590,7 +590,7 @@ function IntegrationsContent() {
             name: "IaC repository",
             description: "Link Terraform/Terragrunt repo for finding remediation PRs and tickets.",
             icon: <IntegrationBrandIcon brand="iac" size={48} />,
-            href: "/integrations/iac-repository",
+            href: "/integrations/iac-repository?manage=1",
             connected: true,
             loading: iacRepository.isLoading,
             lastSyncAt: null,
