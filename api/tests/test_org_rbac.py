@@ -522,8 +522,14 @@ def test_switch_workspace_returns_new_tokens(client):
     membership_b.org_id = org_b
     membership_b.role = "viewer"
 
+    target_org = MagicMock(spec=Org)
+    target_org.settings = {}
+
     db = MagicMock()
-    db.get.return_value = user
+    db.get.side_effect = lambda model, pk: {
+        user_id: user,
+        org_b: target_org,
+    }.get(pk)
     db.scalar.return_value = membership_b
 
     client.app.dependency_overrides[current_user_principal] = lambda: {

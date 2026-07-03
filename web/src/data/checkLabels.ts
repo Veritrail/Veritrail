@@ -147,6 +147,7 @@ export const checkLabels: Record<string, string> = {
   "google_workspace.user.inactive_90d": "Google Workspace inactive user",
   "google_workspace.admin.unreviewed": "Google Workspace admin unreviewed",
   "gcp.compute.instance_public_ip": "GCP compute instance public IP",
+  "gcp.firewall.open_ingress": "GCP firewall allows open ingress",
   "gcp.logging.not_enabled": "GCP audit log export not configured",
   "gcp.osconfig.vuln_report_present": "GCP OS Config vulnerability reports missing",
   "gcp.scc.not_enabled": "GCP Security Command Center not accessible",
@@ -158,6 +159,10 @@ export const checkLabels: Record<string, string> = {
   "okta.admin.unreviewed": "Okta admin unreviewed",
   "okta.org.mfa_not_enforced": "Okta MFA not enforced",
   "okta.user.inactive_90d": "Okta inactive user",
+  "okta.app.overprivileged_grant": "Okta app overprivileged OAuth grant",
+  "okta.service.api_token_stale": "Okta API token stale",
+  "intune.device.not_encrypted": "Intune device not encrypted",
+  "jamf.device.not_encrypted": "Jamf device not encrypted",
   "identity_center.user.inactive_90d": "Identity Center user stale",
 };
 

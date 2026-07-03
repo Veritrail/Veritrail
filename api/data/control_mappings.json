@@ -32,6 +32,7 @@
       "iam.account.password_policy_weak",
       "secretsmanager.secret.no_rotation",
       "ssm.parameter.plaintext_secret",
+      "okta.service.api_token_stale",
       "github.org.mfa_not_enforced",
       "github.org.outside_collaborators",
       "gitlab.org.mfa_not_enforced",
@@ -67,6 +68,7 @@
       "google_workspace.admin.unreviewed",
       "okta.admin.unreviewed",
       "okta.user.inactive_90d",
+      "okta.app.overprivileged_grant",
       "iam.user.admin_policy_attached"
     ],
     "soc2_scope_category": "security"
@@ -156,7 +158,9 @@
       "s3.bucket.no_default_encryption",
       "dynamodb.table.no_encryption",
       "sns.topic.no_encryption",
-      "sqs.queue.no_encryption"
+      "sqs.queue.no_encryption",
+      "intune.device.not_encrypted",
+      "jamf.device.not_encrypted"
     ],
     "soc2_scope_category": "security"
   },
@@ -515,7 +519,9 @@
       "iam.role.unused_services_90d",
       "iam.policy.wildcard_resource",
       "iam.access_key.no_rotation_90d",
-      "cloudtrail.event.iam_role_policy_mutation"
+      "cloudtrail.event.iam_role_policy_mutation",
+      "okta.app.overprivileged_grant",
+      "okta.service.api_token_stale"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -566,7 +572,9 @@
       "dynamodb.table.no_encryption",
       "sns.topic.no_encryption",
       "sqs.queue.no_encryption",
-      "cloudtrail.event.kms_key_disabled_or_deleted"
+      "cloudtrail.event.kms_key_disabled_or_deleted",
+      "intune.device.not_encrypted",
+      "jamf.device.not_encrypted"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."

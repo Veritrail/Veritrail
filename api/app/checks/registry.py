@@ -329,9 +329,4 @@ ALL_CHECKS = [
     azure_logging_not_enabled,
     azure_entra_privileged_role_assignment,
     azure_policy_non_compliant,
-    # Phase 9 — MDM + extended Okta API
-    intune_device_not_encrypted,
-    jamf_device_not_encrypted,
-    okta_app_overprivileged,
-    okta_api_token_stale,
 ]
