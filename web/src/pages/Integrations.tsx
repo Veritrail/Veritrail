@@ -390,6 +390,13 @@ function IntegrationsContent() {
     gitlab.data?.status === "error",
   ].filter(Boolean).length;
 
+  const iacRepoRef =
+    iacRepository.data?.terraform_repo?.repo_ref ??
+    iacRepository.data?.repo_ref ??
+    (iacRepository.data?.owner && iacRepository.data?.repo
+      ? `${iacRepository.data.owner}/${iacRepository.data.repo}`
+      : null);
+
   const integrationRows: IntegrationRow[] = [
     {
       key: "aws",
@@ -592,18 +599,15 @@ function IntegrationsContent() {
           {
             key: "iac-repository",
             name: "IaC repository",
-            description: "Link Terraform/Terragrunt repo for finding remediation PRs and tickets.",
+            description: iacRepoRef
+              ? `Remediation PRs from ${iacRepoRef}`
+              : "Link Terraform/Terragrunt repo for finding remediation PRs and tickets.",
             icon: <IntegrationBrandIcon brand="iac" size={48} />,
             href: "/integrations/iac-repository?manage=1",
             connected: true,
             loading: iacRepository.isLoading,
             lastSyncAt: null,
-            lastSyncLabel:
-              iacRepository.data?.terraform_repo?.repo_ref ??
-              iacRepository.data?.repo_ref ??
-              (iacRepository.data?.owner && iacRepository.data?.repo
-                ? `${iacRepository.data.owner}/${iacRepository.data.repo}`
-                : "Repository configured"),
+            lastSyncLabel: "On demand",
             healthLabel: iacRepository.data?.status === "error" ? "Needs reconnect" : "Healthy",
             healthTone: (iacRepository.data?.status === "error" ? "danger" : "ok") as Tone,
             permissionsLabel: iacRepository.data?.has_access_token ? "Token configured" : "OAuth or token",
