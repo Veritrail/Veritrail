@@ -302,14 +302,16 @@ function IntegrationDiagram() {
         </g>
       </svg>
 
-      <div className="homepage-diagram__sources">
-        {clouds.map((brand) => (
-          <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} />
-        ))}
-      </div>
+      <div className="homepage-diagram__body">
+        <div className="homepage-diagram__sources">
+          {clouds.map((brand) => (
+            <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} />
+          ))}
+        </div>
 
-      <div className="homepage-diagram__target">
-        <img src="/brand/veritrail-mark.png" alt="" className="homepage-diagram__mark" />
+        <div className="homepage-diagram__target">
+          <img src="/brand/veritrail-mark.png" alt="" className="homepage-diagram__mark" />
+        </div>
       </div>
     </div>
   );
