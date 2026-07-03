@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.rbac import get_org_user, role_at_least
+from app.core.route_deps import RequireAdmin
 from app.core.evidence_rbac import (
     assert_evidence_readable,
     is_auditor_viewer,

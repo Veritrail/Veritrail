@@ -1,4 +1,4 @@
-import { api } from "../api";
+import { api, isSessionStaleError } from "../api";
 import { accountListSchema } from "./apiSchemas";
 import { isAccountConnected } from "./accountConnection";
 
@@ -7,7 +7,9 @@ export async function postAuthPath(): Promise<"/accounts" | "/findings"> {
   try {
     const accounts = await api("/v1/accounts", { schema: accountListSchema });
     if (accounts.some(isAccountConnected)) return "/findings";
-  } catch {
+  } catch (e) {
+    // api() already cleared tokens and scheduled /login when the session is dead.
+    if (isSessionStaleError(e)) throw e;
     // If accounts cannot load, onboarding is still the safest default.
   }
   return "/accounts";

@@ -94,14 +94,18 @@ export default function Layout() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      if (token()) {
-        if (!cancelled) setAuthReady(true);
-        return;
+      try {
+        if (token()) {
+          if (!cancelled) setAuthReady(true);
+          return;
+        }
+        const ok = await restoreSession();
+        if (cancelled) return;
+        if (!ok) nav("/login");
+        else setAuthReady(true);
+      } catch {
+        if (!cancelled) nav("/login");
       }
-      const ok = await restoreSession();
-      if (cancelled) return;
-      if (!ok) nav("/login");
-      else setAuthReady(true);
     })();
     return () => {
       cancelled = true;

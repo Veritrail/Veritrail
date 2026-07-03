@@ -271,27 +271,26 @@ export default function Login() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      if (freshSignIn) {
-        if (!cancelled) setCheckingSession(false);
-        return;
-      }
-      if (token()) {
-        if (inviteToken) {
-          try {
-            const access = await acceptInviteAfterLogin(token()!);
-            storeTokens(access);
-          } catch {
-            if (!cancelled) setCheckingSession(false);
-            return;
+      try {
+        if (freshSignIn) return;
+        if (token()) {
+          if (inviteToken) {
+            try {
+              const access = await acceptInviteAfterLogin(token()!);
+              storeTokens(access);
+            } catch {
+              return;
+            }
           }
+          if (!cancelled) nav(await postAuthPath(), { replace: true });
+          return;
         }
-        if (!cancelled) nav(await postAuthPath(), { replace: true });
-        return;
-      }
-      const ok = await restoreSession();
-      if (!cancelled) {
-        if (ok) nav(await postAuthPath(), { replace: true });
-        else setCheckingSession(false);
+        const ok = await restoreSession();
+        if (!cancelled && ok) nav(await postAuthPath(), { replace: true });
+      } catch {
+        // postAuthPath may rethrow after api() schedules redirect to /login.
+      } finally {
+        if (!cancelled) setCheckingSession(false);
       }
     })();
     return () => {

@@ -111,6 +111,14 @@ export function isSessionStaleError(error: unknown): boolean {
 
 let _refreshing: Promise<string | null> | null = null;
 
+const REFRESH_TIMEOUT_MS = 15_000;
+
+function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = REFRESH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timeout));
+}
+
 /** Restore session from HttpOnly refresh cookie when access token is gone. */
 export async function restoreSession(): Promise<boolean> {
   if (token()) return true;
@@ -122,7 +130,7 @@ async function tryRefresh(): Promise<string | null> {
   if (_refreshing) return _refreshing;
   _refreshing = (async () => {
     try {
-      const res = await fetch(`${BASE}/v1/auth/refresh`, {
+      const res = await fetchWithTimeout(`${BASE}/v1/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
