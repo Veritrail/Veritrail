@@ -464,6 +464,66 @@ function ToolbarIconButton({
   );
 }
 
+function escapeCsvCell(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function csvRow(cells: string[]): string {
+  return cells.map(escapeCsvCell).join(",");
+}
+
+function downloadCsvFile(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function findingResourcesCsvFilename(finding: ResourcesTabFinding): string {
+  const slug = finding.check_id || finding.id;
+  const date = new Date().toISOString().slice(0, 10);
+  return `finding-resources-${slug}-${date}.csv`;
+}
+
+function buildFindingResourcesCsv(rows: ResourcesTabFinding[]): string {
+  const header = csvRow([
+    "Resource",
+    "ARN",
+    "Type",
+    "Account",
+    "Account ID",
+    "First seen",
+    "Last seen",
+    "Why this resource is affected",
+  ]);
+  const body = rows.map((f) => {
+    const name = resourceDisplayName(f);
+    const accountName = findingScopeDisplayName(f) || "—";
+    const accountAwsId = awsAccountIdFromFinding(f) ?? "—";
+    const first = formatResourceTableDate(f.first_seen, "first");
+    const last = formatResourceTableDate(f.last_seen, "last");
+    const firstSeen = first.sub ? `${first.primary} (${first.sub})` : first.primary;
+    const lastSeen = last.sub ? `${last.primary} (${last.sub})` : last.primary;
+    return csvRow([
+      name,
+      f.resource_arn,
+      assetTypeLabel(f.check_id),
+      accountName,
+      accountAwsId,
+      firstSeen,
+      lastSeen,
+      resourceAffectedReason(f),
+    ]);
+  });
+  return [header, ...body].join("\n");
+}
+
 export function FindingResourcesTab({
   selectedFinding,
   groupFindings,
@@ -596,6 +656,12 @@ export function FindingResourcesTab({
       if (result.resolved) tallies.resolved += 1;
       else tallies.unchanged += 1;
     }
+  }
+
+  function downloadVisibleResourcesCsv() {
+    if (rows.length === 0) return;
+    const csv = buildFindingResourcesCsv(rows);
+    downloadCsvFile(csv, findingResourcesCsvFilename(selectedFinding));
   }
 
   async function refreshVisibleResources() {
@@ -769,6 +835,19 @@ export function FindingResourcesTab({
                 />
               </svg>
             )}
+          </ToolbarIconButton>
+          <ToolbarIconButton
+            label="Download visible resources as CSV"
+            disabled={rows.length === 0}
+            onClick={downloadVisibleResourcesCsv}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+              />
+            </svg>
           </ToolbarIconButton>
           <div ref={typeFilterRef} className="relative">
             <ToolbarIconButton
