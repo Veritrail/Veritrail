@@ -19,6 +19,7 @@ import { PostureMetricCell } from "./Workspace";
 // d-path icons for the Workspace-style KPI strip.
 const IK = {
   connected: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  syncing: "M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05",
   errors: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z",
   sources: "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z",
 } as const;
@@ -70,18 +71,13 @@ type CloudAccountRow = {
 
 type Tone = "ok" | "warn" | "idle" | "sync" | "danger";
 
-type IntegrationCategory = "cloud" | "code" | "workflow";
-
-type FilterChip = "all" | "healthy" | "attention" | IntegrationCategory;
-
 type IntegrationRow = {
   key: string;
   name: string;
-  typeLabel: string;
+  description: string;
   icon: ReactNode;
   href: string;
   connected: boolean;
-  category: IntegrationCategory | null;
   syncing?: boolean;
   loading?: boolean;
   lastSyncAt: string | null;
@@ -93,20 +89,8 @@ type IntegrationRow = {
   capabilities: string[];
 };
 
-function integrationCategory(key: string): IntegrationCategory | null {
-  if (key === "aws" || key === "gcp" || key === "azure") return "cloud";
-  if (key === "github" || key === "gitlab") return "code";
-  if (key === "slack" || key === "jira" || key === "azure-boards" || key === "iac-repository") return "workflow";
-  return null;
-}
-
-function rowNeedsAttention(row: IntegrationRow): boolean {
-  return row.healthTone === "danger" || row.healthLabel === "Needs reconnect";
-}
-
-function integrationCta(row: IntegrationRow): string {
-  if (rowNeedsAttention(row)) return "Reconnect";
-  return row.connected ? "Manage" : "Connect";
+function integrationCta(connected: boolean): string {
+  return connected ? "Manage" : "Connect";
 }
 
 function CapabilityPills({ tags }: { tags: string[] }) {
@@ -157,23 +141,23 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
     row.lastSyncLabel != null
       ? { primary: row.lastSyncLabel, secondary: "" }
       : formatSyncDetail(row.lastSyncAt);
-  const needsAttention = rowNeedsAttention(row);
-  const showConnectedBadge = row.connected && row.healthLabel !== "Healthy" && !needsAttention;
 
   return (
-    <tr className={needsAttention ? "integrations-table__row--attention" : undefined}>
+    <tr>
       <td>
         <div className="integrations-table__integration">
           {row.icon}
           <div className="min-w-0">
             <div className="integrations-table__name">{row.name}</div>
-            <div className="integrations-table__type">{row.typeLabel}</div>
-            {showConnectedBadge && <span className="integrations-table__badge">Connected</span>}
+            {row.connected && <span className="integrations-table__badge">Connected</span>}
           </div>
         </div>
       </td>
       <td>
         <TableStatus loading={row.loading} syncing={row.syncing} label={row.healthLabel} tone={row.healthTone} />
+      </td>
+      <td>
+        <p className="integrations-table__description">{row.description}</p>
       </td>
       <td>
         {row.loading ? (
@@ -198,11 +182,8 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
       </td>
       <td>
         <div className="integrations-table__actions">
-          <Link
-            to={row.href}
-            className={`integrations-manage-btn${needsAttention ? " integrations-manage-btn--attention" : ""}`}
-          >
-            {integrationCta(row)}
+          <Link to={row.href} className="integrations-manage-btn">
+            {integrationCta(row.connected)}
           </Link>
           <Link to={row.href} className="integrations-chevron" aria-label={`Open ${row.name}`}>
             <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -215,144 +196,35 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
   );
 }
 
-function FilterChipButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className={`integrations-filter-chip${active ? " integrations-filter-chip--active" : ""}`}
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      {children}
-    </button>
-  );
-}
-
-function IntegrationsInventory({
-  rows,
-  attentionCount,
-}: {
-  rows: IntegrationRow[];
-  attentionCount: number;
-}) {
-  const [filter, setFilter] = useState<FilterChip>("all");
-
-  const counts = useMemo(() => {
-    const healthy = rows.filter((r) => r.healthTone === "ok" || r.healthLabel === "Healthy").length;
-    const attention = rows.filter(rowNeedsAttention).length;
-    const cloud = rows.filter((r) => r.category === "cloud").length;
-    const code = rows.filter((r) => r.category === "code").length;
-    const workflow = rows.filter((r) => r.category === "workflow").length;
-    return { all: rows.length, healthy, attention, cloud, code, workflow };
-  }, [rows]);
-
-  const filteredRows = useMemo(() => {
-    switch (filter) {
-      case "healthy":
-        return rows.filter((r) => r.healthTone === "ok" || r.healthLabel === "Healthy");
-      case "attention":
-        return rows.filter(rowNeedsAttention);
-      case "cloud":
-      case "code":
-      case "workflow":
-        return rows.filter((r) => r.category === filter);
-      default:
-        return rows;
-    }
-  }, [rows, filter]);
-
-  return (
-    <div className="integrations-inventory">
-      <div className="integrations-inventory__header">
-        <div className="integrations-inventory__heading">
-          <h2>Connected integrations</h2>
-          <p>Manage evidence sources connected to this workspace.</p>
-          {rows.length > 0 && (
-            <p className="integrations-inventory__stats" aria-label="Integration summary">
-              {rows.length} connected
-              {attentionCount > 0 && (
-                <>
-                  <span className="integrations-inventory__stats-sep" aria-hidden>
-                    ·
-                  </span>
-                  {attentionCount} needs attention
-                </>
-              )}
-            </p>
-          )}
-        </div>
-        <Link to="/integrations/catalog" className="integrations-page__catalog-btn">
-          Browse catalog
-          <svg className="integrations-page__catalog-arrow" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-          </svg>
-        </Link>
+function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <div className="integrations-table-wrap px-6 py-10 text-center text-sm text-slate-500">
+        No connected integrations yet. Connect AWS or a source control provider to get started.
       </div>
+    );
+  }
 
-      {rows.length > 0 && (
-        <div className="integrations-inventory__filters" role="group" aria-label="Filter integrations">
-          <FilterChipButton active={filter === "all"} onClick={() => setFilter("all")}>
-            All {counts.all}
-          </FilterChipButton>
-          <FilterChipButton active={filter === "healthy"} onClick={() => setFilter("healthy")}>
-            Healthy {counts.healthy}
-          </FilterChipButton>
-          <FilterChipButton active={filter === "attention"} onClick={() => setFilter("attention")}>
-            Needs attention {counts.attention}
-          </FilterChipButton>
-          {counts.cloud > 0 && (
-            <FilterChipButton active={filter === "cloud"} onClick={() => setFilter("cloud")}>
-              Cloud {counts.cloud}
-            </FilterChipButton>
-          )}
-          {counts.code > 0 && (
-            <FilterChipButton active={filter === "code"} onClick={() => setFilter("code")}>
-              Code {counts.code}
-            </FilterChipButton>
-          )}
-          {counts.workflow > 0 && (
-            <FilterChipButton active={filter === "workflow"} onClick={() => setFilter("workflow")}>
-              Workflow {counts.workflow}
-            </FilterChipButton>
-          )}
-        </div>
-      )}
-
-      {rows.length === 0 ? (
-        <div className="integrations-inventory__empty">
-          No connected integrations yet. Connect AWS or a source control provider to get started.
-        </div>
-      ) : filteredRows.length === 0 ? (
-        <div className="integrations-inventory__empty">No integrations match this filter.</div>
-      ) : (
-        <div className="integrations-table-wrap integrations-table-wrap--inset">
-          <table className="integrations-table">
-            <thead>
-              <tr>
-                <th>Integration</th>
-                <th>Health</th>
-                <th>Last collection</th>
-                <th>Permissions</th>
-                <th>Capabilities</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((row) => (
-                <IntegrationsTableRow key={row.key} row={row} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+  return (
+    <div className="integrations-table-wrap">
+      <table className="integrations-table">
+        <thead>
+          <tr>
+            <th>Integration</th>
+            <th>Status</th>
+            <th>Description</th>
+            <th>Last collection</th>
+            <th>Permissions</th>
+            <th>Capabilities</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <IntegrationsTableRow key={row.key} row={row} />
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -553,16 +425,30 @@ function IntegrationsContent() {
     splunkConnected,
     datadogConnected,
   ].filter(Boolean).length;
+  const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(
+    Boolean,
+  ).length;
+  const errorCount = [
+    cloudAccounts.isError,
+    github.isError,
+    gitlab.isError,
+    googleWorkspace.isError,
+    entra.isError,
+    settings.isError,
+    // A connected provider whose token/webhook broke ("Needs reconnect") is a
+    // real error, not a soft warning — surface it in the Errors KPI.
+    github.data?.status === "error",
+    gitlab.data?.status === "error",
+  ].filter(Boolean).length;
 
   const integrationRows: IntegrationRow[] = [
     {
       key: "aws",
       name: "AWS",
-      typeLabel: "Cloud provider",
+      description: "Cloud posture, audit evidence, and automated remediation across connected accounts.",
       icon: <IntegrationBrandIcon brand="aws" size={48} />,
       href: "/accounts",
       connected: awsConnected,
-      category: integrationCategory("aws"),
       syncing: awsScanRunning,
       loading: cloudAccounts.isLoading,
       lastSyncAt: awsAccount?.last_scan_at ?? null,
@@ -575,11 +461,10 @@ function IntegrationsContent() {
     {
       key: "github",
       name: "GitHub",
-      typeLabel: "Source control",
+      description: "Repository governance, branch protection, review evidence, and change history.",
       icon: <IntegrationBrandIcon brand="github" size={48} />,
       href: "/integrations/github",
       connected: githubConnected,
-      category: integrationCategory("github"),
       syncing: githubSync.isSyncing,
       loading: github.isLoading,
       lastSyncAt: github.data?.last_synced_at ?? null,
@@ -598,11 +483,10 @@ function IntegrationsContent() {
     {
       key: "gitlab",
       name: "GitLab",
-      typeLabel: "Source control",
+      description: "Repository governance, branch protection, review evidence, and change history.",
       icon: <IntegrationBrandIcon brand="gitlab" size={48} />,
       href: "/integrations/gitlab",
       connected: gitlabConnected,
-      category: integrationCategory("gitlab"),
       syncing: gitlabSync.isSyncing,
       loading: gitlab.isLoading,
       lastSyncAt: gitlab.data?.last_synced_at ?? null,
@@ -623,11 +507,10 @@ function IntegrationsContent() {
           {
             key: "google-workspace",
             name: "Google Workspace",
-            typeLabel: "Identity provider",
+            description: "Directory MFA, inactive users, and admin roster for CC6 evidence",
             icon: <IntegrationBrandIcon brand="google-workspace" size={48} />,
             href: "/integrations/google-workspace",
             connected: true,
-            category: integrationCategory("google-workspace"),
             syncing: googleWorkspaceSync.isSyncing,
             loading: googleWorkspace.isLoading,
             lastSyncAt: googleWorkspace.data?.last_synced_at ?? null,
@@ -644,11 +527,10 @@ function IntegrationsContent() {
           {
             key: "entra",
             name: "Microsoft Entra ID",
-            typeLabel: "Identity provider",
+            description: "Graph directory read for MFA posture, stale users, and privileged roles",
             icon: <IntegrationBrandIcon brand="entra" size={48} />,
             href: "/integrations/entra",
             connected: true,
-            category: integrationCategory("entra"),
             syncing: entraSync.isSyncing,
             loading: entra.isLoading,
             lastSyncAt: entra.data?.last_synced_at ?? null,
@@ -665,11 +547,10 @@ function IntegrationsContent() {
           {
             key: "okta",
             name: "Okta",
-            typeLabel: "Identity provider",
+            description: "Directory sync for MFA posture, inactive users, and admin access review",
             icon: <IntegrationBrandIcon brand="okta" size={48} />,
             href: "/integrations/okta",
             connected: true,
-            category: integrationCategory("okta"),
             loading: okta.isLoading,
             lastSyncAt: okta.data?.last_synced_at ?? null,
             healthLabel: "Healthy",
@@ -685,11 +566,10 @@ function IntegrationsContent() {
           {
             key: "slack",
             name: "Slack",
-            typeLabel: "Alerts & digests",
+            description: "Scan alerts and weekly digests for your channel",
             icon: <IntegrationBrandIcon brand="slack" size={48} />,
             href: "/integrations/slack",
             connected: true,
-            category: integrationCategory("slack"),
             loading: settings.isLoading,
             lastSyncAt: null,
             lastSyncLabel: "Webhook active",
@@ -706,11 +586,10 @@ function IntegrationsContent() {
           {
             key: "gcp",
             name: "Google Cloud",
-            typeLabel: "Cloud provider",
+            description: "Cloud posture, audit evidence, and security findings across connected projects.",
             icon: <IntegrationBrandIcon brand="gcp" size={48} />,
             href: "/integrations/gcp",
             connected: true,
-            category: integrationCategory("gcp"),
             loading: cloudAccounts.isLoading,
             lastSyncAt: gcpProject?.last_scan_at ?? null,
             healthLabel: gcpProject?.last_scan_at ? "Healthy" : "Awaiting scan",
@@ -726,11 +605,10 @@ function IntegrationsContent() {
           {
             key: "azure",
             name: "Microsoft Azure",
-            typeLabel: "Cloud provider",
+            description: "Defender for Cloud and storage public access checks",
             icon: <IntegrationBrandIcon brand="azure" size={48} />,
             href: "/integrations/azure",
             connected: true,
-            category: integrationCategory("azure"),
             loading: cloudAccounts.isLoading,
             lastSyncAt: azureSub?.last_scan_at ?? null,
             healthLabel: azureSub?.last_scan_at ? "Healthy" : "Awaiting scan",
@@ -746,11 +624,10 @@ function IntegrationsContent() {
           {
             key: `scanner-${activeScanner.vendor}`,
             name: `${activeScanner.vendor.charAt(0).toUpperCase()}${activeScanner.vendor.slice(1)} scanner`,
-            typeLabel: "Vulnerability scanner",
+            description: "External vulnerability scanner summary sync",
             icon: <IntegrationBrandIcon brand={activeScanner.vendor as IntegrationBrandId} size={48} />,
             href: `/integrations/scanners/${activeScanner.vendor}`,
             connected: true,
-            category: integrationCategory(`scanner-${activeScanner.vendor}`),
             loading: false,
             lastSyncAt: activeScanner.config.last_synced_at ?? null,
             healthLabel: "Healthy",
@@ -766,11 +643,10 @@ function IntegrationsContent() {
           {
             key: "iac-repository",
             name: "IaC repository",
-            typeLabel: "Ticketing & remediation",
+            description: "Link Terraform/Terragrunt repo for finding remediation PRs and tickets.",
             icon: <IntegrationBrandIcon brand="iac" size={48} />,
             href: "/integrations/iac-repository",
             connected: true,
-            category: integrationCategory("iac-repository"),
             loading: iacRepository.isLoading,
             lastSyncAt: null,
             lastSyncLabel:
@@ -795,11 +671,10 @@ function IntegrationsContent() {
           {
             key: "jira",
             name: "Jira",
-            typeLabel: "Ticketing & remediation",
+            description: "Create Jira issues from findings for remediation tracking.",
             icon: <IntegrationBrandIcon brand="jira" size={48} />,
             href: "/integrations/jira",
             connected: true,
-            category: integrationCategory("jira"),
             loading: jira.isLoading,
             lastSyncAt: null,
             lastSyncLabel: jira.data?.project_key ? `Project ${jira.data.project_key}` : "Project configured",
@@ -816,11 +691,10 @@ function IntegrationsContent() {
           {
             key: "azure-boards",
             name: "Azure Boards",
-            typeLabel: "Ticketing & remediation",
+            description: "Create Azure DevOps work items from findings.",
             icon: <IntegrationBrandIcon brand="azure-devops" size={48} />,
             href: "/integrations/azure-boards",
             connected: true,
-            category: integrationCategory("azure-boards"),
             loading: azureBoards.isLoading,
             lastSyncAt: null,
             lastSyncLabel: azureBoards.data?.project ? `Project ${azureBoards.data.project}` : "Project configured",
@@ -837,11 +711,10 @@ function IntegrationsContent() {
           {
             key: "siem-splunk",
             name: "Splunk",
-            typeLabel: "SIEM & monitoring",
+            description: "SIEM signal evidence from Splunk searches.",
             icon: <IntegrationBrandIcon brand="splunk" size={48} />,
             href: "/integrations/siem/splunk",
             connected: true,
-            category: integrationCategory("siem-splunk"),
             loading: splunkSiem.isLoading,
             lastSyncAt: splunkSiem.data?.config.last_synced_at ?? null,
             healthLabel: splunkSiem.data?.status === "error" ? "Needs reconnect" : "Healthy",
@@ -857,11 +730,10 @@ function IntegrationsContent() {
           {
             key: "siem-datadog",
             name: "Datadog",
-            typeLabel: "SIEM & monitoring",
+            description: "Monitoring signal evidence from Datadog.",
             icon: <IntegrationBrandIcon brand="datadog" size={48} />,
             href: "/integrations/siem/datadog",
             connected: true,
-            category: integrationCategory("siem-datadog"),
             loading: datadogSiem.isLoading,
             lastSyncAt: datadogSiem.data?.config.last_synced_at ?? null,
             healthLabel: datadogSiem.data?.status === "error" ? "Needs reconnect" : "Healthy",
@@ -875,39 +747,36 @@ function IntegrationsContent() {
   ];
 
   const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
-  const attentionCount = activeRows.filter(rowNeedsAttention).length;
   const { hiddenKeys } = useConnectedCatalogState();
   const exploreEntries = useMemo(
     () => catalogExploreEntries(INTEGRATION_CATALOG, hiddenKeys),
     [hiddenKeys],
   );
-  const connectedDetail = `${connectedCount} active connector${connectedCount === 1 ? "" : "s"}`;
-  const attentionDetail =
-    attentionCount === 1
-      ? "1 connector requires reconnect"
-      : attentionCount > 1
-        ? `${attentionCount} connectors require reconnect`
-        : "All connectors healthy";
-  const cloudDetail = `${cloudConnectedCount} account${cloudConnectedCount === 1 ? "" : "s"} · ${accountsList.length} configured`;
 
   return (
     <div className="integrations-page">
-      <div className="workspace-summary workspace-summary--metrics workspace-summary--metrics-3">
-        <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail={connectedDetail} valueTone="ok" />
-        <PostureMetricCell
-          icon={IK.errors}
-          label="Needs attention"
-          value={String(attentionCount)}
-          detail={attentionDetail}
-          valueTone={attentionCount ? "warn" : "default"}
-        />
-        <PostureMetricCell icon={IK.sources} label="Cloud accounts" value={String(cloudConnectedCount)} detail={cloudDetail} />
+      <div className="workspace-summary workspace-summary--metrics">
+        <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail="Active connectors" valueTone="ok" />
+        <PostureMetricCell icon={IK.syncing} label="Syncing" value={String(syncingCount)} detail={syncingCount ? "In progress" : "Idle"} valueTone={syncingCount ? "info" : "default"} />
+        <PostureMetricCell icon={IK.errors} label="Errors" value={String(errorCount)} detail={errorCount ? "Need attention" : "None"} valueTone={errorCount ? "warn" : "default"} />
+        <PostureMetricCell icon={IK.sources} label="Cloud accounts" value={String(cloudConnectedCount)} detail={`${accountsList.length} configured`} />
       </div>
 
       {awsScanRunning && <ScanProgressBanner />}
 
+      <div className="integrations-page__actions">
+        <div className="integrations-page__actions-copy">
+          <h2>Connected integrations</h2>
+          <p>Manage the connectors already configured for this workspace.</p>
+        </div>
+        <Link to="/integrations/catalog" className="integrations-page__catalog-btn">
+          Browse integration catalog
+          <span aria-hidden>&rarr;</span>
+        </Link>
+      </div>
+
       <div className="integrations-page__body">
-        <IntegrationsInventory rows={activeRows} attentionCount={attentionCount} />
+        <IntegrationsTable rows={activeRows} />
         <ExploreIntegrationsSection entries={exploreEntries} />
       </div>
     </div>
