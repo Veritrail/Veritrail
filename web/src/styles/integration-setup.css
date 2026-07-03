@@ -437,6 +437,13 @@
   color: #92400e;
 }
 
+.integration-setup__callout--neutral {
+  margin-top: 0.75rem;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+}
+
 .integration-setup__input--placeholder {
   color: #a16207;
   font-style: italic;

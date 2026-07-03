@@ -35,6 +35,19 @@ const FLOW_NODES = [
   { title: "IaC PR", detail: "Reviewed change" },
 ] as const;
 
+function repoLinkCallout(vcs: VcsProvider, providerLabel: string): string {
+  switch (vcs) {
+    case "github":
+      return `Enter owner and repo only — not a full https://github.com/… URL. Veritrail connects over HTTPS to ${providerLabel}'s API (OAuth or token) and assembles the repository from your provider choice plus those fields.`;
+    case "gitlab":
+      return `Enter the group/project path (e.g. acme-corp/infrastructure) — not a browser URL. Veritrail connects over HTTPS to ${providerLabel}'s API (OAuth or token) and resolves the project from that path.`;
+    case "azure_devops":
+      return `Enter org/project/repo — not a full Azure DevOps web URL. Veritrail connects over HTTPS to Azure DevOps using your token and builds the repository from that reference.`;
+    case "codecommit":
+      return `Enter the repository name — not an AWS console or clone URL. Veritrail connects over HTTPS to CodeCommit using your Git credentials.`;
+  }
+}
+
 type RepoForm = {
   owner: string;
   repo: string;
@@ -67,12 +80,14 @@ function RepoFields({
   onChange,
   pathLabel,
   pathPlaceholder,
+  pathHint = "Folder inside the repo where files live — separate from the owner/repo or project path.",
 }: {
   vcs: VcsProvider;
   form: RepoForm;
   onChange: (next: RepoForm) => void;
   pathLabel: string;
   pathPlaceholder: string;
+  pathHint?: string;
 }) {
   const set = (patch: Partial<RepoForm>) => onChange({ ...form, ...patch });
   return (
@@ -92,7 +107,7 @@ function RepoFields({
             <label className="integration-setup__field-label">Repo</label>
             <input
               className="integration-setup__input"
-              placeholder="e.g. infrastructure-live"
+              placeholder="e.g. terraform-live"
               value={form.repo}
               onChange={(e) => set({ repo: e.target.value })}
             />
@@ -138,6 +153,7 @@ function RepoFields({
           value={form.path}
           onChange={(e) => set({ path: e.target.value })}
         />
+        {pathHint ? <p className="integration-setup__field-hint">{pathHint}</p> : null}
       </div>
       {(vcs === "github" || vcs === "gitlab" || vcs === "azure_devops" || vcs === "codecommit") && (
         <div>
@@ -437,6 +453,10 @@ export default function IacRepositoryIntegration() {
             <section className="integration-setup__step-panel integration-setup__step-panel--stacked">
               <h2 className="integration-setup__panel-title">Link your repositories</h2>
               <p className="integration-setup__panel-copy">{selectedVcs.authHint}</p>
+
+              <div className="integration-setup__callout integration-setup__callout--neutral">
+                {repoLinkCallout(vcsProvider, selectedVcs.label)}
+              </div>
 
               <div>
                 <h3 className="text-[13px] font-semibold text-zinc-800">
