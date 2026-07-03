@@ -124,13 +124,13 @@ function DashboardPreview() {
   return (
     <div className="homepage-dashboard rounded-2xl border border-zinc-200/80 bg-white p-5 sm:p-6">
       <div className="border-b border-zinc-100 pb-4">
-        <h2 className="text-base font-semibold text-teal-900">SOC 2 Overview</h2>
+        <h2 className="text-base font-semibold text-slate-900">SOC 2 Overview</h2>
         <p className="mt-0.5 text-xs text-zinc-500">Continuous evidence for cloud and engineering teams</p>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Controls covered", value: "98%", tone: "text-teal-700" },
+          { label: "Controls covered", value: "98%", tone: "text-slate-700" },
           { label: "Healthy", value: "96%", tone: "text-emerald-600" },
           { label: "Partial", value: "3%", tone: "text-amber-600" },
           { label: "Not in place", value: "1%", tone: "text-red-500" },
@@ -181,7 +181,7 @@ function IntegrationDiagram() {
     <div className="homepage-diagram" aria-hidden>
       <div className="homepage-diagram__sources">
         {clouds.map((brand) => (
-          <IntegrationBrandIcon key={brand} brand={brand} size={44} />
+          <IntegrationBrandIcon key={brand} brand={brand} size={88} />
         ))}
       </div>
       <div className="homepage-diagram__connectors">
@@ -190,7 +190,7 @@ function IntegrationDiagram() {
         ))}
       </div>
       <div className="homepage-diagram__target">
-        <img src="/brand/veritrail-mark.png" alt="" className="h-9 w-9" />
+        <img src="/brand/veritrail-mark.png" alt="" className="homepage-diagram__mark" />
       </div>
     </div>
   );
@@ -204,7 +204,7 @@ export default function Homepage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <VeritrailWordmark />
           <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-zinc-500 hover:text-teal-700">
+            <Link to="/login" className="text-sm font-medium text-zinc-500 hover:text-zinc-700">
               Sign in
             </Link>
             <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
@@ -255,7 +255,7 @@ export default function Homepage() {
           <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
             <IntegrationDiagram />
             <div>
-              <h2 className="text-2xl font-bold tracking-tight text-teal-900 sm:text-3xl">Why teams use Veritrail</h2>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Why teams use Veritrail</h2>
               <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
                 One read-only evidence layer across your cloud and engineering stack — built for SOC 2, not a broad GRC
                 suite.
@@ -263,11 +263,11 @@ export default function Homepage() {
               <ul className="mt-8 space-y-6">
                 {WHY_ITEMS.map((item) => (
                   <li key={item.title} className="flex gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+                    <div className="homepage-benefit__icon flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
                       {item.icon}
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-teal-900">{item.title}</h3>
+                      <h3 className="text-sm font-semibold text-slate-900">{item.title}</h3>
                       <p className="mt-1 text-sm leading-relaxed text-zinc-600">{item.body}</p>
                     </div>
                   </li>
@@ -282,10 +282,10 @@ export default function Homepage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
           <span>© 2026 Veritrail, Inc.</span>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <Link to="/privacy" className="hover:text-teal-700">
+            <Link to="/privacy" className="hover:text-zinc-600">
               Privacy Policy
             </Link>
-            <Link to="/terms" className="hover:text-teal-700">
+            <Link to="/terms" className="hover:text-zinc-600">
               Terms of Service
             </Link>
             <a
