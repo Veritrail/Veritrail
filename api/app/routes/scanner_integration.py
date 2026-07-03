@@ -22,6 +22,7 @@ from app.services.scanner_integrations import (
     verify_scanner_connection,
 )
 from app.services.scanner_sync import sync_scanner_provider
+from app.services.integration_input import normalize_api_base_url, normalize_snyk_org_id
 
 router = APIRouter()
 
@@ -100,7 +101,7 @@ def put_scanner(
     config = dict(existing)
     if key == "wiz":
         if body.api_url:
-            config["api_url"] = body.api_url.strip().rstrip("/")
+            config["api_url"] = normalize_api_base_url(body.api_url.strip())
         if body.client_id:
             config["client_id"] = body.client_id.strip()
         if body.client_secret:
@@ -109,7 +110,7 @@ def put_scanner(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Wiz requires api_url, client_id, and client_secret")
     elif key == "tenable":
         if body.api_url:
-            config["api_url"] = body.api_url.strip().rstrip("/")
+            config["api_url"] = normalize_api_base_url(body.api_url.strip())
         if body.access_key:
             config["access_key"] = body.access_key.strip()
         if body.secret_key:
@@ -118,7 +119,7 @@ def put_scanner(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tenable requires access_key and secret_key")
     elif key == "qualys":
         if body.platform_url:
-            config["platform_url"] = body.platform_url.strip().rstrip("/")
+            config["platform_url"] = normalize_api_base_url(body.platform_url.strip())
         if body.username:
             config["username"] = body.username.strip()
         if body.password:
@@ -127,11 +128,11 @@ def put_scanner(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Qualys requires platform_url, username, and password")
     elif key in {"snyk", "orca", "aikido"}:
         if body.api_url:
-            config["api_url"] = body.api_url.strip().rstrip("/")
+            config["api_url"] = normalize_api_base_url(body.api_url.strip())
         if body.api_token:
             config["api_token"] = body.api_token.strip()
         if body.org_id:
-            config["org_id"] = body.org_id.strip()
+            config["org_id"] = normalize_snyk_org_id(body.org_id.strip())
         if key == "snyk" and not all([config.get("org_id"), config.get("api_token")]):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Snyk requires org_id and api_token")
         if key in {"orca", "aikido"} and not config.get("api_token"):

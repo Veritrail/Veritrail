@@ -6,6 +6,7 @@ from typing import Any, Callable
 import httpx
 
 from app.services.scanner_types import ImportedScannerFinding, normalize_severity
+from app.services.integration_input import normalize_api_base_url, normalize_snyk_org_id
 
 
 def _headers_bearer(token: str) -> dict[str, str]:
@@ -30,9 +31,9 @@ def verify_bearer_get(url: str, token: str, *, label: str) -> dict[str, Any]:
 
 
 def fetch_snyk_findings(cfg: dict[str, Any]) -> list[ImportedScannerFinding]:
-    org_id = (cfg.get("org_id") or "").strip()
+    org_id = normalize_snyk_org_id(cfg.get("org_id") or "")
     token = (cfg.get("api_token") or "").strip()
-    api_url = (cfg.get("api_url") or "https://api.snyk.io").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "https://api.snyk.io")
     if not org_id or not token:
         raise ValueError("Snyk requires org_id and api_token")
     url = f"{api_url}/rest/orgs/{org_id}/issues"

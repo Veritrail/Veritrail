@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.models.github import IdentityProvider, IdentityUser
 
+from app.services.integration_input import api_access_error, normalize_okta_org_url
+
 OKTA_ADMIN_ROLES = frozenset({
     "SUPER_ADMIN",
     "ORG_ADMIN",
@@ -40,12 +42,7 @@ def set_provider_config(provider: IdentityProvider, config: dict[str, Any]) -> N
 
 
 def _org_url(raw: str) -> str:
-    value = (raw or "").strip().rstrip("/")
-    if not value:
-        raise ValueError("Okta org URL is required")
-    if not value.startswith("http"):
-        value = f"https://{value}"
-    return value
+    return normalize_okta_org_url(raw)
 
 
 def _headers(api_token: str) -> dict[str, str]:
@@ -78,7 +75,7 @@ def verify_okta_connection(cfg: dict[str, Any]) -> dict[str, Any]:
     with httpx.Client(timeout=30.0, headers=_headers(cfg["api_token"])) as client:
         resp = client.get(f"{org_url}/api/v1/org")
     if resp.status_code >= 400:
-        raise ValueError(f"Okta API error {resp.status_code}")
+        raise ValueError(api_access_error("Okta", resp.status_code, hint="Check org URL and API token."))
     return {"ok": True, "vendor": "okta", "org": (resp.json() or {}).get("companyName")}
 
 

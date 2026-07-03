@@ -22,6 +22,7 @@ from app.services.siem_integrations import (
     sync_summary,
     verify_siem_connection,
 )
+from app.services.integration_input import normalize_api_base_url, normalize_datadog_site
 
 router = APIRouter()
 SUPPORTED_VENDORS = ("splunk", "datadog", "elastic")
@@ -96,7 +97,7 @@ def put_siem(
 
     if key == "splunk":
         if body.base_url:
-            config["base_url"] = body.base_url.strip().rstrip("/")
+            config["base_url"] = normalize_api_base_url(body.base_url.strip())
         if body.index:
             config["index"] = body.index.strip()
         if body.api_token:
@@ -105,7 +106,7 @@ def put_siem(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Splunk requires base_url and api_token")
     elif key == "datadog":
         if body.site:
-            config["site"] = body.site.strip()
+            config["site"] = normalize_datadog_site(body.site.strip())
         if body.api_key:
             config["api_key"] = body.api_key.strip()
         if body.app_key:
@@ -114,7 +115,7 @@ def put_siem(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Datadog requires api_key and app_key")
     elif key == "elastic":
         if body.cluster_url:
-            config["cluster_url"] = body.cluster_url.strip().rstrip("/")
+            config["cluster_url"] = normalize_api_base_url(body.cluster_url.strip())
         if body.api_key:
             config["api_key"] = body.api_key.strip()
         if not all([config.get("cluster_url"), config.get("api_key")]):

@@ -6,13 +6,16 @@ from typing import Any
 
 import httpx
 
+from app.services.integration_input import (
+    api_access_error,
+    normalize_azure_devops_org_url,
+    normalize_azure_devops_project,
+)
+
 
 class AzureBoardsClient:
     def __init__(self, *, org_url: str, pat: str):
-        org = org_url.strip().rstrip("/")
-        if not org.startswith("http"):
-            org = f"https://dev.azure.com/{org.lstrip('/')}"
-        self.org_url = org
+        self.org_url = normalize_azure_devops_org_url(org_url)
         pat = pat.strip()
         if not pat:
             raise ValueError("Azure DevOps PAT is required")
@@ -26,18 +29,24 @@ class AzureBoardsClient:
         return f"{self.org_url}/{project_enc}/_apis/{path}"
 
     def verify(self, project: str) -> dict[str, Any]:
-        project = project.strip()
+        project = normalize_azure_devops_project(project)
         if not project:
             raise ValueError("Azure DevOps project is required")
         with httpx.Client(timeout=30.0, headers=self._auth_header) as client:
             resp = client.get(self._api(project, "wit/workitemtypes?api-version=7.0"))
         if resp.status_code >= 400:
-            raise ValueError(f"Azure Boards project not accessible ({resp.status_code})")
+            raise ValueError(
+                api_access_error(
+                    "Azure Boards",
+                    resp.status_code,
+                    hint="Use org URL (e.g. https://dev.azure.com/myorg) and project name only.",
+                )
+            )
         types = [row.get("name") for row in (resp.json().get("value") or []) if row.get("name")]
         return {"project": project, "work_item_types": types[:10]}
 
     def create_work_item(self, *, project: str, title: str, description: str, work_item_type: str = "Task") -> dict[str, str]:
-        project = project.strip()
+        project = normalize_azure_devops_project(project)
         wit = (work_item_type or "Task").strip()
         body = [
             {"op": "add", "path": "/fields/System.Title", "value": title},

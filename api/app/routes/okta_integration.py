@@ -21,6 +21,7 @@ from app.services.okta_sync import (
     sync_okta_provider,
     verify_okta_connection,
 )
+from app.services.integration_input import normalize_okta_org_url
 
 router = APIRouter()
 OKTA_TYPE = "okta"
@@ -87,7 +88,7 @@ def put_okta(body: OktaIntegrationIn, _rbac: RequireAdmin, p=Depends(current_pri
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Okta API token is required")
     config = {
         **existing,
-        "org_url": body.org_url.strip().rstrip("/"),
+        "org_url": normalize_okta_org_url(body.org_url.strip()),
         "api_token": api_token,
     }
     try:
@@ -120,7 +121,7 @@ def test_okta(
     cfg = dict(provider_config(provider) if provider else {})
     if body:
         if body.org_url.strip():
-            cfg["org_url"] = body.org_url.strip().rstrip("/")
+            cfg["org_url"] = normalize_okta_org_url(body.org_url.strip())
         if body.api_token and body.api_token.strip():
             cfg["api_token"] = body.api_token.strip()
     try:

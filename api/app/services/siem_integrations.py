@@ -7,6 +7,13 @@ from typing import Any
 
 import httpx
 
+from app.services.integration_input import (
+    api_access_error,
+    normalize_api_base_url,
+    normalize_datadog_site,
+    normalize_snyk_org_id,
+)
+
 SIEM_TYPES = {
     "splunk": "siem_splunk",
     "datadog": "siem_datadog",
@@ -87,7 +94,7 @@ def sync_summary(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def _test_splunk(cfg: dict[str, Any]) -> dict[str, Any]:
-    base = (cfg.get("base_url") or "").rstrip("/")
+    base = normalize_api_base_url(cfg.get("base_url") or "")
     token = (cfg.get("api_token") or "").strip()
     if not base or not token:
         raise ValueError("Splunk requires base_url and api_token")
@@ -98,12 +105,12 @@ def _test_splunk(cfg: dict[str, Any]) -> dict[str, Any]:
             params={"output_mode": "json"},
         )
     if resp.status_code >= 400:
-        raise ValueError(f"Splunk API error {resp.status_code}")
+        raise ValueError(api_access_error("Splunk", resp.status_code, hint="Use Splunk management URL origin only."))
     return {"ok": True, "vendor": "splunk"}
 
 
 def _splunk_signal_count(cfg: dict[str, Any]) -> int:
-    base = (cfg.get("base_url") or "").rstrip("/")
+    base = normalize_api_base_url(cfg.get("base_url") or "")
     token = (cfg.get("api_token") or "").strip()
     index = (cfg.get("index") or "main").strip()
     query = f"search index={index} earliest=-24h | stats count"
@@ -128,7 +135,7 @@ def _splunk_signal_count(cfg: dict[str, Any]) -> int:
 
 
 def _test_datadog(cfg: dict[str, Any]) -> dict[str, Any]:
-    site = (cfg.get("site") or "datadoghq.com").strip()
+    site = normalize_datadog_site(cfg.get("site") or "datadoghq.com")
     api_key = (cfg.get("api_key") or "").strip()
     app_key = (cfg.get("app_key") or "").strip()
     if not api_key or not app_key:
@@ -139,12 +146,12 @@ def _test_datadog(cfg: dict[str, Any]) -> dict[str, Any]:
             headers={"DD-API-KEY": api_key, "DD-APPLICATION-KEY": app_key},
         )
     if resp.status_code >= 400:
-        raise ValueError(f"Datadog API error {resp.status_code}")
+        raise ValueError(api_access_error("Datadog", resp.status_code, hint="Use site hostname (e.g. datadoghq.com)."))
     return {"ok": True, "vendor": "datadog"}
 
 
 def _datadog_signal_count(cfg: dict[str, Any]) -> int:
-    site = (cfg.get("site") or "datadoghq.com").strip()
+    site = normalize_datadog_site(cfg.get("site") or "datadoghq.com")
     headers = {"DD-API-KEY": cfg["api_key"], "DD-APPLICATION-KEY": cfg["app_key"]}
     with httpx.Client(timeout=60.0) as client:
         resp = client.get(
@@ -159,7 +166,7 @@ def _datadog_signal_count(cfg: dict[str, Any]) -> int:
 
 
 def _test_elastic(cfg: dict[str, Any]) -> dict[str, Any]:
-    cluster = (cfg.get("cluster_url") or "").rstrip("/")
+    cluster = normalize_api_base_url(cfg.get("cluster_url") or "")
     api_key = (cfg.get("api_key") or "").strip()
     if not cluster or not api_key:
         raise ValueError("Elastic requires cluster_url and api_key")
@@ -169,12 +176,12 @@ def _test_elastic(cfg: dict[str, Any]) -> dict[str, Any]:
             headers={"Authorization": f"ApiKey {api_key}"},
         )
     if resp.status_code >= 400:
-        raise ValueError(f"Elastic API error {resp.status_code}")
+        raise ValueError(api_access_error("Elastic", resp.status_code, hint="Use cluster URL origin only."))
     return {"ok": True, "vendor": "elastic"}
 
 
 def _elastic_signal_count(cfg: dict[str, Any]) -> int:
-    cluster = (cfg.get("cluster_url") or "").rstrip("/")
+    cluster = normalize_api_base_url(cfg.get("cluster_url") or "")
     headers = {"Authorization": f"ApiKey {cfg['api_key']}", "Content-Type": "application/json"}
     body = {
         "size": 0,

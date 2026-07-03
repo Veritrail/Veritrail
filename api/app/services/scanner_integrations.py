@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from app.services.integration_input import api_access_error, normalize_api_base_url, normalize_snyk_org_id
+
 SCANNER_TYPES = {
     "wiz": "scanner_wiz",
     "tenable": "scanner_tenable",
@@ -111,7 +113,7 @@ def sync_summary(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def _test_wiz(cfg: dict[str, Any]) -> dict[str, Any]:
-    api_url = (cfg.get("api_url") or "").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "")
     client_id = cfg.get("client_id")
     client_secret = cfg.get("client_secret")
     if not all([api_url, client_id, client_secret]):
@@ -124,7 +126,7 @@ def _test_wiz(cfg: dict[str, Any]) -> dict[str, Any]:
             json={"query": "query { currentUser { id email } }"},
         )
     if resp.status_code >= 400:
-        raise ValueError(f"Wiz API error {resp.status_code}")
+        raise ValueError(api_access_error("Wiz", resp.status_code))
     return {"ok": True, "vendor": "wiz"}
 
 
@@ -148,7 +150,7 @@ def _wiz_token(api_url: str, client_id: str, client_secret: str) -> str:
 
 
 def _wiz_open_findings(cfg: dict[str, Any]) -> int:
-    api_url = (cfg.get("api_url") or "").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "")
     token = _wiz_token(api_url, cfg["client_id"], cfg["client_secret"])
     query = """
     query { issuesV2(filterBy: {status: [OPEN]}) { totalCount } }
@@ -167,7 +169,7 @@ def _wiz_open_findings(cfg: dict[str, Any]) -> int:
 
 
 def _test_tenable(cfg: dict[str, Any]) -> dict[str, Any]:
-    api_url = (cfg.get("api_url") or "https://cloud.tenable.com").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "https://cloud.tenable.com")
     access_key = cfg.get("access_key")
     secret_key = cfg.get("secret_key")
     if not all([access_key, secret_key]):
@@ -179,12 +181,12 @@ def _test_tenable(cfg: dict[str, Any]) -> dict[str, Any]:
             params={"limit": 1},
         )
     if resp.status_code >= 400:
-        raise ValueError(f"Tenable API error {resp.status_code}")
+        raise ValueError(api_access_error("Tenable", resp.status_code))
     return {"ok": True, "vendor": "tenable"}
 
 
 def _tenable_open_findings(cfg: dict[str, Any]) -> int:
-    api_url = (cfg.get("api_url") or "https://cloud.tenable.com").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "https://cloud.tenable.com")
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(
             f"{api_url}/workbenches/vulnerabilities",
@@ -200,7 +202,7 @@ def _tenable_open_findings(cfg: dict[str, Any]) -> int:
 
 
 def _test_qualys(cfg: dict[str, Any]) -> dict[str, Any]:
-    platform_url = (cfg.get("platform_url") or "").rstrip("/")
+    platform_url = normalize_api_base_url(cfg.get("platform_url") or "")
     username = cfg.get("username")
     password = cfg.get("password")
     if not all([platform_url, username, password]):
@@ -213,12 +215,12 @@ def _test_qualys(cfg: dict[str, Any]) -> dict[str, Any]:
             headers={"X-Requested-With": "Veritrail"},
         )
     if resp.status_code >= 400:
-        raise ValueError(f"Qualys API error {resp.status_code}")
+        raise ValueError(api_access_error("Qualys", resp.status_code))
     return {"ok": True, "vendor": "qualys"}
 
 
 def _qualys_open_findings(cfg: dict[str, Any]) -> int:
-    platform_url = (cfg.get("platform_url") or "").rstrip("/")
+    platform_url = normalize_api_base_url(cfg.get("platform_url") or "")
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(
             f"{platform_url}/api/2.0/fo/knowledge_base/vuln/",
@@ -242,9 +244,9 @@ def _qualys_open_findings(cfg: dict[str, Any]) -> int:
 def _test_snyk(cfg: dict[str, Any]) -> dict[str, Any]:
     from app.services.snyk_shaped_scanner import verify_bearer_get
 
-    org_id = (cfg.get("org_id") or "").strip()
+    org_id = normalize_snyk_org_id(cfg.get("org_id") or "")
     token = (cfg.get("api_token") or "").strip()
-    api_url = (cfg.get("api_url") or "https://api.snyk.io").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "https://api.snyk.io")
     if not org_id:
         raise ValueError("Snyk requires org_id")
     verify_bearer_get(f"{api_url}/rest/orgs/{org_id}?version=2024-10-15", token, label="snyk")
@@ -255,7 +257,7 @@ def _test_orca(cfg: dict[str, Any]) -> dict[str, Any]:
     from app.services.snyk_shaped_scanner import verify_bearer_get
 
     token = (cfg.get("api_token") or "").strip()
-    api_url = (cfg.get("api_url") or "https://api.orcasecurity.io").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "https://api.orcasecurity.io")
     verify_bearer_get(f"{api_url}/api/user/me", token, label="orca")
     return {"ok": True, "vendor": "orca"}
 
@@ -264,6 +266,6 @@ def _test_aikido(cfg: dict[str, Any]) -> dict[str, Any]:
     from app.services.snyk_shaped_scanner import verify_bearer_get
 
     token = (cfg.get("api_token") or "").strip()
-    api_url = (cfg.get("api_url") or "https://app.aikido.dev").rstrip("/")
+    api_url = normalize_api_base_url(cfg.get("api_url") or "https://app.aikido.dev")
     verify_bearer_get(f"{api_url}/api/public/v1/teams", token, label="aikido")
     return {"ok": True, "vendor": "aikido"}

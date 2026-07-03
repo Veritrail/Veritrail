@@ -19,6 +19,7 @@ from app.models.org import Org
 from app.services.azure_boards_client import AzureBoardsClient
 from app.services.digest import _findings_app_url
 from app.services.github_sync import provider_config, set_provider_config
+from app.services.integration_input import normalize_azure_devops_org_url, normalize_azure_devops_project
 
 router = APIRouter()
 AZURE_BOARDS_TYPE = "azure_boards"
@@ -88,15 +89,17 @@ def put_azure_boards(
     pat = (body.pat or "").strip() or existing.get("pat")
     if not pat:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Azure DevOps PAT is required")
+    org_url = normalize_azure_devops_org_url(body.org_url.strip())
+    project = normalize_azure_devops_project(body.project.strip())
     config = {
         **existing,
-        "org_url": body.org_url.strip().rstrip("/"),
-        "project": body.project.strip(),
+        "org_url": org_url,
+        "project": project,
         "pat": pat,
         "work_item_type": (body.work_item_type or "Task").strip() or "Task",
     }
     try:
-        AzureBoardsClient(org_url=config["org_url"], pat=pat).verify(config["project"])
+        AzureBoardsClient(org_url=org_url, pat=pat).verify(project)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     except Exception as e:  # noqa: BLE001
