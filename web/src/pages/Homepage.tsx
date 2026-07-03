@@ -36,24 +36,26 @@ function OutlineButton({ href, children }: { href: string; children: ReactNode }
   );
 }
 
-function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
+const RECENT_EVIDENCE = [
+  { brand: "aws" as const, source: "AWS", label: "S3 Bucket Public Access Disabled", updated: "2h ago" },
+  { brand: "github" as const, source: "GitHub", label: "GitHub Branch Protection Enabled", updated: "1d ago" },
+  { brand: "gcp" as const, source: "GCP", label: "CloudTrail Logging Enabled", updated: "1d ago" },
+  { brand: "azure" as const, source: "Azure", label: "Storage Account Encryption Enabled", updated: "3d ago" },
+];
+
+function SparklineIcon({ className = "" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+    <svg className={className} viewBox="0 0 48 16" fill="none" aria-hidden>
       <path
-        fillRule="evenodd"
-        d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.25a1 1 0 0 1-1.414 0l-3.25-3.25a1 1 0 1 1 1.414-1.414l2.543 2.543 6.543-6.543a1 1 0 0 1 1.414 0Z"
-        clipRule="evenodd"
+        d="M1 12 L10 9 L18 11 L26 6 L34 8 L42 3 L47 5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
 }
-
-const RECENT_EVIDENCE = [
-  { brand: "aws" as const, label: "IAM access keys rotated", status: "Healthy" },
-  { brand: "github" as const, label: "Branch protection enforced", status: "Healthy" },
-  { brand: "gcp" as const, label: "VPC flow logs enabled", status: "Healthy" },
-  { brand: "azure" as const, label: "Storage encryption at rest", status: "Partial" },
-];
 
 const FEATURES = [
   {
@@ -122,51 +124,93 @@ const WHY_ITEMS = [
 
 function DashboardPreview() {
   return (
-    <div className="homepage-dashboard rounded-2xl border border-zinc-200/80 bg-white p-5 sm:p-6">
-      <div className="border-b border-zinc-100 pb-4">
-        <h2 className="text-base font-semibold text-slate-900">SOC 2 Overview</h2>
-        <p className="mt-0.5 text-xs text-zinc-500">Continuous evidence for cloud and engineering teams</p>
+    <div className="homepage-dashboard-stack">
+      <div className="homepage-dashboard-card homepage-dashboard-card--back-2" aria-hidden>
+        <span className="homepage-dashboard-card__ghost-title">Evidence</span>
+      </div>
+      <div className="homepage-dashboard-card homepage-dashboard-card--back-1" aria-hidden>
+        <span className="homepage-dashboard-card__ghost-title">Mappings</span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: "Controls covered", value: "98%", tone: "text-slate-700" },
-          { label: "Healthy", value: "96%", tone: "text-emerald-600" },
-          { label: "Partial", value: "3%", tone: "text-amber-600" },
-          { label: "Not in place", value: "1%", tone: "text-red-500" },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-lg bg-zinc-50 px-3 py-2.5 ring-1 ring-zinc-100">
-            <div className={`text-lg font-bold tabular-nums ${stat.tone}`}>{stat.value}</div>
-            <div className="mt-0.5 text-[11px] leading-tight text-zinc-500">{stat.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Recent evidence</h3>
-          <ul className="mt-2.5 space-y-2">
-            {RECENT_EVIDENCE.map((row) => (
-              <li key={row.label} className="flex items-center gap-2.5 text-xs">
-                <IntegrationBrandIcon brand={row.brand} size={24} variant="plain" />
-                <span className="min-w-0 flex-1 truncate text-zinc-700">{row.label}</span>
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <CheckIcon className="h-3.5 w-3.5" />
-                  <span className="sr-only">{row.status}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+      <div className="homepage-dashboard-card homepage-dashboard-card--main">
+        <div className="homepage-dashboard__header">
+          <h2 className="homepage-dashboard__title">SOC 2 Overview</h2>
+          <p className="homepage-dashboard__subtitle">Continuous evidence for cloud and engineering teams</p>
         </div>
 
-        <div className="flex shrink-0 flex-col items-center sm:items-end">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Controls by status</h3>
-          <div className="relative mt-2">
-            <div className="homepage-donut" aria-hidden />
-            <div className="homepage-donut__label">
-              <span>98%</span>
-              <span className="text-[9px] font-medium text-zinc-400">covered</span>
+        <div className="homepage-dashboard__stats">
+          <div className="homepage-stat-card homepage-stat-card--sparkline">
+            <div className="homepage-stat-card__value homepage-stat-card__value--navy">98%</div>
+            <div className="homepage-stat-card__label">Controls covered</div>
+            <SparklineIcon className="homepage-stat-card__sparkline" />
+          </div>
+          <div className="homepage-stat-card">
+            <div className="homepage-stat-card__value homepage-stat-card__value--navy">2,472</div>
+            <div className="homepage-stat-card__label">Evidence items</div>
+          </div>
+          <div className="homepage-stat-card">
+            <div className="homepage-stat-card__value homepage-stat-card__value--green">96%</div>
+            <div className="homepage-stat-card__label">Healthy</div>
+          </div>
+          <div className="homepage-stat-card">
+            <div className="homepage-stat-card__value homepage-stat-card__value--orange">3</div>
+            <div className="homepage-stat-card__label">Risks</div>
+          </div>
+        </div>
+
+        <div className="homepage-dashboard__body">
+          <div className="homepage-dashboard__evidence">
+            <h3 className="homepage-dashboard__section-title">Recent evidence</h3>
+            <table className="homepage-evidence-table">
+              <thead>
+                <tr>
+                  <th scope="col">Item</th>
+                  <th scope="col">Source</th>
+                  <th scope="col" className="homepage-evidence-table__updated">
+                    Updated
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {RECENT_EVIDENCE.map((row) => (
+                  <tr key={row.label}>
+                    <td className="homepage-evidence-table__item">{row.label}</td>
+                    <td>
+                      <span className="homepage-evidence-table__source">
+                        <IntegrationBrandIcon brand={row.brand} size={18} variant="plain" />
+                        <span>{row.source}</span>
+                      </span>
+                    </td>
+                    <td className="homepage-evidence-table__updated">{row.updated}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="homepage-dashboard__donut-panel">
+            <h3 className="homepage-dashboard__section-title">Controls by status</h3>
+            <div className="homepage-donut-wrap">
+              <div className="homepage-donut" aria-hidden />
+              <div className="homepage-donut__label">
+                <span>98%</span>
+                <span className="homepage-donut__sublabel">Covered</span>
+              </div>
             </div>
+            <ul className="homepage-donut-legend">
+              <li>
+                <span className="homepage-donut-legend__dot homepage-donut-legend__dot--green" aria-hidden />
+                In place <span className="homepage-donut-legend__count">(142)</span>
+              </li>
+              <li>
+                <span className="homepage-donut-legend__dot homepage-donut-legend__dot--yellow" aria-hidden />
+                Partial <span className="homepage-donut-legend__count">(6)</span>
+              </li>
+              <li>
+                <span className="homepage-donut-legend__dot homepage-donut-legend__dot--red" aria-hidden />
+                Not in place <span className="homepage-donut-legend__count">(2)</span>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
@@ -181,7 +225,7 @@ function IntegrationDiagram() {
     <div className="homepage-diagram" aria-hidden>
       <div className="homepage-diagram__sources">
         {clouds.map((brand) => (
-          <IntegrationBrandIcon key={brand} brand={brand} size={88} />
+          <IntegrationBrandIcon key={brand} brand={brand} size={88} variant="plain" />
         ))}
       </div>
       <div className="homepage-diagram__connectors">
@@ -241,7 +285,7 @@ export default function Homepage() {
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4 sm:gap-8 sm:py-10">
             {FEATURES.map((feature) => (
               <div key={feature.label} className="flex flex-col items-center text-center sm:items-start sm:text-left">
-                <div className="homepage-feature__icon flex h-11 w-11 items-center justify-center rounded-xl">
+                <div className="homepage-feature__icon flex items-center justify-center">
                   {feature.icon}
                 </div>
                 <p className="homepage-feature__label mt-3 text-sm font-semibold">{feature.label}</p>
@@ -263,7 +307,7 @@ export default function Homepage() {
               <ul className="mt-8 space-y-6">
                 {WHY_ITEMS.map((item) => (
                   <li key={item.title} className="flex gap-4">
-                    <div className="homepage-benefit__icon flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+                    <div className="homepage-benefit__icon flex shrink-0 items-center justify-center">
                       {item.icon}
                     </div>
                     <div>

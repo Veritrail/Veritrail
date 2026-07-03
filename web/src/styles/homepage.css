@@ -1,9 +1,7 @@
 /* Public marketing homepage — dashboard preview & integration diagram */
 
 .homepage-feature__icon {
-  background-color: #f1f5f9;
   color: #64748b;
-  border: 1px solid #e2e8f0;
 }
 
 .homepage-feature__label {
@@ -11,27 +9,253 @@
 }
 
 .homepage-benefit__icon {
-  background-color: #f1f5f9;
   color: #64748b;
-  border: 1px solid #e2e8f0;
 }
 
-.homepage-dashboard {
+/* ── Dashboard preview stack ── */
+
+.homepage-dashboard-stack {
+  position: relative;
+  padding-top: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.homepage-dashboard-card {
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.homepage-dashboard-card--back-2 {
+  position: absolute;
+  inset: 0 0 0.5rem 0.5rem;
+  z-index: 0;
+  opacity: 0.45;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 0.06);
+  transform: translate(0.65rem, -0.65rem);
+}
+
+.homepage-dashboard-card--back-1 {
+  position: absolute;
+  inset: 0 0.25rem 0.25rem 0.25rem;
+  z-index: 1;
+  opacity: 0.65;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 0.08);
+  transform: translate(0.35rem, -0.35rem);
+}
+
+.homepage-dashboard-card--main {
+  position: relative;
+  z-index: 2;
+  padding: 1.25rem 1.35rem;
   box-shadow:
     0 1px 2px rgb(9 9 11 / 0.04),
-    0 12px 40px -16px rgb(15 23 42 / 0.14);
+    0 16px 48px -20px rgb(15 23 42 / 0.18);
+}
+
+.homepage-dashboard-card__ghost-title {
+  display: block;
+  padding: 1rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.homepage-dashboard__header {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.homepage-dashboard__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.homepage-dashboard__subtitle {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.homepage-dashboard__section-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+/* ── Stat cards ── */
+
+.homepage-dashboard__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 480px) {
+  .homepage-dashboard__stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.homepage-stat-card {
+  position: relative;
+  padding: 0.65rem 0.75rem 0.7rem;
+  border-radius: 0.625rem;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+}
+
+.homepage-stat-card--sparkline {
+  padding-bottom: 1.35rem;
+}
+
+.homepage-stat-card__value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.homepage-stat-card__value--navy {
+  color: #1e293b;
+}
+
+.homepage-stat-card__value--green {
+  color: #059669;
+}
+
+.homepage-stat-card__value--orange {
+  color: #ea580c;
+}
+
+.homepage-stat-card__label {
+  margin-top: 0.15rem;
+  font-size: 0.65rem;
+  line-height: 1.3;
+  color: #64748b;
+}
+
+.homepage-stat-card__sparkline {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.35rem;
+  left: 0.5rem;
+  width: calc(100% - 1rem);
+  height: 0.875rem;
+  color: #10b981;
+}
+
+/* ── Evidence table + donut ── */
+
+.homepage-dashboard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1.1rem;
+}
+
+@media (min-width: 640px) {
+  .homepage-dashboard__body {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+}
+
+.homepage-dashboard__evidence {
+  min-width: 0;
+  flex: 1;
+}
+
+.homepage-evidence-table {
+  width: 100%;
+  margin-top: 0.65rem;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+}
+
+.homepage-evidence-table th {
+  padding: 0 0 0.45rem;
+  font-weight: 600;
+  text-align: left;
+  color: #94a3b8;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.homepage-evidence-table td {
+  padding: 0.45rem 0.5rem 0.45rem 0;
+  vertical-align: middle;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.homepage-evidence-table tr:last-child td {
+  border-bottom: none;
+}
+
+.homepage-evidence-table__item {
+  max-width: 9.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #334155;
+  font-weight: 500;
+}
+
+.homepage-evidence-table__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.homepage-evidence-table__updated {
+  text-align: right;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.homepage-evidence-table th.homepage-evidence-table__updated {
+  text-align: right;
+}
+
+.homepage-dashboard__donut-panel {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .homepage-dashboard__donut-panel {
+    align-items: flex-end;
+    min-width: 7.5rem;
+  }
+}
+
+.homepage-donut-wrap {
+  position: relative;
+  margin-top: 0.65rem;
 }
 
 .homepage-donut {
-  --donut-size: 88px;
-  --donut-thickness: 10px;
-  --donut-pct: 98;
+  --donut-size: 92px;
+  --donut-thickness: 11px;
   width: var(--donut-size);
   height: var(--donut-size);
   border-radius: 50%;
   background: conic-gradient(
-    #475569 0 calc(var(--donut-pct) * 1%),
-    #e2e8f0 calc(var(--donut-pct) * 1%) 100%
+    #10b981 0 94.67%,
+    #f59e0b 94.67% 98.67%,
+    #ef4444 98.67% 100%
   );
   display: grid;
   place-items: center;
@@ -53,11 +277,60 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: #334155;
+  color: #1e293b;
   line-height: 1.1;
 }
+
+.homepage-donut__sublabel {
+  margin-top: 0.1rem;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.homepage-donut-legend {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  color: #64748b;
+}
+
+.homepage-donut-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.homepage-donut-legend__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.homepage-donut-legend__dot--green {
+  background: #10b981;
+}
+
+.homepage-donut-legend__dot--yellow {
+  background: #f59e0b;
+}
+
+.homepage-donut-legend__dot--red {
+  background: #ef4444;
+}
+
+.homepage-donut-legend__count {
+  color: #94a3b8;
+}
+
+/* ── Integration diagram ── */
 
 .homepage-diagram {
   display: grid;
