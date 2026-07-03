@@ -576,15 +576,6 @@
   color: #0f172a;
 }
 
-.integration-setup--iac .integration-setup__provider-card:hover:not(.integration-setup__provider-card--selected),
-.integration-setup--iac .integration-setup__choice-btn:hover:not(.integration-setup__choice-btn--selected),
-.integration-setup--iac .integration-setup__github-owner-chip:hover:not(.is-selected),
-.integration-setup--iac .integration-setup__repo-picker-row:hover:not(.is-selected) {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
-}
-
 .integration-setup--iac .integration-setup__input:focus {
   border-color: #5eead4;
   box-shadow: 0 0 0 3px var(--is-selected-ring);
@@ -1228,4 +1219,35 @@
 
 .integration-setup__section-header + .integration-setup__list {
   padding-top: 0.5rem;
+}
+
+/* IaC wizard — neutral hover for unselected interactive tiles only.
+   Placed after global card/choice hovers (#fcfdff reads mint next to teal).
+   Double .integration-setup.integration-setup--iac beats base :hover specificity. */
+.integration-setup.integration-setup--iac .integration-setup__provider-card:hover:not(.integration-setup__provider-card--selected),
+.integration-setup.integration-setup--iac .integration-setup__provider-card:focus-visible:not(.integration-setup__provider-card--selected),
+.integration-setup.integration-setup--iac .integration-setup__choice-btn:hover:not(.integration-setup__choice-btn--selected),
+.integration-setup.integration-setup--iac .integration-setup__choice-btn:focus-visible:not(.integration-setup__choice-btn--selected),
+.integration-setup.integration-setup--iac .integration-setup__github-owner-chip:hover:not(.is-selected),
+.integration-setup.integration-setup--iac .integration-setup__github-owner-chip:focus-visible:not(.is-selected),
+.integration-setup.integration-setup--iac .integration-setup__repo-picker-row:hover:not(.is-selected),
+.integration-setup.integration-setup--iac .integration-setup__repo-picker-row:focus-visible:not(.is-selected) {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  outline: none;
+}
+
+.integration-setup.integration-setup--iac .integration-setup__provider-card--selected:hover,
+.integration-setup.integration-setup--iac .integration-setup__provider-card--selected:focus-visible,
+.integration-setup.integration-setup--iac .integration-setup__choice-btn--selected:hover,
+.integration-setup.integration-setup--iac .integration-setup__choice-btn--selected:focus-visible,
+.integration-setup.integration-setup--iac .integration-setup__github-owner-chip.is-selected:hover,
+.integration-setup.integration-setup--iac .integration-setup__github-owner-chip.is-selected:focus-visible,
+.integration-setup.integration-setup--iac .integration-setup__repo-picker-row.is-selected:hover,
+.integration-setup.integration-setup--iac .integration-setup__repo-picker-row.is-selected:focus-visible {
+  border-color: #5eead4;
+  background: #ecfdf5;
+  box-shadow: 0 0 0 3px var(--is-selected-ring);
+  outline: none;
 }
