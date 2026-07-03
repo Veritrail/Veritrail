@@ -62,6 +62,6 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   orca: { src: "/integrations/orca.png" },
   aikido: { src: "/integrations/aikido.png", tileScale: 1.08 },
   okta: { src: "/integrations/okta.png" },
-  splunk: { src: "https://www.splunk.com/favicon.ico" },
+  splunk: { src: "/integrations/splunk.png", compactSrc: "/integrations/splunk.png" },
   elastic: { src: "https://www.elastic.co/favicon.ico" },
 };
