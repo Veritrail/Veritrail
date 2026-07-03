@@ -63,20 +63,29 @@ export default function IntegrationCatalog() {
                       key={entry.key}
                       className={`integrations-explore-card integration-catalog-card${isComingSoon ? " integrations-explore-card--coming-soon" : ""}`}
                     >
-                      <IntegrationBrandIcon brand={entry.brand} size={52} variant="plain" className="integrations-explore-card__icon integration-catalog-card__icon" />
-                      <div className="integrations-explore-card__body">
-                        <div className="integrations-explore-card__name">{entry.name}</div>
-                        <p className="integrations-explore-card__desc">{entry.description}</p>
+                      <div className="integration-catalog-card__main">
+                        <IntegrationBrandIcon brand={entry.brand} size={52} variant="plain" className="integrations-explore-card__icon integration-catalog-card__icon" />
+                        <div className="integrations-explore-card__body">
+                          <div className="integrations-explore-card__name">{entry.name}</div>
+                          <p className="integrations-explore-card__desc">{entry.description}</p>
+                        </div>
+                        {isComingSoon ? (
+                          <button type="button" className="integrations-connect-btn integrations-connect-btn--coming-soon" disabled>
+                            Coming soon
+                          </button>
+                        ) : (
+                          <Link to={entry.href!} className="integrations-connect-btn">
+                            Connect
+                          </Link>
+                        )}
                       </div>
-                      {isComingSoon ? (
-                        <button type="button" className="integrations-connect-btn integrations-connect-btn--coming-soon" disabled>
-                          Coming soon
-                        </button>
-                      ) : (
-                        <Link to={entry.href!} className="integrations-connect-btn">
-                          Connect
-                        </Link>
-                      )}
+                      <div className="integration-catalog-card__tags" aria-label={`${entry.name} categories`}>
+                        {entry.tags.map((tag) => (
+                          <span key={tag} className="integration-catalog-card__tag">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </article>
                   );
                 })}

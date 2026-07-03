@@ -5,6 +5,8 @@ export type CatalogEntry = {
   brand: IntegrationBrandId;
   name: string;
   description: string;
+  /** Up to three short category labels shown on catalog cards. */
+  tags: [string, string, string];
   href?: string;
   comingSoon?: boolean;
 };
@@ -23,8 +25,8 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Source control & SDLC",
     blurb: "Branch protection, review evidence, and change history.",
     entries: [
-      { key: "github", brand: "github", name: "GitHub", description: "Repository governance and CI/CD safeguards.", href: "/integrations/github" },
-      { key: "gitlab", brand: "gitlab", name: "GitLab", description: "Protected branches, approvals, and pipelines.", href: "/integrations/gitlab" },
+      { key: "github", brand: "github", name: "GitHub", description: "Repository governance and CI/CD safeguards.", tags: ["SCM", "CI/CD", "Governance"], href: "/integrations/github" },
+      { key: "gitlab", brand: "gitlab", name: "GitLab", description: "Protected branches, approvals, and pipelines.", tags: ["SCM", "CI/CD", "Pipelines"], href: "/integrations/gitlab" },
     ],
   },
   {
@@ -32,9 +34,9 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Identity providers",
     blurb: "Directory sync, MFA posture, and access-review evidence.",
     entries: [
-      { key: "entra", brand: "entra", name: "Microsoft Entra ID", description: "Directory and MFA evidence", href: "/integrations/entra" },
-      { key: "google-workspace", brand: "google-workspace", name: "Google Workspace", description: "User activity and admin governance evidence.", href: "/integrations/google-workspace" },
-      { key: "okta", brand: "okta", name: "Okta", description: "Identity directory sync and access reviews.", href: "/integrations/okta" },
+      { key: "entra", brand: "entra", name: "Microsoft Entra ID", description: "Directory and MFA evidence", tags: ["Identity", "MFA", "Directory"], href: "/integrations/entra" },
+      { key: "google-workspace", brand: "google-workspace", name: "Google Workspace", description: "User activity and admin governance evidence.", tags: ["Identity", "Admin", "Directory"], href: "/integrations/google-workspace" },
+      { key: "okta", brand: "okta", name: "Okta", description: "Identity directory sync and access reviews.", tags: ["Identity", "SSO", "Access"], href: "/integrations/okta" },
     ],
   },
   {
@@ -42,12 +44,12 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Vulnerability scanners",
     blurb: "Bring scanner results into vulnerability-management evidence.",
     entries: [
-      { key: "snyk", brand: "snyk", name: "Snyk", description: "Code and dependency scans", href: "/integrations/scanners/snyk" },
-      { key: "wiz", brand: "wiz", name: "Wiz", description: "Cloud vulnerability findings as evidence.", href: "/integrations/scanners/wiz" },
-      { key: "tenable", brand: "tenable", name: "Tenable", description: "Vulnerability management coverage evidence.", href: "/integrations/scanners/tenable" },
-      { key: "qualys", brand: "qualys", name: "Qualys", description: "Scanner coverage and findings export.", href: "/integrations/scanners/qualys" },
-      { key: "orca", brand: "orca", name: "Orca", description: "Agentless cloud scanning evidence.", href: "/integrations/scanners/orca" },
-      { key: "aikido", brand: "aikido", name: "Aikido", description: "AppSec findings as audit evidence.", href: "/integrations/scanners/aikido" },
+      { key: "snyk", brand: "snyk", name: "Snyk", description: "Code and dependency scans", tags: ["SAST", "Dependencies", "Code"], href: "/integrations/scanners/snyk" },
+      { key: "wiz", brand: "wiz", name: "Wiz", description: "Cloud vulnerability findings as evidence.", tags: ["Cloud", "CNAPP", "Findings"], href: "/integrations/scanners/wiz" },
+      { key: "tenable", brand: "tenable", name: "Tenable", description: "Vulnerability management coverage evidence.", tags: ["Vuln Mgmt", "Scanning", "CVEs"], href: "/integrations/scanners/tenable" },
+      { key: "qualys", brand: "qualys", name: "Qualys", description: "Scanner coverage and findings export.", tags: ["Vuln Mgmt", "Scanning", "Compliance"], href: "/integrations/scanners/qualys" },
+      { key: "orca", brand: "orca", name: "Orca", description: "Agentless cloud scanning evidence.", tags: ["Cloud", "CSPM", "Findings"], href: "/integrations/scanners/orca" },
+      { key: "aikido", brand: "aikido", name: "Aikido", description: "AppSec findings as audit evidence.", tags: ["AppSec", "SAST", "Dependencies"], href: "/integrations/scanners/aikido" },
     ],
   },
   {
@@ -55,9 +57,9 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "SIEM & monitoring",
     blurb: "Signal evidence that logging and alerting operate.",
     entries: [
-      { key: "splunk", brand: "splunk", name: "Splunk", description: "SIEM signal evidence.", href: "/integrations/siem/splunk" },
-      { key: "datadog", brand: "datadog", name: "Datadog", description: "Monitoring signal evidence.", href: "/integrations/siem/datadog" },
-      { key: "elastic", brand: "elastic", name: "Elastic", description: "SIEM export adapter.", href: "/integrations/siem/elastic" },
+      { key: "splunk", brand: "splunk", name: "Splunk", description: "SIEM signal evidence.", tags: ["SIEM", "Logs", "Alerts"], href: "/integrations/siem/splunk" },
+      { key: "datadog", brand: "datadog", name: "Datadog", description: "Monitoring signal evidence.", tags: ["Monitoring", "Logs", "Alerts"], href: "/integrations/siem/datadog" },
+      { key: "elastic", brand: "elastic", name: "Elastic", description: "SIEM export adapter.", tags: ["SIEM", "Logs", "Search"], href: "/integrations/siem/elastic" },
     ],
   },
   {
@@ -65,9 +67,9 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Ticketing & remediation",
     blurb: "Turn findings into tracked remediation work.",
     entries: [
-      { key: "jira", brand: "jira", name: "Jira", description: "Remediation tickets with sync", href: "/integrations/jira" },
-      { key: "iac-repository", brand: "iac", name: "IaC repository", description: "Terraform PRs from findings", href: "/integrations/iac-repository" },
-      { key: "azure-devops", brand: "azure-devops", name: "Azure DevOps Pipelines", description: "Track work and pipelines.", comingSoon: true },
+      { key: "jira", brand: "jira", name: "Jira", description: "Remediation tickets with sync", tags: ["Ticketing", "Remediation", "Workflow"], href: "/integrations/jira" },
+      { key: "iac-repository", brand: "iac", name: "IaC repository", description: "Terraform PRs from findings", tags: ["IaC", "Terraform", "Remediation"], href: "/integrations/iac-repository" },
+      { key: "azure-devops", brand: "azure-devops", name: "Azure DevOps Pipelines", description: "Track work and pipelines.", tags: ["CI/CD", "Pipelines", "Work Items"], comingSoon: true },
     ],
   },
   {
@@ -75,7 +77,7 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Alerts & digests",
     blurb: "Route scan alerts and weekly digests to your team.",
     entries: [
-      { key: "slack", brand: "slack", name: "Slack", description: "Scan alerts and weekly digests for your channel.", href: "/integrations/slack" },
+      { key: "slack", brand: "slack", name: "Slack", description: "Scan alerts and weekly digests for your channel.", tags: ["Alerts", "Notifications", "Digests"], href: "/integrations/slack" },
     ],
   },
 ];
