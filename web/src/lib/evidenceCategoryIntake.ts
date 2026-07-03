@@ -17,6 +17,22 @@ export const MDM_ENDPOINT_TOOLS = [
   "Other",
 ] as const;
 
+export const HR_TRAINING_TOOLS = [
+  "KnowBe4",
+  "Curricula",
+  "Rippling",
+  "Lattice",
+  "Other",
+] as const;
+
+export const VENDOR_RISK_TOOLS = [
+  "OneTrust",
+  "Vanta",
+  "Secureframe",
+  "Whistic",
+  "Other",
+] as const;
+
 export type CategoryIntakeConfig = {
   wizardLead: string;
   toolLabel: string;
@@ -158,7 +174,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
   },
   mdm_endpoint: {
     wizardLead:
-      "Declare your MDM platform for device management evidence. Live Intune/Jamf API sync is not required — upload policy exports or attestation when prompted.",
+      "Connect Microsoft Intune or Jamf Pro for live device inventory, or upload policy exports when API sync is unavailable.",
     toolLabel: "MDM platform",
     toolPlaceholder: "Tool name",
     toolOptions: MDM_ENDPOINT_TOOLS,
@@ -167,6 +183,32 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. Corporate laptops, mobile devices",
     useScopePicker: false,
     scheduleLabel: "Compliance schedule (optional)",
+    defaultEvidenceType: "Policy / attestation",
+  },
+  hr_training: {
+    wizardLead:
+      "Upload security awareness training completion reports or LMS exports for CC1/CC2 personnel controls.",
+    toolLabel: "Training platform",
+    toolPlaceholder: "Tool name",
+    toolOptions: HR_TRAINING_TOOLS,
+    useToolPicker: true,
+    scopeLabel: "Employee population",
+    scopePlaceholder: "e.g. All full-time employees",
+    useScopePicker: false,
+    scheduleLabel: "Training cadence (optional)",
+    defaultEvidenceType: "Policy / attestation",
+  },
+  vendor_risk: {
+    wizardLead:
+      "Upload vendor risk assessments, SOC reports, or questionnaire responses for critical third parties.",
+    toolLabel: "Vendor risk platform",
+    toolPlaceholder: "Tool name",
+    toolOptions: VENDOR_RISK_TOOLS,
+    useToolPicker: true,
+    scopeLabel: "Vendor scope",
+    scopePlaceholder: "e.g. Critical and high-risk vendors",
+    useScopePicker: false,
+    scheduleLabel: "Review cadence (optional)",
     defaultEvidenceType: "Policy / attestation",
   },
 };

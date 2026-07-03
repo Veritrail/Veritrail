@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import {
   auditorListSchema,
   evidenceExportListSchema,
   scopedExportLinkSchema,
+  vaultShareListSchema,
 } from "../lib/apiSchemas";
 import { AccessCard, accessInput, accessPrimaryBtn } from "./accessUi";
 import { Select } from "./Select";
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function AuditorScopedExportPanel({ embedded }: Props) {
+  const qc = useQueryClient();
   const auditors = useQuery({
     queryKey: ["auditor-list"],
     queryFn: () => api("/v1/auditor/list", { schema: auditorListSchema }),
@@ -21,6 +23,10 @@ export function AuditorScopedExportPanel({ embedded }: Props) {
   const exports = useQuery({
     queryKey: ["auditor-exports"],
     queryFn: () => api("/v1/auditor/exports", { schema: evidenceExportListSchema }),
+  });
+  const shares = useQuery({
+    queryKey: ["vault-shares"],
+    queryFn: () => api("/v1/auditor/vault-shares", { schema: vaultShareListSchema }),
   });
 
   const [exportId, setExportId] = useState("");
@@ -45,6 +51,7 @@ export function AuditorScopedExportPanel({ embedded }: Props) {
       setLinkUrl(data.url);
       setInstructions(data.instructions ?? "");
       setError("");
+      qc.invalidateQueries({ queryKey: ["vault-shares"] });
     },
     onError: (err) => setError(formatApiError(err)),
   });
@@ -103,6 +110,18 @@ export function AuditorScopedExportPanel({ embedded }: Props) {
           <p className="font-medium text-zinc-800">Scoped link</p>
           {instructions ? <p className="mt-1 text-zinc-600">{instructions}</p> : null}
           <input className={`${accessInput} mt-2 font-mono text-xs`} readOnly value={linkUrl} onFocus={(e) => e.target.select()} />
+        </div>
+      ) : null}
+      {(shares.data ?? []).length > 0 ? (
+        <div className="mt-4 border-t border-zinc-100 pt-4">
+          <p className="text-sm font-medium text-zinc-800">Approval history</p>
+          <ul className="mt-2 space-y-2 text-sm text-zinc-600">
+            {shares.data!.slice(0, 8).map((row) => (
+              <li key={row.id}>
+                {row.auditor_email} · {row.link_type} · expires {row.expires_at.slice(0, 10)}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </div>

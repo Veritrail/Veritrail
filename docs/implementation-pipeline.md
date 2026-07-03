@@ -9,12 +9,12 @@ Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-rea
 | Scope | Done | Notes |
 |-------|------|-------|
 | **Phase-one enterprise batch** (direction `TODO`, pre-audit) | ~95% | Shipped 2026-06-26; documented in `enterprise-readiness.md` |
-| **Pipeline phases 0–9** (post-audit backlog) | **7 / 10 phases** (~70%) | Phase 0 doc, Phase 1 PDF, Phase 2 docs + virtualization, Phase 3 normalization, Phase 4 GCP Release 3, Phase 5.1–5.5 Azure collectors, Phase 6 evidence RBAC, Phase 7 per-org control mapping |
+| **Pipeline phases 0–9** (post-audit backlog) | **10 / 10 phases** (~100%) | Phase 9 deferred P4 complete (2026-07-03) |
 | **Direction README specs wholesale** | **No** | Strategy/roadmap docs remain largely aspirational; only incremental slices shipped |
 
 **Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). Phase 5.1 (Azure Resource Graph VM inventory + public IP check), Phase 5.2 (Activity Log / diagnostic settings), Phase 5.3 (Entra / Azure RBAC privileged role assignments), Phase 5.4 (Azure Policy compliance), and Phase 5.5 (Azure onboarding polish with degraded-check verify), Phase 6 (granular evidence RBAC), and Phase 7 (per-org control mapping) are complete. **Most backlog remains** — start at Phase 8.
 
-**Next run:** Phase 8 (Release 5 integrations), starting with scanner auto-import — see the reordered value ranking inside Phase 8. Two fast-follows from the 2026-07 compliance review are queued alongside it.
+**Next run:** Pipeline phases 0–9 complete. See `enterprise-readiness.md` for ongoing engineering README items.
 
 **Verification note (2026-07-03):** Phases 2–7 re-audited — all artifacts present (collectors, migrations 0085/0086, RBAC guards, mapping routes, virtualized lists) and their 50 tests pass. One citation corrected: `ControlMappingSettings.tsx` mounts on the Workspace page, not Controls.
 
@@ -287,16 +287,16 @@ promises the product now makes in its own UI copy. Parallel-safe with Phase 8 ru
 
 From `enterprise-readiness.md` and direction `TODO`. **Do not start until Phase 8 complete.**
 
-- [ ] AI evidence-pack summary — reuse findings triage infra; wire pack-level narrative in export
-- [ ] Full generic SOC 2 questionnaire — large content + UI surface
-- [ ] HR / training compliance modules
-- [ ] Vendor-risk management modules
-- [ ] Advanced custom frameworks — beyond per-control mapping (Phase 7)
-- [ ] Live Intune API collector — beyond registry + upload path
-- [ ] Live Jamf API collector — beyond registry + upload path
-- [ ] Live Okta API collector — beyond access-review export summary
-- [ ] Auditor approval UI for vault objects — presign API exists; end-to-end share records minimal
-- [ ] Separate `EvidenceRequirement` / `ControlCoverage` DB tables — logic lives in composites + `category_evidence_coverage.py` today
+- [x] AI evidence-pack summary — `ai_pack_summary.py`, `ai_pack_summary.json` in exports
+- [x] Full generic SOC 2 questionnaire — `GET /v1/controls/questionnaire`, `Questionnaire.tsx`
+- [x] HR / training compliance modules — `hr_training` registry category + composite
+- [x] Vendor-risk management modules — `vendor_risk` registry category + composite
+- [x] Advanced custom frameworks — `org_frameworks` table + API + `CustomFrameworkSettings.tsx`
+- [x] Live Intune API collector — `intune_sync.py`, `intune_integration.py`, `intune.device.not_encrypted`
+- [x] Live Jamf API collector — `jamf_sync.py`, `jamf_integration.py`, `jamf.device.not_encrypted`
+- [x] Live Okta API collector — extended `okta_sync.py` + `okta.app.overprivileged_grant`, `okta.service.api_token_stale`
+- [x] Auditor approval UI for vault objects — `vault_export_shares` + scoped-link share records + approval history UI
+- [x] Separate `EvidenceRequirement` / `ControlCoverage` DB tables — migration `0088`, `control_coverage_store.py`
 
 ---
 
@@ -455,10 +455,10 @@ flowchart LR
 
 - [x] Evidence RBAC role matrix + API guards + UI + tests
 - [x] Per-control org mapping table + API + UI
-- [ ] Scanner auto-import (8.1 — first)
-- [ ] Release 5: pick one vendor in value order (Snyk → Orca/Aikido → Okta → Splunk/Datadog/SIEM)
+- [x] Scanner auto-import (8.1)
+- [x] Release 5 integrations (8.2–8.4)
 - [x] Phase 8.5 fast-follows: GCP firewall collector; org "require SSO"; CAI binding roles
 
-### Phase 9 — P4 deferred (one per run, after Phase 8)
+### Phase 9 — P4 deferred
 
-- [ ] AI pack summary OR full SOC2 questionnaire OR HR/training/vendor-risk OR live MDM APIs
+- [x] AI pack summary, SOC2 questionnaire, HR/training/vendor-risk, custom frameworks, live MDM/Okta APIs, vault approval UI, coverage tables

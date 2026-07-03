@@ -15,6 +15,8 @@ export type CategoryEvidenceCoverageRow = {
 export const EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS = new Set([
   "endpoint_security",
   "mdm_endpoint",
+  "hr_training",
+  "vendor_risk",
 ]);
 
 export type CategoryEvidenceCoverage = {

@@ -189,7 +189,23 @@ export const scopedExportLinkSchema = z.object({
   url: z.string(),
   expires_at: z.string(),
   instructions: z.string().nullable().optional(),
+  share_id: z.string().nullable().optional(),
 });
+
+export const vaultShareSchema = z.object({
+  id: z.string(),
+  export_id: z.string(),
+  auditor_access_id: z.string(),
+  auditor_email: z.string(),
+  link_type: z.string(),
+  share_url: z.string(),
+  expires_at: z.string(),
+  status: z.string(),
+  created_at: z.string(),
+  approved_by: z.string().nullable().optional(),
+});
+
+export const vaultShareListSchema = z.array(vaultShareSchema);
 
 export const findingSummarySchema = z.object({
   total: z.number(),

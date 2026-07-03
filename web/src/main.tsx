@@ -25,6 +25,9 @@ import GcpIntegration from "./pages/GcpIntegration";
 import AzureIntegration from "./pages/AzureIntegration";
 import VulnScannerIntegration from "./pages/VulnScannerIntegration";
 import OktaIntegration from "./pages/OktaIntegration";
+import IntuneIntegration from "./pages/IntuneIntegration";
+import JamfIntegration from "./pages/JamfIntegration";
+import Questionnaire from "./pages/Questionnaire";
 import SiemIntegration from "./pages/SiemIntegration";
 import GitHubIssuesIntegration from "./pages/GitHubIssuesIntegration";
 import IacRepositoryIntegration from "./pages/IacRepositoryIntegration";
@@ -104,6 +107,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/azure" element={<AzureIntegration />} />
             <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
             <Route path="/integrations/okta" element={<OktaIntegration />} />
+            <Route path="/integrations/intune" element={<IntuneIntegration />} />
+            <Route path="/integrations/jamf" element={<JamfIntegration />} />
+            <Route path="/questionnaire" element={<Questionnaire />} />
             <Route path="/integrations/siem/:vendor" element={<SiemIntegration />} />
             <Route path="/integrations/github-issues" element={<GitHubIssuesIntegration />} />
             <Route path="/integrations/iac-repository" element={<IacRepositoryIntegration />} />
