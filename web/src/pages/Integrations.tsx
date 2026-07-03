@@ -670,7 +670,7 @@ function IntegrationsContent() {
             healthTone: (githubIssues.data?.status === "error" ? "danger" : "ok") as Tone,
             permissionsLabel: githubIssues.data?.has_access_token ? "Token configured" : "GitHub OAuth",
             permissionsVerified: true,
-            capabilities: ["Remediation tickets", "Findings export"],
+            capabilities: ["Remediation tickets", "Create issues from findings"],
           } satisfies IntegrationRow,
         ]
       : []),
@@ -690,7 +690,7 @@ function IntegrationsContent() {
             healthTone: (jira.data?.status === "error" ? "danger" : "ok") as Tone,
             permissionsLabel: "API token",
             permissionsVerified: true,
-            capabilities: ["Remediation tickets", "Findings export"],
+            capabilities: ["Remediation tickets", "Create issues from findings"],
           } satisfies IntegrationRow,
         ]
       : []),
@@ -710,7 +710,7 @@ function IntegrationsContent() {
             healthTone: (azureBoards.data?.status === "error" ? "danger" : "ok") as Tone,
             permissionsLabel: "PAT configured",
             permissionsVerified: true,
-            capabilities: ["Work items", "Findings export"],
+            capabilities: ["Work items", "Create work items from findings"],
           } satisfies IntegrationRow,
         ]
       : []),
@@ -807,7 +807,7 @@ function IntegrationsContent() {
             key: "github-issues",
             brand: "github",
             name: "GitHub Issues",
-            description: "Create remediation issues from findings",
+            description: "Create GitHub issues from findings in a target repo",
             href: "/integrations/github-issues",
           } satisfies ExploreCard,
         ]

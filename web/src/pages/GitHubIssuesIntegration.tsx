@@ -57,12 +57,21 @@ export default function GitHubIssuesIntegration() {
         <IntegrationBrandIcon brand="github" size={48} />
         <div>
           <h1 className="integration-setup__title">GitHub Issues</h1>
-          <p className="integration-setup__subtitle">Create remediation issues from findings. Reuses your GitHub OAuth token when no dedicated token is set.</p>
+          <p className="integration-setup__subtitle">
+            Create GitHub issues in a target repository from Veritrail findings. After you save a repo here, open any
+            finding → Remediation tab and use <strong>Create GitHub issue</strong>. Reuses your GitHub OAuth token when
+            no dedicated token is set.
+          </p>
         </div>
       </header>
       {isLoading && <p className="integration-setup__loading">Loading…</p>}
       {!isLoading && (
         <div className="integration-setup__card">
+          <p className="integration-setup__callout">
+            This is separate from the GitHub OAuth integration, which syncs repos and SDLC evidence. GitHub Issues only
+            sends findings outbound as issues in the repo you configure below. After saving, open any finding →
+            Remediation tab and click <strong>Create GitHub issue</strong>.
+          </p>
           <div className="integration-setup__grid integration-setup__grid--2">
             <div><label className="integration-setup__field-label">Owner</label><input className="integration-setup__input" placeholder="e.g. awakzdev" value={owner} onChange={(e) => setOwner(e.target.value)} /></div>
             <div><label className="integration-setup__field-label">Repo</label><input className="integration-setup__input" placeholder="e.g. eks-production-iac" value={repo} onChange={(e) => setRepo(e.target.value)} /></div>

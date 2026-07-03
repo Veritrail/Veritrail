@@ -18,6 +18,7 @@ import {
 } from "./PolicyProposalReview";
 import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import { DrawerDateField } from "./DrawerDateField";
+import { GitHubIssuesFindingAction } from "./GitHubIssuesFindingAction";
 import { JiraFindingAction } from "./JiraFindingAction";
 import { todayIso } from "../lib/isoDate";
 import {
@@ -6431,25 +6432,49 @@ export function FindingDrawer({
   const [policyChangePaneVisible, setPolicyChangePaneVisible] = useState(false);
   const [policyReviewAcknowledged, setPolicyReviewAcknowledged] = useState(false);
   const [jiraIssue, setJiraIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
+  const [githubIssue, setGithubIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
 
   useEffect(() => {
     if (!finding) {
       setJiraIssue(null);
+      setGithubIssue(null);
       return;
     }
+    const evidence = finding.evidence as
+      | {
+          jira?: { issue_key?: string; issue_url?: string };
+          github_issue?: { issue_key?: string; issue_url?: string };
+        }
+      | undefined;
+
+    const storedGithub = evidence?.github_issue;
+    if (storedGithub?.issue_key && storedGithub.issue_url) {
+      setGithubIssue({ issue_key: storedGithub.issue_key, issue_url: storedGithub.issue_url });
+    } else {
+      setGithubIssue(null);
+    }
+
+    const storedJira = evidence?.jira;
+    if (storedJira?.issue_key && storedJira.issue_url) {
+      setJiraIssue({ issue_key: storedJira.issue_key, issue_url: storedJira.issue_url });
+      return;
+    }
+
     if (finding.remediation_ticket_key && finding.remediation_ticket_url) {
-      setJiraIssue({
+      const ticket = {
         issue_key: finding.remediation_ticket_key,
         issue_url: finding.remediation_ticket_url,
-      });
+      };
+      if (/github\.com/i.test(finding.remediation_ticket_url)) {
+        setGithubIssue(ticket);
+        setJiraIssue(null);
+      } else {
+        setJiraIssue(ticket);
+      }
       return;
     }
-    const stored = (finding.evidence as { jira?: { issue_key?: string; issue_url?: string } } | undefined)?.jira;
-    if (stored?.issue_key && stored.issue_url) {
-      setJiraIssue({ issue_key: stored.issue_key, issue_url: stored.issue_url });
-    } else {
-      setJiraIssue(null);
-    }
+
+    setJiraIssue(null);
   }, [finding?.id, finding?.evidence, finding?.remediation_ticket_key, finding?.remediation_ticket_url]);
 
   const { data: accountMeta } = useQuery({
@@ -6756,11 +6781,16 @@ export function FindingDrawer({
           )}
         </div>
       )}
-      {jiraIssue && (
+      {(githubIssue ?? jiraIssue) && (
         <div className="rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-[12px] text-sky-950">
           <span className="font-semibold">Remediation ticket: </span>
-          <a href={jiraIssue.issue_url} target="_blank" rel="noreferrer" className="font-medium text-sky-800 underline">
-            {jiraIssue.issue_key}
+          <a
+            href={(githubIssue ?? jiraIssue)!.issue_url}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-sky-800 underline"
+          >
+            {githubIssue ? `GitHub #${githubIssue.issue_key}` : jiraIssue!.issue_key}
           </a>
         </div>
       )}
@@ -6962,6 +6992,7 @@ export function FindingDrawer({
             className={drawerFooterExceptionGhost}
             sheetContainerRef={drawerSheetRef}
           />
+          <GitHubIssuesFindingAction findingId={finding.id} existing={githubIssue} onCreated={setGithubIssue} />
           <JiraFindingAction findingId={finding.id} existing={jiraIssue} onCreated={setJiraIssue} />
           <button
             type="button"
