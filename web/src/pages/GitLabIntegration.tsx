@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { SourceControlManageConnected, type SourceControlManageConfig } from "../components/SourceControlManageConnected";
 import { GitLabMark, Spinner } from "../components/IntegrationsUi";
 import { GITLAB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
@@ -63,7 +64,7 @@ export default function GitLabIntegration() {
 
   const provider = useQuery({
     queryKey: ["gitlab-provider"],
-    queryFn: () => api<GitLabProvider | null>("/v1/integrations/gitlab"),
+    queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
   });
 
   const accounts = useQuery({

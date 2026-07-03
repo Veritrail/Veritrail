@@ -1033,7 +1033,15 @@
   }
 }
 
-/* Snapshot drawer */
+/* Snapshot drawer — portaled overlay (matches compliance / findings drawers). */
+.history-drawer-backdrop {
+  background: rgb(15 23 42 / 0.28);
+}
+
+.history-drawer-shell {
+  width: min(32rem, 100%);
+}
+
 .history-drawer {
   --history-drawer-border: var(--history-border, #e8ecf1);
 }
@@ -1569,6 +1577,13 @@
   font-size: 0.75rem;
   line-height: 1.45;
   color: #6b7280;
+}
+
+@media (max-width: 720px) {
+  .history-drawer-shell {
+    max-width: 100%;
+    border-left: 0;
+  }
 }
 
 @media (max-width: 480px) {

@@ -3,7 +3,11 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { cloudAccountListSchema } from "../lib/apiSchemas";
+import {
+  cloudAccountListSchema,
+  integrationStatusNullableSchema,
+  scannerIntegrationSchema,
+} from "../lib/apiSchemas";
 import { ProductShell } from "../components/ProductShell";
 import { PostureMetricCell } from "./Workspace";
 
@@ -303,20 +307,38 @@ function IntegrationsContent() {
   const qc = useQueryClient();
   const prevScanStatus = useRef<string | null>(null);
 
-  const github = useQuery({ queryKey: ["github-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/github") });
-  const gitlab = useQuery({ queryKey: ["gitlab-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/gitlab") });
+  const github = useQuery({
+    queryKey: ["github-provider"],
+    queryFn: () => api("/v1/integrations/github", { schema: integrationStatusNullableSchema }),
+  });
+  const gitlab = useQuery({
+    queryKey: ["gitlab-provider"],
+    queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
+  });
   const googleWorkspace = useQuery({
     queryKey: ["google-workspace-provider"],
-    queryFn: () => api<ProviderSummary | null>("/v1/integrations/google-workspace"),
+    queryFn: () => api("/v1/integrations/google-workspace", { schema: integrationStatusNullableSchema }),
   });
-  const entra = useQuery({ queryKey: ["entra-provider"], queryFn: () => api<ProviderSummary | null>("/v1/integrations/entra") });
+  const entra = useQuery({
+    queryKey: ["entra-provider"],
+    queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
+  });
   const cloudAccounts = useQuery({
     queryKey: ["cloud-accounts"],
     queryFn: () => api("/v1/integrations/cloud-accounts", { schema: cloudAccountListSchema }),
   });
-  const wizScanner = useQuery({ queryKey: ["scanner-wiz"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/wiz") });
-  const tenableScanner = useQuery({ queryKey: ["scanner-tenable"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/tenable") });
-  const qualysScanner = useQuery({ queryKey: ["scanner-qualys"], queryFn: () => api<ScannerIntegrationRow>("/v1/integrations/scanners/qualys") });
+  const wizScanner = useQuery({
+    queryKey: ["scanner-wiz"],
+    queryFn: () => api("/v1/integrations/scanners/wiz", { schema: scannerIntegrationSchema }),
+  });
+  const tenableScanner = useQuery({
+    queryKey: ["scanner-tenable"],
+    queryFn: () => api("/v1/integrations/scanners/tenable", { schema: scannerIntegrationSchema }),
+  });
+  const qualysScanner = useQuery({
+    queryKey: ["scanner-qualys"],
+    queryFn: () => api("/v1/integrations/scanners/qualys", { schema: scannerIntegrationSchema }),
+  });
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<SettingsSlice>("/v1/settings") });
 
   const accountsList = cloudAccounts.data ?? [];

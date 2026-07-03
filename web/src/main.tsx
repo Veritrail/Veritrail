@@ -54,7 +54,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={qc}>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
           <Route path="/" element={<Navigate to="/login" replace />} />

@@ -1,21 +1,14 @@
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { remediationExecutionSchema, type RemediationExecution } from "../lib/apiSchemas";
 
-export type RemediationExecutionRow = {
-  status: string;
-  plan_id?: string;
-  completed_at?: string;
-  error?: string;
-  result?: { ok?: boolean; ssm_status?: string };
-  automation_execution_id?: string | null;
-  ssm_status?: string | null;
-  status_sync?: { polled?: boolean; ssm_status?: string | null; error?: string | null; region?: string | null };
-};
+export type RemediationExecutionRow = RemediationExecution;
 
 export function useRemediationExecution(findingId: string) {
   return useQuery({
     queryKey: ["remediation-execution", findingId],
-    queryFn: () => api<RemediationExecutionRow>(`/v1/findings/${findingId}/remediation-execution`),
+    queryFn: () =>
+      api(`/v1/findings/${findingId}/remediation-execution`, { schema: remediationExecutionSchema }),
     enabled: !!findingId,
     staleTime: 0,
     refetchInterval: (query) => {

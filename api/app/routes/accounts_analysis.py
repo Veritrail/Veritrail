@@ -26,7 +26,7 @@ from app.core.iam_usage import (
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
 from app.services.blast_radius_identity import blast_radius_identity
-from app.services.evidence_coverage import compute_evidence_coverage, parse_as_of
+from app.services.evidence_coverage import compute_evidence_coverage, parse_as_of, period_bounds
 from app.services.s3_https_policy import build_https_policy_suggestion
 from app.services.compliance_timeline import build_compliance_timeline
 from app.services.evidence_diff import build_evidence_diff
@@ -84,8 +84,8 @@ def evidence_coverage(
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
     end = parse_as_of(as_of) or datetime.now(timezone.utc)
-    since = end - timedelta(days=period)
-    result = compute_evidence_coverage(db, acc.id, since, end, period)
+    since, period_end = period_bounds(end, period)
+    result = compute_evidence_coverage(db, acc.id, since, period_end, period)
     if framework:
         result["scope_limitations"] = scope_limitations_for(framework)
     return result

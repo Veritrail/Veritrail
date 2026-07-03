@@ -354,6 +354,8 @@ export const scanRunLatestNullableSchema = scanRunLatestSchema.nullable();
 
 export type ScanRunLatest = z.infer<typeof scanRunLatestSchema>;
 
+export const scanRunLatestListSchema = z.array(scanRunLatestSchema);
+
 export const cloudAccountRowSchema = z.object({
   provider: z.string(),
   id: z.string(),
@@ -427,7 +429,7 @@ export const evidenceCoverageSchema = z
     warning: z.string().nullable(),
     days_with_data: z.number().optional(),
     days_requested: z.number().optional(),
-    successful_scans_in_period: z.number().optional(),
+    successful_scans_in_period: z.number().optional().default(0),
     coverage_start: z.string().nullable().optional(),
     scope_limitations: z.array(z.string()).optional(),
   })
@@ -479,6 +481,111 @@ export const controlListItemSchema = z
 
 export const controlListSchema = z.array(controlListItemSchema);
 
+export const controlMappingItemSchema = z.object({
+  framework: z.string(),
+  control_id: z.string(),
+  global_check_ids: z.array(z.string()),
+  added_check_ids: z.array(z.string()),
+  removed_check_ids: z.array(z.string()),
+  effective_check_ids: z.array(z.string()),
+  has_override: z.boolean(),
+});
+
+export const controlMappingListSchema = z.array(controlMappingItemSchema);
+
+export const compositeControlItemSchema = z
+  .object({
+    id: z.string(),
+    control_id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    guidance: z.string().nullable(),
+    soc2_criteria: z.array(z.string()).default([]),
+    cis_criteria: z.array(z.string()).optional().default([]),
+    iso_criteria: z.array(z.string()).optional().default([]),
+    check_ids: z.array(z.string()).default([]),
+    status: z.enum(["pass", "fail", "at_risk", "no_data"]),
+    finding_count: z.number().default(0),
+    open_finding_ids: z.array(z.string()).default([]),
+  })
+  .passthrough();
+
+export const compositeControlListSchema = z.array(compositeControlItemSchema);
+
+export const mappedControlSchema = z
+  .object({
+    framework: z.string(),
+    control_id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    guidance: z.string().nullable(),
+    narrative: z.string().nullable(),
+    reference_url: z.string(),
+    reference_label: z.string(),
+    reference_note: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export const compositeControlSummarySchema = z
+  .object({
+    id: z.string(),
+    control_id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    guidance: z.string().nullable(),
+    soc2_criteria: z.array(z.string()).default([]),
+    cis_criteria: z.array(z.string()).optional().default([]),
+    iso_criteria: z.array(z.string()).optional().default([]),
+  })
+  .passthrough();
+
+/** GET /v1/controls/by-check/{check_id} — finding drawer Compliance tab. */
+export const controlsByCheckSchema = z
+  .object({
+    check_id: z.string(),
+    framework_priority: z.array(z.string()).optional(),
+    primary: mappedControlSchema.nullable(),
+    controls: z.array(mappedControlSchema).default([]),
+    frameworks: z.array(z.string()).optional(),
+    composites: z.array(compositeControlSummarySchema).optional(),
+    primary_composite: compositeControlSummarySchema.nullable().optional(),
+  })
+  .passthrough();
+
+export type ControlsByCheck = z.infer<typeof controlsByCheckSchema>;
+
+export const externalEvidenceArtifactSchema = z
+  .object({
+    id: z.string(),
+    control_id: z.string().nullable(),
+    composite_control_id: z.string().nullable(),
+    check_id: z.string().nullable(),
+    framework: z.string(),
+    control_ref: z.string().nullable(),
+    title: z.string(),
+    source: z.string().nullable(),
+    evidence_type: z.string().nullable(),
+    period_start: z.string().nullable(),
+    period_end: z.string().nullable(),
+    external_url: z.string().nullable(),
+    owner: z.string().nullable(),
+    status: z.string(),
+    expires_at: z.string().nullable(),
+    filename: z.string().nullable(),
+    size_bytes: z.number(),
+    note: z.string().nullable(),
+    created_at: z.string().nullable(),
+    checksum_sha256: z.string().nullable(),
+    review_notes: z.string().nullable(),
+    reviewed_at: z.string().nullable(),
+    reviewed_by_email: z.string().nullable(),
+    superseded_by: z.string().nullable(),
+    policy_ref: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export const externalEvidenceListSchema = z.array(externalEvidenceArtifactSchema);
+
 export const complianceTimelineSchema = z
   .object({
     framework: z.string(),
@@ -511,3 +618,205 @@ export const complianceTimelineSchema = z
   .passthrough() as unknown as z.ZodType<ComplianceHistoryResponse>;
 
 export type ComplianceTimelineData = ComplianceHistoryResponse;
+
+export const jiraIntegrationSchema = z
+  .object({
+    connected: z.boolean(),
+    status: z.string().optional(),
+    site_url: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    project_key: z.string().nullable().optional(),
+    issue_type: z.string().optional(),
+    has_api_token: z.boolean().optional(),
+  })
+  .passthrough();
+
+export type JiraIntegration = z.infer<typeof jiraIntegrationSchema>;
+
+/** GET /v1/integrations/{github|gitlab|google-workspace|entra} — null when disconnected. */
+export const integrationStatusSchema = z
+  .object({
+    id: z.string(),
+    status: z.string(),
+    last_synced_at: z.string().nullable().default(null),
+    identity_users: z.number().default(0),
+    admin_users: z.number().default(0),
+    repos: z.number().default(0),
+    protected_branches: z.number().default(0),
+    pull_requests: z.number().default(0),
+    selected_repos: z.array(z.string()).default([]),
+    login: z.string().nullable().optional(),
+    org_login: z.string().nullable().optional(),
+    org_logins: z.array(z.string()).default([]),
+    username: z.string().nullable().optional(),
+    group_id: z.string().nullable().optional(),
+    group_ids: z.array(z.string()).default([]),
+    base_url: z.string().nullable().optional(),
+    admin_email: z.string().nullable().optional(),
+    domain: z.string().nullable().optional(),
+    two_step_verification_enforced: z.boolean().nullable().optional(),
+    tenant_id: z.string().nullable().optional(),
+    security_defaults_enabled: z.boolean().nullable().optional(),
+  })
+  .passthrough();
+
+export const integrationStatusNullableSchema = integrationStatusSchema.nullable();
+
+export type IntegrationStatus = z.infer<typeof integrationStatusSchema>;
+
+export const scannerIntegrationSchema = z
+  .object({
+    connected: z.boolean(),
+    status: z.string(),
+    vendor: z.string(),
+    config: z
+      .object({
+        last_synced_at: z.string().nullable().optional(),
+        open_findings_count: z.number().optional(),
+      })
+      .passthrough()
+      .default({}),
+  })
+  .passthrough();
+
+export type ScannerIntegration = z.infer<typeof scannerIntegrationSchema>;
+
+export const remediationExecutionSchema = z
+  .object({
+    status: z.string(),
+    plan_id: z.string().optional(),
+    dispatched_at: z.string().nullable().optional(),
+    completed_at: z.string().nullable().optional(),
+    error: z.string().nullable().optional(),
+    result: z.record(z.string(), z.unknown()).nullable().optional(),
+    automation_execution_id: z.string().nullable().optional(),
+    ssm_status: z.string().nullable().optional(),
+    status_sync: z
+      .object({
+        polled: z.boolean().optional(),
+        ssm_status: z.string().nullable().optional(),
+        error: z.string().nullable().optional(),
+        region: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+  })
+  .passthrough();
+
+export type RemediationExecution = z.infer<typeof remediationExecutionSchema>;
+
+export const accountTimelineSchema = z
+  .object({
+    events: z.array(z.record(z.string(), z.unknown())).default([]),
+    total: z.number().optional(),
+    meta: z
+      .object({
+        cloudtrail_logging: z.boolean(),
+        has_logging_trail: z.boolean().optional(),
+        trail_count: z.number().optional(),
+        events_in_account: z.number().optional(),
+        last_scan_at: z.string().nullable().optional(),
+        filtered_compliance_only: z.boolean().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+export type AccountTimeline = z.infer<typeof accountTimelineSchema>;
+
+export const blastRadiusSchema = z
+  .object({
+    resource_type: z.string(),
+    confidence: z.string(),
+    warnings: z.array(z.string()).default([]),
+  })
+  .passthrough();
+
+/** GET /v1/meta/client-ip — public IP for CLI remediation placeholders. */
+export const clientIpSchema = z
+  .object({
+    ip: z.string().nullable(),
+  })
+  .passthrough();
+
+/** GET /v1/accounts/{id}/roles/policy-generation/status — CloudTrail policy-gen job. */
+export const policyGenerationStatusSchema = z
+  .object({
+    status: z.string().optional(),
+    job_id: z.string().optional(),
+    started_on: z.string().optional(),
+    completed_on: z.string().optional(),
+    region: z.string().optional(),
+    detail: z.string().optional(),
+  })
+  .passthrough();
+
+export type PolicyGenerationStatus = z.infer<typeof policyGenerationStatusSchema>;
+
+/** GET /v1/accounts/{id}/roles/generated-policy — least-privilege proposal. */
+export const generatedPolicySchema = z
+  .object({
+    has_inline_policies: z.boolean().optional(),
+    confidence: z.enum(["high", "medium", "low"]).optional(),
+    improve_via_cloudtrail: z.boolean().optional(),
+    observed_action_count: z.number().optional(),
+    source_label: z.string().nullable().optional(),
+    cleaned_policies: z.record(z.string(), z.unknown()).nullable().optional(),
+    original_policies: z.record(z.string(), z.unknown()).nullable().optional(),
+    cloudtrail_analysis: z
+      .object({
+        ready: z.boolean(),
+        status: z.string(),
+        message: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .optional(),
+    access_analyzer: z
+      .object({
+        available: z.boolean().optional(),
+        reason: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+export type GeneratedPolicyResponse = z.infer<typeof generatedPolicySchema>;
+
+/** GET /v1/findings/{id}/iac-snippets — Terraform / CLI remediation templates. */
+export const iacSnippetsSchema = z
+  .object({
+    iac_status: z.string(),
+    reason: z.string().optional(),
+    terraform: z.string().nullable().optional(),
+    cloudformation: z.string().nullable().optional(),
+    cli: z.array(z.string()).optional(),
+    hints: z.array(z.string()).optional(),
+    apply_paths: z.record(z.string(), z.unknown()).optional(),
+    ssm_remediation: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
+
+/** GET /v1/accounts/{id}/remediation-runner/status — SSM Automation readiness. */
+export const remediationRunnerStatusSchema = z
+  .object({
+    ready: z.boolean(),
+    automation_region: z.string().optional(),
+    resource_region: z.string().nullable().optional(),
+    blockers: z.array(z.string()).optional(),
+    warnings: z.array(z.string()).optional(),
+    hints: z.array(z.string()).optional(),
+    document: z
+      .object({
+        name: z.string().nullable().optional(),
+        exists: z.boolean().optional(),
+        status: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+export type RemediationRunnerStatus = z.infer<typeof remediationRunnerStatusSchema>;

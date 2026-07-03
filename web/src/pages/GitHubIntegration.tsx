@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { SourceControlManageConnected, type SourceControlManageConfig } from "../components/SourceControlManageConnected";
 import { GitHubMark, Spinner } from "../components/IntegrationsUi";
 import { GITHUB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
@@ -57,7 +58,7 @@ export default function GitHubIntegration() {
 
   const provider = useQuery({
     queryKey: ["github-provider"],
-    queryFn: () => api<GitHubProvider | null>("/v1/integrations/github"),
+    queryFn: () => api("/v1/integrations/github", { schema: integrationStatusNullableSchema }),
   });
 
   const accounts = useQuery({

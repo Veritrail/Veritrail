@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import type { z } from "zod";
 import { createPortal } from "react-dom";
 import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
+import { accountTimelineSchema, blastRadiusSchema, controlsByCheckSchema, generatedPolicySchema } from "../lib/apiSchemas";
 import AwsServiceIcon from "./AwsServiceIcon";
 import { CliRemediationPanel } from "./CliRemediationPanel";
 import { ExceptionDocIcon } from "./ExceptionDocIcon";
@@ -2788,7 +2790,11 @@ function BlastRadiusSection({
 
   const { data, isLoading, error } = useQuery<BlastRadiusData>({
     queryKey: ["blast-radius", accountId, finding.resource_arn, finding.check_id, finding.last_seen],
-    queryFn: () => api(`/v1/accounts/${accountId}/blast-radius?resource_arn=${encodeURIComponent(finding.resource_arn)}&check_id=${encodeURIComponent(finding.check_id)}`),
+    queryFn: () =>
+      api<BlastRadiusData>(
+        `/v1/accounts/${accountId}/blast-radius?resource_arn=${encodeURIComponent(finding.resource_arn)}&check_id=${encodeURIComponent(finding.check_id)}`,
+        { schema: blastRadiusSchema as unknown as z.ZodType<BlastRadiusData> },
+      ),
     enabled,
     staleTime: 0,
   });
@@ -3755,7 +3761,10 @@ function ComplianceTabContent({
 }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["controls-by-check", checkId],
-    queryFn: () => api<CheckControlBundle>(`/v1/controls/by-check/${encodeURIComponent(checkId)}`),
+    queryFn: () =>
+      api<CheckControlBundle>(`/v1/controls/by-check/${encodeURIComponent(checkId)}`, {
+        schema: controlsByCheckSchema as unknown as z.ZodType<CheckControlBundle>,
+      }),
   });
 
   const primaryComposite = data?.primary_composite ?? null;
@@ -5135,6 +5144,7 @@ function SuggestedPolicyWorkspace({
     queryFn: () =>
       api(
         `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=true`,
+        { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled: true,
     staleTime: 0,
@@ -5705,6 +5715,7 @@ function GeneratePolicySection({
     queryFn: () =>
       api(
         `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=true`,
+        { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled,
     staleTime: 0,
@@ -6446,6 +6457,11 @@ export function FindingDrawer({
     queryFn: () =>
       api<{ meta: { cloudtrail_logging: boolean; has_logging_trail?: boolean } }>(
         `/v1/accounts/${accountId}/timeline?days=1&limit=1`,
+        {
+          schema: accountTimelineSchema as unknown as z.ZodType<{
+            meta: { cloudtrail_logging: boolean; has_logging_trail?: boolean };
+          }>,
+        },
       ),
     enabled: !!accountId && !!finding,
     staleTime: 300_000,
@@ -6465,6 +6481,7 @@ export function FindingDrawer({
     queryFn: () =>
       api(
         `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding!.resource_arn)}&advanced=true`,
+        { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled: policyDataQueryEnabled,
     staleTime: 0,

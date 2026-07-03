@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { api } from "../api";
+import { settingsSchema } from "../lib/apiSchemas";
 import { frameworkLabel } from "../data/frameworks";
 import { HistorySparkline } from "./HistorySparkline";
 import { InfrastructureEventsList } from "./InfrastructureEventsList";
@@ -274,8 +276,24 @@ export function HistorySnapshotDrawer({
 
   const settingsQ = useQuery({
     queryKey: ["settings"],
-    queryFn: () => api<{ scan_status: { next_scan_at: string | null } }>("/v1/settings"),
+    queryFn: () => api("/v1/settings", { schema: settingsSchema }),
   });
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
 
   const snap = drawerSnapshotSummary(event, allEvents);
   const causeBanner = primaryCauseBanner(event);
@@ -305,14 +323,14 @@ export function HistorySnapshotDrawer({
   const reopenedSince =
     comparePrevious != null ? reopeningsBetween(allEvents, comparePrevious.timestamp, event.timestamp) : 0;
 
-  return (
+  const overlay = (
     <DrawerShell
       onClose={onClose}
       labelledBy="history-snapshot-title"
-      size="sm"
-      backdropZIndexClassName="z-40"
-      panelZIndexClassName="z-50"
-      panelClassName="history-drawer history-drawer__panel"
+      backdropZIndexClassName="z-[60]"
+      panelZIndexClassName="z-[70]"
+      panelClassName="history-drawer-shell history-drawer history-drawer__panel"
+      backdropClassName="history-drawer-backdrop"
     >
       <header className="history-drawer__header">
           <p className="history-drawer__eyebrow">{frameworkLabel(event.framework)} snapshot</p>
@@ -639,4 +657,6 @@ export function HistorySnapshotDrawer({
         </div>
     </DrawerShell>
   );
+
+  return createPortal(overlay, document.body);
 }

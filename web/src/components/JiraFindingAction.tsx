@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
+import { jiraIntegrationSchema } from "../lib/apiSchemas";
 
 type JiraIssue = { issue_key: string; issue_url: string };
 
@@ -15,7 +16,7 @@ const BTN =
 export function JiraFindingAction({ findingId, existing, onCreated }: Props) {
   const { data: jira } = useQuery({
     queryKey: ["jira-integration"],
-    queryFn: () => api<{ connected: boolean }>("/v1/integrations/jira"),
+    queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
     staleTime: 60_000,
   });
 

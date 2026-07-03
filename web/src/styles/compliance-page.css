@@ -84,33 +84,35 @@
 
 .control-detail-panel__header {
   position: relative;
+  z-index: 1;
   flex-shrink: 0;
-  padding: 1.25rem 3rem 1rem 1.35rem;
-  border-bottom: 1px solid var(--vt-border);
-  /* Neutral wash — red tints are reserved for finding severity, not
-     compliance controls. */
-  background: linear-gradient(180deg, #fafcfe 0%, var(--vt-surface) 92%);
+  padding: 1.35rem 3.5rem 1.1rem 1.35rem;
+  border-bottom: 1px solid #e6eaf0;
+  background: #ffffff;
+  box-shadow: 0 1px 0 rgb(15 23 42 / 0.02);
 }
 
 .control-detail-panel__close {
   position: absolute;
-  top: 0.85rem;
-  right: 0.85rem;
+  top: 1.15rem;
+  right: 1.05rem;
   display: flex;
-  height: 2rem;
-  width: 2rem;
+  height: 1.875rem;
+  width: 1.875rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
+  border: 1px solid #d8dee8;
   border-radius: 0.5rem;
-  background: transparent;
-  color: var(--vt-text-muted);
-  transition: background 0.15s, color 0.15s;
+  background: #ffffff;
+  color: #64748b;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
 .control-detail-panel__close:hover {
-  background: rgb(255 255 255 / 0.8);
-  color: var(--vt-text);
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
 }
 
 .control-detail-panel__close svg {
@@ -139,16 +141,16 @@
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 0;
-  line-height: 1.25;
-  color: var(--vt-text);
+  line-height: 1.35;
+  color: #111827;
 }
 
 .control-detail-panel__description {
-  margin: 0.6rem 0 0;
-  font-size: 0.8125rem;
-  line-height: 1.55;
-  color: var(--vt-text-muted);
-  max-width: 38rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.84375rem;
+  line-height: 1.5;
+  color: #536179;
+  max-width: 40rem;
 }
 
 .control-detail-panel__tabs {
@@ -520,6 +522,166 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+/* "Coverage gap" card — first element in the drawer, explains the status
+   before anything else. White card matching the drawer's other cards; amber
+   appears only as a thin left rail and section labels — a quiet signal, not
+   an alert banner. */
+.coverage-gap-card {
+  position: relative;
+  border: 1px solid var(--vt-border);
+  border-radius: var(--vt-radius-lg);
+  background:
+    linear-gradient(180deg, rgb(255 251 235 / 0.5), rgb(255 255 255 / 0) 8rem),
+    var(--vt-surface);
+  box-shadow: var(--vt-shadow-card);
+  padding: 1rem 1.125rem 1.05rem 1.25rem;
+}
+
+.coverage-gap-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.875rem;
+  bottom: 0.875rem;
+  width: 3px;
+  border-radius: 9999px;
+  background: #f59e0b;
+}
+
+.coverage-gap-card__head {
+  min-width: 0;
+}
+
+.coverage-gap-card__title-block {
+  min-width: 0;
+}
+
+.coverage-gap-card__eyebrow {
+  margin: 0 0 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d97706;
+}
+
+/* Headline carries the quantified fact — one step below the drawer title,
+   aligned with composite section headings ("Blocking gaps"). */
+.coverage-gap-card__headline {
+  margin: 0 0 0.4rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.35;
+  color: #18181b;
+}
+
+.coverage-gap-card__body {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--vt-text-muted);
+}
+
+.coverage-gap-card__head + .coverage-gap-card__body {
+  margin-top: 0.7rem;
+}
+
+.coverage-gap-card__body strong {
+  font-weight: 600;
+  color: #374151;
+}
+
+.coverage-gap-card__signals {
+  display: grid;
+  grid-template-columns: minmax(6.25rem, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.55rem 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f4f4f5;
+}
+
+.coverage-gap-card__signals-label,
+.coverage-gap-card__next-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  line-height: 1.45;
+  text-transform: uppercase;
+  color: #a16207;
+}
+
+.coverage-gap-card__signal-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.coverage-gap-card__signal {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  background: #fff7ed;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #7c2d12;
+}
+
+.coverage-gap-card__next {
+  display: grid;
+  grid-template-columns: minmax(6.25rem, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.55rem 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.coverage-gap-card__next-copy {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #374151;
+}
+
+/* Check-specific nuance (e.g. IAM Access Analyzer's org-only deployment) —
+   hairline divider + bold inline lead, not a box inside a box. */
+.coverage-gap-card__note {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--vt-border);
+}
+
+.coverage-gap-card__note-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #374151;
+}
+
+@media (max-width: 520px) {
+  .coverage-gap-card {
+    padding-inline: 1rem;
+  }
+
+  .coverage-gap-card__signals,
+  .coverage-gap-card__next {
+    grid-template-columns: 1fr;
+  }
+}
+
+.coverage-gap-card__note .coverage-gap-card__body + .coverage-gap-card__body {
+  margin-top: 0.75rem;
 }
 
 /* Composite drawer — single scrollable gaps page (no tab strip). */

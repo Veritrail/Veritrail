@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
+import type { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
-import { accountListSchema } from "../lib/apiSchemas";
+import { accountListSchema, accountTimelineSchema } from "../lib/apiSchemas";
 import {
   dedupeResources,
   dedupeTimelineEvents,
@@ -472,8 +473,9 @@ export default function Timeline() {
   const { data, isLoading, error } = useQuery<TimelineResponse>({
     queryKey: ["timeline", effectiveAccountId, days, includeOperationalNoise],
     queryFn: () =>
-      api(
+      api<TimelineResponse>(
         `/v1/accounts/${effectiveAccountId}/timeline?days=${days}&limit=200&include_operational_noise=${includeOperationalNoise}`,
+        { schema: accountTimelineSchema as unknown as z.ZodType<TimelineResponse> },
       ),
     enabled: !!effectiveAccountId,
   });

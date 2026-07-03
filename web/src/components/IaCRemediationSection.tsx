@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import type { z } from "zod";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import {
+  generatedPolicySchema,
+  iacSnippetsSchema,
+  remediationRunnerStatusSchema,
+} from "../lib/apiSchemas";
 import {
   automatedRemediationUnavailableCopy,
   type FindingScopeProvider,
@@ -688,6 +694,22 @@ function SsmRemediationPanel({
         cleaned_policies?: Record<string, unknown> | null;
       }>(
         `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(resourceArn!)}&advanced=true`,
+        {
+          schema: generatedPolicySchema as unknown as z.ZodType<{
+            confidence?: "high" | "medium" | "low";
+            confidence_note?: string | null;
+            improve_via_cloudtrail?: boolean;
+            cloudtrail_analysis?: {
+              ready: boolean;
+              status: "ready" | "no_trail" | "advanced_disabled" | "no_connector";
+              message?: string | null;
+            };
+            access_analyzer?: { reason?: string | null };
+            observed_action_count?: number;
+            source_label?: string | null;
+            cleaned_policies?: Record<string, unknown> | null;
+          }>,
+        },
       ),
     enabled: isIamLeastPriv && !!accountId && !!resourceArn,
     staleTime: 0,
@@ -700,6 +722,7 @@ function SsmRemediationPanel({
     queryFn: () =>
       api<RunnerStatus>(
         `/v1/accounts/${accountId}/remediation-runner/status?check_id=${encodeURIComponent(checkId)}&resource_region=${encodeURIComponent(resourceRegion)}`,
+        { schema: remediationRunnerStatusSchema as unknown as z.ZodType<RunnerStatus> },
       ),
     enabled: !!accountId && ssm.module_enabled,
     staleTime: 60_000,
@@ -1020,7 +1043,10 @@ export function IaCRemediationSection({
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["iac-snippets", findingId],
-    queryFn: () => api<IaCResponse>(`/v1/findings/${findingId}/iac-snippets`),
+    queryFn: () =>
+      api<IaCResponse>(`/v1/findings/${findingId}/iac-snippets`, {
+        schema: iacSnippetsSchema as unknown as z.ZodType<IaCResponse>,
+      }),
   });
 
   if (isLoading) {

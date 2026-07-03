@@ -31,7 +31,7 @@ from app.services.check_settings import hidden_check_ids
 from app.services.cloud_normalization import account_open_findings_count
 from app.services.compliance_posture import posture_score
 from app.services.control_status import compute_control_status
-from app.services.evidence_coverage import _dates_in_period, parse_as_of
+from app.services.evidence_coverage import _dates_in_period, parse_as_of, period_bounds
 
 
 def _provider_check_prefix(provider: str) -> str:
@@ -197,7 +197,9 @@ def compute_cloud_evidence_coverage(
         "successful_scans_in_period": successful_in_period,
         "scan_days_in_period": len(scan_days),
         "snapshot_days_in_period": 0,
-        "coverage_ratio": round(days_with_data / period_days, 4) if period_days else 0,
+        "coverage_ratio": (
+            round(min(1.0, days_with_data / period_days), 4) if period_days else 0
+        ),
         "coverage_label": f"{days_with_data} of {period_days} days with scan data",
         "coverage_gaps": gap_sample,
         "coverage_gaps_truncated": gap_truncated,
@@ -410,10 +412,10 @@ def build_cloud_account_overview(
     as_of: str | None = None,
 ) -> dict[str, Any]:
     end = parse_as_of(as_of) or datetime.now(timezone.utc)
-    since = end - timedelta(days=period)
+    since, period_end = period_bounds(end, period)
 
     resources, regions = count_cloud_resources(db, provider, resource_id)
-    coverage = compute_cloud_evidence_coverage(db, provider, resource_id, since, end, period)
+    coverage = compute_cloud_evidence_coverage(db, provider, resource_id, since, period_end, period)
     posture = compute_cloud_compliance_posture(db, org_id, provider, resource_id)
     soc2 = compute_cloud_soc2_summary(db, org_id, provider, resource_id)
     trend = build_cloud_posture_trend(db, org_id, provider, resource_id, days=14)

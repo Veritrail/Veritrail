@@ -2,24 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
+import { jiraIntegrationSchema, type JiraIntegration } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/integration-setup.css";
 
-type JiraIntegration = {
-  connected: boolean;
-  status: string;
-  site_url: string | null;
-  email: string | null;
-  project_key: string | null;
-  issue_type: string;
-  has_api_token: boolean;
-};
 
 export default function JiraIntegration() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["jira-integration"],
-    queryFn: () => api<JiraIntegration>("/v1/integrations/jira"),
+    queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
   });
 
   const [siteUrl, setSiteUrl] = useState("");

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
+import { scannerIntegrationSchema } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import "../styles/integration-setup.css";
@@ -39,7 +40,7 @@ export default function VulnScannerIntegration() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["scanner-integration", key],
-    queryFn: () => api<ScannerIntegration>(`/v1/integrations/scanners/${key}`),
+    queryFn: () => api(`/v1/integrations/scanners/${key}`, { schema: scannerIntegrationSchema }),
   });
 
   const [apiUrl, setApiUrl] = useState("");

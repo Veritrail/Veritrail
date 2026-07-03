@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, restoreSession, token, logout } from "./api";
-import { accountListSchema } from "./lib/apiSchemas";
+import { accountListSchema, complianceTimelineSchema } from "./lib/apiSchemas";
 import { roleAtLeast, useMe } from "./hooks/useMe";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
 import { HeaderSlotContext } from "./context/HeaderSlot";
@@ -118,6 +118,7 @@ export default function Layout() {
       queryFn: () =>
         api(
           `/v1/accounts/${account.id}/compliance-timeline?framework=${DEFAULT_HISTORY_FRAMEWORK}&days=${DEFAULT_HISTORY_DAYS}&limit=100`,
+          { schema: complianceTimelineSchema },
         ),
       staleTime: HISTORY_PREFETCH_STALE_MS,
     });

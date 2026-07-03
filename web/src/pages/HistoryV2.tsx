@@ -3,11 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
+import { complianceTimelineSchema, compositeControlListSchema } from "../lib/apiSchemas";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { AppCommandBar } from "../components/AppCommandBar";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
+import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { HistoryFilterDropdown } from "../components/HistoryFilterDropdown";
 import { HistoryPageSizeDropdown } from "../components/HistoryPageSizeDropdown";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
@@ -96,7 +98,6 @@ export default function HistoryV2() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [days, setDays] = useState(90);
   const [framework, setFramework] = useState(() => searchParams.get("framework") ?? "soc2");
-  const [accountId, setAccountId] = useState(() => searchParams.get("account_id") ?? "");
   const [compositeFilter, setCompositeFilter] = useState(() => searchParams.get("composite") ?? "");
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
   const [search, setSearch] = useState("");
@@ -107,19 +108,18 @@ export default function HistoryV2() {
 
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
-  const activeAccount = useMemo(
-    () =>
-      (accountId && connectedAccounts.find((a) => a.id === accountId)) || connectedAccounts[0],
-    [accountId, connectedAccounts],
+  const { accountId: effectiveAccountId, activeAccount, setAccountId } = useSelectedAccountId(
+    connectedAccounts,
+    accountsReady,
   );
-  const effectiveAccountId = activeAccount?.id ?? "";
   const isAwsAccount = !activeAccount?.provider || activeAccount.provider === "aws";
 
   const compositesQ = useQuery({
     queryKey: ["controls", "composites", effectiveAccountId],
     queryFn: () =>
-      api<CompositeControlSummary[]>(
+      api(
         `/v1/controls/composites${effectiveAccountId ? `?account_id=${effectiveAccountId}` : ""}`,
+        { schema: compositeControlListSchema },
       ),
     enabled: !!effectiveAccountId && isAwsAccount,
   });
@@ -148,10 +148,8 @@ export default function HistoryV2() {
 
   useEffect(() => {
     const nextFramework = searchParams.get("framework");
-    const nextAccountId = searchParams.get("account_id");
     const nextComposite = searchParams.get("composite") ?? "";
     if (nextFramework) setFramework(nextFramework);
-    setAccountId(nextAccountId ?? "");
     setCompositeFilter(nextComposite);
   }, [searchParams]);
 
@@ -167,7 +165,9 @@ export default function HistoryV2() {
   const historyQ = useQuery<ComplianceHistoryResponse>({
     queryKey: ["history", effectiveAccountId, framework, days],
     queryFn: () =>
-      api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=100`),
+      api(`/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=100`, {
+        schema: complianceTimelineSchema,
+      }),
     enabled: !!effectiveAccountId && isAwsAccount,
     staleTime: HISTORY_STALE_MS,
   });
@@ -238,7 +238,6 @@ export default function HistoryV2() {
               setAccountId(id);
               setPageSize(DEFAULT_VISIBLE_EVENTS);
               setPage(1);
-              patchSearchParams({ account_id: id });
             }}
           />
 

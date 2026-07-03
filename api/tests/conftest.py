@@ -7,6 +7,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
+# Stable Fernet key for tests that flush EncryptedString columns (AwsAccount, AzureSubscription).
+_TEST_ENCRYPTION_KEY = "dmVyaXRyYWlsLXRlc3QtZW5jcnlwdGlvbi1rZXkhISE="
+
+
+@pytest.fixture(autouse=True)
+def _test_encryption_key(monkeypatch):
+    """CI/test env often has no ENCRYPTION_KEY; EncryptedString columns need a valid Fernet key."""
+    monkeypatch.setenv("ENCRYPTION_KEY", _TEST_ENCRYPTION_KEY)
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
 
 @pytest.fixture(autouse=True)
 def _disable_assume_role_audit_db_writes(request, monkeypatch):

@@ -54,8 +54,9 @@ const ABSENCE_GAP_ACTIONS: Record<string, AbsenceGapActions> = {
   },
   "aws.access_analyzer.not_enabled": {
     externalOption:
-      "Provide evidence of equivalent access-governance or external-access review coverage.",
-    awsOption: "Enable IAM Access Analyzer in in-scope regions.",
+      "Attest that the organization analyzer lives in your management account — unverified until that account is connected — or provide evidence of equivalent external-access review coverage.",
+    awsOption:
+      "Connect the management (or delegated administrator) account and re-scan: organization analyzers are deployed only there and leave zero API trace in member accounts, so this account can never show one. Veritrail verifies it automatically once that account is scanned.",
   },
   "cloudtrail.trail.not_enabled": {
     externalOption:
@@ -75,6 +76,11 @@ function absenceGapSuffix(checkId: string): (typeof ABSENCE_GAP_CHECK_SUFFIXES)[
 
 export function isAbsenceGapCheck(checkId: string): boolean {
   return absenceGapSuffix(checkId) !== null;
+}
+
+/** Human capability name for an absence-gap check ("GuardDuty threat detection"). */
+export function capabilityForAbsenceCheck(checkId: string): string {
+  return ABSENCE_GAP_CAPABILITY[checkId] ?? labelForCheck(checkId);
 }
 
 export function openAbsenceGapChecks(

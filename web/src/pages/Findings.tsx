@@ -17,6 +17,7 @@ import { checkFrameworksSchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
+import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
@@ -576,7 +577,6 @@ export default function Findings() {
   const providerScope = parseSourceProviderScope(searchParams.get("provider"));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
-  const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get("account") ?? "");
   const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, clearDrawerVerifyFlash } =
     useRecheckNotifications();
 
@@ -587,18 +587,21 @@ export default function Findings() {
   });
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
-  const effectiveAccountId =
-    providerScope
-      ? ""
-      : (selectedAccountId && connectedAccounts.some((a) => a.id === selectedAccountId)
-      ? selectedAccountId
-      : connectedAccounts[0]?.id) || "";
-  const activeAccount = connectedAccounts.find((a) => a.id === effectiveAccountId);
+  const {
+    accountId: selectedAccountId,
+    activeAccount: selectedActiveAccount,
+    setAccountId: setSelectedAccountId,
+  } = useSelectedAccountId(connectedAccounts, accountsReady);
+  const effectiveAccountId = providerScope ? "" : selectedAccountId;
+  const activeAccount = providerScope ? undefined : selectedActiveAccount;
   const scopeParams = findingsScopeParams(activeAccount);
   const connectedId = effectiveAccountId || undefined;
   const awsScanAccountId =
     activeAccount?.provider === "aws" || !activeAccount?.provider ? effectiveAccountId || undefined : undefined;
 
+  const findingsQueryEnabled =
+    !accountsLoading &&
+    (!!providerScope || !!effectiveAccountId || connectedAccounts.length > 0);
   const findingsQuery = useQuery({
     queryKey: ["findings", status, effectiveAccountId, scopeParams],
     queryFn: () =>
@@ -606,13 +609,12 @@ export default function Findings() {
         status,
         ...scopeParams,
       }),
-    enabled:
-      !accountsLoading &&
-      (!!providerScope || !!effectiveAccountId || connectedAccounts.length > 0),
+    enabled: findingsQueryEnabled,
     refetchInterval: pendingRecheck ? 3000 : false,
   });
   const showFindingsLoading =
-    findingsQuery.isFetching && !findingsQuery.data && !findingsQuery.isError;
+    accountsLoading ||
+    (findingsQueryEnabled && !findingsQuery.isSuccess && !findingsQuery.isError);
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
     awsScanAccountId,
     { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
@@ -791,7 +793,8 @@ export default function Findings() {
   const activityRows = useMemo(() => rows.filter((f) => isActivityCheck(f.check_id)), [rows]);
   const postureDisplayGroups = useMemo(() => buildDisplayGroups(postureRows), [buildDisplayGroups, postureRows]);
   const activityDisplayGroups = useMemo(() => buildDisplayGroups(activityRows), [activityRows, buildDisplayGroups]);
-  const isPositiveEmpty = status === "open" && !hasActiveFilters && rows.length === 0;
+  const isPositiveEmpty =
+    findingsQuery.isSuccess && status === "open" && !hasActiveFilters && rows.length === 0;
 
   const severityCounts = useMemo(() => {
     const counts = { all: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
@@ -847,17 +850,7 @@ export default function Findings() {
   }
 
   function handleAccountChange(id: string) {
-    setSelectedAccountId(id);
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("provider");
-        if (id) next.set("account", id);
-        else next.delete("account");
-        return next;
-      },
-      { replace: true },
-    );
+    setSelectedAccountId(id, { removeParams: ["provider"] });
   }
 
   function handleSearch(value: string) {
@@ -925,7 +918,18 @@ export default function Findings() {
           </HeaderSlot>
         )}
 
-        {showFindingsLoading && <div className="py-16 text-center text-sm text-zinc-500">Loading…</div>}
+        {showFindingsLoading && (
+          <div className="findings-v2-content min-w-0">
+            <div className="findings-v2-card animate-pulse rounded-2xl border border-[#e6ebf2] bg-white p-6 shadow-sm shadow-zinc-950/[0.04]">
+              <div className="h-10 rounded-xl bg-zinc-100" />
+              <div className="mt-6 space-y-3">
+                <div className="h-14 rounded-xl bg-zinc-50" />
+                <div className="h-14 rounded-xl bg-zinc-50" />
+                <div className="h-14 rounded-xl bg-zinc-50" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {findingsQuery.isError && (
           <div className="py-16 text-center">
@@ -969,9 +973,13 @@ export default function Findings() {
 
                   <div className="findings-v2-control-cluster">
                     <input
+                      id="findings-search"
+                      name="findings-search"
+                      type="search"
                       value={searchText}
                       onChange={(e) => handleSearch(e.target.value)}
                       placeholder="Search finding, ARN, resource…"
+                      aria-label="Search findings"
                       className="findings-v2-search h-8 rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
                     />
                     <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">

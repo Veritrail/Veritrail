@@ -3,7 +3,14 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatApiError, token } from "../api";
-import { checkFrameworksSchema } from "../lib/apiSchemas";
+import {
+  checkFrameworksSchema,
+  complianceTimelineSchema,
+  compositeControlListSchema,
+  controlListSchema,
+  evidenceCoverageSchema,
+  externalEvidenceListSchema,
+} from "../lib/apiSchemas";
 import { canUploadEvidence, roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
 import { FRAMEWORKS, frameworkLabel } from "../data/frameworks";
@@ -18,6 +25,7 @@ import {
   findingsScopeParams,
   useConnectedAccountOptions,
 } from "../hooks/useConnectedAccountOptions";
+import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingAffectsControlStatus } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -373,17 +381,25 @@ function ComplianceRowSummary({
 
   if (href) {
     return (
-      <button
-        type="button"
+      <span
+        role="link"
+        tabIndex={0}
         title={tooltip[displayStatus] ?? "View open findings"}
         onClick={(e) => {
           e.stopPropagation();
           onNavigate(href);
         }}
-        className={`${chipClass} transition hover:opacity-90`}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            onNavigate(href);
+          }
+        }}
+        className={`${chipClass} cursor-pointer transition hover:opacity-90`}
       >
         {content}
-      </button>
+      </span>
     );
   }
 
@@ -1310,6 +1326,17 @@ function ComplianceDetailBreadcrumb({
   );
 }
 
+function ComplianceToolbarLoadingSkeleton() {
+  return (
+    <div className="flex flex-wrap items-center gap-2 animate-pulse" aria-hidden>
+      <div className="h-8 w-16 rounded-full bg-zinc-100" />
+      <div className="h-8 w-20 rounded-full bg-zinc-100" />
+      <div className="h-8 w-24 rounded-full bg-zinc-100" />
+      <div className="h-8 w-20 rounded-full bg-zinc-100" />
+    </div>
+  );
+}
+
 function ComplianceUnifiedToolbar({
   framework,
   frameworkStatsById,
@@ -1319,6 +1346,7 @@ function ComplianceUnifiedToolbar({
   statusCounts,
   compositeStatusFilter = false,
   showStatusFilter,
+  toolbarLoading = false,
   auditExport,
   showAuditExport,
 }: {
@@ -1340,27 +1368,32 @@ function ComplianceUnifiedToolbar({
   };
   compositeStatusFilter?: boolean;
   showStatusFilter: boolean;
+  toolbarLoading?: boolean;
   auditExport: ReactNode;
   showAuditExport: boolean;
 }) {
   return (
     <div className="findings-v2-table-toolbar">
       <div className="findings-v2-filter-cluster !flex-wrap">
-        {showStatusFilter && (
-          <ComplianceStatusFilterBar
-            total={statusCounts.total}
-            passed={statusCounts.passed}
-            failed={statusCounts.failed}
-            noData={statusCounts.noData}
-            needsEvidence={statusCounts.needsEvidence}
-            externallyCovered={statusCounts.externallyCovered}
-            pendingReview={statusCounts.pendingReview}
-            staleEvidence={statusCounts.staleEvidence}
-            expiredEvidence={statusCounts.expiredEvidence}
-            statusFilter={statusFilter}
-            onChange={onStatusFilterChange}
-            compositeMode={compositeStatusFilter}
-          />
+        {toolbarLoading ? (
+          <ComplianceToolbarLoadingSkeleton />
+        ) : (
+          showStatusFilter && (
+            <ComplianceStatusFilterBar
+              total={statusCounts.total}
+              passed={statusCounts.passed}
+              failed={statusCounts.failed}
+              noData={statusCounts.noData}
+              needsEvidence={statusCounts.needsEvidence}
+              externallyCovered={statusCounts.externallyCovered}
+              pendingReview={statusCounts.pendingReview}
+              staleEvidence={statusCounts.staleEvidence}
+              expiredEvidence={statusCounts.expiredEvidence}
+              statusFilter={statusFilter}
+              onChange={onStatusFilterChange}
+              compositeMode={compositeStatusFilter}
+            />
+          )
         )}
         <ComplianceFrameworkSelect
           selectedId={framework}
@@ -1369,14 +1402,18 @@ function ComplianceUnifiedToolbar({
         />
       </div>
       <div className="findings-v2-control-cluster">
-        {showAuditExport && (
-          <div
-            className="findings-v2-toolbar-group findings-v2-actions-group"
-            role="group"
-            aria-label="Export"
-          >
-            {auditExport}
-          </div>
+        {toolbarLoading ? (
+          <div className="h-9 w-44 animate-pulse rounded-lg bg-zinc-100" aria-hidden />
+        ) : (
+          showAuditExport && (
+            <div
+              className="findings-v2-toolbar-group findings-v2-actions-group"
+              role="group"
+              aria-label="Export"
+            >
+              {auditExport}
+            </div>
+          )
         )}
       </div>
     </div>
@@ -1479,53 +1516,84 @@ function remediationActionForChecks(
     Rendered first in the drawer as a quiet white card: amber left rail +
     small-caps eyebrow, a headline that carries the quantified fact, and a
     short body. No icons, no pills — the sentence is the signal. */
-function CoverageGapExplainer({ absenceChecks }: { absenceChecks: string[] }) {
+function CoverageGapExplainer({
+  absenceChecks,
+  compositeId,
+}: {
+  absenceChecks: string[];
+  compositeId?: string;
+}) {
   const hasAnalyzer = absenceChecks.includes("aws.access_analyzer.not_enabled");
   const others = absenceChecks.filter((id) => id !== "aws.access_analyzer.not_enabled");
   const names = others.map(capabilityForAbsenceCheck);
   const analyzerOnly = hasAnalyzer && others.length === 0;
+  const identityGovernanceAnalyzer =
+    compositeId === "identity_governance" && hasAnalyzer;
   const total = absenceChecks.length;
-  const list = names.map((name, i) => (
-    <span key={name}>
-      {i > 0 && (i === names.length - 1 && !hasAnalyzer ? " and " : ", ")}
-      <strong>{name}</strong>
-    </span>
-  ));
+  const missingSignals = [
+    ...names,
+    ...(hasAnalyzer ? ["IAM Access Analyzer"] : []),
+  ];
+  const headline = identityGovernanceAnalyzer
+    ? "Organization IAM Access Analyzer cannot be verified from this account"
+    : analyzerOnly
+      ? "IAM Access Analyzer is not visible from this account"
+    : `This control has ${total} missing service${total === 1 ? "" : "s"}`;
+  const body = analyzerOnly && identityGovernanceAnalyzer
+    ? "This member-account scan cannot prove organization-level IAM Access Analyzer coverage. Veritrail must treat this control as unverified until the management or delegated administrator account is connected, or external evidence is uploaded."
+    : analyzerOnly
+      ? "Veritrail cannot verify this control automatically while IAM Access Analyzer is unavailable from this account."
+      : "These services feed this control's automated evidence collection — while they are off, every scan returns nothing to verify against.";
+  // The IG-analyzer step keeps its specific instruction (connect the management
+  // account) — that action has no direct row below. The generic cases point at
+  // the resolution path instead of restating its rows.
+  const nextStep = identityGovernanceAnalyzer
+    ? "Connect the AWS management or delegated administrator account to verify coverage automatically. If that is not possible, upload evidence that explicitly proves organization-level analyzer coverage."
+    : hasAnalyzer
+      ? "Use the resolution path below — enable what is missing in the right account and re-scan. The analyzer verifies only from the management account."
+      : `Use the resolution path below — enabling the missing service${total === 1 ? "" : "s"} is the fastest close; external evidence works if another tool covers this control.`;
+
   return (
     <div className="coverage-gap-card" role="note">
-      <p className="coverage-gap-card__eyebrow">Coverage gap</p>
-      {analyzerOnly ? (
-        <>
-          <h3 className="coverage-gap-card__headline">
-            IAM Access Analyzer is not visible from this account
-          </h3>
+      <div className="coverage-gap-card__head">
+        <div className="coverage-gap-card__title-block">
+          <p className="coverage-gap-card__eyebrow">Coverage gap</p>
+          <h3 className="coverage-gap-card__headline">{headline}</h3>
+        </div>
+      </div>
+
+      <p className="coverage-gap-card__body">{body}</p>
+
+      {identityGovernanceAnalyzer ? (
+        <div className="coverage-gap-card__note">
+          <p className="coverage-gap-card__note-title">Why this cannot be verified here</p>
           <p className="coverage-gap-card__body">
-            Veritrail has nothing to collect for this control. Enable the analyzer and
-            evidence is gathered automatically on the next scan — or upload external evidence
-            below if another tool covers this.
+            AWS exposes organization analyzers from the management or delegated administrator
+            account, not from ordinary member accounts. Unlike CloudTrail organization trails,
+            a member-account scan has no reliable signal that proves the analyzer exists.
           </p>
-        </>
-      ) : (
-        <>
-          <h3 className="coverage-gap-card__headline">
-            This control has {total} missing service{total === 1 ? "" : "s"}
-          </h3>
-          <p className="coverage-gap-card__body">
-            {list}
-            {hasAnalyzer ? (
-              <>
-                {names.length > 0 ? " and " : ""}
-                <strong>IAM Access Analyzer</strong>
-              </>
-            ) : null}{" "}
-            {total === 1 ? "is" : "are"} not enabled in this account, so Veritrail has nothing
-            to collect {total === 1 ? "for it" : "for them"}. Enable the missing service
-            {total === 1 ? "" : "s"} and re-scan, or upload external evidence if another tool
-            covers this control.
-          </p>
-        </>
-      )}
-      {hasAnalyzer ? (
+        </div>
+      ) : null}
+
+      {missingSignals.length > 0 ? (
+        <div className="coverage-gap-card__signals" aria-label="Missing coverage signals">
+          <span className="coverage-gap-card__signals-label">Missing coverage</span>
+          <div className="coverage-gap-card__signal-list">
+            {missingSignals.map((name) => (
+              <span className="coverage-gap-card__signal" key={name}>
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="coverage-gap-card__next">
+        <span className="coverage-gap-card__next-label">Next step</span>
+        <p className="coverage-gap-card__next-copy">{nextStep}</p>
+      </div>
+
+      {!identityGovernanceAnalyzer && hasAnalyzer ? (
         <p className="coverage-gap-card__body coverage-gap-card__note">
           <strong>Organization-analyzer note:</strong> analyzers are deployed only in the
           management (or delegated administrator) account and leave{" "}
@@ -2942,7 +3010,7 @@ function buildCompositeTabs({
       content: (
         <div className="control-detail-stack control-detail-stack--composite">
           {displayStatus === "needs_evidence" && hasAbsenceGaps ? (
-            <CoverageGapExplainer absenceChecks={absenceChecks} />
+            <CoverageGapExplainer absenceChecks={absenceChecks} compositeId={ctrl.id} />
           ) : null}
 
           <ControlDetailSection title="Blocking gaps">
@@ -3632,9 +3700,10 @@ function useFrameworkStats(
     // scans/rechecks, so the tab percentages went stale until a hard refresh.
     queryKey: ["controls", framework, accountId],
     queryFn: () =>
-      api<ControlRow[]>(
+      api(
         `/v1/controls?framework=${framework}${accountId ? `&account_id=${accountId}` : ""}`,
-      ),
+        { schema: controlListSchema },
+      ) as Promise<ControlRow[]>,
     enabled: enabled && !!accountId,
     select: (rows): FrameworkStats => {
       const total = rows.length;
@@ -3658,7 +3727,6 @@ export default function Controls() {
   const urlFramework = searchParams.get("framework");
   const urlControl = searchParams.get("control");
   const urlComposite = searchParams.get("composite");
-  const urlAccountId = searchParams.get("account_id");
   const urlView = searchParams.get("view");
   const urlStatus = searchParams.get("status");
   const urlTab = searchParams.get("tab");
@@ -3739,24 +3807,14 @@ export default function Controls() {
     isLoading: accountsLoading,
     isSuccess: accountsReady,
   } = useConnectedAccountOptions();
-  const activeAccount =
-    (urlAccountId && connectedAccounts.find((a) => a.id === urlAccountId)) ||
-    connectedAccounts[0];
+  const { activeAccount, setAccountId: handleAccountChange } = useSelectedAccountId(
+    connectedAccounts,
+    accountsReady,
+  );
   const isAwsAccount =
     !activeAccount?.provider || activeAccount.provider === "aws";
   const hasScanned = !!activeAccount?.last_scan_at;
   const prevScanAtRef = useRef<string | null>(null);
-
-  function handleAccountChange(id: string) {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("account_id", id);
-        return next;
-      },
-      { replace: true },
-    );
-  }
   const activeFramework = FRAMEWORKS.find((fw) => fw.id === framework)!;
 
   function setComplianceViewWithUrl(view: ComplianceView) {
@@ -3775,9 +3833,10 @@ export default function Controls() {
   const controls = useQuery({
     queryKey: ["controls", framework, activeAccount?.id],
     queryFn: () =>
-      api<ControlRow[]>(
+      api(
         `/v1/controls?framework=${framework}${isAwsAccount && activeAccount ? `&account_id=${activeAccount.id}` : ""}`,
-      ),
+        { schema: controlListSchema },
+      ) as Promise<ControlRow[]>,
     enabled: !accountsLoading,
   });
 
@@ -3807,18 +3866,20 @@ export default function Controls() {
   const compositeControls = useQuery({
     queryKey: ["controls", "composites", activeAccount?.id],
     queryFn: () =>
-      api<CompositeControlRow[]>(
+      api(
         `/v1/controls/composites${isAwsAccount && activeAccount ? `?account_id=${activeAccount.id}` : ""}`,
-      ),
+        { schema: compositeControlListSchema },
+      ) as Promise<CompositeControlRow[]>,
     enabled: !accountsLoading && !!activeAccount && isAwsAccount,
   });
 
   const externalEvidence = useQuery({
     queryKey: ["external-evidence", framework],
     queryFn: () =>
-      api<ExternalEvidenceArtifact[]>(
+      api(
         `/v1/controls/evidence?framework=${encodeURIComponent(framework)}`,
-      ),
+        { schema: externalEvidenceListSchema },
+      ) as Promise<ExternalEvidenceArtifact[]>,
     enabled: !accountsLoading,
   });
 
@@ -3998,9 +4059,10 @@ export default function Controls() {
         period: String(exportWindow.period),
       });
       if (exportWindow.asOf) params.set("as_of", exportWindow.asOf);
-      return api<EvidenceCoverage>(
+      return api(
         `/v1/accounts/${activeAccount!.id}/evidence-coverage?${params}`,
-      );
+        { schema: evidenceCoverageSchema },
+      ) as Promise<EvidenceCoverage>;
     },
     enabled: !!activeAccount && hasScanned && isAwsAccount,
   });
@@ -4066,6 +4128,7 @@ export default function Controls() {
     queryFn: () =>
       api<ComplianceHistoryResponse>(
         `/v1/accounts/${activeAccount!.id}/compliance-timeline?framework=${framework}&days=7&limit=20`,
+        { schema: complianceTimelineSchema },
       ),
     enabled: !!activeAccount && hasScanned && isAwsAccount,
     staleTime: 60_000,
@@ -4315,11 +4378,21 @@ export default function Controls() {
     return <ConnectAwsEmptyState />;
   }
 
+  const controlsQueryEnabled = !accountsLoading;
+  const controlsInitialLoading =
+    controlsQueryEnabled && !controls.isSuccess && !controls.isError;
+  const compositeQueryEnabled = !accountsLoading && !!activeAccount && isAwsAccount;
+  const compositeInitialLoading =
+    compositeQueryEnabled && !compositeControls.isSuccess && !compositeControls.isError;
+  const compositeToolbarLoading =
+    complianceView === "composite" && isAwsAccount && compositeInitialLoading;
+
   const showAuditExportAboveCard =
     !!activeAccount &&
-    !controls.isLoading &&
+    !controlsInitialLoading &&
+    !compositeToolbarLoading &&
     ((complianceView === "composite" &&
-      !compositeControls.isLoading &&
+      !compositeInitialLoading &&
       filteredCompositePanelRows.length > 0) ||
       (complianceView === "detailed" &&
         groupedRows.length > 0 &&
@@ -4409,16 +4482,16 @@ export default function Controls() {
         </HeaderSlot>
       )}
 
-      {!hasScanned && activeAccount && !controls.isLoading && (
+      {!hasScanned && activeAccount && !controlsInitialLoading && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 text-sm text-amber-900">
           <span className="font-semibold">Awaiting first scan.</span> Control
           pass/fail status appears after your account finishes scanning.
         </div>
       )}
 
-      {controls.isLoading && <LoadingSkeleton />}
+      {controlsInitialLoading && <LoadingSkeleton />}
 
-      {!controls.isLoading && activeAccount && (
+      {!controlsInitialLoading && activeAccount && (
         <div className="compliance-master-detail">
         <div className="compliance-master-detail__list">
           <ComplianceContentShell
@@ -4451,9 +4524,10 @@ export default function Controls() {
                     : { total, passed, failed, noData }
                 }
                 compositeStatusFilter={complianceView === "composite"}
+                toolbarLoading={compositeToolbarLoading}
                 showStatusFilter={
                   (complianceView === "composite" &&
-                    !compositeControls.isLoading &&
+                    !compositeInitialLoading &&
                     primaryComposites.length > 0) ||
                   (complianceView === "detailed" && total > 0)
                 }
@@ -4485,8 +4559,14 @@ export default function Controls() {
               ) : undefined
             }
           >
+            {complianceView === "composite" && compositeInitialLoading && (
+              <div className="px-5 py-8">
+                <LoadingSkeleton />
+              </div>
+            )}
+
             {complianceView === "composite" &&
-              !compositeControls.isLoading &&
+              !compositeInitialLoading &&
               primaryComposites.length > 0 &&
               filteredCompositePanelRows.length === 0 &&
               statusFilter !== "all" && (
@@ -4496,7 +4576,7 @@ export default function Controls() {
               )}
 
             {complianceView === "composite" &&
-              !compositeControls.isLoading &&
+              !compositeInitialLoading &&
               filteredCompositePanelRows.length > 0 && (
                 <CompositeControlsPanel
                   rows={filteredCompositePanelRows}
@@ -4511,7 +4591,7 @@ export default function Controls() {
               )}
 
             {complianceView === "composite" &&
-              !compositeControls.isLoading &&
+              !compositeInitialLoading &&
               primaryComposites.length === 0 &&
               total > 0 && (
                 <div className="px-5 py-4 text-sm text-zinc-600">

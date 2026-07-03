@@ -3,7 +3,7 @@
     "id": "identity_governance",
     "control_id": "COMPOSITE.IDENTITY_GOVERNANCE",
     "title": "Identity Governance & Access Review",
-    "description": "Confirms privileged access, inactive users, root-account posture, MFA, and unused credentials are reviewed and controlled.",
+    "description": "Reviews privileged access, inactive users, root account posture, MFA, and unused credentials.",
     "guidance": "Review IAM and connected identity providers for stale access, MFA gaps, and over-privileged policies.",
     "soc2_criteria": [
       "CC6"
@@ -352,7 +352,7 @@
     "id": "logging_monitoring",
     "control_id": "COMPOSITE.LOGGING_MONITORING",
     "title": "Logging & Monitoring",
-    "description": "Confirms audit logs, security monitoring, and alerting are enabled for relevant systems.",
+    "description": "Checks audit logging, monitoring, and alerting coverage across connected AWS services.",
     "guidance": "Enable CloudTrail, GuardDuty, Config, and flow logs where applicable.",
     "soc2_criteria": [
       "CC7"

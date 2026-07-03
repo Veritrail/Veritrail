@@ -1,6 +1,8 @@
 import { useState } from "react";
+import type { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { accountTimelineSchema } from "../lib/apiSchemas";
 import { eventDisplayName, eventVerb, parseActor, primaryResourceName, type TimelineEvent } from "../lib/timelineDisplay";
 
 interface InfraEvent {
@@ -58,7 +60,10 @@ export function InfrastructureEventsList({
   const { data, isLoading, error } = useQuery<{ events: InfraEvent[] }>({
     queryKey: ["timeline-day", accountId, onDate],
     queryFn: () =>
-      api(`/v1/accounts/${accountId}/timeline?on_date=${onDate}&limit=50&days=90`),
+      api<{ events: InfraEvent[] }>(
+        `/v1/accounts/${accountId}/timeline?on_date=${onDate}&limit=50&days=90`,
+        { schema: accountTimelineSchema as unknown as z.ZodType<{ events: InfraEvent[] }> },
+      ),
     enabled: expanded && !!accountId,
   });
 

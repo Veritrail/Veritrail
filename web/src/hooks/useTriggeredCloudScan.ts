@@ -109,7 +109,7 @@ export function useTriggeredCloudScan(
             schema: scanRunLatestNullableSchema,
           })
         : null,
-    enabled: !!provider && !!resourceId,
+    enabled: !!provider && !!resourceId && provider !== "aws",
     refetchOnMount: "always",
     refetchInterval: () => {
       if (!provider || !resourceId) return false;

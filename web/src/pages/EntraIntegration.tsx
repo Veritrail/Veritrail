@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { formatSync, Spinner, StatusDot } from "../components/IntegrationsUi";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import "../styles/integration-setup.css";
@@ -22,7 +23,7 @@ export default function EntraIntegration() {
   const qc = useQueryClient();
   const { data: provider, isLoading } = useQuery({
     queryKey: ["integration", SYNC_KEY],
-    queryFn: () => api<Provider | null>("/v1/integrations/entra"),
+    queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
   });
   const { isSyncing } = useIntegrationSyncState(SYNC_KEY);
 

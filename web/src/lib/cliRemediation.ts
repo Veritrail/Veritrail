@@ -1,4 +1,5 @@
 import { api } from "../api";
+import { clientIpSchema } from "./apiSchemas";
 
 /** Finding shape needed for CLI placeholder resolution */
 export type CliFinding = {
@@ -22,7 +23,7 @@ function isPrivateOrLocalIp(ip: string): boolean {
 /** Best-effort public IP for security-group / CIDR remediation snippets. */
 export async function fetchClientIpForRemediation(): Promise<string | null> {
   try {
-    const res = await api<{ ip: string | null }>("/v1/meta/client-ip");
+    const res = await api<{ ip: string | null }>("/v1/meta/client-ip", { schema: clientIpSchema });
     if (res.ip && !isPrivateOrLocalIp(res.ip)) return res.ip;
   } catch {
     // fall through — e.g. not logged in

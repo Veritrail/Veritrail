@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import { policyGenerationStatusSchema } from "../lib/apiSchemas";
 import {
   isPolicyGenInFlightStatus,
   useRecheckNotifications,
@@ -41,6 +42,7 @@ export function useCloudTrailPolicyGen(args: {
     queryFn: () =>
       api<PolicyGenStatusRow>(
         `/v1/accounts/${accountId}/roles/policy-generation/status?role_arn=${encodeURIComponent(roleArn)}`,
+        { schema: policyGenerationStatusSchema },
       ),
     enabled: Boolean(accountId && roleArn) && (watch || trackingThisRole),
     refetchInterval: (query) => {

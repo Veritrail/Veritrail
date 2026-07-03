@@ -10,7 +10,12 @@ import {
 } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { accountListSchema, cloudAccountListSchema, scanRunLatestNullableSchema } from "../lib/apiSchemas";
+import {
+  accountListSchema,
+  cloudAccountListSchema,
+  policyGenerationStatusSchema,
+  scanRunLatestNullableSchema,
+} from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { readPendingScan, type ScanRunLatest } from "../hooks/useTriggeredScan";
@@ -547,7 +552,10 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
     staleTime: 30_000,
   });
   const connectedCloudAccounts = useMemo(
-    () => cloudAccountsQ.data?.filter((account) => account.status === "connected") ?? [],
+    () =>
+      cloudAccountsQ.data?.filter(
+        (account) => account.status === "connected" && account.provider !== "aws",
+      ) ?? [],
     [cloudAccountsQ.data],
   );
   const monitoredCloudScanRuns = useQueries({
@@ -688,6 +696,7 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       try {
         const row = await api<PolicyGenStatusRow>(
           `/v1/accounts/${accountId}/roles/policy-generation/status?role_arn=${encodeURIComponent(roleArn)}`,
+          { schema: policyGenerationStatusSchema },
         );
         const st = (row.status ?? "").toUpperCase();
         if (st === "SUCCEEDED") {

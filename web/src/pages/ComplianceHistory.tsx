@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router-dom";
 
 import { api } from "../api";
+import { complianceTimelineSchema } from "../lib/apiSchemas";
 import { HistoryDashboard } from "../components/HistoryDashboard";
 import { HistorySnapshotDrawer } from "../components/HistorySnapshotDrawer";
 import {
@@ -280,6 +281,7 @@ export default function ComplianceHistory() {
     queryFn: () =>
       api(
         `/v1/accounts/${effectiveAccountId}/compliance-timeline?framework=${framework}&days=${days}&limit=40`,
+        { schema: complianceTimelineSchema },
       ),
     enabled: !!effectiveAccountId,
   });
@@ -308,7 +310,7 @@ export default function ComplianceHistory() {
   }
 
   return (
-    <div className={`w-full ${drawer ? "xl:pr-[28rem]" : ""}`}>
+    <div className="w-full">
       <header className="mb-5 border-b border-zinc-200/80 pb-5">
         <HistoryFilters
           accounts={connected}

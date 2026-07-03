@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import HTTPException, status
 
@@ -31,6 +31,19 @@ def _dates_in_period(since: datetime, end: datetime) -> list[date]:
         days.append(cur)
         cur += timedelta(days=1)
     return days
+
+
+def period_bounds(end: datetime, period_days: int) -> tuple[datetime, datetime]:
+    """Return since/end spanning exactly period_days calendar days (inclusive on end's date)."""
+    if period_days < 1:
+        period_days = 1
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    end_date = end.date()
+    start_date = end_date - timedelta(days=period_days - 1)
+    since = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
+    period_end = datetime.combine(end_date, time(23, 59, 59), tzinfo=timezone.utc)
+    return since, period_end
 
 
 def compute_evidence_coverage(
@@ -118,7 +131,9 @@ def compute_evidence_coverage(
         "successful_scans_in_period": successful_in_period,
         "scan_days_in_period": len(scan_days),
         "snapshot_days_in_period": len(snapshot_days),
-        "coverage_ratio": round(days_with_data / period_days, 4) if period_days else 0,
+        "coverage_ratio": (
+            round(min(1.0, days_with_data / period_days), 4) if period_days else 0
+        ),
         "coverage_label": f"{days_with_data} of {period_days} days with scan or snapshot data",
         "coverage_gaps": gap_sample,
         "coverage_gaps_truncated": gap_truncated,
