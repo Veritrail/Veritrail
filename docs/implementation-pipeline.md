@@ -229,32 +229,32 @@ works-end-to-end bar.
 
 #### 8.1 — Scanner auto-import (do first)
 
-- [ ] Scanner API pull creates/updates findings with dedup — `scanner_sync.py`
-- [ ] Documented in `docs/integrations-overview.md`
+- [x] Scanner API pull creates/updates findings with dedup — `scanner_sync.py`
+- [x] Documented in `docs/integrations-overview.md`
 
 #### 8.2 — Scanners (API connect + sync + audit-pack export)
 
-- [ ] Snyk integration — connect, verify, sync, export JSON
-- [ ] Orca integration — connect, verify, sync, export JSON (Snyk-shaped adapter)
-- [ ] Aikido integration — connect, verify, sync, export JSON (Snyk-shaped adapter)
+- [x] Snyk integration — connect, verify, sync, export JSON
+- [x] Orca integration — connect, verify, sync, export JSON (Snyk-shaped adapter)
+- [x] Aikido integration — connect, verify, sync, export JSON (Snyk-shaped adapter)
 
 #### 8.3 — Identity
 
-- [ ] Okta live sync (parallel to Entra/GWS) — `identity_provider.py` extension
-- [ ] Okta access review evidence in audit pack
+- [x] Okta live sync (parallel to Entra/GWS) — `identity_provider.py` extension
+- [x] Okta access review evidence in audit pack
 
 #### 8.4 — SIEM / monitoring (do last within Phase 8)
 
-- [ ] Splunk integration — connect, verify, sync, export JSON
-- [ ] Datadog integration — connect, verify, sync, export JSON
-- [ ] Generic SIEM export adapter (Elastic / Sentinel — pick one)
+- [x] Splunk integration — connect, verify, sync, export JSON
+- [x] Datadog integration — connect, verify, sync, export JSON
+- [x] Generic SIEM export adapter (Elastic / Sentinel — pick one)
 
 #### Ticketing (stretch within Release 5)
 
 - [~] Jira remediation tickets — phase-one shipped
 - [~] Linear remediation tickets — phase-one shipped
-- [ ] GitHub Issues remediation integration
-- [ ] Azure Boards remediation integration
+- [x] GitHub Issues remediation integration
+- [x] Azure Boards remediation integration
 
 ---
 

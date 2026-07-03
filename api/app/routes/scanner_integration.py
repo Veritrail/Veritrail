@@ -19,13 +19,13 @@ from app.services.github_sync import provider_config, set_provider_config
 from app.services.scanner_integrations import (
     public_config,
     scanner_type_for_vendor,
-    sync_summary,
     verify_scanner_connection,
 )
+from app.services.scanner_sync import sync_scanner_provider
 
 router = APIRouter()
 
-SUPPORTED_VENDORS = ("wiz", "tenable", "qualys")
+SUPPORTED_VENDORS = ("wiz", "tenable", "qualys", "snyk", "orca", "aikido")
 
 
 def _get_org(p, db: Session) -> Org:
@@ -64,6 +64,8 @@ class ScannerIntegrationIn(BaseModel):
     secret_key: str | None = None
     username: str | None = None
     password: str | None = None
+    api_token: str | None = None
+    org_id: str | None = None
 
 
 @router.get("/scanners/{vendor}", response_model=ScannerIntegrationOut)
@@ -123,6 +125,17 @@ def put_scanner(
             config["password"] = body.password.strip()
         if not all([config.get("platform_url"), config.get("username"), config.get("password")]):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Qualys requires platform_url, username, and password")
+    elif key in {"snyk", "orca", "aikido"}:
+        if body.api_url:
+            config["api_url"] = body.api_url.strip().rstrip("/")
+        if body.api_token:
+            config["api_token"] = body.api_token.strip()
+        if body.org_id:
+            config["org_id"] = body.org_id.strip()
+        if key == "snyk" and not all([config.get("org_id"), config.get("api_token")]):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Snyk requires org_id and api_token")
+        if key in {"orca", "aikido"} and not config.get("api_token"):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{key.title()} requires api_token")
 
     try:
         verify_scanner_connection(key, config)
@@ -179,15 +192,22 @@ def sync_scanner(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{key} scanner is not connected")
     cfg = provider_config(provider)
     try:
-        summary = sync_summary(key, cfg)
+        stats = sync_scanner_provider(db, provider, key, cfg)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Scanner sync failed: {e}") from e
 
+    summary = {
+        "open_findings_count": stats.open_findings_count,
+        "last_synced_at": stats.last_synced_at,
+        "imported": stats.imported,
+        "opened": stats.opened,
+        "resolved": stats.resolved,
+    }
     cfg.update(summary)
     set_provider_config(provider, cfg)
-    provider.last_synced_at = datetime.fromisoformat(summary["last_synced_at"])
+    provider.last_synced_at = datetime.fromisoformat(stats.last_synced_at)
     db.commit()
     return {"ok": True, **summary}
 

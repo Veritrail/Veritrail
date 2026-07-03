@@ -52,6 +52,7 @@ from app.services.evidence_vault import (
 )
 from app.services.github_sync import provider_config
 from app.services.scanner_integrations import SCANNER_TYPES, public_config
+from app.services.siem_integrations import SIEM_TYPES, public_config as siem_public_config
 
 log = structlog.get_logger()
 
@@ -383,6 +384,10 @@ def build_evidence_pack(
         _write(
             "scanner_integrations.json",
             json.dumps(_build_scanner_integrations(db, org_id), indent=2, default=str),
+        )
+        _write(
+            "siem_integrations.json",
+            json.dumps(_build_siem_integrations(db, org_id), indent=2, default=str),
         )
 
         from app.services.pack_signing import signing_enabled
@@ -869,6 +874,29 @@ def _build_scanner_integrations(db: Session, org_id: uuid.UUID) -> dict[str, Any
                 "status": provider.status,
                 "last_synced_at": provider.last_synced_at.isoformat() if provider.last_synced_at else None,
                 **public_config(vendor, cfg),
+            }
+        )
+    return {"integrations": rows}
+
+
+def _build_siem_integrations(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for vendor, provider_type in SIEM_TYPES.items():
+        provider = db.scalar(
+            select(IdentityProvider).where(
+                IdentityProvider.org_id == org_id,
+                IdentityProvider.type == provider_type,
+            )
+        )
+        if not provider:
+            continue
+        cfg = provider_config(provider)
+        rows.append(
+            {
+                "vendor": vendor,
+                "status": provider.status,
+                "last_synced_at": provider.last_synced_at.isoformat() if provider.last_synced_at else None,
+                **siem_public_config(vendor, cfg),
             }
         )
     return {"integrations": rows}

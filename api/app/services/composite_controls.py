@@ -87,6 +87,7 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "identity_center.user.inactive_90d": "asset_inventory",
     "google_workspace.user.inactive_90d": "asset_inventory",
     "entra.user.inactive_90d": "asset_inventory",
+    "okta.user.inactive_90d": "asset_inventory",
     # Secure SDLC vs change management
     "github.repo.no_branch_protection": "secure_sdlc",
     "gitlab.repo.no_branch_protection": "secure_sdlc",
@@ -109,6 +110,12 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "ecr.registry.enhanced_scanning_disabled": "container_vulnerability_monitoring",
     "ecr.repository.image_scan_disabled": "container_vulnerability_monitoring",
     "aws.inspector.active_critical_finding": "vulnerability_management",
+    "scanner.wiz.open_finding": "vulnerability_management",
+    "scanner.tenable.open_finding": "vulnerability_management",
+    "scanner.qualys.open_finding": "vulnerability_management",
+    "scanner.snyk.open_finding": "vulnerability_management",
+    "scanner.orca.open_finding": "vulnerability_management",
+    "scanner.aikido.open_finding": "vulnerability_management",
     # Data protection vs logging for CloudTrail events
     "cloudtrail.event.kms_key_disabled_or_deleted": "data_protection",
     "cloudtrail.event.s3_bucket_policy_change": "data_protection",

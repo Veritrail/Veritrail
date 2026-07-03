@@ -171,3 +171,78 @@ def persist_scope_findings(
 
     db.commit()
     return opened, resolved
+
+
+def persist_org_findings(
+    db: Session,
+    *,
+    org_id,
+    drafts: Iterable[FindingDraft],
+    check_ids_run: set[str],
+) -> tuple[int, int]:
+    """Persist org-scoped findings with no cloud account FK (scanner imports, etc.)."""
+    now = datetime.now(timezone.utc)
+    opened = 0
+    by_key = {(d.check_id, d.resource_arn): d for d in drafts}
+
+    existing = db.scalars(
+        select(Finding).where(
+            Finding.org_id == org_id,
+            Finding.account_id.is_(None),
+            Finding.gcp_project_id.is_(None),
+            Finding.azure_subscription_id.is_(None),
+            Finding.check_id.in_(check_ids_run),
+        )
+    ).all()
+    existing_keys = {(f.check_id, f.resource_arn): f for f in existing}
+
+    for key, d in by_key.items():
+        if key in existing_keys:
+            f = existing_keys[key]
+            f.last_seen = now
+            f.risk_score = d.risk_score
+            f.title = d.title
+            f.severity = d.severity
+            f.evidence = d.evidence
+            if f.status == "resolved":
+                f.status = "open"
+                f.resolved_at = None
+                db.add(FindingEvent(id=uuid.uuid4(), finding_id=f.id, action="reopened"))
+        else:
+            new = Finding(
+                id=uuid.uuid4(),
+                org_id=org_id,
+                account_id=None,
+                check_id=d.check_id,
+                resource_arn=d.resource_arn,
+                title=d.title,
+                severity=d.severity,
+                risk_score=d.risk_score,
+                evidence=d.evidence,
+                status="open",
+                first_seen=now,
+                last_seen=now,
+            )
+            db.add(new)
+            db.flush()
+            db.add(FindingEvent(id=uuid.uuid4(), finding_id=new.id, action="opened"))
+            opened += 1
+
+    resolved = 0
+    for key, f in existing_keys.items():
+        if key not in by_key and f.status == "open":
+            f.status = "resolved"
+            f.resolved_at = now
+            db.add(
+                FindingEvent(
+                    id=uuid.uuid4(),
+                    finding_id=f.id,
+                    action="resolved",
+                    actor="system",
+                    note="no longer detected",
+                )
+            )
+            resolved += 1
+
+    db.commit()
+    return opened, resolved

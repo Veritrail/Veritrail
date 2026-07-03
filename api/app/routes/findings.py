@@ -67,6 +67,30 @@ def _vcs_provider(check_id: str) -> str | None:
     return None
 
 
+def _scanner_provider(check_id: str) -> str | None:
+    if not check_id.startswith("scanner."):
+        return None
+    parts = check_id.split(".")
+    if len(parts) >= 2 and parts[1]:
+        return parts[1]
+    return "scanner"
+
+
+def _scanner_scope_name(f: Finding) -> str:
+    evidence = f.evidence if isinstance(f.evidence, dict) else {}
+    source = evidence.get("source")
+    if isinstance(source, str) and source.strip():
+        return source.strip()
+    vendor = _scanner_provider(f.check_id)
+    if vendor == "wiz":
+        return "Wiz"
+    if vendor == "tenable":
+        return "Tenable"
+    if vendor == "qualys":
+        return "Qualys"
+    return "Vulnerability scanner"
+
+
 def _vcs_scope_name(f: Finding) -> str:
     evidence = f.evidence if isinstance(f.evidence, dict) else {}
     for key in ("source", "org", "organization"):
@@ -292,6 +316,7 @@ def _to_out(
 ) -> FindingOut:
     vcs = _vcs_provider(f.check_id)
     cloud = _cloud_provider(f.check_id)
+    scanner = _scanner_provider(f.check_id)
     ticket_key = f.remediation_ticket_key
     ticket_url = f.remediation_ticket_url
     if not ticket_key:
@@ -308,6 +333,30 @@ def _to_out(
             account_label=scope,
             account_name=scope,
             account_provider=vcs,
+            check_id=f.check_id,
+            resource_arn=f.resource_arn,
+            title=f.title,
+            severity=f.severity,
+            risk_score=f.risk_score,
+            status=f.status,
+            evidence=f.evidence,
+            first_seen=f.first_seen,
+            last_seen=f.last_seen,
+            exception_reason=f.exception_reason,
+            exception_approved_by=f.exception_approved_by,
+            exception_expires_at=f.exception_expires_at,
+            remediation_ticket_key=ticket_key,
+            remediation_ticket_url=ticket_url,
+        )
+    if scanner:
+        scope = _scanner_scope_name(f)
+        return FindingOut(
+            id=str(f.id),
+            account_id=str(f.account_id) if f.account_id else None,
+            aws_account_id=None,
+            account_label=scope,
+            account_name=scope,
+            account_provider=scanner,
             check_id=f.check_id,
             resource_arn=f.resource_arn,
             title=f.title,

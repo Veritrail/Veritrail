@@ -10,12 +10,18 @@ SCANNER_TYPES = {
     "wiz": "scanner_wiz",
     "tenable": "scanner_tenable",
     "qualys": "scanner_qualys",
+    "snyk": "scanner_snyk",
+    "orca": "scanner_orca",
+    "aikido": "scanner_aikido",
 }
 
 VENDOR_LABELS = {
     "wiz": "Wiz",
     "tenable": "Tenable",
     "qualys": "Qualys",
+    "snyk": "Snyk",
+    "orca": "Orca Security",
+    "aikido": "Aikido",
 }
 
 
@@ -58,6 +64,14 @@ def public_config(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
                 "has_password": bool(cfg.get("password")),
             }
         )
+    elif key in {"snyk", "orca", "aikido"}:
+        base.update(
+            {
+                "api_url": cfg.get("api_url"),
+                "org_id": cfg.get("org_id"),
+                "has_api_token": bool(cfg.get("api_token")),
+            }
+        )
     return base
 
 
@@ -69,6 +83,12 @@ def verify_scanner_connection(vendor: str, cfg: dict[str, Any]) -> dict[str, Any
         return _test_tenable(cfg)
     if key == "qualys":
         return _test_qualys(cfg)
+    if key == "snyk":
+        return _test_snyk(cfg)
+    if key == "orca":
+        return _test_orca(cfg)
+    if key == "aikido":
+        return _test_aikido(cfg)
     raise ValueError(f"Unsupported scanner vendor: {vendor}")
 
 
@@ -217,3 +237,33 @@ def _qualys_open_findings(cfg: dict[str, Any]) -> int:
                 except ValueError:
                     break
     return 0
+
+
+def _test_snyk(cfg: dict[str, Any]) -> dict[str, Any]:
+    from app.services.snyk_shaped_scanner import verify_bearer_get
+
+    org_id = (cfg.get("org_id") or "").strip()
+    token = (cfg.get("api_token") or "").strip()
+    api_url = (cfg.get("api_url") or "https://api.snyk.io").rstrip("/")
+    if not org_id:
+        raise ValueError("Snyk requires org_id")
+    verify_bearer_get(f"{api_url}/rest/orgs/{org_id}?version=2024-10-15", token, label="snyk")
+    return {"ok": True, "vendor": "snyk"}
+
+
+def _test_orca(cfg: dict[str, Any]) -> dict[str, Any]:
+    from app.services.snyk_shaped_scanner import verify_bearer_get
+
+    token = (cfg.get("api_token") or "").strip()
+    api_url = (cfg.get("api_url") or "https://api.orcasecurity.io").rstrip("/")
+    verify_bearer_get(f"{api_url}/api/user/me", token, label="orca")
+    return {"ok": True, "vendor": "orca"}
+
+
+def _test_aikido(cfg: dict[str, Any]) -> dict[str, Any]:
+    from app.services.snyk_shaped_scanner import verify_bearer_get
+
+    token = (cfg.get("api_token") or "").strip()
+    api_url = (cfg.get("api_url") or "https://app.aikido.dev").rstrip("/")
+    verify_bearer_get(f"{api_url}/api/public/v1/teams", token, label="aikido")
+    return {"ok": True, "vendor": "aikido"}
