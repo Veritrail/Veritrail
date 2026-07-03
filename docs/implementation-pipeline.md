@@ -14,7 +14,9 @@ Ordered backlog from the direction-folder audit (`436d5b71`) and [enterprise-rea
 
 **Honest answer:** The `direction/` folder READMEs were **not** wholesale-implemented. Phase-one enterprise work was already done before the audit. Since the audit, Phases 0–4 landed (pipeline doc, PDF graded status, gaps refresh, Controls virtualization, multi-cloud normalization parity, GCP Release 3 collectors). Phase 5.1 (Azure Resource Graph VM inventory + public IP check), Phase 5.2 (Activity Log / diagnostic settings), Phase 5.3 (Entra / Azure RBAC privileged role assignments), Phase 5.4 (Azure Policy compliance), and Phase 5.5 (Azure onboarding polish with degraded-check verify), Phase 6 (granular evidence RBAC), and Phase 7 (per-org control mapping) are complete. **Most backlog remains** — start at Phase 8.
 
-**Next run:** Phase 8 (Release 5 integrations) unless blocked.
+**Next run:** Phase 8 (Release 5 integrations), starting with scanner auto-import — see the reordered value ranking inside Phase 8. Two fast-follows from the 2026-07 compliance review are queued alongside it.
+
+**Verification note (2026-07-03):** Phases 2–7 re-audited — all artifacts present (collectors, migrations 0085/0086, RBAC guards, mapping routes, virtualized lists) and their 50 tests pass. One citation corrected: `ControlMappingSettings.tsx` mounts on the Workspace page, not Controls.
 
 ---
 
@@ -208,7 +210,7 @@ Audit item: *"Custom evidence categories shipped; per-control mapping still part
 - [x] Pack export respects org overrides — `seed_controls.py`, `check_controls.py`, `evidence_pack.py`
 - [x] Composite status respects org overrides — `composite_controls.py`
 - [x] Falls back to global `control_mappings.json` when no override — `org_control_mappings.py`
-- [x] Settings UI for per-control mapping (Workspace or Compliance) — `ControlMappingSettings.tsx` on Controls page
+- [x] Settings UI for per-control mapping — `ControlMappingSettings.tsx` on the Workspace page
 
 ---
 
@@ -216,29 +218,36 @@ Audit item: *"Custom evidence categories shipped; per-control mapping still part
 
 Audit item: *"Snyk/Orca/Aikido/Splunk/Datadog/SIEM; Okta live sync; scanner auto-import."*
 
-Pick **one vendor per agent run**.
+Pick **one vendor per agent run**. **Value order (2026-07-03):** run in the order below —
+auto-import first (it activates the dormant Wiz/Tenable/Qualys phase-one connections and
+feeds the Vulnerability Management composite), then Snyk (most common at SOC 2-stage
+companies; lands into the auto-import pipe), then Okta (reuses the Entra/GWS sync pattern;
+CC6.1/6.2 access-review evidence). SIEM adapters are evidence *destinations*, not sources —
+weakest audit-pack contribution, do them last. **Prerequisite:** vendor sandboxes (Snyk
+free-tier org, Okta developer tenant) — building against mocks alone does not meet the
+works-end-to-end bar.
 
-#### Scanners (API connect + sync + audit-pack export)
+#### 8.1 — Scanner auto-import (do first)
+
+- [ ] Scanner API pull creates/updates findings with dedup — `scanner_sync.py`
+- [ ] Documented in `docs/integrations-overview.md`
+
+#### 8.2 — Scanners (API connect + sync + audit-pack export)
 
 - [ ] Snyk integration — connect, verify, sync, export JSON
-- [ ] Orca integration — connect, verify, sync, export JSON
-- [ ] Aikido integration — connect, verify, sync, export JSON
+- [ ] Orca integration — connect, verify, sync, export JSON (Snyk-shaped adapter)
+- [ ] Aikido integration — connect, verify, sync, export JSON (Snyk-shaped adapter)
 
-#### SIEM / monitoring
-
-- [ ] Splunk integration — connect, verify, sync, export JSON
-- [ ] Datadog integration — connect, verify, sync, export JSON
-- [ ] Generic SIEM export adapter (Elastic / Sentinel — pick one)
-
-#### Identity
+#### 8.3 — Identity
 
 - [ ] Okta live sync (parallel to Entra/GWS) — `identity_provider.py` extension
 - [ ] Okta access review evidence in audit pack
 
-#### Scanner auto-import
+#### 8.4 — SIEM / monitoring (do last within Phase 8)
 
-- [ ] Scanner API pull creates/updates findings with dedup — `scanner_sync.py`
-- [ ] Documented in `docs/integrations-overview.md`
+- [ ] Splunk integration — connect, verify, sync, export JSON
+- [ ] Datadog integration — connect, verify, sync, export JSON
+- [ ] Generic SIEM export adapter (Elastic / Sentinel — pick one)
 
 #### Ticketing (stretch within Release 5)
 
@@ -246,6 +255,31 @@ Pick **one vendor per agent run**.
 - [~] Linear remediation tickets — phase-one shipped
 - [ ] GitHub Issues remediation integration
 - [ ] Azure Boards remediation integration
+
+---
+
+### Phase 8.5 — Fast-follows from the 2026-07 compliance review
+
+Gaps surfaced while hardening the compliance model in early July 2026; they close
+promises the product now makes in its own UI copy. Parallel-safe with Phase 8 runs
+(disjoint files), size S–M each.
+
+- [ ] **GCP firewall-rules collector + paired exposure check** — `gcp.compute.instance_public_ip`
+      was downgraded to medium on the explicit rationale that GCP VPC ingress is
+      default-deny and "the high signal is public IP + permissive firewall — grade that
+      combination once a firewall-rules collector exists" (comment in
+      `gcp_compute_instance_public_ip.py`). Build the collector, add
+      `gcp.firewall.open_ingress` (high when 0.0.0.0/0 allow + instance has external IP),
+      map into `network_boundary` + CC6.6.
+- [ ] **Org-level "require SSO" enforcement** — no `sso_required` flag exists anywhere.
+      Today password login and 30-day remember-me refresh sessions work forever alongside
+      SAML, and IdP deprovisioning never ends Veritrail sessions. Shape: org setting; when
+      set, block password login/reset for the org, stamp the auth method into the session,
+      and reject non-SSO sessions at `/v1/auth/refresh`. Auditor- and enterprise-facing.
+- [ ] **IAM-binding role capture in GCP CAI collector** — store the binding roles in
+      finding evidence so `gcp.asset.public_iam_binding` can grade `allUsers` +
+      `roles/editor` (severe) differently from `allUsers` + `objectViewer`; today only the
+      boolean `has_public_iam` survives collection.
 
 ---
 
@@ -421,9 +455,9 @@ flowchart LR
 
 - [x] Evidence RBAC role matrix + API guards + UI + tests
 - [x] Per-control org mapping table + API + UI
-- [ ] Release 5: pick one vendor (Snyk / Orca / Aikido / Splunk / Datadog / SIEM)
-- [ ] Okta live sync
-- [ ] Scanner auto-import
+- [ ] Scanner auto-import (8.1 — first)
+- [ ] Release 5: pick one vendor in value order (Snyk → Orca/Aikido → Okta → Splunk/Datadog/SIEM)
+- [ ] Phase 8.5 fast-follows: GCP firewall collector; org "require SSO"; CAI binding roles
 
 ### Phase 9 — P4 deferred (one per run, after Phase 8)
 
