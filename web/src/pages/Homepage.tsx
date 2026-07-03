@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { ConnectedStatusIcon } from "../components/ConnectedStatusIcon";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { SecurityScoreGauge } from "../components/SecurityScoreGauge";
 import "../styles/homepage.css";
@@ -35,23 +36,6 @@ const RECENT_EVIDENCE = [
   { brand: "azure" as const, source: "Azure", label: "Storage Account Encryption Enabled", updated: "3d ago" },
   { brand: "gitlab" as const, source: "GitLab", label: "Merge Request Approval Required", updated: "5d ago" },
 ];
-
-function HomepageEvidenceStatusMark() {
-  return (
-    <span className="homepage-evidence-table__status" aria-hidden>
-      <svg className="homepage-evidence-table__status-icon" viewBox="0 0 18 18" fill="none">
-        <circle cx="9" cy="9" r="8" fill="#dcfce7" stroke="#22c55e" strokeWidth="1" />
-        <path
-          d="M5.5 9.25 7.75 11.5 12.5 6.5"
-          stroke="#16a34a"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
-  );
-}
 
 function SparklineIcon({ className = "", path }: { className?: string; path?: string }) {
   return (
@@ -222,37 +206,40 @@ function DashboardPreview() {
               <h3 className="homepage-dashboard__section-title">Recent evidence</h3>
               <table className="homepage-evidence-table">
                 <colgroup>
-                  <col className="homepage-evidence-table__col-status" />
+                  <col className="homepage-evidence-table__col-finding" />
                   <col className="homepage-evidence-table__col-source" />
                   <col className="homepage-evidence-table__col-updated" />
                 </colgroup>
                 <thead>
                   <tr>
-                    <th scope="col" className="homepage-evidence-table__status-head">
-                      <span className="sr-only">Status</span>
+                    <th scope="col" className="homepage-evidence-table__finding-head">
+                      <span className="sr-only">Finding</span>
                     </th>
-                    <th scope="col">Source</th>
-                    <th scope="col" className="homepage-evidence-table__updated">
-                      Updated
+                    <th scope="col" className="homepage-evidence-table__source-head">
+                      <span className="homepage-evidence-table__header-pill">Source</span>
+                    </th>
+                    <th scope="col" className="homepage-evidence-table__updated-head">
+                      <span className="homepage-evidence-table__header-pill">Updated</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {RECENT_EVIDENCE.map((row) => (
                     <tr key={row.label}>
-                      <td className="homepage-evidence-table__status-cell">
-                        <HomepageEvidenceStatusMark />
-                      </td>
                       <td>
-                        <div className="homepage-evidence-table__source">
-                          <span className="homepage-evidence-table__label">{row.label}</span>
-                          <span className="homepage-evidence-table__provider">
-                            <IntegrationBrandIcon brand={row.brand} size={16} variant="plain" />
-                            <span>{row.source}</span>
-                          </span>
+                        <div className="homepage-evidence-table__finding-cell">
+                          <ConnectedStatusIcon className="homepage-evidence-table__status" />
+                          <span className="homepage-evidence-table__finding-pill">{row.label}</span>
                         </div>
                       </td>
-                      <td className="homepage-evidence-table__updated">{row.updated}</td>
+                      <td className="homepage-evidence-table__source-cell">
+                        <span className="homepage-evidence-table__source-pill" title={row.source}>
+                          <IntegrationBrandIcon brand={row.brand} size={18} variant="plain" />
+                        </span>
+                      </td>
+                      <td className="homepage-evidence-table__updated-cell">
+                        <span className="homepage-evidence-table__updated-pill">{row.updated}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
