@@ -6,10 +6,15 @@
   --integrations-bg: #f8fafc;
 
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 1rem;
-  padding-bottom: 2rem;
+  width: 100%;
+  min-width: 0;
+  /* Match workspace-page: fill the viewport content column on short pages so
+     margin-top: auto pins recommended integrations to the visual bottom. */
+  min-height: calc(100vh - 4rem);
+  padding-bottom: 0;
 }
 
 .integrations-page__header {
@@ -362,9 +367,10 @@
   font-size: 0.8125rem;
   color: var(--integrations-muted);
   line-height: 1.4;
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .integrations-connect-btn {
@@ -625,6 +631,7 @@
 
 .integrations-recommended {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 1rem;
   margin-top: auto;

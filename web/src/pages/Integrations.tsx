@@ -763,7 +763,7 @@ function RecommendedIntegrations({
 
 export default function Integrations() {
   return (
-    <ProductShell className="flex flex-1 flex-col">
+    <ProductShell className="flex min-h-0 flex-1 flex-col h-full">
       <IntegrationsContent />
     </ProductShell>
   );
