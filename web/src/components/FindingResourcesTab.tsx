@@ -135,20 +135,37 @@ function ResourceTypePill({ label }: { label: string }) {
 }
 
 function CopyTextButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
   return (
     <button
       type="button"
-      aria-label={label}
+      aria-label={copied ? "Copied" : label}
+      title={copied ? "Copied" : label}
       onClick={(event) => {
         event.stopPropagation();
-        void navigator.clipboard.writeText(text);
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1000);
+        });
       }}
-      className="shrink-0 text-zinc-400 transition hover:text-zinc-600 focus:outline-none"
+      className={`shrink-0 transition focus:outline-none ${
+        copied ? "text-emerald-600" : "text-zinc-400 hover:text-zinc-600"
+      }`}
     >
-      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-        <rect x="3" y="2" width="13" height="16" rx="2.5" />
-        <path d="M16 6h2.5A2.5 2.5 0 0 1 21 8.5v11a2.5 2.5 0 0 1-2.5 2.5h-10A2.5 2.5 0 0 1 6 19.5V18" />
-      </svg>
+      <span className="sr-only" role="status" aria-live="polite">
+        {copied ? "Copied" : ""}
+      </span>
+      {copied ? (
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+          <rect x="3" y="2" width="13" height="16" rx="2.5" />
+          <path d="M16 6h2.5A2.5 2.5 0 0 1 21 8.5v11a2.5 2.5 0 0 1-2.5 2.5h-10A2.5 2.5 0 0 1 6 19.5V18" />
+        </svg>
+      )}
     </button>
   );
 }
