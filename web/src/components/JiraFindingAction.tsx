@@ -34,7 +34,6 @@ type Props = {
   finding: FindingSummary;
   existing?: { issue_key?: string; issue_url?: string } | null;
   onCreated?: (issue: JiraIssue) => void;
-  onRemove?: () => void;
   className?: string;
 };
 
@@ -541,7 +540,7 @@ function ProjectSelect({
   );
 }
 
-export function JiraFindingAction({ finding, existing, onCreated, onRemove, className }: Props) {
+export function JiraFindingAction({ finding, existing, onCreated, className }: Props) {
   const qc = useQueryClient();
   const hasLinkedTicket = !!(existing?.issue_key && existing.issue_url);
   const [open, setOpen] = useState(false);
@@ -728,28 +727,16 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
 
   if (hasLinkedTicket && existing?.issue_url) {
     return (
-      <div className="flex shrink-0 items-center gap-1.5">
-        <a
-          href={existing.issue_url}
-          target="_blank"
-          rel="noreferrer"
-          className={triggerClassName}
-          title="Open remediation ticket in Jira"
-        >
-          <JiraIcon className="h-3.5 w-3.5" />
-          View Ticket
-        </a>
-        {onRemove ? (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
-            aria-label="Remove Jira ticket link"
-          >
-            ×
-          </button>
-        ) : null}
-      </div>
+      <a
+        href={existing.issue_url}
+        target="_blank"
+        rel="noreferrer"
+        className={triggerClassName}
+        title="Open remediation ticket in Jira"
+      >
+        <JiraIcon className="h-3.5 w-3.5" />
+        View Ticket
+      </a>
     );
   }
 

@@ -7017,7 +7017,6 @@ export function FindingDrawer({
               finding={finding}
               existing={jiraIssue}
               onCreated={setJiraOverride}
-              onRemove={() => setConfirmRemoveTicket(true)}
               className={drawerFooterJira}
             />
           ) : null}
