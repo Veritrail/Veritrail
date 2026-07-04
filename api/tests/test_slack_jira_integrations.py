@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from app.routes.jira_integration import _issue_description, list_jira_projects
-from app.services.jira_client import JiraClient, normalize_site_url
+from app.services.jira_client import JiraClient, dedupe_assignable_users, normalize_site_url
 from app.services.scan_alert import _post_scan_failure_slack, notify_scan_failure
 
 
@@ -201,6 +201,60 @@ def test_list_jira_projects_route_returns_connected_projects(mock_db, monkeypatc
         {"key": "KAN", "name": "Kanban", "id": "10000"},
         {"key": "SEC", "name": "Security", "id": "10001"},
     ]
+
+
+def test_dedupe_assignable_users_collapses_duplicate_account_ids():
+    users = [
+        {
+            "account_id": "abc123",
+            "display_name": "Ada Lovelace",
+            "email": "",
+            "avatar_url": "",
+        },
+        {
+            "account_id": "abc123",
+            "display_name": "Ada Lovelace",
+            "email": "ada@example.com",
+            "avatar_url": "https://avatar.example/ada.png",
+        },
+    ]
+    assert dedupe_assignable_users(users) == [users[1]]
+
+
+def test_dedupe_assignable_users_prefers_email_when_display_name_matches():
+    users = [
+        {
+            "account_id": "ghost-account",
+            "display_name": "Elazar Chodjayev",
+            "email": "",
+            "avatar_url": "https://avatar.example/ghost.png",
+        },
+        {
+            "account_id": "real-account",
+            "display_name": "Elazar Chodjayev",
+            "email": "zenmyx@gmail.com",
+            "avatar_url": "https://avatar.example/real.png",
+        },
+    ]
+    assert dedupe_assignable_users(users) == [users[1]]
+
+
+def test_dedupe_assignable_users_keeps_distinct_people_with_same_name_and_email():
+    users = [
+        {
+            "account_id": "one",
+            "display_name": "Alex Smith",
+            "email": "alex.a@example.com",
+            "avatar_url": "",
+        },
+        {
+            "account_id": "two",
+            "display_name": "Alex Smith",
+            "email": "alex.b@example.com",
+            "avatar_url": "",
+        },
+    ]
+    assert dedupe_assignable_users(users) == users
 
 
 def test_jira_search_assignable_users_maps_avatar_and_filters_incomplete_rows():

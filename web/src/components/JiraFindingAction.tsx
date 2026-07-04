@@ -95,6 +95,23 @@ function initialsFromName(name: string): string {
   return `${parts[0].slice(0, 1)}${parts[1].slice(0, 1)}`.toUpperCase();
 }
 
+function dedupeJiraUsers(users: JiraUser[]): JiraUser[] {
+  const seen = new Set<string>();
+  const deduped: JiraUser[] = [];
+  for (const user of users) {
+    if (seen.has(user.account_id)) continue;
+    seen.add(user.account_id);
+    deduped.push(user);
+  }
+  return deduped;
+}
+
+function assigneeSubline(user: JiraUser): string | null {
+  if (user.email?.trim()) return user.email.trim();
+  if (user.account_id) return `Account ${user.account_id.slice(0, 8)}…`;
+  return null;
+}
+
 function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={`${className} shrink-0 rounded-[3px]`} viewBox="0 0 24 24" aria-hidden>
@@ -649,6 +666,8 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     staleTime: 30_000,
   });
 
+  const assigneeSuggestions = useMemo(() => dedupeJiraUsers(users), [users]);
+
   const create = useMutation({
     mutationFn: () =>
       api<JiraIssue>(`/v1/integrations/jira/issues/from-finding/${finding.id}`, {
@@ -892,8 +911,8 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                                   <p className="px-3 py-2 text-sm text-[#626F86]">Loading assignable users…</p>
                                 ) : usersError ? (
                                   <p className="px-3 py-2 text-sm text-[#E34935]">{formatApiError(usersError)}</p>
-                                ) : users.length ? (
-                                  users.map((user) => (
+                                ) : assigneeSuggestions.length ? (
+                                  assigneeSuggestions.map((user) => (
                                     <button
                                       key={user.account_id}
                                       type="button"
@@ -907,9 +926,12 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                                         <span className="block truncate text-sm text-[#172B4D]">
                                           {user.display_name}
                                         </span>
-                                        {user.email ? (
-                                          <span className="block truncate text-xs text-[#626F86]">{user.email}</span>
-                                        ) : null}
+                                        {(() => {
+                                          const subline = assigneeSubline(user);
+                                          return subline ? (
+                                            <span className="block truncate text-xs text-[#626F86]">{subline}</span>
+                                          ) : null;
+                                        })()}
                                       </span>
                                     </button>
                                   ))
