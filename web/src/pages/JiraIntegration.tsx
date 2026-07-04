@@ -135,7 +135,7 @@ export default function JiraIntegration() {
             </p>
 
             <div className="integration-setup__callout integration-setup__callout--neutral">
-              <strong>Recommended:</strong> create a dedicated Jira account (e.g. <code>veritrail@yourco.com</code>)
+              <strong>Recommended:</strong> create a dedicated Jira account (e.g. <code>veritrail@yourcompany.com</code>)
               for this connection. Issues are attributed to Veritrail instead of a person, and the integration keeps
               working when staff change. It needs its own Jira product license (a seat).
             </div>
