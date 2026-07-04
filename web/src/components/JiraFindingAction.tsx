@@ -619,7 +619,10 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     },
   });
 
-  const { data: integrationUser } = useQuery({
+  const {
+    data: integrationUser,
+    isFetching: integrationUserLoading,
+  } = useQuery({
     queryKey: ["jira-integration-user", integrationEmail, activeProjectKey],
     queryFn: async () => {
       const users = await api<JiraUser[]>(
@@ -628,19 +631,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
       const exact = users.find((user) => user.email?.toLowerCase() === integrationEmail.toLowerCase());
       return exact ?? users[0] ?? null;
     },
-    enabled: open && !!jira?.connected && !!integrationEmail && !!activeProjectKey,
+    enabled: !!jira?.connected && !!integrationEmail && !!activeProjectKey,
     staleTime: 60_000,
   });
-
-  const reporter: JiraUser = useMemo(() => {
-    if (integrationUser) return integrationUser;
-    const local = integrationEmail.split("@")[0] || "Reporter";
-    return {
-      account_id: "",
-      display_name: local.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-      email: integrationEmail,
-    };
-  }, [integrationEmail, integrationUser]);
 
   const {
     data: users = [],
@@ -1002,10 +995,19 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                       </DetailsRow>
 
                       <DetailsRow label="Reporter">
-                        <span className="inline-flex max-w-full items-center gap-2">
-                          <UserAvatar user={reporter} size="sm" />
-                          <span className="truncate">{reporter.display_name}</span>
-                        </span>
+                        {integrationUserLoading && !integrationUser ? (
+                          <span className="inline-flex max-w-full items-center gap-2" aria-busy="true">
+                            <span className="h-6 w-6 shrink-0 animate-pulse rounded-full bg-[#DFE1E6]" />
+                            <span className="h-4 w-28 animate-pulse rounded bg-[#DFE1E6]" />
+                          </span>
+                        ) : integrationUser ? (
+                          <span className="inline-flex max-w-full items-center gap-2">
+                            <UserAvatar user={integrationUser} size="sm" />
+                            <span className="truncate">{integrationUser.display_name}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#626F86]">{integrationEmail || "Integration account"}</span>
+                        )}
                       </DetailsRow>
                     </div>
                   </CollapsibleSection>
