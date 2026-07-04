@@ -16,4 +16,5 @@ export function isJiraDoneBeforeVerification(
 export const JIRA_DONE_UNVERIFIED_WARNING =
   "Run Verify fix in Veritrail before treating as closed.";
 
-export const JIRA_DONE_UNVERIFIED_SHORT = "Done — verify pending";
+/** Compact Jira Done label when Veritrail has not verified the fix yet. */
+export const JIRA_DONE_UNVERIFIED_SHORT = "Done";

@@ -303,7 +303,7 @@ function JiraPostureMetric({
       </a>
       {statusLabel ? (
         <p
-          className={`max-w-full truncate text-[11px] leading-tight ${
+          className={`text-[11px] leading-tight ${
             doneUnverified ? "text-amber-700" : done ? "text-emerald-600" : "text-zinc-500"
           }`}
           title={doneUnverified ? JIRA_DONE_UNVERIFIED_WARNING : undefined}

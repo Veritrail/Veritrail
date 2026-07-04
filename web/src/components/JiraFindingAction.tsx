@@ -7,6 +7,7 @@ import { type JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import { buildJiraIssueSummary } from "../lib/jiraIssueSummary";
 import {
   isJiraDoneBeforeVerification,
+  JIRA_DONE_UNVERIFIED_SHORT,
   JIRA_DONE_UNVERIFIED_WARNING,
 } from "../lib/jiraFindingGuardrails";
 
@@ -940,7 +941,7 @@ export function JiraFindingAction({
     const doneUnverified = isJiraDoneBeforeVerification(jiraStatus, finding.status ?? "open");
     const statusLabel = jiraStatus?.status?.trim();
     const ticketTitle = doneUnverified
-      ? JIRA_DONE_UNVERIFIED_WARNING
+      ? `Jira ticket ${existing.issue_key} — ${JIRA_DONE_UNVERIFIED_WARNING}`
       : statusLabel
         ? done
           ? `Jira ticket ${existing.issue_key} — ${statusLabel}`
@@ -966,13 +967,13 @@ export function JiraFindingAction({
         <JiraIcon className="h-3.5 w-3.5" />
         <span className="inline-flex min-w-0 items-center gap-1.5">
           <span>View Ticket</span>
-          {statusLabel ? (
+          {statusLabel || doneUnverified ? (
             <span
-              className={`truncate text-[11px] font-medium ${
+              className={`text-[11px] font-medium ${
                 doneUnverified ? "text-amber-900" : done ? "text-emerald-800" : "text-sky-700"
               }`}
             >
-              · {statusLabel}
+              · {doneUnverified ? JIRA_DONE_UNVERIFIED_SHORT : statusLabel}
             </span>
           ) : jiraStatusFetching ? (
             <span className="text-[11px] font-medium text-sky-600">· …</span>
