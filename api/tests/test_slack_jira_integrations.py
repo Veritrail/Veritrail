@@ -221,7 +221,7 @@ def test_dedupe_assignable_users_collapses_duplicate_account_ids():
     assert dedupe_assignable_users(users) == [users[1]]
 
 
-def test_dedupe_assignable_users_prefers_email_when_display_name_matches():
+def test_dedupe_assignable_users_keeps_same_display_name_different_accounts():
     users = [
         {
             "account_id": "ghost-account",
@@ -236,7 +236,7 @@ def test_dedupe_assignable_users_prefers_email_when_display_name_matches():
             "avatar_url": "https://avatar.example/real.png",
         },
     ]
-    assert dedupe_assignable_users(users) == [users[1]]
+    assert dedupe_assignable_users(users) == users
 
 
 def test_dedupe_assignable_users_keeps_distinct_people_with_same_name_and_email():
@@ -276,9 +276,15 @@ def test_jira_search_assignable_users_maps_avatar_and_filters_incomplete_rows():
                     return_value=[
                         {
                             "accountId": "abc123",
-                            "displayName": "Ada Lovelace",
-                            "emailAddress": "ada@example.com",
-                            "avatarUrls": {"48x48": "https://avatar.example/ada.png"},
+                            "displayName": "Elazar Chodjayev",
+                            "emailAddress": "zenmyx@gmail.com",
+                            "avatarUrls": {"48x48": "https://avatar.example/zenmyx.png"},
+                        },
+                        {
+                            "accountId": "def456",
+                            "displayName": "Elazar Chodjayev",
+                            "emailAddress": "other@example.com",
+                            "avatarUrls": {"48x48": "https://avatar.example/other.png"},
                         },
                         {"accountId": "", "displayName": "Missing id"},
                     ]
@@ -295,10 +301,16 @@ def test_jira_search_assignable_users_maps_avatar_and_filters_incomplete_rows():
     assert users == [
         {
             "account_id": "abc123",
-            "display_name": "Ada Lovelace",
-            "email": "ada@example.com",
-            "avatar_url": "https://avatar.example/ada.png",
-        }
+            "display_name": "Elazar Chodjayev",
+            "email": "zenmyx@gmail.com",
+            "avatar_url": "https://avatar.example/zenmyx.png",
+        },
+        {
+            "account_id": "def456",
+            "display_name": "Elazar Chodjayev",
+            "email": "other@example.com",
+            "avatar_url": "https://avatar.example/other.png",
+        },
     ]
 
 

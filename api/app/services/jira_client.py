@@ -191,44 +191,4 @@ def dedupe_assignable_users(users: list[dict[str, str]]) -> list[dict[str, str]]
         elif _assignable_user_rank(user) > _assignable_user_rank(existing):
             by_account[account_id] = user
 
-    unique_by_account = [by_account[account_id] for account_id in account_order]
-
-    name_groups: dict[str, list[dict[str, str]]] = {}
-    for user in unique_by_account:
-        name_key = user["display_name"].casefold().strip()
-        name_groups.setdefault(name_key, []).append(user)
-
-    kept_account_ids: set[str] = set()
-    for group in name_groups.values():
-        if len(group) == 1:
-            kept_account_ids.add(group[0]["account_id"])
-            continue
-
-        with_email = [user for user in group if user.get("email")]
-        without_email = [user for user in group if not user.get("email")]
-
-        if with_email and without_email:
-            # Jira often returns the same person twice: one row omits emailAddress.
-            by_email: dict[str, dict[str, str]] = {}
-            for user in with_email:
-                email_key = user["email"].casefold()
-                existing = by_email.get(email_key)
-                if existing is None or _assignable_user_rank(user) > _assignable_user_rank(existing):
-                    by_email[email_key] = user
-            kept_account_ids.update(user["account_id"] for user in by_email.values())
-            continue
-
-        if with_email:
-            by_email = {}
-            for user in with_email:
-                email_key = user["email"].casefold()
-                existing = by_email.get(email_key)
-                if existing is None or _assignable_user_rank(user) > _assignable_user_rank(existing):
-                    by_email[email_key] = user
-            kept_account_ids.update(user["account_id"] for user in by_email.values())
-            continue
-
-        best = max(group, key=_assignable_user_rank)
-        kept_account_ids.add(best["account_id"])
-
-    return [user for user in unique_by_account if user["account_id"] in kept_account_ids]
+    return [by_account[account_id] for account_id in account_order]

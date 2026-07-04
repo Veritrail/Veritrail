@@ -106,10 +106,10 @@ function dedupeJiraUsers(users: JiraUser[]): JiraUser[] {
   return deduped;
 }
 
-function assigneeSubline(user: JiraUser): string | null {
+function assigneeSubline(user: JiraUser): string {
   if (user.email?.trim()) return user.email.trim();
-  if (user.account_id) return `Account ${user.account_id.slice(0, 8)}…`;
-  return null;
+  if (user.account_id) return `No email visible · ${user.account_id.slice(0, 8)}…`;
+  return "No email visible";
 }
 
 function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
@@ -926,12 +926,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                                         <span className="block truncate text-sm text-[#172B4D]">
                                           {user.display_name}
                                         </span>
-                                        {(() => {
-                                          const subline = assigneeSubline(user);
-                                          return subline ? (
-                                            <span className="block truncate text-xs text-[#626F86]">{subline}</span>
-                                          ) : null;
-                                        })()}
+                                        <span className="block truncate text-xs text-[#626F86]">
+                                          {assigneeSubline(user)}
+                                        </span>
                                       </span>
                                     </button>
                                   ))
