@@ -638,8 +638,8 @@
 
 .integration-catalog-card .integrations-connect-btn {
   min-width: 0;
-  height: 32px;
-  padding: 0 16px;
+  height: 37px;
+  padding: 0 19px;
   border-radius: 9px;
   font-size: 0.8125rem;
   font-weight: 650;
@@ -648,11 +648,12 @@
   border: 1px solid #d8e0eb;
   box-shadow: none;
   margin-top: 0.125rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .integration-catalog-card .integrations-connect-btn:hover:not(:disabled) {
-  border-color: #9bb7df;
-  background: #f8fbff;
+  border-color: #c5ceda;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .integration-catalog-card__tags {
