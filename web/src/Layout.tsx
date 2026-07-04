@@ -14,6 +14,7 @@ import { useAccountsPlanUsage } from "./hooks/useAccountsPlanUsage";
 import SidebarNavLink from "./components/SidebarNavLink";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
+import { catalogEntryByKey } from "./lib/integrationCatalog";
 import "./styles/sidebar.css";
 import "./styles/user-menu.css";
 
@@ -56,18 +57,78 @@ const DEFAULT_HISTORY_FRAMEWORK = "soc2";
 const DEFAULT_HISTORY_DAYS = 90;
 const HISTORY_PREFETCH_STALE_MS = 120_000;
 
+/** Child page labels under /integrations/* (hub uses plain title). */
+const INTEGRATION_SUBPAGE_LABELS: Record<string, string> = {
+  catalog: "Catalog",
+  github: "GitHub",
+  gitlab: "GitLab",
+  "google-workspace": "Google Workspace",
+  entra: "Microsoft Entra ID",
+  slack: "Slack",
+  jira: "Jira",
+  gcp: "Google Cloud",
+  azure: "Microsoft Azure",
+  okta: "Okta",
+  intune: "Microsoft Intune",
+  jamf: "Jamf Pro",
+  "github-issues": "GitHub Issues",
+  "iac-repository": "IaC repository",
+};
+
+function formatHeaderSlug(slug: string): string {
+  return slug.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function integrationSubpageLabel(pathname: string): string | null {
+  if (pathname === "/integrations" || pathname === "/integrations/") return null;
+
+  const scannerMatch = pathname.match(/^\/integrations\/scanners\/([^/]+)/);
+  if (scannerMatch) {
+    return catalogEntryByKey(scannerMatch[1])?.name ?? formatHeaderSlug(scannerMatch[1]);
+  }
+
+  const siemMatch = pathname.match(/^\/integrations\/siem\/([^/]+)/);
+  if (siemMatch) {
+    return catalogEntryByKey(siemMatch[1])?.name ?? formatHeaderSlug(siemMatch[1]);
+  }
+
+  const segment = pathname.replace(/^\/integrations\/?/, "").split("/")[0];
+  if (!segment) return null;
+
+  return INTEGRATION_SUBPAGE_LABELS[segment] ?? formatHeaderSlug(segment);
+}
+
+function AppHeaderBreadcrumb({
+  parentTo,
+  parentLabel,
+  current,
+}: {
+  parentTo: string;
+  parentLabel: string;
+  current: string;
+}) {
+  return (
+    <nav className="veritrail-app-header__breadcrumb" aria-label="Breadcrumb">
+      <Link to={parentTo} className="veritrail-app-header__breadcrumb-link">
+        {parentLabel}
+      </Link>
+      <span className="veritrail-app-header__breadcrumb-sep" aria-hidden="true">
+        ›
+      </span>
+      <span className="veritrail-app-header__breadcrumb-current">{current}</span>
+    </nav>
+  );
+}
+
 function AppHeaderTitle({ pathname }: { pathname: string }) {
-  if (pathname === "/integrations/catalog") {
+  const integrationChild = integrationSubpageLabel(pathname);
+  if (integrationChild) {
     return (
-      <nav className="veritrail-app-header__breadcrumb" aria-label="Breadcrumb">
-        <Link to="/integrations" className="veritrail-app-header__breadcrumb-link">
-          Integrations
-        </Link>
-        <span className="veritrail-app-header__breadcrumb-sep" aria-hidden="true">
-          ›
-        </span>
-        <span className="veritrail-app-header__breadcrumb-current">Catalog</span>
-      </nav>
+      <AppHeaderBreadcrumb
+        parentTo="/integrations"
+        parentLabel="Integrations"
+        current={integrationChild}
+      />
     );
   }
 
@@ -290,7 +351,7 @@ export default function Layout() {
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
             {/* App-wide header bar: section title + a left slot pages fill via <HeaderSlot>, help + bell on the right. */}
-            <div className="veritrail-app-header sticky top-0 z-30 flex items-center gap-4 px-8 py-3">
+            <div className="veritrail-app-header sticky top-0 z-30 flex flex-nowrap items-center gap-4 px-8 py-3">
               <AppHeaderTitle pathname={location.pathname} />
               <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
               <div className="veritrail-app-header__utilities">
