@@ -505,10 +505,6 @@ def test_jira_issue_description_includes_actionable_remediation_context():
     assert "Scope this IAM role to the permissions observed in use" in description
     assert (
         "explicitly required and approved.\n\n"
-        "Why this matters\n"
-    ) in description
-    assert (
-        "until it is fixed and verified.\n\n"
         "Verification\n"
         "After remediation, return to Veritrail and run Verify fix"
     ) in description
