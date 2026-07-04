@@ -619,7 +619,6 @@ function ProjectSelect({
           ) : selected ? (
             <>
               {selected.key} — {selected.name}
-              {isOrgDefault ? <span className="text-[#626F86]"> (default)</span> : null}
             </>
           ) : value ? (
             value
@@ -1192,54 +1191,54 @@ export function JiraFindingAction({
                         </div>
                       </DetailsRow>
 
-                      <DetailsRow label="Project" align="center">
-                        <div className="flex min-h-[28px] w-full max-w-[280px] items-center">
-                          <ProjectSelect
-                            value={activeProjectKey}
-                            projects={projects}
-                            loading={projectsLoading}
-                            onChange={selectProject}
-                            defaultProjectKey={defaultProjectKey}
-                          />
-                        </div>
-                      </DetailsRow>
-                      {projectsError ||
-                      isOrgDefault ||
-                      !defaultProjectKey ||
-                      showSetDefault ||
-                      setDefaultProject.error ? (
-                        <div className="grid grid-cols-[minmax(0,38%)_minmax(0,1fr)] gap-x-4">
-                          <div aria-hidden="true" />
-                          <div className="min-w-0 space-y-1 pb-1.5">
-                            {projectsError ? (
-                              <p className="text-xs text-[#E34935]">{formatApiError(projectsError)}</p>
-                            ) : null}
-                            {isOrgDefault ? (
-                              <p className="text-xs leading-4 text-[#626F86]">Organization default project</p>
-                            ) : !defaultProjectKey ? (
-                              <p className="text-xs leading-4 text-[#626F86]">
-                                {activeProjectKey
-                                  ? "Save a default with Set as default, or pick a project each time."
-                                  : "Select a project to create this ticket."}
-                              </p>
-                            ) : null}
-                            {showSetDefault ? (
-                              <button
-                                type="button"
-                                disabled={setDefaultProject.isPending}
-                                onClick={() => setDefaultProject.mutate(activeProjectKey)}
-                                className="text-xs font-medium leading-4 hover:underline disabled:opacity-60"
-                                style={{ color: JIRA_BLUE }}
-                              >
-                                {setDefaultProject.isPending ? "Saving default…" : "Set as default"}
-                              </button>
-                            ) : null}
+                      <div className="grid grid-cols-[minmax(0,38%)_minmax(0,1fr)] gap-x-4 py-1.5">
+                        <span className="flex h-7 items-center text-sm text-[#626F86]">Project</span>
+                        <div className="min-w-0">
+                          <div className="flex h-7 w-full max-w-[280px] items-center">
+                            <ProjectSelect
+                              value={activeProjectKey}
+                              projects={projects}
+                              loading={projectsLoading}
+                              onChange={selectProject}
+                              defaultProjectKey={defaultProjectKey}
+                            />
+                          </div>
+                          <div className="min-h-5 pt-1">
+                            <div className="flex h-4 items-center">
+                              {projectsError ? (
+                                <p className="m-0 text-xs leading-4 text-[#E34935]">{formatApiError(projectsError)}</p>
+                              ) : isOrgDefault ? (
+                                <p className="m-0 text-xs leading-4 text-[#626F86]">Organization default project</p>
+                              ) : showSetDefault ? (
+                                <button
+                                  type="button"
+                                  disabled={setDefaultProject.isPending}
+                                  onClick={() => setDefaultProject.mutate(activeProjectKey)}
+                                  className="m-0 inline-flex h-4 items-center border-0 bg-transparent p-0 text-xs font-medium leading-4 hover:underline disabled:opacity-60"
+                                  style={{ color: JIRA_BLUE }}
+                                >
+                                  {setDefaultProject.isPending ? "Saving default…" : "Set as default"}
+                                </button>
+                              ) : !defaultProjectKey ? (
+                                <p className="m-0 text-xs leading-4 text-[#626F86]">
+                                  {activeProjectKey
+                                    ? "Save a default with Set as default, or pick a project each time."
+                                    : "Select a project to create this ticket."}
+                                </p>
+                              ) : (
+                                <span className="invisible text-xs leading-4" aria-hidden="true">
+                                  &nbsp;
+                                </span>
+                              )}
+                            </div>
                             {setDefaultProject.error ? (
-                              <p className="text-xs text-[#E34935]">{formatApiError(setDefaultProject.error)}</p>
+                              <p className="m-0 mt-1 text-xs leading-4 text-[#E34935]">
+                                {formatApiError(setDefaultProject.error)}
+                              </p>
                             ) : null}
                           </div>
                         </div>
-                      ) : null}
+                      </div>
 
                       <DetailsRow label="Issue type">
                         <div className="space-y-1">
