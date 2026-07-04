@@ -19,6 +19,7 @@ import type { JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import {
   isJiraDoneBeforeVerification,
   JIRA_DONE_UNVERIFIED_SHORT,
+  JIRA_DONE_UNVERIFIED_WARNING,
 } from "../lib/jiraFindingGuardrails";
 import type { RemediationTicket } from "../lib/remediationTicket";
 import type { RecheckBatchResponse } from "../context/RecheckNotificationsContext";
@@ -305,6 +306,7 @@ function JiraPostureMetric({
           className={`max-w-full truncate text-[11px] leading-tight ${
             doneUnverified ? "text-amber-700" : done ? "text-emerald-600" : "text-zinc-500"
           }`}
+          title={doneUnverified ? JIRA_DONE_UNVERIFIED_WARNING : undefined}
         >
           {doneUnverified ? JIRA_DONE_UNVERIFIED_SHORT : statusLabel}
         </p>
