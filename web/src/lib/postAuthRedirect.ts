@@ -1,9 +1,18 @@
-import { api, isSessionStaleError } from "../api";
-import { accountListSchema } from "./apiSchemas";
+import { api, isSessionStaleError, PENDING_INVITE_KEY } from "../api";
+import { accountListSchema, meSchema } from "./apiSchemas";
 import { isAccountConnected } from "./accountConnection";
 
-/** Where to land after login when the user may have zero connected AWS accounts. */
-export async function postAuthPath(): Promise<"/accounts" | "/findings"> {
+export const NO_WORKSPACE_PATH = "/no-workspace";
+
+/** Where to land after login — checks workspace membership before app routes. */
+export async function postAuthPath(): Promise<string> {
+  const me = await api("/v1/auth/me", { schema: meSchema });
+  if (!me.has_workspace) {
+    const pendingInvite = sessionStorage.getItem(PENDING_INVITE_KEY);
+    if (pendingInvite) return `/invite/${pendingInvite}`;
+    return NO_WORKSPACE_PATH;
+  }
+
   try {
     const accounts = await api("/v1/accounts", { schema: accountListSchema });
     if (accounts.some(isAccountConnected)) return "/findings";

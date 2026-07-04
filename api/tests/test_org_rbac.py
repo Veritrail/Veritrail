@@ -431,18 +431,61 @@ def test_auth_me_includes_role(client):
     }
     client.app.dependency_overrides[get_db] = lambda: db
 
-    try:
-        res = client.get("/v1/auth/me", headers=_auth_header("owner", str(org_id), str(user_id)))
-        assert res.status_code == 200
-        body = res.json()
-        assert body["role"] == "owner"
-        assert body["org_id"] == str(org_id)
-        assert body["org_name"] == "Acme Corp"
-        assert body["email"] == "owner@acme.com"
-        assert body["display_name"] == "Acme Owner"
-        assert body["has_password"] is True
-    finally:
-        client.app.dependency_overrides.clear()
+    membership = MagicMock()
+    membership.role = "owner"
+    with patch("app.services.org_membership.list_memberships", return_value=[(membership, org)]):
+        try:
+            res = client.get("/v1/auth/me", headers=_auth_header("owner", str(org_id), str(user_id)))
+            assert res.status_code == 200
+            body = res.json()
+            assert body["role"] == "owner"
+            assert body["org_id"] == str(org_id)
+            assert body["org_name"] == "Acme Corp"
+            assert body["email"] == "owner@acme.com"
+            assert body["display_name"] == "Acme Owner"
+            assert body["has_password"] is True
+            assert body["has_workspace"] is True
+        finally:
+            client.app.dependency_overrides.clear()
+
+
+def test_auth_me_reports_no_workspace_when_memberships_empty(client):
+    from app.core.db import get_db
+    from app.core.security import current_principal
+
+    user_id = uuid.uuid4()
+    org_id = uuid.uuid4()
+    user = MagicMock()
+    user.id = user_id
+    user.org_id = org_id
+    user.email = "orphan@acme.com"
+    user.display_name = "Orphan User"
+    user.role = "viewer"
+    user.github_id = None
+    user.gitlab_id = None
+    user.google_id = None
+    user.totp_enabled = False
+    user.password_hash = "hashed"
+    user.mfa_backup_codes = []
+
+    db = MagicMock()
+    db.get.side_effect = [user, None]
+
+    client.app.dependency_overrides[current_principal] = lambda: {
+        "sub": str(user_id),
+        "org_id": str(org_id),
+    }
+    client.app.dependency_overrides[get_db] = lambda: db
+
+    with patch("app.services.org_membership.list_memberships", return_value=[]):
+        try:
+            res = client.get("/v1/auth/me", headers=_auth_header("viewer", str(org_id), str(user_id)))
+            assert res.status_code == 200
+            body = res.json()
+            assert body["has_workspace"] is False
+            assert body["email"] == "orphan@acme.com"
+        finally:
+            client.app.dependency_overrides.clear()
 
 
 def test_domain_managed_blocks_new_workspace():

@@ -573,6 +573,7 @@ class MeOut(BaseModel):
     evidence_role: str
     org_id: str
     org_name: str
+    has_workspace: bool
     github_id: str | None
     gitlab_id: str | None
     google_id: str | None
@@ -630,10 +631,12 @@ def get_current_user(
 def get_me(principal: dict = Depends(current_principal), db: Session = Depends(get_db)):
     from app.core.evidence_rbac import membership_evidence_role
     from app.core.rbac import normalize_role
+    from app.services.org_membership import list_memberships
 
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
+    has_workspace = bool(list_memberships(db, user.id))
     org = db.get(Org, user.org_id)
     return MeOut(
         id=str(user.id),
@@ -645,6 +648,7 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
         ),
         org_id=str(user.org_id),
         org_name=(org.name if org else None) or "Workspace",
+        has_workspace=has_workspace,
         github_id=user.github_id,
         gitlab_id=user.gitlab_id,
         google_id=user.google_id,

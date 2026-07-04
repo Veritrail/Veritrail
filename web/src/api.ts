@@ -17,6 +17,7 @@ const ACCESS_KEY = "veritrail_access_token";
 const AUDITOR_KEY = "veritrail_auditor_token";
 export const SIGNED_OUT_KEY = "veritrail_signed_out";
 const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
+export { PENDING_INVITE_KEY };
 const PENDING_CREDENTIALS_KEY = "veritrail_pending_credentials";
 const MFA_STORAGE_KEY = "veritrail_mfa_token";
 
@@ -109,7 +110,12 @@ export function isSessionStaleError(error: unknown): boolean {
   );
 }
 
-let _refreshing: Promise<string | null> | null = null;
+/** Redirect to login after auth failure; optional error code shown on the login page. */
+export function redirectToLogin(error?: string) {
+  clearTokens();
+  const qs = error ? `?error=${encodeURIComponent(error)}` : "";
+  window.location.href = `/login${qs}`;
+}
 
 const REFRESH_TIMEOUT_MS = 15_000;
 
@@ -125,6 +131,8 @@ export async function restoreSession(): Promise<boolean> {
   const refreshed = await tryRefresh();
   return Boolean(refreshed);
 }
+
+let _refreshing: Promise<string | null> | null = null;
 
 async function tryRefresh(): Promise<string | null> {
   if (_refreshing) return _refreshing;
@@ -176,8 +184,7 @@ export async function api<T = unknown>(path: string, init: ApiInit<T> = {}): Pro
         credentials: "include",
       });
       if (retry.status === 401) {
-        clearTokens();
-        window.location.href = "/login";
+        redirectToLogin("session_expired");
         throw new Error("session expired");
       }
       if (!retry.ok) {
@@ -187,8 +194,7 @@ export async function api<T = unknown>(path: string, init: ApiInit<T> = {}): Pro
       if (retry.status === 204) return undefined as T;
       return readJsonResponse(path, retry, schema);
     }
-    clearTokens();
-    window.location.href = "/login";
+    redirectToLogin("session_expired");
     throw new Error("session expired");
   }
 

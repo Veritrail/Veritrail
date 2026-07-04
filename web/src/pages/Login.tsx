@@ -34,6 +34,8 @@ function oauthErrorMessage(code: string): string {
       return "This email domain already has a Veritrail workspace. Ask your admin for an invite, or choose a different workspace name.";
     case "invite_accept_failed":
       return "Could not join the workspace from your invite. Open the invite link again and try once more.";
+    case "session_expired":
+      return "Your session expired. Sign in again.";
     case "signup_pending":
       return "Finish setting up your workspace to continue.";
     case "saml_invalid_response":

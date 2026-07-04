@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, restoreSession, token, logout } from "./api";
 import { accountListSchema, complianceTimelineSchema } from "./lib/apiSchemas";
 import { roleAtLeast, useMe } from "./hooks/useMe";
+import { NO_WORKSPACE_PATH } from "./lib/postAuthRedirect";
 import { RecheckNotificationsProvider } from "./context/RecheckNotificationsContext";
 import { HeaderSlotContext } from "./context/HeaderSlot";
 import NotificationsBell from "./components/NotificationsBell";
@@ -134,6 +135,18 @@ export default function Layout() {
         Loading…
       </div>
     );
+  }
+
+  if (meQ.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 text-sm text-zinc-500">
+        Loading…
+      </div>
+    );
+  }
+
+  if (meQ.isSuccess && meQ.data.has_workspace === false) {
+    return <Navigate to={NO_WORKSPACE_PATH} replace />;
   }
 
   if (requiresAccount) {

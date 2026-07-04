@@ -75,6 +75,7 @@ export const meSchema = z.object({
   evidence_role: evidenceRole,
   org_id: z.string(),
   org_name: z.string(),
+  has_workspace: z.boolean().default(true),
   github_id: z.string().nullable().optional(),
   gitlab_id: z.string().nullable().optional(),
   google_id: z.string().nullable().optional(),
