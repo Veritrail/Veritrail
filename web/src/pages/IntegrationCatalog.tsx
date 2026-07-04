@@ -20,8 +20,12 @@ const STATUS_FILTERS: { id: CatalogStatusFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "available", label: "Available" },
   { id: "connected", label: "Connected" },
-  { id: "coming-soon", label: "Coming soon" },
 ];
+
+function normalizeStatusFilter(value: string): CatalogStatusFilter {
+  if (value === "all" || value === "available" || value === "connected") return value;
+  return "available";
+}
 
 const SORT_OPTIONS: { value: CatalogSortKey; label: string }[] = [
   { value: "name-asc", label: "Name (A–Z)" },
@@ -203,8 +207,6 @@ export default function IntegrationCatalog() {
     switch (statusFilter) {
       case "connected":
         return "No connected integrations match the current filters.";
-      case "coming-soon":
-        return "No coming-soon integrations match the current filters.";
       case "all":
         return "No integrations match the current filters.";
       default:
@@ -244,7 +246,7 @@ export default function IntegrationCatalog() {
               count: statusCounts[filter.id],
             }))}
             selected={statusFilter}
-            onChange={(id) => setStatusFilter(id as CatalogStatusFilter)}
+            onChange={(id) => setStatusFilter(normalizeStatusFilter(id))}
             ariaLabel="Filter by status"
           />
 

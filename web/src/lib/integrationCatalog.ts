@@ -118,7 +118,7 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   return hidden;
 }
 
-export type CatalogStatusFilter = "all" | "available" | "connected" | "coming-soon";
+export type CatalogStatusFilter = "all" | "available" | "connected";
 
 export type CatalogSortKey = "name-asc" | "name-desc";
 
@@ -177,7 +177,6 @@ export function countCatalogByStatus(
     all: 0,
     available: 0,
     connected: 0,
-    "coming-soon": 0,
   };
 
   for (const cat of catalog) {
@@ -185,7 +184,9 @@ export function countCatalogByStatus(
     for (const entry of cat.entries) {
       if (!catalogEntriesMatchingQuery(entry, q)) continue;
       counts.all += 1;
-      counts[catalogEntryStatus(entry, hiddenKeys)] += 1;
+      const status = catalogEntryStatus(entry, hiddenKeys);
+      if (status === "available") counts.available += 1;
+      else if (status === "connected") counts.connected += 1;
     }
   }
 
@@ -231,9 +232,6 @@ export function catalogSectionCountLabel(count: number, statusFilter: CatalogSta
       break;
     case "connected":
       label = count === 1 ? "1 connected" : `${count} connected`;
-      break;
-    case "coming-soon":
-      label = count === 1 ? "1 coming soon" : `${count} coming soon`;
       break;
     default:
       label = count === 1 ? "1 integration" : `${count} integrations`;
