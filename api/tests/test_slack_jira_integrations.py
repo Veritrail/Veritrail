@@ -260,11 +260,11 @@ def test_jira_issue_description_includes_actionable_remediation_context():
         finding=finding,
         finding_url="https://app.example/findings?finding=1",
         account=account,
-        actor="sec@example.com",
+        actor="Eliazar Chodjayev",
     )
 
     assert "Opened from Veritrail" in description
-    assert "Opened by: sec@example.com" in description
+    assert "Opened by: Eliazar Chodjayev" in description
     assert "Recommended remediation" in description
     assert "Replace broad IAM permissions with least-privilege policies" in description
     assert "Verification" in description

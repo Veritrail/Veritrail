@@ -10,8 +10,9 @@ import {
   blastRadiusSchema,
   controlsByCheckSchema,
   generatedPolicySchema,
-  jiraIntegrationSchema,
 } from "../lib/apiSchemas";
+import { useJiraIntegration } from "../hooks/useJiraIntegration";
+import { extractRemediationTickets, type RemediationTicket } from "../lib/remediationTicket";
 import AwsServiceIcon from "./AwsServiceIcon";
 import { CliRemediationPanel } from "./CliRemediationPanel";
 import { ExceptionDocIcon } from "./ExceptionDocIcon";
@@ -6441,74 +6442,37 @@ export function FindingDrawer({
   const [remDetailMode, setRemDetailMode] = useState<FindingRemediationMode | null>(null);
   const [policyChangePaneVisible, setPolicyChangePaneVisible] = useState(false);
   const [policyReviewAcknowledged, setPolicyReviewAcknowledged] = useState(false);
-  const [jiraIssue, setJiraIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
-  const [githubIssue, setGithubIssue] = useState<{ issue_key: string; issue_url: string } | null>(null);
+  const [jiraOverride, setJiraOverride] = useState<RemediationTicket | null>(null);
+  const [githubOverride, setGithubOverride] = useState<RemediationTicket | null>(null);
   const [confirmRemoveTicket, setConfirmRemoveTicket] = useState(false);
   const qc = useQueryClient();
 
-  // Prefetch Jira integration status while Findings is mounted so the footer button
-  // does not wait on GET /integrations/jira every time the drawer opens.
-  useQuery({
-    queryKey: ["jira-integration"],
-    queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
-    staleTime: 5 * 60_000,
-  });
+  useJiraIntegration();
+
+  const derivedTickets = useMemo(
+    () => (finding ? extractRemediationTickets(finding) : { jira: null, github: null }),
+    [finding?.id, finding?.evidence, finding?.remediation_ticket_key, finding?.remediation_ticket_url],
+  );
+
+  useEffect(() => {
+    setJiraOverride(null);
+    setGithubOverride(null);
+  }, [finding?.id]);
+
+  const jiraIssue = jiraOverride ?? derivedTickets.jira;
+  const githubIssue = githubOverride ?? derivedTickets.github;
 
   const clearRemediationTicket = useMutation({
     mutationFn: (findingId: string) =>
       api<Finding>(`/v1/findings/${findingId}/remediation-ticket`, { method: "DELETE" }),
     onSuccess: (updated) => {
-      setGithubIssue(null);
-      setJiraIssue(null);
+      setGithubOverride(null);
+      setJiraOverride(null);
       setConfirmRemoveTicket(false);
       onFindingPatched?.(updated);
       qc.invalidateQueries({ queryKey: ["findings"] });
     },
   });
-
-  useEffect(() => {
-    if (!finding) {
-      setJiraIssue(null);
-      setGithubIssue(null);
-      return;
-    }
-    const evidence = finding.evidence as
-      | {
-          jira?: { issue_key?: string; issue_url?: string };
-          github_issue?: { issue_key?: string; issue_url?: string };
-          iac_remediation_ticket?: { issue_key?: string; issue_url?: string };
-        }
-      | undefined;
-
-    const storedGithub = evidence?.iac_remediation_ticket ?? evidence?.github_issue;
-    if (storedGithub?.issue_key && storedGithub.issue_url) {
-      setGithubIssue({ issue_key: storedGithub.issue_key, issue_url: storedGithub.issue_url });
-    } else {
-      setGithubIssue(null);
-    }
-
-    const storedJira = evidence?.jira;
-    if (storedJira?.issue_key && storedJira.issue_url) {
-      setJiraIssue({ issue_key: storedJira.issue_key, issue_url: storedJira.issue_url });
-      return;
-    }
-
-    if (finding.remediation_ticket_key && finding.remediation_ticket_url) {
-      const ticket = {
-        issue_key: finding.remediation_ticket_key,
-        issue_url: finding.remediation_ticket_url,
-      };
-      if (/github\.com/i.test(finding.remediation_ticket_url)) {
-        setGithubIssue(ticket);
-        setJiraIssue(null);
-      } else {
-        setJiraIssue(ticket);
-      }
-      return;
-    }
-
-    setJiraIssue(null);
-  }, [finding?.id, finding?.evidence, finding?.remediation_ticket_key, finding?.remediation_ticket_url]);
 
   const { data: accountMeta } = useQuery({
     queryKey: ["account-cloudtrail", accountId],
@@ -6989,7 +6953,7 @@ export function FindingDrawer({
                     checkId={finding.check_id}
                     resourceArn={finding.resource_arn}
                     existing={githubIssue}
-                    onCreated={setGithubIssue}
+                    onCreated={setGithubOverride}
                   />
                 )}
                 {!isIdentityCheck && remDetailMode === "automation" && (
@@ -7048,13 +7012,15 @@ export function FindingDrawer({
             className={drawerFooterExceptionGhost}
             sheetContainerRef={drawerSheetRef}
           />
-          <JiraFindingAction
-            finding={finding}
-            existing={jiraIssue}
-            onCreated={setJiraIssue}
-            onRemove={() => setConfirmRemoveTicket(true)}
-            className={drawerFooterJira}
-          />
+          {!githubIssue ? (
+            <JiraFindingAction
+              finding={finding}
+              existing={jiraIssue}
+              onCreated={setJiraOverride}
+              onRemove={() => setConfirmRemoveTicket(true)}
+              className={drawerFooterJira}
+            />
+          ) : null}
           <button
             type="button"
             disabled={verifying || verified}

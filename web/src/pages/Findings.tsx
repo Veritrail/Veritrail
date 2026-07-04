@@ -19,6 +19,7 @@ import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
+import { useJiraIntegration } from "../hooks/useJiraIntegration";
 import { FindingDrawer, defaultFindingRemediationMode, type FindingDrawerTab, type FindingRemediationMode } from "../components/FindingDrawer";
 import { checkLabels } from "../data/checkLabels";
 import {
@@ -579,6 +580,9 @@ export default function Findings() {
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, clearDrawerVerifyFlash } =
     useRecheckNotifications();
+
+  // Warm Jira integration cache before the finding drawer opens.
+  useJiraIntegration();
 
   const frameworkMapQ = useQuery({
     queryKey: ["check-frameworks"],

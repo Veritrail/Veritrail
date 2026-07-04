@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
-import { jiraIntegrationSchema } from "../lib/apiSchemas";
+import { useJiraIntegration } from "../hooks/useJiraIntegration";
 import { displayFindingTitle } from "../lib/findingDisplay";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 
@@ -536,6 +536,7 @@ function ProjectSelect({
 
 export function JiraFindingAction({ finding, existing, onCreated, onRemove, className }: Props) {
   const qc = useQueryClient();
+  const hasLinkedTicket = !!(existing?.issue_key && existing.issue_url);
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState(() => defaultSummary(finding));
   const [priority, setPriority] = useState<Priority>(() => defaultPriority(finding.severity));
@@ -568,11 +569,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     setDetailsOpen(true);
   }, [finding.id, finding.severity]);
 
-  const { data: jira, isPending: jiraPending } = useQuery({
-    queryKey: ["jira-integration"],
-    queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
-    staleTime: 5 * 60_000,
-  });
+  const { data: jira, isPending: jiraPending } = useJiraIntegration({ enabled: !hasLinkedTicket });
 
   const defaultProjectKey = jira?.project_key?.trim() || "";
 
@@ -727,7 +724,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   const triggerClassName =
     className ?? `${triggerBase} border-sky-200 bg-white text-sky-800 hover:border-sky-300 hover:bg-sky-50`;
 
-  if (existing?.issue_key && existing.issue_url) {
+  if (hasLinkedTicket && existing?.issue_url) {
     return (
       <div className="flex shrink-0 items-center gap-1.5">
         <a
@@ -735,10 +732,10 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
           target="_blank"
           rel="noreferrer"
           className={triggerClassName}
-          title="Open Jira remediation ticket"
+          title="Open remediation ticket in Jira"
         >
-          <JiraIcon />
-          Jira {existing.issue_key}
+          <JiraIcon className="h-3.5 w-3.5" />
+          View Ticket
         </a>
         {onRemove ? (
           <button
@@ -754,7 +751,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     );
   }
 
-  if (jiraPending) {
+  if (!jira && jiraPending) {
     return (
       <div
         className={`${triggerClassName} pointer-events-none animate-pulse border-sky-100 bg-sky-50/60 text-sky-400`}

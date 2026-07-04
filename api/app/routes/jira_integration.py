@@ -18,8 +18,9 @@ from app.core.security import current_principal
 from app.models.aws_account import AwsAccount
 from app.models.finding import Finding, FindingEvent
 from app.models.github import IdentityProvider
-from app.models.org import Org
+from app.models.org import Org, User
 from app.services.digest import _findings_app_url
+from app.services.user_display_name import resolve_user_display_name
 from app.services.jira_client import JiraClient, normalize_site_url
 from app.services.github_sync import provider_config, set_provider_config
 
@@ -321,6 +322,25 @@ def create_issue_from_finding(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
 
     cfg = provider_config(provider)
+
+    if finding.remediation_ticket_key and finding.remediation_ticket_url:
+        jira_evidence = (finding.evidence or {}).get("jira")
+        if isinstance(jira_evidence, dict) and jira_evidence.get("issue_key"):
+            return JiraIssueOut(
+                issue_key=jira_evidence["issue_key"],
+                issue_url=jira_evidence.get("issue_url") or finding.remediation_ticket_url,
+            )
+        ticket_url = finding.remediation_ticket_url.lower()
+        if "atlassian.net" in ticket_url or "/browse/" in ticket_url:
+            return JiraIssueOut(
+                issue_key=finding.remediation_ticket_key,
+                issue_url=finding.remediation_ticket_url,
+            )
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="Finding already has a remediation ticket",
+        )
+
     existing = (finding.evidence or {}).get("jira")
     if isinstance(existing, dict) and existing.get("issue_key"):
         if not finding.remediation_ticket_key:
@@ -331,7 +351,8 @@ def create_issue_from_finding(
 
     app_url = _findings_app_url().rstrip("/")
     finding_url = f"{app_url}/findings?finding={finding.id}"
-    actor = p.get("email") or "user"
+    actor_user = db.get(User, uuid.UUID(p["sub"]))
+    actor = resolve_user_display_name(actor_user) if actor_user else "user"
     account = db.get(AwsAccount, finding.account_id) if finding.account_id else None
     description = _issue_description(
         finding=finding,
