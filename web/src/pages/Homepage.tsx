@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ConnectedStatusIcon } from "../components/ConnectedStatusIcon";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
-import { SecurityScoreGauge } from "../components/SecurityScoreGauge";
 import "../styles/homepage.css";
 
 const CONTACT_EMAIL = "support@veritrail.io";
@@ -29,6 +28,78 @@ function PrimaryButton({ to, children }: { to: string; children: ReactNode }) {
 
 const GAUGE_COVERAGE_PERCENT = 98;
 
+const CONTROL_STATUS_SEGMENTS = [
+  { key: "in_place", label: "In place", count: 142, color: "#16a34a" },
+  { key: "partial", label: "Partial", count: 6, color: "#f59e0b" },
+  { key: "not_in_place", label: "Not in place", count: 2, color: "#ef4444" },
+] as const;
+
+/** Thick multi-segment coverage donut for the marketing hero — distinct from
+    the app's thin single-arc SecurityScoreGauge (which is used in-product). */
+function CoverageDonut({ size = 118, stroke = 11 }: { size?: number; stroke?: number }) {
+  const r = (size - stroke) / 2;
+  const c = size / 2;
+  const circum = 2 * Math.PI * r;
+  const total = CONTROL_STATUS_SEGMENTS.reduce((n, s) => n + s.count, 0);
+  const gap = 3; // px gap between segments (rounded caps sit in the gap)
+  // Render smallest segments last so their rounded caps overlap the larger
+  // neighbour cleanly, matching the reference donut.
+  let offset = 0;
+  const segs = CONTROL_STATUS_SEGMENTS.map((s) => {
+    const len = (s.count / total) * circum;
+    const start = offset;
+    offset += len;
+    return { ...s, len, start };
+  });
+
+  return (
+    <div className="homepage-coverage-donut" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden>
+        <circle cx={c} cy={c} r={r} fill="none" stroke="#eef2f6" strokeWidth={stroke} />
+        {segs.map((s) => {
+          const dash = Math.max(1, s.len - gap);
+          return (
+            <circle
+              key={s.key}
+              cx={c}
+              cy={c}
+              r={r}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${circum - dash}`}
+              strokeDashoffset={-s.start - gap / 2}
+              transform={`rotate(-90 ${c} ${c})`}
+            />
+          );
+        })}
+      </svg>
+      <div className="homepage-coverage-donut__hub">
+        <span className="homepage-coverage-donut__value">{GAUGE_COVERAGE_PERCENT}%</span>
+        <span className="homepage-coverage-donut__label">Covered</span>
+      </div>
+    </div>
+  );
+}
+
+/** Small subtle trend line shown on the numeric stat cards. */
+function Sparkline({ tone }: { tone: "green" | "slate" }) {
+  const stroke = tone === "green" ? "#16a34a" : "#94a3b8";
+  return (
+    <svg className="homepage-stat-card__spark" viewBox="0 0 44 16" fill="none" aria-hidden>
+      <path
+        d="M1 12 L8 10 L15 11.5 L22 7 L29 8.5 L36 4 L43 5.5"
+        stroke={stroke}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={tone === "green" ? "0.9" : "0.55"}
+      />
+    </svg>
+  );
+}
+
 const RECENT_EVIDENCE = [
   { brand: "aws" as const, source: "AWS", label: "S3 Bucket Public Access Disabled", updated: "2h ago" },
   { brand: "github" as const, source: "GitHub", label: "GitHub Branch Protection Enabled", updated: "1d ago" },
@@ -36,20 +107,6 @@ const RECENT_EVIDENCE = [
   { brand: "azure" as const, source: "Azure", label: "Storage Account Encryption Enabled", updated: "3d ago" },
   { brand: "gitlab" as const, source: "GitLab", label: "Merge Request Approval Required", updated: "5d ago" },
 ];
-
-function SparklineIcon({ className = "", path }: { className?: string; path?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 48 16" fill="none" aria-hidden>
-      <path
-        d={path ?? "M1 12 L10 9 L18 11 L26 6 L34 8 L42 3 L47 5"}
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 const FEATURES = [
   {
@@ -177,26 +234,31 @@ function DashboardPreview() {
         </div>
 
         <div className="homepage-dashboard__stats">
-          <div className="homepage-stat-card homepage-stat-card--sparkline">
-            <div className="homepage-stat-card__value homepage-stat-card__value--navy">98%</div>
+          <div className="homepage-stat-card">
             <div className="homepage-stat-card__label">Controls covered</div>
-            <SparklineIcon className="homepage-stat-card__sparkline" />
+            <div className="homepage-stat-card__value-row">
+              <span className="homepage-stat-card__value homepage-stat-card__value--navy">98%</span>
+              <Sparkline tone="green" />
+            </div>
           </div>
-          <div className="homepage-stat-card homepage-stat-card--sparkline">
-            <div className="homepage-stat-card__value homepage-stat-card__value--navy">2,472</div>
+          <div className="homepage-stat-card">
             <div className="homepage-stat-card__label">Evidence items</div>
-            <SparklineIcon
-              className="homepage-stat-card__sparkline homepage-stat-card__sparkline--navy"
-              path="M1 10 L9 12 L17 8 L25 9 L33 5 L41 7 L47 4"
-            />
+            <div className="homepage-stat-card__value-row">
+              <span className="homepage-stat-card__value homepage-stat-card__value--navy">2,472</span>
+              <Sparkline tone="slate" />
+            </div>
           </div>
           <div className="homepage-stat-card">
-            <div className="homepage-stat-card__value homepage-stat-card__value--green">96%</div>
-            <div className="homepage-stat-card__label">Healthy</div>
+            <div className="homepage-stat-card__label homepage-stat-card__label--green">Healthy</div>
+            <div className="homepage-stat-card__value-row">
+              <span className="homepage-stat-card__value homepage-stat-card__value--green">96%</span>
+            </div>
           </div>
           <div className="homepage-stat-card">
-            <div className="homepage-stat-card__value homepage-stat-card__value--orange">3</div>
             <div className="homepage-stat-card__label">Risks</div>
+            <div className="homepage-stat-card__value-row">
+              <span className="homepage-stat-card__value homepage-stat-card__value--orange">3</span>
+            </div>
           </div>
         </div>
 
@@ -250,27 +312,20 @@ function DashboardPreview() {
           <div className="homepage-dashboard__gauge-panel">
             <h3 className="homepage-dashboard__section-title">Controls by status</h3>
             <div className="homepage-dashboard__gauge">
-              <SecurityScoreGauge
-                score={GAUGE_COVERAGE_PERCENT}
-                tone="good"
-                hubDisplay={`${GAUGE_COVERAGE_PERCENT}%`}
-                sublabel="Covered"
-                size={104}
-              />
+              <CoverageDonut size={104} stroke={10} />
             </div>
             <ul className="homepage-gauge-legend">
-              <li>
-                <span className="homepage-gauge-legend__dot homepage-gauge-legend__dot--green" aria-hidden />
-                In place <span className="homepage-gauge-legend__count">(142)</span>
-              </li>
-              <li>
-                <span className="homepage-gauge-legend__dot homepage-gauge-legend__dot--yellow" aria-hidden />
-                Partial <span className="homepage-gauge-legend__count">(6)</span>
-              </li>
-              <li>
-                <span className="homepage-gauge-legend__dot homepage-gauge-legend__dot--red" aria-hidden />
-                Not in place <span className="homepage-gauge-legend__count">(2)</span>
-              </li>
+              {CONTROL_STATUS_SEGMENTS.map((s) => (
+                <li key={s.key}>
+                  <span
+                    className="homepage-gauge-legend__dot"
+                    style={{ background: s.color }}
+                    aria-hidden
+                  />
+                  <span className="homepage-gauge-legend__label">{s.label}</span>
+                  <span className="homepage-gauge-legend__count">{s.count}</span>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
@@ -279,13 +334,13 @@ function DashboardPreview() {
   );
 }
 
-const DIAGRAM_ICON_SIZE = 64;
-const DIAGRAM_ICON_GAP = 22;
-const DIAGRAM_CONNECTOR_GAP = 56;
-const DIAGRAM_TARGET_SIZE = 108;
-const DIAGRAM_MOBILE_ICON_GAP = 14;
-const DIAGRAM_MOBILE_ROW_GAP = 16;
-const DIAGRAM_MOBILE_TARGET_SIZE = 88;
+const DIAGRAM_ICON_SIZE = 48;
+const DIAGRAM_ICON_GAP = 14;
+const DIAGRAM_CONNECTOR_GAP = 48;
+const DIAGRAM_TARGET_SIZE = 92;
+const DIAGRAM_MOBILE_ICON_GAP = 12;
+const DIAGRAM_MOBILE_ROW_GAP = 14;
+const DIAGRAM_MOBILE_TARGET_SIZE = 76;
 const DIAGRAM_DOT_DURATION = 2.6;
 const DIAGRAM_DOT_STAGGER = 0.85;
 
@@ -388,7 +443,9 @@ function IntegrationDiagram() {
 
         <div className="homepage-diagram__sources">
           {clouds.map((brand) => (
-            <IntegrationBrandIcon key={brand} brand={brand} size={DIAGRAM_ICON_SIZE} variant="plain" />
+            <div className="homepage-diagram__source-card" key={brand}>
+              <IntegrationBrandIcon brand={brand} size={brand === "aws" ? 38 : 42} variant="plain" />
+            </div>
           ))}
         </div>
 
@@ -407,16 +464,18 @@ export default function Homepage() {
   return (
     <div className="min-h-screen bg-[#F6F8FB] text-zinc-800">
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+        <div className="mx-auto flex max-w-[84rem] items-center justify-between gap-4 px-6 py-4">
           <VeritrailWordmark />
-          <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
+          <nav className="homepage-header-nav flex items-center gap-5">
+            <PrimaryButton to="/login">Sign in to Veritrail</PrimaryButton>
+          </nav>
         </div>
       </header>
 
       <main>
         {/* Hero */}
-        <section className="mx-auto max-w-6xl px-6 py-12 sm:py-16 lg:py-20">
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+        <section className="mx-auto max-w-[84rem] px-6 py-12 sm:py-16">
+          <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-600">
                 Cloud compliance evidence
@@ -425,19 +484,26 @@ export default function Homepage() {
                 Continuous SOC 2 evidence for cloud and engineering teams.
               </h1>
               <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-zinc-600 sm:text-base">
-                Veritrail connects to AWS, Google Cloud, Azure, GitHub, and GitLab to collect read-only evidence,
-                map findings to SOC 2 controls, and produce auditor-ready exports on demand.
+                Connect AWS, Google Cloud, Azure, GitHub, and GitLab. Veritrail continuously collects read-only
+                infrastructure and change evidence, maps it to controls, and prepares auditor-ready exports.
+              </p>
+              <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-zinc-600 sm:text-base">
+                Built for lean engineering teams that need credible compliance evidence without adopting a heavyweight
+                GRC platform.
               </p>
             </div>
             <DashboardPreview />
           </div>
         </section>
 
-        {/* Feature bar */}
-        <section className="border-y border-zinc-200/80 bg-white">
-          <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 sm:grid-cols-4 sm:gap-8 sm:py-10">
+        {/* Feature bar — boxed cards */}
+        <section className="mx-auto max-w-[84rem] px-6 pb-2">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {FEATURES.map((feature) => (
-              <div key={feature.label} className="homepage-feature flex flex-row items-center gap-3">
+              <div
+                key={feature.label}
+                className="homepage-feature flex flex-row items-center gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-4 shadow-sm shadow-zinc-950/[0.03]"
+              >
                 <div className="homepage-feature__icon">{feature.icon}</div>
                 <span className="homepage-feature__label">{feature.label}</span>
               </div>
@@ -445,25 +511,25 @@ export default function Homepage() {
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-14 sm:py-20">
-          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <IntegrationDiagram />
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Why teams use Veritrail</h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
-                One read-only evidence layer across your cloud and engineering stack — built for SOC 2.
-              </p>
-              <ul className="mt-8 space-y-6">
+        {/* How it works — boxed */}
+        <section id="how-it-works" className="mx-auto max-w-[84rem] px-6 py-14 sm:py-20">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm shadow-zinc-950/[0.03] sm:p-10">
+            <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.25fr)_minmax(0,1.15fr)] lg:gap-12">
+              <IntegrationDiagram />
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Why teams use Veritrail</h2>
+                <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
+                  Centralize cloud posture and change evidence in one place, review findings mapped to SOC 2 controls,
+                  and export clean evidence packs for audit and internal review.
+                </p>
+              </div>
+              <ul className="space-y-6 lg:border-l lg:border-zinc-100 lg:pl-10">
                 {WHY_ITEMS.map((item) => (
-                  <li key={item.title} className="flex gap-4">
+                  <li key={item.title} className="flex items-center gap-4">
                     <div className="homepage-benefit__icon flex shrink-0 items-center justify-center">
                       {item.icon}
                     </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-900">{item.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-zinc-600">{item.body}</p>
-                    </div>
+                    <h3 className="text-[15px] font-semibold text-slate-900">{item.title}</h3>
                   </li>
                 ))}
               </ul>
@@ -473,7 +539,7 @@ export default function Homepage() {
       </main>
 
       <footer className="border-t border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-[84rem] flex-col gap-4 px-6 py-8 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
           <span>© 2026 Veritrail, Inc.</span>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <Link to="/privacy" className="hover:text-zinc-600">
