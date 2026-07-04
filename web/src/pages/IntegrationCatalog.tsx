@@ -202,12 +202,6 @@ export default function IntegrationCatalog() {
 
   return (
     <div className="integrations-page integration-catalog">
-      <header className="integration-catalog__intro">
-        <Link to="/integrations" className="integration-catalog__back">
-          ← Connected integrations
-        </Link>
-      </header>
-
       <div className="integration-catalog__toolbar" role="search">
         <label className="integration-catalog__search">
           <span className="sr-only">Search integrations</span>
@@ -254,6 +248,12 @@ export default function IntegrationCatalog() {
           />
         </div>
       </div>
+
+      <header className="integration-catalog__intro">
+        <Link to="/integrations" className="integration-catalog__back">
+          ← Connected integrations
+        </Link>
+      </header>
 
       {filtered.length === 0 ? (
         <p className="integration-catalog__empty">{emptyMessage}</p>
