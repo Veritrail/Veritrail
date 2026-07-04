@@ -36,6 +36,11 @@ export default function JiraIntegration() {
     setApiToken("");
   }, [data]);
 
+  function clearTestFeedback() {
+    setTestState("idle");
+    setTestError("");
+  }
+
   const save = useMutation({
     mutationFn: () =>
       api<JiraIntegration>("/v1/integrations/jira", {
@@ -48,9 +53,14 @@ export default function JiraIntegration() {
           issue_type: issueType.trim() || "Task",
         }),
       }),
+    onMutate: () => {
+      setSaveError("");
+      clearTestFeedback();
+    },
     onSuccess: (saved) => {
       qc.setQueryData(["jira-integration"], saved);
       setSaveError("");
+      clearTestFeedback();
       setApiToken("");
     },
     onError: (e) => setSaveError(formatApiError(e)),
@@ -68,6 +78,7 @@ export default function JiraIntegration() {
   });
 
   async function runTest() {
+    setSaveError("");
     setTestState("testing");
     setTestError("");
     try {
@@ -80,6 +91,7 @@ export default function JiraIntegration() {
           project_key: projectKey.trim() || undefined,
         }),
       });
+      setSaveError("");
       setTestState("ok");
       setTimeout(() => setTestState("idle"), 3000);
     } catch (e) {
