@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from fastapi import HTTPException
 
 from app.routes.jira_integration import _issue_description, list_jira_projects, sync_jira_issue_from_finding
 from app.services.jira_client import JiraClient, dedupe_assignable_users, normalize_site_url
@@ -411,6 +412,69 @@ def test_sync_jira_issue_from_finding_persists_status(mock_db, monkeypatch):
     assert finding.evidence["jira"]["status_category"] == "done"
     assert finding.evidence["jira"]["status_synced_at"]
     mock_db.commit.assert_called_once()
+
+
+def test_sync_jira_issue_from_finding_aborts_when_ticket_unlinked(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    finding_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+
+    finding = MagicMock()
+    finding.id = finding_id
+    finding.org_id = org_id
+    finding.evidence = {
+        "jira": {
+            "issue_key": "KAN-9",
+            "issue_url": "https://acme.atlassian.net/browse/KAN-9",
+        }
+    }
+    finding.remediation_ticket_key = "KAN-9"
+    finding.remediation_ticket_url = "https://acme.atlassian.net/browse/KAN-9"
+
+    def refresh_side_effect(obj):
+        obj.evidence = {}
+        obj.remediation_ticket_key = None
+        obj.remediation_ticket_url = None
+
+    mock_db.get.return_value = finding
+    mock_db.refresh.side_effect = refresh_side_effect
+
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_org",
+        lambda db, p: MagicMock(id=org_id),
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._jira_provider",
+        lambda db, oid: provider,
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.provider_config",
+        lambda prov: {
+            "site_url": "https://acme.atlassian.net",
+            "email": "ops@example.com",
+            "api_token": "token",
+            "project_key": "KAN",
+        },
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.JiraClient.get_issue_status",
+        lambda self, issue_key: {
+            "issue_key": issue_key,
+            "status": "In Review",
+            "status_category": "indeterminate",
+        },
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        sync_jira_issue_from_finding(
+            finding_id=finding_id,
+            p={"org_id": str(org_id)},
+            db=mock_db,
+        )
+
+    assert exc.value.status_code == 404
+    mock_db.commit.assert_not_called()
 
 
 def test_jira_issue_description_includes_actionable_remediation_context():

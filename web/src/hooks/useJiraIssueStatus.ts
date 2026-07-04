@@ -20,14 +20,20 @@ export function useJiraIssueStatus(
   options?: { enabled?: boolean; poll?: boolean },
 ) {
   const enabled = (options?.enabled ?? true) && !!findingId && !!issueKey;
-  return useQuery({
-    queryKey: ["jira-issue-status", findingId],
+  const query = useQuery({
+    queryKey: ["jira-issue-status", findingId, issueKey],
     queryFn: () =>
       api<JiraIssueStatus>(`/v1/integrations/jira/issues/sync-from-finding/${findingId}`, {
         method: "POST",
       }),
     enabled,
     staleTime: JIRA_STATUS_STALE_MS,
-    refetchInterval: options?.poll ? JIRA_STATUS_POLL_MS : false,
+    refetchInterval: enabled && options?.poll ? JIRA_STATUS_POLL_MS : false,
   });
+
+  return {
+    ...query,
+    data: enabled ? query.data : undefined,
+    isFetching: enabled ? query.isFetching : false,
+  };
 }

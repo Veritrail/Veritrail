@@ -6470,12 +6470,15 @@ export function FindingDrawer({
   );
 
   const clearRemediationTicket = useMutation({
-    mutationFn: (findingId: string) =>
-      api<Finding>(`/v1/findings/${findingId}/remediation-ticket`, { method: "DELETE" }),
+    mutationFn: async (findingId: string) => {
+      await qc.cancelQueries({ queryKey: ["jira-issue-status", findingId] });
+      return api<Finding>(`/v1/findings/${findingId}/remediation-ticket`, { method: "DELETE" });
+    },
     onSuccess: (updated) => {
       setGithubOverride(null);
       setJiraOverride(null);
       setConfirmRemoveTicket(false);
+      qc.removeQueries({ queryKey: ["jira-issue-status", updated.id] });
       onFindingPatched?.(updated);
       qc.invalidateQueries({ queryKey: ["findings"] });
     },

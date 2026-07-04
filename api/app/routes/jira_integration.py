@@ -359,8 +359,14 @@ def sync_jira_issue_from_finding(
     status_category = fetched.get("status_category", "")
     is_done = status_category == "done"
 
+    # Re-read the finding so a concurrent unlink cannot be overwritten by stale status sync.
+    db.refresh(finding)
+    current = _finding_jira_issue(finding)
+    if not current or current.get("issue_key") != jira_issue.get("issue_key"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding has no linked Jira issue")
+
     evidence = dict(finding.evidence or {})
-    stored = dict(jira_issue)
+    stored = dict(current)
     stored["issue_key"] = fetched["issue_key"]
     stored["status"] = fetched.get("status", "")
     stored["status_category"] = status_category

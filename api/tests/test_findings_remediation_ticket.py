@@ -54,6 +54,30 @@ def test_clear_finding_remediation_ticket_removes_columns_and_evidence():
     assert f.evidence["other"] == {"keep": True}
 
 
+def test_clear_finding_remediation_ticket_removes_jira_status_fields():
+    f = _finding(
+        uuid.uuid4(),
+        remediation_ticket_key="KAN-3",
+        remediation_ticket_url="https://acme.atlassian.net/browse/KAN-3",
+        evidence={
+            "jira": {
+                "issue_key": "KAN-3",
+                "issue_url": "https://acme.atlassian.net/browse/KAN-3",
+                "status": "In Review",
+                "status_category": "indeterminate",
+                "status_synced_at": "2026-07-04T12:00:00+00:00",
+            },
+        },
+    )
+
+    removed = clear_finding_remediation_ticket(f)
+
+    assert removed == ["KAN-3"]
+    assert f.remediation_ticket_key is None
+    assert f.remediation_ticket_url is None
+    assert "jira" not in f.evidence
+
+
 def test_clear_finding_remediation_ticket_noop_when_empty():
     f = _finding(uuid.uuid4())
     assert clear_finding_remediation_ticket(f) == []
