@@ -34,6 +34,10 @@ const SORT_OPTIONS: { value: CatalogSortKey; label: string }[] = [
 
 type SelectOption = { value: string; label: string };
 
+type MenuPosition = { top: number; left: number; minWidth: number };
+
+const MENU_VIEWPORT_PADDING = 8;
+
 function CatalogToolbarSelect({
   label,
   value,
@@ -48,7 +52,7 @@ function CatalogToolbarSelect({
   ariaLabel: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -56,12 +60,24 @@ function CatalogToolbarSelect({
 
   const updateMenuPosition = useCallback(() => {
     const btn = triggerRef.current;
+    const menu = menuRef.current;
     if (!btn) return;
     const rect = btn.getBoundingClientRect();
+    const minWidth = Math.max(rect.width, 168);
+    const menuWidth = Math.max(minWidth, menu?.offsetWidth ?? minWidth);
+
+    // Anchor to trigger's right edge so menus near the toolbar edge open inward.
+    let left = rect.right - menuWidth;
+    if (left < MENU_VIEWPORT_PADDING) {
+      left = MENU_VIEWPORT_PADDING;
+    } else if (left + menuWidth > window.innerWidth - MENU_VIEWPORT_PADDING) {
+      left = Math.max(MENU_VIEWPORT_PADDING, window.innerWidth - menuWidth - MENU_VIEWPORT_PADDING);
+    }
+
     setMenuPos({
       top: rect.bottom + 6,
-      left: rect.left,
-      minWidth: Math.max(rect.width, 168),
+      left,
+      minWidth,
     });
   }, []);
 
@@ -71,7 +87,10 @@ function CatalogToolbarSelect({
       return;
     }
     updateMenuPosition();
-  }, [open, updateMenuPosition]);
+    // Re-measure once the portaled menu has rendered so width-based clamping is accurate.
+    const frame = requestAnimationFrame(updateMenuPosition);
+    return () => cancelAnimationFrame(frame);
+  }, [open, updateMenuPosition, options]);
 
   useEffect(() => {
     if (!open) return;
