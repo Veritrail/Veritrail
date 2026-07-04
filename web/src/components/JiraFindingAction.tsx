@@ -42,6 +42,15 @@ type Priority = (typeof PRIORITIES)[number];
 const triggerBase =
   "inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[10px] border px-3 text-[13px] font-semibold shadow-sm transition active:scale-[0.99]";
 
+const LABEL_COLORS: Record<string, { bg: string; text: string }> = {
+  veritrail: { bg: "#E3FCEF", text: "#216E4E" },
+  critical: { bg: "#FFEDEB", text: "#AE2E24" },
+  high: { bg: "#F3D0FF", text: "#5E4DB2" },
+  medium: { bg: "#FFF7D6", text: "#974F0C" },
+  low: { bg: "#E9F2FF", text: "#0055CC" },
+  risk: { bg: "#DFE1E6", text: "#44546F" },
+};
+
 function defaultPriority(severity: string): Priority {
   if (severity === "critical") return "Highest";
   if (severity === "high") return "High";
@@ -72,6 +81,17 @@ function remediationCopy(finding: FindingSummary): string {
   return "Apply the remediation guidance in Veritrail, then verify the fix from the finding drawer.";
 }
 
+function labelPillStyle(name: string): { bg: string; text: string } {
+  return LABEL_COLORS[name.toLowerCase()] ?? { bg: "#DFE1E6", text: "#44546F" };
+}
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return `${parts[0].slice(0, 1)}${parts[1].slice(0, 1)}`.toUpperCase();
+}
+
 function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <img
@@ -81,15 +101,6 @@ function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
       className={`${className} rounded-[3px] object-contain`}
       draggable={false}
     />
-  );
-}
-
-function SearchIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-      <circle cx="11" cy="11" r="8" />
-      <path strokeLinecap="round" d="M21 21l-4.35-4.35" />
-    </svg>
   );
 }
 
@@ -109,41 +120,45 @@ function ChevronRightIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-function PriorityIcon({ priority, className = "h-4 w-4" }: { priority: Priority; className?: string }) {
-  const color =
-    priority === "Highest"
-      ? "#CD519D"
-      : priority === "High"
-        ? "#E56910"
-        : priority === "Medium"
-          ? "#E2B203"
-          : "#57A55A";
+function GearIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path d="M19.14 12.94a7.43 7.43 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.6-.22l-2.39.96a7.28 7.28 0 00-1.63-.94l-.36-2.54a.5.5 0 00-.5-.42h-3.84a.5.5 0 00-.5.42l-.36 2.54a7.28 7.28 0 00-1.63.94l-2.39-.96a.5.5 0 00-.6.22L2.71 8.84a.5.5 0 00.12.64l2.03 1.58a7.43 7.43 0 000 1.88l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54a.5.5 0 00.5.42h3.84a.5.5 0 00.5-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96a.5.5 0 00.6-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z" />
+    </svg>
+  );
+}
+
+/** Jira-style priority chevrons: red ↑↑/↑, orange =, blue ↓ */
+export function JiraPriorityIcon({ priority, className = "h-4 w-4" }: { priority: Priority; className?: string }) {
+  const red = "#E34935";
+  const orange = "#E56910";
+  const blue = "#0C66E4";
 
   if (priority === "Highest") {
     return (
-      <svg className={className} viewBox="0 0 16 16" fill={color} aria-hidden>
-        <path d="M8 2.5l2.5 4H10l1.5 5.5L8 9.5 4.5 12 6 6.5H5.5L8 2.5z" />
-        <path d="M8 1l3.5 5.5H9.5l1 6.5L8 10 5.5 13l1-6.5H4.5L8 1z" opacity="0.35" transform="translate(0,-1)" />
+      <svg className={className} viewBox="0 0 16 16" aria-hidden>
+        <path fill={red} d="M8 2.5L11.5 8H9.25l1.25 5.5L8 10.25 5.5 13.5 6.75 8H4.5L8 2.5z" />
+        <path fill={red} opacity="0.55" d="M8 0.5L11 5.5H9.5L10.25 9L8 7.25 5.75 9 6.5 5.5H5L8 0.5z" />
       </svg>
     );
   }
   if (priority === "High") {
     return (
-      <svg className={className} viewBox="0 0 16 16" fill={color} aria-hidden>
-        <path d="M8 3l3 5H9l1.5 5.5L8 10 5.5 13.5 7 8H5L8 3z" />
+      <svg className={className} viewBox="0 0 16 16" aria-hidden>
+        <path fill={red} d="M8 3.5L11.5 9H9.25l1.25 5L8 11.25 5.5 14 6.75 9H4.5L8 3.5z" />
       </svg>
     );
   }
   if (priority === "Medium") {
     return (
-      <svg className={className} viewBox="0 0 16 16" fill={color} aria-hidden>
-        <rect x="3" y="7" width="10" height="2" rx="1" />
+      <svg className={className} viewBox="0 0 16 16" aria-hidden>
+        <rect x="3" y="7" width="10" height="2" rx="1" fill={orange} />
       </svg>
     );
   }
   return (
-    <svg className={className} viewBox="0 0 16 16" fill={color} aria-hidden>
-      <path d="M8 13l-3-5h2L5.5 2.5 8 6l2.5-3.5L9 8h2l-3 5z" />
+    <svg className={className} viewBox="0 0 16 16" aria-hidden>
+      <path fill={blue} d="M8 12.5L4.5 7H6.75L5.5 2.5 8 5.25 10.5 2.5 9.25 7H11.5L8 12.5z" />
     </svg>
   );
 }
@@ -158,30 +173,87 @@ function IssueTypeIcon({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 function UserAvatar({ user, size = "md" }: { user: JiraUser; size?: "sm" | "md" }) {
-  const dim = size === "sm" ? "h-5 w-5 text-[10px]" : "h-6 w-6 text-[11px]";
+  const dim = size === "sm" ? "h-6 w-6 text-[10px]" : "h-6 w-6 text-[11px]";
   if (user.avatar_url) {
     return <img src={user.avatar_url} alt="" className={`${dim} rounded-full object-cover`} />;
   }
   return (
     <span
-      className={`flex ${dim} items-center justify-center rounded-full bg-[#DFE1E6] font-semibold text-[#44546F]`}
+      className={`flex ${dim} items-center justify-center rounded-full font-semibold text-white`}
+      style={{ backgroundColor: JIRA_BLUE }}
     >
-      {user.display_name.slice(0, 1).toUpperCase()}
+      {initialsFromName(user.display_name)}
     </span>
   );
 }
 
-function FieldLabel({ children, required }: { children: ReactNode; required?: boolean }) {
+function UnassignedAvatar({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <span className="mb-1 block text-sm font-semibold text-[#44546F]">
-      {children}
-      {required ? <span className="ml-0.5 text-[#E34935]">*</span> : null}
+    <span
+      className={`flex ${className} items-center justify-center rounded-full bg-[#DFE1E6] text-[#626F86]`}
+      aria-hidden
+    >
+      <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4.42 0-8 1.79-8 4v1h16v-1c0-2.21-3.58-4-8-4z" />
+      </svg>
     </span>
   );
 }
 
-const fieldInputClass =
-  "w-full rounded-[3px] border border-[#DFE1E6] bg-white px-2 py-1.5 text-sm text-[#172B4D] outline-none transition placeholder:text-[#626F86] hover:border-[#B3BAC5] focus:border-[#0C66E4] focus:ring-2 focus:ring-[#0C66E4]/20";
+function JiraLabelPill({ label }: { label: string }) {
+  const colors = labelPillStyle(label);
+  return (
+    <span
+      className="inline-flex max-w-full items-center rounded-[3px] px-1.5 py-0.5 text-xs font-medium"
+      style={{ backgroundColor: colors.bg, color: colors.text }}
+    >
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+function DetailsRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,38%)_minmax(0,1fr)] items-start gap-x-4 gap-y-1 py-1.5">
+      <span className="pt-0.5 text-sm text-[#626F86]">{label}</span>
+      <div className="min-w-0 text-sm text-[#172B4D]">{children}</div>
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  open,
+  onToggle,
+  trailing,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  trailing?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="border-t border-[#EBECF0]">
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-3 text-left text-sm font-semibold text-[#44546F] hover:text-[#172B4D]"
+          aria-expanded={open}
+        >
+          <ChevronRightIcon
+            className={`h-4 w-4 shrink-0 text-[#626F86] transition-transform ${open ? "rotate-90" : ""}`}
+          />
+          {title}
+        </button>
+        {trailing ? <div className="shrink-0 pr-1 text-[#626F86]">{trailing}</div> : null}
+      </div>
+      {open ? <div className="pb-3 pl-5">{children}</div> : null}
+    </section>
+  );
+}
 
 function PrioritySelect({
   value,
@@ -191,6 +263,7 @@ function PrioritySelect({
   onChange: (priority: Priority) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState<Priority | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -203,39 +276,43 @@ function PrioritySelect({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative inline-block max-w-full">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className={`${fieldInputClass} flex items-center justify-between gap-2 text-left`}
+        className={`inline-flex max-w-full items-center gap-1.5 rounded-[3px] px-1 py-0.5 text-left text-sm text-[#172B4D] transition hover:bg-[#F4F5F7] ${
+          open ? "ring-2 ring-[#0C66E4]" : ""
+        }`}
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <PriorityIcon priority={value} />
-          <span className="truncate">{value}</span>
-        </span>
-        <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
+        <JiraPriorityIcon priority={value} />
+        <span className="truncate">{value}</span>
+        <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-[#626F86]" />
       </button>
       {open ? (
         <ul
           role="listbox"
           aria-label="Priority"
-          className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-lg"
+          className="absolute left-0 top-full z-30 mt-1 min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-lg"
         >
           {PRIORITIES.map((option) => (
             <li key={option} role="option" aria-selected={value === option}>
               <button
                 type="button"
+                onMouseEnter={() => setHovered(option)}
+                onMouseLeave={() => setHovered(null)}
                 onClick={() => {
                   onChange(option);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-[#F4F5F7] ${
-                  value === option ? "bg-[#E9F2FF] text-[#0C66E4]" : "text-[#172B4D]"
+                className={`flex w-full items-center gap-2 border-l-2 px-2 py-1.5 text-left text-sm ${
+                  hovered === option || value === option
+                    ? "border-l-[#0C66E4] bg-[#F4F5F7] text-[#172B4D]"
+                    : "border-l-transparent text-[#172B4D] hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
                 }`}
               >
-                <PriorityIcon priority={option} />
+                <JiraPriorityIcon priority={option} />
                 <span>{option}</span>
               </button>
             </li>
@@ -254,7 +331,8 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   const [assigneeQuery, setAssigneeQuery] = useState("");
   const [assignee, setAssignee] = useState<JiraUser | null>(null);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [descriptionOpen, setDescriptionOpen] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const assigneeFieldRef = useRef<HTMLDivElement>(null);
 
   const issueLabels = useMemo(() => {
@@ -271,7 +349,8 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     setAssigneeQuery("");
     setAssignee(null);
     setAssigneeOpen(false);
-    setPreviewOpen(false);
+    setDescriptionOpen(true);
+    setDetailsOpen(true);
   }, [finding.id, finding.severity]);
 
   useEffect(() => {
@@ -283,6 +362,31 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
     staleTime: 60_000,
   });
+
+  const integrationEmail = jira?.email?.trim() || "";
+
+  const { data: integrationUser } = useQuery({
+    queryKey: ["jira-integration-user", integrationEmail],
+    queryFn: async () => {
+      const users = await api<JiraUser[]>(
+        `/v1/integrations/jira/assignable-users?query=${encodeURIComponent(integrationEmail)}`,
+      );
+      const exact = users.find((user) => user.email?.toLowerCase() === integrationEmail.toLowerCase());
+      return exact ?? users[0] ?? null;
+    },
+    enabled: open && !!jira?.connected && !!integrationEmail,
+    staleTime: 60_000,
+  });
+
+  const reporter: JiraUser = useMemo(() => {
+    if (integrationUser) return integrationUser;
+    const local = integrationEmail.split("@")[0] || "Reporter";
+    return {
+      account_id: "",
+      display_name: local.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      email: integrationEmail,
+    };
+  }, [integrationEmail, integrationUser]);
 
   const {
     data: users = [],
@@ -315,20 +419,21 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     },
   });
 
-  const preview = useMemo(
-    () => [
-      { label: "Opened from", value: "Veritrail finding drawer" },
-      { label: "Severity", value: `${finding.severity.toUpperCase()} · Risk score ${finding.risk_score}` },
-      { label: "Check", value: finding.check_id },
-      { label: "Resource", value: finding.resource_arn },
-      { label: "Recommended remediation", value: remediationCopy(finding) },
-      {
-        label: "Verification",
-        value: "Apply the fix, return to Veritrail, and run Verify fix before closing this ticket.",
-      },
-    ],
-    [finding],
-  );
+  const descriptionText = useMemo(() => {
+    const lines = [
+      "Opened from Veritrail finding drawer",
+      `Severity: ${finding.severity.toUpperCase()} · Risk score ${finding.risk_score}`,
+      `Check: ${finding.check_id}`,
+      `Resource: ${finding.resource_arn}`,
+      "",
+      "Recommended remediation",
+      remediationCopy(finding),
+      "",
+      "Verification",
+      "Apply the fix, return to Veritrail, and run Verify fix before closing this ticket.",
+    ];
+    return lines.join("\n");
+  }, [finding]);
 
   function clearAssignee() {
     setAssignee(null);
@@ -340,6 +445,15 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     setAssignee(user);
     setAssigneeQuery("");
     setAssigneeOpen(false);
+  }
+
+  function assignToMe() {
+    if (integrationUser) {
+      selectAssignee(integrationUser);
+      return;
+    }
+    setAssigneeOpen(true);
+    if (integrationEmail) setAssigneeQuery(integrationEmail);
   }
 
   if (!jira?.connected) return null;
@@ -389,7 +503,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="jira-ticket-title"
-                className="flex w-full max-w-[640px] flex-col overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white shadow-xl"
+                className="flex w-full max-w-[760px] flex-col overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white shadow-xl"
               >
                 <div className="flex items-center justify-between border-b border-[#EBECF0] px-6 py-4">
                   <h2 id="jira-ticket-title" className="text-xl font-medium text-[#172B4D]">
@@ -405,178 +519,184 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                   </button>
                 </div>
 
-                <div className="max-h-[min(70vh,640px)] overflow-y-auto px-6 py-4">
-                  <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#626F86]">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="font-semibold text-[#44546F]">Project</span>
-                      <span className="rounded-[3px] bg-[#F4F5F7] px-1.5 py-0.5 font-medium text-[#172B4D]">
-                        {projectKey}
-                      </span>
+                <div className="max-h-[min(75vh,720px)] overflow-y-auto px-6">
+                  <div className="flex flex-wrap items-center gap-2 py-4 text-sm text-[#626F86]">
+                    <span className="font-medium" style={{ color: JIRA_BLUE }}>
+                      {projectKey}
                     </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="font-semibold text-[#44546F]">Issue type</span>
-                      <span className="inline-flex items-center gap-1 rounded-[3px] bg-[#F4F5F7] px-1.5 py-0.5 font-medium text-[#172B4D]">
-                        <IssueTypeIcon className="h-3.5 w-3.5" />
-                        {issueType}
-                      </span>
+                    <span aria-hidden>/</span>
+                    <span className="inline-flex items-center gap-1.5 text-[#172B4D]">
+                      <IssueTypeIcon className="h-4 w-4" />
+                      {issueType}
                     </span>
                   </div>
 
-                  <div className="space-y-4">
-                    <label className="block">
-                      <FieldLabel required>Summary</FieldLabel>
-                      <input
-                        value={summary}
-                        onChange={(event) => setSummary(event.target.value)}
-                        className={fieldInputClass}
-                        placeholder="Enter a summary"
-                      />
-                    </label>
+                  <label className="block border-b border-[#EBECF0] pb-4">
+                    <span className="sr-only">Summary</span>
+                    <input
+                      value={summary}
+                      onChange={(event) => setSummary(event.target.value)}
+                      className="w-full border-0 bg-transparent p-0 text-2xl font-medium leading-tight text-[#172B4D] outline-none placeholder:text-[#626F86] focus:ring-0"
+                      placeholder="What needs to be done?"
+                      autoFocus
+                    />
+                  </label>
 
-                    <div>
-                      <FieldLabel>Priority</FieldLabel>
-                      <PrioritySelect value={priority} onChange={setPriority} />
-                    </div>
+                  <CollapsibleSection
+                    title="Description"
+                    open={descriptionOpen}
+                    onToggle={() => setDescriptionOpen((value) => !value)}
+                  >
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-[#172B4D]">
+                      {descriptionText}
+                    </p>
+                  </CollapsibleSection>
 
-                    <div ref={assigneeFieldRef}>
-                      <FieldLabel>Assignee</FieldLabel>
-                      <div className="relative">
-                        {assignee ? (
-                          <div
-                            className={`${fieldInputClass} flex min-h-[36px] items-center gap-2 py-1 pl-1 pr-2`}
-                          >
-                            <span className="inline-flex min-w-0 flex-1 items-center gap-2 rounded-[3px] bg-[#F4F5F7] py-0.5 pl-0.5 pr-1.5">
+                  <CollapsibleSection
+                    title="Details"
+                    open={detailsOpen}
+                    onToggle={() => setDetailsOpen((value) => !value)}
+                    trailing={<GearIcon className="h-4 w-4" />}
+                  >
+                    <div className="space-y-0.5">
+                      <DetailsRow label="Assignee">
+                        <div ref={assigneeFieldRef} className="relative">
+                          {assignee ? (
+                            <div className="inline-flex max-w-full items-center gap-2">
                               <UserAvatar user={assignee} size="sm" />
-                              <span className="truncate text-sm text-[#172B4D]">{assignee.display_name}</span>
+                              <span className="truncate">{assignee.display_name}</span>
                               <button
                                 type="button"
                                 onClick={clearAssignee}
-                                className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#626F86] hover:bg-[#DFE1E6] hover:text-[#172B4D]"
+                                className="shrink-0 text-[#626F86] hover:text-[#172B4D]"
                                 aria-label={`Remove ${assignee.display_name}`}
                               >
                                 ×
                               </button>
-                            </span>
-                          </div>
-                        ) : (
-                          <>
-                            <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[#626F86]" />
-                            <input
-                              value={assigneeQuery}
-                              onChange={(event) => setAssigneeQuery(event.target.value)}
-                              onFocus={() => setAssigneeOpen(true)}
-                              onBlur={() => {
-                                window.setTimeout(() => {
-                                  if (!assigneeFieldRef.current?.contains(document.activeElement)) {
-                                    setAssigneeOpen(false);
-                                  }
-                                }, 0);
-                              }}
-                              placeholder="Search for a person"
-                              autoComplete="off"
-                              role="combobox"
-                              aria-expanded={assigneeOpen}
-                              aria-controls="jira-assignee-suggestions"
-                              className={`${fieldInputClass} py-1.5 pl-8 pr-8`}
-                            />
-                            <button
-                              type="button"
-                              onMouseDown={(event) => event.preventDefault()}
-                              onClick={() => setAssigneeOpen((value) => !value)}
-                              className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[3px] text-[#626F86] hover:bg-[#F4F5F7]"
-                              aria-label="Toggle assignee suggestions"
-                            >
-                              <ChevronDownIcon className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
-                        {assigneeOpen && !assignee ? (
-                          <div
-                            id="jira-assignee-suggestions"
-                            role="listbox"
-                            aria-label="Assignable Jira users"
-                            className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-lg"
-                          >
-                            {usersLoading ? (
-                              <p className="px-3 py-2 text-sm text-[#626F86]">Loading assignable users…</p>
-                            ) : usersError ? (
-                              <p className="px-3 py-2 text-sm text-[#E34935]">{formatApiError(usersError)}</p>
-                            ) : users.length ? (
-                              users.map((user) => (
-                                <button
-                                  key={user.account_id}
-                                  type="button"
-                                  role="option"
-                                  onMouseDown={(event) => event.preventDefault()}
-                                  onClick={() => selectAssignee(user)}
-                                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[#F4F5F7]"
-                                >
-                                  <UserAvatar user={user} />
-                                  <span className="min-w-0">
-                                    <span className="block truncate text-sm text-[#172B4D]">{user.display_name}</span>
-                                    {user.email ? (
-                                      <span className="block truncate text-xs text-[#626F86]">{user.email}</span>
-                                    ) : null}
-                                  </span>
-                                </button>
-                              ))
-                            ) : (
-                              <p className="px-3 py-2 text-sm text-[#626F86]">
-                                {assigneeQuery.trim()
-                                  ? "No matching Jira users."
-                                  : "No assignable users found for this project."}
-                              </p>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div>
-                      <FieldLabel>Labels</FieldLabel>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center rounded-[3px] border border-[#DFE1E6] bg-[#F4F5F7] px-2 py-0.5 text-xs font-medium text-[#44546F]">
-                          veritrail
-                        </span>
-                        <span className="inline-flex items-center rounded-[3px] border border-[#DFE1E6] bg-[#F4F5F7] px-2 py-0.5 text-xs font-medium text-[#44546F]">
-                          {finding.severity}
-                        </span>
-                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-[3px] border border-[#DFE1E6] bg-white px-2 py-1 text-sm text-[#172B4D] hover:bg-[#F4F5F7]">
-                          <input
-                            type="checkbox"
-                            checked={riskLabelSelected}
-                            onChange={(event) => setRiskLabelSelected(event.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-[#DFE1E6] text-[#0C66E4] focus:ring-[#0C66E4]"
-                          />
-                          <span>risk</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-[#EBECF0] pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewOpen((value) => !value)}
-                        className="flex w-full items-center gap-2 rounded-[3px] py-2 text-left text-sm font-semibold text-[#44546F] hover:bg-[#F4F5F7]"
-                        aria-expanded={previewOpen}
-                      >
-                        <ChevronRightIcon
-                          className={`h-4 w-4 shrink-0 text-[#626F86] transition-transform ${previewOpen ? "rotate-90" : ""}`}
-                        />
-                        Preview description
-                      </button>
-                      {previewOpen ? (
-                        <div className="mb-2 space-y-3 rounded-[3px] border border-[#EBECF0] bg-[#FAFBFC] p-3">
-                          {preview.map((item) => (
-                            <div key={item.label}>
-                              <p className="text-xs font-semibold text-[#626F86]">{item.label}</p>
-                              <p className="mt-0.5 break-words text-sm leading-5 text-[#172B4D]">{item.value}</p>
                             </div>
-                          ))}
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setAssigneeOpen(true)}
+                                className="inline-flex items-center gap-2 rounded-[3px] px-0.5 py-0.5 hover:bg-[#F4F5F7]"
+                              >
+                                <UnassignedAvatar />
+                                <span className="text-[#172B4D]">Unassigned</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={assignToMe}
+                                className="text-sm font-medium hover:underline"
+                                style={{ color: JIRA_BLUE }}
+                              >
+                                Assign to me
+                              </button>
+                            </div>
+                          )}
+                          {assigneeOpen && !assignee ? (
+                            <div className="mt-2 space-y-1">
+                              <input
+                                value={assigneeQuery}
+                                onChange={(event) => setAssigneeQuery(event.target.value)}
+                                onFocus={() => setAssigneeOpen(true)}
+                                onBlur={() => {
+                                  window.setTimeout(() => {
+                                    if (!assigneeFieldRef.current?.contains(document.activeElement)) {
+                                      setAssigneeOpen(false);
+                                    }
+                                  }, 0);
+                                }}
+                                placeholder="Search for a person"
+                                autoComplete="off"
+                                role="combobox"
+                                aria-expanded={assigneeOpen}
+                                aria-controls="jira-assignee-suggestions"
+                                className="w-full rounded-[3px] border border-[#DFE1E6] bg-white px-2 py-1.5 text-sm text-[#172B4D] outline-none transition placeholder:text-[#626F86] hover:border-[#B3BAC5] focus:border-[#0C66E4] focus:ring-2 focus:ring-[#0C66E4]/20"
+                              />
+                              <div
+                                id="jira-assignee-suggestions"
+                                role="listbox"
+                                aria-label="Assignable Jira users"
+                                className="max-h-48 overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-lg"
+                              >
+                                {usersLoading ? (
+                                  <p className="px-3 py-2 text-sm text-[#626F86]">Loading assignable users…</p>
+                                ) : usersError ? (
+                                  <p className="px-3 py-2 text-sm text-[#E34935]">{formatApiError(usersError)}</p>
+                                ) : users.length ? (
+                                  users.map((user) => (
+                                    <button
+                                      key={user.account_id}
+                                      type="button"
+                                      role="option"
+                                      onMouseDown={(event) => event.preventDefault()}
+                                      onClick={() => selectAssignee(user)}
+                                      className="flex w-full items-center gap-2 border-l-2 border-l-transparent px-2 py-1.5 text-left hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                                    >
+                                      <UserAvatar user={user} size="sm" />
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-sm text-[#172B4D]">
+                                          {user.display_name}
+                                        </span>
+                                        {user.email ? (
+                                          <span className="block truncate text-xs text-[#626F86]">{user.email}</span>
+                                        ) : null}
+                                      </span>
+                                    </button>
+                                  ))
+                                ) : (
+                                  <p className="px-3 py-2 text-sm text-[#626F86]">
+                                    {assigneeQuery.trim()
+                                      ? "No matching Jira users."
+                                      : "No assignable users found for this project."}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
-                      ) : null}
+                      </DetailsRow>
+
+                      <DetailsRow label="Priority">
+                        <PrioritySelect value={priority} onChange={setPriority} />
+                      </DetailsRow>
+
+                      <DetailsRow label="Labels">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <JiraLabelPill label="veritrail" />
+                          <JiraLabelPill label={finding.severity} />
+                          {riskLabelSelected ? <JiraLabelPill label="risk" /> : null}
+                          <button
+                            type="button"
+                            onClick={() => setRiskLabelSelected((value) => !value)}
+                            className="rounded-[3px] px-1 py-0.5 text-xs font-medium hover:bg-[#F4F5F7]"
+                            style={{ color: JIRA_BLUE }}
+                          >
+                            {riskLabelSelected ? "− risk" : "+ risk"}
+                          </button>
+                        </div>
+                      </DetailsRow>
+
+                      <DetailsRow label="Project">
+                        <span className="font-medium text-[#172B4D]">{projectKey}</span>
+                      </DetailsRow>
+
+                      <DetailsRow label="Issue type">
+                        <span className="inline-flex items-center gap-1.5">
+                          <IssueTypeIcon className="h-4 w-4" />
+                          {issueType}
+                        </span>
+                      </DetailsRow>
+
+                      <DetailsRow label="Reporter">
+                        <span className="inline-flex max-w-full items-center gap-2">
+                          <UserAvatar user={reporter} size="sm" />
+                          <span className="truncate">{reporter.display_name}</span>
+                        </span>
+                      </DetailsRow>
                     </div>
-                  </div>
+                  </CollapsibleSection>
                 </div>
 
                 {create.error ? (
