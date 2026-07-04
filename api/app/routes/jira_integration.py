@@ -22,6 +22,7 @@ from app.models.org import Org, User
 from app.services.digest import _findings_app_url
 from app.services.user_display_name import resolve_user_display_name
 from app.services.jira_client import JiraClient, normalize_site_url
+from app.services.jira_issue_summary import build_jira_issue_summary
 from app.services.github_sync import provider_config, set_provider_config
 
 router = APIRouter()
@@ -100,13 +101,6 @@ class JiraIssueCreateIn(BaseModel):
     assignee_account_id: str | None = None
     labels: list[str] | None = None
     project_key: str | None = None
-
-
-def _resource_name(resource_arn: str) -> str:
-    value = (resource_arn or "").strip()
-    if not value:
-        return "Affected resource"
-    return value.rsplit("/", 1)[-1].rsplit(":", 1)[-1] or value
 
 
 def _recommended_remediation(finding: Finding) -> str:
@@ -374,7 +368,11 @@ def create_issue_from_finding(
     summary = (
         body.summary.strip()
         if body.summary and body.summary.strip()
-        else f"[Veritrail] {_resource_name(finding.resource_arn)} — {finding.title}"
+        else build_jira_issue_summary(
+            check_id=finding.check_id,
+            resource_arn=finding.resource_arn,
+            title=finding.title,
+        )
     )
 
     try:

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import { useJiraIntegration } from "../hooks/useJiraIntegration";
-import { displayFindingTitle } from "../lib/findingDisplay";
+import { buildJiraIssueSummary } from "../lib/jiraIssueSummary";
 
 type JiraIssue = { issue_key: string; issue_url: string };
 
@@ -63,14 +63,8 @@ function defaultPriority(severity: string): Priority {
   return "Medium";
 }
 
-function resourceName(arn: string): string {
-  const value = arn.trim();
-  if (!value) return "Affected resource";
-  return value.split("/").pop()?.split(":").pop() || value;
-}
-
 function defaultSummary(finding: FindingSummary): string {
-  return `[Veritrail] ${resourceName(finding.resource_arn)} — ${displayFindingTitle(finding.title)}`;
+  return buildJiraIssueSummary(finding);
 }
 
 function remediationCopy(finding: FindingSummary): string {
