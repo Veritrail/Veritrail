@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
@@ -366,6 +366,8 @@ function PrioritySelect({
   );
 }
 
+type DropdownCoords = { top: number; left: number; minWidth: number };
+
 function ProjectSelect({
   value,
   projects,
@@ -379,26 +381,62 @@ function ProjectSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [coords, setCoords] = useState<DropdownCoords | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const selected = projects.find((project) => project.key === value);
-  const dropdownOptions = projects.filter((project) => project.key !== value);
+  const singleProject = projects.length === 1;
+
+  function placeMenu() {
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setCoords({ top: rect.bottom + 4, left: rect.left, minWidth: Math.max(rect.width, 220) });
+  }
+
+  useLayoutEffect(() => {
+    if (open) placeMenu();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function onDocClick(event: MouseEvent) {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    function onScroll(event: Event) {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onResize() {
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
   }, [open]);
 
   return (
     <div ref={ref} className="relative w-full max-w-[280px]">
       <button
+        ref={btnRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={loading || !projects.length}
+        title={singleProject ? "Only Jira project available for this integration" : undefined}
         onClick={() => setOpen((current) => !current)}
         className={`inline-flex w-full items-center justify-between gap-2 rounded-[3px] border bg-white px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           open
@@ -411,37 +449,67 @@ function ProjectSelect({
         </span>
         <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
       </button>
-      {open && dropdownOptions.length ? (
-        <ul
-          role="listbox"
-          aria-label="Project"
-          className="absolute left-0 top-full z-50 mt-1 max-h-56 w-full min-w-[220px] overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
-        >
-          {dropdownOptions.map((project) => (
-            <li key={project.key} role="option" aria-selected={false}>
-              <button
-                type="button"
-                onMouseEnter={() => setHovered(project.key)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={() => {
-                  onChange(project.key);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
-                  hovered === project.key
-                    ? "border-l-[#0C66E4] bg-[#F4F5F7]"
-                    : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
-                }`}
-              >
-                <span className="min-w-0 truncate">
-                  <span className="font-medium">{project.key}</span>
-                  <span className="text-[#626F86]"> — {project.name}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {open && coords && projects.length
+        ? createPortal(
+            <ul
+              ref={menuRef}
+              role="listbox"
+              aria-label="Project"
+              className="max-h-56 overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+              style={{
+                position: "fixed",
+                top: coords.top,
+                left: coords.left,
+                minWidth: coords.minWidth,
+                zIndex: 300,
+              }}
+            >
+              {projects.map((project) => {
+                const isSelected = project.key === value;
+                return (
+                  <li key={project.key} role="option" aria-selected={isSelected}>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHovered(project.key)}
+                      onMouseLeave={() => setHovered(null)}
+                      onClick={() => {
+                        if (!isSelected) onChange(project.key);
+                        setOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
+                        hovered === project.key || isSelected
+                          ? "border-l-[#0C66E4] bg-[#F4F5F7]"
+                          : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        <span className="font-medium">{project.key}</span>
+                        <span className="text-[#626F86]"> — {project.name}</span>
+                      </span>
+                      {isSelected ? (
+                        <svg className="h-3.5 w-3.5 shrink-0 text-[#0C66E4]" viewBox="0 0 20 20" fill="none" aria-hidden>
+                          <path
+                            d="M5 10.5l3 3 7-7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+              {singleProject ? (
+                <li className="border-t border-[#EBECF0] px-2 py-1.5 text-xs text-[#626F86]">
+                  Only project available
+                </li>
+              ) : null}
+            </ul>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
