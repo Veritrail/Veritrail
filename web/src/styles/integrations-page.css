@@ -19,6 +19,14 @@
      margin-top: auto pins recommended integrations to the visual bottom. */
   min-height: calc(100vh - 4rem);
   padding-bottom: 0;
+  /* Connected-table scroll cap: header + exactly 7 data rows (48px icon + 1rem cell padding). */
+  --integrations-table-head-block: calc(0.75rem * 2 + 0.625rem + 1px);
+  --integrations-table-row-block: calc(1rem * 2 + 3rem + 1px);
+  --integrations-table-visible-rows: 7;
+  --integrations-table-scroll-max: calc(
+    var(--integrations-table-head-block) +
+      var(--integrations-table-row-block) * var(--integrations-table-visible-rows)
+  );
 }
 
 .integrations-page__header {
@@ -137,7 +145,7 @@
      instead of pushing recommended integrations off-screen. */
   flex: 1 1 auto;
   min-height: 0;
-  max-height: min(38rem, calc(100vh - 22rem));
+  max-height: min(var(--integrations-table-scroll-max), calc(100vh - 22rem));
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -162,6 +170,7 @@
   text-align: left;
   font-size: 0.625rem;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #94a3b8;
@@ -432,8 +441,8 @@
   }
 
   .integrations-table-wrap {
-    /* Tighter vertical budget on small screens (stacked KPI + header). */
-    max-height: min(32rem, calc(100vh - 18rem));
+    /* Same 7-row cap; only the viewport fallback tightens on small screens. */
+    max-height: min(var(--integrations-table-scroll-max), calc(100vh - 18rem));
   }
 
   .integrations-page__catalog-footer {
