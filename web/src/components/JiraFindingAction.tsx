@@ -77,27 +77,6 @@ function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-function FlagIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1v12z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 22v-7" />
-    </svg>
-  );
-}
-
-function ShieldIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-      />
-    </svg>
-  );
-}
-
 function SearchIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -145,12 +124,10 @@ function UserAvatar({ user, size = "md" }: { user: JiraUser; size?: "sm" | "md" 
 function LabelChip({
   selected,
   onClick,
-  icon,
   children,
 }: {
   selected: boolean;
   onClick: () => void;
-  icon: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -158,13 +135,12 @@ function LabelChip({
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
         selected
-          ? "border-[#439385] bg-[#439385]/10 text-[#2d6a61] shadow-sm shadow-[#439385]/10"
+          ? "border-zinc-300 bg-zinc-100 text-zinc-800"
           : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50"
       }`}
     >
-      {icon}
       {children}
     </button>
   );
@@ -361,14 +337,13 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                     </label>
                     <div>
                       <span className="text-xs font-semibold text-zinc-700">Priority labels</span>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <LabelChip selected={highLabelSelected} onClick={toggleHighLabel} icon={<FlagIcon />}>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <LabelChip selected={highLabelSelected} onClick={toggleHighLabel}>
                           High
                         </LabelChip>
                         <LabelChip
                           selected={riskLabelSelected}
                           onClick={() => setRiskLabelSelected((value) => !value)}
-                          icon={<ShieldIcon />}
                         >
                           Risk
                         </LabelChip>
