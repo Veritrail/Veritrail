@@ -5,6 +5,10 @@ import { api, formatApiError } from "../api";
 import { useJiraIntegration } from "../hooks/useJiraIntegration";
 import { type JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import { buildJiraIssueSummary } from "../lib/jiraIssueSummary";
+import {
+  isJiraDoneBeforeVerification,
+  JIRA_DONE_UNVERIFIED_WARNING,
+} from "../lib/jiraFindingGuardrails";
 
 type JiraIssue = { issue_key: string; issue_url: string };
 
@@ -36,6 +40,7 @@ type FindingSummary = {
   title: string;
   severity: string;
   risk_score: number;
+  status?: string;
   account_label?: string | null;
 };
 
@@ -932,14 +937,17 @@ export function JiraFindingAction({
 
   if (hasLinkedTicket && existing?.issue_url) {
     const done = jiraStatus?.is_done;
+    const doneUnverified = isJiraDoneBeforeVerification(jiraStatus, finding.status ?? "open");
     const statusLabel = jiraStatus?.status?.trim();
-    const ticketTitle = statusLabel
-      ? done
-        ? `Jira ticket ${existing.issue_key} — ${statusLabel}`
-        : `Jira ticket ${existing.issue_key} — status: ${statusLabel}`
-      : jiraStatusFetching
-        ? `Jira ticket ${existing.issue_key} — syncing status`
-        : "Open remediation ticket in Jira";
+    const ticketTitle = doneUnverified
+      ? JIRA_DONE_UNVERIFIED_WARNING
+      : statusLabel
+        ? done
+          ? `Jira ticket ${existing.issue_key} — ${statusLabel}`
+          : `Jira ticket ${existing.issue_key} — status: ${statusLabel}`
+        : jiraStatusFetching
+          ? `Jira ticket ${existing.issue_key} — syncing status`
+          : "Open remediation ticket in Jira";
 
     return (
       <a
@@ -947,9 +955,11 @@ export function JiraFindingAction({
         target="_blank"
         rel="noreferrer"
         className={
-          done
-            ? `${triggerBase} border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100`
-            : className ?? `${triggerBase} border-sky-200 bg-white text-sky-800 hover:border-sky-300 hover:bg-sky-50`
+          doneUnverified
+            ? `${triggerBase} border-amber-200 bg-amber-50 text-amber-950 hover:border-amber-300 hover:bg-amber-100`
+            : done
+              ? `${triggerBase} border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100`
+              : className ?? `${triggerBase} border-sky-200 bg-white text-sky-800 hover:border-sky-300 hover:bg-sky-50`
         }
         title={ticketTitle}
       >
@@ -958,7 +968,9 @@ export function JiraFindingAction({
           <span>View Ticket</span>
           {statusLabel ? (
             <span
-              className={`truncate text-[11px] font-medium ${done ? "text-emerald-800" : "text-sky-700"}`}
+              className={`truncate text-[11px] font-medium ${
+                doneUnverified ? "text-amber-900" : done ? "text-emerald-800" : "text-sky-700"
+              }`}
             >
               · {statusLabel}
             </span>

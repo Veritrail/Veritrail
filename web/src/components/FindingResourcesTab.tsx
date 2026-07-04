@@ -16,6 +16,10 @@ import {
 } from "../lib/recheckPoll";
 import { remediationSummaryForFinding } from "../data/remediationSummaries";
 import type { JiraIssueStatus } from "../hooks/useJiraIssueStatus";
+import {
+  isJiraDoneBeforeVerification,
+  JIRA_DONE_UNVERIFIED_SHORT,
+} from "../lib/jiraFindingGuardrails";
 import type { RemediationTicket } from "../lib/remediationTicket";
 import type { RecheckBatchResponse } from "../context/RecheckNotificationsContext";
 import { CloudProviderMark } from "./FindingResourceIcon";
@@ -267,11 +271,13 @@ function JiraPostureMetric({
   issue,
   status,
   statusFetching,
+  findingStatus,
   onRemove,
 }: {
   issue: RemediationTicket;
   status?: JiraIssueStatus;
   statusFetching?: boolean;
+  findingStatus: string;
   onRemove?: () => void;
 }) {
   const statusLabel = status?.status
@@ -280,6 +286,7 @@ function JiraPostureMetric({
       ? "Syncing…"
       : null;
   const done = status?.is_done ?? false;
+  const doneUnverified = isJiraDoneBeforeVerification(status, findingStatus);
 
   return (
     <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-5 text-center">
@@ -294,8 +301,12 @@ function JiraPostureMetric({
         {issue.issue_key}
       </a>
       {statusLabel ? (
-        <p className={`max-w-full truncate text-[11px] leading-tight ${done ? "text-emerald-600" : "text-zinc-500"}`}>
-          {statusLabel}
+        <p
+          className={`max-w-full truncate text-[11px] leading-tight ${
+            doneUnverified ? "text-amber-700" : done ? "text-emerald-600" : "text-zinc-500"
+          }`}
+        >
+          {doneUnverified ? JIRA_DONE_UNVERIFIED_SHORT : statusLabel}
         </p>
       ) : null}
       {onRemove ? (
@@ -362,6 +373,7 @@ function ResourcesPostureStrip({
             issue={jiraIssue}
             status={jiraStatus}
             statusFetching={jiraStatusFetching}
+            findingStatus={selectedFinding.status}
             onRemove={onRemoveJira}
           />
         ) : null}

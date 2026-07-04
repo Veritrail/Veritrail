@@ -13,6 +13,10 @@ import {
 } from "../lib/apiSchemas";
 import { useJiraIntegration } from "../hooks/useJiraIntegration";
 import { useJiraIssueStatus } from "../hooks/useJiraIssueStatus";
+import {
+  isJiraDoneBeforeVerification,
+  JIRA_DONE_UNVERIFIED_WARNING,
+} from "../lib/jiraFindingGuardrails";
 import { extractRemediationTickets, type RemediationTicket } from "../lib/remediationTicket";
 import AwsServiceIcon from "./AwsServiceIcon";
 import { CliRemediationPanel } from "./CliRemediationPanel";
@@ -6630,6 +6634,11 @@ export function FindingDrawer({
   const verifyFooterMuted =
     ssmAutomationRemTab && !ssmExecSuccess && !verified && !verifying && !showReopenFooter;
 
+  const jiraDoneUnverified =
+    !!jiraIssue &&
+    !githubIssue &&
+    isJiraDoneBeforeVerification(jiraStatus, finding.status);
+
   const rem =
     identityRemediations[finding.check_id] ??
     remediations[finding.check_id] ??
@@ -7013,6 +7022,14 @@ export function FindingDrawer({
         )
       )}
     </div>
+    {jiraDoneUnverified ? (
+      <div
+        className="shrink-0 border-t border-amber-200/80 bg-amber-50/90 px-6 py-3 text-[12px] leading-relaxed text-amber-950"
+        role="status"
+      >
+        <span className="font-semibold">Jira marked Done</span> — {JIRA_DONE_UNVERIFIED_WARNING}
+      </div>
+    ) : null}
     <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       {showReopenFooter ? (
         <button type="button" onClick={() => onAction(finding.id, "reopen")} className={drawerFooterReopen}>
