@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, restoreSession, token, logout } from "./api";
@@ -55,6 +55,28 @@ const HEADER_TITLES: Record<string, string> = {
 const DEFAULT_HISTORY_FRAMEWORK = "soc2";
 const DEFAULT_HISTORY_DAYS = 90;
 const HISTORY_PREFETCH_STALE_MS = 120_000;
+
+function AppHeaderTitle({ pathname }: { pathname: string }) {
+  if (pathname === "/integrations/catalog") {
+    return (
+      <nav className="veritrail-app-header__breadcrumb" aria-label="Breadcrumb">
+        <Link to="/integrations" className="veritrail-app-header__breadcrumb-link">
+          Integrations
+        </Link>
+        <span className="veritrail-app-header__breadcrumb-sep" aria-hidden="true">
+          ›
+        </span>
+        <span className="veritrail-app-header__breadcrumb-current">Catalog</span>
+      </nav>
+    );
+  }
+
+  const segment = pathname.split("/")[1];
+  const title = segment ? HEADER_TITLES[segment] : undefined;
+  if (!title) return null;
+
+  return <h1 className="veritrail-app-header__title">{title}</h1>;
+}
 
 export default function Layout() {
   const nav = useNavigate();
@@ -170,18 +192,6 @@ export default function Layout() {
           <span className="app-sidebar__wordmark">Veritrail</span>
         </div>
 
-        <button
-          type="button"
-          className="app-sidebar__collapse-toggle"
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-pressed={sidebarCollapsed}
-          onClick={() => setSidebarCollapsed((v) => !v)}
-        >
-          <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d={sidebarCollapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
-          </svg>
-        </button>
-
         <nav className="app-sidebar__nav">
           {canManageAccounts && (
             <SidebarNavLink to="/accounts" title="Accounts">
@@ -244,6 +254,33 @@ export default function Layout() {
               </button>
             </div>
           ) : null}
+
+          <div className="app-sidebar__footer-divider" role="separator" />
+
+          <button
+            type="button"
+            className="app-sidebar__collapse-row"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={sidebarCollapsed}
+            onClick={() => setSidebarCollapsed((v) => !v)}
+          >
+            <span className="app-sidebar__collapse-icon-btn" aria-hidden>
+              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d={
+                    sidebarCollapsed
+                      ? "M12.75 5.25l7.5 7.5-7.5 7.5M5.25 5.25l7.5 7.5-7.5 7.5"
+                      : "M11.25 18.75l-7.5-7.5 7.5-7.5M18.75 18.75l-7.5-7.5 7.5-7.5"
+                  }
+                />
+              </svg>
+            </span>
+            <span className="app-sidebar__collapse-label">
+              {sidebarCollapsed ? "Expand" : "Collapse"}
+            </span>
+          </button>
         </div>
       </aside>
 
