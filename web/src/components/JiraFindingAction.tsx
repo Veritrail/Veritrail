@@ -593,13 +593,13 @@ function ProjectSelect({
         disabled={loading || !projects.length}
         title={singleProject ? "Only Jira project available for this integration" : undefined}
         onClick={() => setOpen((current) => !current)}
-        className={`inline-flex w-full items-center justify-between gap-2 rounded-[3px] border bg-white px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`inline-flex h-7 w-full items-center justify-between gap-2 rounded-[3px] border bg-white px-2 text-left text-[14px] leading-5 text-[#172B4D] transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           open
             ? "border-[#0C66E4] ring-2 ring-[#0C66E4]/20"
             : "border-[#DFE1E6] hover:border-[#B3BAC5]"
         }`}
       >
-        <span className="min-w-0 truncate">
+        <span className="min-w-0 flex-1 truncate leading-5">
           {loading ? (
             "Loading projects…"
           ) : selected ? (
@@ -1176,8 +1176,8 @@ export function JiraFindingAction({
                         </div>
                       </DetailsRow>
 
-                      <DetailsRow label="Project">
-                        <div className="space-y-1">
+                      <DetailsRow label="Project" align="center">
+                        <div className="flex min-h-[28px] w-full max-w-[280px] items-center">
                           <ProjectSelect
                             value={activeProjectKey}
                             projects={projects}
@@ -1185,34 +1185,45 @@ export function JiraFindingAction({
                             onChange={selectProject}
                             defaultProjectKey={defaultProjectKey}
                           />
-                          {projectsError ? (
-                            <p className="text-xs text-[#E34935]">{formatApiError(projectsError)}</p>
-                          ) : null}
-                          {isOrgDefault ? (
-                            <p className="text-xs text-[#626F86]">Organization default project</p>
-                          ) : !defaultProjectKey ? (
-                            <p className="text-xs text-[#626F86]">
-                              {activeProjectKey
-                                ? "Save a default with Set as default, or pick a project each time."
-                                : "Select a project to create this ticket."}
-                            </p>
-                          ) : null}
-                          {showSetDefault ? (
-                            <button
-                              type="button"
-                              disabled={setDefaultProject.isPending}
-                              onClick={() => setDefaultProject.mutate(activeProjectKey)}
-                              className="text-xs font-medium hover:underline disabled:opacity-60"
-                              style={{ color: JIRA_BLUE }}
-                            >
-                              {setDefaultProject.isPending ? "Saving default…" : "Set as default"}
-                            </button>
-                          ) : null}
-                          {setDefaultProject.error ? (
-                            <p className="text-xs text-[#E34935]">{formatApiError(setDefaultProject.error)}</p>
-                          ) : null}
                         </div>
                       </DetailsRow>
+                      {projectsError ||
+                      isOrgDefault ||
+                      !defaultProjectKey ||
+                      showSetDefault ||
+                      setDefaultProject.error ? (
+                        <div className="grid grid-cols-[minmax(0,38%)_minmax(0,1fr)] gap-x-4">
+                          <div aria-hidden="true" />
+                          <div className="min-w-0 space-y-1 pb-1.5">
+                            {projectsError ? (
+                              <p className="text-xs text-[#E34935]">{formatApiError(projectsError)}</p>
+                            ) : null}
+                            {isOrgDefault ? (
+                              <p className="text-xs leading-4 text-[#626F86]">Organization default project</p>
+                            ) : !defaultProjectKey ? (
+                              <p className="text-xs leading-4 text-[#626F86]">
+                                {activeProjectKey
+                                  ? "Save a default with Set as default, or pick a project each time."
+                                  : "Select a project to create this ticket."}
+                              </p>
+                            ) : null}
+                            {showSetDefault ? (
+                              <button
+                                type="button"
+                                disabled={setDefaultProject.isPending}
+                                onClick={() => setDefaultProject.mutate(activeProjectKey)}
+                                className="text-xs font-medium leading-4 hover:underline disabled:opacity-60"
+                                style={{ color: JIRA_BLUE }}
+                              >
+                                {setDefaultProject.isPending ? "Saving default…" : "Set as default"}
+                              </button>
+                            ) : null}
+                            {setDefaultProject.error ? (
+                              <p className="text-xs text-[#E34935]">{formatApiError(setDefaultProject.error)}</p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
 
                       <DetailsRow label="Issue type">
                         <div className="space-y-1">
