@@ -46,10 +46,9 @@
 
 .integrations-page__body {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 0;
-  min-height: 0;
   /* Keep scroll inside the connected table so KPI + recommended stay visible. */
   overflow: hidden;
 }
@@ -152,10 +151,9 @@
 
 .integrations-table-wrap {
   /* Horizontal: column minimums exceed the container when the sidebar is open.
-     Vertical: cap ~7 visible rows so 8+ connectors scroll inside the card
-     instead of pushing recommended integrations off-screen. */
-  flex: 1 1 auto;
-  min-height: 0;
+     Vertical: shrink to content when rows ≤ 7; cap at 7 rows so 8+ scroll
+     inside the card instead of pushing recommended integrations off-screen. */
+  flex: 0 0 auto;
   max-height: min(var(--integrations-table-scroll-max), calc(100vh - 22rem));
   overflow-x: auto;
   overflow-y: auto;
