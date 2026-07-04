@@ -19,13 +19,17 @@
      margin-top: auto pins recommended integrations to the visual bottom. */
   min-height: calc(100vh - 4rem);
   padding-bottom: 0;
-  /* Connected-table scroll cap: header + exactly 7 data rows (48px icon + 1rem cell padding). */
+  /* Connected-table scroll cap: header + exactly 7 data rows before overflow-y kicks in.
+     Icon is 48px inline (IntegrationBrandIcon size={48}); row block adds 2px slop for
+     collapsed borders/subpixel; scroll-max adds 2px for .integrations-table-wrap border. */
+  --integrations-table-icon-block: 48px;
   --integrations-table-head-block: calc(0.75rem * 2 + 0.625rem + 1px);
-  --integrations-table-row-block: calc(1rem * 2 + 3rem + 1px);
+  --integrations-table-row-block: calc(1rem * 2 + var(--integrations-table-icon-block) + 1px + 2px);
   --integrations-table-visible-rows: 7;
   --integrations-table-scroll-max: calc(
     var(--integrations-table-head-block) +
-      var(--integrations-table-row-block) * var(--integrations-table-visible-rows)
+      var(--integrations-table-row-block) * var(--integrations-table-visible-rows) +
+      2px
   );
 }
 
