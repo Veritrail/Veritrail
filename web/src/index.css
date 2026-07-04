@@ -148,8 +148,51 @@
     color: var(--vt-text);
   }
 
+  .veritrail-app-header__breadcrumb {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+    margin: 0;
+    padding-right: 1rem;
+    border-right: 1px solid var(--vt-border);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .veritrail-app-header__breadcrumb-link {
+    color: var(--vt-teal);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .veritrail-app-header__breadcrumb-link:hover {
+    color: var(--vt-teal-hover);
+  }
+
+  .veritrail-app-header__breadcrumb-link:focus-visible {
+    outline: none;
+    border-radius: 0.25rem;
+    box-shadow: 0 0 0 2px rgb(13 148 136 / 0.18);
+  }
+
+  .veritrail-app-header__breadcrumb-sep {
+    color: var(--vt-text-soft);
+    font-weight: 500;
+  }
+
+  .veritrail-app-header__breadcrumb-current {
+    color: var(--vt-text);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
   /* No dangling divider on pages that don't portal controls into the slot. */
-  .veritrail-app-header__title:has(+ div:empty) {
+  .veritrail-app-header__title:has(+ div:empty),
+  .veritrail-app-header__breadcrumb:has(+ div:empty) {
     border-right: 0;
     padding-right: 0;
   }

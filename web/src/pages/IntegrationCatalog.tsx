@@ -203,9 +203,6 @@ export default function IntegrationCatalog() {
   return (
     <div className="integrations-page integration-catalog">
       <header className="integration-catalog__intro">
-        <Link to="/integrations" className="integration-catalog__back">
-          ← Connected integrations
-        </Link>
         <h1 className="integration-catalog__title">Integration catalog</h1>
         <p className="integration-catalog__subtitle">
           Connect tools to collect evidence, enrich findings, and route remediation.
