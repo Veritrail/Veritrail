@@ -123,6 +123,35 @@ class JiraClient:
                 "issue_id": data.get("id", ""),
             }
 
+    def list_projects(self, *, max_results: int = 100) -> list[dict[str, str]]:
+        projects: list[dict[str, str]] = []
+        start_at = 0
+        page_size = min(max_results, 50)
+        with self._client() as client:
+            while len(projects) < max_results:
+                resp = client.get(
+                    "/project/search",
+                    params={"startAt": start_at, "maxResults": page_size, "orderBy": "name"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                values = data.get("values") or []
+                for project in values:
+                    key = project.get("key", "")
+                    if key:
+                        projects.append(
+                            {
+                                "key": key,
+                                "name": project.get("name", ""),
+                                "id": project.get("id", ""),
+                            }
+                        )
+                total = data.get("total", 0)
+                start_at += len(values)
+                if start_at >= total or not values:
+                    break
+        return projects[:max_results]
+
     def search_assignable_users(self, *, project_key: str, query: str = "") -> list[dict[str, str]]:
         key = project_key.strip().upper()
         with self._client() as client:

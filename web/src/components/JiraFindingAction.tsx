@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import { jiraIntegrationSchema } from "../lib/apiSchemas";
 import { displayFindingTitle } from "../lib/findingDisplay";
@@ -13,6 +13,12 @@ type JiraUser = {
   display_name: string;
   email?: string;
   avatar_url?: string;
+};
+
+type JiraProject = {
+  key: string;
+  name: string;
+  id?: string;
 };
 
 type FindingSummary = {
@@ -360,10 +366,92 @@ function PrioritySelect({
   );
 }
 
+function ProjectSelect({
+  value,
+  projects,
+  loading,
+  onChange,
+}: {
+  value: string;
+  projects: JiraProject[];
+  loading: boolean;
+  onChange: (projectKey: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = projects.find((project) => project.key === value);
+  const dropdownOptions = projects.filter((project) => project.key !== value);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(event: MouseEvent) {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative inline-block w-full max-w-[280px]">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        disabled={loading || !projects.length}
+        onClick={() => setOpen((current) => !current)}
+        className={`inline-flex w-full items-center justify-between gap-2 rounded-[3px] border bg-white px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          open
+            ? "border-[#0C66E4] ring-2 ring-[#0C66E4]/20"
+            : "border-[#DFE1E6] hover:border-[#B3BAC5]"
+        }`}
+      >
+        <span className="min-w-0 truncate">
+          {loading ? "Loading projects…" : selected ? `${selected.key} — ${selected.name}` : value}
+        </span>
+        <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
+      </button>
+      {open && dropdownOptions.length ? (
+        <ul
+          role="listbox"
+          aria-label="Project"
+          className="absolute left-0 top-full z-30 mt-1 max-h-56 w-full min-w-[220px] overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+        >
+          {dropdownOptions.map((project) => (
+            <li key={project.key} role="option" aria-selected={false}>
+              <button
+                type="button"
+                onMouseEnter={() => setHovered(project.key)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => {
+                  onChange(project.key);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
+                  hovered === project.key
+                    ? "border-l-[#0C66E4] bg-[#F4F5F7]"
+                    : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                }`}
+              >
+                <span className="min-w-0 truncate">
+                  <span className="font-medium">{project.key}</span>
+                  <span className="text-[#626F86]"> — {project.name}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function JiraFindingAction({ finding, existing, onCreated, onRemove, className }: Props) {
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState(() => defaultSummary(finding));
   const [priority, setPriority] = useState<Priority>(() => defaultPriority(finding.severity));
+  const [selectedProject, setSelectedProject] = useState("");
   const [riskLabelSelected, setRiskLabelSelected] = useState(false);
   const [assigneeQuery, setAssigneeQuery] = useState("");
   const [assignee, setAssignee] = useState<JiraUser | null>(null);
@@ -382,6 +470,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     setOpen(false);
     setSummary(defaultSummary(finding));
     setPriority(defaultPriority(finding.severity));
+    setSelectedProject("");
     setRiskLabelSelected(false);
     setAssigneeQuery("");
     setAssignee(null);
@@ -390,28 +479,63 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     setDetailsOpen(true);
   }, [finding.id, finding.severity]);
 
-  useEffect(() => {
-    if (!open) setAssigneeOpen(false);
-  }, [open]);
-
   const { data: jira } = useQuery({
     queryKey: ["jira-integration"],
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
     staleTime: 60_000,
   });
 
+  const defaultProjectKey = jira?.project_key?.trim() || "";
+
+  useEffect(() => {
+    if (!defaultProjectKey) return;
+    setSelectedProject((current) => current || defaultProjectKey);
+  }, [defaultProjectKey]);
+
+  useEffect(() => {
+    if (!open) setAssigneeOpen(false);
+  }, [open]);
+
   const integrationEmail = jira?.email?.trim() || "";
+  const activeProjectKey = selectedProject || defaultProjectKey;
+
+  const {
+    data: projects = [],
+    isFetching: projectsLoading,
+    error: projectsError,
+  } = useQuery({
+    queryKey: ["jira-projects"],
+    queryFn: () => api<JiraProject[]>("/v1/integrations/jira/projects"),
+    enabled: open && !!jira?.connected,
+    staleTime: 60_000,
+  });
+
+  const setDefaultProject = useMutation({
+    mutationFn: (projectKey: string) =>
+      api("/v1/integrations/jira", {
+        method: "PUT",
+        body: JSON.stringify({
+          site_url: jira?.site_url,
+          email: jira?.email,
+          project_key: projectKey,
+          issue_type: jira?.issue_type || "Task",
+        }),
+      }),
+    onSuccess: (saved) => {
+      qc.setQueryData(["jira-integration"], saved);
+    },
+  });
 
   const { data: integrationUser } = useQuery({
-    queryKey: ["jira-integration-user", integrationEmail],
+    queryKey: ["jira-integration-user", integrationEmail, activeProjectKey],
     queryFn: async () => {
       const users = await api<JiraUser[]>(
-        `/v1/integrations/jira/assignable-users?query=${encodeURIComponent(integrationEmail)}`,
+        `/v1/integrations/jira/assignable-users?query=${encodeURIComponent(integrationEmail)}&project=${encodeURIComponent(activeProjectKey)}`,
       );
       const exact = users.find((user) => user.email?.toLowerCase() === integrationEmail.toLowerCase());
       return exact ?? users[0] ?? null;
     },
-    enabled: open && !!jira?.connected && !!integrationEmail,
+    enabled: open && !!jira?.connected && !!integrationEmail && !!activeProjectKey,
     staleTime: 60_000,
   });
 
@@ -430,12 +554,12 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     isFetching: usersLoading,
     error: usersError,
   } = useQuery({
-    queryKey: ["jira-assignable-users", assigneeQuery.trim()],
+    queryKey: ["jira-assignable-users", activeProjectKey, assigneeQuery.trim()],
     queryFn: () =>
       api<JiraUser[]>(
-        `/v1/integrations/jira/assignable-users?query=${encodeURIComponent(assigneeQuery.trim())}`,
+        `/v1/integrations/jira/assignable-users?query=${encodeURIComponent(assigneeQuery.trim())}&project=${encodeURIComponent(activeProjectKey)}`,
       ),
-    enabled: open && !!jira?.connected && assigneeOpen && !assignee,
+    enabled: open && !!jira?.connected && !!activeProjectKey && assigneeOpen && !assignee,
     staleTime: 30_000,
   });
 
@@ -448,6 +572,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
           priority,
           assignee_account_id: assignee?.account_id,
           labels: issueLabels,
+          project_key: activeProjectKey,
         }),
       }),
     onSuccess: (issue) => {
@@ -480,6 +605,13 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
 
   function selectAssignee(user: JiraUser) {
     setAssignee(user);
+    setAssigneeQuery("");
+    setAssigneeOpen(false);
+  }
+
+  function selectProject(projectKey: string) {
+    setSelectedProject(projectKey);
+    setAssignee(null);
     setAssigneeQuery("");
     setAssigneeOpen(false);
   }
@@ -525,7 +657,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   }
 
   const issueType = jira.issue_type || "Task";
-  const projectKey = jira.project_key || "PROJECT";
+  const projectKey = activeProjectKey || "PROJECT";
+  const showSetDefault =
+    !!activeProjectKey && !!defaultProjectKey && activeProjectKey !== defaultProjectKey;
 
   return (
     <>
@@ -716,7 +850,31 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                       </DetailsRow>
 
                       <DetailsRow label="Project">
-                        <span className="font-medium text-[#172B4D]">{projectKey}</span>
+                        <div className="space-y-1">
+                          <ProjectSelect
+                            value={activeProjectKey}
+                            projects={projects}
+                            loading={projectsLoading}
+                            onChange={selectProject}
+                          />
+                          {projectsError ? (
+                            <p className="text-xs text-[#E34935]">{formatApiError(projectsError)}</p>
+                          ) : null}
+                          {showSetDefault ? (
+                            <button
+                              type="button"
+                              disabled={setDefaultProject.isPending}
+                              onClick={() => setDefaultProject.mutate(activeProjectKey)}
+                              className="text-xs font-medium hover:underline disabled:opacity-60"
+                              style={{ color: JIRA_BLUE }}
+                            >
+                              {setDefaultProject.isPending ? "Saving default…" : "Set as default"}
+                            </button>
+                          ) : null}
+                          {setDefaultProject.error ? (
+                            <p className="text-xs text-[#E34935]">{formatApiError(setDefaultProject.error)}</p>
+                          ) : null}
+                        </div>
                       </DetailsRow>
 
                       <DetailsRow label="Issue type">
@@ -752,17 +910,17 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                   </button>
                   <button
                     type="button"
-                    disabled={create.isPending || !summary.trim()}
+                    disabled={create.isPending || !summary.trim() || !activeProjectKey}
                     onClick={() => create.mutate()}
                     className="rounded-[3px] px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{ backgroundColor: create.isPending || !summary.trim() ? "#B3BAC5" : JIRA_BLUE }}
+                    style={{ backgroundColor: create.isPending || !summary.trim() || !activeProjectKey ? "#B3BAC5" : JIRA_BLUE }}
                     onMouseEnter={(event) => {
-                      if (!create.isPending && summary.trim()) {
+                      if (!create.isPending && summary.trim() && activeProjectKey) {
                         event.currentTarget.style.backgroundColor = JIRA_BLUE_HOVER;
                       }
                     }}
                     onMouseLeave={(event) => {
-                      if (!create.isPending && summary.trim()) {
+                      if (!create.isPending && summary.trim() && activeProjectKey) {
                         event.currentTarget.style.backgroundColor = JIRA_BLUE;
                       }
                     }}

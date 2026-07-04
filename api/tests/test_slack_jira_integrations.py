@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from app.routes.jira_integration import _issue_description
+from app.routes.jira_integration import _issue_description, list_jira_projects
 from app.services.jira_client import JiraClient, normalize_site_url
 from app.services.scan_alert import _post_scan_failure_slack, notify_scan_failure
 
@@ -59,6 +59,91 @@ def test_jira_create_issue_sends_priority_assignee_and_structured_description():
     assert fields["labels"] == ["veritrail", "high"]
     assert len(fields["description"]["content"]) == 2
     assert fields["description"]["content"][0]["content"][1]["type"] == "hardBreak"
+
+
+def test_jira_list_projects_paginates_and_maps_keys():
+    captured: list[dict] = []
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get(self, path, *, params):
+            captured.append({"path": path, "params": params})
+            if params.get("startAt", 0) == 0:
+                return MagicMock(
+                    status_code=200,
+                    json=MagicMock(
+                        return_value={
+                            "values": [
+                                {"key": "KAN", "name": "Kanban", "id": "10000"},
+                                {"key": "SEC", "name": "Security", "id": "10001"},
+                            ],
+                            "total": 2,
+                        }
+                    ),
+                    raise_for_status=MagicMock(),
+                )
+            return MagicMock(
+                status_code=200,
+                json=MagicMock(return_value={"values": [], "total": 2}),
+                raise_for_status=MagicMock(),
+            )
+
+    client = JiraClient(site_url="acme.atlassian.net", email="ops@example.com", api_token="token")
+    with patch.object(client, "_client", return_value=FakeClient()):
+        projects = client.list_projects()
+
+    assert captured[0]["path"] == "/project/search"
+    assert projects == [
+        {"key": "KAN", "name": "Kanban", "id": "10000"},
+        {"key": "SEC", "name": "Security", "id": "10001"},
+    ]
+
+
+def test_list_jira_projects_route_returns_connected_projects(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_org",
+        lambda db, p: MagicMock(id=org_id),
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._jira_provider",
+        lambda db, oid: provider,
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.provider_config",
+        lambda prov: {
+            "site_url": "https://acme.atlassian.net",
+            "email": "ops@example.com",
+            "api_token": "token",
+            "project_key": "KAN",
+        },
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.JiraClient.list_projects",
+        lambda self: [
+            {"key": "KAN", "name": "Kanban", "id": "10000"},
+            {"key": "SEC", "name": "Security", "id": "10001"},
+        ],
+    )
+
+    out = list_jira_projects(
+        _rbac=MagicMock(),
+        p={"org_id": str(org_id)},
+        db=mock_db,
+    )
+
+    assert [project.model_dump() for project in out] == [
+        {"key": "KAN", "name": "Kanban", "id": "10000"},
+        {"key": "SEC", "name": "Security", "id": "10001"},
+    ]
 
 
 def test_jira_search_assignable_users_maps_avatar_and_filters_incomplete_rows():

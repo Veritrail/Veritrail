@@ -87,11 +87,18 @@ class JiraUserOut(BaseModel):
     avatar_url: str = ""
 
 
+class JiraProjectOut(BaseModel):
+    key: str
+    name: str
+    id: str = ""
+
+
 class JiraIssueCreateIn(BaseModel):
     summary: str | None = None
     priority: str | None = None
     assignee_account_id: str | None = None
     labels: list[str] | None = None
+    project_key: str | None = None
 
 
 def _resource_name(resource_arn: str) -> str:
@@ -146,10 +153,9 @@ def _issue_description(
     )
 
 
-@router.get("/jira/assignable-users", response_model=list[JiraUserOut])
-def search_jira_assignable_users(
+@router.get("/jira/projects", response_model=list[JiraProjectOut])
+def list_jira_projects(
     _rbac: RequireAdmin,
-    query: str = Query(default=""),
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
@@ -160,11 +166,41 @@ def search_jira_assignable_users(
 
     cfg = provider_config(provider)
     try:
+        projects = JiraClient(
+            site_url=cfg["site_url"],
+            email=cfg["email"],
+            api_token=cfg["api_token"],
+        ).list_projects()
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Failed to list Jira projects: {e}") from e
+    return [JiraProjectOut(**project) for project in projects]
+
+
+@router.get("/jira/assignable-users", response_model=list[JiraUserOut])
+def search_jira_assignable_users(
+    _rbac: RequireAdmin,
+    query: str = Query(default=""),
+    project: str | None = Query(default=None),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    provider = _jira_provider(db, org.id)
+    if not provider or provider.status != "connected":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira is not connected")
+
+    cfg = provider_config(provider)
+    project_key = (project or cfg.get("project_key") or "").strip().upper()
+    if not project_key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira project key is required")
+    try:
         users = JiraClient(
             site_url=cfg["site_url"],
             email=cfg["email"],
             api_token=cfg["api_token"],
-        ).search_assignable_users(project_key=cfg["project_key"], query=query)
+        ).search_assignable_users(project_key=project_key, query=query)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     except Exception as e:  # noqa: BLE001
@@ -306,6 +342,9 @@ def create_issue_from_finding(
         labels.append(finding.severity)
     priority = body.priority.strip() if body.priority else None
     assignee_account_id = body.assignee_account_id.strip() if body.assignee_account_id else None
+    project_key = (body.project_key or cfg.get("project_key") or "").strip().upper()
+    if not project_key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira project key is required")
     summary = (
         body.summary.strip()
         if body.summary and body.summary.strip()
@@ -319,7 +358,7 @@ def create_issue_from_finding(
             api_token=cfg["api_token"],
         )
         created = client.create_issue(
-            project_key=cfg["project_key"],
+            project_key=project_key,
             summary=summary[:255],
             description=description,
             issue_type=cfg.get("issue_type") or "Task",
