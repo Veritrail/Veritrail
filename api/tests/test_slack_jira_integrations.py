@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from app.routes.jira_integration import _issue_description, list_jira_projects
+from app.routes.jira_integration import _issue_description, list_jira_projects, sync_jira_issue_from_finding
 from app.services.jira_client import JiraClient, dedupe_assignable_users, normalize_site_url
 from app.services.scan_alert import _post_scan_failure_slack, notify_scan_failure
 
@@ -312,6 +312,105 @@ def test_jira_search_assignable_users_maps_avatar_and_filters_incomplete_rows():
             "avatar_url": "https://avatar.example/other.png",
         },
     ]
+
+
+def test_jira_get_issue_status_maps_done_category():
+    captured = {}
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get(self, path, *, params):
+            captured["path"] = path
+            captured["params"] = params
+            return MagicMock(
+                status_code=200,
+                json=MagicMock(
+                    return_value={
+                        "fields": {
+                            "status": {
+                                "name": "Done",
+                                "statusCategory": {"key": "done", "name": "Done"},
+                            }
+                        }
+                    }
+                ),
+                raise_for_status=MagicMock(),
+            )
+
+    client = JiraClient(site_url="acme.atlassian.net", email="ops@example.com", api_token="token")
+    with patch.object(client, "_client", return_value=FakeClient()):
+        status = client.get_issue_status("kan-42")
+
+    assert captured["path"] == "/issue/KAN-42"
+    assert captured["params"] == {"fields": "status"}
+    assert status == {"issue_key": "KAN-42", "status": "Done", "status_category": "done"}
+
+
+def test_sync_jira_issue_from_finding_persists_status(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    finding_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+
+    finding = MagicMock()
+    finding.id = finding_id
+    finding.org_id = org_id
+    finding.evidence = {
+        "jira": {
+            "issue_key": "KAN-9",
+            "issue_url": "https://acme.atlassian.net/browse/KAN-9",
+        }
+    }
+    finding.remediation_ticket_key = "KAN-9"
+    finding.remediation_ticket_url = "https://acme.atlassian.net/browse/KAN-9"
+
+    mock_db.get.return_value = finding
+
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_org",
+        lambda db, p: MagicMock(id=org_id),
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._jira_provider",
+        lambda db, oid: provider,
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.provider_config",
+        lambda prov: {
+            "site_url": "https://acme.atlassian.net",
+            "email": "ops@example.com",
+            "api_token": "token",
+            "project_key": "KAN",
+        },
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.JiraClient.get_issue_status",
+        lambda self, issue_key: {
+            "issue_key": issue_key,
+            "status": "Done",
+            "status_category": "done",
+        },
+    )
+
+    out = sync_jira_issue_from_finding(
+        finding_id=finding_id,
+        p={"org_id": str(org_id)},
+        db=mock_db,
+    )
+
+    assert out.issue_key == "KAN-9"
+    assert out.status == "Done"
+    assert out.status_category == "done"
+    assert out.is_done is True
+    assert finding.evidence["jira"]["status"] == "Done"
+    assert finding.evidence["jira"]["status_category"] == "done"
+    assert finding.evidence["jira"]["status_synced_at"]
+    mock_db.commit.assert_called_once()
 
 
 def test_jira_issue_description_includes_actionable_remediation_context():

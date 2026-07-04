@@ -152,6 +152,23 @@ class JiraClient:
                     break
         return projects[:max_results]
 
+    def get_issue_status(self, issue_key: str) -> dict[str, str]:
+        key = issue_key.strip().upper()
+        if not key:
+            raise ValueError("Jira issue key is required")
+        with self._client() as client:
+            resp = client.get(f"/issue/{key}", params={"fields": "status"})
+            if resp.status_code == 404:
+                raise ValueError(f"Jira issue {key} was not found")
+            resp.raise_for_status()
+            status = (resp.json().get("fields") or {}).get("status") or {}
+            category = status.get("statusCategory") or {}
+            return {
+                "issue_key": key,
+                "status": status.get("name", ""),
+                "status_category": category.get("key", ""),
+            }
+
     def search_assignable_users(self, *, project_key: str, query: str = "") -> list[dict[str, str]]:
         key = project_key.strip().upper()
         with self._client() as client:

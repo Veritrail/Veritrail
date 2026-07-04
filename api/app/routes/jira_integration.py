@@ -103,6 +103,28 @@ class JiraIssueCreateIn(BaseModel):
     project_key: str | None = None
 
 
+class JiraIssueStatusOut(BaseModel):
+    issue_key: str
+    status: str
+    status_category: str
+    is_done: bool
+    synced_at: datetime
+
+
+def _finding_jira_issue(finding: Finding) -> dict | None:
+    jira = (finding.evidence or {}).get("jira")
+    if isinstance(jira, dict) and jira.get("issue_key"):
+        return jira
+    if finding.remediation_ticket_key and finding.remediation_ticket_url:
+        ticket_url = finding.remediation_ticket_url.lower()
+        if "atlassian.net" in ticket_url or "/browse/" in ticket_url:
+            return {
+                "issue_key": finding.remediation_ticket_key,
+                "issue_url": finding.remediation_ticket_url,
+            }
+    return None
+
+
 def _recommended_remediation(finding: Finding) -> str:
     if finding.check_id.startswith("iam.role") and "least_privilege" in finding.check_id:
         return (
@@ -300,6 +322,61 @@ def delete_jira(_rbac: RequireAdmin, p=Depends(current_principal), db: Session =
     if provider:
         db.delete(provider)
         db.commit()
+
+
+@router.post("/jira/issues/sync-from-finding/{finding_id}", response_model=JiraIssueStatusOut)
+def sync_jira_issue_from_finding(
+    finding_id: uuid.UUID,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    provider = _jira_provider(db, org.id)
+    if not provider or provider.status != "connected":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira is not connected")
+
+    finding = db.get(Finding, finding_id)
+    if not finding or finding.org_id != org.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
+
+    jira_issue = _finding_jira_issue(finding)
+    if not jira_issue or not jira_issue.get("issue_key"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding has no linked Jira issue")
+
+    cfg = provider_config(provider)
+    try:
+        fetched = JiraClient(
+            site_url=cfg["site_url"],
+            email=cfg["email"],
+            api_token=cfg["api_token"],
+        ).get_issue_status(jira_issue["issue_key"])
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Failed to fetch Jira issue status: {e}") from e
+
+    synced_at = datetime.now(UTC)
+    status_category = fetched.get("status_category", "")
+    is_done = status_category == "done"
+
+    evidence = dict(finding.evidence or {})
+    stored = dict(jira_issue)
+    stored["issue_key"] = fetched["issue_key"]
+    stored["status"] = fetched.get("status", "")
+    stored["status_category"] = status_category
+    stored["status_synced_at"] = synced_at.isoformat()
+    evidence["jira"] = stored
+    finding.evidence = evidence
+    flag_modified(finding, "evidence")
+    db.commit()
+
+    return JiraIssueStatusOut(
+        issue_key=fetched["issue_key"],
+        status=fetched.get("status", ""),
+        status_category=status_category,
+        is_done=is_done,
+        synced_at=synced_at,
+    )
 
 
 @router.post("/jira/issues/from-finding/{finding_id}", response_model=JiraIssueOut)

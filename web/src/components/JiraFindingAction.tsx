@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import { useJiraIntegration } from "../hooks/useJiraIntegration";
+import { type JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import { buildJiraIssueSummary } from "../lib/jiraIssueSummary";
 
 type JiraIssue = { issue_key: string; issue_url: string };
@@ -33,6 +34,8 @@ type FindingSummary = {
 type Props = {
   finding: FindingSummary;
   existing?: { issue_key?: string; issue_url?: string } | null;
+  jiraStatus?: JiraIssueStatus | null;
+  jiraStatusFetching?: boolean;
   onCreated?: (issue: JiraIssue) => void;
   className?: string;
 };
@@ -540,7 +543,14 @@ function ProjectSelect({
   );
 }
 
-export function JiraFindingAction({ finding, existing, onCreated, className }: Props) {
+export function JiraFindingAction({
+  finding,
+  existing,
+  jiraStatus,
+  jiraStatusFetching,
+  onCreated,
+  className,
+}: Props) {
   const qc = useQueryClient();
   const hasLinkedTicket = !!(existing?.issue_key && existing.issue_url);
   const [open, setOpen] = useState(false);
@@ -726,16 +736,41 @@ export function JiraFindingAction({ finding, existing, onCreated, className }: P
     className ?? `${triggerBase} border-sky-200 bg-white text-sky-800 hover:border-sky-300 hover:bg-sky-50`;
 
   if (hasLinkedTicket && existing?.issue_url) {
+    const done = jiraStatus?.is_done;
+    const statusLabel = jiraStatus?.status?.trim();
+    const ticketTitle = statusLabel
+      ? done
+        ? `Jira ticket ${existing.issue_key} — ${statusLabel}`
+        : `Jira ticket ${existing.issue_key} — status: ${statusLabel}`
+      : jiraStatusFetching
+        ? `Jira ticket ${existing.issue_key} — syncing status`
+        : "Open remediation ticket in Jira";
+
     return (
       <a
         href={existing.issue_url}
         target="_blank"
         rel="noreferrer"
-        className={triggerClassName}
-        title="Open remediation ticket in Jira"
+        className={
+          done
+            ? `${triggerBase} border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100`
+            : className ?? `${triggerBase} border-sky-200 bg-white text-sky-800 hover:border-sky-300 hover:bg-sky-50`
+        }
+        title={ticketTitle}
       >
         <JiraIcon className="h-3.5 w-3.5" />
-        View Ticket
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <span>View Ticket</span>
+          {statusLabel ? (
+            <span
+              className={`truncate text-[11px] font-medium ${done ? "text-emerald-800" : "text-sky-700"}`}
+            >
+              · {statusLabel}
+            </span>
+          ) : jiraStatusFetching ? (
+            <span className="text-[11px] font-medium text-sky-600">· …</span>
+          ) : null}
+        </span>
       </a>
     );
   }

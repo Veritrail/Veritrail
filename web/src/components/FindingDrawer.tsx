@@ -12,6 +12,7 @@ import {
   generatedPolicySchema,
 } from "../lib/apiSchemas";
 import { useJiraIntegration } from "../hooks/useJiraIntegration";
+import { useJiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import { extractRemediationTickets, type RemediationTicket } from "../lib/remediationTicket";
 import AwsServiceIcon from "./AwsServiceIcon";
 import { CliRemediationPanel } from "./CliRemediationPanel";
@@ -6462,6 +6463,12 @@ export function FindingDrawer({
   const jiraIssue = jiraOverride ?? derivedTickets.jira;
   const githubIssue = githubOverride ?? derivedTickets.github;
 
+  const { data: jiraStatus, isFetching: jiraStatusFetching } = useJiraIssueStatus(
+    finding?.id,
+    jiraIssue?.issue_key,
+    { enabled: !!finding && !!jiraIssue && !githubIssue, poll: true },
+  );
+
   const clearRemediationTicket = useMutation({
     mutationFn: (findingId: string) =>
       api<Finding>(`/v1/findings/${findingId}/remediation-ticket`, { method: "DELETE" }),
@@ -6800,6 +6807,44 @@ export function FindingDrawer({
           </button>
         </div>
       )}
+      {jiraIssue && !githubIssue && (
+        <div
+          className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-[12px] ${
+            jiraStatus?.is_done
+              ? "border-emerald-200 bg-emerald-50/90 text-emerald-950"
+              : "border-sky-200 bg-sky-50/90 text-sky-950"
+          }`}
+        >
+          <p className="min-w-0 flex-1">
+            <span className="font-semibold">Jira ticket: </span>
+            <a
+              href={jiraIssue.issue_url}
+              target="_blank"
+              rel="noreferrer"
+              className={`font-medium underline ${jiraStatus?.is_done ? "text-emerald-800" : "text-sky-800"}`}
+            >
+              {jiraIssue.issue_key}
+            </a>
+            {jiraStatus?.status ? (
+              <span className={jiraStatus.is_done ? "text-emerald-800" : "text-sky-800"}>
+                {" "}
+                · {jiraStatus.status}
+              </span>
+            ) : jiraStatusFetching ? (
+              <span className="text-sky-700"> · Syncing status…</span>
+            ) : null}
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmRemoveTicket(true)}
+            className={`shrink-0 text-[11px] font-medium hover:opacity-90 ${
+              jiraStatus?.is_done ? "text-emerald-900/80" : "text-sky-900/80"
+            }`}
+          >
+            Remove
+          </button>
+        </div>
+      )}
       <ConfirmDialog
         open={confirmRemoveTicket}
         title="Remove remediation ticket link?"
@@ -7016,6 +7061,8 @@ export function FindingDrawer({
             <JiraFindingAction
               finding={finding}
               existing={jiraIssue}
+              jiraStatus={jiraStatus}
+              jiraStatusFetching={jiraStatusFetching}
               onCreated={setJiraOverride}
               className={drawerFooterJira}
             />
