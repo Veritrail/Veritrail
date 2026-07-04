@@ -176,9 +176,19 @@ def test_jira_list_issue_types_marks_first_non_subtask_as_default():
                         "projects": [
                             {
                                 "issuetypes": [
-                                    {"id": "10001", "name": "Task", "subtask": False},
+                                    {
+                                        "id": "10001",
+                                        "name": "Task",
+                                        "subtask": False,
+                                        "iconUrl": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10318",
+                                    },
                                     {"id": "10002", "name": "Sub-task", "subtask": True},
-                                    {"id": "10003", "name": "Bug", "subtask": False},
+                                    {
+                                        "id": "10003",
+                                        "name": "Bug",
+                                        "subtask": False,
+                                        "iconUrl": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10303",
+                                    },
                                 ]
                             }
                         ]
@@ -194,8 +204,20 @@ def test_jira_list_issue_types_marks_first_non_subtask_as_default():
     assert captured["path"] == "/issue/createmeta"
     assert captured["params"] == {"projectKeys": "KAN", "expand": "projects.issuetypes"}
     assert issue_types == [
-        {"id": "10001", "name": "Task", "subtask": False, "is_default": True},
-        {"id": "10003", "name": "Bug", "subtask": False, "is_default": False},
+        {
+            "id": "10001",
+            "name": "Task",
+            "subtask": False,
+            "is_default": True,
+            "icon_url": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10318",
+        },
+        {
+            "id": "10003",
+            "name": "Bug",
+            "subtask": False,
+            "is_default": False,
+            "icon_url": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10303",
+        },
     ]
 
 
@@ -309,8 +331,20 @@ def test_list_jira_project_issue_types_route_returns_project_types(mock_db, monk
     monkeypatch.setattr(
         "app.routes.jira_integration.JiraClient.list_issue_types",
         lambda self, *, project_key: [
-            {"id": "10001", "name": "Task", "subtask": False, "is_default": True},
-            {"id": "10003", "name": "Bug", "subtask": False, "is_default": False},
+            {
+                "id": "10001",
+                "name": "Task",
+                "subtask": False,
+                "is_default": True,
+                "icon_url": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10318",
+            },
+            {
+                "id": "10003",
+                "name": "Bug",
+                "subtask": False,
+                "is_default": False,
+                "icon_url": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10303",
+            },
         ],
     )
 
@@ -322,8 +356,20 @@ def test_list_jira_project_issue_types_route_returns_project_types(mock_db, monk
     )
 
     assert [issue_type.model_dump() for issue_type in out] == [
-        {"id": "10001", "name": "Task", "subtask": False, "is_default": True},
-        {"id": "10003", "name": "Bug", "subtask": False, "is_default": False},
+        {
+            "id": "10001",
+            "name": "Task",
+            "subtask": False,
+            "is_default": True,
+            "icon_url": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10318",
+        },
+        {
+            "id": "10003",
+            "name": "Bug",
+            "subtask": False,
+            "is_default": False,
+            "icon_url": "https://acme.atlassian.net/rest/api/2/universal_avatar/view/type/issuetype/avatar/10303",
+        },
     ]
 
 

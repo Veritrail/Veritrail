@@ -26,6 +26,7 @@ type JiraIssueType = {
   name: string;
   subtask?: boolean;
   is_default?: boolean;
+  icon_url?: string | null;
 };
 
 type FindingSummary = {
@@ -238,6 +239,19 @@ function IssueTypeIcon({ className = "h-4 w-4" }: { className?: string }) {
       <path d="M5 8h6M5 10.5h4" stroke="#2684FF" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
+}
+
+function IssueTypeDisplayIcon({
+  iconUrl,
+  className = "h-4 w-4 shrink-0",
+}: {
+  iconUrl?: string | null;
+  className?: string;
+}) {
+  if (iconUrl) {
+    return <img src={iconUrl} alt="" className={`${className} object-contain`} aria-hidden />;
+  }
+  return <IssueTypeIcon className={className} />;
 }
 
 function UserAvatar({ user, size = "md" }: { user: JiraUser; size?: "sm" | "md" }) {
@@ -506,7 +520,7 @@ function IssueTypeSelect({
         }`}
       >
         <span className="inline-flex min-w-0 items-center gap-2">
-          <IssueTypeIcon className="h-4 w-4 shrink-0" />
+          <IssueTypeDisplayIcon iconUrl={selected?.icon_url} className="h-4 w-4 shrink-0" />
           <span className="truncate">
             {loading ? "Loading issue types…" : selected?.name || value || "Select issue type"}
           </span>
@@ -544,7 +558,7 @@ function IssueTypeSelect({
                         : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
                     }`}
                   >
-                    <IssueTypeIcon className="h-4 w-4 shrink-0" />
+                    <IssueTypeDisplayIcon iconUrl={issueType.icon_url} className="h-4 w-4 shrink-0" />
                     <span className="truncate">{issueType.name}</span>
                     {issueType.is_default ? (
                       <span className="shrink-0 text-xs font-medium text-[#626F86]">Default</span>
@@ -801,6 +815,8 @@ export function JiraFindingAction({
 
   const selectedIssueTypeName =
     issueTypes.find((issueType) => issueType.id === selectedIssueType)?.name || selectedIssueType;
+  const selectedIssueTypeIconUrl =
+    issueTypes.find((issueType) => issueType.id === selectedIssueType)?.icon_url ?? null;
 
   const setDefaultProject = useMutation({
     mutationFn: (projectKey: string) =>
@@ -1007,7 +1023,7 @@ export function JiraFindingAction({
                     </span>
                     <span aria-hidden>/</span>
                     <span className="inline-flex items-center gap-1.5 text-[#172B4D]">
-                      <IssueTypeIcon className="h-4 w-4" />
+                      <IssueTypeDisplayIcon iconUrl={selectedIssueTypeIconUrl} className="h-4 w-4 shrink-0" />
                       {issueTypesLoading && !selectedIssueTypeName
                         ? "Loading…"
                         : selectedIssueTypeName || "Select issue type"}

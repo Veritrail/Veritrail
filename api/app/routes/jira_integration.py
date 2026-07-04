@@ -103,6 +103,7 @@ class JiraIssueTypeOut(BaseModel):
     name: str
     subtask: bool = False
     is_default: bool = False
+    icon_url: str | None = None
 
 
 class JiraIssueCreateIn(BaseModel):

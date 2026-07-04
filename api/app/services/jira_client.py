@@ -114,11 +114,13 @@ class JiraClient:
                 issue_id = issue_type.get("id", "")
                 if not name or not issue_id:
                     continue
+                icon_url = issue_type.get("iconUrl") or None
                 entry = {
                     "id": str(issue_id),
                     "name": name,
                     "subtask": False,
                     "is_default": not default_set,
+                    "icon_url": icon_url,
                 }
                 default_set = True
                 issue_types.append(entry)
