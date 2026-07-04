@@ -373,11 +373,13 @@ function ProjectSelect({
   projects,
   loading,
   onChange,
+  defaultProjectKey,
 }: {
   value: string;
   projects: JiraProject[];
   loading: boolean;
   onChange: (projectKey: string) => void;
+  defaultProjectKey?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -387,6 +389,7 @@ function ProjectSelect({
   const menuRef = useRef<HTMLUListElement>(null);
   const selected = projects.find((project) => project.key === value);
   const singleProject = projects.length === 1;
+  const isOrgDefault = !!defaultProjectKey && value === defaultProjectKey;
 
   function placeMenu() {
     const rect = btnRef.current?.getBoundingClientRect();
@@ -445,7 +448,16 @@ function ProjectSelect({
         }`}
       >
         <span className="min-w-0 truncate">
-          {loading ? "Loading projects…" : selected ? `${selected.key} — ${selected.name}` : value}
+          {loading ? (
+            "Loading projects…"
+          ) : selected ? (
+            <>
+              {selected.key} — {selected.name}
+              {isOrgDefault ? <span className="text-[#626F86]"> (default)</span> : null}
+            </>
+          ) : (
+            value
+          )}
         </span>
         <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
       </button>
@@ -466,6 +478,7 @@ function ProjectSelect({
             >
               {projects.map((project) => {
                 const isSelected = project.key === value;
+                const isProjectDefault = !!defaultProjectKey && project.key === defaultProjectKey;
                 return (
                   <li key={project.key} role="option" aria-selected={isSelected}>
                     <button
@@ -486,6 +499,9 @@ function ProjectSelect({
                         <span className="font-medium">{project.key}</span>
                         <span className="text-[#626F86]"> — {project.name}</span>
                       </span>
+                      {isProjectDefault ? (
+                        <span className="shrink-0 text-xs font-medium text-[#626F86]">Default</span>
+                      ) : null}
                       {isSelected ? (
                         <svg className="h-3.5 w-3.5 shrink-0 text-[#0C66E4]" viewBox="0 0 20 20" fill="none" aria-hidden>
                           <path
@@ -503,7 +519,9 @@ function ProjectSelect({
               })}
               {singleProject ? (
                 <li className="border-t border-[#EBECF0] px-2 py-1.5 text-xs text-[#626F86]">
-                  Only project available
+                  {isOrgDefault
+                    ? "Only project available · organization default"
+                    : "Only project available"}
                 </li>
               ) : null}
             </ul>,
@@ -732,8 +750,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
 
   const issueType = jira.issue_type || "Task";
   const projectKey = activeProjectKey || "PROJECT";
-  const showSetDefault =
-    !!activeProjectKey && !!defaultProjectKey && activeProjectKey !== defaultProjectKey;
+  const isOrgDefault =
+    !!activeProjectKey && !!defaultProjectKey && activeProjectKey === defaultProjectKey;
+  const showSetDefault = !!activeProjectKey && activeProjectKey !== defaultProjectKey;
 
   return (
     <>
@@ -931,9 +950,17 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                             projects={projects}
                             loading={projectsLoading}
                             onChange={selectProject}
+                            defaultProjectKey={defaultProjectKey}
                           />
                           {projectsError ? (
                             <p className="text-xs text-[#E34935]">{formatApiError(projectsError)}</p>
+                          ) : null}
+                          {isOrgDefault ? (
+                            <p className="text-xs text-[#626F86]">Organization default project</p>
+                          ) : !defaultProjectKey && activeProjectKey ? (
+                            <p className="text-xs text-[#626F86]">
+                              No organization default saved yet.
+                            </p>
                           ) : null}
                           {showSetDefault ? (
                             <button
