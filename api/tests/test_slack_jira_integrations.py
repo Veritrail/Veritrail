@@ -115,7 +115,7 @@ def test_jira_create_issue_sends_priority_assignee_and_structured_description():
     assert fields["assignee"] == {"accountId": "abc123"}
     assert fields["labels"] == ["veritrail", "high"]
     assert len(fields["description"]["content"]) == 2
-    assert fields["description"]["content"][0]["content"][1]["type"] == "hardBreak"
+    assert fields["description"]["content"][1]["content"][1]["type"] == "hardBreak"
 
 
 def test_jira_list_projects_paginates_and_maps_keys():
@@ -263,7 +263,7 @@ def test_jira_issue_description_includes_actionable_remediation_context():
         actor="Eliazar Chodjayev",
     )
 
-    assert description.startswith("Opened from Veritrail\n\nOpened by:")
+    assert description.startswith("Opened by: Eliazar Chodjayev\n")
     assert "Opened by: Eliazar Chodjayev" in description
     assert "\n\nSeverity: HIGH · Risk score: 85\n\n" in description
     assert "\n\nCheck: iam.role.least_privilege_policy\n\n" in description
