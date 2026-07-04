@@ -118,22 +118,91 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   return hidden;
 }
 
+export type CatalogStatusFilter = "all" | "available" | "connected" | "coming-soon";
+
+export type CatalogSortKey = "name-asc" | "name-desc";
+
+export type CatalogFilterOptions = {
+  query?: string;
+  statusFilter?: CatalogStatusFilter;
+  categoryId?: string;
+  sortKey?: CatalogSortKey;
+};
+
+export function catalogEntryStatus(
+  entry: CatalogEntry,
+  hiddenKeys: ReadonlySet<string>,
+): "available" | "connected" | "coming-soon" {
+  if (entry.comingSoon || !entry.href) return "coming-soon";
+  if (hiddenKeys.has(entry.key)) return "connected";
+  return "available";
+}
+
+function matchesCatalogStatus(
+  entry: CatalogEntry,
+  hiddenKeys: ReadonlySet<string>,
+  statusFilter: CatalogStatusFilter,
+): boolean {
+  if (statusFilter === "all") return true;
+  return catalogEntryStatus(entry, hiddenKeys) === statusFilter;
+}
+
+function sortCatalogEntries(entries: CatalogEntry[], sortKey: CatalogSortKey): CatalogEntry[] {
+  const sorted = [...entries];
+  sorted.sort((a, b) => {
+    const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    return sortKey === "name-desc" ? -cmp : cmp;
+  });
+  return sorted;
+}
+
 export function filterCatalog(
   catalog: CatalogCategory[],
   hiddenKeys: ReadonlySet<string>,
-  query = "",
+  queryOrOptions: string | CatalogFilterOptions = "",
 ): CatalogCategory[] {
+  const options: CatalogFilterOptions =
+    typeof queryOrOptions === "string" ? { query: queryOrOptions } : queryOrOptions;
+  const {
+    query = "",
+    statusFilter = "available",
+    categoryId = "all",
+    sortKey = "name-asc",
+  } = options;
   const q = query.trim().toLowerCase();
+
   return catalog
+    .filter((cat) => categoryId === "all" || cat.id === categoryId)
     .map((cat) => ({
       ...cat,
-      entries: cat.entries.filter((entry) => {
-        if (hiddenKeys.has(entry.key)) return false;
-        if (!q) return true;
-        return entry.name.toLowerCase().includes(q) || entry.description.toLowerCase().includes(q);
-      }),
+      entries: sortCatalogEntries(
+        cat.entries.filter((entry) => {
+          if (!matchesCatalogStatus(entry, hiddenKeys, statusFilter)) return false;
+          if (!q) return true;
+          return (
+            entry.name.toLowerCase().includes(q) ||
+            entry.description.toLowerCase().includes(q) ||
+            entry.tags.some((tag) => tag.toLowerCase().includes(q))
+          );
+        }),
+        sortKey,
+      ),
     }))
     .filter((cat) => cat.entries.length > 0);
+}
+
+export function catalogSectionCountLabel(count: number, statusFilter: CatalogStatusFilter): string {
+  if (count === 0) return "";
+  switch (statusFilter) {
+    case "available":
+      return count === 1 ? "1 available" : `${count} available`;
+    case "connected":
+      return count === 1 ? "1 connected" : `${count} connected`;
+    case "coming-soon":
+      return count === 1 ? "1 coming soon" : `${count} coming soon`;
+    default:
+      return count === 1 ? "1 integration" : `${count} integrations`;
+  }
 }
 
 export function catalogExploreEntries(
