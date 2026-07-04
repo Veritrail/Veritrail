@@ -21,6 +21,13 @@ type JiraProject = {
   id?: string;
 };
 
+type JiraIssueType = {
+  id: string;
+  name: string;
+  subtask?: boolean;
+  is_default?: boolean;
+};
+
 type FindingSummary = {
   id: string;
   check_id: string;
@@ -375,6 +382,91 @@ function PrioritySelect({
   );
 }
 
+function IssueTypeSelect({
+  value,
+  issueTypes,
+  loading,
+  onChange,
+}: {
+  value: string;
+  issueTypes: JiraIssueType[];
+  loading: boolean;
+  onChange: (issueTypeId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = issueTypes.find((issueType) => issueType.id === value);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(event: MouseEvent) {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const dropdownOptions = issueTypes.filter((issueType) => issueType.id !== value);
+
+  return (
+    <div ref={ref} className="relative w-full max-w-[220px]">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        disabled={loading || !issueTypes.length}
+        onClick={() => setOpen((current) => !current)}
+        className={`inline-flex w-full items-center justify-between gap-2 rounded-[3px] border bg-white px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          open
+            ? "border-[#0C66E4] ring-2 ring-[#0C66E4]/20"
+            : "border-[#DFE1E6] hover:border-[#B3BAC5]"
+        }`}
+      >
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <IssueTypeIcon className="h-4 w-4 shrink-0" />
+          <span className="truncate">
+            {loading ? "Loading issue types…" : selected?.name || value || "Select issue type"}
+          </span>
+        </span>
+        <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
+      </button>
+      {open && dropdownOptions.length ? (
+        <ul
+          role="listbox"
+          aria-label="Issue type"
+          className="absolute left-0 top-full z-50 mt-1 w-full min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+        >
+          {dropdownOptions.map((issueType) => (
+            <li key={issueType.id} role="option" aria-selected={false}>
+              <button
+                type="button"
+                onMouseEnter={() => setHovered(issueType.id)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => {
+                  onChange(issueType.id);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
+                  hovered === issueType.id
+                    ? "border-l-[#0C66E4] bg-[#F4F5F7]"
+                    : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                }`}
+              >
+                <IssueTypeIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{issueType.name}</span>
+                {issueType.is_default ? (
+                  <span className="shrink-0 text-xs font-medium text-[#626F86]">Default</span>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 type DropdownCoords = { top: number; left: number; minWidth: number };
 
 function ProjectSelect({
@@ -557,6 +649,7 @@ export function JiraFindingAction({
   const [summary, setSummary] = useState(() => defaultSummary(finding));
   const [priority, setPriority] = useState<Priority>(() => defaultPriority(finding.severity));
   const [selectedProject, setSelectedProject] = useState("");
+  const [selectedIssueType, setSelectedIssueType] = useState("");
   const [riskLabelSelected, setRiskLabelSelected] = useState(false);
   const [assigneeQuery, setAssigneeQuery] = useState("");
   const [assignee, setAssignee] = useState<JiraUser | null>(null);
@@ -578,6 +671,7 @@ export function JiraFindingAction({
     setSummary(defaultSummary(finding));
     setPriority(defaultPriority(finding.severity));
     setSelectedProject("");
+    setSelectedIssueType("");
     setRiskLabelSelected(false);
     setAssigneeQuery("");
     setAssignee(null);
@@ -623,6 +717,32 @@ export function JiraFindingAction({
     setSelectedProject(projects[0].key);
   }, [defaultProjectKey, projects, selectedProject]);
 
+  const {
+    data: issueTypes = [],
+    isFetching: issueTypesLoading,
+    error: issueTypesError,
+  } = useQuery({
+    queryKey: ["jira-issue-types", activeProjectKey],
+    queryFn: () =>
+      api<JiraIssueType[]>(
+        `/v1/integrations/jira/projects/${encodeURIComponent(activeProjectKey)}/issue-types`,
+      ),
+    enabled: open && !!jira?.connected && !!activeProjectKey,
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (!issueTypes.length) return;
+    setSelectedIssueType((current) => {
+      if (current && issueTypes.some((issueType) => issueType.id === current)) return current;
+      const defaultType = issueTypes.find((issueType) => issueType.is_default) ?? issueTypes[0];
+      return defaultType.id;
+    });
+  }, [issueTypes]);
+
+  const selectedIssueTypeName =
+    issueTypes.find((issueType) => issueType.id === selectedIssueType)?.name || selectedIssueType;
+
   const setDefaultProject = useMutation({
     mutationFn: (projectKey: string) =>
       api("/v1/integrations/jira", {
@@ -631,7 +751,6 @@ export function JiraFindingAction({
           site_url: jira?.site_url,
           email: jira?.email,
           project_key: projectKey,
-          issue_type: jira?.issue_type || "Task",
         }),
       }),
     onSuccess: (saved) => {
@@ -681,6 +800,7 @@ export function JiraFindingAction({
           assignee_account_id: assignee?.account_id,
           labels: issueLabels,
           project_key: activeProjectKey,
+          issue_type: selectedIssueType,
         }),
       }),
     onSuccess: (issue) => {
@@ -718,6 +838,7 @@ export function JiraFindingAction({
 
   function selectProject(projectKey: string) {
     setSelectedProject(projectKey);
+    setSelectedIssueType("");
     setAssignee(null);
     setAssigneeQuery("");
     setAssigneeOpen(false);
@@ -778,7 +899,6 @@ export function JiraFindingAction({
   if (jiraFetched && !jira?.connected) return null;
 
   const integrationReady = jiraFetched && !!jira?.connected;
-  const issueType = jira?.issue_type || "Task";
   const projectKey = activeProjectKey || "Select project";
   const isOrgDefault =
     !!activeProjectKey && !!defaultProjectKey && activeProjectKey === defaultProjectKey;
@@ -829,7 +949,9 @@ export function JiraFindingAction({
                     <span aria-hidden>/</span>
                     <span className="inline-flex items-center gap-1.5 text-[#172B4D]">
                       <IssueTypeIcon className="h-4 w-4" />
-                      {issueType}
+                      {issueTypesLoading && !selectedIssueTypeName
+                        ? "Loading…"
+                        : selectedIssueTypeName || "Select issue type"}
                     </span>
                   </div>
 
@@ -1025,10 +1147,17 @@ export function JiraFindingAction({
                       </DetailsRow>
 
                       <DetailsRow label="Issue type">
-                        <span className="inline-flex items-center gap-1.5">
-                          <IssueTypeIcon className="h-4 w-4" />
-                          {issueType}
-                        </span>
+                        <div className="space-y-1">
+                          <IssueTypeSelect
+                            value={selectedIssueType}
+                            issueTypes={issueTypes}
+                            loading={issueTypesLoading}
+                            onChange={setSelectedIssueType}
+                          />
+                          {issueTypesError ? (
+                            <p className="text-xs text-[#E34935]">{formatApiError(issueTypesError)}</p>
+                          ) : null}
+                        </div>
                       </DetailsRow>
 
                       <DetailsRow label="Reporter">
@@ -1066,17 +1195,17 @@ export function JiraFindingAction({
                   </button>
                   <button
                     type="button"
-                    disabled={create.isPending || !summary.trim() || !activeProjectKey}
+                    disabled={create.isPending || !summary.trim() || !activeProjectKey || !selectedIssueType}
                     onClick={() => create.mutate()}
                     className="rounded-[3px] px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{ backgroundColor: create.isPending || !summary.trim() || !activeProjectKey ? "#B3BAC5" : JIRA_BLUE }}
+                    style={{ backgroundColor: create.isPending || !summary.trim() || !activeProjectKey || !selectedIssueType ? "#B3BAC5" : JIRA_BLUE }}
                     onMouseEnter={(event) => {
-                      if (!create.isPending && summary.trim() && activeProjectKey) {
+                      if (!create.isPending && summary.trim() && activeProjectKey && selectedIssueType) {
                         event.currentTarget.style.backgroundColor = JIRA_BLUE_HOVER;
                       }
                     }}
                     onMouseLeave={(event) => {
-                      if (!create.isPending && summary.trim() && activeProjectKey) {
+                      if (!create.isPending && summary.trim() && activeProjectKey && selectedIssueType) {
                         event.currentTarget.style.backgroundColor = JIRA_BLUE;
                       }
                     }}

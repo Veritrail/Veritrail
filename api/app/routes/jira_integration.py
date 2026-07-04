@@ -43,13 +43,16 @@ def _jira_provider(db: Session, org_id: uuid.UUID) -> IdentityProvider | None:
 
 
 def _public_config(cfg: dict) -> dict:
-    return {
+    pub = {
         "site_url": cfg.get("site_url"),
         "email": cfg.get("email"),
         "project_key": cfg.get("project_key"),
-        "issue_type": cfg.get("issue_type") or "Task",
         "has_api_token": bool(cfg.get("api_token")),
     }
+    legacy_issue_type = (cfg.get("issue_type") or "").strip()
+    if legacy_issue_type:
+        pub["issue_type"] = legacy_issue_type
+    return pub
 
 
 class JiraIntegrationOut(BaseModel):
@@ -58,7 +61,7 @@ class JiraIntegrationOut(BaseModel):
     site_url: str | None = None
     email: str | None = None
     project_key: str | None = None
-    issue_type: str = "Task"
+    issue_type: str | None = None
     has_api_token: bool = False
 
 
@@ -67,7 +70,7 @@ class JiraIntegrationIn(BaseModel):
     email: str
     api_token: str | None = None
     project_key: str | None = None
-    issue_type: str = "Task"
+    issue_type: str | None = None  # ignored; kept for backward-compatible clients
 
 
 class JiraTestIn(BaseModel):
@@ -95,12 +98,20 @@ class JiraProjectOut(BaseModel):
     id: str = ""
 
 
+class JiraIssueTypeOut(BaseModel):
+    id: str
+    name: str
+    subtask: bool = False
+    is_default: bool = False
+
+
 class JiraIssueCreateIn(BaseModel):
     summary: str | None = None
     priority: str | None = None
     assignee_account_id: str | None = None
     labels: list[str] | None = None
     project_key: str | None = None
+    issue_type: str | None = None
 
 
 class JiraIssueStatusOut(BaseModel):
@@ -196,6 +207,36 @@ def list_jira_projects(
     return [JiraProjectOut(**project) for project in projects]
 
 
+@router.get("/jira/projects/{project_key}/issue-types", response_model=list[JiraIssueTypeOut])
+def list_jira_project_issue_types(
+    project_key: str,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    provider = _jira_provider(db, org.id)
+    if not provider or provider.status != "connected":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira is not connected")
+
+    key = project_key.strip().upper()
+    if not key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira project key is required")
+
+    cfg = provider_config(provider)
+    try:
+        issue_types = JiraClient(
+            site_url=cfg["site_url"],
+            email=cfg["email"],
+            api_token=cfg["api_token"],
+        ).list_issue_types(project_key=key)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Failed to list Jira issue types: {e}") from e
+    return [JiraIssueTypeOut(**issue_type) for issue_type in issue_types]
+
+
 @router.get("/jira/assignable-users", response_model=list[JiraUserOut])
 def search_jira_assignable_users(
     _rbac: RequireAdmin,
@@ -240,7 +281,7 @@ def get_jira(p=Depends(current_principal), db: Session = Depends(get_db)):
         site_url=pub["site_url"],
         email=pub["email"],
         project_key=pub["project_key"],
-        issue_type=pub["issue_type"],
+        issue_type=pub.get("issue_type"),
         has_api_token=pub["has_api_token"],
     )
 
@@ -272,10 +313,12 @@ def put_jira(body: JiraIntegrationIn, _rbac: RequireAdmin, p=Depends(current_pri
         "site_url": site_url,
         "email": body.email.strip(),
         "api_token": api_token,
-        "issue_type": (body.issue_type or existing.get("issue_type") or "Task").strip() or "Task",
     }
     if resolved_project_key:
         config["project_key"] = resolved_project_key
+    legacy_issue_type = (existing.get("issue_type") or "").strip()
+    if legacy_issue_type:
+        config["issue_type"] = legacy_issue_type
 
     if not provider:
         provider = IdentityProvider(org_id=org.id, type=JIRA_TYPE, status="connected")
@@ -451,6 +494,7 @@ def create_issue_from_finding(
     project_key = (body.project_key or cfg.get("project_key") or "").strip().upper()
     if not project_key:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira project key is required")
+    issue_type = (body.issue_type or "").strip() or "Task"
     summary = (
         body.summary.strip()
         if body.summary and body.summary.strip()
@@ -471,7 +515,7 @@ def create_issue_from_finding(
             project_key=project_key,
             summary=summary[:255],
             description=description,
-            issue_type=cfg.get("issue_type") or "Task",
+            issue_type=issue_type,
             labels=labels,
             priority=priority,
             assignee_account_id=assignee_account_id,

@@ -21,7 +21,6 @@ export default function JiraIntegration() {
   const [siteUrl, setSiteUrl] = useState("");
   const [email, setEmail] = useState("");
   const [apiToken, setApiToken] = useState("");
-  const [issueType, setIssueType] = useState("Task");
   const [saveError, setSaveError] = useState("");
   const [testState, setTestState] = useState<"idle" | "testing" | "ok" | "error">("idle");
   const [testError, setTestError] = useState("");
@@ -30,7 +29,6 @@ export default function JiraIntegration() {
     if (!data) return;
     setSiteUrl(data.site_url ?? "");
     setEmail(data.email ?? "");
-    setIssueType(data.issue_type || "Task");
     setApiToken("");
   }, [data]);
 
@@ -47,7 +45,6 @@ export default function JiraIntegration() {
           site_url: siteUrl.trim(),
           email: email.trim(),
           api_token: apiToken.trim() || undefined,
-          issue_type: issueType.trim() || "Task",
         }),
       }),
     onMutate: () => {
@@ -193,21 +190,6 @@ export default function JiraIntegration() {
                     id.atlassian.com → Security → API tokens
                   </a>
                   .
-                </p>
-              </div>
-              <div>
-                <label htmlFor="jira-type" className="integration-setup__field-label">
-                  Issue type
-                </label>
-                <input
-                  id="jira-type"
-                  value={issueType}
-                  onChange={(e) => setIssueType(e.target.value)}
-                  placeholder="Task"
-                  className="integration-setup__input"
-                />
-                <p className="integration-setup__field-hint">
-                  Issue type Veritrail opens, e.g. <code>Task</code> or <code>Bug</code>.
                 </p>
               </div>
             </div>

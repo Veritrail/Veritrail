@@ -82,6 +82,51 @@ class JiraClient:
                 result["project_name"] = project.json().get("name")
             return result
 
+    @staticmethod
+    def _issue_type_field(issue_type: str) -> dict[str, str]:
+        value = issue_type.strip()
+        if not value:
+            raise ValueError("Jira issue type is required")
+        if value.isdigit():
+            return {"id": value}
+        return {"name": value}
+
+    def list_issue_types(self, *, project_key: str) -> list[dict[str, Any]]:
+        key = project_key.strip().upper()
+        with self._client() as client:
+            resp = client.get(
+                "/issue/createmeta",
+                params={"projectKeys": key, "expand": "projects.issuetypes"},
+            )
+            if resp.status_code == 404:
+                raise ValueError(f"Jira project {key} was not found")
+            resp.raise_for_status()
+            projects = resp.json().get("projects") or []
+            if not projects:
+                raise ValueError(f"Jira project {key} was not found or has no creatable issue types")
+
+            issue_types: list[dict[str, Any]] = []
+            default_set = False
+            for issue_type in projects[0].get("issuetypes") or []:
+                if issue_type.get("subtask"):
+                    continue
+                name = issue_type.get("name", "")
+                issue_id = issue_type.get("id", "")
+                if not name or not issue_id:
+                    continue
+                entry = {
+                    "id": str(issue_id),
+                    "name": name,
+                    "subtask": False,
+                    "is_default": not default_set,
+                }
+                default_set = True
+                issue_types.append(entry)
+
+            if not issue_types:
+                raise ValueError(f"No creatable issue types for Jira project {key}")
+            return issue_types
+
     def create_issue(
         self,
         *,
@@ -99,7 +144,7 @@ class JiraClient:
                 "project": {"key": key},
                 "summary": summary[:255],
                 "description": _adf_from_text(description),
-                "issuetype": {"name": issue_type},
+                "issuetype": self._issue_type_field(issue_type),
             }
         }
         if labels:

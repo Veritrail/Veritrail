@@ -9,7 +9,13 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from app.routes.jira_integration import _issue_description, list_jira_projects, sync_jira_issue_from_finding
+from app.routes.jira_integration import (
+    _issue_description,
+    create_issue_from_finding,
+    list_jira_project_issue_types,
+    list_jira_projects,
+    sync_jira_issue_from_finding,
+)
 from app.services.jira_client import JiraClient, dedupe_assignable_users, normalize_site_url
 from app.services.scan_alert import _post_scan_failure_slack, notify_scan_failure
 
@@ -119,6 +125,80 @@ def test_jira_create_issue_sends_priority_assignee_and_structured_description():
     assert fields["description"]["content"][1]["content"][1]["type"] == "hardBreak"
 
 
+def test_jira_create_issue_accepts_issue_type_id():
+    captured = {}
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def post(self, path, *, content):
+            captured["payload"] = json.loads(content)
+            return MagicMock(
+                status_code=201,
+                json=MagicMock(return_value={"key": "KAN-2", "id": "10002"}),
+                raise_for_status=MagicMock(),
+            )
+
+    client = JiraClient(site_url="acme.atlassian.net", email="ops@example.com", api_token="token")
+    with patch.object(client, "_client", return_value=FakeClient()):
+        issue = client.create_issue(
+            project_key="KAN",
+            summary="Bug report",
+            description="Details",
+            issue_type="10003",
+        )
+
+    assert issue["issue_key"] == "KAN-2"
+    assert captured["payload"]["fields"]["issuetype"] == {"id": "10003"}
+
+
+def test_jira_list_issue_types_marks_first_non_subtask_as_default():
+    captured = {}
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get(self, path, *, params):
+            captured["path"] = path
+            captured["params"] = params
+            return MagicMock(
+                status_code=200,
+                json=MagicMock(
+                    return_value={
+                        "projects": [
+                            {
+                                "issuetypes": [
+                                    {"id": "10001", "name": "Task", "subtask": False},
+                                    {"id": "10002", "name": "Sub-task", "subtask": True},
+                                    {"id": "10003", "name": "Bug", "subtask": False},
+                                ]
+                            }
+                        ]
+                    }
+                ),
+                raise_for_status=MagicMock(),
+            )
+
+    client = JiraClient(site_url="acme.atlassian.net", email="ops@example.com", api_token="token")
+    with patch.object(client, "_client", return_value=FakeClient()):
+        issue_types = client.list_issue_types(project_key="kan")
+
+    assert captured["path"] == "/issue/createmeta"
+    assert captured["params"] == {"projectKeys": "KAN", "expand": "projects.issuetypes"}
+    assert issue_types == [
+        {"id": "10001", "name": "Task", "subtask": False, "is_default": True},
+        {"id": "10003", "name": "Bug", "subtask": False, "is_default": False},
+    ]
+
+
 def test_jira_list_projects_paginates_and_maps_keys():
     captured: list[dict] = []
 
@@ -202,6 +282,134 @@ def test_list_jira_projects_route_returns_connected_projects(mock_db, monkeypatc
         {"key": "KAN", "name": "Kanban", "id": "10000"},
         {"key": "SEC", "name": "Security", "id": "10001"},
     ]
+
+
+def test_list_jira_project_issue_types_route_returns_project_types(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_org",
+        lambda db, p: MagicMock(id=org_id),
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._jira_provider",
+        lambda db, oid: provider,
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.provider_config",
+        lambda prov: {
+            "site_url": "https://acme.atlassian.net",
+            "email": "ops@example.com",
+            "api_token": "token",
+            "project_key": "KAN",
+        },
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.JiraClient.list_issue_types",
+        lambda self, *, project_key: [
+            {"id": "10001", "name": "Task", "subtask": False, "is_default": True},
+            {"id": "10003", "name": "Bug", "subtask": False, "is_default": False},
+        ],
+    )
+
+    out = list_jira_project_issue_types(
+        project_key="kan",
+        _rbac=MagicMock(),
+        p={"org_id": str(org_id)},
+        db=mock_db,
+    )
+
+    assert [issue_type.model_dump() for issue_type in out] == [
+        {"id": "10001", "name": "Task", "subtask": False, "is_default": True},
+        {"id": "10003", "name": "Bug", "subtask": False, "is_default": False},
+    ]
+
+
+def test_create_issue_from_finding_uses_request_issue_type(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    finding_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+
+    finding = MagicMock()
+    finding.id = finding_id
+    finding.org_id = org_id
+    finding.evidence = {}
+    finding.remediation_ticket_key = None
+    finding.remediation_ticket_url = None
+    finding.severity = "high"
+    finding.risk_score = 80
+    finding.check_id = "iam.role.least_privilege_policy"
+    finding.resource_arn = "arn:aws:iam::123456789012:role/Example"
+    finding.title = "Overprivileged role"
+    finding.account_id = None
+
+    mock_db.get.side_effect = lambda model, pk: finding if pk == finding_id else None
+
+    captured: dict[str, str] = {}
+
+    class FakeJiraClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def create_issue(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "issue_key": "KAN-9",
+                "issue_url": "https://acme.atlassian.net/browse/KAN-9",
+                "issue_id": "10009",
+            }
+
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_org",
+        lambda db, p: MagicMock(id=org_id),
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._jira_provider",
+        lambda db, oid: provider,
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.provider_config",
+        lambda prov: {
+            "site_url": "https://acme.atlassian.net",
+            "email": "ops@example.com",
+            "api_token": "token",
+            "project_key": "KAN",
+            "issue_type": "Task",
+        },
+    )
+    monkeypatch.setattr("app.routes.jira_integration.JiraClient", FakeJiraClient)
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_user_display_name",
+        lambda user: "Ops User",
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._findings_app_url",
+        lambda: "https://app.example",
+    )
+
+    out = create_issue_from_finding(
+        finding_id=finding_id,
+        _rbac=MagicMock(),
+        body=MagicMock(
+            summary="Custom summary",
+            priority="High",
+            assignee_account_id=None,
+            labels=["veritrail", "high"],
+            project_key="KAN",
+            issue_type="10003",
+        ),
+        p={"sub": str(user_id), "org_id": str(org_id)},
+        db=mock_db,
+    )
+
+    assert out.issue_key == "KAN-9"
+    assert captured["issue_type"] == "10003"
+    assert captured["project_key"] == "KAN"
+    mock_db.commit.assert_called_once()
 
 
 def test_dedupe_assignable_users_collapses_duplicate_account_ids():
