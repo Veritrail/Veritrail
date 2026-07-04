@@ -103,7 +103,7 @@ def test_jira_create_issue_sends_priority_assignee_and_structured_description():
         issue = client.create_issue(
             project_key="KAN",
             summary="Fix least privilege",
-            description="Opened from Veritrail\nSeverity: HIGH\n\nRecommended remediation\nScope the policy",
+            description="Severity: HIGH\n\nRecommended remediation\nScope the policy",
             labels=["veritrail", "high"],
             priority="High",
             assignee_account_id="abc123",
@@ -263,11 +263,14 @@ def test_jira_issue_description_includes_actionable_remediation_context():
         actor="Eliazar Chodjayev",
     )
 
-    assert "Opened from Veritrail" in description
+    assert description.startswith("Opened from Veritrail\n\nOpened by:")
     assert "Opened by: Eliazar Chodjayev" in description
-    assert "Recommended remediation" in description
+    assert "\n\nSeverity: HIGH · Risk score: 85\n\n" in description
+    assert "\n\nCheck: iam.role.least_privilege_policy\n\n" in description
+    assert "\n\nRecommended remediation\n\n" in description
     assert "Replace broad IAM permissions with least-privilege policies" in description
-    assert "Verification" in description
+    assert "\n\nVerification\n\n" in description
+    assert description.endswith("https://app.example/findings?finding=1")
 
 
 def test_post_scan_failure_slack_posts_message():
