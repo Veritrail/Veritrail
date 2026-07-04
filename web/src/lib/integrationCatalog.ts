@@ -156,6 +156,42 @@ function sortCatalogEntries(entries: CatalogEntry[], sortKey: CatalogSortKey): C
   return sorted;
 }
 
+function catalogEntriesMatchingQuery(entry: CatalogEntry, q: string): boolean {
+  if (!q) return true;
+  return (
+    entry.name.toLowerCase().includes(q) ||
+    entry.description.toLowerCase().includes(q) ||
+    entry.tags.some((tag) => tag.toLowerCase().includes(q))
+  );
+}
+
+/** Count catalog entries per status tab (respects search + category, not status filter). */
+export function countCatalogByStatus(
+  catalog: CatalogCategory[],
+  hiddenKeys: ReadonlySet<string>,
+  options: Omit<CatalogFilterOptions, "statusFilter" | "sortKey"> = {},
+): Record<CatalogStatusFilter, number> {
+  const { query = "", categoryId = "all" } = options;
+  const q = query.trim().toLowerCase();
+  const counts: Record<CatalogStatusFilter, number> = {
+    all: 0,
+    available: 0,
+    connected: 0,
+    "coming-soon": 0,
+  };
+
+  for (const cat of catalog) {
+    if (categoryId !== "all" && cat.id !== categoryId) continue;
+    for (const entry of cat.entries) {
+      if (!catalogEntriesMatchingQuery(entry, q)) continue;
+      counts.all += 1;
+      counts[catalogEntryStatus(entry, hiddenKeys)] += 1;
+    }
+  }
+
+  return counts;
+}
+
 export function filterCatalog(
   catalog: CatalogCategory[],
   hiddenKeys: ReadonlySet<string>,
@@ -178,12 +214,7 @@ export function filterCatalog(
       entries: sortCatalogEntries(
         cat.entries.filter((entry) => {
           if (!matchesCatalogStatus(entry, hiddenKeys, statusFilter)) return false;
-          if (!q) return true;
-          return (
-            entry.name.toLowerCase().includes(q) ||
-            entry.description.toLowerCase().includes(q) ||
-            entry.tags.some((tag) => tag.toLowerCase().includes(q))
-          );
+          return catalogEntriesMatchingQuery(entry, q);
         }),
         sortKey,
       ),

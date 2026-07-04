@@ -568,54 +568,6 @@
   min-width: min(100%, 18rem);
 }
 
-.integration-catalog__status-filter {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.125rem;
-  padding: 0.1875rem;
-  border: 1px solid #e4e4e7;
-  border-radius: 9999px;
-  background: #ffffff;
-}
-
-.integration-catalog__status-chip {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid transparent;
-  border-radius: 9999px;
-  background: transparent;
-  padding: 0.375rem 0.75rem;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.2;
-  color: #94a3b8;
-  white-space: nowrap;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.integration-catalog__status-chip:hover:not(.is-selected) {
-  color: #64748b;
-  background: #fafafa;
-}
-
-.integration-catalog__status-chip.is-selected {
-  background: #f4f4f5;
-  border-color: #e4e4e7;
-  color: #18181b;
-  font-weight: 600;
-}
-
-.integration-catalog__status-chip:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgb(13 148 136 / 0.18);
-}
-
 .integration-catalog__select {
   position: relative;
   flex: 0 0 auto;
@@ -912,9 +864,8 @@
     align-items: stretch;
   }
 
-  .integration-catalog__status-filter {
+  .integration-catalog__toolbar-controls .findings-v2-filter-chip-bar {
     width: 100%;
-    justify-content: flex-start;
   }
 
   .integration-catalog__select {

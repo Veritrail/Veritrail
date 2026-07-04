@@ -2,15 +2,18 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 
+import { FilterChipBar } from "../components/FilterChipBar";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { useConnectedCatalogState } from "../hooks/useConnectedCatalogState";
 import {
   catalogSectionCountLabel,
+  countCatalogByStatus,
   filterCatalog,
   INTEGRATION_CATALOG,
   type CatalogSortKey,
   type CatalogStatusFilter,
 } from "../lib/integrationCatalog";
+import "../styles/findings-v2.css";
 import "../styles/integrations-page.css";
 
 const STATUS_FILTERS: { id: CatalogStatusFilter; label: string }[] = [
@@ -186,6 +189,15 @@ export default function IntegrationCatalog() {
     [hiddenKeys, query, statusFilter, categoryId, sortKey],
   );
 
+  const statusCounts = useMemo(
+    () =>
+      countCatalogByStatus(INTEGRATION_CATALOG, hiddenKeys, {
+        query,
+        categoryId,
+      }),
+    [hiddenKeys, query, categoryId],
+  );
+
   const emptyMessage = useMemo(() => {
     if (query.trim()) return `No integrations match "${query.trim()}".`;
     switch (statusFilter) {
@@ -225,19 +237,16 @@ export default function IntegrationCatalog() {
         </label>
 
         <div className="integration-catalog__toolbar-controls">
-          <div className="integration-catalog__status-filter" role="group" aria-label="Filter by status">
-            {STATUS_FILTERS.map((filter) => (
-              <button
-                key={filter.id}
-                type="button"
-                aria-pressed={statusFilter === filter.id}
-                className={`integration-catalog__status-chip${statusFilter === filter.id ? " is-selected" : ""}`}
-                onClick={() => setStatusFilter(filter.id)}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+          <FilterChipBar
+            chips={STATUS_FILTERS.map((filter) => ({
+              id: filter.id,
+              label: filter.label,
+              count: statusCounts[filter.id],
+            }))}
+            selected={statusFilter}
+            onChange={(id) => setStatusFilter(id as CatalogStatusFilter)}
+            ariaLabel="Filter by status"
+          />
 
           <CatalogToolbarSelect
             label="Category"
