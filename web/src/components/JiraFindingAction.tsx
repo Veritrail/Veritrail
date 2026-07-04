@@ -106,12 +106,6 @@ function dedupeJiraUsers(users: JiraUser[]): JiraUser[] {
   return deduped;
 }
 
-function assigneeSubline(user: JiraUser): string {
-  if (user.email?.trim()) return user.email.trim();
-  if (user.account_id) return `No email visible · ${user.account_id.slice(0, 8)}…`;
-  return "No email visible";
-}
-
 function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={`${className} shrink-0 rounded-[3px]`} viewBox="0 0 24 24" aria-hidden>
@@ -922,13 +916,8 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                                       className="flex w-full items-center gap-2 border-l-2 border-l-transparent px-2 py-1.5 text-left hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
                                     >
                                       <UserAvatar user={user} size="sm" />
-                                      <span className="min-w-0">
-                                        <span className="block truncate text-sm text-[#172B4D]">
-                                          {user.display_name}
-                                        </span>
-                                        <span className="block truncate text-xs text-[#626F86]">
-                                          {assigneeSubline(user)}
-                                        </span>
+                                      <span className="min-w-0 truncate text-sm text-[#172B4D]">
+                                        {user.display_name}
                                       </span>
                                     </button>
                                   ))
