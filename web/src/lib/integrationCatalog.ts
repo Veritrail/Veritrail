@@ -226,30 +226,8 @@ export function catalogEntryCount(catalog: CatalogCategory[], hiddenKeys: Readon
   );
 }
 
-/** Priority-ordered keys for the integrations hub recommendation strip.
- *  Google Workspace is preferred over Microsoft Entra ID when both are candidates.
- *  Cloud providers (AWS/GCP/Azure) are excluded — they onboard from Accounts. */
-export const RECOMMENDED_INTEGRATION_KEYS = [
-  "iac-repository",
-  "google-workspace",
-  "jira",
-  "snyk",
-  "entra",
-  "github",
-  "okta",
-  "slack",
-  "gitlab",
-  "aikido",
-  "wiz",
-  "datadog",
-  "splunk",
-  "tenable",
-  "qualys",
-  "orca",
-] as const;
-
-/** Connector cards shown inline; browse-catalog card is always the 4th slot. */
-export const MAX_INLINE_RECOMMENDED_CARDS = 3;
+/** Fixed priority order for the integrations hub recommendation strip. */
+export const RECOMMENDED_INTEGRATION_KEYS = ["iac-repository", "jira", "slack"] as const;
 
 export type RecommendedIntegrationKey = (typeof RECOMMENDED_INTEGRATION_KEYS)[number];
 
@@ -261,18 +239,13 @@ export function catalogEntryByKey(key: string): CatalogEntry | undefined {
   return undefined;
 }
 
-/** Top N connectable recommendations that are not yet connected. */
+/** Recommended integrations that are not yet connected, in priority order. */
 export function getRecommendedIntegrationKeys(
   hiddenKeys: ReadonlySet<string>,
-  limit = MAX_INLINE_RECOMMENDED_CARDS,
 ): RecommendedIntegrationKey[] {
-  const keys: RecommendedIntegrationKey[] = [];
-  for (const key of RECOMMENDED_INTEGRATION_KEYS) {
-    if (hiddenKeys.has(key)) continue;
+  return RECOMMENDED_INTEGRATION_KEYS.filter((key) => {
+    if (hiddenKeys.has(key)) return false;
     const entry = catalogEntryByKey(key);
-    if (!entry?.href || entry.comingSoon) continue;
-    keys.push(key);
-    if (keys.length >= limit) break;
-  }
-  return keys;
+    return !!entry?.href && !entry.comingSoon;
+  });
 }

@@ -28,7 +28,6 @@ import {
   catalogEntryByKey,
   connectedCatalogKeys,
   getRecommendedIntegrationKeys,
-  MAX_INLINE_RECOMMENDED_CARDS,
   type ConnectedCatalogState,
 } from "../lib/integrationCatalog";
 import { PostureMetricCell } from "./Workspace";
@@ -725,12 +724,8 @@ function IntegrationsContent() {
   );
 }
 
-/** A small curated set of high-value NON-cloud connectors surfaced inline; the
-    full list lives behind "Browse integration catalog". Always shows
-    {@link MAX_INLINE_RECOMMENDED_CARDS} connector cards (when enough remain)
-    plus the browse-catalog card (4 total). Connected recommendations are
-    replaced by the next key in {@link RECOMMENDED_INTEGRATION_KEYS}. Cloud
-    providers are intentionally excluded — they onboard from Accounts. */
+/** Surfaces IaC repository, Jira, and Slack when not yet connected, plus
+    browse-catalog. No backfill when a recommended connector is already active. */
 function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
   const cards = getRecommendedIntegrationKeys(hiddenKeys)
     .map((key) => catalogEntryByKey(key))
@@ -738,10 +733,12 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
 
   return (
     <section className="integrations-recommended">
-      <div className="integrations-recommended__head">
-        <h2>Recommended integrations</h2>
-        <p>High-value connectors for compliance evidence.</p>
-      </div>
+      {cards.length > 0 && (
+        <div className="integrations-recommended__head">
+          <h2>Recommended integrations</h2>
+          <p>High-value connectors for compliance evidence.</p>
+        </div>
+      )}
 
       <div className="integrations-explore-grid">
         {cards.map((entry) => (
