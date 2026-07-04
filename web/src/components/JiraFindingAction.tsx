@@ -253,7 +253,7 @@ function DetailsRow({ label, children }: { label: string; children: ReactNode })
   return (
     <div className="grid grid-cols-[minmax(0,38%)_minmax(0,1fr)] items-start gap-x-4 gap-y-1 py-1.5">
       <span className="pt-0.5 text-sm text-[#626F86]">{label}</span>
-      <div className="min-w-0 text-sm text-[#172B4D]">{children}</div>
+      <div className="relative min-h-[28px] min-w-0 overflow-visible text-sm text-[#172B4D]">{children}</div>
     </div>
   );
 }
@@ -315,7 +315,7 @@ function PrioritySelect({
   const dropdownOptions = PRIORITIES.filter((option) => option !== value);
 
   return (
-    <div ref={ref} className="relative inline-block w-full max-w-[220px]">
+    <div ref={ref} className="relative w-full max-w-[220px]">
       <button
         type="button"
         aria-haspopup="listbox"
@@ -337,7 +337,7 @@ function PrioritySelect({
         <ul
           role="listbox"
           aria-label="Priority"
-          className="absolute left-0 top-full z-30 mt-1 w-full min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+          className="absolute left-0 top-full z-50 mt-1 w-full min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
         >
           {dropdownOptions.map((option) => (
             <li key={option} role="option" aria-selected={false}>
@@ -393,7 +393,7 @@ function ProjectSelect({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative inline-block w-full max-w-[280px]">
+    <div ref={ref} className="relative w-full max-w-[280px]">
       <button
         type="button"
         aria-haspopup="listbox"
@@ -415,7 +415,7 @@ function ProjectSelect({
         <ul
           role="listbox"
           aria-label="Project"
-          className="absolute left-0 top-full z-30 mt-1 max-h-56 w-full min-w-[220px] overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+          className="absolute left-0 top-full z-50 mt-1 max-h-56 w-full min-w-[220px] overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
         >
           {dropdownOptions.map((project) => (
             <li key={project.key} role="option" aria-selected={false}>
@@ -459,6 +459,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const assigneeFieldRef = useRef<HTMLDivElement>(null);
+  const assigneeInputRef = useRef<HTMLInputElement>(null);
 
   const issueLabels = useMemo(() => {
     const labels = ["veritrail", finding.severity];
@@ -495,6 +496,11 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   useEffect(() => {
     if (!open) setAssigneeOpen(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!assigneeOpen || assignee) return;
+    assigneeInputRef.current?.focus();
+  }, [assigneeOpen, assignee]);
 
   const integrationEmail = jira?.email?.trim() || "";
   const activeProjectKey = selectedProject || defaultProjectKey;
@@ -729,9 +735,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                     onToggle={() => setDetailsOpen((value) => !value)}
                     trailing={<GearIcon className="h-4 w-4" />}
                   >
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 overflow-visible">
                       <DetailsRow label="Assignee">
-                        <div ref={assigneeFieldRef} className="relative">
+                        <div ref={assigneeFieldRef} className="relative w-full max-w-[320px]">
                           {assignee ? (
                             <div className="inline-flex max-w-full items-center gap-2">
                               <UserAvatar user={assignee} size="sm" />
@@ -766,8 +772,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                             </div>
                           )}
                           {assigneeOpen && !assignee ? (
-                            <div className="mt-2 space-y-1">
+                            <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[280px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]">
                               <input
+                                ref={assigneeInputRef}
                                 value={assigneeQuery}
                                 onChange={(event) => setAssigneeQuery(event.target.value)}
                                 onFocus={() => setAssigneeOpen(true)}
@@ -783,13 +790,13 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                                 role="combobox"
                                 aria-expanded={assigneeOpen}
                                 aria-controls="jira-assignee-suggestions"
-                                className="w-full rounded-[3px] border border-[#DFE1E6] bg-white px-2 py-1.5 text-sm text-[#172B4D] outline-none transition placeholder:text-[#626F86] hover:border-[#B3BAC5] focus:border-[#0C66E4] focus:ring-2 focus:ring-[#0C66E4]/20"
+                                className="w-full border-0 border-b border-[#DFE1E6] bg-white px-2 py-1.5 text-sm text-[#172B4D] outline-none transition placeholder:text-[#626F86] focus:border-[#0C66E4] focus:ring-2 focus:ring-inset focus:ring-[#0C66E4]/20"
                               />
                               <div
                                 id="jira-assignee-suggestions"
                                 role="listbox"
                                 aria-label="Assignable Jira users"
-                                className="max-h-48 overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-lg"
+                                className="max-h-48 overflow-y-auto py-1"
                               >
                                 {usersLoading ? (
                                   <p className="px-3 py-2 text-sm text-[#626F86]">Loading assignable users…</p>
