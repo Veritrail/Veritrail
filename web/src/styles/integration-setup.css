@@ -29,9 +29,9 @@
 .integration-setup--iac {
   --is-action: #0f766e;
   --is-action-hover: #115e59;
-  --is-selected-bg: #ecfdf5;
-  --is-selected-border: #5eead4;
-  --is-selected-ring: rgba(20, 184, 166, 0.08);
+  --is-selected-bg: #fafafa;
+  --is-selected-border: #a1a1aa;
+  --is-selected-ring: rgba(24, 24, 27, 0.08);
   --is-step-inactive-bg: #fff;
   --is-step-inactive-text: #64748b;
   --is-step-inactive-border: #dbe3ef;
@@ -592,15 +592,15 @@
 .integration-setup--iac .integration-setup__choice-btn--selected,
 .integration-setup--iac .integration-setup__github-owner-chip.is-selected,
 .integration-setup--iac .integration-setup__repo-picker-row.is-selected {
-  border-color: #5eead4;
-  background: #ecfdf5;
+  border-color: var(--is-selected-border);
+  background: var(--is-selected-bg);
   box-shadow: 0 0 0 3px var(--is-selected-ring);
   color: #0f172a;
 }
 
 .integration-setup--iac .integration-setup__input:focus {
-  border-color: #5eead4;
-  box-shadow: 0 0 0 3px var(--is-selected-ring);
+  border-color: #d4d4d8;
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.06);
 }
 
 .integration-setup--iac .integration-setup__step--done {
@@ -1243,33 +1243,20 @@
   padding-top: 0.5rem;
 }
 
-/* IaC wizard — neutral hover for unselected interactive tiles only.
+/* IaC wizard — neutral hover for all interactive tiles (selected or not).
    Placed after global card/choice hovers (#fcfdff reads mint next to teal).
    Double .integration-setup.integration-setup--iac beats base :hover specificity. */
-.integration-setup.integration-setup--iac .integration-setup__provider-card:hover:not(.integration-setup__provider-card--selected),
-.integration-setup.integration-setup--iac .integration-setup__provider-card:focus-visible:not(.integration-setup__provider-card--selected),
-.integration-setup.integration-setup--iac .integration-setup__choice-btn:hover:not(.integration-setup__choice-btn--selected),
-.integration-setup.integration-setup--iac .integration-setup__choice-btn:focus-visible:not(.integration-setup__choice-btn--selected),
-.integration-setup.integration-setup--iac .integration-setup__github-owner-chip:hover:not(.is-selected),
-.integration-setup.integration-setup--iac .integration-setup__github-owner-chip:focus-visible:not(.is-selected),
-.integration-setup.integration-setup--iac .integration-setup__repo-picker-row:hover:not(.is-selected),
-.integration-setup.integration-setup--iac .integration-setup__repo-picker-row:focus-visible:not(.is-selected) {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+.integration-setup.integration-setup--iac .integration-setup__provider-card:hover,
+.integration-setup.integration-setup--iac .integration-setup__provider-card:focus-visible,
+.integration-setup.integration-setup--iac .integration-setup__choice-btn:hover,
+.integration-setup.integration-setup--iac .integration-setup__choice-btn:focus-visible,
+.integration-setup.integration-setup--iac .integration-setup__github-owner-chip:hover,
+.integration-setup.integration-setup--iac .integration-setup__github-owner-chip:focus-visible,
+.integration-setup.integration-setup--iac .integration-setup__repo-picker-row:hover,
+.integration-setup.integration-setup--iac .integration-setup__repo-picker-row:focus-visible {
+  border-color: #d4d4d8;
+  background: #f4f4f5;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
   outline: none;
-}
-
-.integration-setup.integration-setup--iac .integration-setup__provider-card--selected:hover,
-.integration-setup.integration-setup--iac .integration-setup__provider-card--selected:focus-visible,
-.integration-setup.integration-setup--iac .integration-setup__choice-btn--selected:hover,
-.integration-setup.integration-setup--iac .integration-setup__choice-btn--selected:focus-visible,
-.integration-setup.integration-setup--iac .integration-setup__github-owner-chip.is-selected:hover,
-.integration-setup.integration-setup--iac .integration-setup__github-owner-chip.is-selected:focus-visible,
-.integration-setup.integration-setup--iac .integration-setup__repo-picker-row.is-selected:hover,
-.integration-setup.integration-setup--iac .integration-setup__repo-picker-row.is-selected:focus-visible {
-  border-color: #5eead4;
-  background: #ecfdf5;
-  box-shadow: 0 0 0 3px var(--is-selected-ring);
-  outline: none;
+  transform: none;
 }
