@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
@@ -308,6 +308,58 @@ function CollapsibleSection({
   );
 }
 
+type DropdownCoords = { top: number; left: number; minWidth: number };
+
+function usePortalDropdownMenu(
+  open: boolean,
+  containerRef: RefObject<HTMLDivElement | null>,
+  btnRef: RefObject<HTMLButtonElement | null>,
+  menuRef: RefObject<HTMLUListElement | null>,
+  onClose: () => void,
+  minWidth = 180,
+) {
+  const [coords, setCoords] = useState<DropdownCoords | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setCoords({ top: rect.bottom + 4, left: rect.left, minWidth: Math.max(rect.width, minWidth) });
+  }, [open, btnRef, minWidth]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(event: MouseEvent) {
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      onClose();
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    function onScroll(event: Event) {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      onClose();
+    }
+    function onResize() {
+      onClose();
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open, containerRef, menuRef, onClose]);
+
+  return coords;
+}
+
 function PrioritySelect({
   value,
   onChange,
@@ -318,21 +370,16 @@ function PrioritySelect({
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<Priority | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(event: MouseEvent) {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
+  const coords = usePortalDropdownMenu(open, ref, btnRef, menuRef, () => setOpen(false));
 
   const dropdownOptions = PRIORITIES.filter((option) => option !== value);
 
   return (
     <div ref={ref} className="relative w-full max-w-[220px]">
       <button
+        ref={btnRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -349,35 +396,46 @@ function PrioritySelect({
         </span>
         <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
       </button>
-      {open ? (
-        <ul
-          role="listbox"
-          aria-label="Priority"
-          className="absolute left-0 top-full z-50 mt-1 w-full min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
-        >
-          {dropdownOptions.map((option) => (
-            <li key={option} role="option" aria-selected={false}>
-              <button
-                type="button"
-                onMouseEnter={() => setHovered(option)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={() => {
-                  onChange(option);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
-                  hovered === option
-                    ? "border-l-[#0C66E4] bg-[#F4F5F7]"
-                    : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
-                }`}
-              >
-                <JiraPriorityIcon priority={option} className="h-4 w-4 shrink-0" />
-                <span>{option}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {open && coords
+        ? createPortal(
+            <ul
+              ref={menuRef}
+              role="listbox"
+              aria-label="Priority"
+              className="max-h-56 overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+              style={{
+                position: "fixed",
+                top: coords.top,
+                left: coords.left,
+                minWidth: coords.minWidth,
+                zIndex: 300,
+              }}
+            >
+              {dropdownOptions.map((option) => (
+                <li key={option} role="option" aria-selected={false}>
+                  <button
+                    type="button"
+                    onMouseEnter={() => setHovered(option)}
+                    onMouseLeave={() => setHovered(null)}
+                    onClick={() => {
+                      onChange(option);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
+                      hovered === option
+                        ? "border-l-[#0C66E4] bg-[#F4F5F7]"
+                        : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                    }`}
+                  >
+                    <JiraPriorityIcon priority={option} className="h-4 w-4 shrink-0" />
+                    <span>{option}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -396,22 +454,17 @@ function IssueTypeSelect({
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
+  const coords = usePortalDropdownMenu(open, ref, btnRef, menuRef, () => setOpen(false));
   const selected = issueTypes.find((issueType) => issueType.id === value);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(event: MouseEvent) {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
 
   const dropdownOptions = issueTypes.filter((issueType) => issueType.id !== value);
 
   return (
     <div ref={ref} className="relative w-full max-w-[220px]">
       <button
+        ref={btnRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -431,43 +484,52 @@ function IssueTypeSelect({
         </span>
         <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
       </button>
-      {open && dropdownOptions.length ? (
-        <ul
-          role="listbox"
-          aria-label="Issue type"
-          className="absolute left-0 top-full z-50 mt-1 w-full min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
-        >
-          {dropdownOptions.map((issueType) => (
-            <li key={issueType.id} role="option" aria-selected={false}>
-              <button
-                type="button"
-                onMouseEnter={() => setHovered(issueType.id)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={() => {
-                  onChange(issueType.id);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
-                  hovered === issueType.id
-                    ? "border-l-[#0C66E4] bg-[#F4F5F7]"
-                    : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
-                }`}
-              >
-                <IssueTypeIcon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{issueType.name}</span>
-                {issueType.is_default ? (
-                  <span className="shrink-0 text-xs font-medium text-[#626F86]">Default</span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {open && coords && dropdownOptions.length
+        ? createPortal(
+            <ul
+              ref={menuRef}
+              role="listbox"
+              aria-label="Issue type"
+              className="max-h-56 overflow-y-auto rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+              style={{
+                position: "fixed",
+                top: coords.top,
+                left: coords.left,
+                minWidth: coords.minWidth,
+                zIndex: 300,
+              }}
+            >
+              {dropdownOptions.map((issueType) => (
+                <li key={issueType.id} role="option" aria-selected={false}>
+                  <button
+                    type="button"
+                    onMouseEnter={() => setHovered(issueType.id)}
+                    onMouseLeave={() => setHovered(null)}
+                    onClick={() => {
+                      onChange(issueType.id);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
+                      hovered === issueType.id
+                        ? "border-l-[#0C66E4] bg-[#F4F5F7]"
+                        : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                    }`}
+                  >
+                    <IssueTypeIcon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{issueType.name}</span>
+                    {issueType.is_default ? (
+                      <span className="shrink-0 text-xs font-medium text-[#626F86]">Default</span>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
-
-type DropdownCoords = { top: number; left: number; minWidth: number };
 
 function ProjectSelect({
   value,
@@ -484,53 +546,13 @@ function ProjectSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [coords, setCoords] = useState<DropdownCoords | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
+  const coords = usePortalDropdownMenu(open, ref, btnRef, menuRef, () => setOpen(false), 220);
   const selected = projects.find((project) => project.key === value);
   const singleProject = projects.length === 1;
   const isOrgDefault = !!defaultProjectKey && value === defaultProjectKey;
-
-  function placeMenu() {
-    const rect = btnRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setCoords({ top: rect.bottom + 4, left: rect.left, minWidth: Math.max(rect.width, 220) });
-  }
-
-  useLayoutEffect(() => {
-    if (open) placeMenu();
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(event: MouseEvent) {
-      const target = event.target as Node;
-      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    function onScroll(event: Event) {
-      const target = event.target as Node;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    function onResize() {
-      setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onResize);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [open]);
 
   return (
     <div ref={ref} className="relative w-full max-w-[280px]">
