@@ -118,125 +118,28 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   return hidden;
 }
 
-export type CatalogStatusFilter = "all" | "available" | "connected";
-
-export type CatalogSortKey = "name-asc" | "name-desc";
-
-export type CatalogFilterOptions = {
-  query?: string;
-  statusFilter?: CatalogStatusFilter;
-  categoryId?: string;
-  sortKey?: CatalogSortKey;
-};
-
-export function catalogEntryStatus(
-  entry: CatalogEntry,
-  hiddenKeys: ReadonlySet<string>,
-): "available" | "connected" | "coming-soon" {
-  if (entry.comingSoon || !entry.href) return "coming-soon";
-  if (hiddenKeys.has(entry.key)) return "connected";
-  return "available";
+function isAvailableCatalogEntry(entry: CatalogEntry, hiddenKeys: ReadonlySet<string>): boolean {
+  if (entry.comingSoon || !entry.href) return false;
+  return !hiddenKeys.has(entry.key);
 }
 
-function matchesCatalogStatus(
-  entry: CatalogEntry,
-  hiddenKeys: ReadonlySet<string>,
-  statusFilter: CatalogStatusFilter,
-): boolean {
-  if (statusFilter === "all") return true;
-  return catalogEntryStatus(entry, hiddenKeys) === statusFilter;
+function sortCatalogEntriesByName(entries: CatalogEntry[]): CatalogEntry[] {
+  return [...entries].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 }
 
-function sortCatalogEntries(entries: CatalogEntry[], sortKey: CatalogSortKey): CatalogEntry[] {
-  const sorted = [...entries];
-  sorted.sort((a, b) => {
-    const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-    return sortKey === "name-desc" ? -cmp : cmp;
-  });
-  return sorted;
-}
-
-function catalogEntriesMatchingQuery(entry: CatalogEntry, q: string): boolean {
-  if (!q) return true;
-  return (
-    entry.name.toLowerCase().includes(q) ||
-    entry.description.toLowerCase().includes(q) ||
-    entry.tags.some((tag) => tag.toLowerCase().includes(q))
-  );
-}
-
-/** Count catalog entries per status tab (respects search + category, not status filter). */
-export function countCatalogByStatus(
-  catalog: CatalogCategory[],
-  hiddenKeys: ReadonlySet<string>,
-  options: Omit<CatalogFilterOptions, "statusFilter" | "sortKey"> = {},
-): Record<CatalogStatusFilter, number> {
-  const { query = "", categoryId = "all" } = options;
-  const q = query.trim().toLowerCase();
-  const counts: Record<CatalogStatusFilter, number> = {
-    all: 0,
-    available: 0,
-    connected: 0,
-  };
-
-  for (const cat of catalog) {
-    if (categoryId !== "all" && cat.id !== categoryId) continue;
-    for (const entry of cat.entries) {
-      if (!catalogEntriesMatchingQuery(entry, q)) continue;
-      counts.all += 1;
-      const status = catalogEntryStatus(entry, hiddenKeys);
-      if (status === "available") counts.available += 1;
-      else if (status === "connected") counts.connected += 1;
-    }
-  }
-
-  return counts;
-}
-
+/** Catalog sections with connectable, not-yet-connected integrations (name A–Z). */
 export function filterCatalog(
   catalog: CatalogCategory[],
   hiddenKeys: ReadonlySet<string>,
-  queryOrOptions: string | CatalogFilterOptions = "",
 ): CatalogCategory[] {
-  const options: CatalogFilterOptions =
-    typeof queryOrOptions === "string" ? { query: queryOrOptions } : queryOrOptions;
-  const {
-    query = "",
-    statusFilter = "available",
-    categoryId = "all",
-    sortKey = "name-asc",
-  } = options;
-  const q = query.trim().toLowerCase();
-
   return catalog
-    .filter((cat) => categoryId === "all" || cat.id === categoryId)
     .map((cat) => ({
       ...cat,
-      entries: sortCatalogEntries(
-        cat.entries.filter((entry) => {
-          if (!matchesCatalogStatus(entry, hiddenKeys, statusFilter)) return false;
-          return catalogEntriesMatchingQuery(entry, q);
-        }),
-        sortKey,
+      entries: sortCatalogEntriesByName(
+        cat.entries.filter((entry) => isAvailableCatalogEntry(entry, hiddenKeys)),
       ),
     }))
     .filter((cat) => cat.entries.length > 0);
-}
-
-export function catalogSectionCountLabel(count: number, statusFilter: CatalogStatusFilter): string {
-  if (count === 0) return "";
-  let label: string;
-  switch (statusFilter) {
-    case "available":
-      label = count === 1 ? "1 available" : `${count} available`;
-      break;
-    case "connected":
-      label = count === 1 ? "1 connected" : `${count} connected`;
-      break;
-    default:
-      label = count === 1 ? "1 integration" : `${count} integrations`;
-  }
-  return label;
 }
 
 export function catalogExploreEntries(
