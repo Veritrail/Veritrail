@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from app.core.db import get_db
 from app.core.org_context import resolve_org
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
+from app.models.aws_account import AwsAccount
 from app.models.finding import Finding, FindingEvent
 from app.models.github import IdentityProvider
 from app.models.org import Org
@@ -76,6 +78,98 @@ class JiraTestIn(BaseModel):
 class JiraIssueOut(BaseModel):
     issue_key: str
     issue_url: str
+
+
+class JiraUserOut(BaseModel):
+    account_id: str
+    display_name: str
+    email: str = ""
+    avatar_url: str = ""
+
+
+class JiraIssueCreateIn(BaseModel):
+    summary: str | None = None
+    priority: str | None = None
+    assignee_account_id: str | None = None
+    labels: list[str] | None = None
+
+
+def _resource_name(resource_arn: str) -> str:
+    value = (resource_arn or "").strip()
+    if not value:
+        return "Affected resource"
+    return value.rsplit("/", 1)[-1].rsplit(":", 1)[-1] or value
+
+
+def _recommended_remediation(finding: Finding) -> str:
+    if "least_privilege" in finding.check_id:
+        return (
+            "Replace broad IAM permissions with least-privilege policies scoped to observed usage. "
+            "Remove wildcard Action:* and Resource:* access unless it is explicitly required and approved."
+        )
+    if "mfa" in finding.check_id:
+        return "Enable MFA for the affected identity, then re-scan the account to confirm the finding is resolved."
+    if "logging" in finding.check_id or "cloudtrail" in finding.check_id:
+        return "Enable the missing logging coverage, verify events are being collected, then re-scan in Veritrail."
+    return "Apply the remediation guidance in Veritrail, then verify the fix from the finding drawer."
+
+
+def _issue_description(
+    *,
+    finding: Finding,
+    finding_url: str,
+    account: AwsAccount | None,
+    actor: str,
+) -> str:
+    account_label = "Unknown account"
+    if account:
+        account_label = f"{account.label or 'AWS account'} ({account.account_id or 'unknown'})"
+
+    opened_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    return (
+        "Opened from Veritrail\n"
+        f"Opened by: {actor}\n"
+        f"Opened at: {opened_at}\n"
+        f"Account: {account_label}\n"
+        f"Severity: {finding.severity.upper()} · Risk score: {finding.risk_score}\n"
+        f"Check: {finding.check_id}\n"
+        f"Resource: {finding.resource_arn}\n\n"
+        "Recommended remediation\n"
+        f"{_recommended_remediation(finding)}\n\n"
+        "Why this matters\n"
+        "This finding is currently open in Veritrail and may expose the account to unnecessary access, "
+        "audit evidence gaps, or remediation drift until it is fixed and verified.\n\n"
+        "Verification\n"
+        "After the change is applied, return to the finding in Veritrail and run Verify fix. "
+        "Keep this ticket open until Veritrail confirms the finding is resolved.\n\n"
+        f"Open finding in Veritrail: {finding_url}"
+    )
+
+
+@router.get("/jira/assignable-users", response_model=list[JiraUserOut])
+def search_jira_assignable_users(
+    _rbac: RequireAdmin,
+    query: str = Query(default=""),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    provider = _jira_provider(db, org.id)
+    if not provider or provider.status != "connected":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira is not connected")
+
+    cfg = provider_config(provider)
+    try:
+        users = JiraClient(
+            site_url=cfg["site_url"],
+            email=cfg["email"],
+            api_token=cfg["api_token"],
+        ).search_assignable_users(project_key=cfg["project_key"], query=query)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Failed to search Jira users: {e}") from e
+    return [JiraUserOut(**user) for user in users]
 
 
 @router.get("/jira", response_model=JiraIntegrationOut)
@@ -172,6 +266,7 @@ def delete_jira(_rbac: RequireAdmin, p=Depends(current_principal), db: Session =
 def create_issue_from_finding(
     finding_id: uuid.UUID,
     _rbac: RequireAdmin,
+    body: JiraIssueCreateIn = JiraIssueCreateIn(),
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
@@ -195,12 +290,26 @@ def create_issue_from_finding(
 
     app_url = _findings_app_url().rstrip("/")
     finding_url = f"{app_url}/findings?finding={finding.id}"
-    description = (
-        f"Severity: {finding.severity.upper()}\n"
-        f"Check: {finding.check_id}\n"
-        f"Resource: {finding.resource_arn}\n"
-        f"Risk score: {finding.risk_score}\n\n"
-        f"Open in Veritrail: {finding_url}"
+    actor = p.get("email") or "user"
+    account = db.get(AwsAccount, finding.account_id) if finding.account_id else None
+    description = _issue_description(
+        finding=finding,
+        finding_url=finding_url,
+        account=account,
+        actor=actor,
+    )
+    labels = body.labels or ["veritrail", finding.severity]
+    labels = [label.strip().lower().replace(" ", "-") for label in labels if label and label.strip()]
+    if "veritrail" not in labels:
+        labels.insert(0, "veritrail")
+    if finding.severity not in labels:
+        labels.append(finding.severity)
+    priority = body.priority.strip() if body.priority else None
+    assignee_account_id = body.assignee_account_id.strip() if body.assignee_account_id else None
+    summary = (
+        body.summary.strip()
+        if body.summary and body.summary.strip()
+        else f"[Veritrail] {_resource_name(finding.resource_arn)} — {finding.title}"
     )
 
     try:
@@ -211,10 +320,12 @@ def create_issue_from_finding(
         )
         created = client.create_issue(
             project_key=cfg["project_key"],
-            summary=f"[Veritrail] {finding.title}"[:255],
+            summary=summary[:255],
             description=description,
             issue_type=cfg.get("issue_type") or "Task",
-            labels=["veritrail", finding.severity],
+            labels=labels,
+            priority=priority,
+            assignee_account_id=assignee_account_id,
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
@@ -230,7 +341,7 @@ def create_issue_from_finding(
     db.add(
         FindingEvent(
             finding_id=finding.id,
-            actor=p.get("email") or "user",
+            actor=actor,
             action="note",
             note=f"Jira issue created: {created['issue_key']}",
         )

@@ -36,11 +36,20 @@ def _auth(email: str, api_token: str) -> tuple[str, str]:
     return email, token
 
 
-def _adf_paragraph(text: str) -> dict[str, Any]:
+def _adf_from_text(text: str) -> dict[str, Any]:
+    content: list[dict[str, Any]] = []
+    for block in text.strip().split("\n\n"):
+        paragraph_content: list[dict[str, Any]] = []
+        for index, line in enumerate(block.splitlines()):
+            if index:
+                paragraph_content.append({"type": "hardBreak"})
+            paragraph_content.append({"type": "text", "text": line})
+        if paragraph_content:
+            content.append({"type": "paragraph", "content": paragraph_content})
     return {
         "type": "doc",
         "version": 1,
-        "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}],
+        "content": content or [{"type": "paragraph", "content": [{"type": "text", "text": text}]}],
     }
 
 
@@ -81,18 +90,24 @@ class JiraClient:
         description: str,
         issue_type: str = "Task",
         labels: list[str] | None = None,
+        priority: str | None = None,
+        assignee_account_id: str | None = None,
     ) -> dict[str, str]:
         key = project_key.strip().upper()
         payload: dict[str, Any] = {
             "fields": {
                 "project": {"key": key},
                 "summary": summary[:255],
-                "description": _adf_paragraph(description),
+                "description": _adf_from_text(description),
                 "issuetype": {"name": issue_type},
             }
         }
         if labels:
             payload["fields"]["labels"] = labels[:10]
+        if priority:
+            payload["fields"]["priority"] = {"name": priority}
+        if assignee_account_id:
+            payload["fields"]["assignee"] = {"accountId": assignee_account_id}
 
         with self._client() as client:
             resp = client.post("/issue", content=json.dumps(payload))
@@ -107,3 +122,23 @@ class JiraClient:
                 "issue_url": f"{self.site_url}/browse/{issue_key}",
                 "issue_id": data.get("id", ""),
             }
+
+    def search_assignable_users(self, *, project_key: str, query: str = "") -> list[dict[str, str]]:
+        key = project_key.strip().upper()
+        with self._client() as client:
+            resp = client.get(
+                "/user/assignable/search",
+                params={"project": key, "query": query.strip(), "maxResults": 15},
+            )
+            resp.raise_for_status()
+            users = resp.json()
+            return [
+                {
+                    "account_id": user.get("accountId", ""),
+                    "display_name": user.get("displayName", ""),
+                    "email": user.get("emailAddress", ""),
+                    "avatar_url": (user.get("avatarUrls") or {}).get("48x48", ""),
+                }
+                for user in users
+                if user.get("accountId") and user.get("displayName")
+            ]
