@@ -177,9 +177,12 @@ function DashboardPreview() {
   return (
     <div className="homepage-dashboard-stack">
       <div className="homepage-dashboard-card homepage-dashboard-card--back-2" aria-hidden>
-        <div className="homepage-peek-card">
-          <span className="homepage-peek-card__title">Evidence</span>
-          <div className="homepage-peek-card__row">
+        <div className="homepage-peek-card homepage-peek-card--evidence">
+          <div className="homepage-peek-card__header-row">
+            <span className="homepage-peek-card__title">Evidence</span>
+            <span className="homepage-peek-card__badge">PDF</span>
+          </div>
+          <div className="homepage-peek-card__document">
             <div className="homepage-peek-card__icon-box homepage-peek-card__icon-box--doc">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path
@@ -194,17 +197,20 @@ function DashboardPreview() {
               <span className="homepage-peek-card__bar homepage-peek-card__bar--narrow" />
             </div>
           </div>
-          <div className="homepage-peek-card__skeleton homepage-peek-card__skeleton--stacked">
-            <span className="homepage-peek-card__bar" />
-            <span className="homepage-peek-card__bar homepage-peek-card__bar--medium" />
-            <span className="homepage-peek-card__bar homepage-peek-card__bar--short" />
+          <div className="homepage-peek-card__mini-rows">
+            <span />
+            <span />
+            <span />
           </div>
         </div>
       </div>
       <div className="homepage-dashboard-card homepage-dashboard-card--back-1" aria-hidden>
-        <div className="homepage-peek-card">
-          <span className="homepage-peek-card__title">Mappings</span>
-          <div className="homepage-peek-card__row">
+        <div className="homepage-peek-card homepage-peek-card--mappings">
+          <div className="homepage-peek-card__header-row">
+            <span className="homepage-peek-card__title">Mappings</span>
+            <span className="homepage-peek-card__badge">SOC 2</span>
+          </div>
+          <div className="homepage-mapping-card__hero">
             <div className="homepage-peek-card__icon-box homepage-peek-card__icon-box--shield">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path
@@ -214,15 +220,20 @@ function DashboardPreview() {
                 />
               </svg>
             </div>
-            <div className="homepage-peek-card__skeleton">
-              <span className="homepage-peek-card__bar homepage-peek-card__bar--wide" />
-              <span className="homepage-peek-card__bar homepage-peek-card__bar--narrow" />
+            <div className="homepage-mapping-card__copy">
+              <span className="homepage-mapping-card__control">CC6.1</span>
+              <span className="homepage-mapping-card__label">Access control</span>
             </div>
           </div>
-          <div className="homepage-peek-card__rows">
-            <span className="homepage-peek-card__bar" />
-            <span className="homepage-peek-card__bar homepage-peek-card__bar--medium" />
-            <span className="homepage-peek-card__bar homepage-peek-card__bar--short" />
+          <div className="homepage-mapping-card__rows">
+            <span className="homepage-mapping-card__row homepage-mapping-card__row--strong" />
+            <span className="homepage-mapping-card__row" />
+            <span className="homepage-mapping-card__row homepage-mapping-card__row--short" />
+          </div>
+          <div className="homepage-mapping-card__footer">
+            <span />
+            <span />
+            <span />
           </div>
         </div>
       </div>

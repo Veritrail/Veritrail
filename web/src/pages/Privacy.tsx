@@ -1,17 +1,18 @@
 import { LegalSection, LegalShell } from "../components/LegalShell";
 
-// Edit these three for your legal entity before launch.
 const ENTITY = "Veritrail";
-const CONTACT_EMAIL = "privacy@veritrail.app"; // TODO: replace with your real contact address
-const UPDATED = "June 21, 2026";
+const CONTACT_EMAIL = "privacy@veritrail.io";
+const UPDATED = "July 4, 2026";
 
 export default function Privacy() {
   return (
     <LegalShell title="Privacy Policy" updated={UPDATED}>
       <p>
         This Privacy Policy explains what information {ENTITY} ("we", "us") collects when you use the Veritrail
-        service, why we collect it, how we protect it, and the choices you have. Veritrail is a read-only cloud
-        compliance-evidence tool for engineering teams.
+        service, why we collect it, how we protect it, and the choices you have. Veritrail is a read-only compliance-evidence
+        tool for engineering teams: it connects to your cloud providers (AWS, Google Cloud, Azure) and developer tools
+        (such as GitHub, GitLab, identity providers, and vulnerability scanners) to collect configuration evidence and map
+        it to compliance frameworks.
       </p>
 
       <LegalSection heading="Information we collect">
@@ -26,16 +27,20 @@ export default function Privacy() {
             <strong>Workspace.</strong> Organization name, verified company domains, members, and their roles.
           </li>
           <li>
-            <strong>AWS connection details.</strong> The AWS account ID, the IAM role ARN you authorize, and an external
-            ID. The role ARN and external ID are encrypted at rest.
+            <strong>Cloud &amp; integration connection details.</strong> The credentials you authorize us to use to
+            connect each provider — for example an AWS account ID with an IAM role ARN and external ID, a Google Cloud
+            workload-identity or service-account configuration, an Azure subscription and app registration, and the OAuth
+            tokens or API keys for developer tools you connect (such as GitHub, GitLab, Google Workspace, Microsoft Entra
+            ID, Okta, Jira, and vulnerability scanners). These connection secrets are encrypted at rest.
           </li>
           <li>
-            <strong>Scan results (configuration metadata).</strong> When you connect an account, Veritrail assumes the
-            read-only role you create and collects <em>configuration and metadata</em> about your AWS resources — for
-            example IAM users, roles, policies and access-key usage; S3, KMS, EC2/EBS, VPC, RDS and similar resource
-            settings; CloudTrail event metadata; and the findings and evidence snapshots derived from them. Veritrail does
-            <strong> not</strong> read the contents of your data stores (object/file contents) or the values of your
-            secrets — only the configuration needed to evaluate posture.
+            <strong>Scan results (configuration metadata).</strong> Using the read-only access you authorize, Veritrail
+            collects <em>configuration and metadata</em> from the accounts and tools you connect — for example cloud IAM
+            principals, policies and key usage; storage, network, database and encryption settings; audit-log metadata;
+            source-control branch-protection and review settings; identity-provider user and MFA status; scanner findings;
+            and the findings and evidence snapshots derived from them. Veritrail does <strong>not</strong> read the
+            contents of your data stores (object/file contents) or the values of your secrets — only the configuration
+            needed to evaluate posture.
           </li>
           <li>
             <strong>Usage &amp; operational data.</strong> IP address, request logs, and an audit log of privileged
@@ -50,10 +55,10 @@ export default function Privacy() {
 
       <LegalSection heading="Why we collect it">
         <p>
-          To provide and secure the service: authenticate you, scan the AWS accounts you connect, generate findings and
-          auditor-ready evidence, send the notifications you configure, support you, prevent abuse, and meet our legal
-          obligations. Where required, our legal bases are performance of our contract with you and our legitimate
-          interest in operating a secure service.
+          To provide and secure the service: authenticate you, collect evidence from the accounts and tools you connect,
+          generate findings and auditor-ready evidence, send the notifications you configure, support you, prevent abuse,
+          and meet our legal obligations. Where required, our legal bases are performance of our contract with you and our
+          legitimate interest in operating a secure service.
         </p>
       </LegalSection>
 
@@ -80,7 +85,11 @@ export default function Privacy() {
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><strong>Cloud hosting / infrastructure</strong> — to operate the application and database.</li>
-          <li><strong>Amazon Web Services</strong> — Veritrail assumes the read-only role <em>you</em> create to scan your account.</li>
+          <li>
+            <strong>The providers you connect</strong> — Veritrail uses the read-only access <em>you</em> authorize to
+            reach your cloud accounts (AWS, Google Cloud, Azure) and developer tools (such as GitHub, GitLab, identity
+            providers, ticketing, and scanners). We only access what you connect.
+          </li>
           <li><strong>Email delivery</strong> — to send digests, invitations, and alerts you opt into.</li>
         </ul>
         <p>We may also disclose data if required by law or to protect our rights and users.</p>

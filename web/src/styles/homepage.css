@@ -32,15 +32,15 @@
 .homepage-dashboard-stack {
   position: relative;
   width: 100%;
-  max-width: 42rem;
+  max-width: 43.5rem;
   justify-self: start;
-  padding: 0 5.75rem 1.25rem 0;
+  padding: 0 7.5rem 1.25rem 0;
 }
 
 @media (min-width: 1024px) {
   .homepage-dashboard-stack {
-    width: calc(100% + 3rem);
-    margin-right: -3rem;
+    width: calc(100% + 3.5rem);
+    margin-right: -3.5rem;
   }
 }
 
@@ -52,30 +52,46 @@
 
 .homepage-dashboard-card--back-2 {
   position: absolute;
-  top: 6.25rem;
-  right: 0;
+  top: 6.75rem;
+  right: 0.1rem;
   z-index: 0;
-  width: 6.85rem;
-  height: 13.1rem;
-  opacity: 0.92;
+  width: 7.75rem;
+  height: 12.85rem;
+  opacity: 0.78;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 74%, rgb(255 255 255 / 0.82) 100%);
   box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.06),
-    0 16px 34px -18px rgb(15 23 42 / 0.22);
-  transform: translateX(4.35rem);
+    0 1px 2px rgb(15 23 42 / 0.05),
+    0 18px 38px -24px rgb(15 23 42 / 0.24);
+  transform: translateX(3.95rem);
 }
 
 .homepage-dashboard-card--back-1 {
   position: absolute;
-  top: 3.35rem;
-  right: 2.35rem;
+  top: 4.25rem;
+  right: 2.15rem;
   z-index: 1;
-  width: 7.45rem;
-  height: 17.2rem;
-  opacity: 0.96;
+  width: 8.35rem;
+  height: 14.6rem;
+  opacity: 0.98;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 34% 24%, rgb(20 184 166 / 0.09), transparent 34%),
+    linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   box-shadow:
-    0 1px 2px rgb(15 23 42 / 0.06),
-    0 18px 38px -20px rgb(15 23 42 / 0.24);
-  transform: translateX(4.3rem);
+    0 1px 2px rgb(15 23 42 / 0.05),
+    0 20px 42px -22px rgb(15 23 42 / 0.28);
+  transform: translateX(3.55rem);
+}
+
+.homepage-dashboard-card--back-1::after,
+.homepage-dashboard-card--back-2::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 4.5rem;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0), rgb(255 255 255 / 0.92));
 }
 
 .homepage-dashboard-card--main {
@@ -90,26 +106,52 @@
 /* Peek cards behind main dashboard */
 
 .homepage-peek-card {
-  padding: 1rem 0.85rem;
+  position: relative;
+  z-index: 1;
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.05rem;
+  gap: 0.78rem;
   overflow: hidden;
+  padding: 0.88rem 0.78rem;
+}
+
+.homepage-peek-card__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
 }
 
 .homepage-peek-card__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.66rem;
   font-weight: 700;
   color: #64748b;
   letter-spacing: 0.01em;
 }
 
-.homepage-peek-card__row {
+.homepage-peek-card__badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 0.14rem 0.38rem;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  color: #94a3b8;
+}
+
+.homepage-peek-card__document,
+.homepage-mapping-card__hero {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 0.62rem;
+  min-width: 0;
 }
 
 .homepage-peek-card__icon-box {
@@ -117,52 +159,52 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  border-radius: 0.55rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.58rem;
   background: #f8fafc;
   color: #94a3b8;
+  border: 1px solid rgb(226 232 240 / 0.68);
 }
 
 .homepage-peek-card__icon-box--shield {
-  background: #f0fdfa;
+  background: #ecfdf5;
   color: #0f9f8f;
+  border-color: rgb(153 246 228 / 0.42);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.72);
+}
+
+.homepage-peek-card__icon-box--doc {
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .homepage-peek-card__icon-box svg {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.08rem;
+  height: 1.08rem;
 }
 
 .homepage-peek-card__skeleton {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.52rem;
+  gap: 0.42rem;
   min-width: 0;
   width: 100%;
 }
 
-.homepage-peek-card__skeleton--stacked {
-  margin-top: 0.15rem;
-}
-
-.homepage-peek-card__rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.1rem;
-}
-
-.homepage-peek-card__bar {
+.homepage-peek-card__bar,
+.homepage-mapping-card__row,
+.homepage-peek-card__mini-rows span,
+.homepage-mapping-card__footer span {
   display: block;
-  height: 0.42rem;
+  height: 0.38rem;
   border-radius: 999px;
-  background: #dbe8ea;
+  background: #d7e5e8;
 }
 
 .homepage-peek-card__bar--wide {
-  width: 72%;
+  width: 78%;
 }
 
 .homepage-peek-card__bar--medium {
@@ -170,11 +212,89 @@
 }
 
 .homepage-peek-card__bar--narrow {
-  width: 42%;
+  width: 46%;
 }
 
 .homepage-peek-card__bar--short {
   width: 36%;
+}
+
+.homepage-peek-card__mini-rows,
+.homepage-mapping-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.46rem;
+  margin-top: 0.05rem;
+}
+
+.homepage-peek-card__mini-rows span:nth-child(1) {
+  width: 86%;
+}
+
+.homepage-peek-card__mini-rows span:nth-child(2) {
+  width: 64%;
+}
+
+.homepage-peek-card__mini-rows span:nth-child(3) {
+  width: 42%;
+}
+
+.homepage-mapping-card__hero {
+  border-radius: 0.78rem;
+  border: 1px solid #e6f3f2;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 70%);
+  padding: 0.54rem;
+}
+
+.homepage-mapping-card__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+}
+
+.homepage-mapping-card__control {
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  color: #0f766e;
+}
+
+.homepage-mapping-card__label {
+  width: 3.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.homepage-mapping-card__row {
+  width: 82%;
+  background: #d8e8e9;
+}
+
+.homepage-mapping-card__row--strong {
+  width: 94%;
+  background: #bfe2dd;
+}
+
+.homepage-mapping-card__row--short {
+  width: 56%;
+}
+
+.homepage-mapping-card__footer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.38rem;
+  margin-top: 0.1rem;
+}
+
+.homepage-mapping-card__footer span {
+  height: 1.15rem;
+  border-radius: 0.42rem;
+  background: #f1f5f9;
 }
 
 .homepage-dashboard__header {

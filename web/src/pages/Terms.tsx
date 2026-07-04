@@ -1,10 +1,9 @@
 import { LegalSection, LegalShell } from "../components/LegalShell";
 
-// Edit these for your legal entity before launch.
 const ENTITY = "Veritrail";
-const CONTACT_EMAIL = "legal@veritrail.app"; // TODO: replace with your real contact address
-const GOVERNING_LAW = "the State of Israel"; // TODO: replace with your jurisdiction
-const UPDATED = "June 21, 2026";
+const CONTACT_EMAIL = "legal@veritrail.io";
+const GOVERNING_LAW = "the State of Israel";
+const UPDATED = "July 4, 2026";
 
 export default function Terms() {
   return (
@@ -17,10 +16,11 @@ export default function Terms() {
 
       <LegalSection heading="The service">
         <p>
-          Veritrail is a read-only cloud compliance-evidence tool. You connect AWS accounts via an IAM role you create;
-          Veritrail scans configuration and metadata, ranks findings, maps them to compliance frameworks, and produces
-          auditor-ready evidence. Veritrail makes no changes to your AWS resources unless you explicitly enable and approve a
-          remediation action.
+          Veritrail is a read-only compliance-evidence tool. You connect your cloud providers (AWS, Google Cloud, Azure)
+          and developer tools (such as GitHub, GitLab, identity providers, ticketing, and vulnerability scanners) using
+          read-only access you authorize; Veritrail collects configuration and metadata, ranks findings, maps them to
+          compliance frameworks, and produces auditor-ready evidence. Veritrail makes no changes to your resources unless
+          you explicitly enable and approve a remediation action.
         </p>
       </LegalSection>
 
@@ -31,10 +31,11 @@ export default function Terms() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="Your AWS connection">
+      <LegalSection heading="Your connected accounts">
         <p>
-          You are responsible for creating and maintaining the read-only role you authorize, and for confirming you have
-          the right to connect each AWS account you add. You may disconnect an account at any time.
+          You are responsible for creating and maintaining the read-only roles, service accounts, or tokens you authorize,
+          and for confirming you have the right to connect each cloud account or tool you add. You may disconnect any
+          connected account or integration at any time.
         </p>
       </LegalSection>
 

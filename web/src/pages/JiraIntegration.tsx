@@ -1,11 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
 import { jiraIntegrationSchema, type JiraIntegration } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import "../styles/integration-setup.css";
 
+const JIRA_FLOW = [
+  { title: "Finding", detail: "Detected risk" },
+  { title: "Jira issue", detail: "Auto-created" },
+  { title: "Remediation", detail: "Tracked to close" },
+];
 
 export default function JiraIntegration() {
   const qc = useQueryClient();
@@ -93,24 +97,26 @@ export default function JiraIntegration() {
     (apiToken.trim() || data?.has_api_token);
 
   return (
-    <div className="integration-setup">
-      <p className="integration-setup__breadcrumb">
-        <Link to="/integrations">Integrations</Link>
-        {" / "}Jira
-      </p>
-
-      <header className="integration-setup__header">
-        <div className="integration-setup__brand">
-          <IntegrationBrandIcon brand="jira" size={48} />
-          <div>
-            <div className="integration-setup__title-row">
-              <h1 className="integration-setup__title">Jira</h1>
-              {connected && <span className="integration-setup__badge">Connected</span>}
+    <div className="integration-setup integration-setup--elevated">
+      <header className="integration-setup__header integration-setup__hero">
+        <div className="integration-setup__hero-mark">
+          <IntegrationBrandIcon brand="jira" size={64} />
+        </div>
+        <div className="integration-setup__title-row">
+          <h1 className="integration-setup__title">Connect Jira</h1>
+          {connected && <span className="integration-setup__badge">Connected</span>}
+        </div>
+        <p className="integration-setup__subtitle">
+          Create Jira issues from Veritrail findings so remediation is tracked in your team's workflow and
+          captured as incident-response evidence.
+        </p>
+        <div className="integration-setup__flow" aria-label="Jira workflow">
+          {JIRA_FLOW.map((node) => (
+            <div className="integration-setup__flow-node" key={node.title}>
+              <span className="integration-setup__flow-title">{node.title}</span>
+              <span className="integration-setup__flow-detail">{node.detail}</span>
             </div>
-            <p className="integration-setup__subtitle">
-              Create Jira issues from Veritrail findings for remediation tracking and incident-response evidence.
-            </p>
-          </div>
+          ))}
         </div>
       </header>
 
@@ -119,13 +125,17 @@ export default function JiraIntegration() {
       {!isLoading && (
         <div className="integration-setup__card">
           <div className="integration-setup__section">
-            <p className="integration-setup__callout">
-              Jira Cloud only. Create an API token at{" "}
-              <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noreferrer">
-                id.atlassian.com → Security → API tokens
-              </a>
-              . Use the Atlassian account email that owns the token.
+            <p className="integration-setup__section-label">Connection details</p>
+            <p className="integration-setup__section-desc">
+              Veritrail authenticates with a Jira Cloud account email and API token, then opens issues in the
+              project you choose.
             </p>
+
+            <div className="integration-setup__callout integration-setup__callout--neutral">
+              <strong>Recommended:</strong> create a dedicated Jira account (e.g. <code>veritrail@yourco.com</code>)
+              for this connection. Issues are attributed to Veritrail instead of a person, and the integration keeps
+              working when staff change. It needs its own Jira product license (a seat).
+            </div>
 
             <div className="integration-setup__grid integration-setup__grid--2">
               <div className="integration-setup__field--wide">
@@ -139,6 +149,9 @@ export default function JiraIntegration() {
                   placeholder="https://your-company.atlassian.net"
                   className="integration-setup__input"
                 />
+                <p className="integration-setup__field-hint">
+                  Your Atlassian Cloud site. Jira Cloud only.
+                </p>
               </div>
               <div>
                 <label htmlFor="jira-email" className="integration-setup__field-label">
@@ -152,18 +165,9 @@ export default function JiraIntegration() {
                   placeholder="you@company.com"
                   className="integration-setup__input"
                 />
-              </div>
-              <div>
-                <label htmlFor="jira-project" className="integration-setup__field-label">
-                  Project key
-                </label>
-                <input
-                  id="jira-project"
-                  value={projectKey}
-                  onChange={(e) => setProjectKey(e.target.value.toUpperCase())}
-                  placeholder="SEC"
-                  className="integration-setup__input uppercase"
-                />
+                <p className="integration-setup__field-hint">
+                  The Atlassian account that owns the API token.
+                </p>
               </div>
               <div>
                 <label htmlFor="jira-token" className="integration-setup__field-label">
@@ -177,6 +181,28 @@ export default function JiraIntegration() {
                   placeholder={connected && data?.has_api_token ? "••••••••••••••••" : "Paste API token"}
                   className="integration-setup__input"
                 />
+                <p className="integration-setup__field-hint">
+                  Create at{" "}
+                  <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noreferrer">
+                    id.atlassian.com → Security → API tokens
+                  </a>
+                  .
+                </p>
+              </div>
+              <div>
+                <label htmlFor="jira-project" className="integration-setup__field-label">
+                  Project key
+                </label>
+                <input
+                  id="jira-project"
+                  value={projectKey}
+                  onChange={(e) => setProjectKey(e.target.value.toUpperCase())}
+                  placeholder="SEC"
+                  className="integration-setup__input uppercase"
+                />
+                <p className="integration-setup__field-hint">
+                  Where Veritrail creates issues, e.g. <code>SEC</code>.
+                </p>
               </div>
               <div>
                 <label htmlFor="jira-type" className="integration-setup__field-label">
@@ -189,6 +215,9 @@ export default function JiraIntegration() {
                   placeholder="Task"
                   className="integration-setup__input"
                 />
+                <p className="integration-setup__field-hint">
+                  Issue type Veritrail opens, e.g. <code>Task</code> or <code>Bug</code>.
+                </p>
               </div>
             </div>
           </div>

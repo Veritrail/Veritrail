@@ -14,7 +14,7 @@ export function LegalShell({
   return (
     <div className="min-h-screen bg-[#F6F8FB] text-zinc-800">
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2.5">
             <img src="/brand/veritrail-mark.png" alt="" className="h-6 w-6" aria-hidden />
             <span className="text-lg font-bold tracking-tight text-zinc-900">Veritrail</span>
@@ -25,7 +25,7 @@ export function LegalShell({
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="text-3xl font-bold tracking-tight text-zinc-950">{title}</h1>
         <p className="mt-2 text-sm text-zinc-500">Last updated: {updated}</p>
         <div className="legal-prose mt-8 space-y-6 text-[15px] leading-relaxed text-zinc-700">
