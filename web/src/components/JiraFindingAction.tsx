@@ -115,6 +115,21 @@ function dedupeJiraUsers(users: JiraUser[]): JiraUser[] {
   return deduped;
 }
 
+function sortJiraProjectsAlphabetically(projects: JiraProject[]): JiraProject[] {
+  return [...projects].sort((a, b) => {
+    const byName = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    if (byName !== 0) return byName;
+    return a.key.localeCompare(b.key, undefined, { sensitivity: "base" });
+  });
+}
+
+function resolveDefaultJiraProjectKey(projects: JiraProject[], defaultProjectKey: string): string {
+  if (defaultProjectKey && projects.some((project) => project.key === defaultProjectKey)) {
+    return defaultProjectKey;
+  }
+  return sortJiraProjectsAlphabetically(projects)[0]?.key ?? "";
+}
+
 function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={`${className} shrink-0 rounded-[3px]`} viewBox="0 0 24 24" aria-hidden>
@@ -265,11 +280,25 @@ function JiraLabelPill({ label }: { label: string }) {
   );
 }
 
-function DetailsRow({ label, children }: { label: string; children: ReactNode }) {
+function DetailsRow({
+  label,
+  children,
+  align = "start",
+}: {
+  label: string;
+  children: ReactNode;
+  align?: "start" | "center";
+}) {
   return (
-    <div className="grid grid-cols-[minmax(0,38%)_minmax(0,1fr)] items-start gap-x-4 gap-y-1 py-1.5">
-      <span className="pt-0.5 text-sm text-[#626F86]">{label}</span>
-      <div className="relative min-h-[28px] min-w-0 overflow-visible text-sm text-[#172B4D]">{children}</div>
+    <div
+      className={`grid grid-cols-[minmax(0,38%)_minmax(0,1fr)] gap-x-4 gap-y-1 py-1.5 ${
+        align === "center" ? "items-center" : "items-start"
+      }`}
+    >
+      <span className={`text-sm text-[#626F86] ${align === "start" ? "pt-0.5" : ""}`}>{label}</span>
+      <div className="relative min-h-[28px] min-w-0 overflow-visible text-sm leading-5 text-[#172B4D]">
+        {children}
+      </div>
     </div>
   );
 }
@@ -717,11 +746,6 @@ export function JiraFindingAction({
   const defaultProjectKey = jira?.project_key?.trim() || "";
 
   useEffect(() => {
-    if (!defaultProjectKey) return;
-    setSelectedProject((current) => current || defaultProjectKey);
-  }, [defaultProjectKey]);
-
-  useEffect(() => {
     if (!open) setAssigneeOpen(false);
   }, [open]);
 
@@ -745,9 +769,12 @@ export function JiraFindingAction({
   });
 
   useEffect(() => {
-    if (selectedProject || defaultProjectKey || projects.length !== 1) return;
-    setSelectedProject(projects[0].key);
-  }, [defaultProjectKey, projects, selectedProject]);
+    if (!open || projectsLoading || !projects.length) return;
+    setSelectedProject((current) => {
+      if (current && projects.some((project) => project.key === current)) return current;
+      return resolveDefaultJiraProjectKey(projects, defaultProjectKey);
+    });
+  }, [defaultProjectKey, open, projects, projectsLoading]);
 
   const {
     data: issueTypes = [],
@@ -1015,35 +1042,38 @@ export function JiraFindingAction({
                     trailing={<GearIcon className="h-4 w-4" />}
                   >
                     <div className="space-y-0.5 overflow-visible">
-                      <DetailsRow label="Assignee">
-                        <div ref={assigneeFieldRef} className="relative w-full max-w-[320px]">
+                      <DetailsRow label="Assignee" align="center">
+                        <div
+                          ref={assigneeFieldRef}
+                          className="relative flex min-h-[28px] w-full max-w-[320px] items-center"
+                        >
                           {assignee ? (
-                            <div className="inline-flex max-w-full items-center gap-2">
+                            <div className="inline-flex h-7 max-w-full items-center gap-2">
                               <UserAvatar user={assignee} size="sm" />
-                              <span className="truncate">{assignee.display_name}</span>
+                              <span className="truncate leading-5">{assignee.display_name}</span>
                               <button
                                 type="button"
                                 onClick={clearAssignee}
-                                className="shrink-0 text-[#626F86] hover:text-[#172B4D]"
+                                className="inline-flex h-5 w-5 shrink-0 items-center justify-center leading-none text-[#626F86] hover:text-[#172B4D]"
                                 aria-label={`Remove ${assignee.display_name}`}
                               >
                                 ×
                               </button>
                             </div>
                           ) : (
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex h-7 flex-wrap items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => setAssigneeOpen(true)}
-                                className="inline-flex items-center gap-2 rounded-[3px] px-0.5 py-0.5 hover:bg-[#F4F5F7]"
+                                className="inline-flex h-7 items-center gap-2 rounded-[3px] px-0.5 hover:bg-[#F4F5F7]"
                               >
                                 <UnassignedAvatar />
-                                <span className="text-[#172B4D]">Unassigned</span>
+                                <span className="leading-5 text-[#172B4D]">Unassigned</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={assignToMe}
-                                className="text-sm font-medium hover:underline"
+                                className="inline-flex h-7 items-center text-sm font-medium leading-5 hover:underline"
                                 style={{ color: JIRA_BLUE }}
                               >
                                 Assign to me
