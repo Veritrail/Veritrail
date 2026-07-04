@@ -672,17 +672,13 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   const descriptionText = useMemo(() => {
     const lines = [
       `Severity: ${finding.severity.toUpperCase()} · Risk score ${finding.risk_score}`,
-      "",
       `Check: ${finding.check_id}`,
-      "",
       `Resource: ${finding.resource_arn}`,
       "",
       "Recommended remediation",
-      "",
       remediationCopy(finding),
       "",
       "Verification",
-      "",
       "Apply the fix, return to Veritrail, and run Verify fix before closing this ticket.",
     ];
     return lines.join("\n");
