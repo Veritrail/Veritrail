@@ -60,13 +60,13 @@ SIEM sync: `PUT /v1/integrations/siem/{vendor}`, `POST /v1/integrations/siem/{ve
 
 ## Ticketing & notifications
 
-| Integration | Purpose |
-|---|---|
-| **Jira** | Create remediation issues from findings |
-| **Linear** | Same remediation ticket linkage |
-| **GitHub Issues** | `POST /v1/integrations/github-issues/from-finding/{id}` — reuses GitHub OAuth token when no dedicated token configured |
-| **Azure Boards** | `POST /v1/integrations/azure-boards/from-finding/{id}` — Azure DevOps PAT + project |
-| **Slack** | Scan alerts and weekly digest webhooks |
+| Integration | Purpose | QA status |
+|---|---|---|
+| **Jira** | Create remediation issues from findings | ✅ Fully tested (2026-07-04) — see [integration-test-checklist.md](./integration-test-checklist.md) |
+| **Linear** | Same remediation ticket linkage | — |
+| **GitHub Issues** | `POST /v1/integrations/github-issues/from-finding/{id}` — reuses GitHub OAuth token when no dedicated token configured | — |
+| **Azure Boards** | `POST /v1/integrations/azure-boards/from-finding/{id}` — Azure DevOps PAT + project | — |
+| **Slack** | Scan alerts and weekly digest webhooks | — |
 
 All ticketing integrations populate `remediation_ticket_key` / `remediation_ticket_url` on findings.
 

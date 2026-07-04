@@ -6,11 +6,22 @@ Manual QA checklist for Veritrail integrations **not yet validated** in your wor
 
 ---
 
+## Completed integrations
+
+Fully validated end-to-end in workspace QA:
+
+| Integration | Validated | Route / notes |
+|-------------|-----------|---------------|
+| **Jira** ✅ | 2026-07-04 | `/integrations/jira` — OAuth connect, credential verify, create issue from finding, remediation fields on finding, idempotent re-create |
+
+---
+
 ## Scope
 
 | Status | Integrations |
 |--------|--------------|
-| **Already tested — skip** | Jira, GitHub, GitLab, Slack |
+| **Completed — see above** | Jira ✅ (2026-07-04) |
+| **Already tested — skip** | GitHub, GitLab, Slack |
 | **Out of scope (this doc)** | AWS, GCP, Azure cloud posture — connect via **Accounts**, not this checklist |
 | **In scope below** | Identity, MDM, vuln scanners, SIEM, IaC repository, Linear (API), coming-soon catalog items |
 
@@ -336,6 +347,24 @@ Signal evidence: 24h event/alert counts for logging & monitoring composites.
 
 ## 5. Ticketing & remediation
 
+### 5.0 Jira — **Complete** ✅ (2026-07-04)
+
+| | |
+|---|---|
+| **Route** | `/integrations/jira` |
+| **API** | `PUT /v1/integrations/jira` · `POST /v1/integrations/jira/test` · `POST /v1/integrations/jira/issues/from-finding/{id}` |
+
+**Validated**
+
+- [x] OAuth connect and save site URL / project key
+- [x] `POST /v1/integrations/jira/test` — verify credentials
+- [x] Integration card on `/integrations` shows **Connected** / **Healthy**
+- [x] Open finding → create Jira issue — `remediation_ticket_key` / `remediation_ticket_url` populated
+- [x] Duplicate create returns same issue (idempotent)
+- [x] Findings drawer remediation action uses Jira URL (no cross-vendor confusion)
+
+---
+
 ### 5.1 IaC repository — **Free to try** (reuses GitHub/GitLab)
 
 | | |
@@ -417,7 +446,7 @@ Run once several connectors are green:
   - `scanner_integrations.json`
   - `siem_integrations.json`
   - `sdlc_evidence.json`
-- [ ] Findings drawer remediation actions: Jira (tested), Linear (API), IaC PR — no cross-vendor confusion on ticket URLs
+- [ ] Findings drawer remediation actions: Jira ✅ (2026-07-04), Linear (API), IaC PR — no cross-vendor confusion on ticket URLs
 
 ---
 
