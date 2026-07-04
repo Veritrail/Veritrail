@@ -776,9 +776,7 @@
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: 0.5rem;
   color: #64748b;
-  background: rgba(148, 163, 184, 0.12);
 }
 
 .integrations-catalog-card__icon svg {
