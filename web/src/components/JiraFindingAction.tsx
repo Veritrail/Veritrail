@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
 import { useJiraIntegration } from "../hooks/useJiraIntegration";
 import { displayFindingTitle } from "../lib/findingDisplay";
-import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 
 type JiraIssue = { issue_key: string; issue_url: string };
 
@@ -100,13 +99,12 @@ function initialsFromName(name: string): string {
 
 function JiraIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <img
-      src={INTEGRATION_BRAND.jira.compactSrc ?? INTEGRATION_BRAND.jira.src}
-      alt=""
-      aria-hidden
-      className={`${className} rounded-[3px] object-contain`}
-      draggable={false}
-    />
+    <svg className={`${className} shrink-0 rounded-[3px]`} viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="#2684FF"
+        d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.005-1.005zm5.723-5.756H5.232a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.005-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215v2.129h2.057A5.215 5.215 0 0 0 24 12.518V1.005A1.005 1.005 0 0 0 23.013 0z"
+      />
+    </svg>
   );
 }
 
@@ -569,7 +567,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     setDetailsOpen(true);
   }, [finding.id, finding.severity]);
 
-  const { data: jira, isPending: jiraPending } = useJiraIntegration({ enabled: !hasLinkedTicket });
+  const { data: jira, isFetched: jiraFetched } = useJiraIntegration({ enabled: !hasLinkedTicket });
 
   const defaultProjectKey = jira?.project_key?.trim() || "";
 
@@ -751,21 +749,10 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     );
   }
 
-  if (!jira && jiraPending) {
-    return (
-      <div
-        className={`${triggerClassName} pointer-events-none animate-pulse border-sky-100 bg-sky-50/60 text-sky-400`}
-        aria-hidden
-      >
-        <JiraIcon />
-        Create ticket
-      </div>
-    );
-  }
+  if (jiraFetched && !jira?.connected) return null;
 
-  if (!jira?.connected) return null;
-
-  const issueType = jira.issue_type || "Task";
+  const integrationReady = jiraFetched && !!jira?.connected;
+  const issueType = jira?.issue_type || "Task";
   const projectKey = activeProjectKey || "Select project";
   const isOrgDefault =
     !!activeProjectKey && !!defaultProjectKey && activeProjectKey === defaultProjectKey;
@@ -773,7 +760,15 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
 
   return (
     <>
-      <button type="button" className={triggerClassName} onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className={triggerClassName}
+        aria-busy={!integrationReady}
+        onClick={() => {
+          if (!integrationReady) return;
+          setOpen(true);
+        }}
+      >
         <JiraIcon />
         Create ticket
       </button>
