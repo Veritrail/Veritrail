@@ -236,7 +236,7 @@ export function catalogSectionCountLabel(count: number, statusFilter: CatalogSta
     default:
       label = count === 1 ? "1 integration" : `${count} integrations`;
   }
-  return `[${label}]`;
+  return label;
 }
 
 export function catalogExploreEntries(
