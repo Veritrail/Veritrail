@@ -320,23 +320,28 @@ export default function Layout() {
 
           <button
             type="button"
-            className="app-sidebar__collapse-btn"
+            className="app-sidebar__collapse-row"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-pressed={sidebarCollapsed}
             onClick={() => setSidebarCollapsed((v) => !v)}
           >
-            <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d={
-                  sidebarCollapsed
-                    ? "M12.75 5.25l7.5 7.5-7.5 7.5M5.25 5.25l7.5 7.5-7.5 7.5"
-                    : "M11.25 18.75l-7.5-7.5 7.5-7.5M18.75 18.75l-7.5-7.5 7.5-7.5"
-                }
-              />
-            </svg>
+            <span className="app-sidebar__collapse-icon-btn" aria-hidden>
+              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d={
+                    sidebarCollapsed
+                      ? "M12.75 5.25l7.5 7.5-7.5 7.5M5.25 5.25l7.5 7.5-7.5 7.5"
+                      : "M11.25 18.75l-7.5-7.5 7.5-7.5M18.75 18.75l-7.5-7.5 7.5-7.5"
+                  }
+                />
+              </svg>
+            </span>
+            <span className="app-sidebar__collapse-label">
+              {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            </span>
           </button>
         </div>
       </aside>
