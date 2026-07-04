@@ -724,8 +724,8 @@ function IntegrationsContent() {
   );
 }
 
-/** Surfaces IaC repository, Jira, and Slack when not yet connected, plus
-    browse-catalog. No backfill when a recommended connector is already active. */
+/** Tiered recommendations (IaC/Jira/Slack → GitHub/GitLab → Workspace) plus
+    browse-catalog. Hides the section heading when every tier is connected. */
 function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
   const cards = getRecommendedIntegrationKeys(hiddenKeys)
     .map((key) => catalogEntryByKey(key))

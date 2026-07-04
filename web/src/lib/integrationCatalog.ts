@@ -226,10 +226,19 @@ export function catalogEntryCount(catalog: CatalogCategory[], hiddenKeys: Readon
   );
 }
 
-/** Fixed priority order for the integrations hub recommendation strip. */
-export const RECOMMENDED_INTEGRATION_KEYS = ["iac-repository", "jira", "slack"] as const;
+/** Tier 1: IaC repository, Jira, Slack — shown until all three are connected. */
+export const RECOMMENDED_INTEGRATION_TIER_1 = ["iac-repository", "jira", "slack"] as const;
 
-export type RecommendedIntegrationKey = (typeof RECOMMENDED_INTEGRATION_KEYS)[number];
+/** Tier 2: GitHub, GitLab — shown when tier 1 is fully connected. */
+export const RECOMMENDED_INTEGRATION_TIER_2 = ["github", "gitlab"] as const;
+
+/** Tier 3: Google Workspace — shown when tiers 1 and 2 are fully connected. */
+export const RECOMMENDED_INTEGRATION_TIER_3 = ["google-workspace"] as const;
+
+export type RecommendedIntegrationKey =
+  | (typeof RECOMMENDED_INTEGRATION_TIER_1)[number]
+  | (typeof RECOMMENDED_INTEGRATION_TIER_2)[number]
+  | (typeof RECOMMENDED_INTEGRATION_TIER_3)[number];
 
 export function catalogEntryByKey(key: string): CatalogEntry | undefined {
   for (const category of INTEGRATION_CATALOG) {
@@ -239,13 +248,40 @@ export function catalogEntryByKey(key: string): CatalogEntry | undefined {
   return undefined;
 }
 
-/** Recommended integrations that are not yet connected, in priority order. */
+function isRecommendableCatalogKey(key: string, hiddenKeys: ReadonlySet<string>): boolean {
+  if (hiddenKeys.has(key)) return false;
+  const entry = catalogEntryByKey(key);
+  return !!entry?.href && !entry.comingSoon;
+}
+
+function unconnectedInTier(
+  tier: readonly string[],
+  hiddenKeys: ReadonlySet<string>,
+): RecommendedIntegrationKey[] {
+  return tier.filter((key) => isRecommendableCatalogKey(key, hiddenKeys)) as RecommendedIntegrationKey[];
+}
+
+function tierFullyConnected(tier: readonly string[], hiddenKeys: ReadonlySet<string>): boolean {
+  return tier.every((key) => {
+    const entry = catalogEntryByKey(key);
+    if (!entry?.href || entry.comingSoon) return true;
+    return hiddenKeys.has(key);
+  });
+}
+
+/** Recommended integrations for the hub strip — tiered, no backfill beyond tier 3. */
 export function getRecommendedIntegrationKeys(
   hiddenKeys: ReadonlySet<string>,
 ): RecommendedIntegrationKey[] {
-  return RECOMMENDED_INTEGRATION_KEYS.filter((key) => {
-    if (hiddenKeys.has(key)) return false;
-    const entry = catalogEntryByKey(key);
-    return !!entry?.href && !entry.comingSoon;
-  });
+  const tier1 = unconnectedInTier(RECOMMENDED_INTEGRATION_TIER_1, hiddenKeys);
+  if (tier1.length > 0) return tier1;
+
+  if (!tierFullyConnected(RECOMMENDED_INTEGRATION_TIER_1, hiddenKeys)) return [];
+
+  const tier2 = unconnectedInTier(RECOMMENDED_INTEGRATION_TIER_2, hiddenKeys);
+  if (tier2.length > 0) return tier2;
+
+  if (!tierFullyConnected(RECOMMENDED_INTEGRATION_TIER_2, hiddenKeys)) return [];
+
+  return unconnectedInTier(RECOMMENDED_INTEGRATION_TIER_3, hiddenKeys);
 }
