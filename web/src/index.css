@@ -164,19 +164,19 @@
   }
 
   .veritrail-app-header__breadcrumb-link {
-    color: var(--vt-teal);
+    color: var(--vt-info);
     text-decoration: none;
     transition: color 0.15s ease;
   }
 
   .veritrail-app-header__breadcrumb-link:hover {
-    color: var(--vt-teal-hover);
+    color: #1d4ed8;
   }
 
   .veritrail-app-header__breadcrumb-link:focus-visible {
     outline: none;
     border-radius: 0.25rem;
-    box-shadow: 0 0 0 2px rgb(13 148 136 / 0.18);
+    box-shadow: 0 0 0 2px rgb(37 99 235 / 0.18);
   }
 
   .veritrail-app-header__breadcrumb-sep {
