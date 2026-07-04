@@ -265,15 +265,15 @@ def test_jira_issue_description_includes_actionable_remediation_context():
 
     assert description.startswith("Opened by: Eliazar Chodjayev\n")
     assert "Opened by: Eliazar Chodjayev\nOpened at:" in description
-    assert "Account: prod (123456789012)\n\nSeverity: HIGH · Risk score: 85\n" in description
+    assert "Account: prod (123456789012)\n\nSeverity: HIGH · Risk score 85\n" in description
     assert (
-        "Severity: HIGH · Risk score: 85\n"
+        "Severity: HIGH · Risk score 85\n"
         "Check: iam.role.least_privilege_policy\n"
         "Resource: arn:aws:iam::123456789012:role/CCLabAdminRole\n\n"
         "Recommended remediation\n"
     ) in description
     assert "Severity: HIGH · Risk score: 85\n\nCheck:" not in description
-    assert "Replace broad IAM permissions with least-privilege policies" in description
+    assert "Scope this IAM role to the permissions observed in use" in description
     assert (
         "explicitly required and approved.\n\n"
         "Why this matters\n"
@@ -281,7 +281,7 @@ def test_jira_issue_description_includes_actionable_remediation_context():
     assert (
         "until it is fixed and verified.\n\n"
         "Verification\n"
-        "After the change is applied"
+        "After remediation, return to Veritrail and run Verify fix"
     ) in description
     assert description.endswith("https://app.example/findings?finding=1")
 

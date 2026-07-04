@@ -54,6 +54,7 @@ const LABEL_COLORS: Record<string, { bg: string; text: string }> = {
   medium: { bg: "#FFF7D6", text: "#974F0C" },
   low: { bg: "#E9F2FF", text: "#0055CC" },
   risk: { bg: "#DFE1E6", text: "#44546F" },
+  "least-privilege": { bg: "#E9F2FF", text: "#0055CC" },
 };
 
 function defaultPriority(severity: string): Priority {
@@ -68,8 +69,11 @@ function defaultSummary(finding: FindingSummary): string {
 }
 
 function remediationCopy(finding: FindingSummary): string {
+  if (finding.check_id.startsWith("iam.role") && finding.check_id.includes("least_privilege")) {
+    return "Scope this IAM role to the permissions observed in use. Remove wildcard Action:* and Resource:* permissions unless they are explicitly required and approved.";
+  }
   if (finding.check_id.includes("least_privilege")) {
-    return "Replace broad IAM permissions with least-privilege policies scoped to observed usage. Remove wildcard Action:* and Resource:* access unless explicitly required and approved.";
+    return "Scope this resource to the permissions observed in use. Remove wildcard permissions unless they are explicitly required and approved.";
   }
   if (finding.check_id.includes("mfa")) {
     return "Enable MFA for the affected identity, then re-scan the account to confirm the finding is resolved.";
@@ -545,8 +549,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   const issueLabels = useMemo(() => {
     const labels = ["veritrail", finding.severity];
     if (riskLabelSelected) labels.push("risk");
+    if (finding.check_id.includes("least_privilege")) labels.push("least-privilege");
     return labels;
-  }, [finding.severity, riskLabelSelected]);
+  }, [finding.check_id, finding.severity, riskLabelSelected]);
 
   useEffect(() => {
     setOpen(false);
@@ -679,7 +684,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
       remediationCopy(finding),
       "",
       "Verification",
-      "Apply the fix, return to Veritrail, and run Verify fix before closing this ticket.",
+      "After remediation, return to Veritrail and run Verify fix. Close this issue only after verification passes.",
     ];
     return lines.join("\n");
   }, [finding]);
@@ -936,6 +941,9 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                         <div className="flex flex-wrap items-center gap-1.5">
                           <JiraLabelPill label="veritrail" />
                           <JiraLabelPill label={finding.severity} />
+                          {finding.check_id.includes("least_privilege") ? (
+                            <JiraLabelPill label="least-privilege" />
+                          ) : null}
                           {riskLabelSelected ? <JiraLabelPill label="risk" /> : null}
                           <button
                             type="button"

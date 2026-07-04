@@ -1,8 +1,9 @@
-import { assetTypeLabel, displayFindingTitle, resourceName } from "./findingDisplay";
+import { displayFindingTitle, resourceName } from "./findingDisplay";
 
 const VERITRAIL_PREFIX = "[Veritrail]";
 
 const EMBEDDED_RESOURCE_RE = /^(.+?)\s+[`']([^`']+)[`'](.*)$/s;
+const NAME_BOUNDARY_RE = (name: string) => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
 
 function namesMatch(embeddedName: string, shortName: string): boolean {
   return embeddedName === shortName || embeddedName.toLowerCase() === shortName.toLowerCase();
@@ -22,25 +23,38 @@ function parseEmbeddedTitle(title: string): { titleType: string; embeddedName: s
   };
 }
 
-function normalizeTypeLabel(titleType: string, checkTypeLabel: string): string {
-  const trimmed = titleType.trim();
-  if (!trimmed) return checkTypeLabel;
-  const titleLower = trimmed.toLowerCase();
-  const checkLower = checkTypeLabel.toLowerCase();
-  if (titleLower === "role" || titleLower === "user") return checkTypeLabel;
-  if (titleLower === checkLower || titleLower.includes(checkLower) || checkLower.includes(titleLower)) {
-    return checkTypeLabel;
+function violationSummaryFromCheck(checkId: string): string {
+  if (checkId.includes("least_privilege")) {
+    return "Least privilege violation";
   }
-  return trimmed
-    .split(" ")
-    .map((word) => {
-      const lower = word.toLowerCase();
-      if (lower === "iam") return "IAM";
-      if (lower === "aws") return "AWS";
-      if (lower === "s3") return "S3";
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(" ");
+  const parts = checkId.split(".");
+  if (parts.length >= 2) {
+    const noun = parts[parts.length - 1].replace(/_/g, " ");
+    if (noun) {
+      return noun.charAt(0).toUpperCase() + noun.slice(1);
+    }
+  }
+  return "Security finding";
+}
+
+function extractViolationSummary(detail: string, checkId: string): string {
+  const text = detail.trim();
+  if (!text) return violationSummaryFromCheck(checkId);
+  if (text.toLowerCase().startsWith("least privilege violation")) {
+    return "Least privilege violation";
+  }
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function violationFromDisplayTitle(displayTitle: string, shortName: string, checkId: string): string {
+  const match = displayTitle.match(NAME_BOUNDARY_RE(shortName));
+  if (match && match.index !== undefined && match.index > 0) {
+    const after = cleanDetail(displayTitle.slice(match.index + match[0].length));
+    if (after) {
+      return extractViolationSummary(after, checkId);
+    }
+  }
+  return extractViolationSummary(displayTitle, checkId);
 }
 
 export function buildJiraIssueSummary(finding: {
@@ -50,20 +64,18 @@ export function buildJiraIssueSummary(finding: {
 }): string {
   const shortName = resourceName(finding.resource_arn);
   const displayTitle = displayFindingTitle(finding.title).trim();
-  const checkTypeLabel = assetTypeLabel(finding.check_id);
 
   const parsed = parseEmbeddedTitle(displayTitle);
   if (parsed && namesMatch(parsed.embeddedName, shortName)) {
-    const headline = `${normalizeTypeLabel(parsed.titleType, checkTypeLabel)} ${shortName}`;
-    if (parsed.detail) {
-      return `${VERITRAIL_PREFIX} ${headline} — ${parsed.detail}`;
-    }
-    return `${VERITRAIL_PREFIX} ${headline}`;
+    const violation = extractViolationSummary(parsed.detail, finding.check_id);
+    return `${VERITRAIL_PREFIX} ${violation}: ${shortName}`;
   }
 
-  if (shortName && displayTitle.includes(shortName)) {
-    return `${VERITRAIL_PREFIX} ${displayTitle}`;
+  if (shortName && displayTitle.toLowerCase().includes(shortName.toLowerCase())) {
+    const violation = violationFromDisplayTitle(displayTitle, shortName, finding.check_id);
+    return `${VERITRAIL_PREFIX} ${violation}: ${shortName}`;
   }
 
-  return `${VERITRAIL_PREFIX} ${shortName} — ${displayTitle}`;
+  const violation = extractViolationSummary(displayTitle, finding.check_id);
+  return `${VERITRAIL_PREFIX} ${violation}: ${shortName}`;
 }

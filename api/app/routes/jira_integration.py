@@ -104,10 +104,15 @@ class JiraIssueCreateIn(BaseModel):
 
 
 def _recommended_remediation(finding: Finding) -> str:
+    if finding.check_id.startswith("iam.role") and "least_privilege" in finding.check_id:
+        return (
+            "Scope this IAM role to the permissions observed in use. "
+            "Remove wildcard Action:* and Resource:* permissions unless they are explicitly required and approved."
+        )
     if "least_privilege" in finding.check_id:
         return (
-            "Replace broad IAM permissions with least-privilege policies scoped to observed usage. "
-            "Remove wildcard Action:* and Resource:* access unless it is explicitly required and approved."
+            "Scope this resource to the permissions observed in use. "
+            "Remove wildcard permissions unless they are explicitly required and approved."
         )
     if "mfa" in finding.check_id:
         return "Enable MFA for the affected identity, then re-scan the account to confirm the finding is resolved."
@@ -132,7 +137,7 @@ def _issue_description(
         f"Opened by: {actor}\n"
         f"Opened at: {opened_at}\n"
         f"Account: {account_label}\n\n"
-        f"Severity: {finding.severity.upper()} · Risk score: {finding.risk_score}\n"
+        f"Severity: {finding.severity.upper()} · Risk score {finding.risk_score}\n"
         f"Check: {finding.check_id}\n"
         f"Resource: {finding.resource_arn}\n\n"
         "Recommended remediation\n"
@@ -141,8 +146,8 @@ def _issue_description(
         "This finding is currently open in Veritrail and may expose the account to unnecessary access, "
         "audit evidence gaps, or remediation drift until it is fixed and verified.\n\n"
         "Verification\n"
-        "After the change is applied, return to the finding in Veritrail and run Verify fix. "
-        "Keep this ticket open until Veritrail confirms the finding is resolved.\n\n"
+        "After remediation, return to Veritrail and run Verify fix. "
+        "Close this issue only after verification passes.\n\n"
         f"Open finding in Veritrail: {finding_url}"
     )
 
@@ -359,6 +364,8 @@ def create_issue_from_finding(
         labels.insert(0, "veritrail")
     if finding.severity not in labels:
         labels.append(finding.severity)
+    if "least_privilege" in finding.check_id and "least-privilege" not in labels:
+        labels.append("least-privilege")
     priority = body.priority.strip() if body.priority else None
     assignee_account_id = body.assignee_account_id.strip() if body.assignee_account_id else None
     project_key = (body.project_key or cfg.get("project_key") or "").strip().upper()

@@ -35,6 +35,7 @@ _TITLE_CASE_ACRONYMS = {
 }
 
 _EMBEDDED_RESOURCE_RE = re.compile(r"^(.+?)\s+[`']([^`']+)[`'](.*)$", re.DOTALL)
+_NAME_BOUNDARY_RE_TEMPLATE = r"\b{}\b"
 
 
 def _resource_name(resource_arn: str) -> str:
@@ -81,7 +82,8 @@ def _names_match(embedded_name: str, short_name: str) -> bool:
 
 
 def _clean_detail(rest: str) -> str:
-    return re.sub(r"^\s*—\s*", "", rest.strip())
+    cleaned = re.sub(r"^\s*—\s*", "", rest.strip())
+    return cleaned.strip()
 
 
 def _parse_embedded_title(title: str) -> tuple[str, str, str] | None:
@@ -91,21 +93,50 @@ def _parse_embedded_title(title: str) -> tuple[str, str, str] | None:
     return match.group(1).strip(), match.group(2).strip(), _clean_detail(match.group(3))
 
 
+def _violation_summary_from_check(check_id: str) -> str:
+    if "least_privilege" in check_id:
+        return "Least privilege violation"
+    parts = check_id.split(".")
+    if len(parts) >= 2:
+        noun = parts[-1].replace("_", " ")
+        if noun:
+            return noun[0].upper() + noun[1:]
+    return "Security finding"
+
+
+def _extract_violation_summary(detail: str, check_id: str) -> str:
+    text = detail.strip()
+    if not text:
+        return _violation_summary_from_check(check_id)
+    if text.lower().startswith("least privilege violation"):
+        return "Least privilege violation"
+    return text[0].upper() + text[1:]
+
+
+def _violation_from_display_title(display_title: str, short_name: str, check_id: str) -> str:
+    pattern = _NAME_BOUNDARY_RE_TEMPLATE.format(re.escape(short_name))
+    match = re.search(pattern, display_title, re.IGNORECASE)
+    if match and match.start() > 0:
+        after = _clean_detail(display_title[match.end() :])
+        if after:
+            return _extract_violation_summary(after, check_id)
+    return _extract_violation_summary(display_title, check_id)
+
+
 def build_jira_issue_summary(*, check_id: str, resource_arn: str, title: str) -> str:
     short_name = _resource_name(resource_arn)
     display_title = (title or "").strip()
-    check_type_label = _asset_type_label(check_id)
 
     parsed = _parse_embedded_title(display_title)
     if parsed:
-        title_type, embedded_name, detail = parsed
+        _title_type, embedded_name, detail = parsed
         if _names_match(embedded_name, short_name):
-            headline = f"{_normalize_type_label(title_type, check_type_label)} {short_name}"
-            if detail:
-                return f"{_VERITRAIL_PREFIX} {headline} — {detail}"
-            return f"{_VERITRAIL_PREFIX} {headline}"
+            violation = _extract_violation_summary(detail, check_id)
+            return f"{_VERITRAIL_PREFIX} {violation}: {short_name}"
 
-    if short_name and short_name in display_title:
-        return f"{_VERITRAIL_PREFIX} {display_title}"
+    if short_name and short_name.lower() in display_title.lower():
+        violation = _violation_from_display_title(display_title, short_name, check_id)
+        return f"{_VERITRAIL_PREFIX} {violation}: {short_name}"
 
-    return f"{_VERITRAIL_PREFIX} {short_name} — {display_title}"
+    violation = _extract_violation_summary(display_title, check_id)
+    return f"{_VERITRAIL_PREFIX} {violation}: {short_name}"

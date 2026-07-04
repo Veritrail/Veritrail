@@ -10,9 +10,7 @@ def test_jira_summary_iam_role_least_privilege_deduplicates_name():
         resource_arn="arn:aws:iam::123456789012:role/CCLabAdminRole",
         title="Role `CCLabAdminRole` — least privilege violation (Action:* and Resource:*)",
     )
-    assert summary == (
-        "[Veritrail] IAM Role CCLabAdminRole — least privilege violation (Action:* and Resource:*)"
-    )
+    assert summary == "[Veritrail] Least privilege violation: CCLabAdminRole"
 
 
 def test_jira_summary_iam_role_unassumed_keeps_detail():
@@ -21,7 +19,7 @@ def test_jira_summary_iam_role_unassumed_keeps_detail():
         resource_arn="arn:aws:iam::123456789012:role/StagingDeployRole",
         title="Role `StagingDeployRole` has not been assumed for 90+ days",
     )
-    assert summary == "[Veritrail] IAM Role StagingDeployRole — has not been assumed for 90+ days"
+    assert summary == "[Veritrail] Has not been assumed for 90+ days: StagingDeployRole"
 
 
 def test_jira_summary_s3_bucket():
@@ -30,7 +28,7 @@ def test_jira_summary_s3_bucket():
         resource_arn="arn:aws:s3:::my-audit-bucket",
         title="S3 bucket `my-audit-bucket` has access logging disabled",
     )
-    assert summary == "[Veritrail] S3 Bucket my-audit-bucket — has access logging disabled"
+    assert summary == "[Veritrail] Has access logging disabled: my-audit-bucket"
 
 
 def test_jira_summary_when_title_already_includes_name():
@@ -39,7 +37,7 @@ def test_jira_summary_when_title_already_includes_name():
         resource_arn="//compute.googleapis.com/projects/demo/zones/us-central1-a/instances/web-1",
         title="GCP asset web-1 has a public IAM binding",
     )
-    assert summary == "[Veritrail] GCP asset web-1 has a public IAM binding"
+    assert summary == "[Veritrail] Has a public IAM binding: web-1"
 
 
 def test_jira_summary_fallback_prefixes_short_name():
@@ -48,4 +46,4 @@ def test_jira_summary_fallback_prefixes_short_name():
         resource_arn="arn:aws:iam::123456789012:root",
         title="Root user called DeleteTrail — review immediately",
     )
-    assert summary == "[Veritrail] root — Root user called DeleteTrail — review immediately"
+    assert summary == "[Veritrail] Root user called DeleteTrail — review immediately: root"
