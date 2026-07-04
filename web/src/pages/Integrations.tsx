@@ -26,8 +26,10 @@ import {
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import {
   catalogEntryByKey,
+  connectedCatalogKeys,
+  getRecommendedIntegrationKeys,
   MAX_INLINE_RECOMMENDED_CARDS,
-  RECOMMENDED_INTEGRATION_KEYS,
+  type ConnectedCatalogState,
 } from "../lib/integrationCatalog";
 import { PostureMetricCell } from "./Workspace";
 import "../styles/integrations-page.css";
@@ -695,40 +697,42 @@ function IntegrationsContent() {
       </div>
 
       <RecommendedIntegrations
-        entraConnected={entraConnected}
-        jiraConnected={jiraConnected}
-        iacConnected={iacRepositoryConnected}
-        snykConnected={!!snykScanner.data?.connected}
+        hiddenKeys={connectedCatalogKeys({
+          awsConnected,
+          githubConnected,
+          gitlabConnected,
+          googleConnected,
+          entraConnected,
+          oktaConnected,
+          slackConnected,
+          gcpConnected,
+          azureConnected,
+          iacRepositoryConnected,
+          jiraConnected,
+          splunkConnected,
+          datadogConnected,
+          connectedScanners: {
+            snyk: !!snykScanner.data?.connected,
+            wiz: !!wizScanner.data?.connected,
+            tenable: !!tenableScanner.data?.connected,
+            qualys: !!qualysScanner.data?.connected,
+            orca: !!orcaScanner.data?.connected,
+            aikido: !!aikidoScanner.data?.connected,
+          },
+        } satisfies ConnectedCatalogState)}
       />
     </div>
   );
 }
 
 /** A small curated set of high-value NON-cloud connectors surfaced inline; the
-    full list lives behind "Browse integration catalog". Each card hides once
-    connected. At most {@link MAX_INLINE_RECOMMENDED_CARDS} connector cards
-    plus the browse-catalog card (4 total). Cloud providers are intentionally
-    excluded — they onboard from the Accounts page, not here. */
-function RecommendedIntegrations({
-  entraConnected,
-  jiraConnected,
-  iacConnected,
-  snykConnected,
-}: {
-  entraConnected: boolean;
-  jiraConnected: boolean;
-  iacConnected: boolean;
-  snykConnected: boolean;
-}) {
-  const connectedByKey: Record<string, boolean> = {
-    "iac-repository": iacConnected,
-    entra: entraConnected,
-    jira: jiraConnected,
-    snyk: snykConnected,
-  };
-
-  const cards = RECOMMENDED_INTEGRATION_KEYS.filter((key) => !connectedByKey[key])
-    .slice(0, MAX_INLINE_RECOMMENDED_CARDS)
+    full list lives behind "Browse integration catalog". Always shows
+    {@link MAX_INLINE_RECOMMENDED_CARDS} connector cards (when enough remain)
+    plus the browse-catalog card (4 total). Connected recommendations are
+    replaced by the next key in {@link RECOMMENDED_INTEGRATION_KEYS}. Cloud
+    providers are intentionally excluded — they onboard from Accounts. */
+function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
+  const cards = getRecommendedIntegrationKeys(hiddenKeys)
     .map((key) => catalogEntryByKey(key))
     .filter((entry): entry is NonNullable<typeof entry> => !!entry?.href);
 

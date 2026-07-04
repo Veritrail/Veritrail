@@ -152,12 +152,26 @@ export function catalogEntryCount(catalog: CatalogCategory[], hiddenKeys: Readon
   );
 }
 
-/** Curated keys surfaced on the main Integrations page when not yet connected. */
+/** Priority-ordered keys for the integrations hub recommendation strip.
+ *  Google Workspace is preferred over Microsoft Entra ID when both are candidates.
+ *  Cloud providers (AWS/GCP/Azure) are excluded — they onboard from Accounts. */
 export const RECOMMENDED_INTEGRATION_KEYS = [
   "iac-repository",
-  "entra",
+  "google-workspace",
   "jira",
   "snyk",
+  "entra",
+  "github",
+  "okta",
+  "slack",
+  "gitlab",
+  "aikido",
+  "wiz",
+  "datadog",
+  "splunk",
+  "tenable",
+  "qualys",
+  "orca",
 ] as const;
 
 /** Connector cards shown inline; browse-catalog card is always the 4th slot. */
@@ -171,4 +185,20 @@ export function catalogEntryByKey(key: string): CatalogEntry | undefined {
     if (entry) return entry;
   }
   return undefined;
+}
+
+/** Top N connectable recommendations that are not yet connected. */
+export function getRecommendedIntegrationKeys(
+  hiddenKeys: ReadonlySet<string>,
+  limit = MAX_INLINE_RECOMMENDED_CARDS,
+): RecommendedIntegrationKey[] {
+  const keys: RecommendedIntegrationKey[] = [];
+  for (const key of RECOMMENDED_INTEGRATION_KEYS) {
+    if (hiddenKeys.has(key)) continue;
+    const entry = catalogEntryByKey(key);
+    if (!entry?.href || entry.comingSoon) continue;
+    keys.push(key);
+    if (keys.length >= limit) break;
+  }
+  return keys;
 }
