@@ -916,8 +916,15 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                                       className="flex w-full items-center gap-2 border-l-2 border-l-transparent px-2 py-1.5 text-left hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
                                     >
                                       <UserAvatar user={user} size="sm" />
-                                      <span className="min-w-0 truncate text-sm text-[#172B4D]">
-                                        {user.display_name}
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-sm text-[#172B4D]">
+                                          {user.display_name}
+                                        </span>
+                                        {user.email?.trim() ? (
+                                          <span className="block truncate text-xs text-[#626F86]">
+                                            {user.email.trim()}
+                                          </span>
+                                        ) : null}
                                       </span>
                                     </button>
                                   ))
