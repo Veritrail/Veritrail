@@ -6810,44 +6810,6 @@ export function FindingDrawer({
           </button>
         </div>
       )}
-      {jiraIssue && !githubIssue && (
-        <div
-          className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-[12px] ${
-            jiraStatus?.is_done
-              ? "border-emerald-200 bg-emerald-50/90 text-emerald-950"
-              : "border-sky-200 bg-sky-50/90 text-sky-950"
-          }`}
-        >
-          <p className="min-w-0 flex-1">
-            <span className="font-semibold">Jira ticket: </span>
-            <a
-              href={jiraIssue.issue_url}
-              target="_blank"
-              rel="noreferrer"
-              className={`font-medium underline ${jiraStatus?.is_done ? "text-emerald-800" : "text-sky-800"}`}
-            >
-              {jiraIssue.issue_key}
-            </a>
-            {jiraStatus?.status ? (
-              <span className={jiraStatus.is_done ? "text-emerald-800" : "text-sky-800"}>
-                {" "}
-                · {jiraStatus.status}
-              </span>
-            ) : jiraStatusFetching ? (
-              <span className="text-sky-700"> · Syncing status…</span>
-            ) : null}
-          </p>
-          <button
-            type="button"
-            onClick={() => setConfirmRemoveTicket(true)}
-            className={`shrink-0 text-[11px] font-medium hover:opacity-90 ${
-              jiraStatus?.is_done ? "text-emerald-900/80" : "text-sky-900/80"
-            }`}
-          >
-            Remove
-          </button>
-        </div>
-      )}
       <ConfirmDialog
         open={confirmRemoveTicket}
         title="Remove remediation ticket link?"
@@ -6877,6 +6839,10 @@ export function FindingDrawer({
             summaryRisk={checkDoc?.overview?.exposure ?? checkDoc?.overview?.context ?? ops.impact}
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}
+            jiraIssue={jiraIssue && !githubIssue ? jiraIssue : null}
+            jiraStatus={jiraStatus}
+            jiraStatusFetching={jiraStatusFetching}
+            onRemoveJira={() => setConfirmRemoveTicket(true)}
           />
           {hasException && (
             <ExceptionFlowPanel

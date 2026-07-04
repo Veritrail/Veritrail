@@ -15,6 +15,8 @@ import {
   waitForRecheckUpdate,
 } from "../lib/recheckPoll";
 import { remediationSummaryForFinding } from "../data/remediationSummaries";
+import type { JiraIssueStatus } from "../hooks/useJiraIssueStatus";
+import type { RemediationTicket } from "../lib/remediationTicket";
 import type { RecheckBatchResponse } from "../context/RecheckNotificationsContext";
 import { CloudProviderMark } from "./FindingResourceIcon";
 import "../styles/finding-resources-tab.css";
@@ -261,25 +263,86 @@ function RecommendedActionMark({ className }: { className?: string }) {
   );
 }
 
+function JiraPostureMetric({
+  issue,
+  status,
+  statusFetching,
+  onRemove,
+}: {
+  issue: RemediationTicket;
+  status?: JiraIssueStatus;
+  statusFetching?: boolean;
+  onRemove?: () => void;
+}) {
+  const statusLabel = status?.status
+    ? status.status
+    : statusFetching
+      ? "Syncing…"
+      : null;
+  const done = status?.is_done ?? false;
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-5 text-center">
+      <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">Jira</p>
+      <a
+        href={issue.issue_url}
+        target="_blank"
+        rel="noreferrer"
+        className="text-[15px] font-bold leading-none text-zinc-900 underline decoration-zinc-300 underline-offset-2 transition hover:text-[#439385] hover:decoration-[#439385]/40"
+        title={`Open ${issue.issue_key} in Jira`}
+      >
+        {issue.issue_key}
+      </a>
+      {statusLabel ? (
+        <p className={`max-w-full truncate text-[11px] leading-tight ${done ? "text-emerald-600" : "text-zinc-500"}`}>
+          {statusLabel}
+        </p>
+      ) : null}
+      {onRemove ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="mt-0.5 text-[10px] font-medium text-zinc-400 transition hover:text-zinc-600"
+        >
+          Remove
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function ResourcesPostureStrip({
   selectedFinding,
   groupFindings,
   summaryRisk,
   summaryAction,
   onViewRemediation,
+  jiraIssue,
+  jiraStatus,
+  jiraStatusFetching,
+  onRemoveJira,
 }: {
   selectedFinding: ResourcesTabFinding;
   groupFindings: ResourcesTabFinding[];
   summaryRisk?: string | null;
   summaryAction?: string | null;
   onViewRemediation?: () => void;
+  jiraIssue?: RemediationTicket | null;
+  jiraStatus?: JiraIssueStatus;
+  jiraStatusFetching?: boolean;
+  onRemoveJira?: () => void;
 }) {
   const unique = dedupeByArn(groupFindings);
   const scoreTone = riskScoreTone(selectedFinding.severity);
+  const showJira = !!jiraIssue;
 
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-      <div className="grid w-full shrink-0 grid-cols-2 divide-x divide-zinc-100 rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03] lg:w-[16.5rem]">
+      <div
+        className={`grid w-full shrink-0 divide-x divide-zinc-100 rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03] ${
+          showJira ? "grid-cols-3 lg:w-[24.75rem]" : "grid-cols-2 lg:w-[16.5rem]"
+        }`}
+      >
         <div className="flex flex-col items-center justify-center gap-2 px-4 py-5 text-center">
           <p className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-400">
             Resources
@@ -294,6 +357,14 @@ function ResourcesPostureStrip({
             {selectedFinding.risk_score}
           </p>
         </div>
+        {showJira && jiraIssue ? (
+          <JiraPostureMetric
+            issue={jiraIssue}
+            status={jiraStatus}
+            statusFetching={jiraStatusFetching}
+            onRemove={onRemoveJira}
+          />
+        ) : null}
       </div>
 
       {summaryAction ? (
@@ -548,6 +619,10 @@ export function FindingResourcesTab({
   summaryRisk,
   summaryAction,
   onViewRemediation,
+  jiraIssue,
+  jiraStatus,
+  jiraStatusFetching,
+  onRemoveJira,
 }: {
   selectedFinding: ResourcesTabFinding;
   groupFindings: ResourcesTabFinding[];
@@ -555,6 +630,10 @@ export function FindingResourcesTab({
   summaryRisk?: string | null;
   summaryAction?: string | null;
   onViewRemediation?: () => void;
+  jiraIssue?: RemediationTicket | null;
+  jiraStatus?: JiraIssueStatus;
+  jiraStatusFetching?: boolean;
+  onRemoveJira?: () => void;
 }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -771,6 +850,10 @@ export function FindingResourcesTab({
         summaryRisk={summaryRisk}
         summaryAction={summaryAction}
         onViewRemediation={onViewRemediation}
+        jiraIssue={jiraIssue}
+        jiraStatus={jiraStatus}
+        jiraStatusFetching={jiraStatusFetching}
+        onRemoveJira={onRemoveJira}
       />
 
       {/* Toolbar — separate controls on one line, no shared card */}
