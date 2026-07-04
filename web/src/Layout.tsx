@@ -333,8 +333,8 @@ export default function Layout() {
                   strokeLinejoin="round"
                   d={
                     sidebarCollapsed
-                      ? "M12.75 5.25l7.5 7.5-7.5 7.5M5.25 5.25l7.5 7.5-7.5 7.5"
-                      : "M11.25 18.75l-7.5-7.5 7.5-7.5M18.75 18.75l-7.5-7.5 7.5-7.5"
+                      ? "M8.25 4.5l7.5 7.5-7.5 7.5"
+                      : "M15.75 19.5L8.25 12l7.5-7.5"
                   }
                 />
               </svg>

@@ -86,14 +86,16 @@
   height: 2.25rem;
   align-items: center;
   gap: 0.625rem;
+  margin-top: 10px;
+  margin-bottom: 8px;
   border: 0;
   border-radius: 0.5rem;
   background: transparent;
   padding: 0 0.25rem;
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.25;
-  color: #9aa8ba;
+  color: #a8b3c3;
   text-align: left;
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
@@ -101,28 +103,21 @@
 
 .app-sidebar__collapse-row:hover,
 .app-sidebar__collapse-row:focus-visible {
-  color: #e6eef8;
-  background: rgba(148, 163, 184, 0.08);
+  color: #e5edf7;
+  background: rgba(148, 163, 184, 0.07);
   outline: none;
 }
 
 .app-sidebar__collapse-icon-btn {
   display: inline-flex;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
-  background: rgba(148, 163, 184, 0.1);
-  color: #b8c4d4;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.app-sidebar__collapse-row:hover .app-sidebar__collapse-icon-btn,
-.app-sidebar__collapse-row:focus-visible .app-sidebar__collapse-icon-btn {
-  background: rgba(148, 163, 184, 0.14);
-  color: #e6eef8;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  color: #aab6c6;
 }
 
 .app-sidebar__collapse-icon-btn svg {
@@ -138,7 +133,7 @@
 }
 
 .app-sidebar__footer-divider {
-  margin: 14px 0 12px;
+  margin: 14px 0 0;
   border-top: 1px solid rgba(148, 163, 184, 0.14);
 }
 
