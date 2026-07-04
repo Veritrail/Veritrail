@@ -202,6 +202,16 @@ export default function IntegrationCatalog() {
 
   return (
     <div className="integrations-page integration-catalog">
+      <header className="integration-catalog__intro">
+        <Link to="/integrations" className="integration-catalog__back">
+          ← Connected integrations
+        </Link>
+        <h1 className="integration-catalog__title">Integration catalog</h1>
+        <p className="integration-catalog__subtitle">
+          Connect tools to collect evidence, enrich findings, and route remediation.
+        </p>
+      </header>
+
       <div className="integration-catalog__toolbar" role="search">
         <label className="integration-catalog__search">
           <span className="sr-only">Search integrations</span>
@@ -249,12 +259,6 @@ export default function IntegrationCatalog() {
         </div>
       </div>
 
-      <header className="integration-catalog__intro">
-        <Link to="/integrations" className="integration-catalog__back">
-          ← Connected integrations
-        </Link>
-      </header>
-
       {filtered.length === 0 ? (
         <p className="integration-catalog__empty">{emptyMessage}</p>
       ) : (
@@ -263,12 +267,14 @@ export default function IntegrationCatalog() {
             <section key={cat.id} id={cat.id} className="integration-catalog__section">
               <div className="integration-catalog__section-head">
                 <div className="integration-catalog__section-copy">
-                  <h2>{cat.title}</h2>
+                  <div className="integration-catalog__section-title-row">
+                    <h2>{cat.title}</h2>
+                    <span className="integration-catalog__section-count">
+                      {catalogSectionCountLabel(cat.entries.length, statusFilter)}
+                    </span>
+                  </div>
                   <p>{cat.blurb}</p>
                 </div>
-                <span className="integration-catalog__section-count">
-                  {catalogSectionCountLabel(cat.entries.length, statusFilter)}
-                </span>
               </div>
               <div className="integrations-explore-grid integration-catalog__grid">
                 {cat.entries.map((entry) => {

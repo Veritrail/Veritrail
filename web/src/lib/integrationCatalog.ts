@@ -193,16 +193,21 @@ export function filterCatalog(
 
 export function catalogSectionCountLabel(count: number, statusFilter: CatalogStatusFilter): string {
   if (count === 0) return "";
+  let label: string;
   switch (statusFilter) {
     case "available":
-      return count === 1 ? "1 available" : `${count} available`;
+      label = count === 1 ? "1 available" : `${count} available`;
+      break;
     case "connected":
-      return count === 1 ? "1 connected" : `${count} connected`;
+      label = count === 1 ? "1 connected" : `${count} connected`;
+      break;
     case "coming-soon":
-      return count === 1 ? "1 coming soon" : `${count} coming soon`;
+      label = count === 1 ? "1 coming soon" : `${count} coming soon`;
+      break;
     default:
-      return count === 1 ? "1 integration" : `${count} integrations`;
+      label = count === 1 ? "1 integration" : `${count} integrations`;
   }
+  return `[${label}]`;
 }
 
 export function catalogExploreEntries(
