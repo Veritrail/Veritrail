@@ -461,15 +461,12 @@
 /* ── Integration catalog page ─────────────────────────────────────────── */
 
 .integration-catalog {
-  gap: 1.75rem;
+  gap: 1.25rem;
   padding-bottom: 2rem;
 }
 
 .integration-catalog__intro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.25rem;
+  flex-shrink: 0;
 }
 
 .integration-catalog__back {
@@ -492,23 +489,6 @@
   outline: none;
   border-radius: 0.25rem;
   box-shadow: 0 0 0 2px rgb(13 148 136 / 0.18);
-}
-
-.integration-catalog__title {
-  margin: 0.125rem 0 0;
-  font-size: clamp(1.75rem, 1.6rem + 0.35vw, 2rem);
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: #0f172a;
-}
-
-.integration-catalog__subtitle {
-  margin: 0;
-  max-width: 42rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: var(--integrations-muted);
 }
 
 .integration-catalog__toolbar {

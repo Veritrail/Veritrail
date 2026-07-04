@@ -206,10 +206,6 @@ export default function IntegrationCatalog() {
         <Link to="/integrations" className="integration-catalog__back">
           ← Connected integrations
         </Link>
-        <h1 className="integration-catalog__title">Integrations</h1>
-        <p className="integration-catalog__subtitle">
-          Connect external tools to collect evidence, enrich findings, and track remediation.
-        </p>
       </header>
 
       <div className="integration-catalog__toolbar" role="search">
