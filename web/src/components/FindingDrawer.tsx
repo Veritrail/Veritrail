@@ -5,7 +5,13 @@ import { useAppScrollLock } from "../lib/useAppScrollLock";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { api, formatApiError } from "../api";
-import { accountTimelineSchema, blastRadiusSchema, controlsByCheckSchema, generatedPolicySchema } from "../lib/apiSchemas";
+import {
+  accountTimelineSchema,
+  blastRadiusSchema,
+  controlsByCheckSchema,
+  generatedPolicySchema,
+  jiraIntegrationSchema,
+} from "../lib/apiSchemas";
 import AwsServiceIcon from "./AwsServiceIcon";
 import { CliRemediationPanel } from "./CliRemediationPanel";
 import { ExceptionDocIcon } from "./ExceptionDocIcon";
@@ -128,6 +134,7 @@ const drawerFooterActionBase =
 const drawerFooterVerifyPrimary = `${drawerFooterActionBase} flex-[1.2] bg-[#439385] text-white shadow-[0_6px_16px_rgba(67,147,133,0.18)] hover:bg-[#367a6f] hover:shadow-[0_8px_18px_rgba(54,122,111,0.22)]`;
 const drawerFooterVerifySoft = `${drawerFooterActionBase} flex-1 border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/70`;
 const drawerFooterExceptionGhost = `${drawerFooterActionBase} flex-[0.8] border border-zinc-200 bg-white text-zinc-600 shadow-sm shadow-zinc-900/[0.02] hover:border-amber-200 hover:bg-amber-50/60 hover:text-amber-700`;
+const drawerFooterJira = `${drawerFooterActionBase} flex-[0.55] border border-sky-200 bg-white text-sky-800 shadow-sm shadow-zinc-900/[0.02] hover:border-sky-300 hover:bg-sky-50`;
 
 function DrawerChevronButton({
   expanded,
@@ -6439,6 +6446,14 @@ export function FindingDrawer({
   const [confirmRemoveTicket, setConfirmRemoveTicket] = useState(false);
   const qc = useQueryClient();
 
+  // Prefetch Jira integration status while Findings is mounted so the footer button
+  // does not wait on GET /integrations/jira every time the drawer opens.
+  useQuery({
+    queryKey: ["jira-integration"],
+    queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
+    staleTime: 5 * 60_000,
+  });
+
   const clearRemediationTicket = useMutation({
     mutationFn: (findingId: string) =>
       api<Finding>(`/v1/findings/${findingId}/remediation-ticket`, { method: "DELETE" }),
@@ -6799,17 +6814,17 @@ export function FindingDrawer({
           )}
         </div>
       )}
-      {(githubIssue ?? jiraIssue) && (
+      {githubIssue && (
         <div className="flex items-start justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50/90 px-4 py-3 text-[12px] text-sky-950">
           <p className="min-w-0 flex-1">
             <span className="font-semibold">Remediation ticket: </span>
             <a
-              href={(githubIssue ?? jiraIssue)!.issue_url}
+              href={githubIssue.issue_url}
               target="_blank"
               rel="noreferrer"
               className="font-medium text-sky-800 underline"
             >
-              {githubIssue ? `Ticket #${githubIssue.issue_key}` : jiraIssue!.issue_key}
+              Ticket #{githubIssue.issue_key}
             </a>
           </p>
           <button
@@ -7033,7 +7048,13 @@ export function FindingDrawer({
             className={drawerFooterExceptionGhost}
             sheetContainerRef={drawerSheetRef}
           />
-          <JiraFindingAction findingId={finding.id} existing={jiraIssue} onCreated={setJiraIssue} />
+          <JiraFindingAction
+            finding={finding}
+            existing={jiraIssue}
+            onCreated={setJiraIssue}
+            onRemove={() => setConfirmRemoveTicket(true)}
+            className={drawerFooterJira}
+          />
           <button
             type="button"
             disabled={verifying || verified}

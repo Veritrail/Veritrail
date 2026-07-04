@@ -568,10 +568,10 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     setDetailsOpen(true);
   }, [finding.id, finding.severity]);
 
-  const { data: jira } = useQuery({
+  const { data: jira, isPending: jiraPending } = useQuery({
     queryKey: ["jira-integration"],
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const defaultProjectKey = jira?.project_key?.trim() || "";
@@ -724,7 +724,6 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     if (integrationEmail) setAssigneeQuery(integrationEmail);
   }
 
-  if (!jira?.connected) return null;
   const triggerClassName =
     className ?? `${triggerBase} border-sky-200 bg-white text-sky-800 hover:border-sky-300 hover:bg-sky-50`;
 
@@ -754,6 +753,20 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
       </div>
     );
   }
+
+  if (jiraPending) {
+    return (
+      <div
+        className={`${triggerClassName} pointer-events-none animate-pulse border-sky-100 bg-sky-50/60 text-sky-400`}
+        aria-hidden
+      >
+        <JiraIcon />
+        Create ticket
+      </div>
+    );
+  }
+
+  if (!jira?.connected) return null;
 
   const issueType = jira.issue_type || "Task";
   const projectKey = activeProjectKey || "Select project";
