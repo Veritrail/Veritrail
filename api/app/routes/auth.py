@@ -35,6 +35,7 @@ from app.models import Org, User
 from app.models.user_session import UserSession
 from app.core.config import get_settings
 from app.services.password_reset_email import send_password_reset_email
+from app.services.user_display_name import default_display_name_for_email, resolve_user_display_name
 from app.services.user_session import (
     ensure_session_for_refresh,
     refresh_session_geolocation,
@@ -192,6 +193,7 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
             id=uuid.uuid4(),
             org_id=org.id,
             email=str(body.email).lower(),
+            display_name=default_display_name_for_email(str(body.email)),
             password_hash=hash_password(body.password),
             role=role,
         )
@@ -223,6 +225,7 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
                 id=uuid.uuid4(),
                 org_id=org.id,
                 email=str(body.email).lower(),
+                display_name=default_display_name_for_email(str(body.email)),
                 password_hash=hash_password(body.password),
                 role=role,
             )
@@ -249,6 +252,7 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
                 id=uuid.uuid4(),
                 org_id=org.id,
                 email=str(body.email).lower(),
+                display_name=default_display_name_for_email(str(body.email)),
                 password_hash=hash_password(body.password),
                 role="owner",
             )
@@ -274,9 +278,11 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
 
     identity_fields: dict[str, str] = {}
-    for field in ("google_id", "github_id", "gitlab_id"):
+    for field in ("google_id", "github_id", "gitlab_id", "display_name"):
         if payload.get(field):
             identity_fields[field] = payload[field]
+    if "display_name" not in identity_fields:
+        identity_fields["display_name"] = default_display_name_for_email(email)
 
     if body.invite_token:
         org, role = consume_invite_for_signup(db, body.invite_token, email)
@@ -562,6 +568,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
 class MeOut(BaseModel):
     id: str
     email: str
+    display_name: str
     role: str
     evidence_role: str
     org_id: str
@@ -631,6 +638,7 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
     return MeOut(
         id=str(user.id),
         email=user.email,
+        display_name=resolve_user_display_name(user),
         role=normalize_role(user.role),
         evidence_role=membership_evidence_role(
             db, user.id, user.org_id, fallback_org_role=user.role

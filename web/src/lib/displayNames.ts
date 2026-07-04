@@ -23,3 +23,22 @@ export function userDisplayName(email: string): string {
   if (!local) return email;
   return local.charAt(0).toUpperCase() + local.slice(1);
 }
+
+/** Prefer API-provided display_name, then formatted email local part. */
+export function resolveUserDisplayName(
+  email: string,
+  displayName?: string | null,
+): string {
+  const stored = displayName?.trim();
+  if (stored) return stored;
+  return userDisplayName(email);
+}
+
+export function userInitialsFromName(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
+  }
+  if (words[0]?.length >= 2) return words[0].slice(0, 2).toUpperCase();
+  return name.trim().slice(0, 2).toUpperCase() || "?";
+}

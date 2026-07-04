@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { logout } from "../api";
-import { userDisplayName } from "../lib/displayNames";
+import { resolveUserDisplayName } from "../lib/displayNames";
 
 function SidebarUserGlyph() {
   return (
@@ -17,6 +17,7 @@ function SidebarUserGlyph() {
 
 type SidebarUserCardProps = {
   email: string;
+  displayName?: string | null;
   orgName: string;
   /** Workspace role from GET /v1/auth/me (`role`). */
   role?: string;
@@ -33,11 +34,12 @@ type SidebarUserCardProps = {
  */
 export default function SidebarUserCard({
   email,
+  displayName,
   orgName,
 }: SidebarUserCardProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const name = userDisplayName(email);
+  const name = resolveUserDisplayName(email, displayName);
 
   useEffect(() => {
     if (!open) return;

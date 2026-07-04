@@ -1,13 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { logout } from "../api";
-import { userDisplayName, userInitials } from "../lib/displayNames";
+import { resolveUserDisplayName, userInitials, userInitialsFromName } from "../lib/displayNames";
 
-export default function UserMenu({ email }: { email: string }) {
+export default function UserMenu({
+  email,
+  displayName,
+}: {
+  email: string;
+  displayName?: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const name = userDisplayName(email);
-  const initials = userInitials(email);
+  const name = resolveUserDisplayName(email, displayName);
+  const initials = displayName?.trim()
+    ? userInitialsFromName(name)
+    : userInitials(email);
 
   useEffect(() => {
     if (!open) return;

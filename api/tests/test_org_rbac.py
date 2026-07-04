@@ -410,6 +410,7 @@ def test_auth_me_includes_role(client):
     user.id = user_id
     user.org_id = org_id
     user.email = "owner@acme.com"
+    user.display_name = "Acme Owner"
     user.role = "owner"
     user.github_id = None
     user.gitlab_id = None
@@ -438,6 +439,7 @@ def test_auth_me_includes_role(client):
         assert body["org_id"] == str(org_id)
         assert body["org_name"] == "Acme Corp"
         assert body["email"] == "owner@acme.com"
+        assert body["display_name"] == "Acme Owner"
         assert body["has_password"] is True
     finally:
         client.app.dependency_overrides.clear()

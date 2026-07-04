@@ -11,6 +11,7 @@ import {
   ReadinessChecklistPanel,
   type Tone,
 } from "./Workspace";
+import { resolveUserDisplayName } from "../lib/displayNames";
 import "../styles/workspace-page.css";
 
 // d-path icons for the Workspace-style KPI strip + overview cards (Workspace's
@@ -269,6 +270,7 @@ export default function Account() {
   }
 
   const email = me?.email ?? "";
+  const displayName = resolveUserDisplayName(email, me?.display_name);
   const mfaOn = !!me?.totp_enabled;
   const hasPw = !!me?.has_password;
   const healthStrong = hasPw && mfaOn;
@@ -302,6 +304,12 @@ export default function Account() {
           tone={postureTone}
           label={postureLabel}
           message={postureMessage}
+        />
+        <PostureMetricCell
+          icon={KPI_ICON.user}
+          label="Name"
+          value={displayName || "—"}
+          detail={email || "—"}
         />
         <PostureMetricCell
           icon={KPI_ICON.mail}

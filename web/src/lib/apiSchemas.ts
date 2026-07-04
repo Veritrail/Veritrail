@@ -70,6 +70,7 @@ export const tokenPairSchema = accessTokenSchema.extend({
 export const meSchema = z.object({
   id: z.string(),
   email: z.string(),
+  display_name: z.string(),
   role: orgRole,
   evidence_role: evidenceRole,
   org_id: z.string(),

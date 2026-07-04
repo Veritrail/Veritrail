@@ -130,6 +130,9 @@ def issue_signup_pending_token(email: str, **idp_fields: str) -> str:
         value = idp_fields.get(key)
         if value:
             payload[key] = value
+    display_name = (idp_fields.get("display_name") or "").strip()
+    if display_name:
+        payload["display_name"] = display_name
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 

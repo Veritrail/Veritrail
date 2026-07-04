@@ -23,6 +23,7 @@ from app.core.security import (
 )
 from app.models import AwsAccount, Org, User
 from app.services.org_invites import provision_sso_user
+from app.services.user_display_name import apply_display_name_if_empty, oauth_display_name_from_profile
 from app.services.user_session import record_user_session
 from app.routes.github_integration import (
     handle_github_integration_callback,
@@ -308,6 +309,7 @@ def google_callback(
         info = info_resp.json()
         email: str = info.get("email", "").lower()
         google_id: str = str(info.get("sub") or "")
+        display_name = oauth_display_name_from_profile(info)
 
         if not email or not google_id:
             return _callback_error(state, "google", "no_email")
@@ -334,6 +336,7 @@ def google_callback(
             if not user:
                 return _link_error_redirect("google", "not_found")
             user.google_id = google_id
+            apply_display_name_if_empty(user, display_name)
             db.commit()
             return _oauth_link_redirect(user, "google")
 
@@ -342,8 +345,11 @@ def google_callback(
             user = db.scalar(select(User).where(User.email == email))
 
         if not user:
+            identity_fields: dict[str, str] = {"google_id": google_id}
+            if display_name:
+                identity_fields["display_name"] = display_name
             provisioned = _provision_sso_user_or_redirect(
-                "google", db, email=email, google_id=google_id
+                "google", db, email=email, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -366,6 +372,7 @@ def google_callback(
                 email=email,
                 google_id=google_id,
             )
+        apply_display_name_if_empty(user, display_name)
         db.commit()
 
         try:
@@ -459,6 +466,7 @@ def github_callback(
                 gh_user.get("email", ""),
             )
             email = (primary or "").lower()
+            display_name = oauth_display_name_from_profile(gh_user)
 
         # ── link flow: attach github_id to existing account ──────────────────
         if state and state.startswith("link:"):
@@ -482,6 +490,7 @@ def github_callback(
                 return _link_error_redirect("github", "not_found")
 
             user.github_id = github_id
+            apply_display_name_if_empty(user, display_name)
             db.commit()
             return _oauth_link_redirect(user, "github")
 
@@ -493,8 +502,11 @@ def github_callback(
         if not user:
             if not email:
                 return _callback_error(state, "github", "no_email")
+            identity_fields: dict[str, str] = {"github_id": github_id}
+            if display_name:
+                identity_fields["display_name"] = display_name
             provisioned = _provision_sso_user_or_redirect(
-                "github", db, email=email, github_id=github_id
+                "github", db, email=email, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -518,6 +530,7 @@ def github_callback(
                 github_id=github_id,
             )
 
+        apply_display_name_if_empty(user, display_name)
         db.commit()
 
         try:
@@ -620,6 +633,7 @@ def gitlab_callback(
             gl_user = user_resp.json()
             gitlab_id = str(gl_user["id"])
             email = (gl_user.get("email") or "").lower()
+            display_name = oauth_display_name_from_profile(gl_user)
 
         if state and state.startswith("link:"):
             link_token_val = state[5:]
@@ -640,6 +654,7 @@ def gitlab_callback(
                 return _link_error_redirect("gitlab", "not_found")
 
             user.gitlab_id = gitlab_id
+            apply_display_name_if_empty(user, display_name)
             db.commit()
             return _oauth_link_redirect(user, "gitlab")
 
@@ -650,8 +665,11 @@ def gitlab_callback(
         if not user:
             if not email:
                 return _callback_error(state, "gitlab", "no_email")
+            identity_fields: dict[str, str] = {"gitlab_id": gitlab_id}
+            if display_name:
+                identity_fields["display_name"] = display_name
             provisioned = _provision_sso_user_or_redirect(
-                "gitlab", db, email=email, gitlab_id=gitlab_id
+                "gitlab", db, email=email, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -675,6 +693,7 @@ def gitlab_callback(
                 gitlab_id=gitlab_id,
             )
 
+        apply_display_name_if_empty(user, display_name)
         db.commit()
 
         try:

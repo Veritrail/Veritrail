@@ -26,6 +26,7 @@ from app.core.db import get_db
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal, issue_refresh_token, issue_token
 from app.models import OrgSamlConfig, User
+from app.services.user_display_name import apply_display_name_if_empty, default_display_name_for_email
 from app.services.user_session import record_user_session
 
 router = APIRouter()
@@ -185,6 +186,25 @@ def _error_redirect(error: str) -> RedirectResponse:
     return RedirectResponse(f"{settings.FRONTEND_URL}/login?error={quote(error, safe='')}")
 
 
+def saml_display_name_from_attributes(attrs: dict) -> str | None:
+    for key in ("displayName", "display_name", "name", "cn"):
+        val = attrs.get(key)
+        if val:
+            candidate = (val[0] if isinstance(val, list) else val) or ""
+            candidate = str(candidate).strip()
+            if candidate:
+                return candidate
+    given = attrs.get("givenName") or attrs.get("given_name")
+    family = attrs.get("sn") or attrs.get("surname") or attrs.get("family_name")
+    if given or family:
+        given_val = (given[0] if isinstance(given, list) else given) or ""
+        family_val = (family[0] if isinstance(family, list) else family) or ""
+        combined = f"{str(given_val).strip()} {str(family_val).strip()}".strip()
+        if combined:
+            return combined
+    return None
+
+
 def _email_from_assertion(auth) -> str:
     nameid = (auth.get_nameid() or "").strip().lower()
     if "@" in nameid:
@@ -251,10 +271,14 @@ async def saml_acs(slug: str, request: Request, db: Session = Depends(get_db)):
     if not email:
         return _error_redirect("saml_no_email")
 
+    attrs = auth.get_attributes() or {}
+    display_name = saml_display_name_from_attributes(attrs)
+
     from app.services.org_membership import add_membership, get_membership, set_active_workspace
 
     user = db.scalar(select(User).where(User.email == email))
     if user:
+        apply_display_name_if_empty(user, display_name)
         membership = get_membership(db, user.id, cfg.org_id)
         if membership:
             set_active_workspace(db, user, cfg.org_id)
@@ -273,6 +297,7 @@ async def saml_acs(slug: str, request: Request, db: Session = Depends(get_db)):
             id=uuid.uuid4(),
             org_id=cfg.org_id,
             email=email,
+            display_name=display_name or default_display_name_for_email(email),
             password_hash="",
             role="viewer",
         )
