@@ -36,7 +36,7 @@ type Props = {
 const JIRA_BLUE = "#0C66E4";
 const JIRA_BLUE_HOVER = "#0052CC";
 
-const PRIORITIES = ["Highest", "High", "Medium", "Low"] as const;
+const PRIORITIES = ["Highest", "High", "Medium", "Low", "Lowest"] as const;
 type Priority = (typeof PRIORITIES)[number];
 
 const triggerBase =
@@ -128,37 +128,68 @@ function GearIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-/** Jira-style priority chevrons: red ↑↑/↑, orange =, blue ↓ */
+/** Jira priority glyphs — Atlassian chevron shapes with Jira issue-create colors */
 export function JiraPriorityIcon({ priority, className = "h-4 w-4" }: { priority: Priority; className?: string }) {
   const red = "#E34935";
+  const redLight = "#FF7452";
   const orange = "#E56910";
-  const blue = "#0C66E4";
+  const blue = "#0065FF";
+  const blueLight = "#2684FF";
 
   if (priority === "Highest") {
     return (
-      <svg className={className} viewBox="0 0 16 16" aria-hidden>
-        <path fill={red} d="M8 2.5L11.5 8H9.25l1.25 5.5L8 10.25 5.5 13.5 6.75 8H4.5L8 2.5z" />
-        <path fill={red} opacity="0.55" d="M8 0.5L11 5.5H9.5L10.25 9L8 7.25 5.75 9 6.5 5.5H5L8 0.5z" />
+      <svg className={className} viewBox="0 0 24 24" aria-hidden>
+        <path
+          fill={red}
+          d="M12.005 8.187l-6.453 3.865a1 1 0 01-1.028-1.716l6.97-4.174a1 1 0 011.031.002l6.906 4.174a1 1 0 11-1.035 1.712l-6.39-3.863z"
+        />
+        <path
+          fill={redLight}
+          d="M5.552 18.054a1 1 0 11-1.028-1.715l6.97-4.174a1 1 0 011.031.002l6.906 4.174a1 1 0 11-1.035 1.711l-6.39-3.862-6.454 3.864z"
+        />
       </svg>
     );
   }
   if (priority === "High") {
     return (
-      <svg className={className} viewBox="0 0 16 16" aria-hidden>
-        <path fill={red} d="M8 3.5L11.5 9H9.25l1.25 5L8 11.25 5.5 14 6.75 9H4.5L8 3.5z" />
+      <svg className={className} viewBox="0 0 24 24" aria-hidden>
+        <path
+          fill={red}
+          d="M12.017 11.182l-6.454 3.865a1 1 0 11-1.027-1.716l6.97-4.174a1 1 0 011.03.003l6.906 4.173a1 1 0 01-1.035 1.712l-6.39-3.863z"
+        />
       </svg>
     );
   }
   if (priority === "Medium") {
     return (
-      <svg className={className} viewBox="0 0 16 16" aria-hidden>
-        <rect x="3" y="7" width="10" height="2" rx="1" fill={orange} />
+      <svg className={className} viewBox="0 0 24 24" aria-hidden>
+        <path
+          fill={orange}
+          d="M5 8h14a1 1 0 010 2H5a1 1 0 110-2zm0 6h14a1 1 0 010 2H5a1 1 0 010-2z"
+        />
+      </svg>
+    );
+  }
+  if (priority === "Low") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" aria-hidden>
+        <path
+          fill={blue}
+          d="M11.996 13.861l6.454-3.865a1 1 0 111.027 1.716l-6.97 4.174a1 1 0 01-1.03-.002L4.57 11.71A1 1 0 015.606 10l6.39 3.862z"
+        />
       </svg>
     );
   }
   return (
-    <svg className={className} viewBox="0 0 16 16" aria-hidden>
-      <path fill={blue} d="M8 12.5L4.5 7H6.75L5.5 2.5 8 5.25 10.5 2.5 9.25 7H11.5L8 12.5z" />
+    <svg className={className} viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill={blue}
+        d="M18.46 11.936a1 1 0 111.028 1.716l-6.97 4.174a1 1 0 01-1.03-.002L4.581 13.65a1 1 0 011.034-1.711l6.391 3.862 6.454-3.865z"
+      />
+      <path
+        fill={blueLight}
+        d="M12.007 9.798l6.454-3.864a1 1 0 011.027 1.716l-6.97 4.173a1 1 0 01-1.03-.002L4.581 7.648a1 1 0 011.034-1.712l6.391 3.862z"
+      />
     </svg>
   );
 }
@@ -275,29 +306,35 @@ function PrioritySelect({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
+  const dropdownOptions = PRIORITIES.filter((option) => option !== value);
+
   return (
-    <div ref={ref} className="relative inline-block max-w-full">
+    <div ref={ref} className="relative inline-block w-full max-w-[220px]">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className={`inline-flex max-w-full items-center gap-1.5 rounded-[3px] px-1 py-0.5 text-left text-sm text-[#172B4D] transition hover:bg-[#F4F5F7] ${
-          open ? "ring-2 ring-[#0C66E4]" : ""
+        className={`inline-flex w-full items-center justify-between gap-2 rounded-[3px] border bg-white px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] transition-colors ${
+          open
+            ? "border-[#0C66E4] ring-2 ring-[#0C66E4]/20"
+            : "border-[#DFE1E6] hover:border-[#B3BAC5]"
         }`}
       >
-        <JiraPriorityIcon priority={value} />
-        <span className="truncate">{value}</span>
-        <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-[#626F86]" />
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <JiraPriorityIcon priority={value} className="h-4 w-4 shrink-0" />
+          <span className="truncate">{value}</span>
+        </span>
+        <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
       </button>
       {open ? (
         <ul
           role="listbox"
           aria-label="Priority"
-          className="absolute left-0 top-full z-30 mt-1 min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-lg"
+          className="absolute left-0 top-full z-30 mt-1 w-full min-w-[180px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white py-1 shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
         >
-          {PRIORITIES.map((option) => (
-            <li key={option} role="option" aria-selected={value === option}>
+          {dropdownOptions.map((option) => (
+            <li key={option} role="option" aria-selected={false}>
               <button
                 type="button"
                 onMouseEnter={() => setHovered(option)}
@@ -306,13 +343,13 @@ function PrioritySelect({
                   onChange(option);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center gap-2 border-l-2 px-2 py-1.5 text-left text-sm ${
-                  hovered === option || value === option
-                    ? "border-l-[#0C66E4] bg-[#F4F5F7] text-[#172B4D]"
-                    : "border-l-transparent text-[#172B4D] hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                className={`flex w-full items-center gap-2 border-l-[3px] px-2 py-1.5 text-left text-[14px] leading-5 text-[#172B4D] ${
+                  hovered === option
+                    ? "border-l-[#0C66E4] bg-[#F4F5F7]"
+                    : "border-l-transparent hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
                 }`}
               >
-                <JiraPriorityIcon priority={option} />
+                <JiraPriorityIcon priority={option} className="h-4 w-4 shrink-0" />
                 <span>{option}</span>
               </button>
             </li>
