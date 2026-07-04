@@ -21,6 +21,12 @@ export default function IntegrationCatalog() {
 
   return (
     <div className="integrations-page integration-catalog">
+      <header className="integration-catalog__header">
+        <h1 className="integration-catalog__title">Integration catalog</h1>
+        <p className="integration-catalog__subtitle">
+          Connect tools to collect evidence, enrich findings, and route remediation.
+        </p>
+      </header>
       {filtered.length === 0 ? (
         <p className="integration-catalog__empty">
           All available integrations are already connected to this workspace.
