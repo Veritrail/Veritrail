@@ -469,9 +469,11 @@
 
 .integration-catalog {
   box-sizing: border-box;
-  max-width: 1360px;
-  margin: 0 auto;
-  padding: 28px 28px 48px;
+  width: min(1180px, calc(100vw - 320px));
+  margin-left: 48px;
+  margin-right: auto;
+  padding-top: 32px;
+  padding-bottom: 48px;
   gap: 1.25rem;
 }
 
@@ -796,7 +798,7 @@
 }
 
 .integration-catalog__grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.8125rem;
 }
 
@@ -906,12 +908,6 @@
   font-size: 0.875rem;
   color: #64748b;
   text-align: center;
-}
-
-@media (max-width: 1200px) {
-  .integration-catalog__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 900px) {
