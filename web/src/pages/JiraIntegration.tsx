@@ -217,10 +217,6 @@ export default function JiraIntegration() {
           {testState === "error" && testError && (
             <p className="integration-setup__feedback integration-setup__feedback--error">{testError}</p>
           )}
-          {testState === "ok" && (
-            <p className="integration-setup__feedback integration-setup__feedback--ok">Connection verified.</p>
-          )}
-
           <div className="integration-setup__actions">
             <div className="integration-setup__actions-primary">
               <button
@@ -239,6 +235,11 @@ export default function JiraIntegration() {
               >
                 {testState === "testing" ? "Testing…" : "Test connection"}
               </button>
+              {testState === "ok" && (
+                <span className="integration-setup__feedback integration-setup__feedback--ok integration-setup__feedback--inline">
+                  Connection verified.
+                </span>
+              )}
             </div>
             {connected && (
               <button

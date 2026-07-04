@@ -335,6 +335,11 @@
   color: var(--is-success);
 }
 
+.integration-setup__feedback--inline {
+  padding: 0;
+  white-space: nowrap;
+}
+
 .integration-setup__verified {
   display: flex;
   flex-direction: column;
