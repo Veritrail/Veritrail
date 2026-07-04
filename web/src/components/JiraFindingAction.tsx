@@ -312,9 +312,9 @@ type DropdownCoords = { top: number; left: number; minWidth: number };
 
 function usePortalDropdownMenu(
   open: boolean,
-  containerRef: RefObject<HTMLDivElement | null>,
-  btnRef: RefObject<HTMLButtonElement | null>,
-  menuRef: RefObject<HTMLUListElement | null>,
+  containerRef: RefObject<HTMLElement | null>,
+  anchorRef: RefObject<HTMLElement | null>,
+  menuRef: RefObject<HTMLElement | null>,
   onClose: () => void,
   minWidth = 180,
 ) {
@@ -322,10 +322,10 @@ function usePortalDropdownMenu(
 
   useLayoutEffect(() => {
     if (!open) return;
-    const rect = btnRef.current?.getBoundingClientRect();
+    const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
     setCoords({ top: rect.bottom + 4, left: rect.left, minWidth: Math.max(rect.width, minWidth) });
-  }, [open, btnRef, minWidth]);
+  }, [open, anchorRef, minWidth]);
 
   useEffect(() => {
     if (!open) return;
@@ -679,7 +679,17 @@ export function JiraFindingAction({
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const assigneeFieldRef = useRef<HTMLDivElement>(null);
+  const assigneeMenuRef = useRef<HTMLDivElement>(null);
   const assigneeInputRef = useRef<HTMLInputElement>(null);
+  const assigneeDropdownOpen = assigneeOpen && !assignee;
+  const assigneeCoords = usePortalDropdownMenu(
+    assigneeDropdownOpen,
+    assigneeFieldRef,
+    assigneeFieldRef,
+    assigneeMenuRef,
+    () => setAssigneeOpen(false),
+    280,
+  );
 
   const issueLabels = useMemo(() => {
     const labels = ["veritrail", finding.severity];
@@ -1040,70 +1050,76 @@ export function JiraFindingAction({
                               </button>
                             </div>
                           )}
-                          {assigneeOpen && !assignee ? (
-                            <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[280px] overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]">
-                              <input
-                                ref={assigneeInputRef}
-                                value={assigneeQuery}
-                                onChange={(event) => setAssigneeQuery(event.target.value)}
-                                onFocus={() => setAssigneeOpen(true)}
-                                onBlur={() => {
-                                  window.setTimeout(() => {
-                                    if (!assigneeFieldRef.current?.contains(document.activeElement)) {
-                                      setAssigneeOpen(false);
-                                    }
-                                  }, 0);
-                                }}
-                                placeholder="Search for a person"
-                                autoComplete="off"
-                                role="combobox"
-                                aria-expanded={assigneeOpen}
-                                aria-controls="jira-assignee-suggestions"
-                                className="w-full border-0 border-b border-[#DFE1E6] bg-white px-2 py-1.5 text-sm text-[#172B4D] outline-none transition placeholder:text-[#626F86] focus:border-[#0C66E4] focus:ring-2 focus:ring-inset focus:ring-[#0C66E4]/20"
-                              />
-                              <div
-                                id="jira-assignee-suggestions"
-                                role="listbox"
-                                aria-label="Assignable Jira users"
-                                className="max-h-48 overflow-y-auto py-1"
-                              >
-                                {usersLoading ? (
-                                  <p className="px-3 py-2 text-sm text-[#626F86]">Loading assignable users…</p>
-                                ) : usersError ? (
-                                  <p className="px-3 py-2 text-sm text-[#E34935]">{formatApiError(usersError)}</p>
-                                ) : assigneeSuggestions.length ? (
-                                  assigneeSuggestions.map((user) => (
-                                    <button
-                                      key={user.account_id}
-                                      type="button"
-                                      role="option"
-                                      onMouseDown={(event) => event.preventDefault()}
-                                      onClick={() => selectAssignee(user)}
-                                      className="flex w-full items-center gap-2 border-l-2 border-l-transparent px-2 py-1.5 text-left hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
-                                    >
-                                      <UserAvatar user={user} size="sm" />
-                                      <span className="min-w-0">
-                                        <span className="block truncate text-sm text-[#172B4D]">
-                                          {user.display_name}
-                                        </span>
-                                        {user.email?.trim() ? (
-                                          <span className="block truncate text-xs text-[#626F86]">
-                                            {user.email.trim()}
+                          {assigneeDropdownOpen && assigneeCoords
+                            ? createPortal(
+                                <div
+                                  ref={assigneeMenuRef}
+                                  className="overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white shadow-[0_4px_8px_-2px_rgba(9,30,66,0.25),0_0_1px_rgba(9,30,66,0.31)]"
+                                  style={{
+                                    position: "fixed",
+                                    top: assigneeCoords.top,
+                                    left: assigneeCoords.left,
+                                    minWidth: assigneeCoords.minWidth,
+                                    zIndex: 300,
+                                  }}
+                                >
+                                  <input
+                                    ref={assigneeInputRef}
+                                    value={assigneeQuery}
+                                    onChange={(event) => setAssigneeQuery(event.target.value)}
+                                    onFocus={() => setAssigneeOpen(true)}
+                                    placeholder="Search for a person"
+                                    autoComplete="off"
+                                    role="combobox"
+                                    aria-expanded={assigneeOpen}
+                                    aria-controls="jira-assignee-suggestions"
+                                    className="w-full border-0 border-b border-[#DFE1E6] bg-white px-2 py-1.5 text-sm text-[#172B4D] outline-none transition placeholder:text-[#626F86] focus:border-[#0C66E4] focus:ring-2 focus:ring-inset focus:ring-[#0C66E4]/20"
+                                  />
+                                  <div
+                                    id="jira-assignee-suggestions"
+                                    role="listbox"
+                                    aria-label="Assignable Jira users"
+                                    className="max-h-56 overflow-y-auto py-1"
+                                  >
+                                    {usersLoading ? (
+                                      <p className="px-3 py-2 text-sm text-[#626F86]">Loading assignable users…</p>
+                                    ) : usersError ? (
+                                      <p className="px-3 py-2 text-sm text-[#E34935]">{formatApiError(usersError)}</p>
+                                    ) : assigneeSuggestions.length ? (
+                                      assigneeSuggestions.map((user) => (
+                                        <button
+                                          key={user.account_id}
+                                          type="button"
+                                          role="option"
+                                          onMouseDown={(event) => event.preventDefault()}
+                                          onClick={() => selectAssignee(user)}
+                                          className="flex w-full items-center gap-2 border-l-2 border-l-transparent px-2 py-1.5 text-left hover:border-l-[#0C66E4] hover:bg-[#F4F5F7]"
+                                        >
+                                          <UserAvatar user={user} size="sm" />
+                                          <span className="min-w-0">
+                                            <span className="block truncate text-sm text-[#172B4D]">
+                                              {user.display_name}
+                                            </span>
+                                            {user.email?.trim() ? (
+                                              <span className="block truncate text-xs text-[#626F86]">
+                                                {user.email.trim()}
+                                              </span>
+                                            ) : null}
                                           </span>
-                                        ) : null}
-                                      </span>
-                                    </button>
-                                  ))
-                                ) : (
-                                  <p className="px-3 py-2 text-sm text-[#626F86]">
-                                    {assigneeQuery.trim()
-                                      ? "No matching Jira users."
-                                      : "No assignable users found for this project."}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          ) : null}
+                                        </button>
+                                      ))
+                                    ) : (
+                                      <p className="px-3 py-2 text-sm text-[#626F86]">
+                                        {assigneeQuery.trim()
+                                          ? "No matching Jira users."
+                                          : "No assignable users found for this project."}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>,
+                                document.body,
+                              )
+                            : null}
                         </div>
                       </DetailsRow>
 
