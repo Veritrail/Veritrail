@@ -22,6 +22,63 @@ def test_normalize_site_url_rejects_http():
         normalize_site_url("http://acme.atlassian.net")
 
 
+def test_jira_verify_without_project_key_checks_myself_only():
+    captured: list[str] = []
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get(self, path):
+            captured.append(path)
+            return MagicMock(
+                status_code=200,
+                json=MagicMock(return_value={"accountId": "abc", "displayName": "Ops Bot"}),
+                raise_for_status=MagicMock(),
+            )
+
+    client = JiraClient(site_url="acme.atlassian.net", email="ops@example.com", api_token="token")
+    with patch.object(client, "_client", return_value=FakeClient()):
+        result = client.verify()
+
+    assert captured == ["/myself"]
+    assert result == {"account_id": "abc", "display_name": "Ops Bot"}
+
+
+def test_jira_verify_with_project_key_checks_project():
+    captured: list[str] = []
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get(self, path):
+            captured.append(path)
+            if path == "/myself":
+                payload = {"accountId": "abc", "displayName": "Ops Bot"}
+            else:
+                payload = {"key": "KAN", "name": "Kanban"}
+            return MagicMock(
+                status_code=200,
+                json=MagicMock(return_value=payload),
+                raise_for_status=MagicMock(),
+            )
+
+    client = JiraClient(site_url="acme.atlassian.net", email="ops@example.com", api_token="token")
+    with patch.object(client, "_client", return_value=FakeClient()):
+        result = client.verify("kan")
+
+    assert captured == ["/myself", "/project/KAN"]
+    assert result["project_key"] == "KAN"
+    assert result["project_name"] == "Kanban"
+
+
 def test_jira_create_issue_sends_priority_assignee_and_structured_description():
     captured = {}
 

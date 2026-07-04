@@ -122,13 +122,12 @@ def check_jira_health(db: Session, provider: IdentityProvider) -> str:
     site_url = cfg.get("site_url")
     email = cfg.get("email")
     api_token = cfg.get("api_token")
-    project_key = cfg.get("project_key")
-    if not all([site_url, email, api_token, project_key]):
+    if not all([site_url, email, api_token]):
         provider.status = "error"
         return "error"
     try:
         client = JiraClient(site_url=site_url, email=email, api_token=api_token)
-        client.verify(project_key)
+        client.verify(cfg.get("project_key") or None)
         provider.status = "connected"
         return "connected"
     except Exception:  # noqa: BLE001

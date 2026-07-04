@@ -64,7 +64,7 @@ class JiraIntegrationIn(BaseModel):
     site_url: str
     email: str
     api_token: str | None = None
-    project_key: str
+    project_key: str | None = None
     issue_type: str = "Task"
 
 
@@ -237,10 +237,14 @@ def put_jira(body: JiraIntegrationIn, _rbac: RequireAdmin, p=Depends(current_pri
     if not api_token:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira API token is required")
 
+    incoming_project_key = (body.project_key or "").strip().upper()
+    existing_project_key = (existing.get("project_key") or "").strip().upper()
+    resolved_project_key = incoming_project_key or existing_project_key or None
+
     try:
         site_url = normalize_site_url(body.site_url)
         client = JiraClient(site_url=site_url, email=body.email, api_token=api_token)
-        client.verify(body.project_key)
+        client.verify(resolved_project_key)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     except Exception as e:  # noqa: BLE001
@@ -250,9 +254,10 @@ def put_jira(body: JiraIntegrationIn, _rbac: RequireAdmin, p=Depends(current_pri
         "site_url": site_url,
         "email": body.email.strip(),
         "api_token": api_token,
-        "project_key": body.project_key.strip().upper(),
-        "issue_type": (body.issue_type or "Task").strip() or "Task",
+        "issue_type": (body.issue_type or existing.get("issue_type") or "Task").strip() or "Task",
     }
+    if resolved_project_key:
+        config["project_key"] = resolved_project_key
 
     if not provider:
         provider = IdentityProvider(org_id=org.id, type=JIRA_TYPE, status="connected")
@@ -275,12 +280,12 @@ def test_jira(_rbac: RequireAdmin, body: JiraTestIn = JiraTestIn(), p=Depends(cu
     api_token = body.api_token or cfg.get("api_token")
     project_key = body.project_key or cfg.get("project_key")
 
-    if not all([site_url, email, api_token, project_key]):
+    if not all([site_url, email, api_token]):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Complete Jira connection details before testing")
 
     try:
         client = JiraClient(site_url=site_url, email=email, api_token=api_token)
-        result = client.verify(project_key)
+        result = client.verify(project_key or None)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     except Exception as e:  # noqa: BLE001

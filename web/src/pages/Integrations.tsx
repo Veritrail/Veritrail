@@ -628,7 +628,7 @@ function IntegrationsContent() {
             connected: true,
             loading: jira.isLoading,
             lastSyncAt: null,
-            lastSyncLabel: jira.data?.project_key ? `Project ${jira.data.project_key}` : "Project configured",
+            lastSyncLabel: jira.data?.project_key ? `Project ${jira.data.project_key}` : "Connected",
             healthLabel: jira.data?.status === "error" ? "Needs reconnect" : "Healthy",
             healthTone: (jira.data?.status === "error" ? "danger" : "ok") as Tone,
             permissionsLabel: "API token",

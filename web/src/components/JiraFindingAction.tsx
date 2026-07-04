@@ -455,8 +455,10 @@ function ProjectSelect({
               {selected.key} — {selected.name}
               {isOrgDefault ? <span className="text-[#626F86]"> (default)</span> : null}
             </>
-          ) : (
+          ) : value ? (
             value
+          ) : (
+            <span className="text-[#626F86]">Select a project</span>
           )}
         </span>
         <ChevronDownIcon className="h-4 w-4 shrink-0 text-[#626F86]" />
@@ -601,6 +603,11 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
     enabled: open && !!jira?.connected,
     staleTime: 60_000,
   });
+
+  useEffect(() => {
+    if (selectedProject || defaultProjectKey || projects.length !== 1) return;
+    setSelectedProject(projects[0].key);
+  }, [defaultProjectKey, projects, selectedProject]);
 
   const setDefaultProject = useMutation({
     mutationFn: (projectKey: string) =>
@@ -749,7 +756,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
   }
 
   const issueType = jira.issue_type || "Task";
-  const projectKey = activeProjectKey || "PROJECT";
+  const projectKey = activeProjectKey || "Select project";
   const isOrgDefault =
     !!activeProjectKey && !!defaultProjectKey && activeProjectKey === defaultProjectKey;
   const showSetDefault = !!activeProjectKey && activeProjectKey !== defaultProjectKey;
@@ -785,7 +792,7 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
 
                 <div className="max-h-[min(75vh,720px)] overflow-y-auto px-6">
                   <div className="flex flex-wrap items-center gap-2 py-4 text-sm text-[#626F86]">
-                    <span className="font-medium" style={{ color: JIRA_BLUE }}>
+                    <span className="font-medium" style={{ color: activeProjectKey ? JIRA_BLUE : "#626F86" }}>
                       {projectKey}
                     </span>
                     <span aria-hidden>/</span>
@@ -957,9 +964,11 @@ export function JiraFindingAction({ finding, existing, onCreated, onRemove, clas
                           ) : null}
                           {isOrgDefault ? (
                             <p className="text-xs text-[#626F86]">Organization default project</p>
-                          ) : !defaultProjectKey && activeProjectKey ? (
+                          ) : !defaultProjectKey ? (
                             <p className="text-xs text-[#626F86]">
-                              No organization default saved yet.
+                              {activeProjectKey
+                                ? "Save a default with Set as default, or pick a project each time."
+                                : "Select a project to create this ticket."}
                             </p>
                           ) : null}
                           {showSetDefault ? (

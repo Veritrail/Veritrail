@@ -21,7 +21,6 @@ export default function JiraIntegration() {
   const [siteUrl, setSiteUrl] = useState("");
   const [email, setEmail] = useState("");
   const [apiToken, setApiToken] = useState("");
-  const [projectKey, setProjectKey] = useState("");
   const [issueType, setIssueType] = useState("Task");
   const [saveError, setSaveError] = useState("");
   const [testState, setTestState] = useState<"idle" | "testing" | "ok" | "error">("idle");
@@ -31,7 +30,6 @@ export default function JiraIntegration() {
     if (!data) return;
     setSiteUrl(data.site_url ?? "");
     setEmail(data.email ?? "");
-    setProjectKey(data.project_key ?? "");
     setIssueType(data.issue_type || "Task");
     setApiToken("");
   }, [data]);
@@ -49,7 +47,6 @@ export default function JiraIntegration() {
           site_url: siteUrl.trim(),
           email: email.trim(),
           api_token: apiToken.trim() || undefined,
-          project_key: projectKey.trim(),
           issue_type: issueType.trim() || "Task",
         }),
       }),
@@ -73,7 +70,6 @@ export default function JiraIntegration() {
       setSiteUrl("");
       setEmail("");
       setApiToken("");
-      setProjectKey("");
     },
   });
 
@@ -88,7 +84,6 @@ export default function JiraIntegration() {
           site_url: siteUrl.trim() || undefined,
           email: email.trim() || undefined,
           api_token: apiToken.trim() || undefined,
-          project_key: projectKey.trim() || undefined,
         }),
       });
       setSaveError("");
@@ -105,7 +100,6 @@ export default function JiraIntegration() {
   const canSave =
     siteUrl.trim() &&
     email.trim() &&
-    projectKey.trim() &&
     (apiToken.trim() || data?.has_api_token);
 
   return (
@@ -139,8 +133,8 @@ export default function JiraIntegration() {
           <div className="integration-setup__section">
             <p className="integration-setup__section-label">Connection details</p>
             <p className="integration-setup__section-desc">
-              Veritrail authenticates with a Jira Cloud account email and API token, then opens issues in the
-              project you choose.
+              Veritrail authenticates with a Jira Cloud account email and API token. Choose a default project when
+              you create your first ticket from a finding.
             </p>
 
             <div className="integration-setup__callout integration-setup__callout--neutral">
@@ -199,21 +193,6 @@ export default function JiraIntegration() {
                     id.atlassian.com → Security → API tokens
                   </a>
                   .
-                </p>
-              </div>
-              <div>
-                <label htmlFor="jira-project" className="integration-setup__field-label">
-                  Project key
-                </label>
-                <input
-                  id="jira-project"
-                  value={projectKey}
-                  onChange={(e) => setProjectKey(e.target.value.toUpperCase())}
-                  placeholder="SEC"
-                  className="integration-setup__input uppercase"
-                />
-                <p className="integration-setup__field-hint">
-                  Where Veritrail creates issues, e.g. <code>SEC</code>.
                 </p>
               </div>
               <div>

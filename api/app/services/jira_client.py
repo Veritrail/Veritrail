@@ -66,21 +66,21 @@ class JiraClient:
             timeout=20,
         )
 
-    def verify(self, project_key: str) -> dict[str, Any]:
-        key = project_key.strip().upper()
-        if not key:
-            raise ValueError("Jira project key is required")
+    def verify(self, project_key: str | None = None) -> dict[str, Any]:
         with self._client() as client:
             me = client.get("/myself")
             me.raise_for_status()
-            project = client.get(f"/project/{key}")
-            project.raise_for_status()
-            return {
+            result: dict[str, Any] = {
                 "account_id": me.json().get("accountId"),
                 "display_name": me.json().get("displayName"),
-                "project_key": project.json().get("key"),
-                "project_name": project.json().get("name"),
             }
+            key = (project_key or "").strip().upper()
+            if key:
+                project = client.get(f"/project/{key}")
+                project.raise_for_status()
+                result["project_key"] = project.json().get("key")
+                result["project_name"] = project.json().get("name")
+            return result
 
     def create_issue(
         self,
