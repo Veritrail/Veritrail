@@ -216,13 +216,6 @@ export default function IntegrationCatalog() {
 
   return (
     <div className="integrations-page integration-catalog">
-      <header className="integration-catalog__intro">
-        <h1 className="integration-catalog__title">Integration catalog</h1>
-        <p className="integration-catalog__subtitle">
-          Connect tools to collect evidence, enrich findings, and route remediation.
-        </p>
-      </header>
-
       <div className="integration-catalog__toolbar" role="search">
         <label className="integration-catalog__search">
           <span className="sr-only">Search integrations</span>
