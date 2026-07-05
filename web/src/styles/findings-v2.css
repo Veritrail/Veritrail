@@ -307,11 +307,56 @@
 }
 
 /* Findings: white toolbar so the page reads white -> grey column head -> white
-   rows, matching the History page. Scoped to Findings; Compliance keeps grey. */
+   rows, matching the History page. Scoped to Findings; Compliance keeps grey.
+   Slightly taller padding than the base so the toolbar reads as its own band
+   rather than glued onto the column head. */
 .findings-v2-page .findings-v2-table-toolbar {
   display: block;
   overflow: visible;
   background: var(--vt-surface);
+  padding: 1rem;
+}
+
+/* Refresh: quiet icon ghost — it's a utility, not another filter.
+   (Doubled class beats the later `.findings-v2-page .findings-v2-toolbar-btn`
+   border rule.) */
+.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-icon-btn {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #6b7280;
+}
+
+.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-icon-btn:hover:not(:disabled) {
+  border-color: transparent;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* Export: text+icon ghost so the sort trio stays the only outlined group. */
+.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #52525b;
+}
+
+.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-btn--ghost:hover:not(:disabled) {
+  border-color: transparent;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* Search and refresh sit together; the divider was pushing them apart. */
+.findings-v2-page .findings-v2-toolbar-group--divider {
+  padding-left: 6px;
+  margin-left: 0;
+}
+
+/* Benchmark/status triggers carry more horizontal padding than they need. */
+.findings-v2-page .findings-v2-filter-trigger {
+  gap: 0.5rem;
+  padding: 0 0.625rem 0 0.5rem;
 }
 
 /* Findings toolbar: one horizontal row; scroll when space is tight. */
@@ -507,6 +552,143 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+/* Sortable column headers — inherit the header typography, act like links. */
+.findings-v2-col-head__sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.findings-v2-col-head__sort:hover {
+  color: #111827;
+}
+
+/* Row multi-select checkbox — quiet until checked. */
+.findings-v2-row-check {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--vt-teal, #0d9488);
+  opacity: 0.55;
+}
+
+.findings-v2-row-check:checked,
+.findings-v2-row:hover .findings-v2-row-check,
+.findings-v2-row-check:focus-visible {
+  opacity: 1;
+}
+
+/* Floating bulk-actions bar. */
+.findings-bulk-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  z-index: 60;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(94vw, 46rem);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #dce3ec;
+  border-radius: 0.875rem;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  font-size: 0.8125rem;
+}
+
+.findings-bulk-bar__count {
+  padding-right: 0.25rem;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.findings-bulk-bar__hint {
+  color: #6b7280;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.findings-bulk-bar__msg {
+  color: #b45309;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.findings-bulk-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  height: 1.875rem;
+  padding: 0 0.625rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.findings-bulk-bar__btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.findings-bulk-bar__btn--primary {
+  border-color: var(--vt-teal, #0d9488);
+  background: var(--vt-teal, #0d9488);
+  color: #ffffff;
+}
+
+.findings-bulk-bar__btn--primary:hover:not(:disabled) {
+  background: var(--vt-teal-hover, #0f766e);
+  color: #ffffff;
+}
+
+.findings-bulk-bar__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.findings-bulk-bar__input {
+  height: 1.875rem;
+  width: 15rem;
+  padding: 0 0.5rem;
+  border: 1px solid #dce3ec;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.findings-bulk-bar__input--narrow {
+  width: 9rem;
+}
+
+.findings-bulk-bar__input:focus-visible {
+  border-color: #94a3b8;
+}
+
+/* Quiet end-of-list marker so the virtualized list doesn't just stop. */
+.findings-v2-end-cap {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--fv-divider);
+  text-align: center;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: #a1a1aa;
 }
 
 .findings-v2-row-chevron {

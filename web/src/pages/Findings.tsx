@@ -231,6 +231,14 @@ const FindingMetaContext = createContext<{
   checkFrameworksApi: Record<string, string[]> | undefined;
 }>({ categoryByCheckId: {}, checkFrameworksApi: undefined });
 
+/** Row multi-select for bulk actions — rides in via context for the same
+    reason as FindingMetaContext (FindingRow's props are fixed by the shared
+    virtualized list). Keys are display-group keys, not finding ids. */
+const FindingSelectionContext = createContext<{
+  selected: Set<string>;
+  toggle: (groupKey: string) => void;
+}>({ selected: new Set(), toggle: () => {} });
+
 /** Composite id -> row-list control name. Same composite taxonomy the
     Compliance page uses; longest titles trimmed to fit the column, full
     title stays in the tooltip. Every registered check maps to a composite
@@ -541,6 +549,8 @@ function FindingRow({
   const topRisk = Math.max(...items.map((f) => f.risk_score));
   const checkId = items[0]?.check_id ?? groupKey;
   const { categoryByCheckId, checkFrameworksApi } = useContext(FindingMetaContext);
+  const { selected: selectedGroups, toggle: toggleGroupSelected } = useContext(FindingSelectionContext);
+  const isChecked = selectedGroups.has(groupKey);
   const description = findingRowDescription(checkId);
   const rowFrameworks = frameworksForCheck(checkId, checkFrameworksApi);
   const categoryMeta = categoryByCheckId[checkId];
@@ -595,7 +605,16 @@ function FindingRow({
           }
         }}
       >
-        <div className="flex w-5 shrink-0 items-center justify-center self-center lg:col-auto lg:self-start lg:pt-2">
+        <div className="flex w-5 shrink-0 items-center justify-center gap-1.5 self-center lg:col-auto lg:w-10 lg:justify-start lg:self-start lg:pt-2">
+          <input
+            type="checkbox"
+            className="findings-v2-row-check hidden lg:block"
+            checked={isChecked}
+            onChange={() => toggleGroupSelected(groupKey)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+            aria-label={`Select ${title}`}
+          />
           <RowChevron expanded={expanded && canExpand} muted={!canExpand} />
         </div>
 
@@ -640,7 +659,7 @@ function FindingRow({
 
         <div className="hidden min-w-0 items-center self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
           {category ? (
-            <span className="truncate text-[12px] font-medium text-zinc-600" title={categoryMeta?.title}>
+            <span className="truncate text-[12px] font-medium text-zinc-700" title={categoryMeta?.title}>
               {category}
             </span>
           ) : null}
@@ -709,6 +728,12 @@ export default function Findings() {
   const providerScope = parseSourceProviderScope(searchParams.get("provider"));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
+  const [selectedGroupKeys, setSelectedGroupKeys] = useState<Set<string>>(() => new Set());
+  const [bulkMode, setBulkMode] = useState<"actions" | "except" | "resolve">("actions");
+  const [bulkReason, setBulkReason] = useState("");
+  const [bulkApprover, setBulkApprover] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
   const { pendingRecheck, recheckOutcome, startRecheck, applyRecheckResult, failRecheck, clearDrawerVerifyFlash } =
     useRecheckNotifications();
 
@@ -949,6 +974,97 @@ export default function Findings() {
   const activityRows = useMemo(() => rows.filter((f) => isActivityCheck(f.check_id)), [rows]);
   const postureDisplayGroups = useMemo(() => buildDisplayGroups(postureRows), [buildDisplayGroups, postureRows]);
   const activityDisplayGroups = useMemo(() => buildDisplayGroups(activityRows), [activityRows, buildDisplayGroups]);
+
+  const toggleGroupSelected = useCallback((groupKey: string) => {
+    setSelectedGroupKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return next;
+    });
+  }, []);
+  const selectionCtx = useMemo(
+    () => ({ selected: selectedGroupKeys, toggle: toggleGroupSelected }),
+    [selectedGroupKeys, toggleGroupSelected],
+  );
+  // Ids resolve through the *current* display groups, so selections made
+  // before a filter change simply stop matching instead of acting on hidden
+  // rows.
+  const selectedFindings = useMemo(() => {
+    const out: Finding[] = [];
+    const all = SHOW_ACTIVITY_DETECTIONS_SECTION
+      ? [...postureDisplayGroups, ...activityDisplayGroups]
+      : postureDisplayGroups;
+    for (const [key, items] of all) {
+      if (selectedGroupKeys.has(key)) out.push(...items);
+    }
+    return out;
+  }, [postureDisplayGroups, activityDisplayGroups, selectedGroupKeys]);
+
+  const clearBulkSelection = useCallback(() => {
+    setSelectedGroupKeys(new Set());
+    setBulkMode("actions");
+    setBulkReason("");
+    setBulkApprover("");
+    setBulkMsg(null);
+  }, []);
+
+  const runBulk = useCallback(
+    async (mutate: (id: string) => Promise<unknown>) => {
+      setBulkBusy(true);
+      setBulkMsg(null);
+      const results = await Promise.allSettled(selectedFindings.map((f) => mutate(f.id)));
+      const failed = results.filter((r) => r.status === "rejected").length;
+      setBulkBusy(false);
+      qc.invalidateQueries({ queryKey: ["findings"] });
+      if (failed > 0) {
+        setBulkMsg(`${results.length - failed} updated · ${failed} failed`);
+      } else {
+        clearBulkSelection();
+      }
+    },
+    [selectedFindings, qc, clearBulkSelection],
+  );
+
+  const runBulkExcept = useCallback(() => {
+    const reason = bulkReason.trim();
+    const approver = bulkApprover.trim();
+    if (!reason || !approver) return;
+    void runBulk((id) =>
+      api(`/v1/findings/${id}/exception`, {
+        method: "POST",
+        body: JSON.stringify({ reason, approved_by: approver, expires_at: null }),
+      }),
+    );
+  }, [bulkApprover, bulkReason, runBulk]);
+
+  const runBulkResolve = useCallback(() => {
+    void runBulk((id) =>
+      api(`/v1/findings/${id}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({ verified: true, note: "Bulk resolve from findings list" }),
+      }),
+    );
+  }, [runBulk]);
+
+  const exportSelectedCsv = useCallback(() => {
+    const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const lines = [
+      ["id", "check_id", "title", "severity", "risk_score", "status", "resource_arn", "first_seen", "last_seen"].join(","),
+      ...selectedFindings.map((f) =>
+        [f.id, f.check_id, f.title, f.severity, f.risk_score, f.status, f.resource_arn, f.first_seen, f.last_seen]
+          .map(esc)
+          .join(","),
+      ),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `veritrail-findings-selection-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [selectedFindings]);
   const isPositiveEmpty =
     findingsQuery.isSuccess && status === "open" && !hasActiveFilters && rows.length === 0;
 
@@ -1039,9 +1155,42 @@ export default function Findings() {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
       setSortKey(k);
-      setSortDir(k === "severity" ? "asc" : "desc");
+      // score's comparator is high-first under "asc" — first click on Risk
+      // should surface the highest risk, not the lowest.
+      setSortDir(k === "first_seen" ? "desc" : "asc");
     }
   }
+
+  // j/k row navigation (Enter/Space already handled by each row's own key
+  // handler once focused). Skips text inputs and modifier combos.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "j" && e.key !== "k") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      const rowEls = Array.from(document.querySelectorAll<HTMLElement>(".findings-v2-row"));
+      if (rowEls.length === 0) return;
+      e.preventDefault();
+      const active = document.activeElement as HTMLElement | null;
+      const idx = active ? rowEls.indexOf(active) : -1;
+      const next =
+        e.key === "j" ? Math.min(rowEls.length - 1, idx + 1) : idx <= 0 ? 0 : idx - 1;
+      const el = rowEls[next];
+      el.focus();
+      el.scrollIntoView({ block: "nearest" });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const downloadCsv = useCallback(async () => {
     const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
@@ -1155,23 +1304,11 @@ export default function Findings() {
                         </svg>
                       </button>
                     </div>
-                    <div className="findings-v2-toolbar-group" role="group" aria-label="Sort findings">
-                      {SORT_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => toggleSort(opt.id)}
-                          className="findings-v2-toolbar-btn"
-                        >
-                          {opt.label}
-                          {sortKey === opt.id ? (
-                            <span className="text-[13px] leading-none text-zinc-500">{sortDir === "asc" ? "↑" : "↓"}</span>
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
                     <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
-                      <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
+                      <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn findings-v2-toolbar-btn--ghost">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                        </svg>
                         Export
                       </button>
                       {awsScanAccountId ? (
@@ -1228,17 +1365,32 @@ export default function Findings() {
                 </div>
               ) : (
                 <FindingMetaContext.Provider value={{ categoryByCheckId, checkFrameworksApi }}>
+                <FindingSelectionContext.Provider value={selectionCtx}>
                   <div
                     className="findings-v2-col-head hidden lg:grid lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8.5rem,1.4fr)_5.5rem_minmax(9rem,1.8fr)_auto] lg:items-center lg:gap-4"
                     role="row"
                   >
-                    <span className="w-5" aria-hidden />
-                    <span className="w-[5.5rem]">Severity</span>
+                    <span className="w-5 lg:w-10" aria-hidden />
+                    <button
+                      type="button"
+                      className="findings-v2-col-head__sort w-[5.5rem] text-left"
+                      onClick={() => toggleSort("severity")}
+                      aria-label={`Sort by severity${sortKey === "severity" ? ` (${sortDir}ending)` : ""}`}
+                    >
+                      Severity{sortKey === "severity" ? <span aria-hidden> {sortDir === "asc" ? "↑" : "↓"}</span> : null}
+                    </button>
                     <span>Finding</span>
                     <span>Resources</span>
                     <span>Benchmark</span>
                     <span>Category</span>
-                    <span className="w-16 text-center">Risk</span>
+                    <button
+                      type="button"
+                      className="findings-v2-col-head__sort w-16 text-center"
+                      onClick={() => toggleSort("score")}
+                      aria-label={`Sort by risk${sortKey === "score" ? ` (${sortDir}ending)` : ""}`}
+                    >
+                      Risk{sortKey === "score" ? <span aria-hidden> {sortDir === "asc" ? "↑" : "↓"}</span> : null}
+                    </button>
                   </div>
 
                   {postureDisplayGroups.length > 0 ? (
@@ -1269,11 +1421,83 @@ export default function Findings() {
                       />
                     </div>
                   ) : null}
+
+                  <p className="findings-v2-end-cap">
+                    {rows.length.toLocaleString()} {rows.length === 1 ? "finding" : "findings"}
+                  </p>
+                </FindingSelectionContext.Provider>
                 </FindingMetaContext.Provider>
               )}
             </div>
           </section>
         )}
+
+      {selectedFindings.length > 0 ? (
+        <div className="findings-bulk-bar" role="toolbar" aria-label="Bulk finding actions">
+          <span className="findings-bulk-bar__count">
+            {selectedFindings.length.toLocaleString()} {selectedFindings.length === 1 ? "finding" : "findings"}
+          </span>
+          {bulkMode === "except" ? (
+            <>
+              <input
+                className="findings-bulk-bar__input"
+                placeholder="Exception reason…"
+                value={bulkReason}
+                onChange={(e) => setBulkReason(e.target.value)}
+                autoFocus
+              />
+              <input
+                className="findings-bulk-bar__input findings-bulk-bar__input--narrow"
+                placeholder="Approved by…"
+                value={bulkApprover}
+                onChange={(e) => setBulkApprover(e.target.value)}
+              />
+              <button
+                type="button"
+                className="findings-bulk-bar__btn findings-bulk-bar__btn--primary"
+                disabled={bulkBusy || !bulkReason.trim() || !bulkApprover.trim()}
+                onClick={runBulkExcept}
+              >
+                {bulkBusy ? "Applying…" : "Confirm exception"}
+              </button>
+              <button type="button" className="findings-bulk-bar__btn" onClick={() => setBulkMode("actions")}>
+                Cancel
+              </button>
+            </>
+          ) : bulkMode === "resolve" ? (
+            <>
+              <span className="findings-bulk-bar__hint">Confirms you re-checked these findings</span>
+              <button
+                type="button"
+                className="findings-bulk-bar__btn findings-bulk-bar__btn--primary"
+                disabled={bulkBusy}
+                onClick={runBulkResolve}
+              >
+                {bulkBusy ? "Resolving…" : `Resolve ${selectedFindings.length.toLocaleString()}`}
+              </button>
+              <button type="button" className="findings-bulk-bar__btn" onClick={() => setBulkMode("actions")}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="findings-bulk-bar__btn" onClick={() => setBulkMode("except")}>
+                Except…
+              </button>
+              <button type="button" className="findings-bulk-bar__btn" onClick={() => setBulkMode("resolve")}>
+                Resolve…
+              </button>
+              <button type="button" className="findings-bulk-bar__btn" onClick={exportSelectedCsv}>
+                Export CSV
+              </button>
+              <button type="button" className="findings-bulk-bar__btn" onClick={clearBulkSelection}>
+                Clear
+              </button>
+            </>
+          )}
+          {bulkMsg ? <span className="findings-bulk-bar__msg">{bulkMsg}</span> : null}
+        </div>
+      ) : null}
 
       <FindingDrawer
         finding={selected}
