@@ -35,10 +35,27 @@
   gap: 0 !important;
 }
 
-.accounts-security-score__gauge-col svg,
-.accounts-security-score__gauge-col canvas {
-  max-width: 3.95rem;
-  max-height: 3.95rem;
+.accounts-security-score__gauge-col .security-score-gauge {
+  width: 3.95rem !important;
+  height: 3.95rem !important;
+}
+
+.accounts-security-score__gauge-col .security-score-gauge__svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.accounts-security-score__gauge-col .security-score-gauge__hub {
+  inset: 0 !important;
+}
+
+.accounts-security-score__gauge-col .security-score-gauge__score--label {
+  display: block;
+  width: 100%;
+  max-width: none !important;
+  text-align: center;
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
 }
 
 .accounts-security-score__drivers {
