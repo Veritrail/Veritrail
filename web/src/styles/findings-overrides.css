@@ -45,8 +45,22 @@
 
 .findings-v2-page .findings-v2-actions-group,
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-actions-group {
-  margin-left: 0.125rem !important;
-  padding-left: 0.25rem !important;
+  position: relative;
+  margin-left: 0.75rem !important;
+  padding-left: 0.875rem !important;
+}
+
+.findings-v2-page .findings-v2-actions-group::before,
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-actions-group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 1.5rem;
+  background: #d9e1eb;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
@@ -55,20 +69,11 @@
 }
 
 .findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn--scan {
-  position: relative;
-  margin-left: 0.875rem;
+  margin-left: 0 !important;
 }
 
 .findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn--scan::before {
-  content: "";
-  position: absolute;
-  left: -0.75rem;
-  top: 50%;
-  width: 1px;
-  height: 1.5rem;
-  background: #d9e1eb;
-  transform: translateY(-50%);
-  pointer-events: none;
+  content: none !important;
 }
 
 /* YouTube-style responsive search treatment: full field when there is room,
