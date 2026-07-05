@@ -50,6 +50,7 @@ import Terms from "./pages/Terms";
 import Homepage from "./pages/Homepage";
 import NoWorkspace from "./pages/NoWorkspace";
 import "./styles/findings-overrides.css";
+import "./styles/accounts-overrides.css";
 
 const qc = new QueryClient({
   defaultOptions: {
