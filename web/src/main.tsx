@@ -49,6 +49,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Homepage from "./pages/Homepage";
 import NoWorkspace from "./pages/NoWorkspace";
+import "./styles/findings-overrides.css";
 
 const qc = new QueryClient({
   defaultOptions: {
