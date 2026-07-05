@@ -50,7 +50,25 @@
 }
 
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
-  min-width: 14rem;
+  min-width: 17rem;
+  width: 17rem;
+}
+
+.findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn--scan {
+  position: relative;
+  margin-left: 0.875rem;
+}
+
+.findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn--scan::before {
+  content: "";
+  position: absolute;
+  left: -0.75rem;
+  top: 50%;
+  width: 1px;
+  height: 1.5rem;
+  background: #d9e1eb;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 /* The expanded resource card was trapped inside the Finding title column.
