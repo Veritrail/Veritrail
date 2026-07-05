@@ -1,0 +1,49 @@
+/**
+ * Findings page micro-overrides.
+ *
+ * Keeps the latest list redesign clean by removing the row-level bulk-selection
+ * affordance and by softening the right-side toolbar grouping. The selection
+ * model can come back later inside the affected-resource rows, where the
+ * actionable objects live.
+ */
+
+.findings-v2-page .findings-v2-row-check {
+  display: none !important;
+}
+
+.findings-v2-page .findings-v2-row > div:first-child {
+  width: 1.25rem !important;
+  justify-content: center !important;
+  gap: 0 !important;
+}
+
+.findings-v2-page .findings-v2-col-head > span:first-child {
+  width: 1.25rem !important;
+}
+
+.findings-bulk-bar {
+  display: none !important;
+}
+
+.findings-v2-page .findings-v2-toolbar-group--divider,
+.findings-v2-page .findings-v2-actions-group,
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group--divider,
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-actions-group {
+  border-left: 0 !important;
+}
+
+.findings-v2-page .findings-v2-toolbar-group--divider,
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group--divider {
+  margin-left: 0 !important;
+  padding-left: 0.25rem !important;
+}
+
+.findings-v2-page .findings-v2-actions-group,
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-actions-group {
+  margin-left: 0.125rem !important;
+  padding-left: 0.25rem !important;
+}
+
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+  min-width: 14rem;
+}
