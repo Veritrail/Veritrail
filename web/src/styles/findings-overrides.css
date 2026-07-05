@@ -52,3 +52,22 @@
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
   min-width: 14rem;
 }
+
+/* The expanded resource card was trapped inside the Finding title column.
+   Let it borrow the unused metadata columns so resource rows keep their shape
+   instead of folding labels into each other at slightly narrower widths. */
+@media (min-width: 1024px) {
+  .findings-v2-page .veritrail-accordion-panel__inner > .lg\:grid > div {
+    grid-column: 3 / -2;
+  }
+
+  .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (min-width: 1280px) {
+  .findings-v2-page .veritrail-accordion-panel__inner > .lg\:grid > div {
+    grid-column: 3 / -1;
+  }
+}
