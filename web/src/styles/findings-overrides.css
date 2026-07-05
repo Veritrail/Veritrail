@@ -50,8 +50,8 @@
 }
 
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
-  min-width: 17rem;
-  width: 17rem;
+  width: clamp(12rem, 18vw, 18rem);
+  min-width: 12rem;
 }
 
 .findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn--scan {
@@ -69,6 +69,26 @@
   background: #d9e1eb;
   transform: translateY(-50%);
   pointer-events: none;
+}
+
+/* YouTube-style responsive search treatment: full field when there is room,
+   compact field when the toolbar is squeezed, and no half-cut placeholder text. */
+@media (max-width: 1320px) {
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+    width: 12rem;
+    min-width: 12rem;
+  }
+
+  .findings-v2-page .findings-v2-search::placeholder {
+    color: transparent;
+  }
+}
+
+@media (max-width: 1120px) {
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+    width: 10rem;
+    min-width: 10rem;
+  }
 }
 
 /* The expanded resource card was trapped inside the Finding title column.
