@@ -106,7 +106,7 @@
 
   .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap {
     display: grid;
-    grid-template-columns: 2.5rem minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) max-content;
+    grid-template-columns: 2.5rem minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) max-content;
     align-items: center;
     column-gap: 1rem;
     overflow: hidden;
@@ -114,11 +114,24 @@
 
   .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap > * {
     min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap > span:first-child,
+  .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap > a {
+    overflow: visible;
   }
 
   .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap p,
-  .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap span {
+  .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap span:not(:first-child) {
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap p {
+    white-space: nowrap;
   }
 
   .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap > a {
@@ -126,9 +139,9 @@
   }
 }
 
-@media (max-width: 1240px) and (min-width: 1024px) {
+@media (max-width: 1440px) and (min-width: 1024px) {
   .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap {
-    grid-template-columns: 2.5rem minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) max-content;
+    grid-template-columns: 2.5rem minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) max-content;
     column-gap: 0.75rem;
   }
 
@@ -137,7 +150,7 @@
   }
 }
 
-@media (max-width: 1080px) and (min-width: 1024px) {
+@media (max-width: 1120px) and (min-width: 1024px) {
   .findings-v2-page .veritrail-accordion-panel__inner [role="button"].flex-wrap {
     grid-template-columns: 2.5rem minmax(0, 1.25fr) minmax(0, 1fr) max-content;
   }
