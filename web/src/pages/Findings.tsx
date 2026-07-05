@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -13,7 +13,7 @@ import {
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { FindingsChecksFilter, FindingsChecksFilterSummary } from "../components/FindingsChecksFilter";
 import { api, formatApiError, token } from "../api";
-import { checkFrameworksSchema } from "../lib/apiSchemas";
+import { checkFrameworksSchema, compositeControlListSchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
@@ -37,6 +37,10 @@ import { assetTypeLabel, findingScopeProvider } from "../lib/findingDisplay";
 import { vcsResourceWebUrl } from "../lib/findingDisplay";
 import { useRecheckNotifications, type RecheckResponse } from "../context/RecheckNotificationsContext";
 import { CloudProviderMark } from "../components/FindingResourceIcon";
+import { FrameworkMark } from "../components/FrameworkMark";
+import { remediationSummaries } from "../data/remediationSummaries";
+import { scanDescriptionForCheck } from "../data/checkComplianceCopy";
+import { serviceForCheck } from "../data/awsServiceMeta";
 import "../styles/findings-v2.css";
 
 /** CloudTrail activity detections are informational only; hidden from Findings UI for now. */
@@ -202,10 +206,83 @@ type ResourceOption = {
   finding: Finding;
 };
 
+/* Metadata tracks are fr-weighted (not auto), so leftover width distributes
+   across every column proportionally — like the reference design — instead of
+   piling up in the title column and pinning the metadata against the right
+   edge. fr resolution depends only on container width, so the independent
+   header/row/accordion grids stay pixel-aligned by construction. */
 const FINDINGS_ROW_GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:gap-4 lg:items-center";
+  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] xl:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8rem,1.6fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] lg:gap-4 lg:items-center";
+
+/** Matches the finding-list grid so accordion filler spans line up under the
+    right columns (chevron, severity, title, [service ≥xl], resources,
+    benchmark, category, risk). Service column only exists at xl+ — eight
+    columns don't fit below. */
+const FINDINGS_ROW_ACCORDION_GRID =
+  "lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] xl:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8rem,1.6fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto]";
 
 const RESOURCE_CHILD_PREVIEW = 3;
+
+/** Per-check description + framework badges + category label — data that
+    doesn't fit in FindingRow's own props (it's a module-scope component
+    reused by the virtualized list, so this rides in via context instead of
+    a prop-drilling change to the shared VirtualizedFindingsGroups). */
+const FindingMetaContext = createContext<{
+  categoryByCheckId: Record<string, { id: string; title: string }>;
+  checkFrameworksApi: Record<string, string[]> | undefined;
+}>({ categoryByCheckId: {}, checkFrameworksApi: undefined });
+
+/** Composite id -> row-list control name. Same composite taxonomy the
+    Compliance page uses; longest titles trimmed to fit the column, full
+    title stays in the tooltip. Every registered check maps to a composite
+    (verified against composite_controls.json — the only unmapped CHECK_IDs
+    are dormant legacy modules absent from the check registry). */
+const CATEGORY_SHORT_LABEL: Record<string, string> = {
+  identity_governance: "Identity Governance",
+  asset_inventory: "Access Inventory",
+  secure_sdlc: "Secure SDLC",
+  change_management: "Change Management",
+  data_protection: "Data Protection",
+  network_boundary: "Network Boundary",
+  vulnerability_management: "Vulnerability Management",
+  container_vulnerability_monitoring: "Container Vulnerability",
+  logging_monitoring: "Logging & Monitoring",
+  incident_response: "Incident Response",
+  backup_resilience: "Backup & Resilience",
+  endpoint_security: "Endpoint Security",
+  mdm_endpoint: "Device Management",
+  hr_training: "Security Awareness",
+  vendor_risk: "Vendor Risk",
+};
+
+/** Short scanner description for the row list; null when we have no static
+    copy for this check rather than guessing from the raw title. */
+function findingRowDescription(checkId: string): string | null {
+  const summary = remediationSummaries[checkId];
+  if (!summary) return null;
+  return scanDescriptionForCheck(checkId, summary);
+}
+
+/** Stacked-layers resource glyph (Lucide `layers`, ISC) — matches the
+    reference design's resources icon. */
+function ResourcesStackIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+      <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+      <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+    </svg>
+  );
+}
 
 function RowChevron({ expanded, muted }: { expanded: boolean; muted?: boolean }) {
   return (
@@ -294,7 +371,7 @@ function AffectedResourceRow({
           onSelect();
         }
       }}
-      className="flex cursor-pointer items-center gap-4 rounded-xl border border-zinc-200/80 bg-white px-4 py-3.5 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
+      className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-zinc-200/80 bg-white px-4 py-3.5 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
     >
       <ResourceProviderTile finding={finding} />
       <div className="flex min-w-0 flex-[1.6] items-center gap-3">
@@ -302,7 +379,7 @@ function AffectedResourceRow({
         <span className="truncate text-[14px] font-semibold text-zinc-900">{name}</span>
         <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold text-sky-700">{assetType}</span>
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[8rem] flex-1">
         <p className="veritrail-kicker">Account</p>
         <p className="mt-1 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
           <span className="truncate">{account}</span>
@@ -321,7 +398,7 @@ function AffectedResourceRow({
           </button>
         </p>
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[9rem] flex-1">
         <p className="veritrail-kicker">Last seen</p>
         <p className="mt-1 flex items-center gap-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">
           {formatResourceDate(finding.last_seen)}
@@ -330,7 +407,7 @@ function AffectedResourceRow({
           </svg>
         </p>
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[9rem] flex-1">
         <p className="veritrail-kicker">First seen</p>
         <p className="mt-1 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
       </div>
@@ -451,6 +528,23 @@ function FindingRow({
     items[0]?.title ??
     groupKey;
   const topRisk = Math.max(...items.map((f) => f.risk_score));
+  const checkId = items[0]?.check_id ?? groupKey;
+  const { categoryByCheckId, checkFrameworksApi } = useContext(FindingMetaContext);
+  const description = findingRowDescription(checkId);
+  const rowFrameworks = frameworksForCheck(checkId, checkFrameworksApi);
+  const categoryMeta = categoryByCheckId[checkId];
+  const category = categoryMeta ? CATEGORY_SHORT_LABEL[categoryMeta.id] ?? categoryMeta.title : undefined;
+  // Display groups merge several check_ids (e.g. encryption-at-rest spans
+  // EBS + DynamoDB + S3), so collect the distinct services across all items —
+  // not just items[0].
+  const services = useMemo(() => {
+    const seen = new Map<string, NonNullable<ReturnType<typeof serviceForCheck>>>();
+    for (const f of items) {
+      const s = serviceForCheck(f.check_id);
+      if (s && !seen.has(s.label)) seen.set(s.label, s);
+    }
+    return [...seen.values()];
+  }, [items]);
   const resources = useMemo<ResourceOption[]>(() => {
     const seen = new Set<string>();
     return items.flatMap((finding) => {
@@ -505,10 +599,15 @@ function FindingRow({
         </div>
 
         <div className="finding-title-cell finding-cell min-w-0 lg:col-auto">
-          <div className="flex min-w-0 items-baseline gap-1">
+          <div className="flex min-w-0 items-baseline gap-2">
             <span className="finding-title min-w-0 truncate">{title}</span>
+            {description ? (
+              <span className="hidden min-w-0 flex-1 truncate text-[13px] font-normal text-zinc-500 lg:inline">
+                {description}
+              </span>
+            ) : null}
             {canExpand && !expanded ? (
-              <span className="finding-resource-count">
+              <span className="finding-resource-count lg:hidden">
                 · {resources.length} {resources.length === 1 ? "resource" : "resources"}
               </span>
             ) : null}
@@ -516,6 +615,63 @@ function FindingRow({
           <div className="mt-1 lg:hidden">
             <SeverityIndicator severity={sev} />
           </div>
+        </div>
+
+        <div className="hidden min-w-0 items-center gap-1.5 self-center lg:col-auto lg:self-start lg:pt-2 xl:flex">
+          {services.length === 1 ? (
+            <>
+              {services[0].iconUrl ? (
+                <img
+                  src={services[0].iconUrl}
+                  alt=""
+                  title={services[0].label}
+                  className="h-4 w-4 shrink-0 rounded-[3px]"
+                  aria-hidden
+                />
+              ) : null}
+              <span className="truncate text-[12px] font-medium text-zinc-600">{services[0].label}</span>
+            </>
+          ) : services.length > 1 ? (
+            <>
+              <div className="flex shrink-0 items-center gap-1">
+                {services.slice(0, 4).map((s) =>
+                  s.iconUrl ? (
+                    <img
+                      key={s.label}
+                      src={s.iconUrl}
+                      alt={s.label}
+                      title={s.label}
+                      className="h-4 w-4 shrink-0 rounded-[3px]"
+                    />
+                  ) : null,
+                )}
+              </div>
+              {services.length > 4 ? (
+                <span className="text-[11px] font-semibold text-zinc-500">+{services.length - 4}</span>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+
+        <div className="hidden min-w-0 items-center gap-1.5 self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
+          <ResourcesStackIcon className="h-4 w-4 shrink-0 text-zinc-400" />
+          <span className="truncate text-[13px] font-medium text-zinc-500">
+            {resources.length} {resources.length === 1 ? "resource" : "resources"}
+          </span>
+        </div>
+
+        <div className="hidden min-w-0 items-center gap-1 self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
+          {rowFrameworks.slice(0, 3).map((fw) => (
+            <FrameworkMark key={fw} framework={fw} className="h-4 w-4 shrink-0" />
+          ))}
+        </div>
+
+        <div className="hidden min-w-0 items-center self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
+          {category ? (
+            <span className="truncate text-[12px] font-medium text-zinc-600" title={categoryMeta?.title}>
+              {category}
+            </span>
+          ) : null}
         </div>
 
         <div
@@ -532,10 +688,10 @@ function FindingRow({
       {canExpand ? (
         <div className={`veritrail-accordion-panel ${expanded ? "is-open" : ""}`}>
           <div className="veritrail-accordion-panel__inner">
-            <div className="border-t border-zinc-100 lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:gap-4">
+            <div className={`border-t border-zinc-100 lg:grid ${FINDINGS_ROW_ACCORDION_GRID} lg:gap-4`}>
               <span className="hidden lg:block" aria-hidden />
               <span className="hidden w-[5.5rem] lg:block" aria-hidden />
-              <div className="py-4 pl-4 pr-5 lg:pl-0">
+              <div className="py-4 pl-4 pr-5 lg:pl-0 xl:col-span-2">
                 <AffectedResourcesCard
                   resources={visibleResources}
                   totalCount={resources.length}
@@ -547,7 +703,10 @@ function FindingRow({
                   onViewAll={() => onReview(items, undefined, "resources")}
                 />
               </div>
-              <span className="hidden sm:block" aria-hidden />
+              <span className="hidden lg:block" aria-hidden />
+              <span className="hidden lg:block" aria-hidden />
+              <span className="hidden lg:block" aria-hidden />
+              <span className="hidden w-16 sm:block" aria-hidden />
             </div>
           </div>
         </div>
@@ -592,6 +751,24 @@ export default function Findings() {
     queryFn: () => api("/v1/controls/check-frameworks", { schema: checkFrameworksSchema }),
     staleTime: 300_000,
   });
+  // Category label for the row list — same composite taxonomy as the
+  // Compliance page (id, not a display string), so the row list can show a
+  // column-width-appropriate short label while staying the same underlying
+  // grouping — not a second taxonomy invented for this table.
+  const compositesQ = useQuery({
+    queryKey: ["controls", "composites", "findings-categories"],
+    queryFn: () => api("/v1/controls/composites", { schema: compositeControlListSchema }),
+    staleTime: 300_000,
+  });
+  const categoryByCheckId = useMemo(() => {
+    const map: Record<string, { id: string; title: string }> = {};
+    for (const composite of compositesQ.data ?? []) {
+      for (const checkId of composite.check_ids) {
+        if (!map[checkId]) map[checkId] = { id: composite.id, title: composite.title };
+      }
+    }
+    return map;
+  }, [compositesQ.data]);
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
   const {
@@ -1078,14 +1255,18 @@ export default function Findings() {
                   )}
                 </div>
               ) : (
-                <>
+                <FindingMetaContext.Provider value={{ categoryByCheckId, checkFrameworksApi }}>
                   <div
-                    className="findings-v2-col-head hidden lg:grid lg:grid-cols-[auto_auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4"
+                    className="findings-v2-col-head hidden lg:grid lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] xl:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8rem,1.6fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] lg:items-center lg:gap-4"
                     role="row"
                   >
                     <span className="w-5" aria-hidden />
                     <span className="w-[5.5rem]">Severity</span>
                     <span>Finding</span>
+                    <span className="hidden xl:block">Service</span>
+                    <span>Resources</span>
+                    <span>Benchmark</span>
+                    <span>Category</span>
                     <span className="w-16 text-center">Risk</span>
                   </div>
 
@@ -1117,7 +1298,7 @@ export default function Findings() {
                       />
                     </div>
                   ) : null}
-                </>
+                </FindingMetaContext.Provider>
               )}
             </div>
           </section>
