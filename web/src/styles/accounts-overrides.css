@@ -24,9 +24,9 @@
 
 .accounts-security-score__body {
   display: grid !important;
-  grid-template-columns: 3.95rem minmax(0, 1fr);
+  grid-template-columns: 4.65rem minmax(0, 1fr);
   align-items: center;
-  gap: 0.65rem !important;
+  gap: 0.8rem !important;
   min-height: 5.1rem;
 }
 
@@ -36,8 +36,8 @@
 }
 
 .accounts-security-score__gauge-col .security-score-gauge {
-  width: 3.95rem !important;
-  height: 3.95rem !important;
+  width: 4.65rem !important;
+  height: 4.65rem !important;
 }
 
 .accounts-security-score__gauge-col .security-score-gauge__svg {
@@ -54,7 +54,7 @@
   width: 100%;
   max-width: none !important;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   letter-spacing: -0.01em;
 }
 
@@ -116,7 +116,7 @@
   }
 
   .accounts-security-score__body {
-    grid-template-columns: 3.95rem minmax(0, 1fr);
-    gap: 0.65rem !important;
+    grid-template-columns: 4.65rem minmax(0, 1fr);
+    gap: 0.8rem !important;
   }
 }
