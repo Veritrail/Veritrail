@@ -25,6 +25,10 @@
   display: none !important;
 }
 
+.findings-v2-page .findings-v2-toolbar-icon-btn {
+  display: none !important;
+}
+
 .findings-v2-page .findings-v2-toolbar-group--divider,
 .findings-v2-page .findings-v2-actions-group,
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group--divider,
@@ -35,7 +39,8 @@
 .findings-v2-page .findings-v2-toolbar-group--divider,
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group--divider {
   margin-left: 0 !important;
-  padding-left: 0.25rem !important;
+  padding-left: 0 !important;
+  gap: 0 !important;
 }
 
 .findings-v2-page .findings-v2-actions-group,
