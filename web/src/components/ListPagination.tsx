@@ -32,8 +32,8 @@ export function ListPagination({
 
   return (
     <div className={`list-pagination-footer${variant === "card" ? " list-pagination-footer--card" : ""}`}>
-      <span>
-        Showing {start}-{end} of {totalItems} {itemLabel}
+      <span className="list-pagination-count">
+        {start}–{end} of {totalItems} {itemLabel}
       </span>
       <div className="list-pagination">
         <button

@@ -40,7 +40,6 @@ import { CloudProviderMark } from "../components/FindingResourceIcon";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { remediationSummaries } from "../data/remediationSummaries";
 import { scanDescriptionForCheck } from "../data/checkComplianceCopy";
-import { serviceForCheck } from "../data/awsServiceMeta";
 import "../styles/findings-v2.css";
 
 /** CloudTrail activity detections are informational only; hidden from Findings UI for now. */
@@ -212,14 +211,14 @@ type ResourceOption = {
    edge. fr resolution depends only on container width, so the independent
    header/row/accordion grids stay pixel-aligned by construction. */
 const FINDINGS_ROW_GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] xl:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8rem,1.6fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] lg:gap-4 lg:items-center";
+  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8.5rem,1.4fr)_5.5rem_minmax(9rem,1.8fr)_auto] lg:gap-4 lg:items-center";
 
 /** Matches the finding-list grid so accordion filler spans line up under the
     right columns (chevron, severity, title, [service ≥xl], resources,
     benchmark, category, risk). Service column only exists at xl+ — eight
     columns don't fit below. */
 const FINDINGS_ROW_ACCORDION_GRID =
-  "lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] xl:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8rem,1.6fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto]";
+  "lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8.5rem,1.4fr)_5.5rem_minmax(9rem,1.8fr)_auto]";
 
 const RESOURCE_CHILD_PREVIEW = 3;
 
@@ -254,6 +253,18 @@ const CATEGORY_SHORT_LABEL: Record<string, string> = {
   hr_training: "Security Awareness",
   vendor_risk: "Vendor Risk",
 };
+
+/** "2 IAM users" / "79 EBS volumes" when every resource in the row shares one
+    asset type; plain "N resources" for mixed rows. Acronym-ish words (IAM,
+    S3, EBS, DynamoDB…) keep their casing, the rest lowercase. */
+function resourceCountLabel(count: number, typeLabel: string | null): string {
+  if (!typeLabel) return `${count} ${count === 1 ? "resource" : "resources"}`;
+  const words = typeLabel.split(" ").map((w) => (/[A-Z].*[A-Z0-9]/.test(w) ? w : w.toLowerCase()));
+  let noun = words[words.length - 1];
+  if (count !== 1) noun = /[^aeiou]y$/i.test(noun) ? `${noun.slice(0, -1)}ies` : `${noun}s`;
+  words[words.length - 1] = noun;
+  return `${count} ${words.join(" ")}`;
+}
 
 /** Short scanner description for the row list; null when we have no static
     copy for this check rather than guessing from the raw title. */
@@ -534,16 +545,10 @@ function FindingRow({
   const rowFrameworks = frameworksForCheck(checkId, checkFrameworksApi);
   const categoryMeta = categoryByCheckId[checkId];
   const category = categoryMeta ? CATEGORY_SHORT_LABEL[categoryMeta.id] ?? categoryMeta.title : undefined;
-  // Display groups merge several check_ids (e.g. encryption-at-rest spans
-  // EBS + DynamoDB + S3), so collect the distinct services across all items —
-  // not just items[0].
-  const services = useMemo(() => {
-    const seen = new Map<string, NonNullable<ReturnType<typeof serviceForCheck>>>();
-    for (const f of items) {
-      const s = serviceForCheck(f.check_id);
-      if (s && !seen.has(s.label)) seen.set(s.label, s);
-    }
-    return [...seen.values()];
+  // Single asset type across the row's items -> "79 EBS volumes"; mixed -> null.
+  const uniformResourceType = useMemo(() => {
+    const labels = new Set(items.map((f) => assetTypeLabel(f.check_id)));
+    return labels.size === 1 ? [...labels][0] : null;
   }, [items]);
   const resources = useMemo<ResourceOption[]>(() => {
     const seen = new Set<string>();
@@ -602,7 +607,7 @@ function FindingRow({
           <div className="flex min-w-0 items-baseline gap-2">
             <span className="finding-title min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="hidden min-w-0 flex-1 truncate text-[13px] font-normal text-zinc-500 lg:inline">
+              <span className="hidden min-w-0 flex-1 truncate text-[13px] font-normal text-zinc-400 lg:inline">
                 {description}
               </span>
             ) : null}
@@ -617,46 +622,13 @@ function FindingRow({
           </div>
         </div>
 
-        <div className="hidden min-w-0 items-center gap-1.5 self-center lg:col-auto lg:self-start lg:pt-2 xl:flex">
-          {services.length === 1 ? (
-            <>
-              {services[0].iconUrl ? (
-                <img
-                  src={services[0].iconUrl}
-                  alt=""
-                  title={services[0].label}
-                  className="h-4 w-4 shrink-0 rounded-[3px]"
-                  aria-hidden
-                />
-              ) : null}
-              <span className="truncate text-[12px] font-medium text-zinc-600">{services[0].label}</span>
-            </>
-          ) : services.length > 1 ? (
-            <>
-              <div className="flex shrink-0 items-center gap-1">
-                {services.slice(0, 4).map((s) =>
-                  s.iconUrl ? (
-                    <img
-                      key={s.label}
-                      src={s.iconUrl}
-                      alt={s.label}
-                      title={s.label}
-                      className="h-4 w-4 shrink-0 rounded-[3px]"
-                    />
-                  ) : null,
-                )}
-              </div>
-              {services.length > 4 ? (
-                <span className="text-[11px] font-semibold text-zinc-500">+{services.length - 4}</span>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-
         <div className="hidden min-w-0 items-center gap-1.5 self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
           <ResourcesStackIcon className="h-4 w-4 shrink-0 text-zinc-400" />
-          <span className="truncate text-[13px] font-medium text-zinc-500">
-            {resources.length} {resources.length === 1 ? "resource" : "resources"}
+          <span
+            className="truncate text-[13px] font-medium text-zinc-500"
+            title={resourceCountLabel(resources.length, uniformResourceType)}
+          >
+            {resourceCountLabel(resources.length, uniformResourceType)}
           </span>
         </div>
 
@@ -691,7 +663,7 @@ function FindingRow({
             <div className={`border-t border-zinc-100 lg:grid ${FINDINGS_ROW_ACCORDION_GRID} lg:gap-4`}>
               <span className="hidden lg:block" aria-hidden />
               <span className="hidden w-[5.5rem] lg:block" aria-hidden />
-              <div className="py-4 pl-4 pr-5 lg:pl-0 xl:col-span-2">
+              <div className="py-4 pl-4 pr-5 lg:pl-0">
                 <AffectedResourcesCard
                   resources={visibleResources}
                   totalCount={resources.length}
@@ -1257,13 +1229,12 @@ export default function Findings() {
               ) : (
                 <FindingMetaContext.Provider value={{ categoryByCheckId, checkFrameworksApi }}>
                   <div
-                    className="findings-v2-col-head hidden lg:grid lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] xl:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8rem,1.6fr)_minmax(7rem,1.4fr)_minmax(5.5rem,1fr)_minmax(9rem,1.8fr)_auto] lg:items-center lg:gap-4"
+                    className="findings-v2-col-head hidden lg:grid lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8.5rem,1.4fr)_5.5rem_minmax(9rem,1.8fr)_auto] lg:items-center lg:gap-4"
                     role="row"
                   >
                     <span className="w-5" aria-hidden />
                     <span className="w-[5.5rem]">Severity</span>
                     <span>Finding</span>
-                    <span className="hidden xl:block">Service</span>
                     <span>Resources</span>
                     <span>Benchmark</span>
                     <span>Category</span>
