@@ -66,12 +66,20 @@ def public_config(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
                 "has_password": bool(cfg.get("password")),
             }
         )
-    elif key in {"snyk", "orca", "aikido"}:
+    elif key in {"snyk", "orca"}:
         base.update(
             {
                 "api_url": cfg.get("api_url"),
                 "org_id": cfg.get("org_id"),
                 "has_api_token": bool(cfg.get("api_token")),
+            }
+        )
+    elif key == "aikido":
+        # OAuth2 client_credentials, not a static token — see aikido_access_token().
+        base.update(
+            {
+                "has_client_id": bool(cfg.get("client_id")),
+                "has_client_secret": bool(cfg.get("client_secret")),
             }
         )
     return base
@@ -242,14 +250,14 @@ def _qualys_open_findings(cfg: dict[str, Any]) -> int:
 
 
 def _test_snyk(cfg: dict[str, Any]) -> dict[str, Any]:
-    from app.services.snyk_shaped_scanner import verify_bearer_get
+    from app.services.snyk_shaped_scanner import verify_snyk_token_get
 
     org_id = normalize_snyk_org_id(cfg.get("org_id") or "")
     token = (cfg.get("api_token") or "").strip()
     api_url = normalize_api_base_url(cfg.get("api_url") or "https://api.snyk.io")
     if not org_id:
         raise ValueError("Snyk requires org_id")
-    verify_bearer_get(f"{api_url}/rest/orgs/{org_id}?version=2024-10-15", token, label="snyk")
+    verify_snyk_token_get(f"{api_url}/rest/orgs/{org_id}?version=2024-10-15", token, label="snyk")
     return {"ok": True, "vendor": "snyk"}
 
 
@@ -263,9 +271,13 @@ def _test_orca(cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def _test_aikido(cfg: dict[str, Any]) -> dict[str, Any]:
-    from app.services.snyk_shaped_scanner import verify_bearer_get
+    from app.services.snyk_shaped_scanner import aikido_access_token
 
-    token = (cfg.get("api_token") or "").strip()
-    api_url = normalize_api_base_url(cfg.get("api_url") or "https://app.aikido.dev")
-    verify_bearer_get(f"{api_url}/api/public/v1/teams", token, label="aikido")
+    client_id = (cfg.get("client_id") or "").strip()
+    client_secret = (cfg.get("client_secret") or "").strip()
+    access_token = aikido_access_token(client_id, client_secret)
+    with httpx.Client(timeout=30.0, headers={"Authorization": f"Bearer {access_token}"}) as client:
+        resp = client.get("https://app.aikido.dev/api/public/v1/workspace")
+    if resp.status_code >= 400:
+        raise ValueError(api_access_error("Aikido", resp.status_code))
     return {"ok": True, "vendor": "aikido"}

@@ -19,6 +19,7 @@ from app.core.db import SessionLocal
 from app.core.passwords import hash_password
 from app.models.aws_account import AwsAccount
 from app.models.org import Org, User
+from app.models.org_team import OrgMembership
 
 DEV_EMAIL = "dev@veritrail.io"
 DEV_PASSWORD = "dev-veritrail-2026"
@@ -55,6 +56,22 @@ def main() -> int:
             user.password_hash = hash_password(DEV_PASSWORD)
             user.role = "owner"
             action = "reset"
+        db.flush()
+
+        membership = db.scalars(
+            select(OrgMembership).where(
+                OrgMembership.user_id == user.id, OrgMembership.org_id == org.id
+            )
+        ).first()
+        if membership is None:
+            db.add(
+                OrgMembership(
+                    user_id=user.id, org_id=org.id, role="owner", evidence_role="reviewer"
+                )
+            )
+        else:
+            membership.role = "owner"
+            membership.evidence_role = "reviewer"
         db.commit()
 
         print(f"dev user {action}.")

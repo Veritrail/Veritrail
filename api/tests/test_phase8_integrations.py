@@ -7,7 +7,12 @@ import pytest
 
 from app.services.scanner_integrations import scanner_type_for_vendor, verify_scanner_connection
 from app.services.siem_integrations import siem_type_for_vendor, verify_siem_connection
-from app.services.snyk_shaped_scanner import fetch_aikido_findings, fetch_orca_findings, fetch_snyk_findings
+from app.services.snyk_shaped_scanner import (
+    aikido_access_token,
+    fetch_aikido_findings,
+    fetch_orca_findings,
+    fetch_snyk_findings,
+)
 from app.services.scanner_types import normalize_severity
 from app.checks.okta_org_mfa import CHECK_ID as OKTA_MFA_CHECK
 
@@ -55,11 +60,17 @@ def test_fetch_orca_findings_maps_alerts():
 
 
 def test_fetch_aikido_findings_maps_issues():
-    cfg = {"api_token": "tok"}
+    # Aikido has no static API key — every call exchanges OAuth2 client
+    # credentials for a short-lived bearer token first (aikido_access_token).
+    cfg = {"client_id": "cid", "client_secret": "secret"}
     with patch("app.services.snyk_shaped_scanner.httpx.Client") as client_cls:
         client = MagicMock()
         client.__enter__.return_value = client
         client.__exit__.return_value = False
+        client.post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {"access_token": "tok", "expires_in": 3600, "token_type": "bearer"},
+        )
         client.get.return_value = MagicMock(
             status_code=200,
             json=lambda: {"issues": [{"id": 9, "title": "SQLi", "severity": "medium"}]},
@@ -67,6 +78,11 @@ def test_fetch_aikido_findings_maps_issues():
         client_cls.return_value = client
         rows = fetch_aikido_findings(cfg)
     assert rows[0].external_id == "9"
+
+
+def test_aikido_access_token_requires_credentials():
+    with pytest.raises(ValueError, match="client_id"):
+        aikido_access_token("", "")
 
 
 def test_snyk_verify_requires_org_id():
