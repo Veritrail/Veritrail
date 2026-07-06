@@ -5,9 +5,16 @@ Description: >
   before updating this stack.
 
 Parameters:
+  ScannerRoleName:
+    Type: String
+    Default: VeritrailScannerRole
+    Description: Veritrail connector scanner role that starts SSM automation (must match core stack RoleName).
   AutomationRoleName:
     Type: String
     Default: VeritrailRemediationAutomationRole
+  RemediationAutomationDocumentName:
+    Type: String
+    Default: Veritrail-RemediationPlanExecutor
   SsmScriptsBucket:
     Type: String
     Default: amzn-s3-veritrail
@@ -52,6 +59,7 @@ Conditions:
   SsmParameterModule: !Equals [!Ref EnableSsmParameterRemediation, "Yes"]
   S3Module: !Equals [!Ref EnableS3Remediation, "Yes"]
   KmsRotationModule: !Equals [!Ref EnableKmsRotationRemediation, "Yes"]
+  CloudTrailModule: !Equals [!Ref EnableCloudTrailRemediation, "Yes"]
   AnyRemediationModule: !Or
     - !Condition SecurityGroupModule
     - !Condition IamAccessKeyModule
@@ -59,6 +67,7 @@ Conditions:
     - !Condition SsmParameterModule
     - !Condition S3Module
     - !Condition KmsRotationModule
+    - !Condition CloudTrailModule
 
 Mappings:
   SsmScriptChecksums:
@@ -72,6 +81,51 @@ Mappings:
       sha256: 88be3542c322ef671dd7e95750a9cb3fc3f57695843a5971eaa17aca5ec6b311
 
 Resources:
+  VeritrailSsmRemediationStartPolicy:
+    Type: AWS::IAM::Policy
+    Condition: AnyRemediationModule
+    Properties:
+      PolicyName: VeritrailSsmRemediationStart
+      Roles:
+        - !Ref ScannerRoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DescribeApprovedSsmDocuments
+            Effect: Allow
+            Action:
+              - ssm:DescribeDocument
+              - ssm:GetDocument
+            Resource:
+              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/${RemediationAutomationDocumentName}"
+              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Veritrail-*"
+              - !Sub "arn:${AWS::Partition}:ssm:*::document/AWS-*"
+              - !Sub "arn:${AWS::Partition}:ssm:*::document/AWSConfigRemediation-*"
+          - Sid: StartApprovedSsmAutomation
+            Effect: Allow
+            Action:
+              - ssm:StartAutomationExecution
+              - ssm:GetAutomationExecution
+              - ssm:DescribeAutomationExecutions
+            Resource:
+              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/${RemediationAutomationDocumentName}"
+              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-definition/${RemediationAutomationDocumentName}:*"
+              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Veritrail-*"
+              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-definition/Veritrail-*:*"
+              - !Sub "arn:${AWS::Partition}:ssm:*::document/AWS-*"
+              - !Sub "arn:${AWS::Partition}:ssm:*::automation-definition/AWS-*:*"
+              - !Sub "arn:${AWS::Partition}:ssm:*::document/AWSConfigRemediation-*"
+              - !Sub "arn:${AWS::Partition}:ssm:*::automation-definition/AWSConfigRemediation-*:*"
+              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:automation-execution/*"
+          - Sid: PassRemediationAutomationRole
+            Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${AutomationRoleName}"
+            Condition:
+              StringEquals:
+                iam:PassedToService: ssm.amazonaws.com
+
   RemediationAutomationRole:
     Type: AWS::IAM::Role
     Properties:

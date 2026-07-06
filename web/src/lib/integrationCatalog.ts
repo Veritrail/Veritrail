@@ -132,7 +132,7 @@ export const EXTENDED_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
   "azure-devops",
 ]);
 
-const SHOW_EXTENDED_INTEGRATIONS = import.meta.env.VITE_SHOW_EXTENDED_INTEGRATIONS === "true";
+import { SHOW_EXTENDED_INTEGRATIONS } from "./productFlags";
 
 export function isStarterHiddenKey(key: string): boolean {
   return EXTENDED_INTEGRATION_KEYS.has(key) && !SHOW_EXTENDED_INTEGRATIONS;

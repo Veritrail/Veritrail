@@ -66,6 +66,7 @@ import {
 import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
 import { useCloudTrailPolicyGen } from "../hooks/useCloudTrailPolicyGen";
 import { formatCloudTrailElapsed } from "../lib/cloudTrailElapsed";
+import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
 import { remediationSummaryForFinding, type RemediationSummary } from "../data/remediationSummaries";
 import {
   awsRegionFromArn,
@@ -235,7 +236,8 @@ const SG_AUTOMATION_ONLY_CHECKS = new Set([
 const NO_CLI_REMEDIATION_CHECKS = new Set(["iam.user.no_mfa"]);
 
 export function defaultFindingRemediationMode(checkId: string): FindingRemediationMode {
-  return SG_AUTOMATION_ONLY_CHECKS.has(checkId) ? "automation" : "console";
+  if (SHOW_WRITE_REMEDIATION && SG_AUTOMATION_ONLY_CHECKS.has(checkId)) return "automation";
+  return "console";
 }
 
 const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
@@ -2121,11 +2123,39 @@ function CollapsibleGrantedServices({ services }: { services: GrantedServicePill
 
 function generatePolicyIntro(cloudTrailLogging: boolean) {
   const build =
-    "Build suggestion uses IAM last-accessed data and, when available, the latest completed AWS CloudTrail policy-generation job for this role. It does not start a new AWS analysis.";
-  const resource = cloudTrailLogging
-    ? "Use CloudTrail validation below when you need a fresher job; resource ARNs are only applied when AWS returns concrete (non-template) ARNs."
-    : "Without CloudTrail logging, action scope comes from IAM last-accessed only; resources stay *.";
-  return `${build} ${resource}`;
+    "Build suggestion uses IAM service-level last-accessed data. It does not start a new AWS analysis.";
+  const booster = cloudTrailLogging
+    ? " Opt in to Access Analyzer below for action-level, higher-confidence proposals from CloudTrail."
+    : " Opt in to Access Analyzer below for action-level proposals when CloudTrail logging is enabled.";
+  return `${build}${booster}`;
+}
+
+function AccessAnalyzerBoosterOptIn({
+  enabled,
+  onEnable,
+  disabled,
+}: {
+  enabled: boolean;
+  onEnable: () => void;
+  disabled?: boolean;
+}) {
+  if (enabled) return null;
+  return (
+    <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 px-4 py-3">
+      <p className="text-[13px] leading-relaxed text-zinc-700">
+        <span className="font-medium text-zinc-900">Medium confidence — service-level usage.</span>{" "}
+        Grant Access Analyzer for higher-confidence, action-level proposals (requires optional connector permissions).
+      </p>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onEnable}
+        className="mt-2.5 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:opacity-50"
+      >
+        Grant Access Analyzer for higher-confidence proposals
+      </button>
+    </div>
+  );
 }
 
 const SUGGESTED_POLICY_CONNECTOR_ERROR =
@@ -5155,11 +5185,12 @@ function SuggestedPolicyWorkspace({
   onCloseWorkspace: () => void;
 }) {
   const [policySource, setPolicySource] = useState<"cleaned" | "original">("cleaned");
+  const [accessAnalyzerBooster, setAccessAnalyzerBooster] = useState(false);
   const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedPolicy>({
-    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen],
+    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen, accessAnalyzerBooster],
     queryFn: () =>
       api(
-        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=true`,
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=${accessAnalyzerBooster}`,
         { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled: true,
@@ -5233,27 +5264,36 @@ function SuggestedPolicyWorkspace({
         )}
         {showPolicyData && (
           <div className="finding-drawer-surface space-y-5">
-            <PolicyCloudTrailStartAction
-              layout="split"
-              findingId={finding.id}
-              accountId={accountId}
-              roleArn={finding.resource_arn}
-              data={data}
-              isRunning={cloudTrailProgress.isRunning}
-              analysisComplete={cloudTrailProgress.statusSucceeded}
-              startedAt={cloudTrailProgress.startedAt}
-              onRefresh={async () => {
-                const result = await refetch();
-                if (result.error) throw result.error;
-                return result.data;
-              }}
-              renderSplit={({ alerts, footer }) => (
-                <div className="space-y-4">
-                  {alerts ? <div className="space-y-3">{alerts}</div> : null}
-                  <PolicyCoverageMeta data={data} validationFooter={footer} />
-                </div>
-              )}
+            <AccessAnalyzerBoosterOptIn
+              enabled={accessAnalyzerBooster}
+              onEnable={() => setAccessAnalyzerBooster(true)}
+              disabled={isFetching}
             />
+            {accessAnalyzerBooster ? (
+              <PolicyCloudTrailStartAction
+                layout="split"
+                findingId={finding.id}
+                accountId={accountId}
+                roleArn={finding.resource_arn}
+                data={data}
+                isRunning={cloudTrailProgress.isRunning}
+                analysisComplete={cloudTrailProgress.statusSucceeded}
+                startedAt={cloudTrailProgress.startedAt}
+                onRefresh={async () => {
+                  const result = await refetch();
+                  if (result.error) throw result.error;
+                  return result.data;
+                }}
+                renderSplit={({ alerts, footer }) => (
+                  <div className="space-y-4">
+                    {alerts ? <div className="space-y-3">{alerts}</div> : null}
+                    <PolicyCoverageMeta data={data} validationFooter={footer} />
+                  </div>
+                )}
+              />
+            ) : (
+              <PolicyCoverageMeta data={data} />
+            )}
             {data.has_inline_policies && data.cleaned_policies && !canReviewGeneratedPolicy && !showPolicyChangePane && (
               <RemediationDetailCard title="Policy preview">
                 <PolicyJsonEditor
@@ -5725,12 +5765,13 @@ function GeneratePolicySection({
   autoLoad?: boolean;
 }) {
   const [enabled, setEnabled] = useState(autoLoad);
+  const [accessAnalyzerBooster, setAccessAnalyzerBooster] = useState(false);
   const [view, setView] = useState<"diff" | "cleaned" | "original">("diff");
   const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedPolicy>({
-    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen],
+    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen, accessAnalyzerBooster],
     queryFn: () =>
       api(
-        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=true`,
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=${accessAnalyzerBooster}`,
         { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled,
@@ -5768,23 +5809,34 @@ function GeneratePolicySection({
           </div>
         )}
         {enabled && data && (
-          <PolicyCloudTrailStartAction
-            layout="split"
-            findingId={finding.id}
-            accountId={accountId}
-            roleArn={finding.resource_arn}
-            data={data}
-            isRunning={cloudTrailProgress.isRunning}
-            analysisComplete={cloudTrailProgress.statusSucceeded}
-            startedAt={cloudTrailProgress.startedAt}
-            onRefresh={cloudTrailRefresh}
-            renderSplit={({ alerts, footer }) => (
-              <div className="space-y-4">
-                {alerts ? <div className="space-y-3">{alerts}</div> : null}
-                <PolicyCoverageMeta data={data} validationFooter={footer} />
-              </div>
+          <>
+            <AccessAnalyzerBoosterOptIn
+              enabled={accessAnalyzerBooster}
+              onEnable={() => setAccessAnalyzerBooster(true)}
+              disabled={isFetching}
+            />
+            {accessAnalyzerBooster ? (
+              <PolicyCloudTrailStartAction
+                layout="split"
+                findingId={finding.id}
+                accountId={accountId}
+                roleArn={finding.resource_arn}
+                data={data}
+                isRunning={cloudTrailProgress.isRunning}
+                analysisComplete={cloudTrailProgress.statusSucceeded}
+                startedAt={cloudTrailProgress.startedAt}
+                onRefresh={cloudTrailRefresh}
+                renderSplit={({ alerts, footer }) => (
+                  <div className="space-y-4">
+                    {alerts ? <div className="space-y-3">{alerts}</div> : null}
+                    <PolicyCoverageMeta data={data} validationFooter={footer} />
+                  </div>
+                )}
+              />
+            ) : (
+              <PolicyCoverageMeta data={data} />
             )}
-          />
+          </>
         )}
         {enabled && data && data.granularity === "service" && !data.access_analyzer?.job_id && (
           <p className="text-[12px] leading-relaxed text-zinc-500">
@@ -5804,21 +5856,28 @@ function GeneratePolicySection({
       {enabled && error && <div className="py-1 text-[13px] text-red-600">{formatSuggestedPolicyError(error)}</div>}
       {enabled && data && (
         <>
-          <PolicyCoverageMeta data={data} />
-          <PolicyCloudTrailStartAction
-            findingId={finding.id}
-            accountId={accountId}
-            roleArn={finding.resource_arn}
-            data={data}
-            isRunning={cloudTrailProgress.isRunning}
-            analysisComplete={cloudTrailProgress.statusSucceeded}
-            startedAt={cloudTrailProgress.startedAt}
-            onRefresh={async () => {
-              const result = await refetch();
-              if (result.error) throw result.error;
-              return result.data;
-            }}
+          <AccessAnalyzerBoosterOptIn
+            enabled={accessAnalyzerBooster}
+            onEnable={() => setAccessAnalyzerBooster(true)}
+            disabled={isFetching}
           />
+          <PolicyCoverageMeta data={data} />
+          {accessAnalyzerBooster ? (
+            <PolicyCloudTrailStartAction
+              findingId={finding.id}
+              accountId={accountId}
+              roleArn={finding.resource_arn}
+              data={data}
+              isRunning={cloudTrailProgress.isRunning}
+              analysisComplete={cloudTrailProgress.statusSucceeded}
+              startedAt={cloudTrailProgress.startedAt}
+              onRefresh={async () => {
+                const result = await refetch();
+                if (result.error) throw result.error;
+                return result.data;
+              }}
+            />
+          ) : null}
         </>
       )}
       {enabled && data && data.has_inline_policies && data.original_policies && data.cleaned_policies && (
@@ -6587,10 +6646,10 @@ export function FindingDrawer({
     (remDetailMode === "suggested_policy" || remDetailMode === "automation");
 
   const { data: policyGenData, isLoading: policyGenLoading, isFetching: policyGenFetching } = useQuery<GeneratedPolicy>({
-    queryKey: ["generated-policy", accountId, finding?.resource_arn, finding?.last_seen],
+    queryKey: ["generated-policy", accountId, finding?.resource_arn, finding?.last_seen, false],
     queryFn: () =>
       api(
-        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding!.resource_arn)}&advanced=true`,
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding!.resource_arn)}&advanced=false`,
         { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled: policyDataQueryEnabled,
@@ -6657,7 +6716,12 @@ export function FindingDrawer({
   };
 
   useEffect(() => {
-    if (finding && SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id) && remTab === "terraform") {
+    if (
+      finding &&
+      SHOW_WRITE_REMEDIATION &&
+      SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id) &&
+      remTab === "terraform"
+    ) {
       onRemTabChange("automation");
     }
   }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
@@ -6751,7 +6815,8 @@ export function FindingDrawer({
   const showSuggestedPolicy =
     showPolicyGen || (finding.check_id === "s3.bucket.no_https_policy" && !!accountId);
   const scopeProvider = findingScopeProvider(finding);
-  const hideAutomationRemediation = scopeProvider !== "aws";
+  const hideAutomationRemediation = scopeProvider !== "aws" || !SHOW_WRITE_REMEDIATION;
+  const hideTerraformRemediation = !SHOW_WRITE_REMEDIATION;
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "resources", label: "Resources" },
@@ -6985,14 +7050,14 @@ export function FindingDrawer({
                   <RemediationModePicker
                     active={activeRemediationMode}
                     onSelect={openRemediationDetail}
-                    hideTerraform={SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
+                    hideTerraform={hideTerraformRemediation || SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
                     hideAutomation={hideAutomationRemediation}
                     showSuggestedPolicy={showSuggestedPolicy}
                   />
                   {!remDetailMode && (
                     <p className="px-1 text-[12px] leading-relaxed text-zinc-500">
                       {showSuggestedPolicy
-                        ? "Pick a format — including Suggested policy for a scoped diff from recorded usage."
+                        ? "Pick a format — Suggested policy builds a read-only, service-level proposal you can apply manually."
                         : "Pick a format to open step-by-step instructions alongside this summary."}
                     </p>
                   )}
@@ -7047,7 +7112,7 @@ export function FindingDrawer({
                     <RemediationCliBlock finding={finding} />
                   )
                 )}
-                {!isIdentityCheck && remDetailMode === "terraform" && (
+                {!isIdentityCheck && remDetailMode === "terraform" && SHOW_WRITE_REMEDIATION && (
                   <TerraformIacDrawerSection
                     findingId={finding.id}
                     checkId={finding.check_id}
@@ -7056,7 +7121,7 @@ export function FindingDrawer({
                     onCreated={setGithubOverride}
                   />
                 )}
-                {!isIdentityCheck && remDetailMode === "automation" && (
+                {!isIdentityCheck && remDetailMode === "automation" && SHOW_WRITE_REMEDIATION && (
                   <IaCRemediationSection
                     embedMode="automation"
                     findingId={finding.id}

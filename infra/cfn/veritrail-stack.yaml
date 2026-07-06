@@ -1,7 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  VeritrailAccountConnector - parent stack for Veritrail in your AWS account. Core scanner (read-only role),
-  optional policy generation, optional remediation modules (scoped write). Stack name is not the IAM role name.
+  VeritrailAccountConnector - parent stack for Veritrail in your AWS account. Deploys a read-only
+  scanner role by default. Optional nested stacks add Access Analyzer policy generation or SSM
+  remediation modules when explicitly enabled.
 
 Parameters:
   VeritrailAccountPrincipal:
@@ -80,12 +81,6 @@ Resources:
         ExternalId: !Ref ExternalId
         RoleName: !Ref RoleName
         EnableAdvancedPolicyGeneration: !Ref EnableAdvancedPolicyGeneration
-        EnableSecurityGroupRemediation: !Ref EnableSecurityGroupRemediation
-        EnableS3Remediation: !Ref EnableS3Remediation
-        EnableIamAccessKeyRemediation: !Ref EnableIamAccessKeyRemediation
-        EnableIamPolicyRemediation: !Ref EnableIamPolicyRemediation
-        EnableSsmParameterRemediation: !Ref EnableSsmParameterRemediation
-        EnableCloudTrailRemediation: !Ref EnableCloudTrailRemediation
 
   RemediationStack:
     Type: AWS::CloudFormation::Stack
@@ -98,6 +93,7 @@ Resources:
         - Key: veritrail-version
           Value: "2026.06"
       Parameters:
+        ScannerRoleName: !Ref RoleName
         EnableSecurityGroupRemediation: !Ref EnableSecurityGroupRemediation
         EnableS3Remediation: !Ref EnableS3Remediation
         EnableIamAccessKeyRemediation: !Ref EnableIamAccessKeyRemediation

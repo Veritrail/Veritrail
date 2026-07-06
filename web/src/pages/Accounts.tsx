@@ -70,6 +70,7 @@ import {
 } from "../lib/connectionPosture";
 import { checkLabels } from "../data/checkLabels";
 import { findingDisplayGroupKey, findingGroupMeta } from "../data/findingGroups";
+import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
 import "../styles/accounts-page.css";
 import "../styles/findings-v2.css";
 
@@ -1826,13 +1827,15 @@ function ConnectionCapabilitiesPicker({
         deployedFallback={advancedDeployed}
       />
 
-      <RemediationAutomationSection
-        modules={value.remediation_modules}
-        onChange={(remediation_modules) => onChange({ ...value, remediation_modules })}
-        disabled={disabled}
-        modulesDeployed={modulesDeployed}
-        moduleVerify={capabilityVerify?.remediation_modules}
-      />
+      {SHOW_WRITE_REMEDIATION ? (
+        <RemediationAutomationSection
+          modules={value.remediation_modules}
+          onChange={(remediation_modules) => onChange({ ...value, remediation_modules })}
+          disabled={disabled}
+          modulesDeployed={modulesDeployed}
+          moduleVerify={capabilityVerify?.remediation_modules}
+        />
+      ) : null}
     </div>
   );
 }

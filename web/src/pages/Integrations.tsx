@@ -402,7 +402,7 @@ function IntegrationsContent() {
     {
       key: "aws",
       name: "AWS",
-      description: "Cloud posture, audit evidence, and automated remediation across connected accounts.",
+      description: "Cloud posture and audit evidence across connected accounts.",
       icon: <IntegrationBrandIcon brand="aws" size={48} />,
       href: "/accounts",
       connected: awsConnected,

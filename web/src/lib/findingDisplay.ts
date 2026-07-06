@@ -153,9 +153,9 @@ export function automatedRemediationUnavailableCopy(
   }
   const label = findingScopeProviderLabel(provider);
   if (context === "metadata") {
-    return `Could not load automated remediation metadata for this ${label} finding.`;
+    return `Could not load fix guidance metadata for this ${label} finding.`;
   }
-  return `Automated remediation is not available for ${label} findings yet. Use Console or CLI above.`;
+  return `Guided fix steps are not available for ${label} findings yet. Use Console or CLI above.`;
 }
 
 /** 12-digit AWS account id from API or resource ARN (not Veritrail's internal account uuid). */
