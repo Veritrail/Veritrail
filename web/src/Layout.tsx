@@ -294,7 +294,10 @@ export default function Layout() {
             {/* App-wide header bar: section title + a left slot pages fill via <HeaderSlot>, help + bell on the right. */}
             <div className="veritrail-app-header sticky top-0 z-30 flex flex-nowrap items-center gap-4 px-8 py-3">
               <AppHeaderTitle pathname={location.pathname} />
-              <div ref={setHeaderSlot} className="flex min-w-0 flex-1 flex-wrap items-center gap-2" />
+              <div
+                ref={setHeaderSlot}
+                className="veritrail-app-header__slot flex min-w-0 flex-1 flex-wrap items-center gap-2"
+              />
               <div className="veritrail-app-header__utilities">
                 <HelpMenu />
                 <NotificationsBell />

@@ -129,11 +129,22 @@
   }
 
   .veritrail-app-header {
+    /* Keep in sync with .header-filter-bar padding + .selector-card min-height. */
+    --vt-header-filter-padding-y: 18px;
+    --vt-header-selector-min-height: 58px;
+    --vt-header-slot-min-height: calc(
+      var(--vt-header-filter-padding-y) * 2 + var(--vt-header-selector-min-height)
+    );
     background:
       linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.78));
     border-bottom: 1px solid rgb(226 232 240 / 0.82);
     box-shadow: 0 1px 0 rgb(255 255 255 / 0.72) inset;
     backdrop-filter: blur(14px);
+  }
+
+  /* Card-less pages: reserve the same vertical space as the selector-card filter row. */
+  .veritrail-app-header__slot:empty {
+    min-height: var(--vt-header-slot-min-height);
   }
 
   /* Section title / breadcrumb — shared layout for the app header row. */
