@@ -591,7 +591,9 @@
 }
 
 .integration-catalog__grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* auto-fill + min column width: reflow by container width (sidebar open),
+     not viewport — prevents 4-column squeeze that truncates titles to one letter. */
+  grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
   gap: 14px;
 }
 
@@ -599,6 +601,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0.875rem;
+  min-width: 17.5rem;
   min-height: 8.25rem;
   border-color: #e2e8f0;
   border-radius: 0.75rem;
@@ -644,6 +647,8 @@
   font-weight: 400;
   line-height: 1.35;
   color: #53657d;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .integration-catalog-card:hover {
@@ -660,7 +665,8 @@
 }
 
 .integration-catalog-card .integrations-connect-btn {
-  min-width: 0;
+  flex-shrink: 0;
+  min-width: 6.5rem;
   height: 37px;
   padding: 0 19px;
   border-radius: 9px;
@@ -714,18 +720,13 @@
   text-align: center;
 }
 
-@media (max-width: 900px) {
-  .integration-catalog__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 520px) {
   .integration-catalog__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .integration-catalog-card {
+    min-width: 0;
     align-items: stretch;
   }
 
