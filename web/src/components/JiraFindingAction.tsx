@@ -49,6 +49,9 @@ type FindingSummary = {
   risk_score: number;
   status?: string;
   account_label?: string | null;
+  evidence?: unknown;
+  remediation_ticket_key?: string | null;
+  remediation_ticket_url?: string | null;
 };
 
 type Props = {
@@ -1035,9 +1038,10 @@ export function JiraFindingAction({
   }
 
   async function invalidateTicketQueries(findingIds: string[]) {
-    await Promise.all(
-      findingIds.map((findingId) => qc.invalidateQueries({ queryKey: ["jira-issue-status", findingId] })),
-    );
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["findings"] }),
+      ...findingIds.map((findingId) => qc.invalidateQueries({ queryKey: ["jira-issue-status", findingId] })),
+    ]);
   }
 
   async function createSeparateBulkTickets() {
@@ -1118,6 +1122,7 @@ export function JiraFindingAction({
         issue_type: selectedIssueType,
       }),
     });
+    onCreated?.({ issue_key: out.issue_key, issue_url: out.issue_url });
     await invalidateTicketQueries(eligible);
     const skippedCount = out.skipped_already_linked.length;
     const skippedNote = skippedCount > 0 ? ` · ${skippedCount} already linked (skipped)` : "";

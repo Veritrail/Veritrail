@@ -77,7 +77,19 @@ type Finding = {
   exception_reason?: string | null;
   exception_approved_by?: string | null;
   exception_expires_at?: string | null;
+  remediation_ticket_key?: string | null;
+  remediation_ticket_url?: string | null;
 };
+
+function findingDrawerSyncChanged(a: Finding, b: Finding): boolean {
+  return (
+    a.status !== b.status ||
+    a.last_seen !== b.last_seen ||
+    a.risk_score !== b.risk_score ||
+    a.remediation_ticket_key !== b.remediation_ticket_key ||
+    a.remediation_ticket_url !== b.remediation_ticket_url
+  );
+}
 
 function findingBelongsToAccount(finding: Finding, account: { id: string; account_id?: string | null; provider?: string | null } | undefined): boolean {
   if (!account) return true;
@@ -967,22 +979,15 @@ export default function Findings() {
     const groupChanged =
       selectedGroup.length > 0 &&
       (nextGroup.length !== selectedGroup.length ||
-        nextGroup.some(
-          (f, i) =>
-            f.id !== selectedGroup[i]?.id ||
-            f.status !== selectedGroup[i]?.status ||
-            f.last_seen !== selectedGroup[i]?.last_seen ||
-            f.risk_score !== selectedGroup[i]?.risk_score,
-        ));
+        nextGroup.some((f, i) => {
+          const prev = selectedGroup[i];
+          return !prev || f.id !== prev.id || findingDrawerSyncChanged(f, prev);
+        }));
 
     let nextSelected = selected;
     const freshSelected = byId.get(selected.id);
     if (freshSelected) {
-      if (
-        freshSelected.status !== selected.status ||
-        freshSelected.last_seen !== selected.last_seen ||
-        freshSelected.risk_score !== selected.risk_score
-      ) {
+      if (findingDrawerSyncChanged(freshSelected, selected)) {
         nextSelected = freshSelected;
       }
     } else if (selected.status === "open") {

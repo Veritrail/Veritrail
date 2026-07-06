@@ -885,6 +885,13 @@ def test_create_issues_from_findings_creates_one_issue_and_links_all(mock_db, mo
     assert "[ ]" in captured["description"]
     for finding in findings.values():
         assert finding.remediation_ticket_key == "KAN-42"
+        assert finding.remediation_ticket_url == "https://acme.atlassian.net/browse/KAN-42"
+    event_notes = [
+        call.args[0].note
+        for call in mock_db.add.call_args_list
+        if hasattr(call.args[0], "note")
+    ]
+    assert event_notes.count("Jira issue created: KAN-42") == 2
     mock_db.commit.assert_called_once()
 
 
