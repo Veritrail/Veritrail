@@ -880,6 +880,15 @@ def _draw_control_detail(pdf: FPDF, control: dict[str, Any], framework: str) -> 
         meta_bits.append(f"{len(exceptions)} approved exception(s)")
     pdf.cell(0, 5, _s("    |    ".join(meta_bits)), new_x="LMARGIN", new_y="NEXT")
 
+    # Scope note — source-control controls (Secure SDLC) are workspace/org-level,
+    # not scoped to this cloud account; label so a repo finding is never read as
+    # an account finding.
+    scope_label = (control.get("scope_label") or "").strip()
+    if scope_label:
+        pdf.set_font("Helvetica", "I", _FONT["small"])
+        pdf.set_text_color(*MUTED)
+        pdf.cell(0, 4.6, _s(scope_label), new_x="LMARGIN", new_y="NEXT")
+
     # Auditor narrative — the affirmative statement of what this control covers
     # and what evidence Veritrail collects for it.
     try:

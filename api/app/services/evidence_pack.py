@@ -209,11 +209,14 @@ def build_evidence_pack(
         snapshots_total = len(snaps)
         mapped = check_map[ctrl.id]
         cov_tier = control_coverage_tier(mapped)
+        scope, scope_label = _control_scope(mapped)
         cr_dict = {
                 "control_id": ctrl.control_id,
                 "title": ctrl.title,
                 "description": ctrl.description,
                 "guidance": ctrl.guidance or "",
+                "scope": scope,
+                "scope_label": scope_label,
                 "coverage_tier": cov_tier,
                 "extended_check_ids": extended_checks_in_list(mapped),
                 "check_tiers": {cid: tier_for_check(cid) for cid in mapped},
@@ -330,6 +333,8 @@ def build_evidence_pack(
                 "control_id": cr["control_id"],
                 "title": cr["title"],
                 "framework": framework,
+                "scope": cr.get("scope", "cloud_account"),
+                "scope_label": cr.get("scope_label"),
                 "status": cr["status"],
                 "status_note": cr["status_note"],
                 "finding_count": cr["finding_count"],
@@ -922,6 +927,35 @@ def _build_siem_integrations(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
     return {"integrations": rows}
 
 
+def _finding_scope(f: Finding) -> str:
+    """Where the finding is scoped, so an auditor doesn't read a repo finding as
+    belonging to the AWS account this pack was generated for."""
+    if f.check_id.startswith("github."):
+        return "source_control:github"
+    if f.check_id.startswith("gitlab."):
+        return "source_control:gitlab"
+    return "cloud_account"
+
+
+def _control_scope(check_ids: list[str]) -> tuple[str, str | None]:
+    """(scope, human_label) for a control based on its mapped checks.
+
+    Source-control controls (Secure SDLC) are org/workspace-level — evidence
+    comes from GitHub/GitLab, not the AWS account this pack is scoped to. Label
+    them so an auditor never reads a repo finding as an account finding.
+    """
+    if not check_ids:
+        return "cloud_account", None
+    sc = [c for c in check_ids if c.startswith(("github.", "gitlab."))]
+    if not sc:
+        return "cloud_account", None
+    providers = sorted({"GitHub" if c.startswith("github.") else "GitLab" for c in sc})
+    src = " / ".join(providers)
+    if len(sc) == len(check_ids):
+        return "workspace_source_control", f"Workspace-level · Source: {src} · not scoped to this cloud account"
+    return "mixed_source_control", f"Includes workspace-level source-control evidence ({src})"
+
+
 def _finding_dict(f: Finding, *, state: str | None = None) -> dict[str, Any]:
     effective = state if state is not None else f.status
     d: dict[str, Any] = {
@@ -932,6 +966,7 @@ def _finding_dict(f: Finding, *, state: str | None = None) -> dict[str, Any]:
         "severity": f.severity,
         "risk_score": f.risk_score,
         "status": effective,
+        "scope": _finding_scope(f),
         "first_seen": f.first_seen.isoformat(),
         "last_seen": f.last_seen.isoformat(),
         "evidence": f.evidence,
