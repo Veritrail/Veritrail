@@ -68,8 +68,8 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   okta: { src: "/integrations/okta.png" },
   splunk: { src: "/integrations/splunk.png", compactSrc: "/integrations/splunk.png" },
   elastic: { src: "https://www.elastic.co/favicon.ico" },
-  vanta: { src: "/integrations/vanta.png", tileScale: 1.05 },
-  drata: { src: "/integrations/drata.png", tileScale: 1.05 },
+  vanta: { src: "/integrations/vanta.png", tileScale: 1.08, tilePadding: 6 },
+  drata: { src: "/integrations/drata.png", tileScale: 1.05, tilePadding: 4 },
   secureframe: { src: "/integrations/secureframe.png", tileScale: 1.05 },
   sprinto: { src: "/integrations/sprinto.png", tileScale: 1.05 },
 };
