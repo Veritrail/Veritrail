@@ -1,0 +1,68 @@
+/**
+ * Profile (/profile) — KPI summary stays one row; scroll horizontally when narrow.
+ * Scoped so Workspace and Integrations strips keep their own layouts.
+ */
+
+.account-page .workspace-summary {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(13.5rem, 1fr);
+  grid-template-columns: unset;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 0.45) transparent;
+}
+
+.account-page .workspace-summary::-webkit-scrollbar {
+  height: 6px;
+}
+
+.account-page .workspace-summary::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(148 163 184 / 0.45);
+}
+
+.account-page .workspace-summary::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.account-page .workspace-summary__cell {
+  min-width: 13.5rem;
+  border-bottom: 0;
+  border-right: 1px solid #eef2f6;
+}
+
+.account-page .workspace-summary__cell--readiness {
+  grid-column: auto;
+  min-width: 17rem;
+}
+
+.account-page .workspace-summary__cell:last-child {
+  border-right: 0;
+}
+
+@media (min-width: 640px) and (max-width: 1359.98px) {
+  .account-page .workspace-summary {
+    grid-template-columns: unset;
+  }
+
+  .account-page .workspace-summary__cell--readiness {
+    grid-column: auto;
+  }
+
+  .account-page .workspace-summary__cell:nth-child(even):not(:last-child) {
+    border-right: 1px solid #eef2f6;
+  }
+
+  .account-page .workspace-summary__cell:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+
+@media (min-width: 1360px) {
+  .account-page .workspace-summary {
+    grid-template-columns: unset;
+  }
+}

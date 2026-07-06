@@ -13,6 +13,7 @@ import {
 } from "./Workspace";
 import { resolveUserDisplayName } from "../lib/displayNames";
 import "../styles/workspace-page.css";
+import "../styles/account-page.css";
 
 // d-path icons for the Workspace-style KPI strip + overview cards (Workspace's
 // Icon component renders a single <path d>). Kept local so the Account page
@@ -294,7 +295,7 @@ export default function Account() {
     postureScore >= 100 ? "Everything looks good. Keep it up." : postureScore >= 70 ? "A few items left to finish." : "Finish setup to secure your account.";
 
   return (
-    <div className="flex w-full max-w-none flex-col gap-5 pb-2">
+    <div className="account-page flex w-full max-w-none flex-col gap-5 pb-2">
 
       <div className="workspace-summary">
         <PostureReadinessCell
