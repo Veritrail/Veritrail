@@ -1,0 +1,44 @@
+name: Dependency scan
+
+on:
+  push:
+    branches: [main, staging, dev]
+  pull_request:
+
+jobs:
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  vulnerability-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: npm audit (web)
+        working-directory: web
+        run: |
+          npm ci
+          npm audit --audit-level=critical
+          npm audit --audit-level=high || echo "::warning ::npm audit reported high vulnerabilities in web/ (non-blocking; fix via Dependabot or manual upgrade)"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pip-audit (api)
+        run: |
+          pip install pip-audit
+          pip-audit -r api/requirements.txt --vulnerability-severity critical
+          pip-audit -r api/requirements.txt --vulnerability-severity high || echo "::warning ::pip-audit reported high vulnerabilities in api/ (non-blocking; fix via Dependabot or manual upgrade)"
