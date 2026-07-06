@@ -116,24 +116,6 @@ function openDaysSince(iso: string): number {
   return Math.max(0, d);
 }
 
-const RESOURCE_NAME_DISPLAY_MAX = 40;
-/** Visible ARN chars before "..." — keeps copy clear of the Type pill. */
-const RESOURCE_ARN_VISUAL_MAX = 32;
-/** Fixed slot width (ch) — must stay at 36 so the column layout does not shift. */
-const RESOURCE_ARN_SLOT_CH = 36;
-
-function truncateDisplayText(text: string, max: number): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 1)}…`;
-}
-
-function truncateArnDisplay(arn: string, max = RESOURCE_ARN_VISUAL_MAX): string {
-  const trimmed = arn.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 3)}...`;
-}
-
 function ResourceTypePill({ label }: { label: string }) {
   return (
     <span className="inline-flex shrink-0 whitespace-nowrap rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold leading-none text-sky-700">
@@ -1076,8 +1058,8 @@ export function FindingResourcesTab({
           <table className="finding-resources-tab__table min-w-[56rem] w-full border-collapse text-left">
             <colgroup>
               {selectionEnabled ? <col className="w-10" /> : null}
-              <col className="min-w-[14rem]" />
-              <col className="finding-resources-tab__type-col min-w-[10rem]" />
+              <col className="finding-resources-tab__resource-col" />
+              <col className="finding-resources-tab__type-col" />
               <col className="min-w-[7.5rem]" />
               <col />
               <col />
@@ -1100,7 +1082,7 @@ export function FindingResourcesTab({
                   </th>
                 ) : null}
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Resource</th>
-                <th className="finding-resources-tab__type-head w-[1%] whitespace-nowrap pl-2 pr-6 pb-2.5 pt-3 text-left align-bottom font-semibold">
+                <th className="finding-resources-tab__type-head shrink-0 whitespace-nowrap pb-2.5 pt-3 text-left align-bottom font-semibold">
                   <span className="inline-block -translate-x-8">Type</span>
                 </th>
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Account</th>
@@ -1153,34 +1135,28 @@ export function FindingResourcesTab({
                         />
                       </td>
                     ) : null}
-                    <td className="px-4 py-4 align-middle">
-                      <div className="flex items-center gap-3">
+                    <td className="finding-resources-tab__resource-cell px-4 py-4 align-middle">
+                      <div className="flex min-w-0 items-center gap-3">
                         <CloudProviderMark finding={f} />
-                        <div className="min-w-0 max-w-[20rem]">
+                        <div className="min-w-0 flex-1 overflow-hidden">
                           <p
                             className="truncate text-[13px] font-semibold leading-tight text-zinc-900"
                             title={name}
                           >
-                            {truncateDisplayText(name, RESOURCE_NAME_DISPLAY_MAX)}
+                            {name}
                           </p>
-                          <p
-                            className="mt-1 flex items-center font-mono text-[11px] leading-4 text-zinc-500"
-                            style={{ minWidth: `${RESOURCE_ARN_SLOT_CH}ch` }}
-                          >
-                            <span
-                              className="inline-flex items-center gap-1 whitespace-nowrap"
-                              title={f.resource_arn}
-                            >
-                              <span>{truncateArnDisplay(f.resource_arn)}</span>
-                              <span className="opacity-0 transition-opacity group-hover:opacity-100">
-                                <CopyArnButton arn={f.resource_arn} />
-                              </span>
+                          <p className="mt-1 flex min-w-0 items-center gap-1 font-mono text-[11px] leading-4 text-zinc-500">
+                            <span className="min-w-0 truncate" title={f.resource_arn}>
+                              {f.resource_arn}
+                            </span>
+                            <span className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
+                              <CopyArnButton arn={f.resource_arn} />
                             </span>
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="finding-resources-tab__type-cell w-[1%] whitespace-nowrap pl-2 pr-6 py-4 align-middle">
+                    <td className="finding-resources-tab__type-cell shrink-0 whitespace-nowrap py-4 align-middle">
                       <div className="flex -translate-x-8 flex-col items-start">
                         <ResourceTypePill label={rowAssetType} />
                         {/* phantom sub-line — keeps the pill level with the first line of the

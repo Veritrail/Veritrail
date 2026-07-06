@@ -1,13 +1,28 @@
 /* Finding drawer — Resources tab (scoped to FindingResourcesTab). */
 
+.finding-resources-tab__table {
+  table-layout: fixed;
+}
+
+.finding-resources-tab__table col.finding-resources-tab__resource-col {
+  width: min(18rem, 26%);
+}
+
+.finding-resources-tab__table .finding-resources-tab__resource-cell {
+  max-width: 0;
+  overflow: hidden;
+  /* Type pills sit ~2rem left of the type column; keep ARN/name out of that overlap. */
+  padding-right: 2.5rem;
+}
+
 .finding-resources-tab__table col.finding-resources-tab__type-col {
-  width: 5.25rem;
-  min-width: 5.25rem;
+  width: 8.5rem;
+  min-width: 8.5rem;
 }
 
 .finding-resources-tab__table .finding-resources-tab__type-head,
 .finding-resources-tab__table .finding-resources-tab__type-cell {
-  width: 5.25rem;
+  width: 8.5rem;
   padding-left: 0;
   padding-right: 0;
   text-align: center;
@@ -15,7 +30,7 @@
 
 .finding-resources-tab__table .finding-resources-tab__type-cell > div {
   display: flex;
-  width: 5.25rem;
+  width: 8.5rem;
   min-height: 2.5rem;
   flex-direction: column;
   align-items: center;
