@@ -299,3 +299,21 @@
   background: #dbeafe;
   border-color: #bfdbfe;
 }
+
+/* Neutral variant — zinc accents for exception modal and other non-teal drawer forms. */
+.drawer-date-field--neutral .drawer-date-field__trigger:focus-visible {
+  border-color: #a1a1aa;
+  box-shadow: 0 0 0 3px rgb(24 24 27 / 0.08);
+}
+
+.drawer-date-field__popover--neutral .drawer-date-field__day.is-selected {
+  background: #18181b;
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(24 24 27 / 0.2);
+}
+
+.drawer-date-field__popover--neutral
+  .drawer-date-field__day:hover:not(:disabled):not(.is-selected):not(.is-outside) {
+  background: #f4f4f5;
+  color: #18181b;
+}

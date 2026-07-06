@@ -109,7 +109,8 @@ export function DrawerDateField({
   triggerClassName?: string;
   popoverPlacement?: "above" | "below";
   /** `audit` matches Generate Audit Package date picker (blue accents, single Today footer). */
-  variant?: "default" | "audit";
+  /** `neutral` uses zinc accents — for exception and other non-teal drawer forms. */
+  variant?: "default" | "audit" | "neutral";
   /** When true, popover width matches the trigger; defaults to true for audit variant. */
   popoverMatchTriggerWidth?: boolean;
   /** Footer today action label; defaults to "Today". */
@@ -117,6 +118,7 @@ export function DrawerDateField({
 }) {
   const max = maxIso ?? toIsoDate(new Date(new Date().getFullYear() + 10, 11, 31));
   const isAudit = variant === "audit";
+  const isNeutral = variant === "neutral";
   const matchTriggerWidth = popoverMatchTriggerWidth ?? isAudit;
   const resolvedAllowClear = isAudit ? false : allowClear;
   const resolvedTodayLabel = todayLabel ?? "Today";
@@ -297,6 +299,7 @@ export function DrawerDateField({
     "drawer-date-field__popover",
     "drawer-date-field__popover--portal",
     isAudit ? "drawer-date-field__popover--audit" : "",
+    isNeutral ? "drawer-date-field__popover--neutral" : "",
     matchTriggerWidth ? "drawer-date-field__popover--match-trigger" : "",
     effectivePlacement === "below" ? "is-below" : "is-above",
     entered ? "is-open" : "",
@@ -429,7 +432,11 @@ export function DrawerDateField({
       </div>
     ) : null;
 
-  const rootClass = ["drawer-date-field", isAudit ? "drawer-date-field--audit" : ""]
+  const rootClass = [
+    "drawer-date-field",
+    isAudit ? "drawer-date-field--audit" : "",
+    isNeutral ? "drawer-date-field--neutral" : "",
+  ]
     .filter(Boolean)
     .join(" ");
 

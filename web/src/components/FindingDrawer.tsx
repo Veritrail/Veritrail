@@ -6406,6 +6406,7 @@ function ExceptionButton({
                       onChange={setExpiresAt}
                       minIso={todayIso()}
                       placeholder="Select expiry date"
+                      variant="neutral"
                     />
                     <p className="mt-1 text-xs text-zinc-400">Set when this exception should be reviewed or expire.</p>
                   </div>
@@ -6427,7 +6428,7 @@ function ExceptionButton({
                       <button
                         type="submit"
                         disabled={submitting || !reason.trim() || !approvedBy.trim()}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[9rem]"
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6a2.25 2.25 0 0 1 2.25-2.25Z" />
