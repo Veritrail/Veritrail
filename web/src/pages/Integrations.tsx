@@ -144,9 +144,11 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
       <td>
         <div className="integrations-table__integration">
           {row.icon}
-          <div className="min-w-0">
-            <div className="integrations-table__name">{row.name}</div>
-            {row.connected && <span className="integrations-table__badge">Connected</span>}
+          <div className="integrations-table__identity min-w-0">
+            <div className="integrations-table__name-row">
+              <span className="integrations-table__name">{row.name}</span>
+              {row.connected && <span className="integrations-table__badge">Connected</span>}
+            </div>
           </div>
         </div>
       </td>
