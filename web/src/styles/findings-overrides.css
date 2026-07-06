@@ -40,6 +40,7 @@
 
 .findings-v2-page .findings-v2-toolbar-group--divider,
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-toolbar-group--divider {
+  display: none !important;
   margin-left: 0 !important;
   padding-left: 0 !important;
   gap: 0 !important;
@@ -48,8 +49,8 @@
 .findings-v2-page .findings-v2-actions-group,
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-actions-group {
   position: relative;
-  margin-left: 0.75rem !important;
-  padding-left: 0.875rem !important;
+  margin-left: 0.375rem !important;
+  padding-left: 0.625rem !important;
 }
 
 .findings-v2-page .findings-v2-actions-group::before,
@@ -65,10 +66,16 @@
   pointer-events: none;
 }
 
+.findings-v2-page .findings-v2-control-cluster {
+  gap: 0.375rem;
+}
+
+/* Shrink-wrap to the input field — fixed clamp width left empty space before the divider. */
 .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search,
 .findings-v2-page .findings-v2-toolbar-scroll .vt-toolbar-search.findings-v2-search {
-  width: clamp(12rem, 18vw, 18rem);
-  min-width: 12rem;
+  width: auto;
+  max-width: 18rem;
+  min-width: 0;
 }
 
 .findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn--scan {
@@ -84,8 +91,8 @@
 @media (max-width: 1320px) {
   .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search,
   .findings-v2-page .findings-v2-toolbar-scroll .vt-toolbar-search.findings-v2-search {
-    width: 12rem;
-    min-width: 12rem;
+    width: auto;
+    max-width: 12rem;
   }
 
   .findings-v2-page .findings-v2-search input::placeholder,
@@ -97,7 +104,11 @@
 @media (max-width: 1120px) {
   .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search,
   .findings-v2-page .findings-v2-toolbar-scroll .vt-toolbar-search.findings-v2-search {
-    width: 10rem;
+    width: auto;
+    max-width: 10rem;
+  }
+
+  .findings-v2-page .vt-toolbar-search.findings-v2-search .vt-toolbar-search__input-wrap {
     min-width: 10rem;
   }
 }
