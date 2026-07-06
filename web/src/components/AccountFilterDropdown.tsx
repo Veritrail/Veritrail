@@ -8,6 +8,7 @@ import {
   ProviderMark,
   type AccountOption,
 } from "./AccountSelect";
+import { SelectorCard } from "./SelectorCard";
 
 export type AccountFilterGroup = {
   heading?: string;
@@ -15,23 +16,6 @@ export type AccountFilterGroup = {
 };
 
 type MenuPosition = { top: number; left: number; minWidth: number };
-
-function FilterChevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`account-filter__chevron${open ? " account-filter__chevron--open" : ""}`}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
 
 function accountMatchesQuery(account: AccountOption, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -58,13 +42,11 @@ export function AccountFilterDropdown({
   groups,
   value,
   onChange,
-  variant = "inline",
 }: {
   accounts: AccountOption[];
   groups?: AccountFilterGroup[];
   value: string;
   onChange: (id: string) => void;
-  variant?: "default" | "inline";
 }) {
   const flatAccounts = useMemo(
     () => (groups ? groups.flatMap((group) => group.accounts) : accounts),
@@ -326,29 +308,26 @@ export function AccountFilterDropdown({
         )
       : null;
 
-  const isInline = variant === "inline";
-
   return (
-    <div ref={rootRef} className={`account-filter${isInline ? " account-filter--inline" : ""}`}>
-      <button
+    <div ref={rootRef} className="account-filter">
+      <SelectorCard
         ref={triggerRef}
-        type="button"
-        className={`account-filter__trigger${open ? " account-filter__trigger--open" : ""}${isInline ? " account-filter__trigger--inline" : ""}`}
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={`Account: ${accountDisplayName(current)}`}
-      >
-        <span className="account-filter__icon-box">
+        icon={
           <ProviderMark
             provider={current.provider}
             variant="compact"
             className={`account-filter__provider account-filter__provider--${current.provider ?? "aws"}`}
           />
-        </span>
-        <span className="account-filter__name">{accountDisplayName(current)}</span>
-        <FilterChevron open={open} />
-      </button>
+        }
+        label="Account"
+        value={accountDisplayName(current)}
+        iconTone="account"
+        open={open}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Account: ${accountDisplayName(current)}`}
+      />
       {menu}
     </div>
   );

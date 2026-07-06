@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from "react-dom";
 
 import { HistoryMenuCheckmark } from "./HistoryMenuCheckmark";
+import { GroupSelectorIcon, PeriodSelectorIcon, SelectorCard, type SelectorCardIconTone } from "./SelectorCard";
 
 type MenuPosition = { top: number; left: number; minWidth: number };
 
@@ -10,21 +11,17 @@ export type HistoryFilterOption = {
   label: string;
 };
 
-function FilterChevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      className={`history-filter-box__chevron${open ? " history-filter-box__chevron--open" : ""}`}
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.5}
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
-    </svg>
-  );
+function defaultIconForLabel(label: string): ReactNode {
+  if (label === "Period") return <PeriodSelectorIcon />;
+  if (label === "Group") return <GroupSelectorIcon />;
+  return null;
+}
+
+function iconToneForLabel(label: string): SelectorCardIconTone {
+  if (label === "Period") return "period";
+  if (label === "Framework") return "framework";
+  if (label === "Group") return "group";
+  return "neutral";
 }
 
 export function HistoryFilterDropdown({
@@ -36,7 +33,6 @@ export function HistoryFilterDropdown({
   ariaLabel,
   valueIcon,
   optionIcon,
-  variant = "inline",
 }: {
   label: string;
   value: string;
@@ -46,7 +42,6 @@ export function HistoryFilterDropdown({
   ariaLabel: string;
   valueIcon?: ReactNode;
   optionIcon?: (optionValue: string) => ReactNode;
-  variant?: "boxed" | "inline";
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
@@ -54,6 +49,7 @@ export function HistoryFilterDropdown({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value) ?? options[0];
+  const triggerIcon = valueIcon ?? defaultIconForLabel(label);
 
   const updateMenuPosition = useCallback(() => {
     const btn = triggerRef.current;
@@ -141,49 +137,20 @@ export function HistoryFilterDropdown({
         )
       : null;
 
-  const isInline = variant === "inline";
-
   return (
-    <div
-      ref={rootRef}
-      className={[
-        "history-filter-dropdown",
-        isInline ? "history-filter-dropdown--inline" : "",
-        boxClassName,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <button
+    <div ref={rootRef} className={["history-filter-dropdown", boxClassName].filter(Boolean).join(" ")}>
+      <SelectorCard
         ref={triggerRef}
-        type="button"
-        className={isInline ? "history-filter-inline" : "history-filter-box"}
+        icon={triggerIcon}
+        label={label}
+        value={selected?.label ?? value}
+        iconTone={iconToneForLabel(label)}
+        open={open}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`${label}: ${selected?.label ?? value}`}
-      >
-        {isInline ? (
-          <>
-            <span className="history-filter-inline__content">
-              {valueIcon}
-              <span className="history-filter-inline__value">{selected?.label ?? value}</span>
-            </span>
-            <FilterChevron open={open} />
-          </>
-        ) : (
-          <>
-            <span className="history-filter-box__label">{label}</span>
-            <span className="history-filter-box__trail">
-              <span className="history-filter-box__choice">
-                {valueIcon}
-                <span className="history-filter-box__selected">{selected?.label ?? value}</span>
-              </span>
-              <FilterChevron open={open} />
-            </span>
-          </>
-        )}
-      </button>
+      />
       {menu}
     </div>
   );

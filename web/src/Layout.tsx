@@ -14,7 +14,6 @@ import { useAccountsPlanUsage } from "./hooks/useAccountsPlanUsage";
 import SidebarNavLink from "./components/SidebarNavLink";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
-import { catalogEntryByKey } from "./lib/integrationCatalog";
 import "./styles/sidebar.css";
 import "./styles/user-menu.css";
 
@@ -40,63 +39,9 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
 
 type AccountRow = { status: string; account_id: string | null };
 
-/** Section title shown in the app header, keyed by first path segment. */
-const HEADER_TITLES: Record<string, string> = {
-  dashboard: "Dashboard",
-  accounts: "Accounts",
-  findings: "Findings",
-  controls: "Compliance",
-  history: "History",
-  integrations: "Integrations",
-  workspace: "Workspace",
-  profile: "Profile",
-  reference: "Reference",
-};
-
 const DEFAULT_HISTORY_FRAMEWORK = "soc2";
 const DEFAULT_HISTORY_DAYS = 90;
 const HISTORY_PREFETCH_STALE_MS = 120_000;
-
-/** Child page labels under /integrations/* (hub uses plain title). */
-const INTEGRATION_SUBPAGE_LABELS: Record<string, string> = {
-  catalog: "Workflow integrations",
-  github: "GitHub",
-  gitlab: "GitLab",
-  "google-workspace": "Google Workspace",
-  entra: "Microsoft Entra ID",
-  slack: "Slack",
-  jira: "Jira",
-  gcp: "Google Cloud",
-  azure: "Microsoft Azure",
-  okta: "Okta",
-  intune: "Microsoft Intune",
-  jamf: "Jamf Pro",
-  "github-issues": "GitHub Issues",
-  "iac-repository": "IaC repository",
-};
-
-function formatHeaderSlug(slug: string): string {
-  return slug.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function integrationSubpageLabel(pathname: string): string | null {
-  if (pathname === "/integrations" || pathname === "/integrations/") return null;
-
-  const scannerMatch = pathname.match(/^\/integrations\/scanners\/([^/]+)/);
-  if (scannerMatch) {
-    return catalogEntryByKey(scannerMatch[1])?.name ?? formatHeaderSlug(scannerMatch[1]);
-  }
-
-  const siemMatch = pathname.match(/^\/integrations\/siem\/([^/]+)/);
-  if (siemMatch) {
-    return catalogEntryByKey(siemMatch[1])?.name ?? formatHeaderSlug(siemMatch[1]);
-  }
-
-  const segment = pathname.replace(/^\/integrations\/?/, "").split("/")[0];
-  if (!segment) return null;
-
-  return INTEGRATION_SUBPAGE_LABELS[segment] ?? formatHeaderSlug(segment);
-}
 
 function AppHeaderBreadcrumb({
   parentTo,
@@ -121,22 +66,17 @@ function AppHeaderBreadcrumb({
 }
 
 function AppHeaderTitle({ pathname }: { pathname: string }) {
-  const integrationChild = integrationSubpageLabel(pathname);
-  if (integrationChild) {
-    return (
-      <AppHeaderBreadcrumb
-        parentTo="/integrations"
-        parentLabel="Integrations"
-        current={integrationChild}
-      />
-    );
-  }
+  const isCatalog =
+    pathname === "/integrations/catalog" || pathname.startsWith("/integrations/catalog/");
+  if (!isCatalog) return null;
 
-  const segment = pathname.split("/")[1];
-  const title = segment ? HEADER_TITLES[segment] : undefined;
-  if (!title) return null;
-
-  return <h1 className="veritrail-app-header__title">{title}</h1>;
+  return (
+    <AppHeaderBreadcrumb
+      parentTo="/integrations"
+      parentLabel="Integrations"
+      current="Workflow integrations"
+    />
+  );
 }
 
 export default function Layout() {

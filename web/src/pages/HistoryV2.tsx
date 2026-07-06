@@ -230,7 +230,7 @@ export default function HistoryV2() {
     <ProductShell className="flex flex-1 flex-col">
     <div className="history-page history-page--fill px-1 pt-2 sm:px-0">
       <HeaderSlot>
-        <HeaderFilterBar showAccountSeparator>
+        <HeaderFilterBar>
           <AccountFilterDropdown
             accounts={connectedAccounts}
             value={effectiveAccountId}
@@ -266,7 +266,7 @@ export default function HistoryV2() {
               setPage(1);
               patchSearchParams({ framework: v });
             }}
-            valueIcon={<FrameworkMark framework={framework} className="history-filter-inline__framework-mark" />}
+            valueIcon={<FrameworkMark framework={framework} className="selector-card__framework-mark" />}
             optionIcon={(id) => <FrameworkMark framework={id} className="history-filter-menu__icon" />}
           />
 
