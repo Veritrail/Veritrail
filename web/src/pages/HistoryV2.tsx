@@ -5,7 +5,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { complianceTimelineSchema, compositeControlListSchema } from "../lib/apiSchemas";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
-import { AppCommandBar } from "../components/AppCommandBar";
+import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
@@ -230,11 +230,10 @@ export default function HistoryV2() {
     <ProductShell className="flex flex-1 flex-col">
     <div className="history-page history-page--fill px-1 pt-2 sm:px-0">
       <HeaderSlot>
-        <AppCommandBar className="history-filter-bar history-filter-bar--inline">
+        <HeaderFilterBar showAccountSeparator>
           <AccountFilterDropdown
             accounts={connectedAccounts}
             value={effectiveAccountId}
-            variant="inline"
             onChange={(id) => {
               setAccountId(id);
               setPageSize(DEFAULT_VISIBLE_EVENTS);
@@ -243,7 +242,6 @@ export default function HistoryV2() {
           />
 
           <HistoryFilterDropdown
-            variant="inline"
             label="Period"
             boxClassName="history-filter-dropdown--period"
             ariaLabel="Period"
@@ -257,7 +255,6 @@ export default function HistoryV2() {
           />
 
           <HistoryFilterDropdown
-            variant="inline"
             label="Framework"
             boxClassName="history-filter-dropdown--framework"
             ariaLabel="Framework"
@@ -274,7 +271,6 @@ export default function HistoryV2() {
           />
 
           <HistoryFilterDropdown
-            variant="inline"
             label="Group"
             boxClassName="history-filter-dropdown--group"
             ariaLabel="Compliance group"
@@ -287,7 +283,7 @@ export default function HistoryV2() {
               patchSearchParams({ composite: value || null });
             }}
           />
-        </AppCommandBar>
+        </HeaderFilterBar>
       </HeaderSlot>
 
       {isAwsAccount && historyQ.isLoading && <p className="history-loading">Loading history…</p>}

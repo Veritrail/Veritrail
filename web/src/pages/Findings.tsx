@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FilterChipBar } from "../components/FilterChipBar";
 import {
@@ -1219,7 +1220,9 @@ export default function Findings() {
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
         {connectedAccounts.length > 0 && !providerScope && (
           <HeaderSlot>
+          <HeaderFilterBar>
             <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
+          </HeaderFilterBar>
           </HeaderSlot>
         )}
 

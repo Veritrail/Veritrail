@@ -29,7 +29,7 @@ import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingAffectsControlStatus } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
-import { AppCommandBar } from "../components/AppCommandBar";
+import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import {
@@ -4633,13 +4633,13 @@ export default function Controls() {
     <div className="compliance-page compliance-v2-shell min-h-full w-full">
       {connectedAccounts.length > 0 && activeAccount && (
         <HeaderSlot>
-          <AppCommandBar>
+          <HeaderFilterBar>
             <AccountFilterDropdown
               accounts={connectedAccounts}
               value={activeAccount.id}
               onChange={handleAccountChange}
             />
-          </AppCommandBar>
+          </HeaderFilterBar>
         </HeaderSlot>
       )}
 

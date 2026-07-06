@@ -52,7 +52,7 @@ export function AccountFilterDropdown({
   accounts,
   value,
   onChange,
-  variant = "default",
+  variant = "inline",
 }: {
   accounts: AccountOption[];
   value: string;

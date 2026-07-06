@@ -36,7 +36,7 @@ export function HistoryFilterDropdown({
   ariaLabel,
   valueIcon,
   optionIcon,
-  variant = "boxed",
+  variant = "inline",
 }: {
   label: string;
   value: string;

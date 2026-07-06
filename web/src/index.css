@@ -207,14 +207,9 @@
     padding-right: 0;
   }
 
-  /* History filter row lives in the header slot — match other pages' 38px controls. */
-  .veritrail-app-header .history-filter-bar {
+  /* Header filter row lives in the header slot. */
+  .veritrail-app-header .header-filter-bar {
     margin-bottom: 0;
-    gap: 0.5rem;
-  }
-
-  .veritrail-app-header .history-filter-bar--inline {
-    gap: 0;
   }
 
   .veritrail-app-content {
@@ -240,20 +235,145 @@
     gap: 0.625rem;
   }
 
-  /* Account trigger intentionally excluded: the pill keeps one quiet filled
-     style everywhere (Findings portals it bare; History/Controls wrap it in
-     the command bar — it must not change looks between pages). History uses
-     account-filter--inline inside history-filter-bar--inline instead. */
-  .veritrail-command-bar:not(.history-filter-bar--inline) .history-filter-box {
+  .veritrail-command-bar:not(.header-filter-bar--inline) .history-filter-box {
     border-color: var(--vt-border);
     border-radius: var(--vt-radius-md);
     background: var(--vt-surface);
     box-shadow: var(--vt-shadow-card);
   }
 
-  .veritrail-command-bar:not(.history-filter-bar--inline) .history-filter-box:hover {
+  .veritrail-command-bar:not(.header-filter-bar--inline) .history-filter-box:hover {
     border-color: var(--vt-border-strong);
     background: var(--vt-surface-raised);
+  }
+
+  /* App-wide inline header filters (icon + value, no pill boxes). */
+  .header-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0;
+  }
+
+  .header-filter-bar--inline {
+    gap: 0.875rem;
+    align-items: center;
+  }
+
+  .header-filter-divider {
+    flex-shrink: 0;
+    align-self: center;
+    width: 1px;
+    height: 1.25rem;
+    background: rgb(226 232 240 / 0.95);
+  }
+
+  .header-filter-bar--inline .account-filter--inline {
+    max-width: min(18rem, calc(100vw - 8rem));
+  }
+
+  .header-filter-bar--inline .account-filter__trigger--inline {
+    height: auto;
+    min-height: 0;
+    padding: 0.125rem 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    gap: 0.5rem;
+  }
+
+  .header-filter-bar--inline .account-filter__trigger--inline:hover,
+  .header-filter-bar--inline .account-filter__trigger--inline[aria-expanded="true"],
+  .header-filter-bar--inline .account-filter__trigger--inline.account-filter__trigger--open {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .header-filter-bar--inline .account-filter__trigger--inline:focus-visible {
+    border-radius: 0.375rem;
+    box-shadow: 0 0 0 2px rgb(31 78 121 / 0.15);
+  }
+
+  .header-filter-bar--inline .account-filter__name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #18181b;
+  }
+
+  .header-filter-bar--inline .account-filter__chevron {
+    color: #a1a1aa;
+  }
+
+  .header-filter-bar--inline .account-filter__trigger--inline:hover .account-filter__chevron {
+    color: #71717a;
+  }
+
+  .history-filter-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    padding: 0.125rem 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    transition: color 0.15s ease;
+  }
+
+  .history-filter-inline > * {
+    pointer-events: none;
+  }
+
+  .history-filter-inline:focus-visible {
+    outline: none;
+    border-radius: 0.375rem;
+    box-shadow: 0 0 0 2px rgb(31 78 121 / 0.15);
+  }
+
+  .history-filter-inline__content {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .history-filter-inline__value {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: #18181b;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history-filter-inline__framework-mark {
+    flex-shrink: 0;
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  .history-filter-dropdown--inline.history-filter-dropdown--group {
+    max-width: 16rem;
+  }
+
+  .history-filter-inline .history-filter-box__chevron {
+    flex-shrink: 0;
+    color: #a1a1aa;
+  }
+
+  .history-filter-inline:hover .history-filter-box__chevron {
+    color: #71717a;
   }
 
   .veritrail-list-card {
