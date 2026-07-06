@@ -195,6 +195,33 @@ def _apply_scope_filter(
     return q
 
 
+def _apply_provider_or_scope(
+    q,
+    *,
+    provider: str | None,
+    account_id: uuid.UUID | None,
+    gcp_project_id: uuid.UUID | None,
+    azure_subscription_id: uuid.UUID | None,
+):
+    """Source-control provider scope OR cloud scope — never both.
+
+    ?provider=github|gitlab is a first-class Findings scope: org-level
+    source-control findings (account_id NULL, github.*/gitlab.*). It is mutually
+    exclusive with cloud account scope so the two domains never mix.
+    """
+    if provider in ("github", "gitlab"):
+        return q.where(
+            Finding.account_id.is_(None),
+            Finding.check_id.like(f"{provider}.%"),
+        )
+    return _apply_scope_filter(
+        q,
+        account_id=account_id,
+        gcp_project_id=gcp_project_id,
+        azure_subscription_id=azure_subscription_id,
+    )
+
+
 class FindingPage(BaseModel):
     items: list[FindingOut]
     total: int
@@ -465,6 +492,7 @@ def list_findings(
     account_id: str | None = None,
     gcp_project_id: str | None = None,
     azure_subscription_id: str | None = None,
+    provider: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     cursor: str | None = Query(default=None),
     p=Depends(current_principal),
@@ -486,8 +514,9 @@ def list_findings(
         base_q = base_q.where(Finding.severity == severity)
     if check_id:
         base_q = base_q.where(Finding.check_id == check_id)
-    base_q = _apply_scope_filter(
+    base_q = _apply_provider_or_scope(
         base_q,
+        provider=provider,
         account_id=acc_uuid,
         gcp_project_id=gcp_uuid,
         azure_subscription_id=az_uuid,
