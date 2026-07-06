@@ -80,7 +80,6 @@ import {
 } from "../lib/findingDisplay";
 import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
-import { FindingResourceBulkBar } from "./FindingResourceBulkBar";
 import { roleAtLeast, useMe } from "../hooks/useMe";
 import { ResourcesIcon } from "./ResourcesIcon";
 import { DrawerShell } from "./DrawerShell";
@@ -6143,12 +6142,16 @@ function CliBlock({ code, label = "Command" }: { code: string; label?: string })
 
 function ExceptionButton({
   findingId,
+  bulkFindingIds,
   onDone,
+  onBulkComplete,
   className,
   sheetContainerRef,
 }: {
   findingId: string;
+  bulkFindingIds?: string[];
   onDone: () => void;
+  onBulkComplete?: () => void;
   className?: string;
   /** Drawer root — exception sheet is portaled here so it covers the panel only. */
   sheetContainerRef: RefObject<HTMLElement | null>;
@@ -6159,11 +6162,21 @@ function ExceptionButton({
   const [expiresAt, setExpiresAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
   const [sheetDragY, setSheetDragY] = useState(0);
   const [sheetDragging, setSheetDragging] = useState(false);
   const dragStartY = useRef<number | null>(null);
   const sheetDragYRef = useRef(0);
   const exceptionSheetRef = useRef<HTMLDivElement>(null);
+
+  const bulkCount = bulkFindingIds?.length ?? 0;
+  const isBulk = bulkCount > 1;
+  const targetIds = isBulk ? bulkFindingIds! : [findingId];
+  const triggerLabel = done
+    ? "Exception recorded"
+    : isBulk
+      ? `Except ${bulkCount}`
+      : "Create exception";
 
   useEffect(() => {
     setSheetDragY(0);
@@ -6185,14 +6198,37 @@ function ExceptionButton({
     e.preventDefault();
     if (!reason.trim() || !approvedBy.trim()) return;
     setSubmitting(true);
+    setBulkMsg(null);
     try {
+      const payload = {
+        reason: reason.trim(),
+        approved_by: approvedBy.trim(),
+        expires_at: expiresAt || null,
+      };
+      if (isBulk) {
+        const results = await Promise.allSettled(
+          targetIds.map((id) =>
+            api(`/v1/findings/${id}/exception`, {
+              method: "POST",
+              body: JSON.stringify(payload),
+            }),
+          ),
+        );
+        const failed = results.filter((result) => result.status === "rejected").length;
+        if (failed > 0) {
+          setBulkMsg(`${results.length - failed} excepted · ${failed} failed`);
+          return;
+        }
+        setDone(true);
+        window.setTimeout(() => {
+          setOpen(false);
+          onBulkComplete?.();
+        }, 800);
+        return;
+      }
       await api(`/v1/findings/${findingId}/exception`, {
         method: "POST",
-        body: JSON.stringify({
-          reason: reason.trim(),
-          approved_by: approvedBy.trim(),
-          expires_at: expiresAt || null,
-        }),
+        body: JSON.stringify(payload),
       });
       setDone(true);
       setTimeout(() => { setOpen(false); onDone(); }, 800);
@@ -6238,7 +6274,7 @@ function ExceptionButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={done ? "Exception recorded" : "Create exception"}
+        aria-label={triggerLabel}
         className={`${className ?? drawerFooterExceptionGhost}${done ? " !text-emerald-700 hover:!bg-emerald-50" : ""}`}
       >
         {done ? (
@@ -6255,7 +6291,7 @@ function ExceptionButton({
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6" />
           </svg>
         )}
-        {done ? "Exception recorded" : "Create exception"}
+        {done ? "Exception recorded" : triggerLabel}
       </button>
       {open &&
         sheetContainerRef.current &&
@@ -6308,7 +6344,7 @@ function ExceptionButton({
                     <ExceptionDocIcon />
                     <div className="min-w-0">
                       <h3 id="exception-dialog-title" className="text-base font-semibold text-zinc-900">
-                        Document exception
+                        {isBulk ? `Document exception for ${bulkCount} resources` : "Document exception"}
                       </h3>
                       <p className="mt-1 text-sm leading-relaxed text-zinc-500">
                         Exceptions are retained in the evidence pack. Auditors can review the reason, approver, and expiry.
@@ -6373,6 +6409,11 @@ function ExceptionButton({
                     />
                     <p className="mt-1 text-xs text-zinc-400">Set when this exception should be reviewed or expire.</p>
                   </div>
+                  {bulkMsg ? (
+                    <p className="text-sm font-medium text-amber-800" role="status">
+                      {bulkMsg}
+                    </p>
+                  ) : null}
                   <div className="border-t border-zinc-100 pt-4">
                     <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                       <button
@@ -6476,9 +6517,17 @@ export function FindingDrawer({
     [resourcesGroupFindings, selectedResourceIds],
   );
 
+  const bulkSelectionCount = selectedResourceIds.size;
+  const bulkResourceMode = bulkSelectionCount > 1;
+
   const clearResourceSelection = useCallback(() => {
     setSelectedResourceIds(new Set());
   }, []);
+  const handleBulkActionComplete = useCallback(() => {
+    clearResourceSelection();
+    void qc.invalidateQueries({ queryKey: ["findings"] });
+  }, [clearResourceSelection, qc]);
+
   const handleClose = useCallback(() => {
     clearResourceSelection();
     onClose();
@@ -7052,13 +7101,6 @@ export function FindingDrawer({
         <span className="font-semibold">Jira marked Done</span> — {JIRA_DONE_UNVERIFIED_WARNING}
       </div>
     ) : null}
-    {canEditResources && selectedResourceFindings.length > 0 ? (
-      <FindingResourceBulkBar
-        selectedFindings={selectedResourceFindings}
-        onClear={clearResourceSelection}
-        onComplete={() => qc.invalidateQueries({ queryKey: ["findings"] })}
-      />
-    ) : null}
     <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       {showReopenFooter ? (
         <button type="button" onClick={() => onAction(finding.id, "reopen")} className={drawerFooterReopen}>
@@ -7068,17 +7110,21 @@ export function FindingDrawer({
         <div className="flex w-full items-center gap-3">
           <ExceptionButton
             findingId={finding.id}
+            bulkFindingIds={bulkResourceMode ? selectedResourceFindings.map((row) => row.id) : undefined}
             onDone={onClose}
+            onBulkComplete={handleBulkActionComplete}
             className={drawerFooterExceptionGhost}
             sheetContainerRef={drawerSheetRef}
           />
           {!githubIssue ? (
             <JiraFindingAction
               finding={finding}
+              bulkFindings={bulkResourceMode ? selectedResourceFindings : undefined}
               existing={jiraIssue}
               jiraStatus={jiraStatus}
               jiraStatusFetching={jiraStatusFetching}
               onCreated={setJiraOverride}
+              onBulkComplete={handleBulkActionComplete}
               className={drawerFooterJira}
             />
           ) : null}

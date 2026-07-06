@@ -1,6 +1,16 @@
+import { assetTypeLabel } from "./findingDisplay";
 import { extractRemediationTickets, type RemediationTicket } from "./remediationTicket";
 
 export const FINDING_RESOURCE_BULK_CAP = 50;
+
+export type BulkJiraTicketMode = "separate" | "combined";
+
+/** Same resource type across selection → combined; mixed types → separate. */
+export function defaultBulkJiraTicketMode(findings: { check_id: string }[]): BulkJiraTicketMode {
+  if (findings.length <= 1) return "separate";
+  const types = new Set(findings.map((finding) => assetTypeLabel(finding.check_id)));
+  return types.size === 1 ? "combined" : "separate";
+}
 
 type TicketSource = {
   id: string;

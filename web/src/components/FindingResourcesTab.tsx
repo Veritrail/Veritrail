@@ -756,6 +756,13 @@ export function FindingResourcesTab({
     onSelectFinding?.(finding);
   };
 
+  const handleRowClick = (finding: ResourcesTabFinding) => {
+    if (selectionEnabled && onSelectedFindingIdsChange) {
+      toggleRowSelected(finding.id, !selectedIds.has(finding.id));
+    }
+    handleRowSelect(finding);
+  };
+
   const visibleRowIds = useMemo(() => rows.map((row) => row.id), [rows]);
   const selectedIds = selectedFindingIds ?? new Set<string>();
   const allVisibleSelected =
@@ -908,6 +915,26 @@ export function FindingResourcesTab({
         jiraStatusFetching={jiraStatusFetching}
         onRemoveJira={onRemoveJira}
       />
+
+      {selectionEnabled && selectedIds.size > 0 ? (
+        <div className="finding-resources-tab__selection-bar" role="status" aria-live="polite">
+          <span className="finding-resources-tab__selection-count">
+            {selectedIds.size.toLocaleString()} selected
+          </span>
+          <button
+            type="button"
+            className="finding-resources-tab__selection-clear"
+            onClick={() => onSelectedFindingIdsChange?.(new Set())}
+          >
+            Clear
+          </button>
+          {selectedIds.size > FINDING_RESOURCE_BULK_CAP ? (
+            <span className="finding-resources-tab__selection-cap">
+              Select at most {FINDING_RESOURCE_BULK_CAP} resources
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Toolbar — separate controls on one line, no shared card */}
       <div className="flex flex-wrap items-center gap-2">
@@ -1082,7 +1109,8 @@ export function FindingResourcesTab({
                 const rowAssetType = assetTypeLabel(f.check_id);
                 const isSelected = f.id === selectedFinding.id;
                 const isChecked = selectedIds.has(f.id);
-                const rowBg = isSelected
+                const rowHighlighted = isSelected || (selectionEnabled && isChecked);
+                const rowBg = rowHighlighted
                   ? "bg-gradient-to-r from-indigo-50 via-indigo-50/45 to-transparent shadow-[inset_3px_0_0_0_theme(colors.indigo.500),inset_0_0_0_1px_theme(colors.indigo.100)]"
                   : "bg-white hover:bg-indigo-50/40 hover:shadow-[inset_0_0_0_1px_rgba(99,102,241,0.14)]";
 
@@ -1091,12 +1119,12 @@ export function FindingResourcesTab({
                     key={f.id}
                     role="button"
                     tabIndex={0}
-                    aria-selected={isSelected}
-                    onClick={() => handleRowSelect(f)}
+                    aria-selected={selectionEnabled ? isChecked : isSelected}
+                    onClick={() => handleRowClick(f)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        handleRowSelect(f);
+                        handleRowClick(f);
                       }
                     }}
                     className={`group cursor-pointer border-b border-zinc-100 transition-[background-color,box-shadow] duration-150 last:border-b-0 ${rowBg}`}
@@ -1105,12 +1133,11 @@ export function FindingResourcesTab({
                       <td className="w-10 px-3 py-4 align-middle">
                         <input
                           type="checkbox"
-                          className={`findings-v2-row-check ${isChecked ? "opacity-100" : ""}`}
+                          className={`findings-v2-row-check pointer-events-none ${isChecked ? "opacity-100" : ""}`}
                           checked={isChecked}
-                          onChange={(event) => toggleRowSelected(f.id, event.target.checked)}
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                          aria-label={`Select ${name}`}
+                          readOnly
+                          tabIndex={-1}
+                          aria-hidden
                         />
                       </td>
                     ) : null}

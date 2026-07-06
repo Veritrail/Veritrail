@@ -7,7 +7,9 @@ import { type JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import { buildJiraIssueSummary } from "../lib/jiraIssueSummary";
 import {
   FINDING_RESOURCE_BULK_CAP,
+  defaultBulkJiraTicketMode,
   partitionJiraEligibleFindingIds,
+  type BulkJiraTicketMode,
 } from "../lib/findingResourceBulk";
 import {
   isJiraDoneBeforeVerification,
@@ -51,12 +53,70 @@ type FindingSummary = {
 
 type Props = {
   finding: FindingSummary;
+  bulkFindings?: FindingSummary[];
   existing?: { issue_key?: string; issue_url?: string } | null;
   jiraStatus?: JiraIssueStatus | null;
   jiraStatusFetching?: boolean;
   onCreated?: (issue: JiraIssue) => void;
+  onBulkComplete?: () => void;
   className?: string;
 };
+
+type JiraIssuesFromFindingsOut = {
+  issue_key: string;
+  issue_url: string;
+  linked_count: number;
+  skipped_already_linked: string[];
+};
+
+function combinedSummary(findings: FindingSummary[]): string {
+  if (findings.length === 0) return "[Veritrail] Security finding";
+  const single = defaultSummary(findings[0]);
+  if (findings.length === 1) return single;
+  const prefix = "[Veritrail] ";
+  const body = single.startsWith(prefix) ? single.slice(prefix.length) : single;
+  const violationPart = body.includes(": ") ? body.split(": ").slice(0, -1).join(": ") : body;
+  return `${prefix}${violationPart} — ${findings.length} resources`;
+}
+
+function BulkTicketModeToggle({
+  value,
+  onChange,
+}: {
+  value: BulkJiraTicketMode;
+  onChange: (mode: BulkJiraTicketMode) => void;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-[3px] border border-[#DFE1E6] bg-[#F4F5F7] p-0.5"
+      role="radiogroup"
+      aria-label="Ticket mode"
+    >
+      {(
+        [
+          { id: "separate" as const, label: "Separate" },
+          { id: "combined" as const, label: "Combined" },
+        ] as const
+      ).map((option) => {
+        const active = value === option.id;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.id)}
+            className={`rounded-[2px] px-3 py-1 text-sm font-medium transition ${
+              active ? "bg-white text-[#172B4D] shadow-sm" : "text-[#626F86] hover:text-[#172B4D]"
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const JIRA_BLUE = "#0C66E4";
 const JIRA_BLUE_HOVER = "#0052CC";
@@ -711,13 +771,23 @@ function ProjectSelect({
 
 export function JiraFindingAction({
   finding,
+  bulkFindings,
   existing,
   jiraStatus,
   jiraStatusFetching,
   onCreated,
+  onBulkComplete,
   className,
 }: Props) {
   const qc = useQueryClient();
+  const bulkTargets = useMemo(
+    () => (bulkFindings && bulkFindings.length > 1 ? bulkFindings : null),
+    [bulkFindings],
+  );
+  const bulkCount = bulkTargets?.length ?? 0;
+  const isBulk = bulkCount > 1;
+  const overBulkCap = isBulk && bulkCount > FINDING_RESOURCE_BULK_CAP;
+
   const hasLinkedTicket = !!(existing?.issue_key && existing.issue_url);
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState(() => defaultSummary(finding));
@@ -730,6 +800,10 @@ export function JiraFindingAction({
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [ticketMode, setTicketMode] = useState<BulkJiraTicketMode>("separate");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkResultMsg, setBulkResultMsg] = useState<string | null>(null);
+  const [bulkResultTone, setBulkResultTone] = useState<"success" | "warning" | "error">("success");
   const assigneeFieldRef = useRef<HTMLDivElement>(null);
   const assigneeMenuRef = useRef<HTMLDivElement>(null);
   const assigneeInputRef = useRef<HTMLInputElement>(null);
@@ -762,11 +836,34 @@ export function JiraFindingAction({
     setAssigneeOpen(false);
     setDescriptionOpen(true);
     setDetailsOpen(true);
-  }, [finding.id, finding.severity]);
+    setTicketMode(bulkTargets ? defaultBulkJiraTicketMode(bulkTargets) : "separate");
+    setBulkSubmitting(false);
+    setBulkResultMsg(null);
+    setBulkResultTone("success");
+  }, [finding.id, finding.severity, bulkTargets]);
 
   const { data: jira, isFetched: jiraFetched } = useJiraIntegration({ enabled: !hasLinkedTicket });
 
   const defaultProjectKey = jira?.project_key?.trim() || "";
+
+  useEffect(() => {
+    if (!open || !isBulk || !bulkTargets) return;
+    setTicketMode(defaultBulkJiraTicketMode(bulkTargets));
+    setSummary(combinedSummary(bulkTargets));
+    setBulkResultMsg(null);
+    setBulkResultTone("success");
+  }, [open, isBulk, bulkTargets]);
+
+  useEffect(() => {
+    if (!isBulk || !bulkTargets) return;
+    if (ticketMode === "separate" && bulkCount === 1) {
+      setSummary(defaultSummary(finding));
+    } else if (ticketMode === "combined") {
+      setSummary(combinedSummary(bulkTargets));
+    } else if (ticketMode === "separate" && bulkCount > 1) {
+      setSummary(combinedSummary(bulkTargets));
+    }
+  }, [ticketMode, isBulk, bulkTargets, bulkCount, finding]);
 
   useEffect(() => {
     if (!open) setAssigneeOpen(false);
@@ -937,6 +1034,146 @@ export function JiraFindingAction({
     if (integrationEmail) setAssigneeQuery(integrationEmail);
   }
 
+  async function invalidateTicketQueries(findingIds: string[]) {
+    await Promise.all(
+      findingIds.map((findingId) => qc.invalidateQueries({ queryKey: ["jira-issue-status", findingId] })),
+    );
+  }
+
+  async function createSeparateBulkTickets() {
+    if (!bulkTargets) return;
+    const { eligible, skippedAlreadyLinked } = partitionJiraEligibleFindingIds(bulkTargets);
+    if (eligible.length === 0) {
+      setBulkResultTone("warning");
+      setBulkResultMsg(
+        skippedAlreadyLinked.length > 0
+          ? `All ${skippedAlreadyLinked.length} selected resources already have Jira tickets`
+          : "No eligible resources to ticket",
+      );
+      return;
+    }
+
+    const eligibleFindings = bulkTargets.filter((row) => eligible.includes(row.id));
+    const results = await Promise.allSettled(
+      eligibleFindings.map((row) =>
+        api<JiraIssue>(`/v1/integrations/jira/issues/from-finding/${row.id}`, {
+          method: "POST",
+          body: JSON.stringify({
+            summary: defaultSummary(row),
+            priority,
+            assignee_account_id: assignee?.account_id,
+            labels: issueLabels,
+            project_key: activeProjectKey,
+            issue_type: selectedIssueType,
+          }),
+        }),
+      ),
+    );
+    const failed = results.filter((result) => result.status === "rejected").length;
+    await invalidateTicketQueries(eligible);
+    const succeeded = results.length - failed;
+    if (failed > 0) {
+      setBulkResultTone("warning");
+      const skippedNote =
+        skippedAlreadyLinked.length > 0
+          ? ` · ${skippedAlreadyLinked.length} already linked (skipped)`
+          : "";
+      setBulkResultMsg(`${succeeded} ticket${succeeded === 1 ? "" : "s"} created · ${failed} failed${skippedNote}`);
+      return;
+    }
+    const skippedNote =
+      skippedAlreadyLinked.length > 0
+        ? ` · ${skippedAlreadyLinked.length} already linked (skipped)`
+        : "";
+    setBulkResultTone("success");
+    setBulkResultMsg(`${succeeded} ticket${succeeded === 1 ? "" : "s"} created${skippedNote}`);
+    window.setTimeout(() => {
+      onBulkComplete?.();
+      setOpen(false);
+    }, 900);
+  }
+
+  async function createCombinedBulkTicket() {
+    if (!bulkTargets) return;
+    const { eligible, skippedAlreadyLinked } = partitionJiraEligibleFindingIds(bulkTargets);
+    if (eligible.length === 0) {
+      setBulkResultTone("warning");
+      setBulkResultMsg(
+        skippedAlreadyLinked.length > 0
+          ? `All ${skippedAlreadyLinked.length} selected resources already have Jira tickets`
+          : "No eligible resources to ticket",
+      );
+      return;
+    }
+
+    const out = await api<JiraIssuesFromFindingsOut>("/v1/integrations/jira/issues/from-findings", {
+      method: "POST",
+      body: JSON.stringify({
+        finding_ids: eligible,
+        summary,
+        priority,
+        assignee_account_id: assignee?.account_id,
+        labels: issueLabels,
+        project_key: activeProjectKey,
+        issue_type: selectedIssueType,
+      }),
+    });
+    await invalidateTicketQueries(eligible);
+    const skippedCount = out.skipped_already_linked.length;
+    const skippedNote = skippedCount > 0 ? ` · ${skippedCount} already linked (skipped)` : "";
+    setBulkResultTone("success");
+    setBulkResultMsg(
+      `Created ${out.issue_key} for ${out.linked_count} resource${out.linked_count === 1 ? "" : "s"}${skippedNote}`,
+    );
+    window.setTimeout(() => {
+      onBulkComplete?.();
+      setOpen(false);
+    }, 900);
+  }
+
+  async function handleCreateTickets() {
+    if (!activeProjectKey || !selectedIssueType || overBulkCap) return;
+    if (isBulk && ticketMode === "combined" && !summary.trim()) return;
+    if (!isBulk && !summary.trim()) return;
+
+    if (!isBulk) {
+      create.mutate();
+      return;
+    }
+
+    setBulkSubmitting(true);
+    setBulkResultMsg(null);
+    try {
+      if (ticketMode === "separate") {
+        await createSeparateBulkTickets();
+      } else {
+        await createCombinedBulkTicket();
+      }
+    } catch (error) {
+      setBulkResultTone("error");
+      setBulkResultMsg(formatApiError(error));
+    } finally {
+      setBulkSubmitting(false);
+    }
+  }
+
+  const createPending = create.isPending || bulkSubmitting;
+  const summaryRequired = !isBulk || ticketMode === "combined";
+  const createDisabled =
+    createPending ||
+    overBulkCap ||
+    (summaryRequired && !summary.trim()) ||
+    !activeProjectKey ||
+    !selectedIssueType ||
+    (isBulk && !!bulkResultMsg && bulkResultTone === "success");
+  const createButtonLabel = createPending
+    ? "Creating…"
+    : isBulk
+      ? ticketMode === "separate"
+        ? "Create tickets"
+        : "Create ticket"
+      : "Create";
+
   const triggerClassName =
     className ?? `${triggerBase} border-sky-200 bg-white text-sky-800 hover:border-sky-300 hover:bg-sky-50`;
 
@@ -1007,7 +1244,7 @@ export function JiraFindingAction({
         }}
       >
         <JiraIcon />
-        Create ticket
+        {isBulk ? `Create tickets (${bulkCount})` : "Create ticket"}
       </button>
       {open
         ? createPortal(
@@ -1020,7 +1257,7 @@ export function JiraFindingAction({
               >
                 <div className="flex items-center justify-between border-b border-[#EBECF0] px-6 py-4">
                   <h2 id="jira-ticket-title" className="text-xl font-medium text-[#172B4D]">
-                    Create issue
+                    {isBulk ? `Create tickets for ${bulkCount} resources` : "Create issue"}
                   </h2>
                   <button
                     type="button"
@@ -1033,6 +1270,34 @@ export function JiraFindingAction({
                 </div>
 
                 <div className="max-h-[min(75vh,720px)] overflow-y-auto px-6">
+                  {isBulk ? (
+                    <div className="space-y-3 border-b border-[#EBECF0] py-4">
+                      {overBulkCap ? (
+                        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                          Select at most {FINDING_RESOURCE_BULK_CAP} resources per batch.
+                        </p>
+                      ) : null}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-semibold text-[#44546F]">Ticket mode</span>
+                        <BulkTicketModeToggle value={ticketMode} onChange={setTicketMode} />
+                      </div>
+                      {ticketMode === "separate" ? (
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-[#172B4D]">
+                            Creates {bulkCount} separate Jira issues
+                          </p>
+                          <p className="text-xs text-[#626F86]">
+                            Already-linked resources are skipped automatically.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-[#626F86]">
+                          Use only when these resources share an owner/fix
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+
                   <div className="flex flex-wrap items-center gap-2 py-4 text-sm text-[#626F86]">
                     <span className="font-medium" style={{ color: activeProjectKey ? JIRA_BLUE : "#626F86" }}>
                       {projectKey}
@@ -1046,16 +1311,18 @@ export function JiraFindingAction({
                     </span>
                   </div>
 
-                  <label className="block border-b border-[#EBECF0] pb-4">
-                    <span className="sr-only">Summary</span>
-                    <input
-                      value={summary}
-                      onChange={(event) => setSummary(event.target.value)}
-                      className="w-full border-0 bg-transparent p-0 text-2xl font-medium leading-tight text-[#172B4D] outline-none placeholder:text-[#626F86] focus:ring-0"
-                      placeholder="What needs to be done?"
-                      autoFocus
-                    />
-                  </label>
+                  {!(isBulk && ticketMode === "separate") ? (
+                    <label className="block border-b border-[#EBECF0] pb-4">
+                      <span className="sr-only">Summary</span>
+                      <input
+                        value={summary}
+                        onChange={(event) => setSummary(event.target.value)}
+                        className="w-full border-0 bg-transparent p-0 text-2xl font-medium leading-tight text-[#172B4D] outline-none placeholder:text-[#626F86] focus:ring-0"
+                        placeholder="What needs to be done?"
+                        autoFocus
+                      />
+                    </label>
+                  ) : null}
 
                   <CollapsibleSection
                     title="Description"
@@ -1295,6 +1562,20 @@ export function JiraFindingAction({
                     {formatApiError(create.error)}
                   </div>
                 ) : null}
+                {bulkResultMsg ? (
+                  <div
+                    className={`border-t px-6 py-2.5 text-sm ${
+                      bulkResultTone === "error"
+                        ? "border-[#FFEDEB] bg-[#FFEDEB] text-[#AE2E24]"
+                        : bulkResultTone === "warning"
+                          ? "border-amber-200 bg-amber-50 text-amber-900"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    }`}
+                    role="status"
+                  >
+                    {bulkResultMsg}
+                  </div>
+                ) : null}
 
                 <div className="flex items-center justify-end gap-2 border-t border-[#EBECF0] px-6 py-3">
                   <button
@@ -1302,26 +1583,26 @@ export function JiraFindingAction({
                     onClick={() => setOpen(false)}
                     className="rounded-[3px] px-3 py-1.5 text-sm font-medium text-[#44546F] transition hover:bg-[#F4F5F7] hover:text-[#172B4D]"
                   >
-                    Cancel
+                    {bulkResultMsg ? "Close" : "Cancel"}
                   </button>
                   <button
                     type="button"
-                    disabled={create.isPending || !summary.trim() || !activeProjectKey || !selectedIssueType}
-                    onClick={() => create.mutate()}
+                    disabled={createDisabled}
+                    onClick={() => void handleCreateTickets()}
                     className="rounded-[3px] px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{ backgroundColor: create.isPending || !summary.trim() || !activeProjectKey || !selectedIssueType ? "#B3BAC5" : JIRA_BLUE }}
+                    style={{ backgroundColor: createDisabled ? "#B3BAC5" : JIRA_BLUE }}
                     onMouseEnter={(event) => {
-                      if (!create.isPending && summary.trim() && activeProjectKey && selectedIssueType) {
+                      if (!createDisabled) {
                         event.currentTarget.style.backgroundColor = JIRA_BLUE_HOVER;
                       }
                     }}
                     onMouseLeave={(event) => {
-                      if (!create.isPending && summary.trim() && activeProjectKey && selectedIssueType) {
+                      if (!createDisabled) {
                         event.currentTarget.style.backgroundColor = JIRA_BLUE;
                       }
                     }}
                   >
-                    {create.isPending ? "Creating…" : "Create"}
+                    {createButtonLabel}
                   </button>
                 </div>
               </div>
@@ -1330,521 +1611,5 @@ export function JiraFindingAction({
           )
         : null}
     </>
-  );
-}
-
-type JiraBulkMode = "separate" | "combined";
-
-type JiraIssuesFromFindingsOut = {
-  issue_key: string;
-  issue_url: string;
-  linked_count: number;
-  skipped_already_linked: string[];
-};
-
-type JiraBulkFindingActionProps = {
-  findings: FindingSummary[];
-  open: boolean;
-  onClose: () => void;
-  onComplete?: () => void;
-};
-
-function combinedSummary(findings: FindingSummary[]): string {
-  if (findings.length === 0) return "[Veritrail] Security finding";
-  const single = defaultSummary(findings[0]);
-  if (findings.length === 1) return single;
-  const prefix = "[Veritrail] ";
-  const body = single.startsWith(prefix) ? single.slice(prefix.length) : single;
-  const violationPart = body.includes(": ") ? body.split(": ").slice(0, -1).join(": ") : body;
-  return `${prefix}${violationPart} — ${findings.length} resources`;
-}
-
-export function JiraBulkFindingAction({
-  findings,
-  open,
-  onClose,
-  onComplete,
-}: JiraBulkFindingActionProps) {
-  const qc = useQueryClient();
-  const [ticketMode, setTicketMode] = useState<JiraBulkMode>("separate");
-  const [summary, setSummary] = useState("");
-  const [priority, setPriority] = useState<Priority>("Medium");
-  const [selectedProject, setSelectedProject] = useState("");
-  const [selectedIssueType, setSelectedIssueType] = useState("");
-  const [assignee, setAssignee] = useState<JiraUser | null>(null);
-  const [assigneeQuery, setAssigneeQuery] = useState("");
-  const [assigneeOpen, setAssigneeOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [resultMsg, setResultMsg] = useState<string | null>(null);
-  const [resultTone, setResultTone] = useState<"success" | "warning" | "error">("success");
-  const assigneeFieldRef = useRef<HTMLDivElement>(null);
-  const assigneeMenuRef = useRef<HTMLDivElement>(null);
-  const assigneeInputRef = useRef<HTMLInputElement>(null);
-  const assigneeDropdownOpen = assigneeOpen && !assignee;
-  const assigneeCoords = usePortalDropdownMenu(
-    assigneeDropdownOpen,
-    assigneeFieldRef,
-    assigneeFieldRef,
-    assigneeMenuRef,
-    () => setAssigneeOpen(false),
-    280,
-  );
-
-  const primaryFinding = findings[0];
-  const overCap = findings.length > FINDING_RESOURCE_BULK_CAP;
-
-  useEffect(() => {
-    if (!open) return;
-    setTicketMode("separate");
-    setSummary(combinedSummary(findings));
-    setPriority(defaultPriority(primaryFinding?.severity ?? "medium"));
-    setSelectedProject("");
-    setSelectedIssueType("");
-    setAssignee(null);
-    setAssigneeQuery("");
-    setAssigneeOpen(false);
-    setSubmitting(false);
-    setResultMsg(null);
-    setResultTone("success");
-  }, [open, findings, primaryFinding?.severity]);
-
-  const { data: jira, isFetched: jiraFetched } = useJiraIntegration({ enabled: open });
-  const defaultProjectKey = jira?.project_key?.trim() || "";
-  const activeProjectKey = selectedProject || defaultProjectKey;
-
-  const { data: projects = [], isFetching: projectsLoading } = useQuery({
-    queryKey: ["jira-projects"],
-    queryFn: () => api<JiraProject[]>("/v1/integrations/jira/projects"),
-    enabled: open && !!jira?.connected,
-    staleTime: 60_000,
-  });
-
-  useEffect(() => {
-    if (!open || projectsLoading || !projects.length) return;
-    setSelectedProject((current) => {
-      if (current && projects.some((project) => project.key === current)) return current;
-      return resolveDefaultJiraProjectKey(projects, defaultProjectKey);
-    });
-  }, [defaultProjectKey, open, projects, projectsLoading]);
-
-  const { data: issueTypes = [], isFetching: issueTypesLoading } = useQuery({
-    queryKey: ["jira-issue-types", activeProjectKey],
-    queryFn: () =>
-      api<JiraIssueType[]>(
-        `/v1/integrations/jira/projects/${encodeURIComponent(activeProjectKey)}/issue-types`,
-      ),
-    enabled: open && !!jira?.connected && !!activeProjectKey,
-    staleTime: 60_000,
-  });
-
-  useEffect(() => {
-    if (!issueTypes.length) return;
-    setSelectedIssueType((current) => {
-      if (current && issueTypes.some((issueType) => issueType.id === current)) return current;
-      const defaultType = issueTypes.find((issueType) => issueType.is_default) ?? issueTypes[0];
-      return defaultType.id;
-    });
-  }, [issueTypes]);
-
-  useEffect(() => {
-    if (ticketMode === "separate" && findings.length === 1 && primaryFinding) {
-      setSummary(defaultSummary(primaryFinding));
-    } else if (ticketMode === "combined") {
-      setSummary(combinedSummary(findings));
-    }
-  }, [ticketMode, findings, primaryFinding]);
-
-  const issueLabels = useMemo(() => {
-    const severity = primaryFinding?.severity ?? "medium";
-    const checkId = primaryFinding?.check_id ?? "";
-    const labels = ["veritrail", severity];
-    if (checkId.includes("least_privilege")) labels.push("least-privilege");
-    return labels;
-  }, [primaryFinding?.check_id, primaryFinding?.severity]);
-
-  async function invalidateTicketQueries(findingIds: string[]) {
-    await Promise.all(
-      findingIds.map((findingId) =>
-        qc.invalidateQueries({ queryKey: ["jira-issue-status", findingId] }),
-      ),
-    );
-  }
-
-  async function createSeparateTickets() {
-    const { eligible, skippedAlreadyLinked } = partitionJiraEligibleFindingIds(findings);
-    if (eligible.length === 0) {
-      setResultTone("warning");
-      setResultMsg(
-        skippedAlreadyLinked.length > 0
-          ? `All ${skippedAlreadyLinked.length} selected resources already have Jira tickets`
-          : "No eligible resources to ticket",
-      );
-      return;
-    }
-
-    const eligibleFindings = findings.filter((finding) => eligible.includes(finding.id));
-    const results = await Promise.allSettled(
-      eligibleFindings.map((finding) =>
-        api<JiraIssue>(`/v1/integrations/jira/issues/from-finding/${finding.id}`, {
-          method: "POST",
-          body: JSON.stringify({
-            summary: defaultSummary(finding),
-            priority,
-            assignee_account_id: assignee?.account_id,
-            labels: issueLabels,
-            project_key: activeProjectKey,
-            issue_type: selectedIssueType,
-          }),
-        }),
-      ),
-    );
-    const failed = results.filter((result) => result.status === "rejected").length;
-    await invalidateTicketQueries(eligible);
-    const succeeded = results.length - failed;
-    if (failed > 0) {
-      setResultTone("warning");
-      const skippedNote =
-        skippedAlreadyLinked.length > 0
-          ? ` · ${skippedAlreadyLinked.length} already linked (skipped)`
-          : "";
-      setResultMsg(`${succeeded} ticket${succeeded === 1 ? "" : "s"} created · ${failed} failed${skippedNote}`);
-      return;
-    }
-    const skippedNote =
-      skippedAlreadyLinked.length > 0
-        ? ` · ${skippedAlreadyLinked.length} already linked (skipped)`
-        : "";
-    setResultTone("success");
-    setResultMsg(`${succeeded} ticket${succeeded === 1 ? "" : "s"} created${skippedNote}`);
-    window.setTimeout(() => {
-      onComplete?.();
-      onClose();
-    }, 900);
-  }
-
-  async function createCombinedTicket() {
-    const { eligible, skippedAlreadyLinked } = partitionJiraEligibleFindingIds(findings);
-    if (eligible.length === 0) {
-      setResultTone("warning");
-      setResultMsg(
-        skippedAlreadyLinked.length > 0
-          ? `All ${skippedAlreadyLinked.length} selected resources already have Jira tickets`
-          : "No eligible resources to ticket",
-      );
-      return;
-    }
-
-    const out = await api<JiraIssuesFromFindingsOut>("/v1/integrations/jira/issues/from-findings", {
-      method: "POST",
-      body: JSON.stringify({
-        finding_ids: eligible,
-        summary,
-        priority,
-        assignee_account_id: assignee?.account_id,
-        labels: issueLabels,
-        project_key: activeProjectKey,
-        issue_type: selectedIssueType,
-      }),
-    });
-    await invalidateTicketQueries(eligible);
-    const skippedCount = out.skipped_already_linked.length;
-    const skippedNote = skippedCount > 0 ? ` · ${skippedCount} already linked (skipped)` : "";
-    setResultTone("success");
-    setResultMsg(
-      `Created ${out.issue_key} for ${out.linked_count} resource${out.linked_count === 1 ? "" : "s"}${skippedNote}`,
-    );
-    window.setTimeout(() => {
-      onComplete?.();
-      onClose();
-    }, 900);
-  }
-
-  async function handleCreate() {
-    if (!summary.trim() || !activeProjectKey || !selectedIssueType || overCap) return;
-    setSubmitting(true);
-    setResultMsg(null);
-    try {
-      if (ticketMode === "separate") {
-        await createSeparateTickets();
-      } else {
-        await createCombinedTicket();
-      }
-    } catch (error) {
-      setResultTone("error");
-      setResultMsg(formatApiError(error));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (!open) return null;
-  if (jiraFetched && !jira?.connected) return null;
-
-  const selectedIssueTypeName =
-    issueTypes.find((issueType) => issueType.id === selectedIssueType)?.name || selectedIssueType;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[260] flex items-center justify-center bg-[#091E42]/50 p-4">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="jira-bulk-ticket-title"
-        className="flex w-full max-w-[760px] flex-col overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white shadow-xl"
-      >
-        <div className="flex items-center justify-between border-b border-[#EBECF0] px-6 py-4">
-          <h2 id="jira-bulk-ticket-title" className="text-xl font-medium text-[#172B4D]">
-            Create tickets for {findings.length} resources
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-[3px] text-[#626F86] transition hover:bg-[#F4F5F7] hover:text-[#172B4D]"
-            aria-label="Close"
-          >
-            <span className="text-xl leading-none">×</span>
-          </button>
-        </div>
-
-        <div className="max-h-[min(75vh,720px)] overflow-y-auto px-6 py-4">
-          {overCap ? (
-            <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Select at most {FINDING_RESOURCE_BULK_CAP} resources per batch.
-            </p>
-          ) : null}
-
-          <fieldset className="mb-4 space-y-2">
-            <legend className="text-sm font-semibold text-[#44546F]">Ticket mode</legend>
-            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-[#DFE1E6] px-3 py-2.5">
-              <input
-                type="radio"
-                name="jira-bulk-mode"
-                checked={ticketMode === "separate"}
-                onChange={() => setTicketMode("separate")}
-                className="mt-0.5"
-              />
-              <span>
-                <span className="block text-sm font-medium text-[#172B4D]">Separate ticket per resource</span>
-                <span className="block text-xs text-[#626F86]">Default — one issue per selected resource.</span>
-              </span>
-            </label>
-            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-[#DFE1E6] px-3 py-2.5">
-              <input
-                type="radio"
-                name="jira-bulk-mode"
-                checked={ticketMode === "combined"}
-                onChange={() => setTicketMode("combined")}
-                className="mt-0.5"
-              />
-              <span>
-                <span className="block text-sm font-medium text-[#172B4D]">One combined ticket</span>
-                <span className="block text-xs text-[#626F86]">
-                  Use only when these resources share an owner/fix.
-                </span>
-              </span>
-            </label>
-          </fieldset>
-
-          <label className="block border-b border-[#EBECF0] pb-4">
-            <span className="mb-1 block text-xs font-medium text-[#626F86]">Summary</span>
-            <input
-              value={summary}
-              onChange={(event) => setSummary(event.target.value)}
-              disabled={ticketMode === "separate" && findings.length > 1}
-              className="w-full rounded-[3px] border border-[#DFE1E6] px-2 py-1.5 text-sm text-[#172B4D] outline-none focus:border-[#0C66E4] disabled:bg-[#F4F5F7] disabled:text-[#626F86]"
-            />
-          </label>
-
-          <div className="mt-4 space-y-3">
-            <DetailsRow label="Priority">
-              <PrioritySelect value={priority} onChange={setPriority} />
-            </DetailsRow>
-            <DetailsRow label="Project">
-              <ProjectSelect
-                value={activeProjectKey}
-                projects={projects}
-                loading={projectsLoading}
-                onChange={(projectKey) => {
-                  setSelectedProject(projectKey);
-                  setSelectedIssueType("");
-                  setAssignee(null);
-                }}
-                defaultProjectKey={defaultProjectKey}
-              />
-            </DetailsRow>
-            <DetailsRow label="Issue type">
-              <IssueTypeSelect
-                value={selectedIssueType}
-                issueTypes={issueTypes}
-                loading={issueTypesLoading}
-                onChange={setSelectedIssueType}
-              />
-            </DetailsRow>
-            <DetailsRow label="Assignee" align="center">
-              <div ref={assigneeFieldRef} className="relative flex min-h-[28px] items-center">
-                {assignee ? (
-                  <div className="inline-flex items-center gap-2">
-                    <UserAvatar user={assignee} size="sm" />
-                    <span>{assignee.display_name}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAssignee(null);
-                        setAssigneeOpen(true);
-                      }}
-                      className="text-[#626F86] hover:text-[#172B4D]"
-                      aria-label={`Remove ${assignee.display_name}`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setAssigneeOpen(true)}
-                    className="inline-flex items-center gap-2 text-sm text-[#172B4D]"
-                  >
-                    <UnassignedAvatar />
-                    Unassigned
-                  </button>
-                )}
-                {assigneeDropdownOpen && assigneeCoords
-                  ? createPortal(
-                      <div
-                        ref={assigneeMenuRef}
-                        className="overflow-hidden rounded-[3px] border border-[#DFE1E6] bg-white shadow-lg"
-                        style={{
-                          position: "fixed",
-                          top: assigneeCoords.top,
-                          left: assigneeCoords.left,
-                          minWidth: assigneeCoords.minWidth,
-                          zIndex: 300,
-                        }}
-                      >
-                        <input
-                          ref={assigneeInputRef}
-                          value={assigneeQuery}
-                          onChange={(event) => setAssigneeQuery(event.target.value)}
-                          placeholder="Search for a person"
-                          className="w-full border-0 border-b border-[#DFE1E6] px-2 py-1.5 text-sm outline-none"
-                        />
-                        <AssignableUserList
-                          projectKey={activeProjectKey}
-                          query={assigneeQuery}
-                          enabled={assigneeDropdownOpen}
-                          onSelect={(user) => {
-                            setAssignee(user);
-                            setAssigneeQuery("");
-                            setAssigneeOpen(false);
-                          }}
-                        />
-                      </div>,
-                      document.body,
-                    )
-                  : null}
-              </div>
-            </DetailsRow>
-          </div>
-
-          <p className="mt-3 text-xs text-[#626F86]">
-            {ticketMode === "separate"
-              ? `Creates up to ${findings.length} Jira issues (already-linked resources are skipped).`
-              : `Creates one Jira issue listing all selected resources (${selectedIssueTypeName || "issue type"}).`}
-          </p>
-        </div>
-
-        {resultMsg ? (
-          <div
-            className={`border-t px-6 py-2.5 text-sm ${
-              resultTone === "error"
-                ? "border-[#FFEDEB] bg-[#FFEDEB] text-[#AE2E24]"
-                : resultTone === "warning"
-                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-900"
-            }`}
-            role="status"
-          >
-            {resultMsg}
-          </div>
-        ) : null}
-
-        <div className="flex items-center justify-end gap-2 border-t border-[#EBECF0] px-6 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-[3px] px-3 py-1.5 text-sm font-medium text-[#44546F] hover:bg-[#F4F5F7]"
-          >
-            {resultMsg ? "Close" : "Cancel"}
-          </button>
-          <button
-            type="button"
-            disabled={
-              submitting ||
-              overCap ||
-              !summary.trim() ||
-              !activeProjectKey ||
-              !selectedIssueType ||
-              !!resultMsg
-            }
-            onClick={() => void handleCreate()}
-            className="rounded-[3px] px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-            style={{
-              backgroundColor:
-                submitting || !summary.trim() || !activeProjectKey || !selectedIssueType || overCap
-                  ? "#B3BAC5"
-                  : JIRA_BLUE,
-            }}
-          >
-            {submitting ? "Creating…" : ticketMode === "separate" ? "Create tickets" : "Create ticket"}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function AssignableUserList({
-  projectKey,
-  query,
-  enabled,
-  onSelect,
-}: {
-  projectKey: string;
-  query: string;
-  enabled: boolean;
-  onSelect: (user: JiraUser) => void;
-}) {
-  const { data: users = [], isFetching } = useQuery({
-    queryKey: ["jira-assignable-users", projectKey, query.trim()],
-    queryFn: () =>
-      api<JiraUser[]>(
-        `/v1/integrations/jira/assignable-users?query=${encodeURIComponent(query.trim())}&project=${encodeURIComponent(projectKey)}`,
-      ),
-    enabled: enabled && !!projectKey,
-    staleTime: 30_000,
-  });
-  const suggestions = useMemo(() => dedupeJiraUsers(users), [users]);
-
-  if (isFetching) {
-    return <p className="px-3 py-2 text-sm text-[#626F86]">Loading assignable users…</p>;
-  }
-  if (!suggestions.length) {
-    return <p className="px-3 py-2 text-sm text-[#626F86]">No matching Jira users.</p>;
-  }
-  return (
-    <div className="max-h-56 overflow-y-auto py-1">
-      {suggestions.map((user) => (
-        <button
-          key={user.account_id}
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => onSelect(user)}
-          className="flex w-full items-center gap-2 px-2 py-1.5 text-left hover:bg-[#F4F5F7]"
-        >
-          <UserAvatar user={user} size="sm" />
-          <span className="truncate text-sm text-[#172B4D]">{user.display_name}</span>
-        </button>
-      ))}
-    </div>
   );
 }
