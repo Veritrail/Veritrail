@@ -681,7 +681,7 @@ function IntegrationsContent() {
 
   return (
     <div className="integrations-page">
-      <div className="workspace-summary workspace-summary--metrics">
+      <div className="integrations-kpi-strip workspace-summary workspace-summary--metrics">
         <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail="Active connectors" valueTone="ok" />
         <PostureMetricCell icon={IK.syncing} label="Syncing" value={String(syncingCount)} detail={syncingCount ? "In progress" : "Idle"} valueTone={syncingCount ? "info" : "default"} />
         <PostureMetricCell icon={IK.errors} label="Errors" value={String(errorCount)} detail={errorCount ? "Need attention" : "None"} valueTone={errorCount ? "warn" : "default"} />

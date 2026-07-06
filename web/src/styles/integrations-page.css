@@ -88,6 +88,124 @@
   box-shadow: 0 0 0 3px rgb(13 148 136 / 0.12);
 }
 
+/* Integrations hub KPI strip — scoped overrides for workspace-summary metrics.
+   Avoids the mid-width 2×2 squeeze and horizontal scroll; keeps label + value
+   on one row so cells stay readable in narrow viewports. */
+.integrations-page .integrations-kpi-strip {
+  --integrations-kpi-cell-min-height: 4.75rem;
+}
+
+.integrations-page .integrations-kpi-strip .workspace-summary__cell {
+  min-height: var(--integrations-kpi-cell-min-height);
+}
+
+/* Narrow: single column, no horizontal scroll; label + value share one row */
+@media (max-width: 899.98px) {
+  .integrations-page .integrations-kpi-strip.workspace-summary--metrics {
+    overflow: visible;
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__cell {
+    border-right: 0;
+    border-bottom: 1px solid #eef2f6;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__cell:last-child {
+    border-bottom: 0;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: baseline;
+    column-gap: 0.625rem;
+    row-gap: 0.125rem;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__heading {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__status {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+    white-space: nowrap;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__detail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 0;
+    -webkit-line-clamp: 1;
+  }
+}
+
+/* Mid width: two columns with min cell width; same compact text row */
+@media (min-width: 900px) and (max-width: 1359.98px) {
+  .integrations-page .integrations-kpi-strip.workspace-summary--metrics {
+    grid-template-columns: repeat(2, minmax(15rem, 1fr));
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__cell:nth-child(odd):not(:last-child) {
+    border-right: 1px solid #eef2f6;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__cell:nth-child(even) {
+    border-right: 0;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__cell:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: baseline;
+    column-gap: 0.625rem;
+    row-gap: 0.125rem;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__heading {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__status {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+    white-space: nowrap;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__detail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 0;
+    -webkit-line-clamp: 1;
+  }
+}
+
+/* Very narrow: hide sub-label to reduce vertical stack */
+@media (max-width: 479.98px) {
+  .integrations-page .integrations-kpi-strip .workspace-summary__content {
+    grid-template-rows: auto;
+  }
+
+  .integrations-page .integrations-kpi-strip .workspace-summary__detail {
+    display: none;
+  }
+}
+
 .integrations-summary {
   display: grid;
   gap: 0.625rem;
