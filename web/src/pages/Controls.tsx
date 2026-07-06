@@ -1297,7 +1297,7 @@ function ComplianceFamilyNav({
 
   return (
     <nav
-      className="findings-v2-filter-chip-bar"
+      className="vt-toolbar-segmented findings-v2-filter-chip-bar"
       role="tablist"
       aria-label="Control domains"
     >
@@ -1311,7 +1311,7 @@ function ComplianceFamilyNav({
             aria-selected={isSelected}
             title={group.label}
             onClick={() => onSelect(group.key)}
-            className={`findings-v2-filter-chip ${isSelected ? "is-selected" : ""}`}
+            className={`vt-toolbar-segment findings-v2-filter-chip ${isSelected ? "vt-toolbar-segment--active is-selected" : ""}`}
           >
             {shortFamilyLabel(group.label)}
             <span className={isSelected ? "text-zinc-500" : "text-zinc-400"}>

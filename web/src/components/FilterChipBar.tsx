@@ -26,7 +26,7 @@ export function ToggleChipBar({
 }) {
   return (
     <div
-      className={["findings-v2-filter-chip-bar", className].filter(Boolean).join(" ")}
+      className={["vt-toolbar-segmented findings-v2-filter-chip-bar", className].filter(Boolean).join(" ")}
       role="group"
       aria-label={ariaLabel}
     >
@@ -38,7 +38,7 @@ export function ToggleChipBar({
             type="button"
             aria-pressed={isSelected}
             onClick={() => onChange(chip.id)}
-            className={`findings-v2-filter-chip ${isSelected ? "is-selected" : ""}`}
+            className={`vt-toolbar-segment findings-v2-filter-chip ${isSelected ? "vt-toolbar-segment--active is-selected" : ""}`}
           >
             {chip.label}
           </button>
@@ -60,7 +60,7 @@ export function FilterChipBar({
   ariaLabel: string;
 }) {
   return (
-    <div className="findings-v2-filter-chip-bar" role="tablist" aria-label={ariaLabel}>
+    <div className="vt-toolbar-segmented findings-v2-filter-chip-bar" role="tablist" aria-label={ariaLabel}>
       {chips.map((chip) => {
         const isSelected = selected === chip.id;
         const showUrgent = chip.urgent && chip.count > 0;
@@ -71,7 +71,7 @@ export function FilterChipBar({
             role="tab"
             aria-selected={isSelected}
             onClick={() => onChange(chip.id)}
-            className={`findings-v2-filter-chip ${isSelected ? "is-selected" : ""}`}
+            className={`vt-toolbar-segment findings-v2-filter-chip ${isSelected ? "vt-toolbar-segment--active is-selected" : ""}`}
           >
             {chip.label}
             <span

@@ -33,6 +33,7 @@ import {
 } from "../lib/historyEvidence";
 import { ListPagination } from "../components/ListPagination";
 import { ProductShell } from "../components/ProductShell";
+import { ToolbarSearchInput } from "../components/ToolbarSearchInput";
 import "../styles/history-page.css";
 
 const FRAMEWORKS = [
@@ -303,14 +304,14 @@ export default function HistoryV2() {
         <>
           <div className="history-panel history-panel--fill">
             <div className="history-toolbar">
-              <div className="history-tabs" role="tablist" aria-label="Event type">
+              <div className="vt-toolbar-segmented history-tabs" role="tablist" aria-label="Event type">
                 {EVENT_FILTERS.map((f) => (
                   <button
                     key={f.id}
                     type="button"
                     role="tab"
                     aria-selected={eventFilter === f.id}
-                    className={`history-tab${eventFilter === f.id ? " history-tab--active" : ""}`}
+                    className={`vt-toolbar-segment history-tab${eventFilter === f.id ? " vt-toolbar-segment--active history-tab--active" : ""}`}
                     onClick={() => {
                       setEventFilter(f.id);
                       setPageSize(DEFAULT_VISIBLE_EVENTS);
@@ -333,27 +334,18 @@ export default function HistoryV2() {
                     }}
                   />
                 ) : null}
-                <div className="history-search">
-                  <label className="history-search__input-wrap" htmlFor="history-search">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={2} aria-hidden>
-                      <circle cx="11" cy="11" r="7" />
-                      <path strokeLinecap="round" d="M20 20l-3-3" />
-                    </svg>
-                    <input
-                      id="history-search"
-                      name="history-search"
-                      type="search"
-                      placeholder="Search events…"
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                        setPageSize(DEFAULT_VISIBLE_EVENTS);
-                        setPage(1);
-                      }}
-                      aria-label="Search events"
-                    />
-                  </label>
-                </div>
+                <ToolbarSearchInput
+                  id="history-search"
+                  name="history-search"
+                  placeholder="Search events…"
+                  aria-label="Search events"
+                  value={search}
+                  onChange={(value) => {
+                    setSearch(value);
+                    setPageSize(DEFAULT_VISIBLE_EVENTS);
+                    setPage(1);
+                  }}
+                />
               </div>
             </div>
 
