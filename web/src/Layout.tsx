@@ -59,7 +59,7 @@ const HISTORY_PREFETCH_STALE_MS = 120_000;
 
 /** Child page labels under /integrations/* (hub uses plain title). */
 const INTEGRATION_SUBPAGE_LABELS: Record<string, string> = {
-  catalog: "Catalog",
+  catalog: "Workflow integrations",
   github: "GitHub",
   gitlab: "GitLab",
   "google-workspace": "Google Workspace",

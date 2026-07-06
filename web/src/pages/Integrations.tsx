@@ -724,8 +724,8 @@ function IntegrationsContent() {
   );
 }
 
-/** Tiered recommendations (IaC/Jira/Slack → GitHub/GitLab → Workspace) plus
-    browse-catalog. Hides the section heading when every tier is connected. */
+/** Tiered recommendations (GitHub/GitLab → Jira/Slack → identity) plus browse link.
+    Hides the section heading when every tier is connected. */
 function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
   const cards = getRecommendedIntegrationKeys(hiddenKeys)
     .map((key) => catalogEntryByKey(key))
@@ -736,7 +736,7 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
       {cards.length > 0 && (
         <div className="integrations-recommended__head">
           <h2>Recommended integrations</h2>
-          <p>High-value connectors for compliance evidence.</p>
+          <p>Connect Git, identity, Jira, and Slack to enrich your cloud evidence.</p>
         </div>
       )}
 
@@ -760,8 +760,8 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
             </svg>
           </span>
           <div className="integrations-catalog-card__body">
-            <div className="integrations-catalog-card__name">Browse catalog</div>
-            <p className="integrations-catalog-card__desc">View all integrations &rarr;</p>
+            <div className="integrations-catalog-card__name">Workflow integrations</div>
+            <p className="integrations-catalog-card__desc">Browse Git, identity, Jira, and Slack &rarr;</p>
           </div>
         </Link>
       </div>

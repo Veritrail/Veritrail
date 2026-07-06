@@ -118,9 +118,30 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   return hidden;
 }
 
+export const EXTENDED_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
+  "snyk",
+  "wiz",
+  "tenable",
+  "qualys",
+  "orca",
+  "aikido",
+  "splunk",
+  "datadog",
+  "elastic",
+  "iac-repository",
+  "azure-devops",
+]);
+
+const SHOW_EXTENDED_INTEGRATIONS = import.meta.env.VITE_SHOW_EXTENDED_INTEGRATIONS === "true";
+
+export function isStarterHiddenKey(key: string): boolean {
+  return EXTENDED_INTEGRATION_KEYS.has(key) && !SHOW_EXTENDED_INTEGRATIONS;
+}
+
 function isAvailableCatalogEntry(entry: CatalogEntry, hiddenKeys: ReadonlySet<string>): boolean {
   if (entry.comingSoon || !entry.href) return false;
-  return !hiddenKeys.has(entry.key);
+  if (hiddenKeys.has(entry.key)) return false;
+  return !isStarterHiddenKey(entry.key);
 }
 
 function sortCatalogEntriesByName(entries: CatalogEntry[]): CatalogEntry[] {
@@ -146,26 +167,22 @@ export function catalogExploreEntries(
   catalog: CatalogCategory[],
   hiddenKeys: ReadonlySet<string>,
 ): CatalogEntry[] {
-  return catalog.flatMap((cat) =>
-    cat.entries.filter((entry) => !hiddenKeys.has(entry.key) && !entry.comingSoon && entry.href),
-  );
+  return catalog.flatMap((cat) => cat.entries.filter((entry) => isAvailableCatalogEntry(entry, hiddenKeys)));
 }
 
 export function catalogEntryCount(catalog: CatalogCategory[], hiddenKeys: ReadonlySet<string>): number {
   return catalog.reduce(
-    (total, cat) => total + cat.entries.filter((entry) => !hiddenKeys.has(entry.key)).length,
+    (total, cat) => total + cat.entries.filter((entry) => isAvailableCatalogEntry(entry, hiddenKeys)).length,
     0,
   );
 }
 
-/** Tier 1: IaC repository, Jira, Slack — shown until all three are connected. */
-export const RECOMMENDED_INTEGRATION_TIER_1 = ["iac-repository", "jira", "slack"] as const;
+/** Source control first (change-management evidence), then workflow helpers. */
+export const RECOMMENDED_INTEGRATION_TIER_1 = ["github", "gitlab"] as const;
 
-/** Tier 2: GitHub, GitLab — shown when tier 1 is fully connected. */
-export const RECOMMENDED_INTEGRATION_TIER_2 = ["github", "gitlab"] as const;
+export const RECOMMENDED_INTEGRATION_TIER_2 = ["jira", "slack"] as const;
 
-/** Tier 3: Google Workspace — shown when tiers 1 and 2 are fully connected. */
-export const RECOMMENDED_INTEGRATION_TIER_3 = ["google-workspace"] as const;
+export const RECOMMENDED_INTEGRATION_TIER_3 = ["entra", "google-workspace"] as const;
 
 export type RecommendedIntegrationKey =
   | (typeof RECOMMENDED_INTEGRATION_TIER_1)[number]

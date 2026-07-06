@@ -21,6 +21,11 @@ export default function IntegrationCatalog() {
 
   return (
     <div className="integrations-page integration-catalog">
+      <header className="integration-catalog__header">
+        <p className="integration-catalog__subtitle">
+          Connect Git, identity, Jira, and Slack to enrich your cloud evidence.
+        </p>
+      </header>
       {filtered.length === 0 ? (
         <p className="integration-catalog__empty">
           All available integrations are already connected to this workspace.
