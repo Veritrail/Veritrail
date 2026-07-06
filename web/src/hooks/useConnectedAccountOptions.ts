@@ -48,10 +48,25 @@ export type FindingsScopeParams = {
   azure_subscription_id?: string;
 };
 
+/** Sentinel id prefix for source-control scope options in the account picker.
+    They resolve to ?provider=github|gitlab, not a cloud account. */
+export const SOURCE_CONTROL_SCOPE_PREFIX = "scope:";
+
+export function sourceControlScopeOption(provider: "github" | "gitlab"): ConnectedAccountOption {
+  return {
+    id: `${SOURCE_CONTROL_SCOPE_PREFIX}${provider}`,
+    label: provider === "github" ? "GitHub" : "GitLab",
+    account_id: null,
+    provider,
+  };
+}
+
 export function findingsScopeParams(account: AccountOption | undefined): FindingsScopeParams {
   if (!account) return {};
   if (account.provider === "gcp") return { gcp_project_id: account.id };
   if (account.provider === "azure") return { azure_subscription_id: account.id };
+  // Source control uses the ?provider scope, not a cloud-account param.
+  if (account.provider === "github" || account.provider === "gitlab") return {};
   return { account_id: account.id };
 }
 

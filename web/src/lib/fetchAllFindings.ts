@@ -12,6 +12,7 @@ export type FetchAllFindingsParams = {
   account_id?: string;
   gcp_project_id?: string;
   azure_subscription_id?: string;
+  provider?: string;
   check_id?: string;
   severity?: string;
 };
@@ -36,6 +37,7 @@ export async function fetchAllFindings<T>(
   if (params.account_id) search.set("account_id", params.account_id);
   if (params.gcp_project_id) search.set("gcp_project_id", params.gcp_project_id);
   if (params.azure_subscription_id) search.set("azure_subscription_id", params.azure_subscription_id);
+  if (params.provider) search.set("provider", params.provider);
   if (params.check_id) search.set("check_id", params.check_id);
   if (params.severity) search.set("severity", params.severity);
 

@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 
 export type CloudProvider = "aws" | "gcp" | "azure";
+/** Findings scope providers: cloud accounts + org-level source control. */
+export type ScopeProvider = CloudProvider | "github" | "gitlab";
 
 export type AccountOption = {
   id: string;
   label?: string | null;
   account_id: string | null;
-  provider?: CloudProvider;
+  provider?: ScopeProvider;
 };
 
 const CONTEXT_PILL =
@@ -19,7 +21,7 @@ function ProviderBrandImg({
   className,
   variant = "wordmark",
 }: {
-  provider: CloudProvider;
+  provider: ScopeProvider;
   className?: string;
   variant?: "wordmark" | "compact";
 }) {
@@ -67,14 +69,14 @@ export function ProviderMark({
   className,
   variant = "wordmark",
 }: {
-  provider?: CloudProvider;
+  provider?: ScopeProvider;
   className?: string;
   variant?: "wordmark" | "compact";
 }) {
   return <ProviderBrandImg provider={provider ?? "aws"} className={className} variant={variant} />;
 }
 
-function ProviderMarkInternal({ provider, className }: { provider?: CloudProvider; className?: string }) {
+function ProviderMarkInternal({ provider, className }: { provider?: ScopeProvider; className?: string }) {
   return <ProviderMark provider={provider} className={className} />;
 }
 
@@ -82,12 +84,16 @@ export function groupAccountId(id: string): string {
   return /^\d{12}$/.test(id) ? id.replace(/(\d{4})(?=\d)/g, "$1 ") : id;
 }
 
-export function providerDisplayName(provider?: CloudProvider): string {
+export function providerDisplayName(provider?: ScopeProvider): string {
   switch (provider) {
     case "gcp":
       return "Google Cloud";
     case "azure":
       return "Microsoft Azure";
+    case "github":
+      return "GitHub";
+    case "gitlab":
+      return "GitLab";
     default:
       return "AWS";
   }

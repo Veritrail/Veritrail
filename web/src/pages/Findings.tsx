@@ -14,10 +14,15 @@ import {
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
 import { FindingsChecksFilter, FindingsChecksFilterSummary } from "../components/FindingsChecksFilter";
 import { api, formatApiError, token } from "../api";
-import { checkFrameworksSchema, compositeControlListSchema } from "../lib/apiSchemas";
+import { checkFrameworksSchema, compositeControlListSchema, integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
-import { findingsScopeParams, useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
+import {
+  findingsScopeParams,
+  sourceControlScopeOption,
+  SOURCE_CONTROL_SCOPE_PREFIX,
+  useConnectedAccountOptions,
+} from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { prefetchJiraIntegration, useJiraIntegration } from "../hooks/useJiraIntegration";
@@ -767,8 +772,26 @@ export default function Findings() {
     }
     return map;
   }, [compositesQ.data]);
-  const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
+  const { options: cloudAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
+  // Source control is a first-class Findings scope (org-level, not a cloud
+  // account). Offer it in the same picker when a git provider is connected.
+  const githubProviderQ = useQuery({
+    queryKey: ["github-provider"],
+    queryFn: () => api("/v1/integrations/github", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const gitlabProviderQ = useQuery({
+    queryKey: ["gitlab-provider"],
+    queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const connectedAccounts = useMemo(() => {
+    const scopes = [];
+    if (githubProviderQ.data) scopes.push(sourceControlScopeOption("github"));
+    if (gitlabProviderQ.data) scopes.push(sourceControlScopeOption("gitlab"));
+    return [...cloudAccounts, ...scopes];
+  }, [cloudAccounts, githubProviderQ.data, gitlabProviderQ.data]);
   const {
     accountId: selectedAccountId,
     activeAccount: selectedActiveAccount,
@@ -785,11 +808,11 @@ export default function Findings() {
     !accountsLoading &&
     (!!providerScope || !!effectiveAccountId || connectedAccounts.length > 0);
   const findingsQuery = useQuery({
-    queryKey: ["findings", status, effectiveAccountId, scopeParams],
+    queryKey: ["findings", status, effectiveAccountId, scopeParams, providerScope],
     queryFn: () =>
       fetchAllFindings<Finding>({
         status,
-        ...scopeParams,
+        ...(providerScope ? { provider: providerScope } : scopeParams),
       }),
     enabled: findingsQueryEnabled,
     refetchInterval: pendingRecheck ? 3000 : false,
@@ -1123,6 +1146,20 @@ export default function Findings() {
   }
 
   function handleAccountChange(id: string) {
+    if (id.startsWith(SOURCE_CONTROL_SCOPE_PREFIX)) {
+      // Source-control scope → ?provider=github|gitlab, not a cloud account.
+      const provider = id.slice(SOURCE_CONTROL_SCOPE_PREFIX.length);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", provider);
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
     setSelectedAccountId(id, { removeParams: ["provider"] });
   }
 
@@ -1218,10 +1255,14 @@ export default function Findings() {
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-        {connectedAccounts.length > 0 && !providerScope && (
+        {connectedAccounts.length > 0 && (
           <HeaderSlot>
           <HeaderFilterBar>
-            <AccountFilterDropdown accounts={connectedAccounts} value={effectiveAccountId} onChange={handleAccountChange} />
+            <AccountFilterDropdown
+              accounts={connectedAccounts}
+              value={providerScope ? `${SOURCE_CONTROL_SCOPE_PREFIX}${providerScope}` : effectiveAccountId}
+              onChange={handleAccountChange}
+            />
           </HeaderFilterBar>
           </HeaderSlot>
         )}
