@@ -229,7 +229,7 @@ export default function HistoryV2() {
 
   return (
     <ProductShell className="flex flex-1 flex-col">
-    <div className="history-page history-page--fill px-1 pt-2 sm:px-0">
+    <div className="history-page history-page--fill px-1 sm:px-0">
       <HeaderSlot>
         <HeaderFilterBar>
           <AccountFilterDropdown
