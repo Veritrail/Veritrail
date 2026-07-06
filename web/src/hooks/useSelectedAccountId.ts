@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   accountIdFromSearchParams,
   resolveSelectedAccountId,
+  type ResolveSelectedAccountOptions,
   writeStoredSelectedAccountId,
 } from "../lib/selectedAccountStorage";
 import type { ConnectedAccountOption } from "./useConnectedAccountOptions";
@@ -15,7 +16,10 @@ type SetAccountIdOptions = {
 export function useSelectedAccountId(
   connectedAccounts: ConnectedAccountOption[],
   accountsReady: boolean,
-  options?: { holdUrlSyncWhenParams?: string[] },
+  options?: {
+    holdUrlSyncWhenParams?: string[];
+    scopeDefaults?: Pick<ResolveSelectedAccountOptions, "cloudAccountCount" | "hasSourceControl">;
+  },
 ) {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlAccountId = accountIdFromSearchParams(searchParams);
@@ -26,8 +30,11 @@ export function useSelectedAccountId(
     if (!accountsReady || connectedIds.length === 0) {
       return (urlAccountId ?? "").trim();
     }
-    return resolveSelectedAccountId(connectedIds, { urlAccountId });
-  }, [accountsReady, connectedIds, urlAccountId]);
+    return resolveSelectedAccountId(connectedIds, {
+      urlAccountId,
+      ...options?.scopeDefaults,
+    });
+  }, [accountsReady, connectedIds, options?.scopeDefaults, urlAccountId]);
 
   const activeAccount = useMemo(
     () => connectedAccounts.find((account) => account.id === accountId) ?? connectedAccounts[0],

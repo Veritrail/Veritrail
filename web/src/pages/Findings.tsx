@@ -815,7 +815,13 @@ export default function Findings() {
     accountId: selectedAccountId,
     activeAccount: selectedActiveAccount,
     setAccountId: setSelectedAccountId,
-  } = useSelectedAccountId(cloudAccounts, accountsReady, { holdUrlSyncWhenParams: ["provider"] });
+  } = useSelectedAccountId(cloudAccounts, accountsReady, {
+    holdUrlSyncWhenParams: ["provider"],
+    scopeDefaults: {
+      cloudAccountCount: cloudAccounts.length,
+      hasSourceControl: hasGithub || hasGitlab,
+    },
+  });
   const effectiveAccountId = providerScope ? "" : selectedAccountId;
   const activeAccount = providerScope ? undefined : selectedActiveAccount;
   const scopeParams: FindingsScopeParams = providerScope
