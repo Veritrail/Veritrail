@@ -147,9 +147,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
+# Trust Center logos only — evidence artifacts use S3 or authenticated download, not public static files.
 _upload_root = Path(settings.LOCAL_UPLOAD_DIR)
-_upload_root.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(_upload_root)), name="uploads")
+_trust_logo_root = _upload_root / "trust-logos"
+_trust_logo_root.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/uploads/trust-logos",
+    StaticFiles(directory=str(_trust_logo_root)),
+    name="trust-logos",
+)
 
 
 @app.get("/healthz")

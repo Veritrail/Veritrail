@@ -12,6 +12,27 @@ from app.services.evidence_artifact_storage import (
 )
 
 
+def test_local_save_rejected_outside_dev(tmp_path, monkeypatch):
+    from unittest.mock import patch
+
+    monkeypatch.setenv("LOCAL_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setenv("EVIDENCE_ARTIFACTS_S3_URI", "")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    settings = get_settings()
+    org_id = uuid.uuid4()
+    with patch("app.services.evidence_artifact_storage.get_settings", return_value=settings):
+        with patch.object(settings, "APP_ENV", "staging"):
+            with pytest.raises(EvidenceArtifactStorageError, match="S3_URI"):
+                save_artifact_bytes(
+                    org_id=org_id,
+                    stored_name="report.pdf",
+                    raw=b"pdf",
+                    content_type="application/pdf",
+                )
+
+
 def test_local_save_and_read_round_trip(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCAL_UPLOAD_DIR", str(tmp_path))
     monkeypatch.setenv("EVIDENCE_ARTIFACTS_S3_URI", "")

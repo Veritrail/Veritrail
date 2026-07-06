@@ -59,6 +59,11 @@ def save_artifact_bytes(
     raw: bytes,
     content_type: str | None = None,
 ) -> str:
+    if not artifacts_s3_enabled():
+        if get_settings().APP_ENV != "dev":
+            raise EvidenceArtifactStorageError(
+                "EVIDENCE_ARTIFACTS_S3_URI must be configured outside dev"
+            )
     if artifacts_s3_enabled():
         loc = _artifacts_s3_location()
         prefix = loc.prefix.strip("/")

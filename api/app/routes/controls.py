@@ -55,7 +55,14 @@ from app.services.evidence_artifact_storage import (
     storage_backend_label,
 )
 from app.services.evidence_artifact_retention import default_expires_at
-from app.services.evidence_artifact_safety import EvidenceUploadRejected, validate_evidence_upload
+from app.services.evidence_artifact_safety import (
+    ALLOWED_EVIDENCE_EXTENSIONS,
+    EvidenceUploadRejected,
+    MAX_EVIDENCE_UPLOAD_BYTES,
+    build_stored_evidence_filename,
+    read_bounded_upload,
+    validate_evidence_upload,
+)
 from app.services.evidence_artifact_clamav import scan_bytes as clamav_scan_bytes
 from app.services.evidence_artifact_supersession import supersede_prior_accepted
 from app.services.category_evidence_coverage import build_category_evidence_coverage
@@ -218,9 +225,7 @@ class EvidenceCoverageOut(BaseModel):
     storage_backend: str
 
 
-_MAX_EVIDENCE_UPLOAD_BYTES = 12 * 1024 * 1024
 _TEXT_EXTENSIONS = {".txt", ".csv", ".json", ".md", ".log"}
-_ALLOWED_EVIDENCE_EXTENSIONS = _TEXT_EXTENSIONS | {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
 
 
 def _safe_filename(name: str) -> str:
@@ -434,10 +439,12 @@ def download_evidence_artifact(
     local_path = Path(get_settings().LOCAL_UPLOAD_DIR) / row.storage_path
     if not local_path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "evidence file not found")
+    safe_name = (row.filename or local_path.name).replace('"', "")
     return FileResponse(
         local_path,
         media_type=row.content_type or "application/octet-stream",
-        filename=row.filename or local_path.name,
+        filename=safe_name,
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
     )
 
 
@@ -528,20 +535,20 @@ async def upload_evidence_artifact(
 
     if has_file:
         original_name = _safe_filename(getattr(file, "filename", None) or "evidence")
-        raw = await file.read()
         try:
-            validate_evidence_upload(original_name, raw, allowed_extensions=_ALLOWED_EVIDENCE_EXTENSIONS)
+            raw = await read_bounded_upload(file, max_bytes=MAX_EVIDENCE_UPLOAD_BYTES)
+            validate_evidence_upload(original_name, raw, allowed_extensions=ALLOWED_EVIDENCE_EXTENSIONS)
+            stored_name = build_stored_evidence_filename(
+                original_name,
+                allowed_extensions=ALLOWED_EVIDENCE_EXTENSIONS,
+            )
         except EvidenceUploadRejected as e:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-        if len(raw) > _MAX_EVIDENCE_UPLOAD_BYTES:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "evidence file is too large")
 
         try:
             clamav_scan_bytes(raw)
         except EvidenceUploadRejected as e:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-
-        stored_name = f"{uuid.uuid4()}-{original_name}"
         content_type = getattr(file, "content_type", None)
         try:
             relative_path = save_artifact_bytes(
