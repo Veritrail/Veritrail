@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,9 +25,9 @@ import {
 } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import {
-  catalogEntryByKey,
+  catalogExploreEntries,
   connectedCatalogKeys,
-  getRecommendedIntegrationKeys,
+  INTEGRATION_CATALOG,
   type ConnectedCatalogState,
 } from "../lib/integrationCatalog";
 import { PostureMetricCell } from "./Workspace";
@@ -724,24 +724,27 @@ function IntegrationsContent() {
   );
 }
 
-/** Tiered recommendations (GitHub/GitLab → Jira/Slack → identity) plus browse link.
-    Hides the section heading when every tier is connected. */
+/** All starter-visible, not-yet-connected integrations in a width-responsive grid. */
 function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
-  const cards = getRecommendedIntegrationKeys(hiddenKeys)
-    .map((key) => catalogEntryByKey(key))
-    .filter((entry): entry is NonNullable<typeof entry> => !!entry?.href);
+  const entries = useMemo(
+    () =>
+      catalogExploreEntries(INTEGRATION_CATALOG, hiddenKeys).sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      ),
+    [hiddenKeys],
+  );
+
+  if (entries.length === 0) return null;
 
   return (
     <section className="integrations-recommended">
-      {cards.length > 0 && (
-        <div className="integrations-recommended__head">
-          <h2>Recommended integrations</h2>
-          <p>Connect Git, identity, Jira, and Slack to enrich your cloud evidence.</p>
-        </div>
-      )}
+      <div className="integrations-recommended__head">
+        <h2>Available integrations</h2>
+        <p>Connect Git, identity, Jira, and Slack to enrich your cloud evidence.</p>
+      </div>
 
       <div className="integrations-explore-grid">
-        {cards.map((entry) => (
+        {entries.map((entry) => (
           <article key={entry.key} className="integrations-explore-card">
             <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
             <div className="integrations-explore-card__body">
@@ -753,17 +756,6 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
             </Link>
           </article>
         ))}
-        <Link to="/integrations/catalog" className="integrations-catalog-card">
-          <span className="integrations-catalog-card__icon" aria-hidden>
-            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d={IK.sources} />
-            </svg>
-          </span>
-          <div className="integrations-catalog-card__body">
-            <div className="integrations-catalog-card__name">Workflow integrations</div>
-            <p className="integrations-catalog-card__desc">Browse Git, identity, Jira, and Slack &rarr;</p>
-          </div>
-        </Link>
       </div>
     </section>
   );
