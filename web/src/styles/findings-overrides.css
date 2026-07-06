@@ -99,7 +99,8 @@
 }
 
 /* ── Findings table row grid ───────────────────────────────────────────────
-   Column hide order as width shrinks: benchmark → category → risk.
+   Column hide order as width shrinks: benchmark → category (finding + resources
+   stay visible; title ellipsizes before columns are dropped).
    Grid tracks are updated at each breakpoint so hidden columns release space. */
 
 .findings-v2-page .findings-v2-row-grid {
@@ -196,6 +197,11 @@
   .findings-v2-page .findings-v2-col-benchmark {
     display: none !important;
   }
+
+  /* Description steals horizontal room from the title before resources overlap. */
+  .findings-v2-page .finding-title-description {
+    display: none !important;
+  }
 }
 
 @media (max-width: 1200px) and (min-width: 1024px) {
@@ -219,13 +225,13 @@
     grid-template-columns:
       auto
       auto
-      minmax(10rem, 1fr)
-      minmax(7rem, 0.85fr);
+      minmax(8rem, 1fr)
+      minmax(6rem, 0.85fr)
+      auto;
   }
 
   .findings-v2-page .findings-v2-col-benchmark,
-  .findings-v2-page .findings-v2-col-category,
-  .findings-v2-page .findings-v2-col-risk {
+  .findings-v2-page .findings-v2-col-category {
     display: none !important;
   }
 }
@@ -288,6 +294,19 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.findings-v2-page .findings-affected-resource-row__meta .truncate,
+.findings-v2-page .findings-affected-resource-row__meta p span.truncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.findings-v2-page .findings-affected-resources-card > .flex.items-start {
+  flex-wrap: wrap;
+  row-gap: 0.75rem;
 }
 
 @media (max-width: 1023px) {
@@ -364,23 +383,40 @@
   }
 }
 
-@media (max-width: 1280px) and (min-width: 1024px) {
+@media (max-width: 1200px) and (min-width: 1024px) {
+  /* Stack resource detail fields when the accordion borrows squeezed table columns. */
   .findings-v2-page .findings-affected-resource-row {
-    grid-template-columns: 2.5rem minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) max-content;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "icon identity"
+      "meta meta"
+      "action action";
+  }
+
+  .findings-v2-page .findings-affected-resource-row > :first-child {
+    grid-area: icon;
+    align-self: start;
+  }
+
+  .findings-v2-page .findings-affected-resource-row__identity {
+    grid-area: identity;
+    grid-column: auto;
+  }
+
+  .findings-v2-page .findings-affected-resource-row__meta-grid {
+    display: grid;
+    grid-area: meta;
+    grid-column: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta:nth-child(3) {
-    display: none;
-  }
-}
-
-@media (max-width: 1120px) and (min-width: 1024px) {
-  .findings-v2-page .findings-affected-resource-row {
-    grid-template-columns: 2.5rem minmax(0, 1.25fr) minmax(0, 1fr) max-content;
+    display: block;
   }
 
-  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta:nth-child(2),
-  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta:nth-child(3) {
-    display: none;
+  .findings-v2-page .findings-affected-resource-row__action {
+    grid-area: action;
+    grid-column: auto;
+    justify-self: start;
   }
 }
