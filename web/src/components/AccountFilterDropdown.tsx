@@ -17,6 +17,9 @@ export type AccountFilterGroup = {
 
 type MenuPosition = { top: number; left: number; width: number };
 
+/** Menu panel minimum — wider than short trigger chips so labels are readable. */
+const ACCOUNT_FILTER_MENU_MIN_WIDTH = 320;
+
 function accountMatchesQuery(account: AccountOption, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
@@ -84,7 +87,7 @@ export function AccountFilterDropdown({
     setMenuPos({
       top: rect.bottom,
       left: rect.left,
-      width: Math.min(rect.width, 320),
+      width: Math.max(rect.width, ACCOUNT_FILTER_MENU_MIN_WIDTH),
     });
   }, []);
 

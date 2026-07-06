@@ -496,8 +496,12 @@
     display: flex;
     flex: 0 0 auto;
     align-items: center;
-    min-width: 0;
+    min-width: 12.5rem;
     max-width: min(22rem, calc(100vw - 2rem));
+  }
+
+  .account-filter .selector-card {
+    min-width: 12.5rem;
   }
 
   .account-filter .selector-card__icon-box .account-filter__provider,
@@ -596,6 +600,7 @@
     position: fixed;
     z-index: 120;
     display: flex;
+    min-width: 20rem;
     max-height: min(32rem, calc(100dvh - 6rem));
     flex-direction: column;
     overflow: hidden;
