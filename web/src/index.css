@@ -349,6 +349,10 @@
     height: 1.125rem;
   }
 
+  .selector-card__glyph--framework {
+    color: #0876df;
+  }
+
   .selector-card__framework-mark {
     display: block;
     flex-shrink: 0;

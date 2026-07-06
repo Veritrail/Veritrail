@@ -8,7 +8,11 @@ import "../styles/history-page.css";
 
 type MenuPosition = { top: number; left: number };
 
-function BenchmarkShieldIcon({ className = "selector-card__glyph" }: { className?: string }) {
+function BenchmarkShieldIcon({
+  className = "selector-card__glyph selector-card__glyph--framework",
+}: {
+  className?: string;
+}) {
   return (
     <svg
       className={className}
@@ -147,7 +151,7 @@ export function BenchmarkFrameworkSelect({
               className={`history-filter-menu__option${viewingAll ? " history-filter-menu__option--active" : ""}`}
             >
               <HistoryMenuCheckmark selected={viewingAll} className="history-filter-menu__check" />
-              <BenchmarkShieldIcon className="history-filter-menu__icon" />
+              <BenchmarkShieldIcon className="history-filter-menu__icon history-filter-menu__icon--benchmark" />
               <span className="history-filter-menu__label">All benchmarks</span>
             </button>
             <p className="history-filter-menu__heading">Frameworks</p>

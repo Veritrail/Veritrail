@@ -1355,6 +1355,7 @@ export default function Findings() {
               value={findingsScopeDropdownValue(providerScope, effectiveAccountId)}
               onChange={handleAccountChange}
             />
+            <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
           </HeaderFilterBar>
           </HeaderSlot>
         )}
@@ -1405,7 +1406,6 @@ export default function Findings() {
                     />
 
                     <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
-                    <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
                     <FindingsStatusSelect
                       value={status}
                       onChange={setStatus}

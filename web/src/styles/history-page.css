@@ -259,6 +259,10 @@
   object-fit: contain;
 }
 
+.history-filter-menu__icon--benchmark {
+  color: #0876df;
+}
+
 .history-filter-menu__icon.history-filter-menu__aws,
 .history-filter-menu__icon.history-filter-menu__provider {
   width: 34px;
