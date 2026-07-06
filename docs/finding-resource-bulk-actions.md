@@ -1,8 +1,8 @@
 # Finding drawer — resource multi-select (bulk exception + Jira ticket)
 
 Spec for selecting multiple **resources** inside a finding drawer and acting on them at once:
-bulk exception, and a single Jira ticket covering the selected resources. **Spec only — no code
-in this doc.**
+bulk exception, and Jira ticketing — **one ticket per resource by default**, with an opt-in
+"one combined ticket" mode for genuinely related resources. **Spec only — no code in this doc.**
 
 ---
 
