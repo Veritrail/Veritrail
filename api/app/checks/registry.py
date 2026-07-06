@@ -20,7 +20,6 @@ from app.checks import (
     github_org_admin_unreviewed,
     github_repo_no_protection,
     github_repo_no_env_protection,
-    github_repo_no_codeowners,
     github_repo_self_merge,
     github_repo_insufficient_reviews,
     github_repo_dependabot_disabled,
@@ -32,7 +31,6 @@ from app.checks import (
     gitlab_repo_no_protection,
     gitlab_repo_self_merge,
     gitlab_repo_insufficient_reviews,
-    gitlab_repo_no_codeowners,
     gitlab_repo_no_env_protection,
     gitlab_repo_sast_disabled,
     gitlab_repo_dependency_scanning_disabled,
@@ -247,7 +245,6 @@ ALL_CHECKS = [
     github_org_admin_unreviewed,
     github_repo_no_protection,
     github_repo_no_env_protection,
-    github_repo_no_codeowners,
     github_repo_self_merge,
     github_repo_insufficient_reviews,
     github_repo_dependabot_disabled,
@@ -260,7 +257,6 @@ ALL_CHECKS = [
     gitlab_repo_no_protection,
     gitlab_repo_self_merge,
     gitlab_repo_insufficient_reviews,
-    gitlab_repo_no_codeowners,
     gitlab_repo_no_env_protection,
     gitlab_repo_sast_disabled,
     gitlab_repo_dependency_scanning_disabled,
@@ -330,3 +326,21 @@ ALL_CHECKS = [
     azure_entra_privileged_role_assignment,
     azure_policy_non_compliant,
 ]
+
+# Source-control checks (GitHub/GitLab) are an org-level domain driven by git
+# sync, not by a cloud-account scan. They run in the sync path and persist
+# findings org-scoped (account_id=NULL); the cloud scan pipeline excludes them.
+SOURCE_CONTROL_PREFIXES = ("github.", "gitlab.")
+
+
+def is_source_control_check(check_id: str) -> bool:
+    return check_id.startswith(SOURCE_CONTROL_PREFIXES)
+
+
+SOURCE_CONTROL_CHECKS = [mod for mod in ALL_CHECKS if is_source_control_check(mod.CHECK_ID)]
+
+
+def source_control_checks_for(provider_type: str) -> list:
+    """Check modules for one provider type ('github' or 'gitlab')."""
+    prefix = f"{provider_type}."
+    return [mod for mod in SOURCE_CONTROL_CHECKS if mod.CHECK_ID.startswith(prefix)]

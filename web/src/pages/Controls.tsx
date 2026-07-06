@@ -137,6 +137,14 @@ type CompositeControlRow = {
     secret_scanning_enabled_repos: number;
     repos_with_security_gaps: number;
   } | null;
+  scanning_attestation?: {
+    declared: boolean;
+    vendor: string | null;
+    note: string | null;
+    set_by: string | null;
+    set_at: string | null;
+  } | null;
+  scanning_attestable_checks?: string[];
 };
 
 type ControlRow = {
@@ -2525,6 +2533,127 @@ function ControlReadinessSection({ metrics }: { metrics: ReadinessMetric[] }) {
 }
 
 /**
+ * Declare an external code/dependency/secret scanner (Snyk, Semgrep, etc.).
+ * When declared, the scanning-family findings are cleared from Secure SDLC
+ * grading while the intrinsic repo controls (branch protection, reviews,
+ * self-merge) stay enforced live. Attests just the scanning capability, not
+ * the whole control.
+ */
+function ScanningAttestationPanel({ ctrl, canEdit }: { ctrl: CompositeControlRow; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const attested = ctrl.scanning_attestation ?? null;
+  const [open, setOpen] = useState(false);
+  const [vendor, setVendor] = useState(attested?.vendor ?? "");
+  const [note, setNote] = useState(attested?.note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(declared: boolean) {
+    setSaving(true);
+    setError("");
+    try {
+      await api("/v1/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          sdlc_scanning_attestation: declared
+            ? { declared: true, vendor: vendor.trim() || null, note: note.trim() || null }
+            : { declared: false },
+        }),
+      });
+      await qc.invalidateQueries({ queryKey: ["controls"] });
+      setOpen(false);
+    } catch (err) {
+      setError(formatApiError(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (attested) {
+    return (
+      <div className="control-scan-attest control-scan-attest--on">
+        <div className="control-scan-attest__body">
+          <span className="control-scan-attest__badge">Attested</span>
+          <div>
+            <p className="control-scan-attest__title">
+              Code &amp; dependency scanning covered externally
+              {attested.vendor ? ` — ${attested.vendor}` : ""}
+            </p>
+            <p className="control-scan-attest__sub">
+              Scanning findings are cleared from this control. Branch protection and review
+              controls stay enforced from the live repo state.
+            </p>
+          </div>
+        </div>
+        {canEdit ? (
+          <button
+            type="button"
+            className="control-scan-attest__link"
+            disabled={saving}
+            onClick={() => submit(false)}
+          >
+            {saving ? "Removing…" : "Remove attestation"}
+          </button>
+        ) : null}
+        {error ? <p className="control-scan-attest__error">{error}</p> : null}
+      </div>
+    );
+  }
+
+  if (!canEdit) return null;
+
+  return (
+    <div className="control-scan-attest">
+      {open ? (
+        <div className="control-scan-attest__form">
+          <p className="control-scan-attest__title">Declare an external scanner</p>
+          <p className="control-scan-attest__sub">
+            If code, dependency, or secret scanning runs outside GitHub/GitLab, declare the tool.
+            Those findings clear from Secure SDLC; branch protection and reviews stay enforced.
+          </p>
+          <input
+            className="control-scan-attest__input"
+            placeholder="Scanner (e.g. Snyk, Semgrep, Trivy)"
+            value={vendor}
+            onChange={(e) => setVendor(e.target.value)}
+            autoFocus
+          />
+          <input
+            className="control-scan-attest__input"
+            placeholder="Note (optional) — e.g. scope, evidence location"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <div className="control-scan-attest__actions">
+            <button
+              type="button"
+              className="control-scan-attest__btn control-scan-attest__btn--primary"
+              disabled={saving}
+              onClick={() => submit(true)}
+            >
+              {saving ? "Saving…" : "Declare"}
+            </button>
+            <button
+              type="button"
+              className="control-scan-attest__btn"
+              disabled={saving}
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+          {error ? <p className="control-scan-attest__error">{error}</p> : null}
+        </div>
+      ) : (
+        <button type="button" className="control-scan-attest__prompt" onClick={() => setOpen(true)}>
+          Run code or dependency scanning outside GitHub? Declare it →
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * How to close the gaps on a composite control. "Fix in AWS" and "turn this on"
  * apply broadly; cross-account coverage only applies to the one or two checks
  * that can only be read from a management/root account (e.g. IAM Access
@@ -2808,6 +2937,10 @@ function CompositeGapResolution({
           open={evidenceModalOpen}
           onOpenChange={setEvidenceModalOpen}
         />
+      ) : null}
+
+      {(ctrl.scanning_attestable_checks?.length ?? 0) > 0 ? (
+        <ScanningAttestationPanel ctrl={ctrl} canEdit={canEditScope} />
       ) : null}
 
       {showScopeRow ? (

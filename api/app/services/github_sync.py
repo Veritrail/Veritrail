@@ -462,5 +462,12 @@ def sync_github_provider(db: Session, provider: IdentityProvider, org_login: str
     set_provider_config(provider, config)
     provider.status = "connected"
     provider.last_synced_at = now
+    db.flush()
+
+    # Source control is org-level — grade Secure SDLC (and the source-control
+    # part of Change Management) straight off this sync, not a cloud scan.
+    from app.services.source_control_scan import run_source_control_checks
+
+    run_source_control_checks(db, provider.org_id, "github")
     db.commit()
     return stats

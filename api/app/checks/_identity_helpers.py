@@ -20,14 +20,29 @@ def _is_prod_like_env(name: str) -> bool:
     return bool(_PROD_LIKE_ENV.search(name))
 
 
-def _providers_of_type(db: Session, account_id, provider_type: str) -> list[IdentityProvider]:
-    from app.models import AwsAccount
-    acc = db.get(AwsAccount, account_id)
-    if not acc:
+def _providers_of_type(db: Session, scope, provider_type: str) -> list[IdentityProvider]:
+    """Providers of ``provider_type`` in a scope's org.
+
+    ``scope`` may be an AwsAccount id (cloud-scan path) or an Org id (the
+    source-control sync path, where there is no cloud account). Source-control
+    checks are org-level, so resolving by org lets them run on git sync for
+    orgs that have no cloud account at all.
+    """
+    from app.models import AwsAccount, Org
+
+    org_id = None
+    acc = db.get(AwsAccount, scope)
+    if acc:
+        org_id = acc.org_id
+    else:
+        org = db.get(Org, scope)
+        if org:
+            org_id = org.id
+    if org_id is None:
         return []
     return list(db.scalars(
         select(IdentityProvider).where(
-            IdentityProvider.org_id == acc.org_id,
+            IdentityProvider.org_id == org_id,
             IdentityProvider.type == provider_type,
         )
     ).all())

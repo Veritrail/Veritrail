@@ -36,6 +36,7 @@ from app.services.trust_logo_storage import TrustLogoError, delete_trust_logo, i
 from app.services.evidence_source_registry import EVIDENCE_SOURCE_CATEGORIES
 from app.services.evidence_source_store import apply_evidence_source_updates, load_evidence_sources
 from app.services.coverage_overrides import merge_coverage_overrides
+from app.services.scanning_attestation import merge_scanning_attestation
 from app.services.cross_account_coverage import merge_cross_account_coverage
 from app.services.custom_evidence_categories import (
     get_custom_evidence_categories,
@@ -162,6 +163,15 @@ class EvidenceSourceCategoryOut(BaseModel):
     entry: dict | None = None
 
 
+class ScanningAttestationIn(BaseModel):
+    # Declare (or clear) an external code/dependency/secret scanner. When
+    # declared, the scanning-family findings are cleared from Secure SDLC while
+    # the intrinsic repo controls stay enforced.
+    declared: bool = False
+    vendor: str | None = None
+    note: str | None = None
+
+
 class ScanningIn(BaseModel):
     enabled: bool = True
     interval: Literal["daily", "weekly", "custom", "manual"] = "daily"
@@ -194,6 +204,7 @@ class SettingsPatch(BaseModel):
     cross_account_coverage: CrossAccountCoverageIn | None = None
     compliance_thresholds: ComplianceThresholdsIn | None = None
     custom_evidence_categories: CustomEvidenceCategoriesIn | None = None
+    sdlc_scanning_attestation: ScanningAttestationIn | None = None
 
 
 class OptionalCheckOut(BaseModel):
@@ -368,6 +379,19 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
             "fail_severities": fail_sev if fail_sev else ["critical", "high"],
         }
 
+    if body.sdlc_scanning_attestation is not None:
+        actor_user = db.get(User, uuid.UUID(p["sub"])) if p.get("sub") else None
+        actor_label = actor_user.email if actor_user and actor_user.email else p.get("sub")
+        merged_attestation = merge_scanning_attestation(
+            current,
+            body.sdlc_scanning_attestation.model_dump(),
+            actor=actor_label,
+        )
+        if merged_attestation is None:
+            current.pop("sdlc_scanning_attestation", None)
+        else:
+            current["sdlc_scanning_attestation"] = merged_attestation
+
     if body.custom_evidence_categories is not None:
         current["custom_evidence_categories"] = merge_custom_evidence_categories(
             current,
@@ -386,6 +410,7 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
             ("cross_account_coverage", body.cross_account_coverage),
             ("compliance_thresholds", body.compliance_thresholds),
             ("custom_evidence_categories", body.custom_evidence_categories),
+            ("sdlc_scanning_attestation", body.sdlc_scanning_attestation),
         )
         if val is not None
     ]

@@ -11,6 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AwsAccount, Finding, Org, ScanRun
+from app.models.github import IdentityProvider
+from app.checks.registry import is_source_control_check, source_control_checks_for
 from app.services.check_coverage import control_coverage_tier, extended_checks_in_list, tier_display_label, tier_for_check
 from app.services.check_evidence import evidence_class_for_check
 from app.services.check_settings import hidden_check_ids
@@ -91,8 +93,6 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     # Secure SDLC vs change management
     "github.repo.no_branch_protection": "secure_sdlc",
     "gitlab.repo.no_branch_protection": "secure_sdlc",
-    "github.repo.no_codeowners": "secure_sdlc",
-    "gitlab.repo.no_codeowners": "secure_sdlc",
     "github.repo.self_merge_allowed": "secure_sdlc",
     "gitlab.repo.self_merge_allowed": "secure_sdlc",
     "github.repo.insufficient_reviews": "secure_sdlc",
@@ -236,12 +236,19 @@ def _scan_context(
     scan_check_errors: list[dict[str, Any]] = []
     has_scanned_account = False
 
+    # Source control is org-level (findings have account_id=NULL) and is graded
+    # off git sync, not a cloud scan — load it regardless of the selected cloud
+    # account so Secure SDLC works even with no cloud account connected.
+    source_control_synced = load_source_control_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+
     if not account_id:
-        return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors
+        return open_by_check, latest_checks_run, latest_failed_checks, source_control_synced, scan_check_errors
 
     acc = db.get(AwsAccount, account_id)
     if not acc or acc.org_id != org_id:
-        return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors
+        return open_by_check, latest_checks_run, latest_failed_checks, source_control_synced, scan_check_errors
 
     open_q = select(Finding).where(
         Finding.account_id == account_id,
@@ -281,7 +288,60 @@ def _scan_context(
                 )
 
     has_scanned_account = bool(acc.last_scan_at)
-    return open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors
+    # "Scanned" for a source-control-only composite means a git sync ran; for a
+    # cloud composite the per-check `all_mapped_checks_ran` gate still requires
+    # the cloud checks to be present, so this OR can't vacuously pass them.
+    return (
+        open_by_check,
+        latest_checks_run,
+        latest_failed_checks,
+        has_scanned_account or source_control_synced,
+        scan_check_errors,
+    )
+
+
+def load_source_control_grading_context(
+    db: Session,
+    org_id: uuid.UUID,
+    open_by_check: dict[str, list[Finding]],
+    latest_checks_run: set[str],
+    hidden: set[str],
+) -> bool:
+    """Load org-scoped source-control findings + mark those checks 'run'.
+
+    Returns True if a github/gitlab provider has completed a sync (the
+    source-control equivalent of "has been scanned"). When synced, every
+    source-control check for that provider type counts as run — so a clean
+    repo set grades ``pass`` and an unprotected repo grades ``fail``, while a
+    provider that is not connected at all stays ``no_data`` (not a vacuous pass).
+    """
+    providers = db.scalars(
+        select(IdentityProvider).where(
+            IdentityProvider.org_id == org_id,
+            IdentityProvider.type.in_(("github", "gitlab")),
+        )
+    ).all()
+    synced = False
+    for provider in providers:
+        if provider.last_synced_at is None:
+            continue
+        synced = True
+        for mod in source_control_checks_for(provider.type):
+            latest_checks_run.add(mod.CHECK_ID)
+    if not synced:
+        return False
+
+    q = select(Finding).where(
+        Finding.org_id == org_id,
+        Finding.account_id.is_(None),
+        Finding.status == "open",
+    )
+    if hidden:
+        q = q.where(Finding.check_id.notin_(hidden))
+    for finding in db.scalars(q).all():
+        if is_source_control_check(finding.check_id):
+            open_by_check.setdefault(finding.check_id, []).append(finding)
+    return True
 
 
 _VALID_SEVERITIES = frozenset({"critical", "high", "medium", "low"})
@@ -370,6 +430,20 @@ def list_composite_controls(
     open_by_check, latest_checks_run, latest_failed_checks, has_scanned_account, scan_check_errors = _scan_context(
         db, org_id, account_id, hidden
     )
+
+    # Capability-level attestation: when the org declares an external scanner,
+    # suppress the scanning-family findings (they stay "ran", so they grade as
+    # covered rather than no_data) while intrinsic repo controls remain live.
+    from app.services.scanning_attestation import (
+        ATTESTABLE_SCANNING_CHECKS,
+        get_scanning_attestation,
+    )
+
+    scanning_attestation = get_scanning_attestation(org.settings if org else {})
+    if scanning_attestation:
+        for cid in ATTESTABLE_SCANNING_CHECKS:
+            open_by_check.pop(cid, None)
+
     errors_by_check = {e["check_id"]: e for e in scan_check_errors}
     from app.services.sdlc_evidence import sdlc_insights_for_org
 
@@ -453,5 +527,9 @@ def list_composite_controls(
             }
         if entry["id"] == "secure_sdlc":
             row["sdlc_insights"] = sdlc_insights
+            row["scanning_attestation"] = scanning_attestation
+            row["scanning_attestable_checks"] = sorted(
+                cid for cid in check_ids if cid in ATTESTABLE_SCANNING_CHECKS
+            )
         result.append(row)
     return result

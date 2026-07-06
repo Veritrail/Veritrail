@@ -75,6 +75,8 @@ def _finding_states(
     if org_id is not None:
         q = q.where(Finding.org_id == org_id)
     if account_id is not None:
+        # Cloud scope only; source-control is org-level (visible in the org-wide
+        # auditor view, not conflated with a single account).
         q = q.where(Finding.account_id == account_id)
     rows = list(db.scalars(q).all())
     if as_of_dt is None:

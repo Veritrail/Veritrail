@@ -87,6 +87,9 @@ export default function GitLabIntegration() {
       qc.invalidateQueries({ queryKey: ["gitlab-provider"] });
       qc.invalidateQueries({ queryKey: [GITLAB_CONFIG.scopeReposPath] });
       setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
+      // Git sync grades Secure SDLC org-level — refresh compliance + findings.
+      qc.invalidateQueries({ queryKey: ["controls"] });
+      qc.invalidateQueries({ queryKey: ["findings"] });
     },
   });
 

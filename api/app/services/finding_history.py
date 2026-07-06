@@ -86,8 +86,28 @@ def findings_for_pack_at(
     hidden_check_ids: set[str] | None = None,
 ) -> list[tuple[Finding, str]]:
     """Findings to include in an evidence pack as of ``as_of`` (open + excepted)."""
-    hidden = hidden_check_ids or set()
-    rows = db.scalars(select(Finding).where(Finding.account_id == account_id)).all()
+    hidden = set(hidden_check_ids or set())
+    from app.services.source_control_scan import with_org_source_control
+    from app.services.scanning_attestation import (
+        ATTESTABLE_SCANNING_CHECKS,
+        is_scanning_attested,
+    )
+    from app.models import AwsAccount, Org
+
+    # When the org attests external scanning, the scanning-family findings are
+    # covered — exclude them from the pack so the audit deliverable matches the
+    # control status (which suppresses them). Intrinsic controls are unaffected.
+    acc = db.get(AwsAccount, account_id)
+    org = db.get(Org, acc.org_id) if acc else None
+    if org and is_scanning_attested(org.settings):
+        hidden |= ATTESTABLE_SCANNING_CHECKS
+
+    # Org-level source-control findings (Secure SDLC) belong in the evidence
+    # pack alongside the account's cloud findings, or the audit PDF would show
+    # SDLC passing while the live control fails.
+    rows = db.scalars(
+        select(Finding).where(with_org_source_control(Finding.account_id == account_id))
+    ).all()
     events_map = load_events_by_finding(db, [f.id for f in rows])
     out: list[tuple[Finding, str]] = []
     for f in rows:

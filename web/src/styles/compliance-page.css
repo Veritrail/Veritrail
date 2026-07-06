@@ -3825,3 +3825,131 @@
     align-items: flex-start;
   }
 }
+
+/* Secure SDLC — declare an external scanner (capability-level attestation). */
+.control-scan-attest {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #eef2f6;
+}
+
+.control-scan-attest__prompt {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1f6feb;
+  cursor: pointer;
+}
+
+.control-scan-attest__prompt:hover {
+  text-decoration: underline;
+}
+
+.control-scan-attest__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.control-scan-attest__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.control-scan-attest__sub {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
+.control-scan-attest__input {
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid #dce3ec;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.control-scan-attest__input:focus-visible {
+  border-color: #94a3b8;
+}
+
+.control-scan-attest__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.control-scan-attest__btn {
+  height: 1.875rem;
+  padding: 0 0.75rem;
+  border: 1px solid #dce3ec;
+  border-radius: 0.5rem;
+  background: #fff;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+}
+
+.control-scan-attest__btn--primary {
+  border-color: var(--vt-teal, #0d9488);
+  background: var(--vt-teal, #0d9488);
+  color: #fff;
+}
+
+.control-scan-attest__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-scan-attest--on {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.control-scan-attest__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.control-scan-attest__badge {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.control-scan-attest__link {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.control-scan-attest__link:hover {
+  color: #b91c1c;
+}
+
+.control-scan-attest__error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #b91c1c;
+}

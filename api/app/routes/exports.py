@@ -458,6 +458,8 @@ def export_findings_csv(
     if account_id:
         acc = db.get(AwsAccount, uuid.UUID(account_id))
         if acc and str(acc.org_id) == p["org_id"]:
+            # Cloud scope only — source-control findings are org-level, not this
+            # account's (they have their own ?provider scope).
             q = q.where(Finding.account_id == acc.id)
     q = q.order_by(Finding.risk_score.desc())
     rows = db.scalars(q).all()

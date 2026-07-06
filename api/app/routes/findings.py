@@ -183,6 +183,9 @@ def _apply_scope_filter(
     gcp_project_id: uuid.UUID | None = None,
     azure_subscription_id: uuid.UUID | None = None,
 ):
+    # Cloud scope only. Source-control findings are org-level and NOT tied to a
+    # cloud account — they have their own scope on the Findings page
+    # (?provider=github|gitlab), so they must not leak into an account's view.
     if account_id is not None:
         return q.where(Finding.account_id == account_id)
     if gcp_project_id is not None:

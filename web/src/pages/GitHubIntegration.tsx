@@ -81,6 +81,10 @@ export default function GitHubIntegration() {
       qc.invalidateQueries({ queryKey: ["github-provider"] });
       qc.invalidateQueries({ queryKey: [GITHUB_CONFIG.scopeReposPath] });
       setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
+      // Git sync now grades Secure SDLC (source-control checks run org-level),
+      // so refresh the compliance + findings views that just changed.
+      qc.invalidateQueries({ queryKey: ["controls"] });
+      qc.invalidateQueries({ queryKey: ["findings"] });
     },
   });
 

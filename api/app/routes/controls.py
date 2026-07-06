@@ -137,6 +137,8 @@ class CompositeControlOut(BaseModel):
     coverage_override_detail: dict | None = None
     cross_account_coverage_detail: dict | None = None
     sdlc_insights: dict | None = None
+    scanning_attestation: dict | None = None
+    scanning_attestable_checks: list[str] = []
 
 
 class CheckFrameworksOut(BaseModel):
@@ -1119,6 +1121,15 @@ def list_controls(
     for f in open_findings:
         open_by_check.setdefault(f.check_id, []).append(f)
 
+    # Source control is org-level (findings + "scanned" signal), independent of
+    # the selected cloud account — fold it in so SDLC-mapped framework controls
+    # grade the same as the composite view.
+    from app.services.composite_controls import load_source_control_grading_context
+
+    source_control_synced = load_source_control_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+
     # Manual controls (no automated checks) take their status from the org's
     # attestation, so they roll into the same pass/fail tally as scanned controls.
     attest_by_control = {
@@ -1153,7 +1164,7 @@ def list_controls(
             )
             hits = []
         else:
-            has_scanned = bool(acc_id and acc and acc.last_scan_at)
+            has_scanned = bool(acc_id and acc and acc.last_scan_at) or source_control_synced
             ctrl_status, hits, _ = compute_control_status(
                 check_ids,
                 open_by_check,
@@ -1293,7 +1304,13 @@ def control_checklist(
                 if isinstance(err, dict) and err.get("check_id"):
                     latest_failed_checks.add(str(err["check_id"]))
 
-    has_scanned = bool(acc_id and acc and acc.last_scan_at)
+    # Fold org-level source control into grading (same as the composite view).
+    from app.services.composite_controls import load_source_control_grading_context
+
+    source_control_synced = load_source_control_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+    has_scanned = bool(acc_id and acc and acc.last_scan_at) or source_control_synced
 
     attest_by_control = {
         a.control_id: a

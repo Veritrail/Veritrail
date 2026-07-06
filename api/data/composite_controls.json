@@ -138,7 +138,6 @@
       "github.repo.dependabot_disabled",
       "github.repo.insufficient_reviews",
       "github.repo.no_branch_protection",
-      "github.repo.no_codeowners",
       "github.repo.secret_scanning_disabled",
       "github.repo.security_status_checks_missing",
       "github.repo.self_merge_allowed",
@@ -146,7 +145,6 @@
       "gitlab.repo.dependency_scanning_disabled",
       "gitlab.repo.insufficient_reviews",
       "gitlab.repo.no_branch_protection",
-      "gitlab.repo.no_codeowners",
       "gitlab.repo.sast_disabled",
       "gitlab.repo.security_ci_not_required",
       "gitlab.repo.self_merge_allowed"
