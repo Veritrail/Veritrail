@@ -1417,7 +1417,7 @@ export default function Findings() {
                       id="findings-search"
                       name="findings-search"
                       className="findings-v2-search"
-                      placeholder="Search finding, ARN, resource…"
+                      placeholder="Search finding"
                       aria-label="Search findings"
                       value={searchText}
                       onChange={handleSearch}
