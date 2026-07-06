@@ -5,7 +5,7 @@ import { FrameworkMark } from "./FrameworkMark";
 import { HistoryMenuCheckmark } from "./HistoryMenuCheckmark";
 import { GroupSelectorIcon, PeriodSelectorIcon, SelectorCard, type SelectorCardIconTone } from "./SelectorCard";
 
-type MenuPosition = { top: number; left: number; minWidth: number };
+type MenuPosition = { top: number; left: number };
 
 export type HistoryFilterOption = {
   value: string;
@@ -69,7 +69,6 @@ export function HistoryFilterDropdown({
     setMenuPos({
       top: rect.bottom + 6,
       left: rect.left,
-      minWidth: Math.max(rect.width, 168),
     });
   }, []);
 
@@ -120,7 +119,7 @@ export function HistoryFilterDropdown({
             role="listbox"
             aria-label={ariaLabel}
             className="history-filter-menu"
-            style={{ top: menuPos.top, left: menuPos.left, minWidth: menuPos.minWidth }}
+            style={{ top: menuPos.top, left: menuPos.left }}
           >
             <p className="history-filter-menu__heading">{label}</p>
             {options.map((option) => {

@@ -170,74 +170,82 @@
   position: fixed;
   z-index: 120;
   overflow: hidden;
-  border-radius: 0.625rem;
-  border: 1px solid var(--history-border);
+  box-sizing: border-box;
+  width: 300px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid #e6ebf2;
   background: #fff;
-  padding: 0.25rem 0;
-  box-shadow: 0 10px 24px rgb(15 23 42 / 0.1);
+  box-shadow:
+    0 18px 45px rgb(15 23 42 / 0.1),
+    0 4px 12px rgb(15 23 42 / 0.05);
+  font-family: inherit;
 }
 
 .history-filter-menu__heading {
   margin: 0;
-  padding: 0.5rem 0.875rem 0.35rem;
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #9ca3af;
+  padding: 8px 12px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #8b95a7;
 }
 
 .history-filter-menu__option {
   display: flex;
   width: 100%;
+  min-height: 38px;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.875rem;
+  gap: 10px;
+  padding: 0 14px;
   border: none;
+  border-radius: 9px;
   background: transparent;
-  font-size: 0.8125rem;
+  font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  line-height: 1.25;
+  color: #253044;
   text-align: left;
   cursor: pointer;
   transition: background 0.12s;
 }
 
 .history-filter-menu__option:hover {
-  background: #f9fafb;
+  background: #f8fafc;
 }
 
 .history-filter-menu__option--active {
+  background: #f4f7fb;
+  font-weight: 600;
   color: #111827;
-  background: #f8fafc;
 }
 
 .history-menu-check,
 .history-filter-menu__check,
 .history-page-size-menu__check {
   display: inline-flex;
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid #d1d5db;
-  border-radius: 0.2rem;
-  background: #fff;
-  color: #fff;
-  transition: background 0.12s, border-color 0.12s;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
 }
 
 .history-menu-check--on,
 .history-filter-menu__check--on,
 .history-page-size-menu__check--on {
-  border-color: #9ca3af;
-  background: #fff;
-  color: #111827;
+  color: #2563eb;
 }
 
 .history-filter-menu__label {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
