@@ -87,7 +87,7 @@ def findings_for_pack_at(
 ) -> list[tuple[Finding, str]]:
     """Findings to include in an evidence pack as of ``as_of`` (open + excepted)."""
     hidden = set(hidden_check_ids or set())
-    from app.services.source_control_scan import with_org_source_control
+    from app.services.source_control_scan import with_source_control_for_audit
     from app.services.scanning_attestation import (
         ATTESTABLE_SCANNING_CHECKS,
         is_scanning_attested,
@@ -106,7 +106,7 @@ def findings_for_pack_at(
     # pack alongside the account's cloud findings, or the audit PDF would show
     # SDLC passing while the live control fails.
     rows = db.scalars(
-        select(Finding).where(with_org_source_control(Finding.account_id == account_id))
+        select(Finding).where(with_source_control_for_audit(Finding.account_id == account_id))
     ).all()
     events_map = load_events_by_finding(db, [f.id for f in rows])
     out: list[tuple[Finding, str]] = []

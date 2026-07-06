@@ -13,26 +13,28 @@ import uuid
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.checks.persist import persist_findings
+from app.checks.persist import persist_org_findings
 from app.checks.registry import source_control_checks_for
 from app.models import Finding
 
 
 def org_source_control_condition():
-    """SQLAlchemy predicate for org-level source-control findings.
-
-    Source-control findings (github.*/gitlab.*) are org-scoped — account_id is
-    NULL — so any account-scoped finding query must OR this in to keep Secure
-    SDLC findings visible in per-account views and audit deliverables.
-    """
+    """SQLAlchemy predicate for org-level source-control findings (github.*/
+    gitlab.*, account_id NULL)."""
     return and_(
         Finding.account_id.is_(None),
         or_(Finding.check_id.like("github.%"), Finding.check_id.like("gitlab.%")),
     )
 
 
-def with_org_source_control(account_condition):
-    """OR an account-scoped condition with org-level source-control findings."""
+def with_source_control_for_audit(account_condition):
+    """OR an account-scoped condition with org-level source-control findings —
+    for COMPLIANCE/AUDIT contexts ONLY (evidence pack, control grading), where
+    Secure SDLC is an org-level control that must appear regardless of account.
+
+    Do NOT use in operational Findings/export/account views: source control is
+    not tied to a cloud account and must not surface under account selection.
+    """
     return or_(account_condition, org_source_control_condition())
 
 
@@ -49,10 +51,13 @@ def run_source_control_checks(db: Session, org_id: uuid.UUID, provider_type: str
         # Checks resolve providers by org via _providers_of_type(scope=org_id).
         drafts.extend(mod.run(db, org_id))
 
-    opened, resolved = persist_findings(
+    # persist_org_findings is org-isolated (org_id + all cloud-scope columns
+    # NULL). Must NOT use persist_findings(account_id=None): that lookup filters
+    # only by account_id with no org_id, so one org's git sync would mutate and
+    # auto-resolve every other org's source-control findings.
+    opened, resolved = persist_org_findings(
         db,
         org_id=org_id,
-        account_id=None,
         drafts=drafts,
         check_ids_run=check_ids_run,
     )
