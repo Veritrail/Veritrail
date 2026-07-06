@@ -6,7 +6,6 @@ import { api } from "../api";
 import { complianceTimelineSchema, compositeControlListSchema } from "../lib/apiSchemas";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
-import { FrameworkMark } from "../components/FrameworkMark";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
@@ -266,8 +265,6 @@ export default function HistoryV2() {
               setPage(1);
               patchSearchParams({ framework: v });
             }}
-            valueIcon={<FrameworkMark framework={framework} className="selector-card__framework-mark" />}
-            optionIcon={(id) => <FrameworkMark framework={id} className="history-filter-menu__icon" />}
           />
 
           <HistoryFilterDropdown

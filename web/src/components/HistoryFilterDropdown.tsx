@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+import { FrameworkMark } from "./FrameworkMark";
 import { HistoryMenuCheckmark } from "./HistoryMenuCheckmark";
 import { GroupSelectorIcon, PeriodSelectorIcon, SelectorCard, type SelectorCardIconTone } from "./SelectorCard";
 
@@ -11,9 +12,19 @@ export type HistoryFilterOption = {
   label: string;
 };
 
-function defaultIconForLabel(label: string): ReactNode {
+function defaultIconForLabel(label: string, selectedValue: string): ReactNode {
   if (label === "Period") return <PeriodSelectorIcon />;
   if (label === "Group") return <GroupSelectorIcon />;
+  if (label === "Framework") {
+    return <FrameworkMark framework={selectedValue} className="selector-card__framework-mark" />;
+  }
+  return null;
+}
+
+function defaultOptionIcon(label: string, optionValue: string): ReactNode {
+  if (label === "Framework") {
+    return <FrameworkMark framework={optionValue} className="history-filter-menu__icon" />;
+  }
   return null;
 }
 
@@ -49,7 +60,7 @@ export function HistoryFilterDropdown({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value) ?? options[0];
-  const triggerIcon = valueIcon ?? defaultIconForLabel(label);
+  const triggerIcon = valueIcon ?? defaultIconForLabel(label, value);
 
   const updateMenuPosition = useCallback(() => {
     const btn = triggerRef.current;
@@ -127,7 +138,7 @@ export function HistoryFilterDropdown({
                   className={`history-filter-menu__option${active ? " history-filter-menu__option--active" : ""}`}
                 >
                   <HistoryMenuCheckmark selected={active} className="history-filter-menu__check" />
-                  {optionIcon?.(option.value)}
+                  {optionIcon?.(option.value) ?? defaultOptionIcon(label, option.value)}
                   <span className="history-filter-menu__label">{option.label}</span>
                 </button>
               );

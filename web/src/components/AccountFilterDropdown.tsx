@@ -15,7 +15,7 @@ export type AccountFilterGroup = {
   accounts: AccountOption[];
 };
 
-type MenuPosition = { top: number; left: number; minWidth: number };
+type MenuPosition = { top: number; left: number; width: number };
 
 function accountMatchesQuery(account: AccountOption, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -84,7 +84,7 @@ export function AccountFilterDropdown({
     setMenuPos({
       top: rect.bottom,
       left: rect.left,
-      minWidth: Math.max(rect.width, 360),
+      width: Math.min(rect.width, 320),
     });
   }, []);
 
@@ -146,7 +146,7 @@ export function AccountFilterDropdown({
             role="listbox"
             aria-label="Accounts"
             className="account-filter-menu"
-            style={{ top: menuPos.top, left: menuPos.left, minWidth: menuPos.minWidth }}
+            style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
           >
             <div className="account-filter-menu__header">
               <p className="account-filter-menu__heading">Accounts</p>
