@@ -1494,10 +1494,10 @@ export default function Findings() {
                     className="findings-v2-col-head findings-v2-row-grid hidden lg:grid"
                     role="row"
                   >
-                    <span className="findings-v2-col-chevron w-5 lg:w-10" aria-hidden />
+                    <span className="findings-v2-col-chevron" aria-hidden />
                     <button
                       type="button"
-                      className="findings-v2-col-head__sort findings-v2-col-severity w-[5.5rem] text-left"
+                      className="findings-v2-col-head__sort findings-v2-col-severity text-left"
                       onClick={() => toggleSort("severity")}
                       aria-label={`Sort by severity${sortKey === "severity" ? ` (${sortDir}ending)` : ""}`}
                     >
@@ -1509,7 +1509,7 @@ export default function Findings() {
                     <span className="findings-v2-col-category">Category</span>
                     <button
                       type="button"
-                      className="findings-v2-col-head__sort findings-v2-col-risk w-16 text-center"
+                      className="findings-v2-col-head__sort findings-v2-col-risk justify-center text-center"
                       onClick={() => toggleSort("score")}
                       aria-label={`Sort by risk${sortKey === "score" ? ` (${sortDir}ending)` : ""}`}
                     >

@@ -102,7 +102,14 @@
    Column hide order as width shrinks: benchmark → category → resources.
    Header and body share findings-v2-col-* hide rules so grid tracks always
    match the number of visible cells. Compact lg layout: chevron + severity +
-   finding + risk only. */
+   finding + risk only.
+   Breakpoints use the card container width (not viewport) so the ~20rem sidebar
+   does not leave a ~1080px table still on the full 7-column track layout. */
+
+.findings-v2-page .findings-v2-card {
+  container-type: inline-size;
+  container-name: findings-table;
+}
 
 .findings-v2-page .findings-v2-row-grid {
   display: grid;
@@ -128,10 +135,9 @@
   text-overflow: ellipsis;
 }
 
-/* Sortable header buttons only — do not force flex on columns that hide at
-   narrow breakpoints (benchmark/category/resources) or display:none loses. */
-.findings-v2-page .findings-v2-col-head .findings-v2-col-severity,
-.findings-v2-page .findings-v2-col-head .findings-v2-col-risk {
+/* Sortable header buttons only — never set display:flex on col-* wrappers or
+   container-query display:none !important on hidden headers will not apply. */
+.findings-v2-page .findings-v2-col-head .findings-v2-col-head__sort {
   display: flex;
   align-items: center;
 }
@@ -203,57 +209,59 @@
   }
 }
 
-@media (max-width: 1320px) and (min-width: 1024px) {
-  .findings-v2-page .findings-v2-row-grid {
-    grid-template-columns:
-      auto
-      auto
-      minmax(11rem, 7fr)
-      minmax(7.5rem, 1.35fr)
-      minmax(6.5rem, 1.6fr)
-      auto;
+@media (min-width: 1024px) {
+  @container findings-table (max-width: 1320px) {
+    .findings-v2-page .findings-v2-row-grid {
+      grid-template-columns:
+        auto
+        auto
+        minmax(11rem, 7fr)
+        minmax(7.5rem, 1.35fr)
+        minmax(6.5rem, 1.6fr)
+        auto;
+    }
+
+    .findings-v2-page .findings-v2-col-benchmark,
+    .findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark {
+      display: none !important;
+    }
   }
 
-  .findings-v2-page .findings-v2-col-benchmark,
-  .findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark {
-    display: none !important;
-  }
-}
+  @container findings-table (max-width: 1200px) {
+    .findings-v2-page .findings-v2-row-grid {
+      grid-template-columns:
+        auto
+        auto
+        minmax(11rem, 7fr)
+        minmax(7.5rem, 1.35fr)
+        auto;
+    }
 
-@media (max-width: 1200px) and (min-width: 1024px) {
-  .findings-v2-page .findings-v2-row-grid {
-    grid-template-columns:
-      auto
-      auto
-      minmax(11rem, 7fr)
-      minmax(7.5rem, 1.35fr)
-      auto;
-  }
-
-  .findings-v2-page .findings-v2-col-benchmark,
-  .findings-v2-page .findings-v2-col-category,
-  .findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark,
-  .findings-v2-page .findings-v2-col-head .findings-v2-col-category {
-    display: none !important;
-  }
-}
-
-@media (max-width: 1100px) and (min-width: 1024px) {
-  .findings-v2-page .findings-v2-row-grid {
-    grid-template-columns:
-      auto
-      auto
-      minmax(8rem, 1fr)
-      auto;
+    .findings-v2-page .findings-v2-col-benchmark,
+    .findings-v2-page .findings-v2-col-category,
+    .findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark,
+    .findings-v2-page .findings-v2-col-head .findings-v2-col-category {
+      display: none !important;
+    }
   }
 
-  .findings-v2-page .findings-v2-col-benchmark,
-  .findings-v2-page .findings-v2-col-category,
-  .findings-v2-page .findings-v2-col-resources,
-  .findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark,
-  .findings-v2-page .findings-v2-col-head .findings-v2-col-category,
-  .findings-v2-page .findings-v2-col-head .findings-v2-col-resources {
-    display: none !important;
+  @container findings-table (max-width: 1100px) {
+    .findings-v2-page .findings-v2-row-grid {
+      grid-template-columns:
+        auto
+        auto
+        minmax(8rem, 1fr)
+        auto;
+    }
+
+    .findings-v2-page .findings-v2-col-benchmark,
+    .findings-v2-page .findings-v2-col-category,
+    .findings-v2-page .findings-v2-col-resources,
+    .findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark,
+    .findings-v2-page .findings-v2-col-head .findings-v2-col-category,
+    .findings-v2-page .findings-v2-col-head .findings-v2-col-resources {
+      display: none !important;
+    }
   }
 }
 
