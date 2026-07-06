@@ -54,10 +54,19 @@
   }
 
   body {
-    @apply bg-[#F6F8FB] text-[#111827] subpixel-antialiased;
+    @apply bg-[#F6F8FB] text-[#111827];
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     letter-spacing: 0;
     text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   button,
@@ -135,11 +144,9 @@
     --vt-header-slot-min-height: calc(
       var(--vt-header-filter-padding-y) * 2 + var(--vt-header-selector-min-height)
     );
-    background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.78));
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
     border-bottom: 1px solid #e8edf4;
     box-shadow: 0 1px 0 rgb(255 255 255 / 0.72) inset;
-    backdrop-filter: blur(14px);
   }
 
   /* Card-less pages: reserve the same vertical space as the selector-card filter row. */
@@ -268,9 +275,9 @@
     min-height: 58px;
     padding: 12px 16px;
     border-radius: 14px;
-    border: 1px solid #e5eaf2;
+    border: 1px solid #e6ebf2;
     background: #fff;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
     cursor: pointer;
     font: inherit;
     color: inherit;
@@ -364,10 +371,10 @@
 
   .selector-card__value {
     overflow: hidden;
-    font-size: 15px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    color: #111827;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #18212f;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -513,6 +520,10 @@
 
   .account-filter .selector-card {
     min-width: 12.5rem;
+  }
+
+  .account-filter .selector-card__value {
+    letter-spacing: -0.01em;
   }
 
   .account-filter .selector-card__icon-box .account-filter__provider,
