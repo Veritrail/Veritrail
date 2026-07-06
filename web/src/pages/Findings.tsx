@@ -411,7 +411,7 @@ function AffectedResourceRow({
         <span className="findings-affected-resource-row__type">{assetType}</span>
       </div>
       <div className="findings-affected-resource-row__meta-grid">
-        <div className="findings-affected-resource-row__meta">
+        <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--account">
           <p className="veritrail-kicker">Account</p>
           <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-semibold text-zinc-800">
             <span className="truncate">{account}</span>
@@ -430,7 +430,7 @@ function AffectedResourceRow({
             </button>
           </p>
         </div>
-        <div className="findings-affected-resource-row__meta">
+        <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--last-seen">
           <p className="veritrail-kicker">Last seen</p>
           <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-medium tabular-nums text-zinc-800">
             <span className="truncate">{formatResourceDate(finding.last_seen)}</span>
@@ -439,7 +439,7 @@ function AffectedResourceRow({
             </svg>
           </p>
         </div>
-        <div className="findings-affected-resource-row__meta">
+        <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--first-seen">
           <p className="veritrail-kicker">First seen</p>
           <p className="mt-1 truncate text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
         </div>
@@ -643,7 +643,7 @@ function FindingRow({
             </span>
             <span className="finding-title min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="finding-title-description hidden min-w-0 truncate text-[13px] font-normal text-zinc-400 lg:inline">
+              <span className="finding-title-description hidden min-w-0 flex-1 truncate text-[13px] font-normal text-zinc-400 lg:inline">
                 {description}
               </span>
             ) : null}

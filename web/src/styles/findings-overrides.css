@@ -119,6 +119,28 @@
   align-items: center;
 }
 
+.findings-v2-page .findings-v2-col-head > span,
+.findings-v2-page .findings-v2-col-head > button {
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark,
+.findings-v2-page .findings-v2-col-head .findings-v2-col-category,
+.findings-v2-page .findings-v2-col-head .findings-v2-col-resources,
+.findings-v2-page .findings-v2-col-head .findings-v2-col-severity,
+.findings-v2-page .findings-v2-col-head .findings-v2-col-risk {
+  display: flex;
+  align-items: center;
+}
+
+.findings-v2-page .findings-v2-col-head .findings-v2-col-benchmark,
+.findings-v2-page .findings-v2-col-head .findings-v2-col-category {
+  min-width: 0;
+}
+
 .findings-v2-page .findings-v2-accordion-grid.findings-v2-row-grid {
   padding: 0;
   align-items: start;
@@ -139,14 +161,14 @@
 .findings-v2-page .finding-title-row {
   display: flex;
   flex-wrap: nowrap;
-  align-items: center;
+  align-items: baseline;
   gap: 0.5rem;
   min-width: 0;
   overflow: hidden;
 }
 
 .findings-v2-page .finding-title {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -156,6 +178,9 @@
 .findings-v2-page .finding-title-description {
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {
@@ -195,11 +220,6 @@
   }
 
   .findings-v2-page .findings-v2-col-benchmark {
-    display: none !important;
-  }
-
-  /* Description steals horizontal room from the title before resources overlap. */
-  .findings-v2-page .finding-title-description {
     display: none !important;
   }
 }
@@ -261,6 +281,7 @@
 }
 
 .findings-v2-page .findings-affected-resource-row__name {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -304,6 +325,11 @@
   white-space: nowrap;
 }
 
+.findings-v2-page .findings-affected-resource-row__action {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .findings-v2-page .findings-affected-resources-card > .flex.items-start {
   flex-wrap: wrap;
   row-gap: 0.75rem;
@@ -311,16 +337,14 @@
 
 @media (max-width: 1023px) {
   .findings-v2-page .findings-affected-resource-row {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      "icon identity"
-      "meta meta"
-      "action action";
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "icon identity action";
+    align-items: center;
   }
 
   .findings-v2-page .findings-affected-resource-row > :first-child {
     grid-area: icon;
-    align-self: start;
+    align-self: center;
   }
 
   .findings-v2-page .findings-affected-resource-row__identity {
@@ -328,33 +352,24 @@
   }
 
   .findings-v2-page .findings-affected-resource-row__meta-grid {
-    grid-area: meta;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .findings-v2-page .findings-affected-resource-row__meta-grid > :last-child {
-    grid-column: 1 / -1;
+    display: none;
   }
 
   .findings-v2-page .findings-affected-resource-row__action {
     grid-area: action;
-    justify-self: start;
-  }
-}
-
-@media (min-width: 640px) and (max-width: 1023px) {
-  .findings-v2-page .findings-affected-resource-row__meta-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .findings-v2-page .findings-affected-resource-row__meta-grid > :last-child {
-    grid-column: auto;
+    justify-self: end;
   }
 }
 
 @media (min-width: 1024px) {
   .findings-v2-page .findings-affected-resource-row {
-    grid-template-columns: 2.5rem minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) max-content;
+    grid-template-columns:
+      2.5rem
+      minmax(9rem, 1.5fr)
+      minmax(7rem, 1fr)
+      minmax(7rem, 1fr)
+      minmax(7rem, 1fr)
+      max-content;
   }
 
   .findings-v2-page .findings-affected-resource-row__identity {
@@ -365,15 +380,15 @@
     display: contents;
   }
 
-  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta:nth-child(1) {
+  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta--account {
     grid-column: 3;
   }
 
-  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta:nth-child(2) {
+  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta--last-seen {
     grid-column: 4;
   }
 
-  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta:nth-child(3) {
+  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta--first-seen {
     grid-column: 5;
   }
 
@@ -383,40 +398,42 @@
   }
 }
 
-@media (max-width: 1200px) and (min-width: 1024px) {
-  /* Stack resource detail fields when the accordion borrows squeezed table columns. */
+/* Hide secondary metadata before squeezing identity or wrapping the action link. */
+@media (max-width: 1400px) and (min-width: 1024px) {
   .findings-v2-page .findings-affected-resource-row {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      "icon identity"
-      "meta meta"
-      "action action";
+    grid-template-columns:
+      2.5rem
+      minmax(9rem, 1.5fr)
+      minmax(7rem, 1fr)
+      minmax(7rem, 1fr)
+      max-content;
   }
 
-  .findings-v2-page .findings-affected-resource-row > :first-child {
-    grid-area: icon;
-    align-self: start;
+  .findings-v2-page .findings-affected-resource-row__meta--last-seen {
+    display: none;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 1024px) {
+  .findings-v2-page .findings-affected-resource-row {
+    grid-template-columns:
+      2.5rem
+      minmax(9rem, 1.75fr)
+      minmax(7rem, 1fr)
+      max-content;
   }
 
-  .findings-v2-page .findings-affected-resource-row__identity {
-    grid-area: identity;
-    grid-column: auto;
+  .findings-v2-page .findings-affected-resource-row__meta--first-seen {
+    display: none;
+  }
+}
+
+@media (max-width: 1120px) and (min-width: 1024px) {
+  .findings-v2-page .findings-affected-resource-row {
+    grid-template-columns: 2.5rem minmax(0, 1fr) max-content;
   }
 
-  .findings-v2-page .findings-affected-resource-row__meta-grid {
-    display: grid;
-    grid-area: meta;
-    grid-column: auto;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta:nth-child(3) {
-    display: block;
-  }
-
-  .findings-v2-page .findings-affected-resource-row__action {
-    grid-area: action;
-    grid-column: auto;
-    justify-self: start;
+  .findings-v2-page .findings-affected-resource-row__meta--account {
+    display: none;
   }
 }
