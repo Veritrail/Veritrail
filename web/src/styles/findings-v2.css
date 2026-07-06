@@ -637,18 +637,6 @@
   border-color: #94a3b8;
 }
 
-/* Quiet end-of-list marker so the virtualized list doesn't just stop. */
-.findings-v2-end-cap {
-  margin: 0;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--fv-divider);
-  text-align: center;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: #a1a1aa;
-}
-
 .findings-v2-row-chevron {
   display: flex;
   height: 28px;

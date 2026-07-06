@@ -1556,10 +1556,6 @@ export default function Findings() {
                       />
                     </div>
                   ) : null}
-
-                  <p className="findings-v2-end-cap">
-                    {rows.length.toLocaleString()} {rows.length === 1 ? "finding" : "findings"}
-                  </p>
                 </FindingSelectionContext.Provider>
                 </FindingMetaContext.Provider>
               )}
