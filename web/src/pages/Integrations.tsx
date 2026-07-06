@@ -724,7 +724,7 @@ function IntegrationsContent() {
   );
 }
 
-/** All starter-visible, not-yet-connected integrations in a width-responsive grid. */
+/** Starter-visible, not-yet-connected integrations in one horizontal row + catalog link. */
 function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
   const entries = useMemo(
     () =>
@@ -734,28 +734,40 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
     [hiddenKeys],
   );
 
-  if (entries.length === 0) return null;
-
   return (
     <section className="integrations-recommended">
       <div className="integrations-recommended__head">
         <h2>Available integrations</h2>
-        <p>Connect Git, identity, Jira, and Slack to enrich your cloud evidence.</p>
       </div>
 
-      <div className="integrations-explore-grid">
-        {entries.map((entry) => (
-          <article key={entry.key} className="integrations-explore-card">
-            <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
-            <div className="integrations-explore-card__body">
-              <div className="integrations-explore-card__name">{entry.name}</div>
-              <p className="integrations-explore-card__desc">{entry.description}</p>
-            </div>
-            <Link to={entry.href!} className="integrations-connect-btn">
-              Connect
-            </Link>
-          </article>
-        ))}
+      <div className="integrations-explore-row">
+        {entries.length > 0 && (
+          <div className="integrations-explore-scroll">
+            {entries.map((entry) => (
+              <article key={entry.key} className="integrations-explore-card">
+                <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
+                <div className="integrations-explore-card__body">
+                  <div className="integrations-explore-card__name">{entry.name}</div>
+                  <p className="integrations-explore-card__desc">{entry.description}</p>
+                </div>
+                <Link to={entry.href!} className="integrations-connect-btn">
+                  Connect
+                </Link>
+              </article>
+            ))}
+          </div>
+        )}
+        <Link to="/integrations/catalog" className="integrations-catalog-card">
+          <span className="integrations-catalog-card__icon" aria-hidden>
+            <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d={IK.sources} />
+            </svg>
+          </span>
+          <div className="integrations-catalog-card__body">
+            <div className="integrations-catalog-card__name">Browse all integrations</div>
+            <p className="integrations-catalog-card__desc">View full catalog &rarr;</p>
+          </div>
+        </Link>
       </div>
     </section>
   );
