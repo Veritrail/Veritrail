@@ -213,6 +213,10 @@
     gap: 0.5rem;
   }
 
+  .veritrail-app-header .history-filter-bar--inline {
+    gap: 0;
+  }
+
   .veritrail-app-content {
     padding-top: 1rem;
   }
@@ -238,15 +242,16 @@
 
   /* Account trigger intentionally excluded: the pill keeps one quiet filled
      style everywhere (Findings portals it bare; History/Controls wrap it in
-     the command bar — it must not change looks between pages). */
-  .veritrail-command-bar .history-filter-box {
+     the command bar — it must not change looks between pages). History uses
+     account-filter--inline inside history-filter-bar--inline instead. */
+  .veritrail-command-bar:not(.history-filter-bar--inline) .history-filter-box {
     border-color: var(--vt-border);
     border-radius: var(--vt-radius-md);
     background: var(--vt-surface);
     box-shadow: var(--vt-shadow-card);
   }
 
-  .veritrail-command-bar .history-filter-box:hover {
+  .veritrail-command-bar:not(.history-filter-bar--inline) .history-filter-box:hover {
     border-color: var(--vt-border-strong);
     background: var(--vt-surface-raised);
   }

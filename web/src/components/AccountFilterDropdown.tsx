@@ -52,10 +52,12 @@ export function AccountFilterDropdown({
   accounts,
   value,
   onChange,
+  variant = "default",
 }: {
   accounts: AccountOption[];
   value: string;
   onChange: (id: string) => void;
+  variant?: "default" | "inline";
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -238,12 +240,14 @@ export function AccountFilterDropdown({
         )
       : null;
 
+  const isInline = variant === "inline";
+
   return (
-    <div ref={rootRef} className="account-filter">
+    <div ref={rootRef} className={`account-filter${isInline ? " account-filter--inline" : ""}`}>
       <button
         ref={triggerRef}
         type="button"
-        className={`account-filter__trigger${open ? " account-filter__trigger--open" : ""}`}
+        className={`account-filter__trigger${open ? " account-filter__trigger--open" : ""}${isInline ? " account-filter__trigger--inline" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}

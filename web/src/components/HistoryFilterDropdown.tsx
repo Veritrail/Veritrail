@@ -36,6 +36,7 @@ export function HistoryFilterDropdown({
   ariaLabel,
   valueIcon,
   optionIcon,
+  variant = "boxed",
 }: {
   label: string;
   value: string;
@@ -45,6 +46,7 @@ export function HistoryFilterDropdown({
   ariaLabel: string;
   valueIcon?: ReactNode;
   optionIcon?: (optionValue: string) => ReactNode;
+  variant?: "boxed" | "inline";
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
@@ -139,25 +141,48 @@ export function HistoryFilterDropdown({
         )
       : null;
 
+  const isInline = variant === "inline";
+
   return (
-    <div ref={rootRef} className={`history-filter-dropdown${boxClassName ? ` ${boxClassName}` : ""}`}>
+    <div
+      ref={rootRef}
+      className={[
+        "history-filter-dropdown",
+        isInline ? "history-filter-dropdown--inline" : "",
+        boxClassName,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <button
         ref={triggerRef}
         type="button"
-        className="history-filter-box"
+        className={isInline ? "history-filter-inline" : "history-filter-box"}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`${label}: ${selected?.label ?? value}`}
       >
-        <span className="history-filter-box__label">{label}</span>
-        <span className="history-filter-box__trail">
-          <span className="history-filter-box__choice">
-            {valueIcon}
-            <span className="history-filter-box__selected">{selected?.label ?? value}</span>
-          </span>
-          <FilterChevron open={open} />
-        </span>
+        {isInline ? (
+          <>
+            <span className="history-filter-inline__content">
+              {valueIcon}
+              <span className="history-filter-inline__value">{selected?.label ?? value}</span>
+            </span>
+            <FilterChevron open={open} />
+          </>
+        ) : (
+          <>
+            <span className="history-filter-box__label">{label}</span>
+            <span className="history-filter-box__trail">
+              <span className="history-filter-box__choice">
+                {valueIcon}
+                <span className="history-filter-box__selected">{selected?.label ?? value}</span>
+              </span>
+              <FilterChevron open={open} />
+            </span>
+          </>
+        )}
       </button>
       {menu}
     </div>

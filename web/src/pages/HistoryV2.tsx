@@ -230,10 +230,11 @@ export default function HistoryV2() {
     <ProductShell className="flex flex-1 flex-col">
     <div className="history-page history-page--fill px-1 pt-2 sm:px-0">
       <HeaderSlot>
-        <AppCommandBar className="history-filter-bar">
+        <AppCommandBar className="history-filter-bar history-filter-bar--inline">
           <AccountFilterDropdown
             accounts={connectedAccounts}
             value={effectiveAccountId}
+            variant="inline"
             onChange={(id) => {
               setAccountId(id);
               setPageSize(DEFAULT_VISIBLE_EVENTS);
@@ -242,8 +243,9 @@ export default function HistoryV2() {
           />
 
           <HistoryFilterDropdown
+            variant="inline"
             label="Period"
-            boxClassName="history-filter-box--period"
+            boxClassName="history-filter-dropdown--period"
             ariaLabel="Period"
             value={String(days)}
             options={PERIODS.map((p) => ({ value: String(p.value), label: p.label }))}
@@ -255,8 +257,9 @@ export default function HistoryV2() {
           />
 
           <HistoryFilterDropdown
+            variant="inline"
             label="Framework"
-            boxClassName="history-filter-box--framework"
+            boxClassName="history-filter-dropdown--framework"
             ariaLabel="Framework"
             value={framework}
             options={FRAMEWORKS.map((f) => ({ value: f.value, label: f.label }))}
@@ -266,13 +269,14 @@ export default function HistoryV2() {
               setPage(1);
               patchSearchParams({ framework: v });
             }}
-            valueIcon={<FrameworkMark framework={framework} className="history-filter-box__framework-mark" />}
+            valueIcon={<FrameworkMark framework={framework} className="history-filter-inline__framework-mark" />}
             optionIcon={(id) => <FrameworkMark framework={id} className="history-filter-menu__icon" />}
           />
 
           <HistoryFilterDropdown
+            variant="inline"
             label="Group"
-            boxClassName="history-filter-box--group"
+            boxClassName="history-filter-dropdown--group"
             ariaLabel="Compliance group"
             value={compositeFilter}
             options={compositeOptions}
