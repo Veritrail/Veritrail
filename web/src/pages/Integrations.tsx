@@ -25,9 +25,8 @@ import {
 } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import {
-  catalogEntryByKey,
   connectedCatalogKeys,
-  getRecommendedIntegrationKeys,
+  getExploreStripEntries,
   type ConnectedCatalogState,
 } from "../lib/integrationCatalog";
 import { PostureMetricCell } from "./Workspace";
@@ -754,19 +753,13 @@ function exploreVisibleCount(stripEl: HTMLElement): number {
   return Math.max(0, Math.floor((containerWidthPx - catalogWidth) / (cardWidth + gap)));
 }
 
-/** Tiered recommendations (GitHub/GitLab → Jira/Slack → identity) plus browse link.
-    Hides the section heading when every tier is connected. */
+/** Unconnected catalog integrations (recommended first) plus browse link.
+    Hides the section heading when nothing is left to connect. */
 function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState<number | null>(null);
 
-  const entries = useMemo(
-    () =>
-      getRecommendedIntegrationKeys(hiddenKeys)
-        .map((key) => catalogEntryByKey(key))
-        .filter((entry): entry is NonNullable<typeof entry> => !!entry?.href),
-    [hiddenKeys],
-  );
+  const entries = useMemo(() => getExploreStripEntries(hiddenKeys), [hiddenKeys]);
 
   useLayoutEffect(() => {
     const el = stripRef.current;
@@ -786,8 +779,8 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
     <section className="integrations-recommended">
       {entries.length > 0 && (
         <div className="integrations-recommended__head">
-          <h2>Recommended integrations</h2>
-          <p>Connect Git, identity, Jira, and Slack to enrich your cloud evidence.</p>
+          <h2>Available integrations</h2>
+          <p>Connect source control, identity, and workflow tools to enrich your cloud evidence.</p>
         </div>
       )}
 

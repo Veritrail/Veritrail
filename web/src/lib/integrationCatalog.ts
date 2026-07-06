@@ -234,3 +234,26 @@ export function getRecommendedIntegrationKeys(
 
   return unconnectedInTier(RECOMMENDED_INTEGRATION_TIER_3, hiddenKeys);
 }
+
+const RECOMMENDED_INTEGRATION_ORDER: readonly RecommendedIntegrationKey[] = [
+  ...RECOMMENDED_INTEGRATION_TIER_1,
+  ...RECOMMENDED_INTEGRATION_TIER_2,
+  ...RECOMMENDED_INTEGRATION_TIER_3,
+];
+
+/** Hub explore strip — all unconnected starter-visible integrations; recommended tiers first, then A–Z. */
+export function getExploreStripEntries(hiddenKeys: ReadonlySet<string>): CatalogEntry[] {
+  const available = sortCatalogEntriesByName(catalogExploreEntries(INTEGRATION_CATALOG, hiddenKeys));
+  const recommendedSet = new Set<string>(RECOMMENDED_INTEGRATION_ORDER);
+  const byKey = new Map(available.map((entry) => [entry.key, entry]));
+
+  const ordered: CatalogEntry[] = [];
+  for (const key of RECOMMENDED_INTEGRATION_ORDER) {
+    const entry = byKey.get(key);
+    if (entry) ordered.push(entry);
+  }
+  for (const entry of available) {
+    if (!recommendedSet.has(entry.key)) ordered.push(entry);
+  }
+  return ordered;
+}
