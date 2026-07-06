@@ -15,10 +15,12 @@ type SetAccountIdOptions = {
 export function useSelectedAccountId(
   connectedAccounts: ConnectedAccountOption[],
   accountsReady: boolean,
+  options?: { holdUrlSyncWhenParams?: string[] },
 ) {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlAccountId = accountIdFromSearchParams(searchParams);
   const connectedIds = useMemo(() => connectedAccounts.map((account) => account.id), [connectedAccounts]);
+  const holdUrlSync = (options?.holdUrlSyncWhenParams ?? []).some((key) => searchParams.has(key));
 
   const accountId = useMemo(() => {
     if (!accountsReady || connectedIds.length === 0) {
@@ -35,7 +37,7 @@ export function useSelectedAccountId(
   const effectiveAccountId = accountId || activeAccount?.id || "";
 
   useEffect(() => {
-    if (!accountsReady || !effectiveAccountId) return;
+    if (!accountsReady || !effectiveAccountId || holdUrlSync) return;
 
     writeStoredSelectedAccountId(effectiveAccountId);
 
@@ -52,7 +54,7 @@ export function useSelectedAccountId(
       },
       { replace: true },
     );
-  }, [accountsReady, effectiveAccountId, searchParams, setSearchParams]);
+  }, [accountsReady, effectiveAccountId, holdUrlSync, searchParams, setSearchParams]);
 
   const setAccountId = useCallback(
     (id: string, options?: SetAccountIdOptions) => {

@@ -1,6 +1,7 @@
 import base64
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -20,6 +21,7 @@ from app.services.finding_supersession import (
     RETIRED_FINDING_CHECKS,
     resolve_retired_for_resource,
 )
+from app.services.findings_scope import apply_findings_scope
 
 router = APIRouter()
 
@@ -176,52 +178,6 @@ def _scope_maps(db: Session, org_id: uuid.UUID):
     )
 
 
-def _apply_scope_filter(
-    q,
-    *,
-    account_id: uuid.UUID | None = None,
-    gcp_project_id: uuid.UUID | None = None,
-    azure_subscription_id: uuid.UUID | None = None,
-):
-    # Cloud scope only. Source-control findings are org-level and NOT tied to a
-    # cloud account — they have their own scope on the Findings page
-    # (?provider=github|gitlab), so they must not leak into an account's view.
-    if account_id is not None:
-        return q.where(Finding.account_id == account_id)
-    if gcp_project_id is not None:
-        return q.where(Finding.gcp_project_id == gcp_project_id)
-    if azure_subscription_id is not None:
-        return q.where(Finding.azure_subscription_id == azure_subscription_id)
-    return q
-
-
-def _apply_provider_or_scope(
-    q,
-    *,
-    provider: str | None,
-    account_id: uuid.UUID | None,
-    gcp_project_id: uuid.UUID | None,
-    azure_subscription_id: uuid.UUID | None,
-):
-    """Source-control provider scope OR cloud scope — never both.
-
-    ?provider=github|gitlab is a first-class Findings scope: org-level
-    source-control findings (account_id NULL, github.*/gitlab.*). It is mutually
-    exclusive with cloud account scope so the two domains never mix.
-    """
-    if provider in ("github", "gitlab"):
-        return q.where(
-            Finding.account_id.is_(None),
-            Finding.check_id.like(f"{provider}.%"),
-        )
-    return _apply_scope_filter(
-        q,
-        account_id=account_id,
-        gcp_project_id=gcp_project_id,
-        azure_subscription_id=azure_subscription_id,
-    )
-
-
 class FindingPage(BaseModel):
     items: list[FindingOut]
     total: int
@@ -240,6 +196,7 @@ def findings_summary(
     account_id: str | None = None,
     gcp_project_id: str | None = None,
     azure_subscription_id: str | None = None,
+    provider: Annotated[str | None, Query()] = None,
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
@@ -254,8 +211,9 @@ def findings_summary(
         q = q.where(Finding.org_id == org_id)
         if hidden:
             q = q.where(Finding.check_id.notin_(hidden))
-        return _apply_scope_filter(
+        return apply_findings_scope(
             q,
+            provider=provider,
             account_id=acc_uuid,
             gcp_project_id=gcp_uuid,
             azure_subscription_id=az_uuid,
@@ -492,7 +450,7 @@ def list_findings(
     account_id: str | None = None,
     gcp_project_id: str | None = None,
     azure_subscription_id: str | None = None,
-    provider: str | None = Query(default=None),
+    provider: Annotated[str | None, Query()] = None,
     limit: int = Query(default=100, ge=1, le=500),
     cursor: str | None = Query(default=None),
     p=Depends(current_principal),
@@ -514,7 +472,7 @@ def list_findings(
         base_q = base_q.where(Finding.severity == severity)
     if check_id:
         base_q = base_q.where(Finding.check_id == check_id)
-    base_q = _apply_provider_or_scope(
+    base_q = apply_findings_scope(
         base_q,
         provider=provider,
         account_id=acc_uuid,

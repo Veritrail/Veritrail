@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { INTEGRATION_BRAND } from "../lib/integrationBrands";
+import { INTEGRATION_BRAND, type IntegrationBrandId } from "../lib/integrationBrands";
 
 export type CloudProvider = "aws" | "gcp" | "azure";
-/** Findings scope providers: cloud accounts + org-level source control. */
-export type ScopeProvider = CloudProvider | "github" | "gitlab";
+/** Findings scope providers: cloud accounts + org-level aggregates. */
+export type ScopeProvider = CloudProvider | "github" | "gitlab" | "all_cloud" | "source_control";
 
 export type AccountOption = {
   id: string;
@@ -21,7 +21,7 @@ function ProviderBrandImg({
   className,
   variant = "wordmark",
 }: {
-  provider: ScopeProvider;
+  provider: Exclude<ScopeProvider, "all_cloud" | "source_control">;
   className?: string;
   variant?: "wordmark" | "compact";
 }) {
@@ -73,6 +73,12 @@ export function ProviderMark({
   className?: string;
   variant?: "wordmark" | "compact";
 }) {
+  if (provider === "all_cloud") {
+    return <CloudIcon className={className ?? (variant === "compact" ? "h-[1.125rem] w-[1.125rem]" : "h-4 w-4")} />;
+  }
+  if (provider === "source_control") {
+    return <ProviderBrandImg provider="github" className={className} variant={variant} />;
+  }
   return <ProviderBrandImg provider={provider ?? "aws"} className={className} variant={variant} />;
 }
 
@@ -94,26 +100,34 @@ export function providerDisplayName(provider?: ScopeProvider): string {
       return "GitHub";
     case "gitlab":
       return "GitLab";
+    case "all_cloud":
+      return "All cloud accounts";
+    case "source_control":
+      return "Source control";
     default:
       return "AWS";
   }
 }
 
 /** Primary line for account pickers (label, or formatted external id). */
-export function accountDisplayName(account: AccountOption): string {
+export function accountDisplayName(account: AccountOption & { scopeMeta?: string | null }): string {
+  if (account.provider === "all_cloud") return "All cloud accounts";
+  if (account.provider === "source_control") return "Source control";
   if (account.label?.trim()) return account.label.trim();
   return groupAccountId(account.account_id ?? "");
 }
 
 /** Secondary line: "Provider · account_id" (or label when id is missing). */
-export function accountDisplaySubtitle(account: AccountOption): string {
+export function accountDisplaySubtitle(account: AccountOption & { scopeMeta?: string | null }): string {
+  if (account.scopeMeta?.trim()) return account.scopeMeta.trim();
   const provider = providerDisplayName(account.provider);
   const detail = groupAccountId(account.account_id ?? account.label ?? "");
   return `${provider} · ${detail}`;
 }
 
 /** Account ID line — matches Accounts page list rows. */
-export function accountDisplayId(account: AccountOption): string {
+export function accountDisplayId(account: AccountOption & { scopeMeta?: string | null }): string {
+  if (account.scopeMeta?.trim()) return account.scopeMeta.trim();
   return groupAccountId(account.account_id ?? account.label ?? "");
 }
 

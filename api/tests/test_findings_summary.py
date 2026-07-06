@@ -85,3 +85,34 @@ def test_findings_summary_scoped_to_gcp_project(db_session):
     assert out_all.total >= 2
     assert out_scoped.total == 1
     assert out_scoped.by_severity.get("critical", 0) == 1
+
+
+def test_findings_summary_all_cloud_and_source_control(db_session):
+    from app.models import AwsAccount
+
+    org, user = _seed_org_user(db_session)
+    aws = AwsAccount(
+        org_id=org.id,
+        label="Prod",
+        account_id="123456789012",
+        external_id="ext-aws",
+        status="connected",
+    )
+    db_session.add(aws)
+    db_session.flush()
+    db_session.add(_finding(org.id, account_id=aws.id))
+    db_session.add(
+        _finding(
+            org.id,
+            account_id=None,
+            check_id="github.branch_protection.missing",
+            resource_arn="github://org/acme/repo/app",
+        )
+    )
+    db_session.flush()
+
+    principal = {"org_id": str(org.id), "sub": str(user.id)}
+    out_all_cloud = findings_summary(provider="all_cloud", p=principal, db=db_session)
+    out_scm = findings_summary(provider="source_control", p=principal, db=db_session)
+    assert out_all_cloud.total == 1
+    assert out_scm.total == 1

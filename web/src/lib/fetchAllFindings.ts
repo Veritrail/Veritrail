@@ -12,7 +12,7 @@ export type FetchAllFindingsParams = {
   account_id?: string;
   gcp_project_id?: string;
   azure_subscription_id?: string;
-  provider?: string;
+  provider?: "github" | "gitlab" | "source_control" | "all_cloud";
   check_id?: string;
   severity?: string;
 };

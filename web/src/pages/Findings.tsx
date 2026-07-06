@@ -27,9 +27,10 @@ import {
   SCOPE_SENTINEL_PREFIX,
   SOURCE_CONTROL_SCOPE_ID,
   useConnectedAccountOptions,
-  writeStoredSelectedAccountId,
+  type FindingsProviderScope,
+  type FindingsScopeParams,
 } from "../hooks/useConnectedAccountOptions";
-import { readStoredSelectedAccountId } from "../lib/selectedAccountStorage";
+import { readStoredSelectedAccountId, writeStoredSelectedAccountId } from "../lib/selectedAccountStorage";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { prefetchJiraIntegration, useJiraIntegration } from "../hooks/useJiraIntegration";
@@ -738,7 +739,7 @@ export default function Findings() {
   const [selectedFrameworks, setSelectedFrameworks] = useState<FrameworkId[]>(() =>
     parseFrameworkParam(searchParams.get("framework")),
   );
-  const providerScope = parseSourceProviderScope(searchParams.get("provider"));
+  const providerScope = parseProviderScope(searchParams.get("provider"));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const [selectedGroupKeys, setSelectedGroupKeys] = useState<Set<string>>(() => new Set());
@@ -805,7 +806,9 @@ export default function Findings() {
   } = useSelectedAccountId(cloudAccounts, accountsReady, { holdUrlSyncWhenParams: ["provider"] });
   const effectiveAccountId = providerScope ? "" : selectedAccountId;
   const activeAccount = providerScope ? undefined : selectedActiveAccount;
-  const scopeParams = providerScope ? { provider: providerScope } : findingsScopeParams(activeAccount);
+  const scopeParams: FindingsScopeParams = providerScope
+    ? { provider: providerScope }
+    : findingsScopeParams(activeAccount);
   const connectedId = effectiveAccountId || undefined;
   const awsScanAccountId =
     activeAccount?.provider === "aws" || !activeAccount?.provider ? effectiveAccountId || undefined : undefined;
@@ -1336,7 +1339,7 @@ export default function Findings() {
           <HeaderFilterBar>
             <AccountFilterDropdown
               accounts={connectedScopeOptions}
-              groups={scopeGroups}
+              groups={scopeGroups.map((group) => ({ heading: group.heading, accounts: group.options }))}
               value={findingsScopeDropdownValue(providerScope, effectiveAccountId)}
               onChange={handleAccountChange}
             />

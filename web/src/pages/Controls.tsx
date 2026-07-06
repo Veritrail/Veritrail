@@ -1503,17 +1503,11 @@ function findingsHrefForChecks(
   return `/findings?${params.toString()}`;
 }
 
-function providerScopeForChecks(checkIds: string[]): "github" | "gitlab" | null {
-  const providers = new Set(
-    checkIds
-      .map((id) => {
-        if (id.startsWith("github.")) return "github";
-        if (id.startsWith("gitlab.")) return "gitlab";
-        return null;
-      })
-      .filter((provider): provider is "github" | "gitlab" => provider !== null),
+function providerScopeForChecks(checkIds: string[]): "source_control" | null {
+  const hasScm = checkIds.some(
+    (id) => id.startsWith("github.") || id.startsWith("gitlab."),
   );
-  return providers.size === 1 ? [...providers][0] : null;
+  return hasScm ? "source_control" : null;
 }
 
 function remediationActionForChecks(
@@ -1523,22 +1517,10 @@ function remediationActionForChecks(
 ): { title: string; detail: string } {
   const active = checkIds.filter((id) => (findingCountByCheck.get(id) ?? 0) > 0);
   const providerScope = providerScopeForChecks(active);
-  if (providerScope === "github") {
-    return {
-      title: "Fix in GitHub",
-      detail: "Review the affected repositories and update branch protection, reviews, or CI/CD safeguards.",
-    };
-  }
-  if (providerScope === "gitlab") {
-    return {
-      title: "Fix in GitLab",
-      detail: "Review the affected projects and update protected branches, merge approvals, or CI/CD safeguards.",
-    };
-  }
-  if (active.some((id) => id.startsWith("github.") || id.startsWith("gitlab."))) {
+  if (providerScope) {
     return {
       title: "Fix in source control",
-      detail: "Review the affected repositories and update the missing change-management safeguards.",
+      detail: "Review the affected repositories and update branch protection, reviews, or CI/CD safeguards.",
     };
   }
   return {

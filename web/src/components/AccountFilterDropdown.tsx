@@ -9,6 +9,11 @@ import {
   type AccountOption,
 } from "./AccountSelect";
 
+export type AccountFilterGroup = {
+  heading?: string;
+  accounts: AccountOption[];
+};
+
 type MenuPosition = { top: number; left: number; minWidth: number };
 
 function FilterChevron({ open }: { open: boolean }) {
@@ -50,15 +55,21 @@ function accountMatchesQuery(account: AccountOption, query: string): boolean {
  */
 export function AccountFilterDropdown({
   accounts,
+  groups,
   value,
   onChange,
   variant = "inline",
 }: {
   accounts: AccountOption[];
+  groups?: AccountFilterGroup[];
   value: string;
   onChange: (id: string) => void;
   variant?: "default" | "inline";
 }) {
+  const flatAccounts = useMemo(
+    () => (groups ? groups.flatMap((group) => group.accounts) : accounts),
+    [accounts, groups],
+  );
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
@@ -67,10 +78,21 @@ export function AccountFilterDropdown({
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const current = accounts.find((a) => a.id === value) ?? accounts[0];
+  const current = flatAccounts.find((a) => a.id === value) ?? flatAccounts[0];
+  const filteredGroups = useMemo(() => {
+    if (groups) {
+      return groups
+        .map((group) => ({
+          ...group,
+          accounts: group.accounts.filter((a) => accountMatchesQuery(a, search)),
+        }))
+        .filter((group) => group.accounts.length > 0);
+    }
+    return null;
+  }, [groups, search]);
   const filtered = useMemo(
-    () => accounts.filter((a) => accountMatchesQuery(a, search)),
-    [accounts, search],
+    () => flatAccounts.filter((a) => accountMatchesQuery(a, search)),
+    [flatAccounts, search],
   );
 
   const updateMenuPosition = useCallback(() => {
@@ -132,7 +154,7 @@ export function AccountFilterDropdown({
     };
   }, [open]);
 
-  if (accounts.length === 0 || !current) return null;
+  if (flatAccounts.length === 0 || !current) return null;
 
   const menu =
     open && menuPos
@@ -168,7 +190,64 @@ export function AccountFilterDropdown({
             </label>
 
             <div className="account-filter-menu__list">
-              {filtered.length === 0 ? (
+              {filteredGroups ? (
+                filteredGroups.length === 0 ? (
+                  <p className="account-filter-menu__empty">No accounts match your search.</p>
+                ) : (
+                  filteredGroups.map((group) => (
+                    <div key={group.heading ?? "org-scope"} className="account-filter-menu__section">
+                      {group.heading ? (
+                        <p className="account-filter-menu__section-heading">{group.heading}</p>
+                      ) : null}
+                      {group.accounts.map((account) => {
+                        const active = account.id === value;
+                        return (
+                          <button
+                            key={account.id}
+                            type="button"
+                            role="option"
+                            aria-selected={active}
+                            onClick={() => {
+                              onChange(account.id);
+                              setOpen(false);
+                            }}
+                            className={`account-filter-card${active ? " account-filter-card--selected" : ""}`}
+                          >
+                            <span className="account-filter-card__icon-box">
+                              <ProviderMark
+                                provider={account.provider}
+                                variant="compact"
+                                className={`account-filter-card__provider account-filter-card__provider--${account.provider ?? "aws"}`}
+                              />
+                            </span>
+                            <span className="account-filter-card__text">
+                              <span className="account-filter-card__name">{accountDisplayName(account)}</span>
+                              <span className="account-filter-card__meta">{accountDisplayId(account)}</span>
+                            </span>
+                            <span className="account-filter-card__indicator" aria-hidden>
+                              {active ? (
+                                <svg viewBox="0 0 20 20" fill="none" aria-hidden>
+                                  <circle cx="10" cy="10" r="9" />
+                                  <path
+                                    d="M6 10.2 8.4 12.6 14 7"
+                                    strokeWidth="1.75"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 20 20" fill="none" aria-hidden>
+                                  <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.25" />
+                                </svg>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))
+                )
+              ) : filtered.length === 0 ? (
                 <p className="account-filter-menu__empty">No accounts match your search.</p>
               ) : (
                 filtered.map((account) => {
@@ -221,7 +300,14 @@ export function AccountFilterDropdown({
 
             <div className="account-filter-menu__footer">
               <span className="account-filter-menu__footer-meta">
-                {accounts.length} {accounts.length === 1 ? "account" : "accounts"}
+                {flatAccounts.length}{" "}
+                {groups
+                  ? flatAccounts.length === 1
+                    ? "scope"
+                    : "scopes"
+                  : flatAccounts.length === 1
+                    ? "account"
+                    : "accounts"}
               </span>
               <Link to="/accounts" className="account-filter-menu__footer-link" onClick={() => setOpen(false)}>
                 <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
