@@ -300,7 +300,6 @@ export default function HistoryV2() {
           <CloudFeatureComingSoon
             page="history"
             provider={activeAccount.provider}
-            account={activeAccount}
           />
         </div>
       ) : null}

@@ -4638,7 +4638,6 @@ export default function Controls() {
           <CloudFeatureComingSoon
             page="compliance"
             provider={activeAccount.provider}
-            account={activeAccount}
           />
         </div>
       ) : (
