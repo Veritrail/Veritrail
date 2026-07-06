@@ -25,6 +25,7 @@ import type { RemediationTicket } from "../lib/remediationTicket";
 import type { RecheckBatchResponse } from "../context/RecheckNotificationsContext";
 import { CloudProviderMark } from "./FindingResourceIcon";
 import "../styles/finding-resources-tab.css";
+import { FINDING_RESOURCE_BULK_CAP } from "../lib/findingResourceBulk";
 
 export type ResourcesTabFinding = {
   id: string;
@@ -630,6 +631,9 @@ export function FindingResourcesTab({
   selectedFinding,
   groupFindings,
   onSelectFinding,
+  selectedFindingIds,
+  onSelectedFindingIdsChange,
+  selectionEnabled = false,
   summaryRisk,
   summaryAction,
   onViewRemediation,
@@ -641,6 +645,9 @@ export function FindingResourcesTab({
   selectedFinding: ResourcesTabFinding;
   groupFindings: ResourcesTabFinding[];
   onSelectFinding?: (finding: ResourcesTabFinding) => void;
+  selectedFindingIds?: Set<string>;
+  onSelectedFindingIdsChange?: (ids: Set<string>) => void;
+  selectionEnabled?: boolean;
   summaryRisk?: string | null;
   summaryAction?: string | null;
   onViewRemediation?: () => void;
@@ -747,6 +754,38 @@ export function FindingResourcesTab({
 
   const handleRowSelect = (finding: ResourcesTabFinding) => {
     onSelectFinding?.(finding);
+  };
+
+  const visibleRowIds = useMemo(() => rows.map((row) => row.id), [rows]);
+  const selectedIds = selectedFindingIds ?? new Set<string>();
+  const allVisibleSelected =
+    visibleRowIds.length > 0 && visibleRowIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected = visibleRowIds.some((id) => selectedIds.has(id));
+
+  const toggleRowSelected = (findingId: string, checked: boolean) => {
+    if (!onSelectedFindingIdsChange) return;
+    const next = new Set(selectedIds);
+    if (checked) {
+      if (next.size >= FINDING_RESOURCE_BULK_CAP && !next.has(findingId)) return;
+      next.add(findingId);
+    } else {
+      next.delete(findingId);
+    }
+    onSelectedFindingIdsChange(next);
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (!onSelectedFindingIdsChange) return;
+    const next = new Set(selectedIds);
+    if (allVisibleSelected) {
+      for (const id of visibleRowIds) next.delete(id);
+    } else {
+      for (const id of visibleRowIds) {
+        if (next.size >= FINDING_RESOURCE_BULK_CAP) break;
+        next.add(id);
+      }
+    }
+    onSelectedFindingIdsChange(next);
   };
 
   async function invalidateFindingData() {
@@ -997,6 +1036,7 @@ export function FindingResourcesTab({
         <div className="overflow-x-auto">
           <table className="finding-resources-tab__table min-w-[56rem] w-full border-collapse text-left">
             <colgroup>
+              {selectionEnabled ? <col className="w-10" /> : null}
               <col className="min-w-[14rem]" />
               <col className="finding-resources-tab__type-col min-w-[10rem]" />
               <col className="min-w-[7.5rem]" />
@@ -1006,6 +1046,20 @@ export function FindingResourcesTab({
             </colgroup>
             <thead>
               <tr className="border-b border-zinc-100 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                {selectionEnabled ? (
+                  <th className="w-10 px-3 pb-2.5 pt-3 text-left align-bottom font-semibold">
+                    <input
+                      type="checkbox"
+                      className="findings-v2-row-check"
+                      checked={allVisibleSelected}
+                      ref={(input) => {
+                        if (input) input.indeterminate = !allVisibleSelected && someVisibleSelected;
+                      }}
+                      onChange={toggleSelectAllVisible}
+                      aria-label={allVisibleSelected ? "Deselect all visible resources" : "Select all visible resources"}
+                    />
+                  </th>
+                ) : null}
                 <th className="px-4 pb-2.5 pt-3 text-left align-bottom font-semibold">Resource</th>
                 <th className="finding-resources-tab__type-head w-[1%] whitespace-nowrap pl-2 pr-6 pb-2.5 pt-3 text-left align-bottom font-semibold">
                   <span className="inline-block -translate-x-8">Type</span>
@@ -1027,6 +1081,7 @@ export function FindingResourcesTab({
                 const last = formatResourceTableDate(f.last_seen, "last");
                 const rowAssetType = assetTypeLabel(f.check_id);
                 const isSelected = f.id === selectedFinding.id;
+                const isChecked = selectedIds.has(f.id);
                 const rowBg = isSelected
                   ? "bg-gradient-to-r from-indigo-50 via-indigo-50/45 to-transparent shadow-[inset_3px_0_0_0_theme(colors.indigo.500),inset_0_0_0_1px_theme(colors.indigo.100)]"
                   : "bg-white hover:bg-indigo-50/40 hover:shadow-[inset_0_0_0_1px_rgba(99,102,241,0.14)]";
@@ -1046,6 +1101,19 @@ export function FindingResourcesTab({
                     }}
                     className={`group cursor-pointer border-b border-zinc-100 transition-[background-color,box-shadow] duration-150 last:border-b-0 ${rowBg}`}
                   >
+                    {selectionEnabled ? (
+                      <td className="w-10 px-3 py-4 align-middle">
+                        <input
+                          type="checkbox"
+                          className={`findings-v2-row-check ${isChecked ? "opacity-100" : ""}`}
+                          checked={isChecked}
+                          onChange={(event) => toggleRowSelected(f.id, event.target.checked)}
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          aria-label={`Select ${name}`}
+                        />
+                      </td>
+                    ) : null}
                     <td className="px-4 py-4 align-middle">
                       <div className="flex items-center gap-3">
                         <CloudProviderMark finding={f} />

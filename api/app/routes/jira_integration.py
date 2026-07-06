@@ -27,6 +27,7 @@ from app.services.github_sync import provider_config, set_provider_config
 
 router = APIRouter()
 JIRA_TYPE = "jira"
+FINDINGS_BATCH_CAP = 50
 
 
 def _get_org(p, db: Session) -> Org:
@@ -115,6 +116,23 @@ class JiraIssueCreateIn(BaseModel):
     issue_type: str | None = None
 
 
+class JiraIssuesFromFindingsIn(BaseModel):
+    finding_ids: list[uuid.UUID]
+    project_key: str
+    issue_type: str
+    assignee_account_id: str | None = None
+    summary: str | None = None
+    priority: str | None = None
+    labels: list[str] | None = None
+
+
+class JiraIssuesFromFindingsOut(BaseModel):
+    issue_key: str
+    issue_url: str
+    linked_count: int
+    skipped_already_linked: list[str]
+
+
 class JiraIssueStatusOut(BaseModel):
     issue_key: str
     status: str
@@ -155,24 +173,71 @@ def _recommended_remediation(finding: Finding) -> str:
     return "Apply the remediation guidance in Veritrail, then verify the fix from the finding drawer."
 
 
+def _finding_is_jira_linked(finding: Finding) -> bool:
+    return _finding_jira_issue(finding) is not None
+
+
+def _resource_reason_line(finding: Finding) -> str:
+    if finding.check_id.startswith("iam.role") and "least_privilege" in finding.check_id:
+        scope = (finding.evidence or {}).get("scope")
+        if scope == "full_admin":
+            return "Action:* + Resource:*"
+        if scope == "wildcard_action":
+            return "Action:* (wildcard)"
+        return "Broader than observed usage"
+    return _recommended_remediation(finding)
+
+
 def _issue_description(
     *,
     finding: Finding,
     finding_url: str,
     account: AwsAccount | None,
     actor: str,
+    extra_findings: list[tuple[Finding, str, AwsAccount | None]] | None = None,
 ) -> str:
     account_label = "Unknown account"
     if account:
         account_label = f"{account.label or 'AWS account'} ({account.account_id or 'unknown'})"
 
     opened_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    return (
+    header = (
         f"Opened by: {actor}\n"
         f"Opened at: {opened_at}\n"
         f"Account: {account_label}\n\n"
         f"Severity: {finding.severity.upper()} · Risk score {finding.risk_score}\n"
         f"Check: {finding.check_id}\n"
+    )
+
+    if extra_findings:
+        all_rows = [(finding, finding_url, account)] + list(extra_findings)
+        resource_lines = ["Affected resources"]
+        for row_finding, row_url, row_account in all_rows:
+            row_account_label = "Unknown account"
+            if row_account:
+                row_account_label = f"{row_account.label or 'AWS account'} ({row_account.account_id or 'unknown'})"
+            resource_lines.extend(
+                [
+                    f"- [ ] {row_finding.resource_arn}",
+                    f"  Account: {row_account_label}",
+                    f"  Reason: {_resource_reason_line(row_finding)}",
+                    f"  Open in Veritrail: {row_url}",
+                    "",
+                ]
+            )
+        resources_block = "\n".join(resource_lines).rstrip()
+        return (
+            f"{header}\n"
+            f"{resources_block}\n\n"
+            "Recommended remediation\n"
+            f"{_recommended_remediation(finding)}\n\n"
+            "Verification\n"
+            "After remediation, return to Veritrail and run Verify fix. "
+            "Close this issue only after verification passes."
+        )
+
+    return (
+        f"{header}"
         f"Resource: {finding.resource_arn}\n\n"
         "Recommended remediation\n"
         f"{_recommended_remediation(finding)}\n\n"
@@ -181,6 +246,23 @@ def _issue_description(
         "Close this issue only after verification passes.\n\n"
         f"Open finding in Veritrail: {finding_url}"
     )
+
+
+def _combined_issue_summary(findings: list[Finding]) -> str:
+    if not findings:
+        return "[Veritrail] Security finding"
+    primary = findings[0]
+    single = build_jira_issue_summary(
+        check_id=primary.check_id,
+        resource_arn=primary.resource_arn,
+        title=primary.title,
+    )
+    if len(findings) == 1:
+        return single
+    prefix = "[Veritrail] "
+    body = single[len(prefix) :] if single.startswith(prefix) else single
+    violation_part = body.rsplit(": ", 1)[0] if ": " in body else body
+    return f"{prefix}{violation_part} — {len(findings)} resources"
 
 
 @router.get("/jira/projects", response_model=list[JiraProjectOut])
@@ -543,3 +625,131 @@ def create_issue_from_finding(
     db.commit()
 
     return JiraIssueOut(**created)
+
+
+@router.post("/jira/issues/from-findings", response_model=JiraIssuesFromFindingsOut)
+def create_issues_from_findings(
+    _rbac: RequireAdmin,
+    body: JiraIssuesFromFindingsIn,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    org = _get_org(p, db)
+    provider = _jira_provider(db, org.id)
+    if not provider or provider.status != "connected":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira is not connected")
+
+    finding_ids = list(dict.fromkeys(body.finding_ids))
+    if not finding_ids:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "finding_ids must not be empty")
+    if len(finding_ids) > FINDINGS_BATCH_CAP:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"At most {FINDINGS_BATCH_CAP} findings per batch",
+        )
+
+    findings: list[Finding] = []
+    for finding_id in finding_ids:
+        finding = db.get(Finding, finding_id)
+        if not finding or finding.org_id != org.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Finding not found")
+        findings.append(finding)
+
+    skipped_already_linked = [str(f.id) for f in findings if _finding_is_jira_linked(f)]
+    to_link = [f for f in findings if not _finding_is_jira_linked(f)]
+    if not to_link:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "All selected findings already have a linked Jira issue",
+                "skipped_already_linked": skipped_already_linked,
+            },
+        )
+
+    cfg = provider_config(provider)
+    project_key = (body.project_key or cfg.get("project_key") or "").strip().upper()
+    if not project_key:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Jira project key is required")
+    issue_type = (body.issue_type or "").strip() or "Task"
+
+    app_url = _findings_app_url().rstrip("/")
+    actor_user = db.get(User, uuid.UUID(p["sub"]))
+    actor = resolve_user_display_name(actor_user) if actor_user else "user"
+
+    primary = to_link[0]
+    primary_url = f"{app_url}/findings?finding={primary.id}"
+    primary_account = db.get(AwsAccount, primary.account_id) if primary.account_id else None
+    extra_rows: list[tuple[Finding, str, AwsAccount | None]] = []
+    for finding in to_link[1:]:
+        row_url = f"{app_url}/findings?finding={finding.id}"
+        row_account = db.get(AwsAccount, finding.account_id) if finding.account_id else None
+        extra_rows.append((finding, row_url, row_account))
+
+    description = _issue_description(
+        finding=primary,
+        finding_url=primary_url,
+        account=primary_account,
+        actor=actor,
+        extra_findings=extra_rows or None,
+    )
+
+    labels = body.labels or ["veritrail", primary.severity]
+    labels = [label.strip().lower().replace(" ", "-") for label in labels if label and label.strip()]
+    if "veritrail" not in labels:
+        labels.insert(0, "veritrail")
+    if primary.severity not in labels:
+        labels.append(primary.severity)
+    if "least_privilege" in primary.check_id and "least-privilege" not in labels:
+        labels.append("least-privilege")
+    priority = body.priority.strip() if body.priority else None
+    assignee_account_id = body.assignee_account_id.strip() if body.assignee_account_id else None
+    summary = (
+        body.summary.strip()
+        if body.summary and body.summary.strip()
+        else _combined_issue_summary(to_link)
+    )
+
+    try:
+        client = JiraClient(
+            site_url=cfg["site_url"],
+            email=cfg["email"],
+            api_token=cfg["api_token"],
+        )
+        created = client.create_issue(
+            project_key=project_key,
+            summary=summary[:255],
+            description=description,
+            issue_type=issue_type,
+            labels=labels,
+            priority=priority,
+            assignee_account_id=assignee_account_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Failed to create Jira issue: {e}") from e
+
+    for finding in to_link:
+        evidence = dict(finding.evidence or {})
+        evidence["jira"] = created
+        finding.evidence = evidence
+        finding.remediation_ticket_key = created["issue_key"]
+        finding.remediation_ticket_url = created["issue_url"]
+        flag_modified(finding, "evidence")
+        db.add(
+            FindingEvent(
+                finding_id=finding.id,
+                actor=actor,
+                action="note",
+                note=f"Jira issue created: {created['issue_key']}",
+            )
+        )
+
+    db.commit()
+
+    return JiraIssuesFromFindingsOut(
+        issue_key=created["issue_key"],
+        issue_url=created["issue_url"],
+        linked_count=len(to_link),
+        skipped_already_linked=skipped_already_linked,
+    )

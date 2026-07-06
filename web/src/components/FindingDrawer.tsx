@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode, type RefObject } from "react";
 import type { z } from "zod";
 import { createPortal } from "react-dom";
 import { useAppScrollLock } from "../lib/useAppScrollLock";
@@ -80,6 +80,8 @@ import {
 } from "../lib/findingDisplay";
 import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
+import { FindingResourceBulkBar } from "./FindingResourceBulkBar";
+import { roleAtLeast, useMe } from "../hooks/useMe";
 import { ResourcesIcon } from "./ResourcesIcon";
 import { DrawerShell } from "./DrawerShell";
 import { fetchClientIpForRemediation } from "../lib/cliRemediation";
@@ -6450,7 +6452,10 @@ export function FindingDrawer({
   const [jiraOverride, setJiraOverride] = useState<RemediationTicket | null>(null);
   const [githubOverride, setGithubOverride] = useState<RemediationTicket | null>(null);
   const [confirmRemoveTicket, setConfirmRemoveTicket] = useState(false);
+  const [selectedResourceIds, setSelectedResourceIds] = useState<Set<string>>(() => new Set());
   const qc = useQueryClient();
+  const meQ = useMe();
+  const canEditResources = roleAtLeast(meQ.data?.role, "editor");
 
   useJiraIntegration();
 
@@ -6462,8 +6467,22 @@ export function FindingDrawer({
   useEffect(() => {
     setJiraOverride(null);
     setGithubOverride(null);
+    setSelectedResourceIds(new Set());
   }, [finding?.id]);
 
+  const resourcesGroupFindings = groupFindings?.length ? groupFindings : finding ? [finding] : [];
+  const selectedResourceFindings = useMemo(
+    () => resourcesGroupFindings.filter((row) => selectedResourceIds.has(row.id)),
+    [resourcesGroupFindings, selectedResourceIds],
+  );
+
+  const clearResourceSelection = useCallback(() => {
+    setSelectedResourceIds(new Set());
+  }, []);
+  const handleClose = useCallback(() => {
+    clearResourceSelection();
+    onClose();
+  }, [clearResourceSelection, onClose]);
   const jiraIssue = jiraOverride ?? derivedTickets.jira;
   const githubIssue = githubOverride ?? derivedTickets.github;
 
@@ -6612,10 +6631,10 @@ export function FindingDrawer({
     if (!verified || !finding) return;
     const t = window.setTimeout(() => {
       onDismissVerifyOutcome?.();
-      onClose();
+      handleClose();
     }, 3000);
     return () => window.clearTimeout(t);
-  }, [verified, finding?.id, onClose, onDismissVerifyOutcome]);
+  }, [verified, finding?.id, handleClose, onDismissVerifyOutcome]);
 
   useAppScrollLock(!!finding);
 
@@ -6708,7 +6727,7 @@ export function FindingDrawer({
   const overlay = (
     <DrawerShell
       ref={drawerSheetRef}
-      onClose={onClose}
+      onClose={handleClose}
       labelledBy="finding-drawer-title"
       widthClassName={drawerWideClass}
       panelClassName={`finding-drawer-surface ${drawerWidthTransitionClass}`}
@@ -6736,7 +6755,7 @@ export function FindingDrawer({
       </div>
     )}
     <div className={`relative shrink-0 overflow-hidden bg-gradient-to-b ${wash} px-6 pt-5 pb-3`}>
-      <button onClick={onClose} className="absolute right-4 top-4 rounded-md p-1 text-zinc-400 transition hover:bg-white/70 hover:text-zinc-600"><svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+      <button onClick={handleClose} className="absolute right-4 top-4 rounded-md p-1 text-zinc-400 transition hover:bg-white/70 hover:text-zinc-600"><svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
       <div className="flex items-center gap-2 pr-10">
         <span className="text-xs font-medium text-zinc-600">{category}</span>
         <span className="text-zinc-300">·</span>
@@ -6845,6 +6864,9 @@ export function FindingDrawer({
                   }
                 : undefined
             }
+            selectionEnabled={canEditResources}
+            selectedFindingIds={selectedResourceIds}
+            onSelectedFindingIdsChange={setSelectedResourceIds}
             summaryRisk={checkDoc?.overview?.exposure ?? checkDoc?.overview?.context ?? ops.impact}
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}
@@ -7029,6 +7051,13 @@ export function FindingDrawer({
       >
         <span className="font-semibold">Jira marked Done</span> — {JIRA_DONE_UNVERIFIED_WARNING}
       </div>
+    ) : null}
+    {canEditResources && selectedResourceFindings.length > 0 ? (
+      <FindingResourceBulkBar
+        selectedFindings={selectedResourceFindings}
+        onClear={clearResourceSelection}
+        onComplete={() => qc.invalidateQueries({ queryKey: ["findings"] })}
+      />
     ) : null}
     <div className="shrink-0 border-t border-zinc-200 bg-white px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       {showReopenFooter ? (

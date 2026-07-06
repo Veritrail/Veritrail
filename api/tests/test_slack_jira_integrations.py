@@ -10,8 +10,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.routes.jira_integration import (
+    FINDINGS_BATCH_CAP,
+    _combined_issue_summary,
     _issue_description,
     create_issue_from_finding,
+    create_issues_from_findings,
     list_jira_project_issue_types,
     list_jira_projects,
     sync_jira_issue_from_finding,
@@ -763,6 +766,282 @@ def test_jira_issue_description_includes_actionable_remediation_context():
         "After remediation, return to Veritrail and run Verify fix"
     ) in description
     assert description.endswith("https://app.example/findings?finding=1")
+
+
+def _jira_route_patches(monkeypatch, *, org_id, provider):
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_org",
+        lambda db, p: MagicMock(id=org_id),
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._jira_provider",
+        lambda db, oid: provider,
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.provider_config",
+        lambda prov: {
+            "site_url": "https://acme.atlassian.net",
+            "email": "ops@example.com",
+            "api_token": "token",
+            "project_key": "KAN",
+            "issue_type": "Task",
+        },
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration.resolve_user_display_name",
+        lambda user: "Ops User",
+    )
+    monkeypatch.setattr(
+        "app.routes.jira_integration._findings_app_url",
+        lambda: "https://app.example",
+    )
+
+
+def _finding_mock(*, finding_id, org_id, resource_arn, linked=False):
+    finding = MagicMock()
+    finding.id = finding_id
+    finding.org_id = org_id
+    finding.evidence = (
+        {"jira": {"issue_key": "KAN-1", "issue_url": "https://acme.atlassian.net/browse/KAN-1"}}
+        if linked
+        else {}
+    )
+    finding.remediation_ticket_key = "KAN-1" if linked else None
+    finding.remediation_ticket_url = (
+        "https://acme.atlassian.net/browse/KAN-1" if linked else None
+    )
+    finding.severity = "high"
+    finding.risk_score = 80
+    finding.check_id = "iam.role.least_privilege_policy"
+    finding.resource_arn = resource_arn
+    finding.title = "Overprivileged role"
+    finding.account_id = None
+    return finding
+
+
+def test_create_issues_from_findings_creates_one_issue_and_links_all(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    finding_ids = [uuid.uuid4(), uuid.uuid4()]
+    provider = MagicMock()
+    provider.status = "connected"
+
+    findings = {
+        finding_ids[0]: _finding_mock(
+            finding_id=finding_ids[0],
+            org_id=org_id,
+            resource_arn="arn:aws:iam::123456789012:role/A",
+        ),
+        finding_ids[1]: _finding_mock(
+            finding_id=finding_ids[1],
+            org_id=org_id,
+            resource_arn="arn:aws:iam::123456789012:role/B",
+        ),
+    }
+
+    def get_side_effect(model, pk):
+        if pk == user_id:
+            return MagicMock()
+        return findings.get(pk)
+
+    mock_db.get.side_effect = get_side_effect
+    captured: dict = {}
+
+    class FakeJiraClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def create_issue(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "issue_key": "KAN-42",
+                "issue_url": "https://acme.atlassian.net/browse/KAN-42",
+                "issue_id": "10042",
+            }
+
+    monkeypatch.setattr("app.routes.jira_integration.JiraClient", FakeJiraClient)
+    _jira_route_patches(monkeypatch, org_id=org_id, provider=provider)
+
+    out = create_issues_from_findings(
+        _rbac=MagicMock(),
+        body=MagicMock(
+            finding_ids=finding_ids,
+            project_key="KAN",
+            issue_type="10003",
+            assignee_account_id=None,
+            summary=None,
+            priority=None,
+            labels=["veritrail", "high"],
+        ),
+        p={"sub": str(user_id), "org_id": str(org_id)},
+        db=mock_db,
+    )
+
+    assert out.issue_key == "KAN-42"
+    assert out.linked_count == 2
+    assert out.skipped_already_linked == []
+    assert "role/A" in captured["description"]
+    assert "role/B" in captured["description"]
+    assert "[ ]" in captured["description"]
+    for finding in findings.values():
+        assert finding.remediation_ticket_key == "KAN-42"
+    mock_db.commit.assert_called_once()
+
+
+def test_create_issues_from_findings_rejects_other_org(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    other_org_id = uuid.uuid4()
+    finding_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+    finding = _finding_mock(
+        finding_id=finding_id,
+        org_id=other_org_id,
+        resource_arn="arn:aws:iam::123456789012:role/A",
+    )
+    mock_db.get.side_effect = lambda model, pk: finding if pk == finding_id else None
+    _jira_route_patches(monkeypatch, org_id=org_id, provider=provider)
+
+    with pytest.raises(HTTPException) as exc:
+        create_issues_from_findings(
+            _rbac=MagicMock(),
+            body=MagicMock(
+                finding_ids=[finding_id],
+                project_key="KAN",
+                issue_type="Task",
+                assignee_account_id=None,
+                summary=None,
+                priority=None,
+                labels=None,
+            ),
+            p={"sub": str(uuid.uuid4()), "org_id": str(org_id)},
+            db=mock_db,
+        )
+
+    assert exc.value.status_code == 404
+
+
+def test_create_issues_from_findings_rejects_empty_and_over_cap(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+    _jira_route_patches(monkeypatch, org_id=org_id, provider=provider)
+
+    with pytest.raises(HTTPException) as exc:
+        create_issues_from_findings(
+            _rbac=MagicMock(),
+            body=MagicMock(
+                finding_ids=[],
+                project_key="KAN",
+                issue_type="Task",
+                assignee_account_id=None,
+                summary=None,
+                priority=None,
+                labels=None,
+            ),
+            p={"sub": str(uuid.uuid4()), "org_id": str(org_id)},
+            db=mock_db,
+        )
+    assert exc.value.status_code == 400
+
+    over_cap = [uuid.uuid4() for _ in range(FINDINGS_BATCH_CAP + 1)]
+    with pytest.raises(HTTPException) as exc:
+        create_issues_from_findings(
+            _rbac=MagicMock(),
+            body=MagicMock(
+                finding_ids=over_cap,
+                project_key="KAN",
+                issue_type="Task",
+                assignee_account_id=None,
+                summary=None,
+                priority=None,
+                labels=None,
+            ),
+            p={"sub": str(uuid.uuid4()), "org_id": str(org_id)},
+            db=mock_db,
+        )
+    assert exc.value.status_code == 400
+    assert str(FINDINGS_BATCH_CAP) in str(exc.value.detail)
+
+
+def test_create_issues_from_findings_skips_already_linked(mock_db, monkeypatch):
+    org_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    linked_id = uuid.uuid4()
+    fresh_id = uuid.uuid4()
+    provider = MagicMock()
+    provider.status = "connected"
+
+    findings = {
+        linked_id: _finding_mock(
+            finding_id=linked_id,
+            org_id=org_id,
+            resource_arn="arn:aws:iam::123456789012:role/Linked",
+            linked=True,
+        ),
+        fresh_id: _finding_mock(
+            finding_id=fresh_id,
+            org_id=org_id,
+            resource_arn="arn:aws:iam::123456789012:role/Fresh",
+        ),
+    }
+
+    def get_side_effect(model, pk):
+        if pk == user_id:
+            return MagicMock()
+        return findings.get(pk)
+
+    mock_db.get.side_effect = get_side_effect
+
+    class FakeJiraClient:
+        def __init__(self, **kwargs):
+            pass
+
+        def create_issue(self, **kwargs):
+            return {
+                "issue_key": "KAN-99",
+                "issue_url": "https://acme.atlassian.net/browse/KAN-99",
+                "issue_id": "10099",
+            }
+
+    monkeypatch.setattr("app.routes.jira_integration.JiraClient", FakeJiraClient)
+    _jira_route_patches(monkeypatch, org_id=org_id, provider=provider)
+
+    out = create_issues_from_findings(
+        _rbac=MagicMock(),
+        body=MagicMock(
+            finding_ids=[linked_id, fresh_id],
+            project_key="KAN",
+            issue_type="Task",
+            assignee_account_id=None,
+            summary=None,
+            priority=None,
+            labels=None,
+        ),
+        p={"sub": str(user_id), "org_id": str(org_id)},
+        db=mock_db,
+    )
+
+    assert out.linked_count == 1
+    assert out.skipped_already_linked == [str(linked_id)]
+    assert findings[fresh_id].remediation_ticket_key == "KAN-99"
+    assert findings[linked_id].remediation_ticket_key == "KAN-1"
+
+
+def test_combined_issue_summary_uses_resource_count():
+    findings = [
+        _finding_mock(
+            finding_id=uuid.uuid4(),
+            org_id=uuid.uuid4(),
+            resource_arn="arn:aws:iam::123456789012:role/A",
+        ),
+        _finding_mock(
+            finding_id=uuid.uuid4(),
+            org_id=uuid.uuid4(),
+            resource_arn="arn:aws:iam::123456789012:role/B",
+        ),
+    ]
+    assert _combined_issue_summary(findings).endswith("— 2 resources")
 
 
 def test_post_scan_failure_slack_posts_message():
