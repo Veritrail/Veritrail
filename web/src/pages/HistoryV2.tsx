@@ -5,6 +5,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { complianceTimelineSchema, compositeControlListSchema } from "../lib/apiSchemas";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
@@ -33,6 +34,7 @@ import {
 } from "../lib/historyEvidence";
 import { ListPagination } from "../components/ListPagination";
 import { ProductShell } from "../components/ProductShell";
+import { isAwsCloudProvider } from "../lib/cloudProviderFeatures";
 import "../styles/history-page.css";
 
 const FRAMEWORKS = [
@@ -111,7 +113,7 @@ export default function HistoryV2() {
     connectedAccounts,
     accountsReady,
   );
-  const isAwsAccount = !activeAccount?.provider || activeAccount.provider === "aws";
+  const isAwsAccount = isAwsCloudProvider(activeAccount?.provider);
 
   const compositesQ = useQuery({
     queryKey: ["controls", "composites", effectiveAccountId],
@@ -240,46 +242,50 @@ export default function HistoryV2() {
             }}
           />
 
-          <HistoryFilterDropdown
-            label="Period"
-            boxClassName="history-filter-dropdown--period"
-            ariaLabel="Period"
-            value={String(days)}
-            options={PERIODS.map((p) => ({ value: String(p.value), label: p.label }))}
-            onChange={(v) => {
-              setDays(Number(v));
-              setPageSize(DEFAULT_VISIBLE_EVENTS);
-              setPage(1);
-            }}
-          />
+          {isAwsAccount ? (
+            <>
+              <HistoryFilterDropdown
+                label="Period"
+                boxClassName="history-filter-dropdown--period"
+                ariaLabel="Period"
+                value={String(days)}
+                options={PERIODS.map((p) => ({ value: String(p.value), label: p.label }))}
+                onChange={(v) => {
+                  setDays(Number(v));
+                  setPageSize(DEFAULT_VISIBLE_EVENTS);
+                  setPage(1);
+                }}
+              />
 
-          <HistoryFilterDropdown
-            label="Framework"
-            boxClassName="history-filter-dropdown--framework"
-            ariaLabel="Framework"
-            value={framework}
-            options={FRAMEWORKS.map((f) => ({ value: f.value, label: f.label }))}
-            onChange={(v) => {
-              setFramework(v);
-              setPageSize(DEFAULT_VISIBLE_EVENTS);
-              setPage(1);
-              patchSearchParams({ framework: v });
-            }}
-          />
+              <HistoryFilterDropdown
+                label="Framework"
+                boxClassName="history-filter-dropdown--framework"
+                ariaLabel="Framework"
+                value={framework}
+                options={FRAMEWORKS.map((f) => ({ value: f.value, label: f.label }))}
+                onChange={(v) => {
+                  setFramework(v);
+                  setPageSize(DEFAULT_VISIBLE_EVENTS);
+                  setPage(1);
+                  patchSearchParams({ framework: v });
+                }}
+              />
 
-          <HistoryFilterDropdown
-            label="Group"
-            boxClassName="history-filter-dropdown--group"
-            ariaLabel="Compliance group"
-            value={compositeFilter}
-            options={compositeOptions}
-            onChange={(value) => {
-              setCompositeFilter(value);
-              setPageSize(DEFAULT_VISIBLE_EVENTS);
-              setPage(1);
-              patchSearchParams({ composite: value || null });
-            }}
-          />
+              <HistoryFilterDropdown
+                label="Group"
+                boxClassName="history-filter-dropdown--group"
+                ariaLabel="Compliance group"
+                value={compositeFilter}
+                options={compositeOptions}
+                onChange={(value) => {
+                  setCompositeFilter(value);
+                  setPageSize(DEFAULT_VISIBLE_EVENTS);
+                  setPage(1);
+                  patchSearchParams({ composite: value || null });
+                }}
+              />
+            </>
+          ) : null}
         </HeaderFilterBar>
       </HeaderSlot>
 
@@ -290,12 +296,12 @@ export default function HistoryV2() {
       )}
 
       {!isAwsAccount && effectiveAccountId && (
-        <div className="history-empty">
-          <p className="font-semibold text-zinc-800">Compliance history</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
-            Detailed event history is available for AWS accounts. View scan results and findings for this account on
-            Findings.
-          </p>
+        <div className="history-panel history-panel--fill">
+          <CloudFeatureComingSoon
+            provider={activeAccount?.provider}
+            featureName="compliance history"
+            description="Scan timelines, posture trends, and remediation events for this cloud provider are on the way. View current scan results and findings on Findings."
+          />
         </div>
       )}
 
