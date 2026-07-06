@@ -1374,9 +1374,6 @@ function ComplianceToolbarLoadingSkeleton() {
 }
 
 function ComplianceUnifiedToolbar({
-  framework,
-  frameworkStatsById,
-  onFrameworkChange,
   statusFilter,
   onStatusFilterChange,
   statusCounts,
@@ -1386,9 +1383,6 @@ function ComplianceUnifiedToolbar({
   auditExport,
   showAuditExport,
 }: {
-  framework: string;
-  frameworkStatsById: Record<string, FrameworkStats | undefined>;
-  onFrameworkChange: (id: string) => void;
   statusFilter: StatusFilter;
   onStatusFilterChange: (filter: StatusFilter) => void;
   statusCounts: {
@@ -1431,11 +1425,6 @@ function ComplianceUnifiedToolbar({
                 compositeMode={compositeStatusFilter}
               />
             )}
-            <ComplianceFrameworkSelect
-              selectedId={framework}
-              statsById={frameworkStatsById}
-              onSelect={onFrameworkChange}
-            />
           </>
         )}
       </div>
@@ -4461,6 +4450,14 @@ export default function Controls() {
     setSelectedKind(null);
   }
 
+  function handleFrameworkChange(id: string) {
+    setFramework(id);
+    setSelectedFamilyKey(null);
+    setSelectedControlId(null);
+    setSelectedKind(null);
+    setStatusFilter("all");
+  }
+
   function handleBackToCategories() {
     setComplianceView("composite");
     setSelectedFamilyKey(null);
@@ -4629,6 +4626,13 @@ export default function Controls() {
               value={activeAccount.id}
               onChange={handleAccountChange}
             />
+            {isAwsAccount ? (
+              <ComplianceFrameworkSelect
+                selectedId={framework}
+                statsById={frameworkStatsById}
+                onSelect={handleFrameworkChange}
+              />
+            ) : null}
           </HeaderFilterBar>
         </HeaderSlot>
       )}
@@ -4657,15 +4661,6 @@ export default function Controls() {
           <ComplianceContentShell
             toolbar={
               <ComplianceUnifiedToolbar
-                framework={framework}
-                frameworkStatsById={frameworkStatsById}
-                onFrameworkChange={(id) => {
-                  setFramework(id);
-                  setSelectedFamilyKey(null);
-                  setSelectedControlId(null);
-                  setSelectedKind(null);
-                  setStatusFilter("all");
-                }}
                 statusFilter={statusFilter}
                 onStatusFilterChange={handleStatusFilterChange}
                 statusCounts={
