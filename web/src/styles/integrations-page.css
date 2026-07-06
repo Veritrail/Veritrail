@@ -348,16 +348,8 @@
   color: #94a3b8;
 }
 
-.integrations-explore-row {
-  display: flex;
-  align-items: stretch;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
 .integrations-explore-scroll {
   display: flex;
-  flex: 1 1 auto;
   flex-wrap: nowrap;
   gap: 0.75rem;
   min-width: 0;
@@ -371,6 +363,12 @@
   flex: 0 0 21rem;
   width: 21rem;
   max-width: min(21rem, 100%);
+}
+
+.integrations-explore-scroll .integrations-catalog-card {
+  flex: 0 0 17rem;
+  width: 17rem;
+  max-width: min(17rem, 100%);
 }
 
 .integrations-explore-grid {
@@ -758,16 +756,6 @@
   margin: 0.2rem 0 0;
   font-size: 0.8125rem;
   color: var(--integrations-muted);
-}
-
-@media (max-width: 640px) {
-  .integrations-explore-row {
-    flex-direction: column;
-  }
-
-  .integrations-catalog-card {
-    width: 100%;
-  }
 }
 
 .integrations-catalog-card {
