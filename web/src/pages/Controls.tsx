@@ -27,8 +27,10 @@ import {
 } from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { findingScopeProviderLabel } from "../lib/findingDisplay";
 import { openFindingAffectsControlStatus } from "../lib/evidenceClass";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
+import type { CloudProvider } from "../components/AccountSelect";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
@@ -79,6 +81,44 @@ import "../styles/compliance-page.css";
 
 const BASE =
   (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
+
+const COMPLIANCE_COMING_SOON_PROVIDERS = ["gcp", "azure"] as const satisfies readonly CloudProvider[];
+
+function isComplianceComingSoonProvider(
+  provider: string | undefined,
+): provider is (typeof COMPLIANCE_COMING_SOON_PROVIDERS)[number] {
+  return provider === "gcp" || provider === "azure";
+}
+
+function ComplianceProviderComingSoon({
+  provider,
+  hasAwsAccount,
+}: {
+  provider: (typeof COMPLIANCE_COMING_SOON_PROVIDERS)[number];
+  hasAwsAccount: boolean;
+}) {
+  const label = findingScopeProviderLabel(provider);
+  return (
+    <div className="compliance-coming-soon">
+      <span className="compliance-coming-soon__badge">Coming soon</span>
+      <p className="compliance-coming-soon__title">{label} compliance</p>
+      <p className="compliance-coming-soon__body">
+        Control groups, framework rollups, and audit packages for {label} are on the roadmap. AWS
+        accounts use the compliance board today.
+      </p>
+      {hasAwsAccount ? (
+        <p className="compliance-coming-soon__hint">Select an AWS account above to view your compliance board.</p>
+      ) : (
+        <Link to="/accounts" className="compliance-coming-soon__link">
+          Connect an AWS account
+        </Link>
+      )}
+      <p className="compliance-coming-soon__secondary">
+        View scan results for this account on <Link to="/findings">Findings</Link>.
+      </p>
+    </div>
+  );
+}
 
 type Account = {
   id: string;
@@ -3956,6 +3996,10 @@ export default function Controls() {
   );
   const isAwsAccount =
     !activeAccount?.provider || activeAccount.provider === "aws";
+  const isComplianceComingSoon = isComplianceComingSoonProvider(activeAccount?.provider);
+  const hasAwsAccount = connectedAccounts.some(
+    (account) => !account.provider || account.provider === "aws",
+  );
   const hasScanned = !!activeAccount?.last_scan_at;
   const prevScanAtRef = useRef<string | null>(null);
   const activeFramework = FRAMEWORKS.find((fw) => fw.id === framework)!;
@@ -3980,7 +4024,7 @@ export default function Controls() {
         `/v1/controls?framework=${framework}${isAwsAccount && activeAccount ? `&account_id=${activeAccount.id}` : ""}`,
         { schema: controlListSchema },
       ) as Promise<ControlRow[]>,
-    enabled: !accountsLoading,
+    enabled: !accountsLoading && isAwsAccount,
   });
 
   const qc = useQueryClient();
@@ -4620,11 +4664,19 @@ export default function Controls() {
               accounts={connectedAccounts}
               value={activeAccount.id}
               onChange={handleAccountChange}
+              comingSoonProviders={COMPLIANCE_COMING_SOON_PROVIDERS}
             />
           </HeaderFilterBar>
         </HeaderSlot>
       )}
 
+      {isComplianceComingSoon && activeAccount ? (
+        <ComplianceProviderComingSoon
+          provider={activeAccount.provider as (typeof COMPLIANCE_COMING_SOON_PROVIDERS)[number]}
+          hasAwsAccount={hasAwsAccount}
+        />
+      ) : (
+        <>
       {!hasScanned && activeAccount && !controlsInitialLoading && (
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/60 px-5 py-4 text-sm text-amber-900">
           <span className="font-semibold">Awaiting first scan.</span> Control
@@ -4895,6 +4947,8 @@ export default function Controls() {
           ) : null}
         </>
       </div>
+      )}
+        </>
       )}
     </div>
   );
