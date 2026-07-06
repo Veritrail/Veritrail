@@ -18,11 +18,18 @@ import { checkFrameworksSchema, compositeControlListSchema, integrationStatusNul
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import {
+  ALL_CLOUD_SCOPE_ID,
+  buildFindingsScopeGroups,
+  findingsScopeDropdownValue,
   findingsScopeParams,
-  sourceControlScopeOption,
-  SOURCE_CONTROL_SCOPE_PREFIX,
+  flattenScopeGroups,
+  parseFindingsProviderScope,
+  SCOPE_SENTINEL_PREFIX,
+  SOURCE_CONTROL_SCOPE_ID,
   useConnectedAccountOptions,
+  writeStoredSelectedAccountId,
 } from "../hooks/useConnectedAccountOptions";
+import { readStoredSelectedAccountId } from "../lib/selectedAccountStorage";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { prefetchJiraIntegration, useJiraIntegration } from "../hooks/useJiraIntegration";
@@ -82,10 +89,15 @@ function findingBelongsToAccount(finding: Finding, account: { id: string; accoun
   return !finding.account_id || accountIds.has(finding.account_id);
 }
 
-type SourceProviderScope = "github" | "gitlab";
 
-function parseSourceProviderScope(value: string | null): SourceProviderScope | null {
-  return value === "github" || value === "gitlab" ? value : null;
+function parseProviderScope(value: string | null) {
+  return parseFindingsProviderScope(value);
+}
+
+function scopeSentinelToProvider(scope: string): string | null {
+  if (scope === "all_cloud") return "all_cloud";
+  if (scope === "source_control") return "source_control";
+  return null;
 }
 
 type Account = {
@@ -216,15 +228,8 @@ type ResourceOption = {
    piling up in the title column and pinning the metadata against the right
    edge. fr resolution depends only on container width, so the independent
    header/row/accordion grids stay pixel-aligned by construction. */
-const FINDINGS_ROW_GRID =
-  "grid w-full grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0 py-3.5 pl-4 pr-4 lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8.5rem,1.4fr)_5.5rem_minmax(9rem,1.8fr)_auto] lg:gap-4 lg:items-center";
-
-/** Matches the finding-list grid so accordion filler spans line up under the
-    right columns (chevron, severity, title, [service ≥xl], resources,
-    benchmark, category, risk). Service column only exists at xl+ — eight
-    columns don't fit below. */
-const FINDINGS_ROW_ACCORDION_GRID =
-  "lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8.5rem,1.4fr)_5.5rem_minmax(9rem,1.8fr)_auto]";
+/** Row + column-header grid tracks live in findings-overrides.css so we can
+    drop columns (benchmark → category → risk) before squeezing finding title. */
 
 const RESOURCE_CHILD_PREVIEW = 3;
 
@@ -396,45 +401,47 @@ function AffectedResourceRow({
           onSelect();
         }
       }}
-      className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-zinc-200/80 bg-white px-4 py-3.5 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
+      className="findings-affected-resource-row cursor-pointer rounded-xl border border-zinc-200/80 bg-white px-4 py-3.5 transition hover:border-zinc-300 hover:shadow-sm hover:shadow-zinc-950/[0.04]"
     >
       <ResourceProviderTile finding={finding} />
-      <div className="flex min-w-0 flex-[1.6] items-center gap-3">
+      <div className="findings-affected-resource-row__identity">
         {showSeverityDot ? <SeverityDot severity={finding.severity} /> : null}
-        <span className="truncate text-[14px] font-semibold text-zinc-900">{name}</span>
-        <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[12px] font-semibold text-sky-700">{assetType}</span>
+        <span className="findings-affected-resource-row__name">{name}</span>
+        <span className="findings-affected-resource-row__type">{assetType}</span>
       </div>
-      <div className="min-w-[8rem] flex-1">
-        <p className="veritrail-kicker">Account</p>
-        <p className="mt-1 flex items-center gap-2 text-[13px] font-semibold text-zinc-800">
-          <span className="truncate">{account}</span>
-          <button
-            type="button"
-            aria-label="Copy account"
-            onClick={(event) => {
-              event.stopPropagation();
-              void navigator.clipboard.writeText(account);
-            }}
-            className="shrink-0 text-zinc-300 transition hover:text-zinc-500"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3M6 9h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+      <div className="findings-affected-resource-row__meta-grid">
+        <div className="findings-affected-resource-row__meta">
+          <p className="veritrail-kicker">Account</p>
+          <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-semibold text-zinc-800">
+            <span className="truncate">{account}</span>
+            <button
+              type="button"
+              aria-label="Copy account"
+              onClick={(event) => {
+                event.stopPropagation();
+                void navigator.clipboard.writeText(account);
+              }}
+              className="shrink-0 text-zinc-300 transition hover:text-zinc-500"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3M6 9h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+              </svg>
+            </button>
+          </p>
+        </div>
+        <div className="findings-affected-resource-row__meta">
+          <p className="veritrail-kicker">Last seen</p>
+          <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-medium tabular-nums text-zinc-800">
+            <span className="truncate">{formatResourceDate(finding.last_seen)}</span>
+            <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
-          </button>
-        </p>
-      </div>
-      <div className="min-w-[9rem] flex-1">
-        <p className="veritrail-kicker">Last seen</p>
-        <p className="mt-1 flex items-center gap-2 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">
-          {formatResourceDate(finding.last_seen)}
-          <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-        </p>
-      </div>
-      <div className="min-w-[9rem] flex-1">
-        <p className="veritrail-kicker">First seen</p>
-        <p className="mt-1 whitespace-nowrap text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
+          </p>
+        </div>
+        <div className="findings-affected-resource-row__meta">
+          <p className="veritrail-kicker">First seen</p>
+          <p className="mt-1 truncate text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
+        </div>
       </div>
       {externalUrl ? (
         <a
@@ -442,7 +449,7 @@ function AffectedResourceRow({
           target="_blank"
           rel="noreferrer"
           onClick={(event) => event.stopPropagation()}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
+          className="findings-affected-resource-row__action inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
         >
           {externalLabel}
           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -474,7 +481,7 @@ function AffectedResourcesCard({
   onViewAll: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.03]">
+    <div className="findings-affected-resources-card rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm shadow-zinc-950/[0.03]">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
@@ -602,7 +609,7 @@ function FindingRow({
         tabIndex={0}
         aria-expanded={canExpand ? expanded : undefined}
         aria-label={`${title}${canExpand ? `, ${resources.length} resources` : ""}`}
-        className={`findings-v2-row finding-row ${railClass} group ${FINDINGS_ROW_GRID} cursor-pointer ${expanded ? "is-expanded lg:items-start" : "lg:items-center"}`}
+        className={`findings-v2-row finding-row findings-v2-row-grid ${railClass} group cursor-pointer ${expanded ? "is-expanded lg:items-start" : "lg:items-center"}`}
         onClick={handleParentRowClick}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -611,7 +618,7 @@ function FindingRow({
           }
         }}
       >
-        <div className="flex w-5 shrink-0 items-center justify-center gap-1.5 self-center lg:col-auto lg:w-10 lg:justify-start lg:self-start lg:pt-2">
+        <div className="findings-v2-col-chevron flex w-5 shrink-0 items-center justify-center gap-1.5 self-center lg:col-auto lg:w-10 lg:justify-start lg:self-start lg:pt-2">
           <input
             type="checkbox"
             className="findings-v2-row-check hidden lg:block"
@@ -624,30 +631,30 @@ function FindingRow({
           <RowChevron expanded={expanded && canExpand} muted={!canExpand} />
         </div>
 
-        <div className="hidden shrink-0 self-start pt-2 lg:col-auto lg:block lg:w-[5.5rem]">
+        <div className="findings-v2-col-severity hidden shrink-0 self-start pt-2 lg:col-auto lg:block lg:w-[5.5rem]">
           <SeverityIndicator severity={sev} />
         </div>
 
-        <div className="finding-title-cell finding-cell min-w-0 lg:col-auto">
-          <div className="flex min-w-0 items-baseline gap-2">
+        <div className="finding-title-cell findings-v2-col-finding finding-cell min-w-0 lg:col-auto">
+          <div className="finding-title-row">
+            <span className="finding-title-mobile-severity shrink-0 lg:hidden">
+              <SeverityIndicator severity={sev} />
+            </span>
             <span className="finding-title min-w-0 truncate">{title}</span>
             {description ? (
-              <span className="hidden min-w-0 flex-1 truncate text-[13px] font-normal text-zinc-400 lg:inline">
+              <span className="finding-title-description hidden min-w-0 truncate text-[13px] font-normal text-zinc-400 lg:inline">
                 {description}
               </span>
             ) : null}
             {canExpand && !expanded ? (
-              <span className="finding-resource-count lg:hidden">
+              <span className="finding-resource-count shrink-0 lg:hidden">
                 · {resources.length} {resources.length === 1 ? "resource" : "resources"}
               </span>
             ) : null}
           </div>
-          <div className="mt-1 lg:hidden">
-            <SeverityIndicator severity={sev} />
-          </div>
         </div>
 
-        <div className="hidden min-w-0 items-center gap-1.5 self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
+        <div className="findings-v2-col-resources hidden min-w-0 items-center gap-1.5 self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
           <ResourcesStackIcon className="h-4 w-4 shrink-0 text-zinc-400" />
           <span
             className="truncate text-[13px] font-medium text-zinc-500"
@@ -657,13 +664,13 @@ function FindingRow({
           </span>
         </div>
 
-        <div className="hidden min-w-0 items-center gap-1 self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
+        <div className="findings-v2-col-benchmark hidden min-w-0 items-center gap-1 self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
           {rowFrameworks.slice(0, 3).map((fw) => (
             <FrameworkMark key={fw} framework={fw} className="h-4 w-4 shrink-0" />
           ))}
         </div>
 
-        <div className="hidden min-w-0 items-center self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
+        <div className="findings-v2-col-category hidden min-w-0 items-center self-center lg:col-auto lg:flex lg:self-start lg:pt-2">
           {category ? (
             <span className="truncate text-[12px] font-medium text-zinc-700" title={categoryMeta?.title}>
               {category}
@@ -672,7 +679,7 @@ function FindingRow({
         </div>
 
         <div
-          className="flex shrink-0 items-center justify-end self-center lg:col-auto lg:w-16 lg:justify-center lg:self-start lg:pt-2"
+          className="findings-v2-col-risk flex shrink-0 items-center justify-end self-center lg:col-auto lg:w-16 lg:justify-center lg:self-start lg:pt-2"
           onClick={(event) => {
             event.stopPropagation();
             onReview(items);
@@ -685,7 +692,7 @@ function FindingRow({
       {canExpand ? (
         <div className={`veritrail-accordion-panel ${expanded ? "is-open" : ""}`}>
           <div className="veritrail-accordion-panel__inner">
-            <div className={`border-t border-zinc-100 lg:grid ${FINDINGS_ROW_ACCORDION_GRID} lg:gap-4`}>
+            <div className="findings-v2-accordion-grid findings-v2-row-grid border-t border-zinc-100 lg:grid lg:gap-4">
               <span className="hidden lg:block" aria-hidden />
               <span className="hidden w-[5.5rem] lg:block" aria-hidden />
               <div className="py-4 pl-4 pr-5 lg:pl-0">
@@ -774,8 +781,6 @@ export default function Findings() {
   }, [compositesQ.data]);
   const { options: cloudAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
-  // Source control is a first-class Findings scope (org-level, not a cloud
-  // account). Offer it in the same picker when a git provider is connected.
   const githubProviderQ = useQuery({
     queryKey: ["github-provider"],
     queryFn: () => api("/v1/integrations/github", { schema: integrationStatusNullableSchema }),
@@ -786,33 +791,101 @@ export default function Findings() {
     queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
     staleTime: 300_000,
   });
-  const connectedAccounts = useMemo(() => {
-    const scopes = [];
-    if (githubProviderQ.data) scopes.push(sourceControlScopeOption("github"));
-    if (gitlabProviderQ.data) scopes.push(sourceControlScopeOption("gitlab"));
-    return [...cloudAccounts, ...scopes];
-  }, [cloudAccounts, githubProviderQ.data, gitlabProviderQ.data]);
+  const hasGithub = !!githubProviderQ.data;
+  const hasGitlab = !!gitlabProviderQ.data;
+  const scopeGroups = useMemo(
+    () => buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab }),
+    [cloudAccounts, hasGithub, hasGitlab],
+  );
+  const connectedScopeOptions = useMemo(() => flattenScopeGroups(scopeGroups), [scopeGroups]);
   const {
     accountId: selectedAccountId,
     activeAccount: selectedActiveAccount,
     setAccountId: setSelectedAccountId,
-  } = useSelectedAccountId(connectedAccounts, accountsReady);
+  } = useSelectedAccountId(cloudAccounts, accountsReady, { holdUrlSyncWhenParams: ["provider"] });
   const effectiveAccountId = providerScope ? "" : selectedAccountId;
   const activeAccount = providerScope ? undefined : selectedActiveAccount;
-  const scopeParams = findingsScopeParams(activeAccount);
+  const scopeParams = providerScope ? { provider: providerScope } : findingsScopeParams(activeAccount);
   const connectedId = effectiveAccountId || undefined;
   const awsScanAccountId =
     activeAccount?.provider === "aws" || !activeAccount?.provider ? effectiveAccountId || undefined : undefined;
 
   const findingsQueryEnabled =
     !accountsLoading &&
-    (!!providerScope || !!effectiveAccountId || connectedAccounts.length > 0);
+    (!!providerScope || !!effectiveAccountId || connectedScopeOptions.length > 0);
+
+  useEffect(() => {
+    if (!accountsReady || accountsLoading) return;
+    if (searchParams.has("provider") || searchParams.has("account_id")) return;
+
+    const stored = readStoredSelectedAccountId();
+    if (stored === ALL_CLOUD_SCOPE_ID && cloudAccounts.length >= 1) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "all_cloud");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
+    if (stored === SOURCE_CONTROL_SCOPE_ID && (hasGithub || hasGitlab)) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "source_control");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
+    if (stored && cloudAccounts.some((account) => account.id === stored)) return;
+
+    if (cloudAccounts.length >= 1) {
+      writeStoredSelectedAccountId(ALL_CLOUD_SCOPE_ID);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "all_cloud");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
+    if (hasGithub || hasGitlab) {
+      writeStoredSelectedAccountId(SOURCE_CONTROL_SCOPE_ID);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "source_control");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [
+    accountsLoading,
+    accountsReady,
+    cloudAccounts,
+    hasGithub,
+    hasGitlab,
+    searchParams,
+    setSearchParams,
+  ]);
+
   const findingsQuery = useQuery({
     queryKey: ["findings", status, effectiveAccountId, scopeParams, providerScope],
     queryFn: () =>
       fetchAllFindings<Finding>({
         status,
-        ...(providerScope ? { provider: providerScope } : scopeParams),
+        ...scopeParams,
       }),
     enabled: findingsQueryEnabled,
     refetchInterval: pendingRecheck ? 3000 : false,
@@ -865,7 +938,7 @@ export default function Findings() {
   const scopedFindings = useMemo(
     () =>
       providerScope
-        ? findings.filter((finding) => findingScopeProvider(finding) === providerScope)
+        ? findings
         : findings.filter((finding) => findingBelongsToAccount(finding, activeAccount)),
     [activeAccount, findings, providerScope],
   );
@@ -1146,9 +1219,11 @@ export default function Findings() {
   }
 
   function handleAccountChange(id: string) {
-    if (id.startsWith(SOURCE_CONTROL_SCOPE_PREFIX)) {
-      // Source-control scope → ?provider=github|gitlab, not a cloud account.
-      const provider = id.slice(SOURCE_CONTROL_SCOPE_PREFIX.length);
+    if (id.startsWith(SCOPE_SENTINEL_PREFIX)) {
+      const scope = id.slice(SCOPE_SENTINEL_PREFIX.length);
+      const provider = scopeSentinelToProvider(scope);
+      if (!provider) return;
+      writeStoredSelectedAccountId(id);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -1160,6 +1235,7 @@ export default function Findings() {
       );
       return;
     }
+    writeStoredSelectedAccountId(id);
     setSelectedAccountId(id, { removeParams: ["provider"] });
   }
 
@@ -1237,7 +1313,7 @@ export default function Findings() {
     if (scopeParams.account_id) qs.set("account_id", scopeParams.account_id);
     if (scopeParams.gcp_project_id) qs.set("gcp_project_id", scopeParams.gcp_project_id);
     if (scopeParams.azure_subscription_id) qs.set("azure_subscription_id", scopeParams.azure_subscription_id);
-    if (providerScope) qs.set("provider", providerScope);
+    if (scopeParams.provider) qs.set("provider", scopeParams.provider);
     const res = await fetch(`${BASE}/v1/exports/findings.csv?${qs.toString()}`, {
       headers: t ? { Authorization: `Bearer ${t}` } : {},
     });
@@ -1249,18 +1325,19 @@ export default function Findings() {
     a.download = "veritrail-findings.csv";
     a.click();
     URL.revokeObjectURL(url);
-  }, [providerScope, scopeParams.account_id, scopeParams.azure_subscription_id, scopeParams.gcp_project_id, status]);
+  }, [scopeParams.account_id, scopeParams.azure_subscription_id, scopeParams.gcp_project_id, scopeParams.provider, status]);
 
-  if (accountsReady && !accountsLoading && connectedAccounts.length === 0) return <ConnectAwsEmptyState />;
+  if (accountsReady && !accountsLoading && connectedScopeOptions.length === 0) return <ConnectAwsEmptyState />;
 
   return (
     <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-        {connectedAccounts.length > 0 && (
+        {connectedScopeOptions.length > 0 && (
           <HeaderSlot>
           <HeaderFilterBar>
             <AccountFilterDropdown
-              accounts={connectedAccounts}
-              value={providerScope ? `${SOURCE_CONTROL_SCOPE_PREFIX}${providerScope}` : effectiveAccountId}
+              accounts={connectedScopeOptions}
+              groups={scopeGroups}
+              value={findingsScopeDropdownValue(providerScope, effectiveAccountId)}
               onChange={handleAccountChange}
             />
           </HeaderFilterBar>
@@ -1411,25 +1488,25 @@ export default function Findings() {
                 <FindingMetaContext.Provider value={{ categoryByCheckId, checkFrameworksApi }}>
                 <FindingSelectionContext.Provider value={selectionCtx}>
                   <div
-                    className="findings-v2-col-head hidden lg:grid lg:grid-cols-[auto_auto_minmax(0,7fr)_minmax(8.5rem,1.4fr)_5.5rem_minmax(9rem,1.8fr)_auto] lg:items-center lg:gap-4"
+                    className="findings-v2-col-head findings-v2-row-grid hidden lg:grid"
                     role="row"
                   >
-                    <span className="w-5 lg:w-10" aria-hidden />
+                    <span className="findings-v2-col-chevron w-5 lg:w-10" aria-hidden />
                     <button
                       type="button"
-                      className="findings-v2-col-head__sort w-[5.5rem] text-left"
+                      className="findings-v2-col-head__sort findings-v2-col-severity w-[5.5rem] text-left"
                       onClick={() => toggleSort("severity")}
                       aria-label={`Sort by severity${sortKey === "severity" ? ` (${sortDir}ending)` : ""}`}
                     >
                       Severity{sortKey === "severity" ? <span aria-hidden> {sortDir === "asc" ? "↑" : "↓"}</span> : null}
                     </button>
-                    <span>Finding</span>
-                    <span>Resources</span>
-                    <span>Benchmark</span>
-                    <span>Category</span>
+                    <span className="findings-v2-col-finding">Finding</span>
+                    <span className="findings-v2-col-resources">Resources</span>
+                    <span className="findings-v2-col-benchmark">Benchmark</span>
+                    <span className="findings-v2-col-category">Category</span>
                     <button
                       type="button"
-                      className="findings-v2-col-head__sort w-16 text-center"
+                      className="findings-v2-col-head__sort findings-v2-col-risk w-16 text-center"
                       onClick={() => toggleSort("score")}
                       aria-label={`Sort by risk${sortKey === "score" ? ` (${sortDir}ending)` : ""}`}
                     >
