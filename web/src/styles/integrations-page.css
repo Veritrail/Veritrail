@@ -353,10 +353,7 @@
   flex-wrap: nowrap;
   gap: 0.75rem;
   min-width: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
 }
 
 .integrations-explore-scroll .integrations-explore-card {
@@ -382,7 +379,7 @@
 
 .integrations-explore-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.875rem;
   min-height: 4.75rem;
   padding: 0.875rem 1rem;
@@ -420,11 +417,11 @@
   margin-top: 0.125rem;
   font-size: 0.8125rem;
   color: var(--integrations-muted);
-  line-height: 1.4;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  line-height: 1.45;
+}
+
+.integrations-explore-card .integrations-connect-btn {
+  margin-top: 0.125rem;
 }
 
 .integrations-connect-btn {
