@@ -54,6 +54,7 @@ import { CloudProviderMark } from "../components/FindingResourceIcon";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { remediationSummaries } from "../data/remediationSummaries";
 import { scanDescriptionForCheck } from "../data/checkComplianceCopy";
+import { ToolbarSearchInput } from "../components/ToolbarSearchInput";
 import "../styles/findings-v2.css";
 
 /** CloudTrail activity detections are informational only; hidden from Findings UI for now. */
@@ -1412,15 +1413,14 @@ export default function Findings() {
                   </div>
 
                   <div className="findings-v2-control-cluster">
-                    <input
+                    <ToolbarSearchInput
                       id="findings-search"
                       name="findings-search"
-                      type="search"
-                      value={searchText}
-                      onChange={(e) => handleSearch(e.target.value)}
+                      className="findings-v2-search"
                       placeholder="Search finding, ARN, resource…"
                       aria-label="Search findings"
-                      className="findings-v2-search h-8 rounded-[10px] border border-[#dce3ec] bg-white px-3 text-sm text-[#111827] outline-none placeholder:text-[#98a2b3] focus-visible:border-[#94a3b8] focus-visible:ring-2 focus-visible:ring-[#1f4e79]/15"
+                      value={searchText}
+                      onChange={handleSearch}
                     />
                     <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
                       <button

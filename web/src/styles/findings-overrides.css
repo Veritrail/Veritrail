@@ -65,7 +65,8 @@
   pointer-events: none;
 }
 
-.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+.findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search,
+.findings-v2-page .findings-v2-toolbar-scroll .vt-toolbar-search.findings-v2-search {
   width: clamp(12rem, 18vw, 18rem);
   min-width: 12rem;
 }
@@ -81,18 +82,21 @@
 /* YouTube-style responsive search treatment: full field when there is room,
    compact field when the toolbar is squeezed, and no half-cut placeholder text. */
 @media (max-width: 1320px) {
-  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search,
+  .findings-v2-page .findings-v2-toolbar-scroll .vt-toolbar-search.findings-v2-search {
     width: 12rem;
     min-width: 12rem;
   }
 
-  .findings-v2-page .findings-v2-search::placeholder {
+  .findings-v2-page .findings-v2-search input::placeholder,
+  .findings-v2-page .vt-toolbar-search.findings-v2-search input::placeholder {
     color: transparent;
   }
 }
 
 @media (max-width: 1120px) {
-  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search {
+  .findings-v2-page .findings-v2-toolbar-scroll .findings-v2-search,
+  .findings-v2-page .findings-v2-toolbar-scroll .vt-toolbar-search.findings-v2-search {
     width: 10rem;
     min-width: 10rem;
   }
