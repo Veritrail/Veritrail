@@ -1,21 +1,37 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { FRAMEWORKS, frameworkLabel, type FrameworkId } from "../data/frameworks";
+import { FrameworkMark } from "./FrameworkMark";
+import { HistoryMenuCheckmark } from "./HistoryMenuCheckmark";
+import { SelectorCard } from "./SelectorCard";
+import "../styles/history-page.css";
 
-type MenuPosition = { top: number; left: number; minWidth: number };
+type MenuPosition = { top: number; left: number };
 
-function BenchmarkShieldMark() {
+function BenchmarkShieldIcon({ className = "selector-card__glyph" }: { className?: string }) {
   return (
-    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-[#0876df]" aria-hidden>
-      <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.623 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z"
-        />
-      </svg>
-    </span>
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.96 11.96 0 0 1 3.6 6 12 12 0 0 0 3 9.75c0 5.59 3.82 10.29 9 11.623 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15a11.96 11.96 0 0 1-8.25-3.29Z"
+      />
+    </svg>
   );
+}
+
+function triggerIcon(selected: FrameworkId[]): ReactNode {
+  if (selected.length === 1) {
+    return <FrameworkMark framework={selected[0]} className="selector-card__framework-mark" />;
+  }
+  return <BenchmarkShieldIcon />;
 }
 
 export function benchmarkSelectionLabel(selected: FrameworkId[]): string {
@@ -58,7 +74,6 @@ export function BenchmarkFrameworkSelect({
     setMenuPos({
       top: rect.bottom + 6,
       left: rect.left,
-      minWidth: Math.max(rect.width, 216),
     });
   }, []);
 
@@ -120,33 +135,22 @@ export function BenchmarkFrameworkSelect({
             role="listbox"
             aria-label="Benchmark scope"
             aria-multiselectable="true"
-            className="fixed z-[120] overflow-hidden rounded-xl border border-[#e2e8f0] bg-white py-1 shadow-lg shadow-zinc-900/10"
-            style={{ top: menuPos.top, left: menuPos.left, minWidth: menuPos.minWidth }}
+            className="history-filter-menu"
+            style={{ top: menuPos.top, left: menuPos.left }}
           >
+            <p className="history-filter-menu__heading">Benchmark</p>
             <button
               type="button"
               role="option"
               aria-selected={viewingAll}
               onClick={selectAll}
-              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold transition ${
-                viewingAll ? "bg-indigo-50/70 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-              }`}
+              className={`history-filter-menu__option${viewingAll ? " history-filter-menu__option--active" : ""}`}
             >
-              <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                  viewingAll ? "border-indigo-500 bg-indigo-500 text-white" : "border-zinc-300 bg-white"
-                }`}
-                aria-hidden
-              >
-                {viewingAll && (
-                  <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                )}
-              </span>
-              All benchmarks
+              <HistoryMenuCheckmark selected={viewingAll} className="history-filter-menu__check" />
+              <BenchmarkShieldIcon className="history-filter-menu__icon" />
+              <span className="history-filter-menu__label">All benchmarks</span>
             </button>
-            <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Frameworks</p>
+            <p className="history-filter-menu__heading">Frameworks</p>
             {FRAMEWORKS.map((fw) => {
               const active = selected.includes(fw.id);
               return (
@@ -156,23 +160,11 @@ export function BenchmarkFrameworkSelect({
                   role="option"
                   aria-selected={active}
                   onClick={() => toggleFramework(fw.id)}
-                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition ${
-                    active ? "bg-indigo-50/70" : "hover:bg-zinc-50"
-                  }`}
+                  className={`history-filter-menu__option${active ? " history-filter-menu__option--active" : ""}`}
                 >
-                  <span
-                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                      active ? "border-indigo-500 bg-indigo-500 text-white" : "border-zinc-300 bg-white"
-                    }`}
-                    aria-hidden
-                  >
-                    {active && (
-                      <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="text-xs font-semibold text-zinc-900">{fw.label}</span>
+                  <HistoryMenuCheckmark selected={active} className="history-filter-menu__check" />
+                  <FrameworkMark framework={fw.id} className="history-filter-menu__icon" />
+                  <span className="history-filter-menu__label">{fw.label}</span>
                 </button>
               );
             })}
@@ -182,30 +174,20 @@ export function BenchmarkFrameworkSelect({
       : null;
 
   return (
-    <div ref={rootRef} className="relative shrink-0">
-      <button
+    <div ref={rootRef} className="history-filter-dropdown history-filter-dropdown--framework shrink-0">
+      <SelectorCard
         ref={triggerRef}
-        type="button"
         id="findings-benchmark-filter"
+        icon={triggerIcon(selected)}
+        label="Benchmark"
+        value={label}
+        iconTone="framework"
+        open={open}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Benchmark: ${label}`}
-        className="findings-v2-filter-trigger findings-v2-benchmark-trigger"
-      >
-        <BenchmarkShieldMark />
-        <span className="truncate">{label}</span>
-        <svg
-          className={`h-3.5 w-3.5 shrink-0 text-[#98a2b3] transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          viewBox="0 0 24 24"
-          aria-hidden
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+      />
       {menu}
     </div>
   );
