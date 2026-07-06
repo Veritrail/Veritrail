@@ -15,7 +15,7 @@ python-jose[cryptography]==3.4.0
 bcrypt==4.2.0
 watchfiles==0.24.0
 python-multipart==0.0.31
-email-validator==2.2.0
+email-validator==2.3.0
 structlog==24.4.0
 pyotp==2.9.0
 qrcode[pil]==7.4.2
