@@ -250,9 +250,12 @@
 }
 
 .history-filter-menu__icon {
+  display: block;
   flex-shrink: 0;
   width: 1.125rem;
   height: 1.125rem;
+  max-width: 1.125rem;
+  max-height: 1.125rem;
   object-fit: contain;
 }
 
