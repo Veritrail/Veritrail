@@ -6,6 +6,14 @@
   background: transparent;
 }
 
+.compliance-page.compliance-v2-shell--fill {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
 /* Compliance toolbar keeps grey header band inside the list card (not Findings white). */
 .compliance-page .findings-v2-table-toolbar {
   background: var(--vt-surface-raised);

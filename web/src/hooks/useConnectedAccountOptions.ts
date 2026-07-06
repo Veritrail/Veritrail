@@ -153,6 +153,12 @@ export function findingsScopeParams(account: AccountOption | undefined): Finding
   return { account_id: account.id };
 }
 
+/** In-app Findings link scoped to a connected account when possible. */
+export function findingsPageHref(account: AccountOption | undefined): string {
+  if (!account?.id) return "/findings";
+  return `/findings?account_id=${encodeURIComponent(account.id)}`;
+}
+
 export function useConnectedAccountOptions() {
   const accountsQ = useQuery({
     queryKey: ["accounts"],

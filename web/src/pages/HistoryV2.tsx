@@ -295,15 +295,15 @@ export default function HistoryV2() {
         <p className="history-empty text-amber-800">History is temporarily unavailable. Try again in a moment.</p>
       )}
 
-      {!isAwsAccount && effectiveAccountId && (
-        <div className="history-panel history-panel--fill">
+      {!isAwsAccount && effectiveAccountId && activeAccount ? (
+        <div className="cloud-feature-coming-soon-wrap">
           <CloudFeatureComingSoon
-            provider={activeAccount?.provider}
-            featureName="compliance history"
-            description="Scan timelines, posture trends, and remediation events for this cloud provider are on the way. View current scan results and findings on Findings."
+            page="history"
+            provider={activeAccount.provider}
+            account={activeAccount}
           />
         </div>
-      )}
+      ) : null}
 
       {isAwsAccount && !historyQ.isLoading && !historyQ.isError && historyQ.data && (
         <>

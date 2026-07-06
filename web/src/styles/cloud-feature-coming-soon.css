@@ -1,12 +1,29 @@
 /* Shared empty state for GCP/Azure features not yet available (History, Compliance, etc.) */
 
+.cloud-feature-coming-soon-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 24rem;
+  min-width: 0;
+}
+
 .cloud-feature-coming-soon {
+  --cfcs-icon-size: 4.5rem;
+  --cfcs-logo-height: 2rem;
+  --cfcs-headline-size: 1.625rem;
+  --cfcs-description-size: 1rem;
+  --cfcs-description-max: 32rem;
+  --cfcs-badge-size: 0.8125rem;
+  --cfcs-cta-size: 0.9375rem;
+  --cfcs-gap: 1rem;
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 3rem 1.5rem;
+  gap: var(--cfcs-gap);
+  padding: 2rem 1.5rem;
   text-align: center;
 }
 
@@ -14,59 +31,86 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.875rem;
+  width: var(--cfcs-icon-size);
+  height: var(--cfcs-icon-size);
+  border-radius: 1rem;
   border: 1px solid #e4e4e7;
-  background: #fafafa;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .cloud-feature-coming-soon__provider {
-  height: 1.375rem;
+  height: var(--cfcs-logo-height);
   width: auto;
-  max-width: 2.25rem;
+  max-width: 2.75rem;
   object-fit: contain;
-}
-
-.cloud-feature-coming-soon__heading-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.625rem;
-}
-
-.cloud-feature-coming-soon__title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #27272a;
 }
 
 .cloud-feature-coming-soon__badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.4375rem;
   border-radius: 9999px;
   border: 1px solid #fde68a;
   background: #fffbeb;
-  padding: 0.1875rem 0.625rem;
-  font-size: 0.75rem;
+  padding: 0.3125rem 0.75rem;
+  font-size: var(--cfcs-badge-size);
   font-weight: 600;
   color: #a16207;
 }
 
 .cloud-feature-coming-soon__badge-dot {
-  width: 0.375rem;
-  height: 0.375rem;
+  width: 0.4375rem;
+  height: 0.4375rem;
   border-radius: 9999px;
-  background: #d4d4d8;
+  background: #d97706;
+}
+
+.cloud-feature-coming-soon__headline {
+  margin: 0;
+  font-size: var(--cfcs-headline-size);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: #18181b;
 }
 
 .cloud-feature-coming-soon__description {
   margin: 0;
-  max-width: 28rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  max-width: var(--cfcs-description-max);
+  font-size: var(--cfcs-description-size);
+  line-height: 1.55;
   color: #71717a;
+}
+
+.cloud-feature-coming-soon__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  padding: 0.625rem 1rem;
+  font-size: var(--cfcs-cta-size);
+  font-weight: 600;
+  color: #3f3f46;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cloud-feature-coming-soon__cta:hover {
+  background: #fafafa;
+  border-color: #a1a1aa;
+}
+
+.cloud-feature-coming-soon__cta:focus-visible {
+  outline: 2px solid rgba(13, 148, 136, 0.35);
+  outline-offset: 2px;
+}
+
+.cloud-feature-coming-soon__cta-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
 }

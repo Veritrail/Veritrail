@@ -4614,7 +4614,13 @@ export default function Controls() {
 
 
   return (
-    <div className="compliance-page compliance-v2-shell min-h-full w-full">
+    <div
+      className={`compliance-page compliance-v2-shell min-h-full w-full${
+        isCloudFeatureComingSoon(activeAccount?.provider) && activeAccount
+          ? " compliance-v2-shell--fill"
+          : ""
+      }`}
+    >
       {connectedAccounts.length > 0 && activeAccount && (
         <HeaderSlot>
           <HeaderFilterBar>
@@ -4628,11 +4634,13 @@ export default function Controls() {
       )}
 
       {isCloudFeatureComingSoon(activeAccount?.provider) && activeAccount ? (
-        <CloudFeatureComingSoon
-          provider={activeAccount.provider}
-          featureName="compliance"
-          description="Control groups, framework rollups, and audit packages for this cloud provider are on the way. View current scan results and findings on Findings."
-        />
+        <div className="cloud-feature-coming-soon-wrap">
+          <CloudFeatureComingSoon
+            page="compliance"
+            provider={activeAccount.provider}
+            account={activeAccount}
+          />
+        </div>
       ) : (
         <>
       {!hasScanned && activeAccount && !controlsInitialLoading && (
