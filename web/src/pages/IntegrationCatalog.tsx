@@ -3,19 +3,32 @@ import { Link } from "react-router-dom";
 
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import { useConnectedCatalogState } from "../hooks/useConnectedCatalogState";
-import { filterCatalog, INTEGRATION_CATALOG } from "../lib/integrationCatalog";
+import {
+  filterCatalogForDisplay,
+  INTEGRATION_CATALOG,
+  isCatalogEntryComingSoon,
+  type CatalogEntry,
+} from "../lib/integrationCatalog";
 import "../styles/integrations-page.css";
 
-function sectionCountLabel(count: number): string {
-  if (count === 0) return "";
-  return count === 1 ? "1 available" : `${count} available`;
+function sectionCountLabel(entries: CatalogEntry[]): string {
+  const available = entries.filter((entry) => !isCatalogEntryComingSoon(entry)).length;
+  const comingSoon = entries.filter((entry) => isCatalogEntryComingSoon(entry)).length;
+  const parts: string[] = [];
+  if (available > 0) {
+    parts.push(available === 1 ? "1 available" : `${available} available`);
+  }
+  if (comingSoon > 0) {
+    parts.push(comingSoon === 1 ? "1 coming soon" : `${comingSoon} coming soon`);
+  }
+  return parts.join(" · ");
 }
 
 export default function IntegrationCatalog() {
   const { hiddenKeys } = useConnectedCatalogState();
 
   const filtered = useMemo(
-    () => filterCatalog(INTEGRATION_CATALOG, hiddenKeys),
+    () => filterCatalogForDisplay(INTEGRATION_CATALOG, hiddenKeys),
     [hiddenKeys],
   );
 
@@ -34,7 +47,7 @@ export default function IntegrationCatalog() {
                   <div className="integration-catalog__section-title-row">
                     <h2>{cat.title}</h2>
                     <span className="integration-catalog__section-count">
-                      {sectionCountLabel(cat.entries.length)}
+                      {sectionCountLabel(cat.entries)}
                     </span>
                   </div>
                   <p>{cat.blurb}</p>
@@ -42,7 +55,7 @@ export default function IntegrationCatalog() {
               </div>
               <div className="integrations-explore-grid integration-catalog__grid">
                 {cat.entries.map((entry) => {
-                  const isComingSoon = entry.comingSoon || !entry.href;
+                  const isComingSoon = isCatalogEntryComingSoon(entry);
                   return (
                     <article
                       key={entry.key}

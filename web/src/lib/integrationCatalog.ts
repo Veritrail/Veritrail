@@ -40,6 +40,17 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     ],
   },
   {
+    id: "evidence-destinations",
+    title: "Evidence destinations",
+    blurb: "Push Veritrail evidence into your GRC platform (coming soon).",
+    entries: [
+      { key: "vanta", brand: "vanta", name: "Vanta", description: "Push control-mapped evidence into Vanta.", tags: ["GRC", "Evidence", "SOC 2"], comingSoon: true },
+      { key: "drata", brand: "drata", name: "Drata", description: "Push control-mapped evidence into Drata.", tags: ["GRC", "Evidence", "SOC 2"], comingSoon: true },
+      { key: "secureframe", brand: "secureframe", name: "Secureframe", description: "Push control-mapped evidence into Secureframe.", tags: ["GRC", "Evidence", "SOC 2"], comingSoon: true },
+      { key: "sprinto", brand: "sprinto", name: "Sprinto", description: "Push control-mapped evidence into Sprinto.", tags: ["GRC", "Evidence", "SOC 2"], comingSoon: true },
+    ],
+  },
+  {
     id: "scanners",
     title: "Vulnerability scanners",
     blurb: "Bring scanner results into vulnerability-management evidence.",
@@ -138,10 +149,18 @@ export function isStarterHiddenKey(key: string): boolean {
   return EXTENDED_INTEGRATION_KEYS.has(key) && !SHOW_EXTENDED_INTEGRATIONS;
 }
 
-function isAvailableCatalogEntry(entry: CatalogEntry, hiddenKeys: ReadonlySet<string>): boolean {
-  if (entry.comingSoon || !entry.href) return false;
+function isComingSoonCatalogEntry(entry: CatalogEntry): boolean {
+  return entry.comingSoon === true || !entry.href;
+}
+
+function isVisibleCatalogEntry(entry: CatalogEntry, hiddenKeys: ReadonlySet<string>): boolean {
   if (hiddenKeys.has(entry.key)) return false;
   return !isStarterHiddenKey(entry.key);
+}
+
+function isAvailableCatalogEntry(entry: CatalogEntry, hiddenKeys: ReadonlySet<string>): boolean {
+  if (isComingSoonCatalogEntry(entry)) return false;
+  return isVisibleCatalogEntry(entry, hiddenKeys);
 }
 
 function sortCatalogEntriesByName(entries: CatalogEntry[]): CatalogEntry[] {
@@ -161,6 +180,25 @@ export function filterCatalog(
       ),
     }))
     .filter((cat) => cat.entries.length > 0);
+}
+
+/** Catalog page — includes coming-soon placeholders; excludes hidden and starter-gated entries. */
+export function filterCatalogForDisplay(
+  catalog: CatalogCategory[],
+  hiddenKeys: ReadonlySet<string>,
+): CatalogCategory[] {
+  return catalog
+    .map((cat) => ({
+      ...cat,
+      entries: sortCatalogEntriesByName(
+        cat.entries.filter((entry) => isVisibleCatalogEntry(entry, hiddenKeys)),
+      ),
+    }))
+    .filter((cat) => cat.entries.length > 0);
+}
+
+export function isCatalogEntryComingSoon(entry: CatalogEntry): boolean {
+  return isComingSoonCatalogEntry(entry);
 }
 
 export function catalogExploreEntries(
