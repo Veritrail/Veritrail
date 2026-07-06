@@ -1,8 +1,7 @@
 /* Shared toolbar primitives — segmented pills + search field.
-   Used by History, Findings, and Compliance list toolbars. */
+   Matches History page styling; used by Findings and Compliance toolbars only. */
 
 .vt-toolbar-segmented,
-.history-tabs,
 .findings-v2-filter-chip-bar {
   display: inline-flex;
   flex: 0 0 auto;
@@ -16,7 +15,6 @@
 }
 
 .vt-toolbar-segment,
-.history-tabs .history-tab,
 .findings-v2-filter-chip {
   display: inline-flex;
   flex-shrink: 0;
@@ -39,15 +37,12 @@
 }
 
 .vt-toolbar-segment:hover:not(.vt-toolbar-segment--active):not(.is-selected),
-.history-tabs .history-tab:hover:not(.history-tab--active),
 .findings-v2-filter-chip:hover:not(.is-selected) {
   background: rgb(250 250 250 / 0.8);
   color: #27272a;
 }
 
 .vt-toolbar-segment--active,
-.history-tabs .history-tab--active,
-.history-tabs .history-tab--active:hover,
 .findings-v2-filter-chip.is-selected {
   background: #ffffff;
   border-color: transparent;
@@ -58,15 +53,13 @@
     0 0 0 1px rgb(228 228 231 / 0.8);
 }
 
-.vt-toolbar-search,
-.history-search {
+.vt-toolbar-search {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.vt-toolbar-search__input-wrap,
-.history-search__input-wrap {
+.vt-toolbar-search__input-wrap {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -77,8 +70,7 @@
   min-width: 12rem;
 }
 
-.vt-toolbar-search__input-wrap input,
-.history-search__input-wrap input {
+.vt-toolbar-search__input-wrap input {
   border: none;
   background: transparent;
   font-size: 0.8125rem;
@@ -88,8 +80,7 @@
   color: #111827;
 }
 
-.vt-toolbar-search__input-wrap input::placeholder,
-.history-search__input-wrap input::placeholder {
+.vt-toolbar-search__input-wrap input::placeholder {
   color: #9ca3af;
 }
 
