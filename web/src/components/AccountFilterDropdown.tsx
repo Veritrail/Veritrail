@@ -7,7 +7,6 @@ import {
   accountDisplaySubtitle,
   ProviderMark,
   type AccountOption,
-  type CloudProvider,
 } from "./AccountSelect";
 import { SelectorCard } from "./SelectorCard";
 
@@ -37,26 +36,29 @@ function accountMatchesQuery(account: AccountOption, query: string): boolean {
   return haystack.includes(q);
 }
 
-function accountFilterRowClass(active: boolean, comingSoon: boolean): string {
+function accountFilterRowClass(active: boolean): string {
   const parts = ["account-filter-card"];
   if (active) parts.push("account-filter-card--selected");
-  if (comingSoon) parts.push("account-filter-card--coming-soon");
   return parts.join(" ");
 }
 
 function AccountFilterRow({
   account,
   active,
-  comingSoon,
   onSelect,
 }: {
   account: AccountOption;
   active: boolean;
-  comingSoon: boolean;
   onSelect: () => void;
 }) {
-  const body = (
-    <>
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={active}
+      onClick={onSelect}
+      className={accountFilterRowClass(active)}
+    >
       <span className="account-filter-card__icon-box">
         <ProviderMark
           provider={account.provider}
@@ -68,52 +70,23 @@ function AccountFilterRow({
         <span className="account-filter-card__name">{accountDisplayName(account)}</span>
         <span className="account-filter-card__meta">{accountDisplayId(account)}</span>
       </span>
-      {comingSoon ? (
-        <span className="account-filter-card__coming-soon">Coming soon</span>
-      ) : (
-        <span className="account-filter-card__indicator" aria-hidden>
-          {active ? (
-            <svg viewBox="0 0 20 20" fill="none" aria-hidden>
-              <circle cx="10" cy="10" r="9" />
-              <path
-                d="M6 10.2 8.4 12.6 14 7"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 20 20" fill="none" aria-hidden>
-              <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.25" />
-            </svg>
-          )}
-        </span>
-      )}
-    </>
-  );
-
-  if (comingSoon) {
-    return (
-      <div
-        role="option"
-        aria-selected={active}
-        aria-disabled="true"
-        className={accountFilterRowClass(active, true)}
-      >
-        {body}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={active}
-      onClick={onSelect}
-      className={accountFilterRowClass(active, false)}
-    >
-      {body}
+      <span className="account-filter-card__indicator" aria-hidden>
+        {active ? (
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden>
+            <circle cx="10" cy="10" r="9" />
+            <path
+              d="M6 10.2 8.4 12.6 14 7"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden>
+            <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.25" />
+          </svg>
+        )}
+      </span>
     </button>
   );
 }
@@ -127,14 +100,11 @@ export function AccountFilterDropdown({
   groups,
   value,
   onChange,
-  comingSoonProviders,
 }: {
   accounts: AccountOption[];
   groups?: AccountFilterGroup[];
   value: string;
   onChange: (id: string) => void;
-  /** Cloud providers shown as non-selectable "Coming soon" rows (Compliance page). */
-  comingSoonProviders?: readonly CloudProvider[];
 }) {
   const flatAccounts = useMemo(
     () => (groups ? groups.flatMap((group) => group.accounts) : accounts),
@@ -224,18 +194,6 @@ export function AccountFilterDropdown({
     };
   }, [open]);
 
-  const comingSoonSet = useMemo(
-    () => new Set<CloudProvider>(comingSoonProviders ?? []),
-    [comingSoonProviders],
-  );
-  const isComingSoonAccount = useCallback(
-    (account: AccountOption) =>
-      account.provider === "gcp" || account.provider === "azure"
-        ? comingSoonSet.has(account.provider)
-        : false,
-    [comingSoonSet],
-  );
-
   if (flatAccounts.length === 0 || !current) return null;
 
   const menu =
@@ -283,13 +241,11 @@ export function AccountFilterDropdown({
                       ) : null}
                       {group.accounts.map((account) => {
                         const active = account.id === value;
-                        const comingSoon = isComingSoonAccount(account);
                         return (
                           <AccountFilterRow
                             key={account.id}
                             account={account}
                             active={active}
-                            comingSoon={comingSoon}
                             onSelect={() => {
                               onChange(account.id);
                               setOpen(false);
@@ -305,13 +261,11 @@ export function AccountFilterDropdown({
               ) : (
                 filtered.map((account) => {
                   const active = account.id === value;
-                  const comingSoon = isComingSoonAccount(account);
                   return (
                     <AccountFilterRow
                       key={account.id}
                       account={account}
                       active={active}
-                      comingSoon={comingSoon}
                       onSelect={() => {
                         onChange(account.id);
                         setOpen(false);

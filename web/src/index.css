@@ -755,38 +755,6 @@
     background: #eef2ff;
   }
 
-  .account-filter-card--coming-soon {
-    cursor: not-allowed;
-    opacity: 0.72;
-  }
-
-  .account-filter-card--coming-soon:hover {
-    background: transparent;
-  }
-
-  .account-filter-card--coming-soon.account-filter-card--selected {
-    border-left-color: #e4e4e7;
-    background: #fafafa;
-    box-shadow: none;
-  }
-
-  .account-filter-card--coming-soon.account-filter-card--selected:hover {
-    background: #fafafa;
-  }
-
-  .account-filter-card__coming-soon {
-    flex-shrink: 0;
-    border: 1px solid #e4e4e7;
-    border-radius: 9999px;
-    background: #fafafa;
-    padding: 0.125rem 0.5rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: #a1a1aa;
-    white-space: nowrap;
-  }
-
   .account-filter-card__indicator {
     display: flex;
     flex-shrink: 0;
