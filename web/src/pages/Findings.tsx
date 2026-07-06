@@ -631,7 +631,7 @@ function FindingRow({
           }
         }}
       >
-        <div className="findings-v2-col-chevron flex w-5 shrink-0 items-center justify-center gap-1.5 self-center lg:col-auto lg:w-10 lg:justify-start lg:self-start lg:pt-2">
+        <div className="findings-v2-col-chevron flex w-5 shrink-0 items-center justify-center gap-1.5 self-center lg:col-auto lg:justify-start lg:self-start lg:pt-2">
           <input
             type="checkbox"
             className="findings-v2-row-check hidden lg:block"
@@ -644,7 +644,7 @@ function FindingRow({
           <RowChevron expanded={expanded && canExpand} muted={!canExpand} />
         </div>
 
-        <div className="findings-v2-col-severity hidden shrink-0 self-start pt-2 lg:col-auto lg:block lg:w-[5.5rem]">
+        <div className="findings-v2-col-severity hidden shrink-0 self-start pt-2 lg:col-auto lg:block">
           <SeverityIndicator severity={sev} />
         </div>
 
@@ -692,7 +692,7 @@ function FindingRow({
         </div>
 
         <div
-          className="findings-v2-col-risk flex shrink-0 items-center justify-end self-center lg:col-auto lg:w-16 lg:justify-center lg:self-start lg:pt-2"
+          className="findings-v2-col-risk flex shrink-0 items-center justify-end self-center lg:col-auto lg:justify-center lg:self-start lg:pt-2"
           onClick={(event) => {
             event.stopPropagation();
             onReview(items);
@@ -707,7 +707,7 @@ function FindingRow({
           <div className="veritrail-accordion-panel__inner">
             <div className="findings-v2-accordion-grid findings-v2-row-grid border-t border-zinc-100 lg:grid lg:gap-4">
               <span className="hidden lg:block" aria-hidden />
-              <span className="hidden w-[5.5rem] lg:block" aria-hidden />
+              <span className="hidden lg:block" aria-hidden />
               <div className="py-4 pl-4 pr-5 lg:pl-0">
                 <AffectedResourcesCard
                   resources={visibleResources}
@@ -723,7 +723,7 @@ function FindingRow({
               <span className="hidden lg:block" aria-hidden />
               <span className="hidden lg:block" aria-hidden />
               <span className="hidden lg:block" aria-hidden />
-              <span className="hidden w-16 sm:block" aria-hidden />
+              <span className="hidden lg:block" aria-hidden />
             </div>
           </div>
         </div>
