@@ -6505,11 +6505,17 @@ export function FindingDrawer({
     [finding?.id, finding?.evidence, finding?.remediation_ticket_key, finding?.remediation_ticket_url],
   );
 
+  /** Stable key for the open resource group — focus changes within the group must not reset bulk selection. */
+  const resourceGroupKey = useMemo(() => {
+    const source = groupFindings?.length ? groupFindings : finding ? [finding] : [];
+    return source.map((g) => g.id).sort().join("\0");
+  }, [groupFindings, finding?.id]);
+
   useEffect(() => {
     setJiraOverride(null);
     setGithubOverride(null);
     setSelectedResourceIds(new Set());
-  }, [finding?.id]);
+  }, [resourceGroupKey]);
 
   const resourcesGroupFindings = groupFindings?.length ? groupFindings : finding ? [finding] : [];
   const selectedResourceFindings = useMemo(

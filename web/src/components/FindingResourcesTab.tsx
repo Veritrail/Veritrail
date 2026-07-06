@@ -916,26 +916,6 @@ export function FindingResourcesTab({
         onRemoveJira={onRemoveJira}
       />
 
-      {selectionEnabled && selectedIds.size > 0 ? (
-        <div className="finding-resources-tab__selection-bar" role="status" aria-live="polite">
-          <span className="finding-resources-tab__selection-count">
-            {selectedIds.size.toLocaleString()} selected
-          </span>
-          <button
-            type="button"
-            className="finding-resources-tab__selection-clear"
-            onClick={() => onSelectedFindingIdsChange?.(new Set())}
-          >
-            Clear
-          </button>
-          {selectedIds.size > FINDING_RESOURCE_BULK_CAP ? (
-            <span className="finding-resources-tab__selection-cap">
-              Select at most {FINDING_RESOURCE_BULK_CAP} resources
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
       {/* Toolbar — separate controls on one line, no shared card */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full min-w-[10rem] max-w-[17rem] sm:max-w-[19rem]">
@@ -962,6 +942,38 @@ export function FindingResourcesTab({
         {selectedTypeFilterList.map((type) => (
           <ActiveFilterPill key={type} label={type} onRemove={() => removeTypeFilter(type)} />
         ))}
+
+        {selectionEnabled ? (
+          <div
+            className={`finding-resources-tab__toolbar-selection${
+              selectedIds.size > 0 ? "" : " finding-resources-tab__toolbar-selection--empty"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="finding-resources-tab__toolbar-selection-count">
+              {selectedIds.size > 0
+                ? `${selectedIds.size.toLocaleString()} selected`
+                : "\u00a0"}
+            </span>
+            <span className="finding-resources-tab__toolbar-selection-sep" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
+              className="finding-resources-tab__toolbar-selection-clear"
+              tabIndex={selectedIds.size > 0 ? 0 : -1}
+              onClick={() => onSelectedFindingIdsChange?.(new Set())}
+            >
+              Clear
+            </button>
+            {selectedIds.size > FINDING_RESOURCE_BULK_CAP ? (
+              <span className="finding-resources-tab__toolbar-selection-cap">
+                Select at most {FINDING_RESOURCE_BULK_CAP}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="relative shrink-0">
           <select
