@@ -925,38 +925,6 @@ export function FindingResourcesTab({
           <ActiveFilterPill key={type} label={type} onRemove={() => removeTypeFilter(type)} />
         ))}
 
-        {selectionEnabled ? (
-          <div
-            className={`finding-resources-tab__toolbar-selection${
-              selectedIds.size > 0 ? "" : " finding-resources-tab__toolbar-selection--empty"
-            }`}
-            role="status"
-            aria-live="polite"
-          >
-            <span className="finding-resources-tab__toolbar-selection-count">
-              {selectedIds.size > 0
-                ? `${selectedIds.size.toLocaleString()} selected`
-                : "\u00a0"}
-            </span>
-            <span className="finding-resources-tab__toolbar-selection-sep" aria-hidden>
-              ·
-            </span>
-            <button
-              type="button"
-              className="finding-resources-tab__toolbar-selection-clear"
-              tabIndex={selectedIds.size > 0 ? 0 : -1}
-              onClick={() => onSelectedFindingIdsChange?.(new Set())}
-            >
-              Clear
-            </button>
-            {selectedIds.size > FINDING_RESOURCE_BULK_CAP ? (
-              <span className="finding-resources-tab__toolbar-selection-cap">
-                Select at most {FINDING_RESOURCE_BULK_CAP}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="relative shrink-0">
           <select
             value={sortKey}
@@ -979,6 +947,29 @@ export function FindingResourcesTab({
             <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
           </svg>
         </div>
+
+        {selectionEnabled && selectedIds.size > 0 ? (
+          <div className="finding-resources-tab__toolbar-selection" role="status" aria-live="polite">
+            <span className="finding-resources-tab__toolbar-selection-count">
+              {selectedIds.size.toLocaleString()} selected
+            </span>
+            <span className="finding-resources-tab__toolbar-selection-sep" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
+              className="finding-resources-tab__toolbar-selection-clear"
+              onClick={() => onSelectedFindingIdsChange?.(new Set())}
+            >
+              Clear
+            </button>
+            {selectedIds.size > FINDING_RESOURCE_BULK_CAP ? (
+              <span className="finding-resources-tab__toolbar-selection-cap">
+                Select at most {FINDING_RESOURCE_BULK_CAP}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {refreshNote ? (

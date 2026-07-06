@@ -82,10 +82,9 @@
   justify-content: center;
 }
 
-/* Inline bulk selection — lives in the toolbar row; empty state keeps height without showing text. */
+/* Inline bulk selection — immediately after sort; omitted when nothing is selected. */
 .finding-resources-tab__toolbar-selection {
   display: inline-flex;
-  min-height: 2rem;
   flex-shrink: 0;
   align-items: center;
   gap: 0.375rem;
@@ -93,30 +92,25 @@
   line-height: 1.25rem;
 }
 
-.finding-resources-tab__toolbar-selection--empty {
-  visibility: hidden;
-  pointer-events: none;
-}
-
 .finding-resources-tab__toolbar-selection-count {
-  font-weight: 600;
-  color: #4338ca;
+  font-weight: 500;
+  color: #71717a;
   white-space: nowrap;
 }
 
 .finding-resources-tab__toolbar-selection-sep {
-  color: #a5b4fc;
+  color: #a1a1aa;
 }
 
 .finding-resources-tab__toolbar-selection-clear {
-  font-weight: 600;
-  color: #4338ca;
+  font-weight: 500;
+  color: #71717a;
   white-space: nowrap;
   transition: color 120ms ease;
 }
 
 .finding-resources-tab__toolbar-selection-clear:hover {
-  color: #3730a3;
+  color: #52525b;
 }
 
 .finding-resources-tab__toolbar-selection-cap {
