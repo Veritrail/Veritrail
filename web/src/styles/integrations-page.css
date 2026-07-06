@@ -357,6 +357,33 @@
   grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
 }
 
+/* Hub recommended row: fixed card widths, clip overflow (no horizontal scroll).
+   Width vars must stay in sync with exploreVisibleCount() in Integrations.tsx. */
+.integrations-explore-strip {
+  --integrations-explore-strip-gap: 0.75rem;
+  /* Matches .integrations-explore-grid minmax(21rem, …) minimum column width. */
+  --integrations-explore-card-width: 21rem;
+  --integrations-catalog-card-width: 17rem;
+
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--integrations-explore-strip-gap);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.integrations-explore-strip .integrations-explore-card {
+  flex: 0 0 var(--integrations-explore-card-width);
+  width: var(--integrations-explore-card-width);
+  max-width: min(var(--integrations-explore-card-width), 100%);
+}
+
+.integrations-explore-strip .integrations-catalog-card {
+  flex: 0 0 var(--integrations-catalog-card-width);
+  width: var(--integrations-catalog-card-width);
+  max-width: min(var(--integrations-catalog-card-width), 100%);
+}
+
 .integrations-explore-card {
   display: flex;
   align-items: center;

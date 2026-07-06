@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -724,24 +724,75 @@ function IntegrationsContent() {
   );
 }
 
+function remCSSValueToPx(value: string, remPx: number): number {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  if (trimmed.endsWith("rem")) {
+    const n = parseFloat(trimmed);
+    return Number.isFinite(n) ? n * remPx : 0;
+  }
+  if (trimmed.endsWith("px")) {
+    const n = parseFloat(trimmed);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const n = parseFloat(trimmed);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** How many explore cards fit beside the catalog link — widths from strip CSS vars. */
+function exploreVisibleCount(stripEl: HTMLElement): number {
+  const containerWidthPx = stripEl.clientWidth;
+  if (containerWidthPx <= 0) return 0;
+
+  const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const stripStyles = getComputedStyle(stripEl);
+  const cardWidth = remCSSValueToPx(stripStyles.getPropertyValue("--integrations-explore-card-width"), remPx);
+  const catalogWidth = remCSSValueToPx(stripStyles.getPropertyValue("--integrations-catalog-card-width"), remPx);
+  const gap = remCSSValueToPx(stripStyles.getPropertyValue("--integrations-explore-strip-gap"), remPx);
+  if (cardWidth <= 0 || catalogWidth <= 0) return 0;
+
+  return Math.max(0, Math.floor((containerWidthPx - catalogWidth) / (cardWidth + gap)));
+}
+
 /** Tiered recommendations (GitHub/GitLab → Jira/Slack → identity) plus browse link.
     Hides the section heading when every tier is connected. */
 function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<string> }) {
-  const cards = getRecommendedIntegrationKeys(hiddenKeys)
-    .map((key) => catalogEntryByKey(key))
-    .filter((entry): entry is NonNullable<typeof entry> => !!entry?.href);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState<number | null>(null);
+
+  const entries = useMemo(
+    () =>
+      getRecommendedIntegrationKeys(hiddenKeys)
+        .map((key) => catalogEntryByKey(key))
+        .filter((entry): entry is NonNullable<typeof entry> => !!entry?.href),
+    [hiddenKeys],
+  );
+
+  useLayoutEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+
+    const update = () => setVisibleCount(exploreVisibleCount(el));
+    update();
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [entries.length]);
+
+  const visibleEntries = entries.slice(0, visibleCount ?? 0);
 
   return (
     <section className="integrations-recommended">
-      {cards.length > 0 && (
+      {entries.length > 0 && (
         <div className="integrations-recommended__head">
           <h2>Recommended integrations</h2>
           <p>Connect Git, identity, Jira, and Slack to enrich your cloud evidence.</p>
         </div>
       )}
 
-      <div className="integrations-explore-grid">
-        {cards.map((entry) => (
+      <div ref={stripRef} className="integrations-explore-strip">
+        {visibleEntries.map((entry) => (
           <article key={entry.key} className="integrations-explore-card">
             <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
             <div className="integrations-explore-card__body">
@@ -761,7 +812,7 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
           </span>
           <div className="integrations-catalog-card__body">
             <div className="integrations-catalog-card__name">Workflow integrations</div>
-            <p className="integrations-catalog-card__desc">Browse Git, identity, Jira, and Slack &rarr;</p>
+            <p className="integrations-catalog-card__desc">View all integrations &rarr;</p>
           </div>
         </Link>
       </div>
