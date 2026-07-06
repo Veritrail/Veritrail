@@ -209,8 +209,15 @@
     padding-right: 0;
   }
 
-  /* Header filter row lives in the header slot. */
+  /* Header filter row — one rule for Findings, Controls, History (HeaderSlot pages). */
   .veritrail-app-header .header-filter-bar {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 32px;
     margin-bottom: 0;
   }
 
@@ -228,24 +235,16 @@
     border-left: 1px solid rgb(226 232 240 / 0.9);
   }
 
+  /* Generic command bar shell — layout only; header filter row spacing lives above. */
   .veritrail-command-bar {
     display: flex;
     width: 100%;
     min-width: 0;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
   }
 
   /* Top selector cards — shared pill trigger for Account / Period / Framework / Group. */
-  .header-filter-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-    padding: 18px 32px;
-    margin-bottom: 0;
-  }
 
   .selector-card {
     display: inline-flex;
