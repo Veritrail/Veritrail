@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type JSX } from "react";
 import { useNavigate } from "react-router-dom";
 
 /* No-account first-run screen. Design 2 skeleton (three capability cards across)

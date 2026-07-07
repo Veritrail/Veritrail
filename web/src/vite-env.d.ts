@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare module "@fontsource-variable/geist";
+
 interface PasswordCredentialData {
   id: string;
   password: string;

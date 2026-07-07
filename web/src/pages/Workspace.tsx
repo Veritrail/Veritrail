@@ -979,7 +979,7 @@ export default function Workspace() {
   const [saveError, setSaveError] = useState("");
   const [digestTestState, setDigestTestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [digestTestMsg, setDigestTestMsg] = useState("");
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastSavedJson = useRef("");
 
   const minCustomHours = data?.scan_status.min_custom_hours ?? 6;
