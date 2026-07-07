@@ -8,6 +8,7 @@ import {
   ProviderMark,
   type AccountOption,
 } from "./AccountSelect";
+import { AllCloudScopeIcon } from "./AllCloudScopeIcon";
 import { SelectorCard } from "./SelectorCard";
 
 export type AccountFilterGroup = {
@@ -62,7 +63,9 @@ function AccountFilterRow({
       className={accountFilterRowClass(active)}
     >
       {isAllCloud ? (
-        <span className="account-filter-card__icon-box account-filter-card__icon-box--empty" aria-hidden />
+        <span className="account-filter-card__icon-box account-filter-card__icon-box--all-cloud" aria-hidden>
+          <AllCloudScopeIcon />
+        </span>
       ) : (
         <span className="account-filter-card__icon-box">
           <ProviderMark
@@ -316,7 +319,7 @@ export function AccountFilterDropdown({
         ref={triggerRef}
         icon={
           current.provider === "all_cloud" ? (
-            <span aria-hidden />
+            <AllCloudScopeIcon />
           ) : (
             <ProviderMark
               provider={current.provider}
