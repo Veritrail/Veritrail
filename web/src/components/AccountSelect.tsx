@@ -56,20 +56,24 @@ function ProviderBrandImg({
   );
 }
 
-const ALL_CLOUD_CLUSTER_PROVIDERS: CloudProvider[] = ["aws", "gcp", "azure"];
-
-/** Compact AWS · GCP · Azure cluster for org-level cloud scope. */
-export function AllCloudProviderCluster({ className }: { className?: string }) {
+/** Neutral stacked-layers icon for org-level cloud scope (not a provider logo). */
+export function AllCloudScopeIcon({ className }: { className?: string }) {
   return (
-    <span className={["all-cloud-provider-cluster", className].filter(Boolean).join(" ")} aria-hidden>
-      {ALL_CLOUD_CLUSTER_PROVIDERS.map((provider) => (
-        <ProviderBrandImg
-          key={provider}
-          provider={provider}
-          variant="compact"
-          className={`all-cloud-provider-cluster__mark all-cloud-provider-cluster__mark--${provider}`}
-        />
-      ))}
+    <span className={["all-cloud-scope-icon", className].filter(Boolean).join(" ")} aria-hidden>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#64748b"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="all-cloud-scope-icon__svg"
+        aria-hidden
+      >
+        <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" />
+        <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" />
+        <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" />
+      </svg>
     </span>
   );
 }
@@ -85,10 +89,10 @@ export function ProviderMark({
 }) {
   if (provider === "all_cloud") {
     return (
-      <AllCloudProviderCluster
+      <AllCloudScopeIcon
         className={
           className ??
-          (variant === "compact" ? "all-cloud-provider-cluster--compact" : "all-cloud-provider-cluster--default")
+          (variant === "compact" ? "all-cloud-scope-icon--compact" : "all-cloud-scope-icon--default")
         }
       />
     );

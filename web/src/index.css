@@ -613,41 +613,18 @@
     max-height: 28px;
   }
 
-  .all-cloud-provider-cluster {
-    position: relative;
-    display: block;
+  .all-cloud-scope-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
     width: 28px;
     height: 28px;
   }
 
-  .all-cloud-provider-cluster__mark {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    max-width: 14px;
-    max-height: 14px;
-    border-radius: 2px;
-    box-shadow: 0 0 0 1px #f8fafc;
-  }
-
-  .all-cloud-provider-cluster__mark--aws {
-    top: 4px;
-    left: 3px;
-    z-index: 1;
-  }
-
-  .all-cloud-provider-cluster__mark--gcp {
-    top: 4px;
-    right: 3px;
-    z-index: 2;
-  }
-
-  .all-cloud-provider-cluster__mark--azure {
-    bottom: 4px;
-    left: 50%;
-    z-index: 3;
-    transform: translateX(-50%);
+  .all-cloud-scope-icon__svg {
+    width: 17px;
+    height: 17px;
   }
 
   .account-filter-card__text {
