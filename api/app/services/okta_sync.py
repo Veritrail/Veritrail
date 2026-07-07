@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from sqlalchemy import select
@@ -192,7 +193,8 @@ def sync_okta_provider(db: Session, provider: IdentityProvider) -> OktaSyncStats
 
     with httpx.Client(timeout=60.0, headers=_headers(api_token)) as client:
         mfa_enforced = _mfa_policy_enforced(client, org_url)
-        users = _paginate(client, f"{org_url}/api/v1/users?filter=status eq \"ACTIVE\"")
+        # Okta 400s on literal double-quotes in the query; percent-encode the filter value.
+        users = _paginate(client, f"{org_url}/api/v1/users?filter={quote('status eq \"ACTIVE\"')}")
         for user in users:
             user_id = user.get("id")
             admin_roles: list[str] = []
@@ -216,5 +218,10 @@ def sync_okta_provider(db: Session, provider: IdentityProvider) -> OktaSyncStats
     set_provider_config(provider, config)
     provider.status = "connected"
     provider.last_synced_at = now
+    db.flush()
+
+    from app.services.integration_sync_scan import run_integration_checks
+
+    run_integration_checks(db, provider.org_id, "okta")
     db.commit()
     return stats

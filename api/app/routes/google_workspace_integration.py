@@ -284,6 +284,7 @@ def sync_google_workspace(body: GoogleWorkspaceSyncIn, _rbac: RequireAdmin, p=De
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Google Workspace sync failed: {detail}") from e
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
     return GoogleWorkspaceSyncOut(**stats.__dict__)
 
 

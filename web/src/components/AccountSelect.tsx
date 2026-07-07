@@ -4,7 +4,7 @@ import { INTEGRATION_BRAND, type IntegrationBrandId } from "../lib/integrationBr
 
 export type CloudProvider = "aws" | "gcp" | "azure";
 /** Findings scope providers: cloud accounts + org-level aggregates. */
-export type ScopeProvider = CloudProvider | "github" | "gitlab" | "all_cloud" | "source_control";
+export type ScopeProvider = CloudProvider | "github" | "gitlab" | "all_cloud" | "source_control" | "identity";
 
 export type AccountOption = {
   id: string;
@@ -21,7 +21,7 @@ function ProviderBrandImg({
   className,
   variant = "wordmark",
 }: {
-  provider: Exclude<ScopeProvider, "all_cloud" | "source_control">;
+  provider: Exclude<ScopeProvider, "all_cloud" | "source_control" | "identity">;
   className?: string;
   variant?: "wordmark" | "compact";
 }) {
@@ -71,6 +71,9 @@ export function ProviderMark({
   if (provider === "source_control") {
     return <ProviderBrandImg provider="github" className={className} variant={variant} />;
   }
+  if (provider === "identity") {
+    return <ProviderBrandImg provider="entra" className={className} variant={variant} />;
+  }
   return <ProviderBrandImg provider={provider ?? "aws"} className={className} variant={variant} />;
 }
 
@@ -96,6 +99,8 @@ export function providerDisplayName(provider?: ScopeProvider): string {
       return "All accounts";
     case "source_control":
       return "Source control";
+    case "identity":
+      return "Identity & devices";
     default:
       return "AWS";
   }
@@ -105,6 +110,7 @@ export function providerDisplayName(provider?: ScopeProvider): string {
 export function accountDisplayName(account: AccountOption & { scopeMeta?: string | null }): string {
   if (account.provider === "all_cloud") return "All accounts";
   if (account.provider === "source_control") return "Source control";
+  if (account.provider === "identity") return "Identity & devices";
   if (account.label?.trim()) return account.label.trim();
   return groupAccountId(account.account_id ?? "");
 }

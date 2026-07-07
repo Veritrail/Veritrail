@@ -260,6 +260,7 @@ def sync_entra(body: EntraSyncIn, _rbac: RequireAdmin, p=Depends(current_princip
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Entra sync failed: {detail}") from e
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
     return EntraSyncOut(**stats.__dict__)
 
 

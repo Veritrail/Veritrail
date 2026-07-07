@@ -104,6 +104,11 @@ def put_okta(body: OktaIntegrationIn, _rbac: RequireAdmin, p=Depends(current_pri
     set_provider_config(provider, config)
     provider.status = "connected"
     provider.last_synced_at = datetime.now(timezone.utc)
+    db.flush()
+
+    from app.services.integration_sync_scan import run_integration_checks
+
+    run_integration_checks(db, org.id, OKTA_TYPE)
     db.commit()
     db.refresh(provider)
     return get_okta(p=p, db=db)
@@ -144,6 +149,7 @@ def sync_okta(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = D
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Okta sync failed: {e}") from e
+
     return {"ok": True, "identity_users": stats.identity_users, "admin_users": stats.admin_users}
 
 

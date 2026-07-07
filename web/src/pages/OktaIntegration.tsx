@@ -30,6 +30,8 @@ export default function OktaIntegration() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["okta-integration"] });
+      qc.invalidateQueries({ queryKey: ["controls"] });
+      qc.invalidateQueries({ queryKey: ["findings"] });
       setApiToken("");
       setSaveError("");
     },
@@ -38,7 +40,11 @@ export default function OktaIntegration() {
 
   const sync = useMutation({
     mutationFn: () => api("/v1/integrations/okta/sync", { method: "POST", body: "{}" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["okta-integration"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["okta-integration"] });
+      qc.invalidateQueries({ queryKey: ["controls"] });
+      qc.invalidateQueries({ queryKey: ["findings"] });
+    },
     onError: (e) => setSaveError(formatApiError(e)),
   });
 

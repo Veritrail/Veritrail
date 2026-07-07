@@ -76,13 +76,19 @@ def _seed_mixed_findings(db_session):
         check_id="gitlab.merge_request_approvals.missing",
         resource_arn="gitlab://group/acme/project/app",
     )
+    okta_finding = _finding(
+        org.id,
+        account_id=None,
+        check_id="okta.org.mfa_not_enforced",
+        resource_arn="okta://trial/org",
+    )
     scanner_finding = _finding(
         org.id,
         account_id=None,
         check_id="scanner.wiz.cve_open",
         resource_arn="scanner://wiz/issue/1",
     )
-    db_session.add_all([aws_finding, gcp_finding, github_finding, gitlab_finding, scanner_finding])
+    db_session.add_all([aws_finding, gcp_finding, github_finding, gitlab_finding, okta_finding, scanner_finding])
     db_session.flush()
     return org, user, aws, gcp
 
@@ -108,6 +114,7 @@ def test_all_cloud_excludes_source_control_and_scanner(db_session):
     assert "gcp.logging.not_enabled" in check_ids
     assert "github.branch_protection.missing" not in check_ids
     assert "gitlab.merge_request_approvals.missing" not in check_ids
+    assert "okta.org.mfa_not_enforced" not in check_ids
     assert "scanner.wiz.cve_open" not in check_ids
     assert page.total == 2
 
@@ -130,6 +137,32 @@ def test_source_control_includes_github_and_gitlab_only(db_session):
     assert summary.total == 2
 
 
+def test_identity_includes_okta_entra_and_workspace_only(db_session):
+    org, user, _aws, _gcp = _seed_mixed_findings(db_session)
+
+    page = _list_findings(db_session, org, user, provider="identity")
+    check_ids = {item.check_id for item in page.items}
+    assert check_ids == {"okta.org.mfa_not_enforced"}
+    assert page.total == 1
+
+    summary = findings_summary(provider="identity", p={"org_id": str(org.id), "sub": str(user.id)}, db=db_session)
+    assert summary.total == 1
+
+
+def test_provider_identity_rejects_cloud_account_params(db_session):
+    org, user, aws, _gcp = _seed_mixed_findings(db_session)
+
+    with pytest.raises(HTTPException) as exc:
+        _list_findings(
+            db_session,
+            org,
+            user,
+            provider="identity",
+            account_id=str(aws.id),
+        )
+    assert exc.value.status_code == 400
+
+
 def test_legacy_github_and_gitlab_providers_unchanged(db_session):
     org, user, _aws, _gcp = _seed_mixed_findings(db_session)
 
@@ -146,7 +179,7 @@ def test_unscoped_list_returns_all_org_findings(db_session):
     org, user, _aws, _gcp = _seed_mixed_findings(db_session)
 
     page = _list_findings(db_session, org, user)
-    assert page.total == 5
+    assert page.total == 6
 
 
 def test_provider_all_cloud_rejects_cloud_account_params(db_session):
@@ -198,3 +231,4 @@ def test_export_scope_matches_list_filters(db_session):
         "github.branch_protection.missing",
         "gitlab.merge_request_approvals.missing",
     }
+    assert scoped_check_ids(provider="identity") == {"okta.org.mfa_not_enforced"}

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.models import AwsAccount, ScanRun
 from app.models.org import Org
 from app.services.check_settings import is_check_enabled
-from app.checks.registry import ALL_CHECKS, is_source_control_check
+from app.checks.registry import ALL_CHECKS, is_integration_sync_check, is_source_control_check
 from app.worker.snapshot_builder import build_snapshots_from_schema
 from app.services.snapshot_provenance import attach_provenance
 from app.checks.persist import persist_findings
@@ -340,6 +340,8 @@ class ScanPipeline:
             # Source-control checks run on git sync (org-scoped), not the cloud
             # scan — keeps SDLC out of the per-account scope entirely.
             and not is_source_control_check(mod.CHECK_ID)
+            # Identity integration checks run on provider sync (org-scoped).
+            and not is_integration_sync_check(mod.CHECK_ID)
         ]
 
         tracker = ScanProgressTracker(self.run, enabled_checks, self.db)

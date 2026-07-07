@@ -1,4 +1,4 @@
-import { ALL_CLOUD_SCOPE_ID, SOURCE_CONTROL_SCOPE_ID } from "../hooks/useConnectedAccountOptions";
+import { ALL_CLOUD_SCOPE_ID, IDENTITY_SCOPE_ID, SOURCE_CONTROL_SCOPE_ID } from "../hooks/useConnectedAccountOptions";
 
 export const SELECTED_ACCOUNT_STORAGE_KEY = "veritrail.selectedAccountId";
 
@@ -9,6 +9,8 @@ export type ResolveSelectedAccountOptions = {
   cloudAccountCount?: number;
   /** SCM-only org fallback when cloudAccountCount is 0. */
   hasSourceControl?: boolean;
+  /** Identity integration fallback when cloud + SCM scopes unavailable. */
+  hasIdentity?: boolean;
 };
 
 export function readStoredSelectedAccountId(): string {
@@ -47,6 +49,7 @@ export function resolveSelectedAccountId(
   if (cloudCount != null) {
     if (cloudCount >= 1) return ALL_CLOUD_SCOPE_ID;
     if (options.hasSourceControl) return SOURCE_CONTROL_SCOPE_ID;
+    if (options.hasIdentity) return IDENTITY_SCOPE_ID;
   }
 
   return connectedIds[0] ?? "";

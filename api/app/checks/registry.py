@@ -344,3 +344,21 @@ def source_control_checks_for(provider_type: str) -> list:
     """Check modules for one provider type ('github' or 'gitlab')."""
     prefix = f"{provider_type}."
     return [mod for mod in SOURCE_CONTROL_CHECKS if mod.CHECK_ID.startswith(prefix)]
+
+
+# Identity integration checks (Okta testing, Entra, Google Workspace) are
+# org-level — driven by integration sync, not cloud-account scan.
+INTEGRATION_SYNC_PREFIXES = ("okta.", "entra.", "google_workspace.")
+
+
+def is_integration_sync_check(check_id: str) -> bool:
+    return check_id.startswith(INTEGRATION_SYNC_PREFIXES)
+
+
+INTEGRATION_SYNC_CHECKS = [mod for mod in ALL_CHECKS if is_integration_sync_check(mod.CHECK_ID)]
+
+
+def integration_sync_checks_for(provider_type: str) -> list:
+    """Check modules for one provider type ('okta'|'entra'|'google_workspace')."""
+    prefix = f"{provider_type}."
+    return [mod for mod in INTEGRATION_SYNC_CHECKS if mod.CHECK_ID.startswith(prefix)]

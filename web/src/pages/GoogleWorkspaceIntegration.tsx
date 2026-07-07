@@ -83,6 +83,8 @@ export default function GoogleWorkspaceIntegration() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] });
       setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
+      qc.invalidateQueries({ queryKey: ["controls"] });
+      qc.invalidateQueries({ queryKey: ["findings"] });
     },
   });
 

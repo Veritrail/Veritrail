@@ -1131,11 +1131,18 @@ def list_controls(
     # Source control is org-level (findings + "scanned" signal), independent of
     # the selected cloud account — fold it in so SDLC-mapped framework controls
     # grade the same as the composite view.
-    from app.services.composite_controls import load_source_control_grading_context
+    from app.services.composite_controls import (
+        load_integration_sync_grading_context,
+        load_source_control_grading_context,
+    )
 
     source_control_synced = load_source_control_grading_context(
         db, org_id, open_by_check, latest_checks_run, hidden
     )
+    integration_synced = load_integration_sync_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+    org_integrations_synced = source_control_synced or integration_synced
 
     # Manual controls (no automated checks) take their status from the org's
     # attestation, so they roll into the same pass/fail tally as scanned controls.
@@ -1171,7 +1178,7 @@ def list_controls(
             )
             hits = []
         else:
-            has_scanned = bool(acc_id and acc and acc.last_scan_at) or source_control_synced
+            has_scanned = bool(acc_id and acc and acc.last_scan_at) or org_integrations_synced
             ctrl_status, hits, _ = compute_control_status(
                 check_ids,
                 open_by_check,
@@ -1312,12 +1319,19 @@ def control_checklist(
                     latest_failed_checks.add(str(err["check_id"]))
 
     # Fold org-level source control into grading (same as the composite view).
-    from app.services.composite_controls import load_source_control_grading_context
+    from app.services.composite_controls import (
+        load_integration_sync_grading_context,
+        load_source_control_grading_context,
+    )
 
     source_control_synced = load_source_control_grading_context(
         db, org_id, open_by_check, latest_checks_run, hidden
     )
-    has_scanned = bool(acc_id and acc and acc.last_scan_at) or source_control_synced
+    integration_synced = load_integration_sync_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+    org_integrations_synced = source_control_synced or integration_synced
+    has_scanned = bool(acc_id and acc and acc.last_scan_at) or org_integrations_synced
 
     attest_by_control = {
         a.control_id: a

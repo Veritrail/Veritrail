@@ -23,6 +23,7 @@ import {
   findingsScopeDropdownValue,
   findingsScopeParams,
   flattenScopeGroups,
+  IDENTITY_SCOPE_ID,
   parseFindingsProviderScope,
   SCOPE_SENTINEL_PREFIX,
   SOURCE_CONTROL_SCOPE_ID,
@@ -111,6 +112,7 @@ function parseProviderScope(value: string | null) {
 function scopeSentinelToProvider(scope: string): string | null {
   if (scope === "all_cloud") return "all_cloud";
   if (scope === "source_control") return "source_control";
+  if (scope === "identity") return "identity";
   return null;
 }
 
@@ -820,11 +822,28 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
     staleTime: 300_000,
   });
+  const oktaProviderQ = useQuery({
+    queryKey: ["okta-integration"],
+    queryFn: () => api("/v1/integrations/okta", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const entraProviderQ = useQuery({
+    queryKey: ["integration", "entra"],
+    queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const googleWorkspaceProviderQ = useQuery({
+    queryKey: ["integration", "google-workspace"],
+    queryFn: () => api("/v1/integrations/google-workspace", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
   const hasGithub = !!githubProviderQ.data;
   const hasGitlab = !!gitlabProviderQ.data;
+  const hasIdentity =
+    !!oktaProviderQ.data?.connected || !!entraProviderQ.data || !!googleWorkspaceProviderQ.data;
   const scopeGroups = useMemo(
-    () => buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab }),
-    [cloudAccounts, hasGithub, hasGitlab],
+    () => buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab, hasIdentity }),
+    [cloudAccounts, hasGithub, hasGitlab, hasIdentity],
   );
   const connectedScopeOptions = useMemo(() => flattenScopeGroups(scopeGroups), [scopeGroups]);
   const {
@@ -836,6 +855,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     scopeDefaults: {
       cloudAccountCount: cloudAccounts.length,
       hasSourceControl: hasGithub || hasGitlab,
+      hasIdentity,
     },
   });
   const effectiveAccountId = isLocked ? lockedAccountId! : providerScope ? "" : selectedAccountId;
@@ -886,6 +906,18 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
       );
       return;
     }
+    if (stored === IDENTITY_SCOPE_ID && hasIdentity) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "identity");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
     if (stored && cloudAccounts.some((account) => account.id === stored)) return;
 
     if (cloudAccounts.length >= 1) {
@@ -912,6 +944,19 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
         },
         { replace: true },
       );
+      return;
+    }
+    if (hasIdentity) {
+      writeStoredSelectedAccountId(IDENTITY_SCOPE_ID);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "identity");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
     }
   }, [
     accountsLoading,
@@ -919,6 +964,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     cloudAccounts,
     hasGithub,
     hasGitlab,
+    hasIdentity,
     searchParams,
     setSearchParams,
   ]);
