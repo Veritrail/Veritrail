@@ -608,11 +608,47 @@
   .account-filter .selector-card__icon-box:has(.account-filter__provider--all_cloud)
     .account-filter__provider--all_cloud {
     display: block;
-    width: 18px;
-    height: 18px;
-    max-width: 18px;
-    max-height: 18px;
-    color: #64748b;
+    width: 28px;
+    height: 28px;
+    max-width: 28px;
+    max-height: 28px;
+  }
+
+  .all-cloud-provider-cluster {
+    position: relative;
+    display: block;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+  }
+
+  .all-cloud-provider-cluster__mark {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    max-width: 14px;
+    max-height: 14px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px #f8fafc;
+  }
+
+  .all-cloud-provider-cluster__mark--aws {
+    top: 4px;
+    left: 3px;
+    z-index: 1;
+  }
+
+  .all-cloud-provider-cluster__mark--gcp {
+    top: 4px;
+    right: 3px;
+    z-index: 2;
+  }
+
+  .all-cloud-provider-cluster__mark--azure {
+    bottom: 4px;
+    left: 50%;
+    z-index: 3;
+    transform: translateX(-50%);
   }
 
   .account-filter-card__text {

@@ -56,25 +56,21 @@ function ProviderBrandImg({
   );
 }
 
-/** Neutral org-level cloud aggregate — outlined cloud + three nodes (not a provider logo). */
-function AllCloudAggregateIcon({ className }: { className?: string }) {
+const ALL_CLOUD_CLUSTER_PROVIDERS: CloudProvider[] = ["aws", "gcp", "azure"];
+
+/** Compact AWS · GCP · Azure cluster for org-level cloud scope. */
+export function AllCloudProviderCluster({ className }: { className?: string }) {
   return (
-    <svg
-      className={className ?? "block shrink-0"}
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M5.25 14.75h9.5a2.85 2.85 0 0 0 .14-5.68A3.65 3.65 0 0 0 6.05 6.55 2.85 2.85 0 0 0 5.25 14.75Z"
-        stroke="currentColor"
-        strokeWidth={1.8}
-        strokeLinejoin="round"
-      />
-      <circle cx="7.35" cy="12.1" r="0.85" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="12.1" r="0.85" fill="currentColor" stroke="none" />
-      <circle cx="12.65" cy="12.1" r="0.85" fill="currentColor" stroke="none" />
-    </svg>
+    <span className={["all-cloud-provider-cluster", className].filter(Boolean).join(" ")} aria-hidden>
+      {ALL_CLOUD_CLUSTER_PROVIDERS.map((provider) => (
+        <ProviderBrandImg
+          key={provider}
+          provider={provider}
+          variant="compact"
+          className={`all-cloud-provider-cluster__mark all-cloud-provider-cluster__mark--${provider}`}
+        />
+      ))}
+    </span>
   );
 }
 
@@ -89,10 +85,10 @@ export function ProviderMark({
 }) {
   if (provider === "all_cloud") {
     return (
-      <AllCloudAggregateIcon
+      <AllCloudProviderCluster
         className={
           className ??
-          (variant === "compact" ? "h-[1.125rem] w-[1.125rem] text-[#64748b]" : "h-4 w-4 text-[#64748b]")
+          (variant === "compact" ? "all-cloud-provider-cluster--compact" : "all-cloud-provider-cluster--default")
         }
       />
     );
