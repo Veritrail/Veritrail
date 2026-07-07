@@ -64,7 +64,7 @@ export default function IntegrationCatalog() {
                       <div className="integration-catalog-card__main">
                         <IntegrationBrandIcon
                           brand={entry.brand}
-                          size={52}
+                          size={44}
                           variant="plain"
                           className="integrations-explore-card__icon integration-catalog-card__icon"
                         />
