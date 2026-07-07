@@ -1,8 +1,28 @@
+@import "tailwindcss";
 @import "./styles/toolbar-primitives.css";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@theme {
+  --text-caption: 11px;
+  --text-caption--line-height: 1.35;
+  --text-caption--letter-spacing: 0.04em;
+  --text-meta: 13px;
+  --text-meta--line-height: 1.4;
+  --text-body: 14px;
+  --text-body--line-height: 1.35;
+  --text-body--letter-spacing: -0.01em;
+  --text-subtitle: 15px;
+  --text-subtitle--line-height: 1.35;
+  --animate-scan-indeterminate: scan-indeterminate 1.8s ease-in-out infinite;
+}
+
+@keyframes scan-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
 
 @layer base {
   :root {
@@ -54,7 +74,8 @@
   }
 
   body {
-    @apply bg-[#F6F8FB] text-[#111827];
+    background-color: #f6f8fb;
+    color: #111827;
     font-family: "Geist Variable", "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
     letter-spacing: 0;
     text-size-adjust: 100%;
@@ -848,13 +869,10 @@
     color: #71717a;
   }
 
-  .veritrail-button-primary {
-    @apply veritrail-toolbar-btn veritrail-toolbar-btn--neutral text-[12px];
-  }
-
   /* Toolbar buttons — neutral default; explicit neutral variant below. */
   .veritrail-toolbar-btn,
-  .findings-v2-toolbar-btn {
+  .findings-v2-toolbar-btn,
+  .veritrail-button-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -877,27 +895,31 @@
   }
 
   .veritrail-toolbar-btn:hover:not(:disabled),
-  .findings-v2-toolbar-btn:hover:not(:disabled) {
+  .findings-v2-toolbar-btn:hover:not(:disabled),
+  .veritrail-button-primary:hover:not(:disabled) {
     border-color: var(--veritrail-neutral-border);
     background: var(--veritrail-neutral-hover);
   }
 
   .veritrail-toolbar-btn:disabled,
-  .findings-v2-toolbar-btn:disabled {
+  .findings-v2-toolbar-btn:disabled,
+  .veritrail-button-primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
   .veritrail-toolbar-btn:focus-visible,
   .findings-v2-toolbar-btn:focus-visible,
-  .findings-v2-toolbar-icon-btn:focus-visible {
+  .findings-v2-toolbar-icon-btn:focus-visible,
+  .veritrail-button-primary:focus-visible {
     outline: none;
     border-color: var(--vt-teal, #5eead4);
     box-shadow: 0 0 0 3px rgb(13 148 136 / 0.12);
   }
 
   .veritrail-toolbar-btn svg,
-  .findings-v2-toolbar-btn svg {
+  .findings-v2-toolbar-btn svg,
+  .veritrail-button-primary svg {
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
@@ -909,7 +931,8 @@
   }
 
   /* Calm white outline — Add account, Connect, View details. */
-  .veritrail-toolbar-btn--neutral {
+  .veritrail-toolbar-btn--neutral,
+  .veritrail-button-primary {
     flex-shrink: 0;
     border-color: var(--veritrail-neutral-border);
     background: #ffffff;
@@ -918,19 +941,28 @@
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   }
 
-  .veritrail-toolbar-btn--neutral svg {
+  .veritrail-button-primary {
+    font-size: 12px;
+  }
+
+  .veritrail-toolbar-btn--neutral svg,
+  .veritrail-button-primary svg {
     color: #94a3b8;
   }
 
   .veritrail-toolbar-btn--neutral:hover:not(:disabled),
-  .veritrail-toolbar-btn--neutral[aria-expanded="true"] {
+  .veritrail-toolbar-btn--neutral[aria-expanded="true"],
+  .veritrail-button-primary:hover:not(:disabled),
+  .veritrail-button-primary[aria-expanded="true"] {
     border-color: var(--veritrail-neutral-border);
     background: var(--veritrail-neutral-hover);
     color: var(--veritrail-neutral-text);
   }
 
   .veritrail-toolbar-btn--neutral:hover:not(:disabled) svg,
-  .veritrail-toolbar-btn--neutral[aria-expanded="true"] svg {
+  .veritrail-toolbar-btn--neutral[aria-expanded="true"] svg,
+  .veritrail-button-primary:hover:not(:disabled) svg,
+  .veritrail-button-primary[aria-expanded="true"] svg {
     color: #64748b;
   }
 
@@ -985,7 +1017,11 @@
   }
 
   .veritrail-kicker {
-    @apply text-[11px] font-semibold uppercase tracking-wide text-zinc-500;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+    color: #71717a;
   }
 }
 

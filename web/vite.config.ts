@@ -45,11 +45,19 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-query": ["@tanstack/react-query"],
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor-react",
+              test: /node_modules\/(react|react-dom|react-router-dom)\//,
+            },
+            {
+              name: "vendor-query",
+              test: /node_modules\/@tanstack\/react-query\//,
+            },
+          ],
         },
       },
     },
