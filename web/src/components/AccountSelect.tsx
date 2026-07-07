@@ -56,10 +56,24 @@ function ProviderBrandImg({
   );
 }
 
-function CloudIcon({ className }: { className?: string }) {
+/** Neutral org-level cloud aggregate — outlined cloud + three nodes (not a provider logo). */
+function AllCloudAggregateIcon({ className }: { className?: string }) {
   return (
-    <svg className={`${className ?? ""} text-zinc-400`} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
+    <svg
+      className={className ?? "block shrink-0"}
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M5.25 14.75h9.5a2.85 2.85 0 0 0 .14-5.68A3.65 3.65 0 0 0 6.05 6.55 2.85 2.85 0 0 0 5.25 14.75Z"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <circle cx="7.35" cy="12.1" r="0.85" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="12.1" r="0.85" fill="currentColor" stroke="none" />
+      <circle cx="12.65" cy="12.1" r="0.85" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -74,7 +88,14 @@ export function ProviderMark({
   variant?: "wordmark" | "compact";
 }) {
   if (provider === "all_cloud") {
-    return <CloudIcon className={className ?? (variant === "compact" ? "h-[1.125rem] w-[1.125rem]" : "h-4 w-4")} />;
+    return (
+      <AllCloudAggregateIcon
+        className={
+          className ??
+          (variant === "compact" ? "h-[1.125rem] w-[1.125rem] text-[#64748b]" : "h-4 w-4 text-[#64748b]")
+        }
+      />
+    );
   }
   if (provider === "source_control") {
     return <ProviderBrandImg provider="github" className={className} variant={variant} />;

@@ -592,6 +592,29 @@
     max-height: 22px;
   }
 
+  .account-filter-card__icon-box:has(.account-filter-card__provider--all_cloud),
+  .account-filter .selector-card__icon-box:has(.account-filter__provider--all_cloud) {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e6ebf2;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .account-filter-card__icon-box:has(.account-filter-card__provider--all_cloud)
+    .account-filter-card__provider--all_cloud,
+  .account-filter .selector-card__icon-box:has(.account-filter__provider--all_cloud)
+    .account-filter__provider--all_cloud {
+    display: block;
+    width: 18px;
+    height: 18px;
+    max-width: 18px;
+    max-height: 18px;
+    color: #64748b;
+  }
+
   .account-filter-card__text {
     display: flex;
     min-width: 0;
