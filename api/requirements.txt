@@ -26,4 +26,4 @@ python3-saml==1.16.0
 
 # test
 pytest==9.1.1
-pytest-mock==3.14.0
+pytest-mock==3.15.1
