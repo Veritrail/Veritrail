@@ -93,7 +93,7 @@ export function providerDisplayName(provider?: ScopeProvider): string {
     case "gitlab":
       return "GitLab";
     case "all_cloud":
-      return "All cloud accounts";
+      return "All accounts";
     case "source_control":
       return "Source control";
     default:
@@ -103,7 +103,7 @@ export function providerDisplayName(provider?: ScopeProvider): string {
 
 /** Primary line for account pickers (label, or formatted external id). */
 export function accountDisplayName(account: AccountOption & { scopeMeta?: string | null }): string {
-  if (account.provider === "all_cloud") return "All cloud accounts";
+  if (account.provider === "all_cloud") return "All accounts";
   if (account.provider === "source_control") return "Source control";
   if (account.label?.trim()) return account.label.trim();
   return groupAccountId(account.account_id ?? "");

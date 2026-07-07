@@ -1,4 +1,4 @@
-/** 3×3 dot grid for the "All cloud accounts" scope — neutral, no provider logos. */
+/** 3×3 dot grid for the "All accounts" scope — neutral, no provider logos. */
 export function AllCloudScopeIcon({ className = "all-cloud-scope-icon" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden>

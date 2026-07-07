@@ -64,7 +64,7 @@ export const SOURCE_CONTROL_SCOPE_ID = `${SCOPE_SENTINEL_PREFIX}source_control`;
 export function allCloudScopeOption(): ConnectedAccountOption {
   return {
     id: ALL_CLOUD_SCOPE_ID,
-    label: "All cloud accounts",
+    label: "All accounts",
     account_id: null,
     provider: "all_cloud",
     scopeMeta: "AWS · GCP · Azure",
