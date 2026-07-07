@@ -15,10 +15,10 @@
   gap: 1rem;
   width: 100%;
   min-width: 0;
-  /* Match workspace-page: fill the viewport content column on short pages so
-     margin-top: auto pins recommended integrations to the visual bottom. */
-  min-height: calc(100vh - 4rem);
-  padding-bottom: 0;
+  /* Size to hub content; bottom padding keeps recommended cards clear of the
+     viewport edge / macOS dock when the page is scrolled. */
+  min-height: 0;
+  padding-bottom: 4rem;
   /* Connected-table scroll cap: header + exactly 7 data rows before overflow-y kicks in.
      Icon is 48px inline (IntegrationBrandIcon size={48}); name+badge stack beside it
      can render slightly taller; capability pills and manage buttons add wrap height.
@@ -914,9 +914,11 @@
   flex: 0 0 auto;
   flex-direction: column;
   gap: 1rem;
-  margin-top: auto;
-  margin-bottom: 2.5rem;
-  padding-top: 2rem;
+  margin-top: 2rem;
+  margin-bottom: 0;
+  padding-top: 3rem;
+  padding-bottom: 1.5rem;
+  scroll-margin-top: 1rem;
   border-top: 1px solid var(--integrations-border);
 }
 
