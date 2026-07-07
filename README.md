@@ -397,7 +397,7 @@ Active development on **`dev`**; merge **`dev` → `main`** for releases. Workfl
 | Workflow | What it does |
 |----------|----------------|
 | `.github/workflows/ci.yml` | API tests (Postgres + Redis + pytest), mypy (non-blocking), frontend build + TypeScript lint, **`env-file-guard`** (fails if `.env`, `.env.prod`, or `.env.local` are tracked) |
-| `.github/workflows/dependency-scan.yml` | On PRs: dependency review (blocks high-severity changes). On push/PR: `npm audit` (web) and `pip-audit` (api; critical findings fail CI) |
+| `.github/workflows/dependency-scan.yml` | On push/PR: `npm audit` (web) and `pip-audit` (api; critical findings fail CI) |
 
 **Dependency updates:** [Dependabot](.github/dependabot.yml) opens weekly update PRs against **`dev`** for npm (`web/`), pip (`api/`), Docker, and GitHub Actions. Major **redis** bumps on `api/` are ignored (Celery compatibility). This repo does not use Snyk for dependency management — Dependabot plus the audit workflows above cover it. (Snyk is an optional **customer** vulnerability scanner integration in the product, not repo CI.)
 
