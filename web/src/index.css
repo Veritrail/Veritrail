@@ -553,7 +553,7 @@
   }
 
   .account-filter .selector-card {
-    max-width: 12rem;
+    max-width: 10.75rem;
   }
 
   .account-filter .selector-card__icon-box .account-filter__provider,
@@ -889,7 +889,7 @@
     font-size: 13px;
     font-weight: 500;
     line-height: 1.25;
-    color: #253044;
+    color: #94a3b8;
     text-decoration: none;
     transition:
       color 0.12s ease,
@@ -898,7 +898,7 @@
   }
 
   .account-filter-menu__footer-link:hover {
-    color: #27272a;
+    color: #64748b;
     background: #f4f4f5;
   }
 
@@ -906,7 +906,11 @@
     width: 0.9375rem;
     height: 0.9375rem;
     flex-shrink: 0;
-    color: #71717a;
+    color: #94a3b8;
+  }
+
+  .account-filter-menu__footer-link:hover svg {
+    color: #64748b;
   }
 
   /* Toolbar buttons — neutral default; explicit neutral variant below. */
