@@ -549,12 +549,11 @@
     display: flex;
     flex: 0 0 auto;
     align-items: center;
-    min-width: 12.5rem;
-    max-width: min(22rem, calc(100vw - 2rem));
+    min-width: 0;
   }
 
   .account-filter .selector-card {
-    min-width: 12.5rem;
+    max-width: 12rem;
   }
 
   .account-filter .selector-card__icon-box .account-filter__provider,
