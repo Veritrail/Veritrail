@@ -591,10 +591,6 @@
     max-height: 22px;
   }
 
-  .account-filter-card--no-icon .account-filter-card__text {
-    padding-left: 2.5rem;
-  }
-
   .account-filter-card__text {
     display: flex;
     min-width: 0;
