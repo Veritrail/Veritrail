@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
 import { oktaIntegrationSchema, type OktaIntegration } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
+import { invalidateIntegrationComplianceCaches } from "../lib/integrationQueryInvalidation";
 import "../styles/integration-setup.css";
 
 export default function OktaIntegration() {
@@ -29,9 +30,7 @@ export default function OktaIntegration() {
         body: JSON.stringify({ org_url: orgUrl.trim(), api_token: apiToken.trim() || undefined }),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["okta-integration"] });
-      qc.invalidateQueries({ queryKey: ["controls"] });
-      qc.invalidateQueries({ queryKey: ["findings"] });
+      invalidateIntegrationComplianceCaches(qc, { integrationStatusKey: ["okta-integration"] });
       setApiToken("");
       setSaveError("");
     },
@@ -41,16 +40,15 @@ export default function OktaIntegration() {
   const sync = useMutation({
     mutationFn: () => api("/v1/integrations/okta/sync", { method: "POST", body: "{}" }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["okta-integration"] });
-      qc.invalidateQueries({ queryKey: ["controls"] });
-      qc.invalidateQueries({ queryKey: ["findings"] });
+      invalidateIntegrationComplianceCaches(qc, { integrationStatusKey: ["okta-integration"] });
     },
     onError: (e) => setSaveError(formatApiError(e)),
   });
 
   const disconnect = useMutation({
     mutationFn: () => api<void>("/v1/integrations/okta", { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["okta-integration"] }),
+    onSuccess: () =>
+      invalidateIntegrationComplianceCaches(qc, { integrationStatusKey: ["okta-integration"] }),
   });
 
   const connected = !!data?.connected;

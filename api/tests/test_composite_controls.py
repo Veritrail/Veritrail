@@ -10,6 +10,7 @@ from app.services.composite_controls import (
     assert_control_mapping_composite_coverage,
     composite_control_definitions,
     control_mapping_checks_missing_from_composites,
+    evidence_integrations_for_check_ids,
     soc2_control_checks,
 )
 from app.services.control_status import compute_control_status
@@ -259,3 +260,32 @@ def test_mdm_endpoint_is_external_evidence_only():
     mdm = by_id["mdm_endpoint"]
     assert mdm["checks"] == []
     assert "manual evidence" in mdm["description"].lower()
+
+
+def test_evidence_integrations_for_check_ids():
+    from datetime import datetime, timezone
+
+    okta = MagicMock()
+    okta.type = "okta"
+    okta.status = "connected"
+    okta.last_synced_at = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+
+    github = MagicMock()
+    github.type = "github"
+    github.status = "connected"
+    github.last_synced_at = datetime(2026, 7, 7, 12, 0, tzinfo=timezone.utc)
+
+    unsynced = MagicMock()
+    unsynced.type = "entra_id"
+    unsynced.status = "connected"
+    unsynced.last_synced_at = None
+
+    rows = evidence_integrations_for_check_ids(
+        ["okta.org.mfa_not_enforced", "github.repo.no_branch_protection"],
+        [okta, github, unsynced],
+    )
+    assert [row["type"] for row in rows] == ["github", "okta"]
+    assert rows[0]["label"] == "GitHub"
+    assert rows[1]["label"] == "Okta"
+    assert rows[1]["connected"] is True
+    assert rows[1]["last_synced_at"].startswith("2026-07-08")

@@ -7,6 +7,7 @@ import { SourceControlManageConnected, type SourceControlManageConfig } from "..
 import { GitHubMark, Spinner } from "../components/IntegrationsUi";
 import { GITHUB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
+import { invalidateIntegrationComplianceCaches } from "../lib/integrationQueryInvalidation";
 import "../styles/integration-setup.css";
 
 type GitHubProvider = {
@@ -78,13 +79,11 @@ export default function GitHubIntegration() {
       }),
     onSuccess: (stats) => {
       setLastSync(stats);
-      qc.invalidateQueries({ queryKey: ["github-provider"] });
-      qc.invalidateQueries({ queryKey: [GITHUB_CONFIG.scopeReposPath] });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
-      // Git sync now grades Secure SDLC (source-control checks run org-level),
-      // so refresh the compliance + findings views that just changed.
-      qc.invalidateQueries({ queryKey: ["controls"] });
-      qc.invalidateQueries({ queryKey: ["findings"] });
+      invalidateIntegrationComplianceCaches(qc, {
+        integrationStatusKey: ["github-provider"],
+        scopeReposPath: GITHUB_CONFIG.scopeReposPath,
+        refreshScanRunLatest: true,
+      });
     },
   });
 
@@ -92,7 +91,10 @@ export default function GitHubIntegration() {
     mutationFn: () => api<void>("/v1/integrations/github", { method: "DELETE" }),
     onSuccess: () => {
       setLastSync(null);
-      qc.invalidateQueries({ queryKey: ["github-provider"] });
+      invalidateIntegrationComplianceCaches(qc, {
+        integrationStatusKey: ["github-provider"],
+        scopeReposPath: GITHUB_CONFIG.scopeReposPath,
+      });
     },
   });
 

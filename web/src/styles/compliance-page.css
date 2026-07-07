@@ -144,6 +144,34 @@
   gap: 0.55rem 0.65rem;
 }
 
+.control-detail-panel__header-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.control-evidence-integration-note {
+  margin: 0;
+  max-width: 18rem;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: #64748b;
+  text-align: right;
+}
+
+.control-evidence-integration-note strong {
+  font-weight: 600;
+  color: #475569;
+}
+
+.control-detail-stack--composite > .control-evidence-integration-note {
+  margin-bottom: 0.15rem;
+  max-width: none;
+  text-align: left;
+}
+
 .control-detail-panel__title {
   margin: 0;
   font-size: 1.25rem;

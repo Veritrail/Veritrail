@@ -18,6 +18,7 @@ from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser
 from app.services.entra_sync import provider_config, set_provider_config, sync_entra_provider
 from app.services.entra_tokens import EntraReconnectRequired, apply_oauth_tokens
+from app.services.integration_sync_scan import resolve_integration_sync_findings_on_disconnect
 from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
@@ -268,5 +269,6 @@ def sync_entra(body: EntraSyncIn, _rbac: RequireAdmin, p=Depends(current_princip
 def disconnect_entra(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
+        resolve_integration_sync_findings_on_disconnect(db, uuid.UUID(p["org_id"]), "entra_id")
         db.delete(provider)
         db.commit()

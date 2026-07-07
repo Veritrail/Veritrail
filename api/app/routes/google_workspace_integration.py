@@ -28,6 +28,7 @@ from app.services.google_workspace_tokens import (
     apply_oauth_tokens,
     ensure_google_workspace_token,
 )
+from app.services.integration_sync_scan import resolve_integration_sync_findings_on_disconnect
 
 router = APIRouter()
 settings = get_settings()
@@ -292,5 +293,6 @@ def sync_google_workspace(body: GoogleWorkspaceSyncIn, _rbac: RequireAdmin, p=De
 def disconnect_google_workspace(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
+        resolve_integration_sync_findings_on_disconnect(db, uuid.UUID(p["org_id"]), "google_workspace")
         db.delete(provider)
         db.commit()

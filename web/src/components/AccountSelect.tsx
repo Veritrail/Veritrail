@@ -21,7 +21,7 @@ function ProviderBrandImg({
   className,
   variant = "wordmark",
 }: {
-  provider: Exclude<ScopeProvider, "all_cloud" | "source_control" | "identity">;
+  provider: IntegrationBrandId;
   className?: string;
   variant?: "wordmark" | "compact";
 }) {

@@ -191,6 +191,9 @@ export function findingsHrefForAbsenceGaps(
   return `/findings?checks=${encodeURIComponent(gaps.join(","))}`;
 }
 
+/** Whether open absence-gap checks could be closed via external evidence intake.
+ *  Does not drive composite display status — scannable AWS composites with only
+ *  absence gaps show Failing; external-only composites use externalEvidenceCompositeDisplayStatus. */
 export function compositeNeedsExternalEvidence(
   groupStatus: "pass" | "fail" | "at_risk" | "no_data",
   checkIds: string[],

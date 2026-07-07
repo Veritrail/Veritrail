@@ -46,6 +46,22 @@ def with_source_control_for_audit(account_condition):
     return or_(account_condition, org_source_control_condition(), org_integration_condition())
 
 
+def resolve_source_control_findings_on_disconnect(
+    db: Session, org_id: uuid.UUID, provider_type: str
+) -> int:
+    """Resolve open org-scoped findings for a disconnected git provider."""
+    check_ids_run = {mod.CHECK_ID for mod in source_control_checks_for(provider_type)}
+    if not check_ids_run:
+        return 0
+    _, resolved = persist_org_findings(
+        db,
+        org_id=org_id,
+        drafts=[],
+        check_ids_run=check_ids_run,
+    )
+    return resolved
+
+
 def run_source_control_checks(db: Session, org_id: uuid.UUID, provider_type: str) -> dict[str, int]:
     """Run the source-control checks for one provider type and persist org-scoped.
 

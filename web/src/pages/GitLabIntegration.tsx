@@ -7,6 +7,7 @@ import { SourceControlManageConnected, type SourceControlManageConfig } from "..
 import { GitLabMark, Spinner } from "../components/IntegrationsUi";
 import { GITLAB_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
+import { invalidateIntegrationComplianceCaches } from "../lib/integrationQueryInvalidation";
 import "../styles/integration-setup.css";
 
 type GitLabProvider = {
@@ -84,12 +85,11 @@ export default function GitLabIntegration() {
       }),
     onSuccess: (stats) => {
       setLastSync(stats);
-      qc.invalidateQueries({ queryKey: ["gitlab-provider"] });
-      qc.invalidateQueries({ queryKey: [GITLAB_CONFIG.scopeReposPath] });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
-      // Git sync grades Secure SDLC org-level — refresh compliance + findings.
-      qc.invalidateQueries({ queryKey: ["controls"] });
-      qc.invalidateQueries({ queryKey: ["findings"] });
+      invalidateIntegrationComplianceCaches(qc, {
+        integrationStatusKey: ["gitlab-provider"],
+        scopeReposPath: GITLAB_CONFIG.scopeReposPath,
+        refreshScanRunLatest: true,
+      });
     },
   });
 
@@ -97,7 +97,10 @@ export default function GitLabIntegration() {
     mutationFn: () => api<void>("/v1/integrations/gitlab", { method: "DELETE" }),
     onSuccess: () => {
       setLastSync(null);
-      qc.invalidateQueries({ queryKey: ["gitlab-provider"] });
+      invalidateIntegrationComplianceCaches(qc, {
+        integrationStatusKey: ["gitlab-provider"],
+        scopeReposPath: GITLAB_CONFIG.scopeReposPath,
+      });
     },
   });
 

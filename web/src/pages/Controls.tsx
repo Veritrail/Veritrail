@@ -10,6 +10,8 @@ import {
   controlListSchema,
   evidenceCoverageSchema,
   externalEvidenceListSchema,
+  integrationStatusNullableSchema,
+  oktaIntegrationSchema,
 } from "../lib/apiSchemas";
 import { canUploadEvidence, roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
@@ -57,6 +59,7 @@ import {
   openCrossAccountCoverableChecks,
 } from "../lib/evidenceGap";
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
+import { EvidenceIntegrationSourceNote } from "../components/EvidenceIntegrationSourceNote";
 import { VirtualizedCompositeControlsList } from "../components/VirtualizedCompositeControlsList";
 import { DrawerDateField } from "../components/DrawerDateField";
 import {
@@ -147,6 +150,12 @@ type CompositeControlRow = {
     set_at: string | null;
   } | null;
   scanning_attestable_checks?: string[];
+  evidence_integrations?: {
+    type: string;
+    label: string;
+    connected: boolean;
+    last_synced_at: string | null;
+  }[];
 };
 
 type ControlRow = {
@@ -273,12 +282,6 @@ function compositeDisplayStatus(
     base = "unevaluated";
   } else if (ctrl.status === "fail" && hasAcceptedExternalEvidence) {
     base = "externally_covered";
-  } else if (
-    ctrl.status === "fail" &&
-    !hasAcceptedExternalEvidence &&
-    openAbsenceGapChecks(ctrl.check_ids, findingCountByCheck).length > 0
-  ) {
-    base = "needs_evidence";
   } else {
     const failingChecks = ctrl.check_ids.filter(
       (id) => (findingCountByCheck.get(id) ?? 0) > 0,
@@ -3143,7 +3146,8 @@ function buildCompositeTabs({
       label: "Gaps",
       content: (
         <div className="control-detail-stack control-detail-stack--composite">
-          {displayStatus === "needs_evidence" && hasAbsenceGaps ? (
+          <EvidenceIntegrationSourceNote integrations={ctrl.evidence_integrations} />
+          {displayStatus === "needs_evidence" && isExternalOnly ? (
             <CoverageGapExplainer absenceChecks={absenceChecks} compositeId={ctrl.id} />
           ) : null}
 
@@ -4142,13 +4146,44 @@ export default function Controls() {
     enabled: !!activeAccount && hasScanned,
   });
 
+  const oktaProviderQ = useQuery({
+    queryKey: ["okta-integration"],
+    queryFn: () => api("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
+    staleTime: 300_000,
+  });
+  const entraProviderQ = useQuery({
+    queryKey: ["integration", "entra"],
+    queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const googleWorkspaceProviderQ = useQuery({
+    queryKey: ["integration", "google-workspace"],
+    queryFn: () =>
+      api("/v1/integrations/google-workspace", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const hasIdentity =
+    !!oktaProviderQ.data?.connected ||
+    !!entraProviderQ.data ||
+    !!googleWorkspaceProviderQ.data;
+
+  const openIdentityFindingsRaw = useQuery({
+    queryKey: ["findings", "open", "identity", "controls-meta"],
+    queryFn: () =>
+      fetchAllFindings<OpenFindingMeta>({
+        status: "open",
+        provider: "identity",
+      }),
+    enabled: hasIdentity,
+  });
+
   const openFindingsMeta = useMemo(() => {
     const evidenceClasses = checkFrameworksQ.data?.evidence_classes;
     const byId = new Map<string, OpenFindingMeta>();
     const countByCheck = new Map<string, number>();
     const severityByCheck = new Map<string, string>();
-    for (const f of openFindingsRaw.data?.items ?? []) {
-      if (!openFindingAffectsControlStatus(f.check_id, evidenceClasses)) continue;
+    const mergeFinding = (f: OpenFindingMeta) => {
+      if (!openFindingAffectsControlStatus(f.check_id, evidenceClasses)) return;
       byId.set(f.id, f);
       countByCheck.set(f.check_id, (countByCheck.get(f.check_id) ?? 0) + 1);
       const prev = severityByCheck.get(f.check_id);
@@ -4158,9 +4193,18 @@ export default function Controls() {
       ) {
         severityByCheck.set(f.check_id, f.severity);
       }
+    };
+    for (const f of openFindingsRaw.data?.items ?? []) mergeFinding(f);
+    if (hasIdentity) {
+      for (const f of openIdentityFindingsRaw.data?.items ?? []) mergeFinding(f);
     }
     return { byId, countByCheck, severityByCheck };
-  }, [checkFrameworksQ.data?.evidence_classes, openFindingsRaw.data?.items]);
+  }, [
+    checkFrameworksQ.data?.evidence_classes,
+    hasIdentity,
+    openFindingsRaw.data?.items,
+    openIdentityFindingsRaw.data?.items,
+  ]);
 
   const findingCountByCheck = openFindingsMeta.countByCheck;
   const severityByCheck = openFindingsMeta.severityByCheck;
@@ -4870,6 +4914,30 @@ export default function Controls() {
               }}
               headerTitle={selectedCompositeRow.title}
               headerDescription={selectedCompositeRow.description}
+              headerStatus={
+                <div className="control-detail-panel__header-status">
+                  <ComplianceRowSummary
+                    displayStatus={compositeDisplayStatus(
+                      selectedCompositeRow,
+                      findingCountByCheck,
+                      acceptedCompositeIds.has(selectedCompositeRow.id),
+                      expiredCompositeIds.has(selectedCompositeRow.id),
+                    )}
+                    href={
+                      findingsHrefForChecks(
+                        selectedCompositeRow.check_ids,
+                        findingCountByCheck,
+                        { excludeAbsenceGaps: true },
+                      ) ??
+                      findingsHrefForAbsenceGaps(
+                        selectedCompositeRow.check_ids,
+                        findingCountByCheck,
+                      )
+                    }
+                    onNavigate={(href) => navigate(href)}
+                  />
+                </div>
+              }
               mode="overlay"
             />
           ) : selectedKind === "detailed" && selectedDetailedControl ? (

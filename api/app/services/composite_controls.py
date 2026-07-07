@@ -334,11 +334,13 @@ def load_source_control_grading_context(
             IdentityProvider.type.in_(("github", "gitlab")),
         )
     ).all()
+    active_prefixes: set[str] = set()
     synced = False
     for provider in providers:
-        if provider.last_synced_at is None:
+        if provider.last_synced_at is None or provider.status != "connected":
             continue
         synced = True
+        active_prefixes.add(f"{provider.type}.")
         for mod in source_control_checks_for(provider.type):
             latest_checks_run.add(mod.CHECK_ID)
     if not synced:
@@ -352,9 +354,61 @@ def load_source_control_grading_context(
     if hidden:
         q = q.where(Finding.check_id.notin_(hidden))
     for finding in db.scalars(q).all():
-        if is_source_control_check(finding.check_id):
+        if is_source_control_check(finding.check_id) and any(
+            finding.check_id.startswith(prefix) for prefix in active_prefixes
+        ):
             open_by_check.setdefault(finding.check_id, []).append(finding)
     return True
+
+
+_INTEGRATION_EVIDENCE_PROVIDER_TYPES = (
+    "okta",
+    "entra_id",
+    "google_workspace",
+    "github",
+    "gitlab",
+)
+
+_PROVIDER_EVIDENCE_LABELS: dict[str, str] = {
+    "okta": "Okta",
+    "entra_id": "Entra ID",
+    "google_workspace": "Google Workspace",
+    "github": "GitHub",
+    "gitlab": "GitLab",
+}
+
+
+def _check_prefix_for_evidence_provider(provider_type: str) -> str:
+    if provider_type in ("github", "gitlab"):
+        return f"{provider_type}."
+    from app.services.integration_sync_scan import check_prefix_for_provider_type
+
+    return f"{check_prefix_for_provider_type(provider_type)}."
+
+
+def evidence_integrations_for_check_ids(
+    check_ids: list[str],
+    providers: list[IdentityProvider],
+) -> list[dict[str, Any]]:
+    """Connected integrations whose check prefixes intersect a composite's checks."""
+    out: list[dict[str, Any]] = []
+    for provider in providers:
+        if provider.last_synced_at is None:
+            continue
+        prefix = _check_prefix_for_evidence_provider(provider.type)
+        if not any(cid.startswith(prefix) for cid in check_ids):
+            continue
+        api_type = "entra" if provider.type == "entra_id" else provider.type
+        synced_at = provider.last_synced_at
+        out.append(
+            {
+                "type": api_type,
+                "label": _PROVIDER_EVIDENCE_LABELS.get(provider.type, provider.type),
+                "connected": provider.status == "connected",
+                "last_synced_at": synced_at.isoformat() if synced_at else None,
+            }
+        )
+    return sorted(out, key=lambda row: row["label"].lower())
 
 
 def load_integration_sync_grading_context(
@@ -376,12 +430,14 @@ def load_integration_sync_grading_context(
             IdentityProvider.type.in_(("okta", "entra_id", "google_workspace")),
         )
     ).all()
+    active_prefixes: set[str] = set()
     synced = False
     for provider in providers:
-        if provider.last_synced_at is None:
+        if provider.last_synced_at is None or provider.status != "connected":
             continue
         synced = True
         prefix = check_prefix_for_provider_type(provider.type)
+        active_prefixes.add(f"{prefix}.")
         for mod in integration_sync_checks_for(prefix):
             latest_checks_run.add(mod.CHECK_ID)
     if not synced:
@@ -395,7 +451,9 @@ def load_integration_sync_grading_context(
     if hidden:
         q = q.where(Finding.check_id.notin_(hidden))
     for finding in db.scalars(q).all():
-        if is_integration_sync_check(finding.check_id):
+        if is_integration_sync_check(finding.check_id) and any(
+            finding.check_id.startswith(prefix) for prefix in active_prefixes
+        ):
             open_by_check.setdefault(finding.check_id, []).append(finding)
     return True
 
@@ -522,6 +580,12 @@ def list_composite_controls(
         ).all()
         if row.composite_control_id
     }
+    integration_providers = db.scalars(
+        select(IdentityProvider).where(
+            IdentityProvider.org_id == org_id,
+            IdentityProvider.type.in_(_INTEGRATION_EVIDENCE_PROVIDER_TYPES),
+        )
+    ).all()
 
     result: list[dict[str, Any]] = []
     for entry in composite_control_definitions():
@@ -580,6 +644,9 @@ def list_composite_controls(
                 "coverage_override": coverage_overrides.get(entry["id"]),
                 "coverage_override_detail": coverage_override_details.get(entry["id"]),
                 "cross_account_coverage_detail": cross_account_detail,
+                "evidence_integrations": evidence_integrations_for_check_ids(
+                    check_ids, integration_providers
+                ),
             }
         if entry["id"] == "secure_sdlc":
             row["sdlc_insights"] = sdlc_insights

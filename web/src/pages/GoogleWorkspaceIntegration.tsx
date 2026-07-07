@@ -9,6 +9,7 @@ import {
 } from "../lib/apiSchemas";
 import { formatSync, Spinner, StatusDot } from "../components/IntegrationsUi";
 import { GOOGLE_WORKSPACE_SYNC_KEY, useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
+import { invalidateIntegrationComplianceCaches } from "../lib/integrationQueryInvalidation";
 import "../styles/integration-setup.css";
 
 type Provider = {
@@ -81,10 +82,10 @@ export default function GoogleWorkspaceIntegration() {
         schema: googleWorkspaceSyncSchema,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
-      qc.invalidateQueries({ queryKey: ["controls"] });
-      qc.invalidateQueries({ queryKey: ["findings"] });
+      invalidateIntegrationComplianceCaches(qc, {
+        integrationStatusKey: ["integration", SYNC_KEY],
+        refreshScanRunLatest: true,
+      });
     },
   });
 
@@ -92,7 +93,8 @@ export default function GoogleWorkspaceIntegration() {
 
   const disconnect = useMutation({
     mutationFn: () => api("/v1/integrations/google-workspace", { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] }),
+    onSuccess: () =>
+      invalidateIntegrationComplianceCaches(qc, { integrationStatusKey: ["integration", SYNC_KEY] }),
   });
 
   const p = provider;

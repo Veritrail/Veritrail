@@ -15,6 +15,7 @@ from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser
 from app.models.org import Org
+from app.services.integration_sync_scan import resolve_integration_sync_findings_on_disconnect
 from app.services.okta_sync import (
     provider_config,
     set_provider_config,
@@ -158,5 +159,6 @@ def delete_okta(_rbac: RequireAdmin, p=Depends(current_principal), db: Session =
     org = _get_org(p, db)
     provider = _provider(db, org.id)
     if provider:
+        resolve_integration_sync_findings_on_disconnect(db, org.id, OKTA_TYPE)
         db.delete(provider)
         db.commit()

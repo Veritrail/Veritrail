@@ -117,6 +117,13 @@ class CheckScanErrorOut(BaseModel):
     error: str | None = None
 
 
+class EvidenceIntegrationOut(BaseModel):
+    type: str
+    label: str
+    connected: bool = True
+    last_synced_at: str | None = None
+
+
 class CompositeControlOut(BaseModel):
     id: str
     control_id: str
@@ -146,6 +153,7 @@ class CompositeControlOut(BaseModel):
     sdlc_insights: dict | None = None
     scanning_attestation: dict | None = None
     scanning_attestable_checks: list[str] = []
+    evidence_integrations: list[EvidenceIntegrationOut] = []
 
 
 class CheckFrameworksOut(BaseModel):
