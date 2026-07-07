@@ -1356,6 +1356,7 @@ export default function Findings() {
               onChange={handleAccountChange}
             />
             <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
+            <FindingsStatusSelect value={status} onChange={setStatus} />
           </HeaderFilterBar>
           </HeaderSlot>
         )}
@@ -1406,10 +1407,6 @@ export default function Findings() {
                     />
 
                     <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
-                    <FindingsStatusSelect
-                      value={status}
-                      onChange={setStatus}
-                    />
                   </div>
 
                   <div className="findings-v2-control-cluster">
