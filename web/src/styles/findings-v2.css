@@ -289,20 +289,6 @@
   color: #111827;
 }
 
-/* Export: text+icon ghost so the sort trio stays the only outlined group. */
-.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-btn--ghost {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  color: #52525b;
-}
-
-.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-btn--ghost:hover:not(:disabled) {
-  border-color: transparent;
-  background: #f3f4f6;
-  color: #111827;
-}
-
 /* Search and refresh sit together; the divider was pushing them apart. */
 .findings-v2-page .findings-v2-toolbar-group--divider {
   padding-left: 6px;

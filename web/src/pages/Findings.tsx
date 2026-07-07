@@ -1440,7 +1440,7 @@ export default function Findings() {
                       </button>
                     </div>
                     <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
-                      <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn findings-v2-toolbar-btn--ghost">
+                      <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn">
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                         </svg>
