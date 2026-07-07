@@ -556,6 +556,12 @@
     max-width: 10.75rem;
   }
 
+  .account-filter .selector-card__icon-box {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+  }
+
   .account-filter .selector-card__icon-box .account-filter__provider,
   .account-filter-card__icon-box .account-filter-card__provider {
     display: block;
@@ -572,13 +578,21 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 1.875rem;
-    height: 1.875rem;
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
     border-radius: 0.4375rem;
     border: 1px solid #ececef;
     background: #fff;
     padding: 0.25rem;
     box-shadow: 0 1px 2px rgb(9 9 11 / 0.03);
+  }
+
+  .account-filter-card__icon-box--empty {
+    border: none;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
   }
 
   .account-filter .selector-card__icon-box .account-filter__provider--aws,
@@ -594,7 +608,6 @@
   .account-filter-card__text {
     display: flex;
     min-width: 0;
-    flex: 1;
     flex-direction: column;
     gap: 0.125rem;
   }
@@ -767,10 +780,11 @@
   }
 
   .account-filter-card {
-    display: flex;
+    display: grid;
     width: 100%;
+    grid-template-columns: 28px minmax(0, 1fr) 20px;
+    column-gap: 12px;
     align-items: center;
-    gap: 0.625rem;
     padding: 0.5rem 0.625rem 0.5rem 0.5rem;
     border: 1px solid transparent;
     border-left: 2px solid transparent;
@@ -817,8 +831,8 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 20px;
+    height: 20px;
     color: #d4d4d8;
   }
 

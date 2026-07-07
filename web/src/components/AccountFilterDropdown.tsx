@@ -36,10 +36,9 @@ function accountMatchesQuery(account: AccountOption, query: string): boolean {
   return haystack.includes(q);
 }
 
-function accountFilterRowClass(active: boolean, noIcon: boolean): string {
+function accountFilterRowClass(active: boolean): string {
   const parts = ["account-filter-card"];
   if (active) parts.push("account-filter-card--selected");
-  if (noIcon) parts.push("account-filter-card--no-icon");
   return parts.join(" ");
 }
 
@@ -52,7 +51,7 @@ function AccountFilterRow({
   active: boolean;
   onSelect: () => void;
 }) {
-  const noIcon = account.provider === "all_cloud";
+  const isAllCloud = account.provider === "all_cloud";
 
   return (
     <button
@@ -60,9 +59,11 @@ function AccountFilterRow({
       role="option"
       aria-selected={active}
       onClick={onSelect}
-      className={accountFilterRowClass(active, noIcon)}
+      className={accountFilterRowClass(active)}
     >
-      {!noIcon ? (
+      {isAllCloud ? (
+        <span className="account-filter-card__icon-box account-filter-card__icon-box--empty" aria-hidden />
+      ) : (
         <span className="account-filter-card__icon-box">
           <ProviderMark
             provider={account.provider}
@@ -70,7 +71,7 @@ function AccountFilterRow({
             className={`account-filter-card__provider account-filter-card__provider--${account.provider ?? "aws"}`}
           />
         </span>
-      ) : null}
+      )}
       <span className="account-filter-card__text">
         <span className="account-filter-card__name">{accountDisplayName(account)}</span>
         <span className="account-filter-card__meta">{accountDisplayId(account)}</span>
@@ -314,7 +315,9 @@ export function AccountFilterDropdown({
       <SelectorCard
         ref={triggerRef}
         icon={
-          current.provider === "all_cloud" ? undefined : (
+          current.provider === "all_cloud" ? (
+            <span aria-hidden />
+          ) : (
             <ProviderMark
               provider={current.provider}
               variant="compact"
