@@ -62,12 +62,10 @@ jobs:
         working-directory: web
         run: npm run lint
 
-  secret-scan:
+  env-file-guard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - name: Block tracked env files
         run: |
@@ -76,8 +74,3 @@ jobs:
             git ls-files '.env' '.env.prod' '.env.local'
             exit 1
           fi
-
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -14,7 +14,7 @@ from app.models.github import Repo, RepoProtection
 _SECURITY_CONTEXT_PATTERNS = {
     "dependabot_alerts": ("dependabot",),
     "code_scanning": ("codeql", "code scanning", "code-scanning"),
-    "secret_scanning": ("secret scanning", "secret-scanning", "gitleaks"),
+    "secret_scanning": ("secret scanning", "secret-scanning"),
 }
 
 

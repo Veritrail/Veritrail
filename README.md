@@ -407,7 +407,7 @@ Shipped in-repo (narrow design-partner launch):
 | **Root pass-state snapshots** | `account_summary` entity per scan (`GetAccountSummary` for `iam.root.*`) |
 | **CIS honesty** | `cis_benchmark_coverage.json` in CIS packs; PDF meta shows mapped vs CIS v5 L1 total (40) |
 | **Pack integrity** | `checksum_manifest.json` — SHA-256 per artifact (manifest not self-hashed) |
-| **CI** | `.github/workflows/ci.yml` — API tests, frontend build, gitleaks, no tracked `.env` |
+| **CI** | `.github/workflows/ci.yml` — API tests, frontend build, no tracked `.env` |
 | **Historical packs** | Control status at `as_of` from finding events; benchmark-only fail; roster from snapshots |
 | **Coverage honesty** | `days_with_data` = union of successful scan days + snapshot days (not elapsed since first scan) |
 | **Activity Log** | Multi-region CloudTrail; compliance filter + operational-noise toggle; `/timeline` |
