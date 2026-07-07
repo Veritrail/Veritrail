@@ -69,6 +69,8 @@ docker compose up api worker web
 
 Open **http://localhost:5173**.
 
+After `git pull` changes `web/package-lock.json`, restart the web service so the entrypoint reinstalls deps in the container volume: `docker compose restart web`.
+
 AWS in dev: mount `~/.aws` (already in `compose.yml`) and set `AWS_PROFILE` in `.env`.
 
 ---

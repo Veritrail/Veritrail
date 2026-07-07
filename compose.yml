@@ -102,7 +102,9 @@ services:
       VITE_DEV_API_PROXY: http://api:8000
     ports:
       - "127.0.0.1:5173:5173"
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    # Entrypoint syncs node_modules when package-lock.json changes (see web/docker-entrypoint.sh).
+    # After pulling dependency updates, restart web: docker compose restart web
+    command: npm run dev -- --host 0.0.0.0
     volumes:
       - ./web:/app
       - /app/node_modules
