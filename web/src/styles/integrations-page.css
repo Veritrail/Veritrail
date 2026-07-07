@@ -15,10 +15,11 @@
   gap: 1rem;
   width: 100%;
   min-width: 0;
-  /* Fill the content column on short hub views so margin-top: auto pins
-     Available integrations to the visual bottom (~sidebar height). Parent
-     .veritrail-app-content already adds pb-8 for dock clearance. */
-  min-height: calc(100vh - 4rem);
+  /* Fill via Layout/ProductShell flex chain — avoid calc(100vh) here; it sits
+     below the app header + content padding and forced ~2–3rem of extra scroll.
+     margin-top: auto on .integrations-recommended pins the section; parent
+     .veritrail-app-content pb-8 matches sidebar dock clearance. */
+  min-height: 0;
   padding-bottom: 0;
   /* Connected-table scroll cap: header + exactly 7 data rows before overflow-y kicks in.
      Icon is 48px inline (IntegrationBrandIcon size={48}); name+badge stack beside it
@@ -917,8 +918,8 @@
   flex-direction: column;
   gap: 1rem;
   margin-top: auto;
-  margin-bottom: 2rem;
-  padding-top: 2rem;
+  margin-bottom: 0;
+  padding-top: 1.5rem;
   scroll-margin-top: 1rem;
   border-top: 1px solid var(--integrations-border);
 }
