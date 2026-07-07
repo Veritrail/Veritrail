@@ -733,9 +733,23 @@ function FindingRow({
   );
 }
 
-export default function Findings() {
+export type FindingsWorkspaceProps = {
+  /** Scope queries and filters to this connected account id (e.g. account detail tab). */
+  lockedAccountId?: string;
+  /** Render inside another page shell — no global header scope picker or URL filter sync. */
+  embedded?: boolean;
+};
+
+function invalidateFindingsQueries(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["findings"] });
+  void qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+}
+
+export function FindingsWorkspace({ lockedAccountId, embedded = false }: FindingsWorkspaceProps = {}) {
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isLocked = !!lockedAccountId;
+  const syncFiltersToUrl = !embedded;
   const [status, setStatus] = useState<StatusTab>("open");
   const [selected, setSelected] = useState<Finding | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Finding[]>([]);
@@ -744,15 +758,16 @@ export default function Findings() {
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
-  const [searchText, setSearchText] = useState(searchParams.get("q") ?? "");
+  const [searchText, setSearchText] = useState(() => (syncFiltersToUrl ? searchParams.get("q") ?? "" : ""));
   const [searchTags, setSearchTags] = useState<string[]>(() => {
+    if (!syncFiltersToUrl) return [];
     const raw = searchParams.get("checks");
     return raw ? raw.split(",").filter(Boolean) : [];
   });
   const [selectedFrameworks, setSelectedFrameworks] = useState<FrameworkId[]>(() =>
-    parseFrameworkParam(searchParams.get("framework")),
+    syncFiltersToUrl ? parseFrameworkParam(searchParams.get("framework")) : [],
   );
-  const providerScope = parseProviderScope(searchParams.get("provider"));
+  const providerScope = isLocked ? null : parseProviderScope(searchParams.get("provider"));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const [selectedGroupKeys, setSelectedGroupKeys] = useState<Set<string>>(() => new Set());
@@ -817,14 +832,18 @@ export default function Findings() {
     activeAccount: selectedActiveAccount,
     setAccountId: setSelectedAccountId,
   } = useSelectedAccountId(cloudAccounts, accountsReady, {
-    holdUrlSyncWhenParams: ["provider"],
+    holdUrlSyncWhenParams: isLocked || embedded ? ["account_id", "account", "provider"] : ["provider"],
     scopeDefaults: {
       cloudAccountCount: cloudAccounts.length,
       hasSourceControl: hasGithub || hasGitlab,
     },
   });
-  const effectiveAccountId = providerScope ? "" : selectedAccountId;
-  const activeAccount = providerScope ? undefined : selectedActiveAccount;
+  const effectiveAccountId = isLocked ? lockedAccountId! : providerScope ? "" : selectedAccountId;
+  const activeAccount = isLocked
+    ? cloudAccounts.find((account) => account.id === lockedAccountId)
+    : providerScope
+      ? undefined
+      : selectedActiveAccount;
   const scopeParams: FindingsScopeParams = providerScope
     ? { provider: providerScope }
     : findingsScopeParams(activeAccount);
@@ -832,11 +851,13 @@ export default function Findings() {
   const awsScanAccountId =
     activeAccount?.provider === "aws" || !activeAccount?.provider ? effectiveAccountId || undefined : undefined;
 
-  const findingsQueryEnabled =
-    !accountsLoading &&
-    (!!providerScope || !!effectiveAccountId || connectedScopeOptions.length > 0);
+  const findingsQueryEnabled = isLocked
+    ? !accountsLoading && !!lockedAccountId
+    : !accountsLoading &&
+      (!!providerScope || !!effectiveAccountId || connectedScopeOptions.length > 0);
 
   useEffect(() => {
+    if (isLocked || embedded) return;
     if (!accountsReady || accountsLoading) return;
     if (searchParams.has("provider") || searchParams.has("account_id")) return;
 
@@ -917,7 +938,7 @@ export default function Findings() {
     (findingsQueryEnabled && !findingsQuery.isSuccess && !findingsQuery.isError);
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
     awsScanAccountId,
-    { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
+    { onScanComplete: () => invalidateFindingsQueries(qc) },
   );
 
   useEffect(() => {
@@ -928,11 +949,12 @@ export default function Findings() {
   }, [findingsQuery.isFetching, isRefreshing]);
 
   useEffect(() => {
+    if (!syncFiltersToUrl) return;
     const raw = searchParams.get("checks");
     const next = raw ? raw.split(",").filter(Boolean) : [];
     setSearchTags(next);
     if (next.length > 0) setStatus("open");
-  }, [searchParams]);
+  }, [searchParams, syncFiltersToUrl]);
 
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "recheck" | "reopen" }) =>
@@ -941,9 +963,9 @@ export default function Findings() {
       if (action === "recheck") {
         const result = data as RecheckResponse;
         const checkId = selected?.check_id ?? result.check_id ?? "";
-        if (!applyRecheckResult(id, checkId, result)) setTimeout(() => qc.invalidateQueries({ queryKey: ["findings"] }), 6000);
+        if (!applyRecheckResult(id, checkId, result)) setTimeout(() => invalidateFindingsQueries(qc), 6000);
       } else {
-        qc.invalidateQueries({ queryKey: ["findings"] });
+        invalidateFindingsQueries(qc);
         if (selected) setSelected(data as Finding);
         if (action === "reopen") {
           clearDrawerVerifyFlash();
@@ -1128,7 +1150,7 @@ export default function Findings() {
       const results = await Promise.allSettled(selectedFindings.map((f) => mutate(f.id)));
       const failed = results.filter((r) => r.status === "rejected").length;
       setBulkBusy(false);
-      qc.invalidateQueries({ queryKey: ["findings"] });
+      invalidateFindingsQueries(qc);
       if (failed > 0) {
         setBulkMsg(`${results.length - failed} updated · ${failed} failed`);
       } else {
@@ -1221,6 +1243,7 @@ export default function Findings() {
 
   function handleBenchmarkChange(next: FrameworkId[]) {
     setSelectedFrameworks(next);
+    if (!syncFiltersToUrl) return;
     const serialized = serializeFrameworkParam(next);
     setSearchParams(
       (prev) => {
@@ -1256,6 +1279,7 @@ export default function Findings() {
 
   function handleSearch(value: string) {
     setSearchText(value);
+    if (!syncFiltersToUrl) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -1269,6 +1293,7 @@ export default function Findings() {
 
   function handleTagsChange(tags: string[]) {
     setSearchTags(tags);
+    if (!syncFiltersToUrl) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -1342,11 +1367,15 @@ export default function Findings() {
     URL.revokeObjectURL(url);
   }, [scopeParams.account_id, scopeParams.azure_subscription_id, scopeParams.gcp_project_id, scopeParams.provider, status]);
 
-  if (accountsReady && !accountsLoading && connectedScopeOptions.length === 0) return <ConnectAwsEmptyState />;
+  if (!embedded && accountsReady && !accountsLoading && connectedScopeOptions.length === 0) {
+    return <ConnectAwsEmptyState />;
+  }
 
   return (
-    <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-        {connectedScopeOptions.length > 0 && (
+    <div
+      className={`findings-v2-page findings-v2-shell w-full ${embedded ? "findings-v2-page--embedded" : "min-h-full"}`}
+    >
+        {!embedded && connectedScopeOptions.length > 0 && (
           <HeaderSlot>
           <HeaderFilterBar>
             <AccountFilterDropdown
@@ -1360,6 +1389,13 @@ export default function Findings() {
           </HeaderFilterBar>
           </HeaderSlot>
         )}
+
+        {embedded ? (
+          <div className="findings-v2-embedded-filters">
+            <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
+            <FindingsStatusSelect value={status} onChange={setStatus} />
+          </div>
+        ) : null}
 
         {showFindingsLoading && (
           <div className="findings-v2-content min-w-0">
@@ -1423,7 +1459,7 @@ export default function Findings() {
                       <button
                         type="button"
                         onClick={() => {
-                          qc.invalidateQueries({ queryKey: ["findings"] });
+                          invalidateFindingsQueries(qc);
                           setIsRefreshing(true);
                         }}
                         disabled={isRefreshing}
@@ -1656,4 +1692,8 @@ export default function Findings() {
       />
     </div>
   );
+}
+
+export default function Findings() {
+  return <FindingsWorkspace />;
 }

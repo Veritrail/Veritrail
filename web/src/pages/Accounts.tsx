@@ -60,7 +60,6 @@ import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useTriggeredCloudScan, type ScanRunLatest } from "../hooks/useTriggeredCloudScan";
 import { IconShield } from "../components/IntegrationsUi";
-import { SeverityIndicator } from "../components/SeverityIndicator";
 import { isAccountConnected } from "../lib/accountConnection";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import {
@@ -68,9 +67,8 @@ import {
   SCANNER_ROLE_NAME,
   scannerRoleArnExample,
 } from "../lib/connectionPosture";
-import { checkLabels } from "../data/checkLabels";
-import { findingDisplayGroupKey, findingGroupMeta } from "../data/findingGroups";
 import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
+import { FindingsWorkspace } from "./Findings";
 import "../styles/accounts-page.css";
 import "../styles/findings-v2.css";
 
@@ -635,8 +633,6 @@ type Finding = {
   status: string;
 };
 
-const DETAIL_FINDINGS_GROUP_LIMIT = 8;
-const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
 type CloudAccountRow = {
   provider: string;
@@ -5657,194 +5653,6 @@ function SecurityScoreCard({
   );
 }
 
-function findingsForAccountScope(
-  items: Finding[] | undefined,
-  accountId: string,
-  isAws: boolean,
-  cloud: CloudAccountRow | null,
-): Finding[] {
-  if (isAws) {
-    return (items ?? []).filter((finding) => finding.account_id === accountId);
-  }
-  const externalId = cloud?.external_id ?? cloud?.id ?? accountId;
-  return (items ?? []).filter((finding) => {
-    if (finding.account_provider !== cloud?.provider) return false;
-    if (finding.account_id === externalId || finding.account_id === accountId) return true;
-    if (finding.account_label && cloud && finding.account_label.toLowerCase() === cloud.label.toLowerCase()) {
-      return true;
-    }
-    const evidence = finding.evidence ?? {};
-    if (typeof evidence.project_id === "string" && evidence.project_id === externalId) return true;
-    if (typeof evidence.subscription_id === "string" && evidence.subscription_id === externalId) return true;
-    return false;
-  });
-}
-
-function filterOpenFindingsForAccount(
-  items: Finding[] | undefined,
-  accountId: string,
-  isAws: boolean,
-  cloud: CloudAccountRow | null,
-): Finding[] {
-  return findingsForAccountScope(items, accountId, isAws, cloud).filter(
-    (finding) => finding.status === "open",
-  );
-}
-
-function worstFindingSeverity(items: Finding[]): string {
-  return items.reduce(
-    (worst, f) => ((sevWeight[f.severity] ?? 9) < (sevWeight[worst] ?? 9) ? f.severity : worst),
-    items[0]?.severity ?? "low",
-  );
-}
-
-function uniqueFindingResourceCount(items: Finding[]): number {
-  return new Set(items.map((f) => f.resource_arn).filter(Boolean)).size;
-}
-
-function buildAccountFindingGroups(items: Finding[]): Array<{ key: string; items: Finding[] }> {
-  const map = new Map<string, Finding[]>();
-  for (const f of items) {
-    const key = findingDisplayGroupKey(f.check_id);
-    map.set(key, [...(map.get(key) ?? []), f]);
-  }
-  return [...map.entries()]
-    .sort(([, a], [, b]) => {
-      const wa = worstFindingSeverity(a);
-      const wb = worstFindingSeverity(b);
-      return (
-        (sevWeight[wa] ?? 9) - (sevWeight[wb] ?? 9) ||
-        Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score))
-      );
-    })
-    .map(([key, groupItems]) => ({ key, items: groupItems }));
-}
-
-function findingGroupTitle(groupKey: string, items: Finding[]): string {
-  return (
-    findingGroupMeta(groupKey)?.title ??
-    checkLabels[groupKey] ??
-    checkLabels[items[0]?.check_id ?? ""] ??
-    items[0]?.title ??
-    groupKey
-  );
-}
-
-function riskScorePillTone(severity: string): string {
-  return severity === "critical" || severity === "high"
-    ? "findings-v2-risk-pill--high"
-    : severity === "medium"
-      ? "findings-v2-risk-pill--medium"
-      : "findings-v2-risk-pill--low";
-}
-
-function RiskScorePill({ score, severity }: { score: number; severity: string }) {
-  return (
-    <span aria-label={`Risk score ${score}`} className={`findings-v2-risk-pill ${riskScorePillTone(severity)}`}>
-      <span className="findings-v2-risk-pill__inner">{score}</span>
-    </span>
-  );
-}
-
-function AccountDetailFindingsTab({
-  accountId,
-  hasScanned,
-  openCount,
-  findings,
-  onOpenWorkspace,
-  onOpenGroup,
-}: {
-  accountId: string;
-  hasScanned: boolean;
-  openCount: number;
-  findings: Finding[];
-  onOpenWorkspace: () => void;
-  onOpenGroup: (groupKey: string) => void;
-}) {
-  const groups = useMemo(() => buildAccountFindingGroups(findings), [findings]);
-  const previewGroups = groups.slice(0, DETAIL_FINDINGS_GROUP_LIMIT);
-  const hiddenGroupCount = Math.max(0, groups.length - previewGroups.length);
-
-  if (!hasScanned) {
-    return (
-      <div className="accounts-detail-findings accounts-detail-findings--empty">
-        <p className="accounts-detail-findings__empty-title">No findings yet</p>
-        <p className="accounts-detail-findings__empty-body">Run a scan to populate findings for this account.</p>
-      </div>
-    );
-  }
-
-  if (openCount === 0) {
-    return (
-      <div className="accounts-detail-findings accounts-detail-findings--empty">
-        <p className="accounts-detail-findings__empty-title">No open findings</p>
-        <p className="accounts-detail-findings__empty-body">
-          This account has a clean bill of health from the latest scan.
-        </p>
-        <button type="button" className="accounts-detail-findings__workspace-link" onClick={onOpenWorkspace}>
-          Open Findings workspace
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="accounts-detail-findings">
-      <div className="accounts-detail-findings__head">
-        <div
-          className="findings-v2-col-head accounts-detail-findings__col-head"
-          role="row"
-          aria-label="Findings columns"
-        >
-          <span>Severity</span>
-          <span>Finding</span>
-          <span className="accounts-detail-findings__col-head-risk">Risk</span>
-        </div>
-      </div>
-      <div className="accounts-detail-findings__list">
-        {previewGroups.map(({ key, items }) => {
-          const sev = worstFindingSeverity(items);
-          const railClass =
-            sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
-              ? `accounts-detail-finding-row--${sev}`
-              : "accounts-detail-finding-row--low";
-          const title = findingGroupTitle(key, items);
-          const resourceCount = uniqueFindingResourceCount(items);
-          const topRisk = Math.max(...items.map((f) => f.risk_score));
-          return (
-            <button
-              key={key}
-              type="button"
-              className={`accounts-detail-finding-row ${railClass}`}
-              onClick={() => onOpenGroup(key)}
-            >
-              <span className="accounts-detail-finding-row__severity-cell">
-                <SeverityIndicator severity={sev} />
-              </span>
-              <span className="accounts-detail-finding-row__main">
-                <span className="accounts-detail-finding-row__title">{title}</span>
-                {resourceCount > 0 ? (
-                  <span className="accounts-detail-finding-row__resources">
-                    · {resourceCount} {resourceCount === 1 ? "resource" : "resources"}
-                  </span>
-                ) : null}
-              </span>
-              <RiskScorePill score={topRisk} severity={sev} />
-            </button>
-          );
-        })}
-      </div>
-      {hiddenGroupCount > 0 ? (
-        <div className="accounts-detail-recent-scans__footer">
-          <button type="button" onClick={onOpenWorkspace}>
-            View all in Findings workspace →
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function countAccountResources(
   items: Finding[] | undefined,
   accountKey: string,
@@ -5971,6 +5779,7 @@ function AccountSplitDetailPane({
     backgroundPollMs: 5000,
     onScanComplete: () => {
       qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+      qc.invalidateQueries({ queryKey: ["findings"] });
       qc.invalidateQueries({ queryKey: ["controls"] });
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["accounts-scan-stats"] });
@@ -5987,6 +5796,7 @@ function AccountSplitDetailPane({
       onScanComplete: () => {
         qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
         qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+        qc.invalidateQueries({ queryKey: ["findings"] });
         qc.invalidateQueries({ queryKey: ["cloud-scan-runs", cloud!.provider, accountId] });
         qc.invalidateQueries({ queryKey: ["cloud-scan-run-latest", cloud!.provider, accountId] });
         qc.invalidateQueries({ queryKey: ["cloud-account-overview", cloud!.provider, accountId] });
@@ -6093,11 +5903,6 @@ function AccountSplitDetailPane({
       (cloudOverviewQ.isPending || cloudOverviewPrevQ.isPending || cloudScanHistoryQ.isPending));
 
   const displayStats = overviewMetricsLoading ? undefined : (stats ?? EMPTY_FINDING_STATS);
-
-  const accountFindings = useMemo(
-    () => filterOpenFindingsForAccount(findingsItems, accountId, isAws, cloud),
-    [findingsItems, accountId, isAws, cloud],
-  );
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -6680,18 +6485,14 @@ function AccountSplitDetailPane({
           </>
         )}
 
-        {tab === "findings" && (
-          <AccountDetailFindingsTab
-            accountId={accountId}
-            hasScanned={hasScanned}
-            openCount={displayStats?.open ?? 0}
-            findings={accountFindings}
-            onOpenWorkspace={() => navigate(`/findings?account=${accountId}`)}
-            onOpenGroup={(groupKey) =>
-              navigate(`/findings?account=${accountId}&checks=${encodeURIComponent(groupKey)}`)
-            }
+        {tab === "findings" && connected ? (
+          <FindingsWorkspace lockedAccountId={accountId} embedded />
+        ) : tab === "findings" ? (
+          <DetailTabStub
+            title="No findings yet"
+            body="Run a scan to populate findings for this account."
           />
-        )}
+        ) : null}
 
         {tab === "scans" && (
           isAws ? (
