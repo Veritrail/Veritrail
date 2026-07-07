@@ -590,16 +590,16 @@
 
   .account-filter-card__icon-box--all-cloud,
   .account-filter .selector-card__icon-box:has(.all-cloud-scope-icon) {
-    border: 1px solid #e6ebf2;
-    background: #f8fafc;
-    padding: 0.25rem;
-    box-shadow: 0 1px 2px rgb(9 9 11 / 0.03);
+    border: none;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
   }
 
   .all-cloud-scope-icon {
     display: block;
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     color: #64748b;
   }
 
