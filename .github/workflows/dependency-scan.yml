@@ -33,7 +33,7 @@ jobs:
           npm audit --audit-level=critical
           npm audit --audit-level=high || echo "::warning ::npm audit reported high vulnerabilities in web/ (non-blocking; fix via Dependabot or manual upgrade)"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
