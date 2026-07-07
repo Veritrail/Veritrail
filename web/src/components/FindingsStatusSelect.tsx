@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { HistoryMenuCheckmark } from "./HistoryMenuCheckmark";
@@ -6,6 +6,59 @@ import { SelectorCard } from "./SelectorCard";
 import "../styles/history-page.css";
 
 export type FindingsStatus = "open" | "excepted" | "resolved" | "all";
+
+function statusGlyphClass(status: FindingsStatus): string {
+  return `selector-card__glyph selector-card__glyph--status-${status}`;
+}
+
+function StatusOpenIcon() {
+  return (
+    <svg className={statusGlyphClass("open")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function StatusExceptedIcon() {
+  return (
+    <svg className={statusGlyphClass("excepted")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <circle cx="12" cy="12" r="7" />
+      <path strokeLinecap="round" d="M8.5 12h7" />
+    </svg>
+  );
+}
+
+function StatusResolvedIcon() {
+  return (
+    <svg className={statusGlyphClass("resolved")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <circle cx="12" cy="12" r="7" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.25 10.75 14 15 9.75" />
+    </svg>
+  );
+}
+
+function StatusAllIcon() {
+  return (
+    <svg className={statusGlyphClass("all")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <rect x="6.5" y="5.5" width="11" height="13" rx="1.75" />
+      <path strokeLinecap="round" d="M9.25 9.5h5.5M9.25 12h5.5M9.25 14.5h3.5" />
+    </svg>
+  );
+}
+
+function statusTriggerIcon(status: FindingsStatus): ReactNode {
+  switch (status) {
+    case "open":
+      return <StatusOpenIcon />;
+    case "excepted":
+      return <StatusExceptedIcon />;
+    case "resolved":
+      return <StatusResolvedIcon />;
+    case "all":
+      return <StatusAllIcon />;
+  }
+}
 
 const STATUS_OPTIONS: { id: FindingsStatus; label: string }[] = [
   { id: "open", label: "Open" },
@@ -119,6 +172,7 @@ export function FindingsStatusSelect({
       <SelectorCard
         ref={triggerRef}
         id="findings-status-filter"
+        icon={statusTriggerIcon(value)}
         label="Status"
         value={selected.label}
         iconTone="neutral"

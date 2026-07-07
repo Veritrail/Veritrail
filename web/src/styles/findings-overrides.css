@@ -11,6 +11,22 @@
   max-width: 11rem;
 }
 
+.history-filter-dropdown--status .selector-card__glyph--status-open {
+  color: #3b82f6;
+}
+
+.history-filter-dropdown--status .selector-card__glyph--status-excepted {
+  color: #d97706;
+}
+
+.history-filter-dropdown--status .selector-card__glyph--status-resolved {
+  color: #059669;
+}
+
+.history-filter-dropdown--status .selector-card__glyph--status-all {
+  color: #71717a;
+}
+
 .findings-v2-page .findings-v2-row-check {
   display: none !important;
 }
