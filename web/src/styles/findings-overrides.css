@@ -7,6 +7,10 @@
  * actionable objects live.
  */
 
+.history-filter-dropdown--status .selector-card {
+  max-width: 11rem;
+}
+
 .findings-v2-page .findings-v2-row-check {
   display: none !important;
 }
