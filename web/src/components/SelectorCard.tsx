@@ -20,7 +20,7 @@ function FilterChevron({ open }: { open: boolean }) {
 }
 
 export type SelectorCardProps = {
-  icon: ReactNode;
+  icon?: ReactNode;
   label: string;
   value: string;
   open?: boolean;
@@ -45,7 +45,9 @@ export const SelectorCard = forwardRef<HTMLButtonElement, SelectorCardProps>(fun
         .join(" ")}
       {...props}
     >
-      <span className={`selector-card__icon-box selector-card__icon-box--${iconTone}`}>{icon}</span>
+      {icon ? (
+        <span className={`selector-card__icon-box selector-card__icon-box--${iconTone}`}>{icon}</span>
+      ) : null}
       <span className="selector-card__body">
         <span className="selector-card__label">{label}</span>
         <span className="selector-card__value">{value}</span>

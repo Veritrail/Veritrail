@@ -36,9 +36,10 @@ function accountMatchesQuery(account: AccountOption, query: string): boolean {
   return haystack.includes(q);
 }
 
-function accountFilterRowClass(active: boolean): string {
+function accountFilterRowClass(active: boolean, noIcon: boolean): string {
   const parts = ["account-filter-card"];
   if (active) parts.push("account-filter-card--selected");
+  if (noIcon) parts.push("account-filter-card--no-icon");
   return parts.join(" ");
 }
 
@@ -51,21 +52,25 @@ function AccountFilterRow({
   active: boolean;
   onSelect: () => void;
 }) {
+  const noIcon = account.provider === "all_cloud";
+
   return (
     <button
       type="button"
       role="option"
       aria-selected={active}
       onClick={onSelect}
-      className={accountFilterRowClass(active)}
+      className={accountFilterRowClass(active, noIcon)}
     >
-      <span className="account-filter-card__icon-box">
-        <ProviderMark
-          provider={account.provider}
-          variant="compact"
-          className={`account-filter-card__provider account-filter-card__provider--${account.provider ?? "aws"}`}
-        />
-      </span>
+      {!noIcon ? (
+        <span className="account-filter-card__icon-box">
+          <ProviderMark
+            provider={account.provider}
+            variant="compact"
+            className={`account-filter-card__provider account-filter-card__provider--${account.provider ?? "aws"}`}
+          />
+        </span>
+      ) : null}
       <span className="account-filter-card__text">
         <span className="account-filter-card__name">{accountDisplayName(account)}</span>
         <span className="account-filter-card__meta">{accountDisplayId(account)}</span>
@@ -309,11 +314,13 @@ export function AccountFilterDropdown({
       <SelectorCard
         ref={triggerRef}
         icon={
-          <ProviderMark
-            provider={current.provider}
-            variant="compact"
-            className={`account-filter__provider account-filter__provider--${current.provider ?? "aws"}`}
-          />
+          current.provider === "all_cloud" ? undefined : (
+            <ProviderMark
+              provider={current.provider}
+              variant="compact"
+              className={`account-filter__provider account-filter__provider--${current.provider ?? "aws"}`}
+            />
+          )
         }
         label="Account"
         value={accountDisplayName(current)}

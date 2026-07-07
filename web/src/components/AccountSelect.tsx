@@ -56,28 +56,6 @@ function ProviderBrandImg({
   );
 }
 
-/** Neutral stacked-layers icon for org-level cloud scope (not a provider logo). */
-export function AllCloudScopeIcon({ className }: { className?: string }) {
-  return (
-    <span className={["all-cloud-scope-icon", className].filter(Boolean).join(" ")} aria-hidden>
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#64748b"
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="all-cloud-scope-icon__svg"
-        aria-hidden
-      >
-        <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" />
-        <path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" />
-        <path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" />
-      </svg>
-    </span>
-  );
-}
-
 export function ProviderMark({
   provider,
   className,
@@ -88,14 +66,7 @@ export function ProviderMark({
   variant?: "wordmark" | "compact";
 }) {
   if (provider === "all_cloud") {
-    return (
-      <AllCloudScopeIcon
-        className={
-          className ??
-          (variant === "compact" ? "all-cloud-scope-icon--compact" : "all-cloud-scope-icon--default")
-        }
-      />
-    );
+    return null;
   }
   if (provider === "source_control") {
     return <ProviderBrandImg provider="github" className={className} variant={variant} />;
@@ -235,7 +206,9 @@ export function AccountSelect({
         aria-expanded={open}
         className={`${CONTEXT_PILL} max-w-[18rem] cursor-pointer gap-2.5 text-left border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03] transition hover:border-zinc-300 hover:bg-zinc-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
       >
-        <ProviderMarkInternal provider={current.provider} className="h-6 w-10" />
+        {current.provider !== "all_cloud" ? (
+          <ProviderMarkInternal provider={current.provider} className="h-6 w-10" />
+        ) : null}
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-none tracking-[-0.02em] text-zinc-900">
           {current.label || groupAccountId(current.account_id ?? "")}
         </span>
@@ -273,8 +246,12 @@ export function AccountSelect({
                   active ? "bg-indigo-50 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
                 }`}
               >
-                <ProviderMarkInternal provider={a.provider} className="h-5 w-10 shrink-0" />
-                <span className="min-w-0 flex-1">
+                {a.provider !== "all_cloud" ? (
+                  <ProviderMarkInternal provider={a.provider} className="h-5 w-10 shrink-0" />
+                ) : null}
+                <span
+                  className={`min-w-0 flex-1${a.provider === "all_cloud" ? " pl-[2.5rem]" : ""}`}
+                >
                   <span className="block truncate text-sm font-semibold leading-tight tracking-[-0.02em]">
                     {hasLabel ? a.label : groupAccountId(a.account_id ?? "")}
                   </span>
