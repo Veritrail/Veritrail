@@ -216,15 +216,14 @@ Audit item: *"Custom evidence categories shipped; per-control mapping still part
 
 ### Phase 8 — Release 5 integrations
 
-Audit item: *"Snyk/Orca/Aikido/Splunk/Datadog/SIEM; Okta live sync; scanner auto-import."*
+Audit item: *"Snyk/Orca/Aikido/Splunk/Datadog/SIEM; scanner auto-import."*
 
 Pick **one vendor per agent run**. **Value order (2026-07-03):** run in the order below —
 auto-import first (it activates the dormant Wiz/Tenable/Qualys phase-one connections and
 feeds the Vulnerability Management composite), then Snyk (most common at SOC 2-stage
-companies; lands into the auto-import pipe), then Okta (reuses the Entra/GWS sync pattern;
-CC6.1/6.2 access-review evidence). SIEM adapters are evidence *destinations*, not sources —
+companies; lands into the auto-import pipe). SIEM adapters are evidence *destinations*, not sources —
 weakest audit-pack contribution, do them last. **Prerequisite:** vendor sandboxes (Snyk
-free-tier org, Okta developer tenant) — building against mocks alone does not meet the
+free-tier org) — building against mocks alone does not meet the
 works-end-to-end bar.
 
 #### 8.1 — Scanner auto-import (do first)
@@ -240,8 +239,8 @@ works-end-to-end bar.
 
 #### 8.3 — Identity
 
-- [x] Okta live sync (parallel to Entra/GWS) — `identity_provider.py` extension
-- [x] Okta access review evidence in audit pack
+- [x] Entra/Google Workspace live sync — `identity_provider.py` extension
+- [x] Identity access review evidence in audit pack
 
 #### 8.4 — SIEM / monitoring (do last within Phase 8)
 
@@ -294,7 +293,6 @@ From `enterprise-readiness.md` and direction `TODO`. **Do not start until Phase 
 - [x] Advanced custom frameworks — `org_frameworks` table + API + `CustomFrameworkSettings.tsx`
 - [x] Live Intune API collector — `intune_sync.py`, `intune_integration.py`, `intune.device.not_encrypted`
 - [x] Live Jamf API collector — `jamf_sync.py`, `jamf_integration.py`, `jamf.device.not_encrypted`
-- [x] Live Okta API collector — extended `okta_sync.py` + `okta.app.overprivileged_grant`, `okta.service.api_token_stale`
 - [x] Auditor approval UI for vault objects — `vault_export_shares` + scoped-link share records + approval history UI
 - [x] Separate `EvidenceRequirement` / `ControlCoverage` DB tables — migration `0088`, `control_coverage_store.py`
 
@@ -345,7 +343,6 @@ Items from `direction/README_Veritrail_Engineering_and_Evidence_Strategy.md` not
 - [ ] Orca / Snyk / Aikido — Phase 8
 - [ ] Datadog / Splunk / SIEM — Phase 8
 - [~] Entra / Google Workspace sync — phase-one shipped
-- [ ] Okta live sync — Phase 8
 - [~] Intune / Jamf registry + upload — no live API
 - [ ] Kandji MDM support
 
@@ -389,8 +386,8 @@ Not direction-product features; landed in recent commits.
 | **5** | Azure Release 4 collectors | L | Phase 3 | Resource Graph, Activity Log, Entra/RBAC, Policy |
 | **6** | Evidence RBAC groundwork | M | — | Contributor / reviewer / auditor-viewer |
 | **7** | Custom control mapping | M | Phase 6 optional | Per-control org mapping |
-| **8** | Release 5 integrations | XL | Phases 4–5 | Snyk/Orca/Aikido/Splunk/Datadog/SIEM; Okta live; scanner auto-import |
-| **9** | Deferred P4 | XL | Phases 1–8 | AI pack summary, full SOC 2 questionnaire, HR/training/vendor-risk, advanced frameworks, live Intune/Jamf/Okta APIs |
+| **8** | Release 5 integrations | XL | Phases 4–5 | Snyk/Orca/Aikido/Splunk/Datadog/SIEM; scanner auto-import |
+| **9** | Deferred P4 | XL | Phases 1–8 | AI pack summary, full SOC 2 questionnaire, HR/training/vendor-risk, advanced frameworks, live Intune/Jamf APIs |
 
 ---
 
@@ -461,4 +458,4 @@ flowchart LR
 
 ### Phase 9 — P4 deferred
 
-- [x] AI pack summary, SOC2 questionnaire, HR/training/vendor-risk, custom frameworks, live MDM/Okta APIs, vault approval UI, coverage tables
+- [x] AI pack summary, SOC2 questionnaire, HR/training/vendor-risk, custom frameworks, live MDM APIs, vault approval UI, coverage tables

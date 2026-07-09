@@ -5,7 +5,7 @@ python3-saml (OneLogin). That native dependency (xmlsec/libxml2) must be present
 in the image — see api/Dockerfile and requirements.txt.
 
 NOT YET integration-tested against a live IdP in this environment. Validate the
-full round-trip against Okta / Azure AD before enabling in production.
+full round-trip against Entra ID / Azure AD before enabling in production.
 """
 from __future__ import annotations
 

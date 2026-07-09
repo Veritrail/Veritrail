@@ -8,7 +8,6 @@ import {
   iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
   jiraIntegrationSchema,
-  oktaIntegrationSchema,
   scannerIntegrationSchema,
   settingsSchema,
 } from "../lib/apiSchemas";
@@ -295,10 +294,6 @@ function IntegrationsContent() {
     queryKey: ["scanner-aikido"],
     queryFn: () => api("/v1/integrations/scanners/aikido", { schema: scannerIntegrationSchema }),
   });
-  const okta = useQuery({
-    queryKey: ["okta-integration"],
-    queryFn: () => api("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
-  });
   const iacRepository = useQuery({
     queryKey: ["iac-repository-integration"],
     queryFn: () => api("/v1/integrations/iac-repository", { schema: iacRepositoryIntegrationSchema }),
@@ -355,7 +350,6 @@ function IntegrationsContent() {
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
-  const oktaConnected = !!okta.data?.connected;
   const iacRepositoryConnected = !!iacRepository.data?.connected;
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
@@ -367,7 +361,6 @@ function IntegrationsContent() {
     gitlabConnected,
     googleConnected,
     entraConnected,
-    oktaConnected,
     slackConnected,
     gcpConnected,
     azureConnected,
@@ -496,25 +489,6 @@ function IntegrationsContent() {
             healthLabel: entraSync.isSyncing ? "Syncing" : "Healthy",
             healthTone: (entraSync.isSyncing ? "sync" : "ok") as Tone,
             permissionsLabel: "OAuth connected",
-            permissionsVerified: true,
-            capabilities: ["MFA posture", "Inactive users", "Admin review"],
-          } satisfies IntegrationRow,
-        ]
-      : []),
-    ...(oktaConnected
-      ? [
-          {
-            key: "okta",
-            name: "Okta",
-            description: "Directory sync for MFA posture, inactive users, and admin access review",
-            icon: <IntegrationBrandIcon brand="okta" size={48} />,
-            href: "/integrations/okta",
-            connected: true,
-            loading: okta.isLoading,
-            lastSyncAt: okta.data?.last_synced_at ?? null,
-            healthLabel: "Healthy",
-            healthTone: "ok" as Tone,
-            permissionsLabel: "API token",
             permissionsVerified: true,
             capabilities: ["MFA posture", "Inactive users", "Admin review"],
           } satisfies IntegrationRow,
@@ -703,7 +677,6 @@ function IntegrationsContent() {
           gitlabConnected,
           googleConnected,
           entraConnected,
-          oktaConnected,
           slackConnected,
           gcpConnected,
           azureConnected,
@@ -789,7 +762,7 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
       <div ref={stripRef} className="integrations-explore-strip">
         {visibleEntries.map((entry) => (
           <article key={entry.key} className="integrations-explore-card">
-            <IntegrationBrandIcon brand={entry.brand} size={44} variant="plain" className="integrations-explore-card__icon" />
+            <IntegrationBrandIcon brand={entry.brand} size={40} variant="plain" className="integrations-explore-card__icon" />
             <div className="integrations-explore-card__body">
               <div className="integrations-explore-card__name">{entry.name}</div>
               <p className="integrations-explore-card__desc">{entry.description}</p>

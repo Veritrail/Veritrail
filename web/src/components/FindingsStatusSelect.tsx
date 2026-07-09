@@ -15,7 +15,6 @@ function StatusOpenIcon() {
   return (
     <svg className={statusGlyphClass("open")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
       <circle cx="12" cy="12" r="7" />
-      <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -23,8 +22,7 @@ function StatusOpenIcon() {
 function StatusExceptedIcon() {
   return (
     <svg className={statusGlyphClass("excepted")} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
-      <circle cx="12" cy="12" r="7" />
-      <path strokeLinecap="round" d="M8.5 12h7" />
+      <circle cx="12" cy="12" r="7" pathLength={48} strokeDasharray="2.5 2.5" strokeLinecap="round" />
     </svg>
   );
 }

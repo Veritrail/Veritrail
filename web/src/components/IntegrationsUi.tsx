@@ -446,14 +446,6 @@ export function AzureMark({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-export function OktaMark({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
-      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3.2a6.8 6.8 0 1 1 0 13.6 6.8 6.8 0 0 1 0-13.6z" />
-    </svg>
-  );
-}
-
 export function PagerDutyMark({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">

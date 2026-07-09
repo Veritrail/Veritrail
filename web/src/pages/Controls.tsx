@@ -11,7 +11,6 @@ import {
   evidenceCoverageSchema,
   externalEvidenceListSchema,
   integrationStatusNullableSchema,
-  oktaIntegrationSchema,
 } from "../lib/apiSchemas";
 import { canUploadEvidence, roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
@@ -4146,11 +4145,6 @@ export default function Controls() {
     enabled: !!activeAccount && hasScanned,
   });
 
-  const oktaProviderQ = useQuery({
-    queryKey: ["okta-integration"],
-    queryFn: () => api("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
-    staleTime: 300_000,
-  });
   const entraProviderQ = useQuery({
     queryKey: ["integration", "entra"],
     queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
@@ -4163,7 +4157,6 @@ export default function Controls() {
     staleTime: 300_000,
   });
   const hasIdentity =
-    !!oktaProviderQ.data?.connected ||
     !!entraProviderQ.data ||
     !!googleWorkspaceProviderQ.data;
 

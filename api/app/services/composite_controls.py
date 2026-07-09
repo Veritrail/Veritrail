@@ -94,7 +94,6 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "identity_center.user.inactive_90d": "asset_inventory",
     "google_workspace.user.inactive_90d": "asset_inventory",
     "entra.user.inactive_90d": "asset_inventory",
-    "okta.user.inactive_90d": "asset_inventory",
     # Secure SDLC vs change management
     "github.repo.no_branch_protection": "secure_sdlc",
     "gitlab.repo.no_branch_protection": "secure_sdlc",
@@ -163,8 +162,6 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "guardduty.open_findings": "incident_response",
     "intune.device.not_encrypted": "mdm_endpoint",
     "jamf.device.not_encrypted": "mdm_endpoint",
-    "okta.app.overprivileged_grant": "identity_governance",
-    "okta.service.api_token_stale": "identity_governance",
 }
 
 
@@ -362,7 +359,6 @@ def load_source_control_grading_context(
 
 
 _INTEGRATION_EVIDENCE_PROVIDER_TYPES = (
-    "okta",
     "entra_id",
     "google_workspace",
     "github",
@@ -370,7 +366,6 @@ _INTEGRATION_EVIDENCE_PROVIDER_TYPES = (
 )
 
 _PROVIDER_EVIDENCE_LABELS: dict[str, str] = {
-    "okta": "Okta",
     "entra_id": "Entra ID",
     "google_workspace": "Google Workspace",
     "github": "GitHub",
@@ -420,14 +415,14 @@ def load_integration_sync_grading_context(
 ) -> bool:
     """Load org-scoped identity integration findings + mark those checks 'run'.
 
-    Returns True if okta/entra_id/google_workspace has completed a sync.
+    Returns True if entra_id/google_workspace has completed a sync.
     """
     from app.services.integration_sync_scan import check_prefix_for_provider_type
 
     providers = db.scalars(
         select(IdentityProvider).where(
             IdentityProvider.org_id == org_id,
-            IdentityProvider.type.in_(("okta", "entra_id", "google_workspace")),
+            IdentityProvider.type.in_(("entra_id", "google_workspace")),
         )
     ).all()
     active_prefixes: set[str] = set()

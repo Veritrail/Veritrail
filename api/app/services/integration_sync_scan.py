@@ -1,4 +1,4 @@
-"""Run identity integration checks (Okta/Entra/Google Workspace) on sync.
+"""Run identity integration checks (Entra/Google Workspace) on sync.
 
 These are org-level compliance domains — not tied to any cloud account. Checks
 run when an identity provider syncs and persist findings org-scoped
@@ -15,7 +15,6 @@ from app.checks.registry import integration_sync_checks_for
 
 # IdentityProvider.type values mapped to check-id prefixes.
 _PROVIDER_TYPE_TO_CHECK_PREFIX: dict[str, str] = {
-    "okta": "okta",
     "entra_id": "entra",
     "google_workspace": "google_workspace",
 }
@@ -51,7 +50,7 @@ def resolve_integration_sync_findings_on_disconnect(
 def run_integration_checks(db: Session, org_id: uuid.UUID, provider_type: str) -> dict[str, int]:
     """Run identity integration checks for one provider and persist org-scoped.
 
-    ``provider_type`` is IdentityProvider.type (``okta``, ``entra_id``,
+    ``provider_type`` is IdentityProvider.type (``entra_id``,
     ``google_workspace``). Returns {"opened", "resolved", "checks_run"}.
     Caller commits.
     """

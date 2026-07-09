@@ -167,7 +167,7 @@ or_(
 | AWS/GCP/Azure scan findings | Yes | FK column set |
 | GitHub/GitLab (`github.*`, `gitlab.*`) | **No** | All cloud FKs NULL |
 | Scanner findings (`scanner.*`) with NULL cloud FKs | **No** (by FK rule) | Org-level scanner imports; not starter cloud-account scope |
-| Identity findings (Okta/Entra/etc.) with NULL cloud FKs | **No** | Same as above |
+| Identity findings (Entra/Google Workspace/etc.) with NULL cloud FKs | **No** | Same as above |
 | Legacy deep links `?provider=github` | Still work | Backend unchanged for `github`/`gitlab`; UI maps to Source control row |
 | Org with one cloud account | All cloud == that account’s findings | Still show All cloud as default/top option for consistency |
 

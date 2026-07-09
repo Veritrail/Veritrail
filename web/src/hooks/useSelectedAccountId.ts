@@ -18,13 +18,18 @@ export function useSelectedAccountId(
   accountsReady: boolean,
   options?: {
     holdUrlSyncWhenParams?: string[];
-    scopeDefaults?: Pick<ResolveSelectedAccountOptions, "cloudAccountCount" | "hasSourceControl">;
+    scopeDefaults?: Pick<ResolveSelectedAccountOptions, "cloudAccountCount" | "hasSourceControl" | "hasIdentity">;
+    /** Never write `account_id` into the URL or sessionStorage (org readiness home:
+     *  bare `/accounts` must stay unscoped instead of auto-selecting a persisted account). */
+    disableUrlSync?: boolean;
   },
 ) {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlAccountId = accountIdFromSearchParams(searchParams);
   const connectedIds = useMemo(() => connectedAccounts.map((account) => account.id), [connectedAccounts]);
-  const holdUrlSync = (options?.holdUrlSyncWhenParams ?? []).some((key) => searchParams.has(key));
+  const holdUrlSync =
+    (options?.disableUrlSync ?? false) ||
+    (options?.holdUrlSyncWhenParams ?? []).some((key) => searchParams.has(key));
 
   const accountId = useMemo(() => {
     if (!accountsReady || connectedIds.length === 0) {

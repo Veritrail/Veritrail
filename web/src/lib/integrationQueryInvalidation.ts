@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 type IntegrationComplianceCacheOptions = {
-  /** Integration status query key, e.g. ["okta-integration"] or ["integration", "entra"]. */
+  /** Integration status query key, e.g. ["integration", "entra"]. */
   integrationStatusKey?: readonly unknown[];
   /** GitHub/GitLab scope-repos API path used as a query key prefix. */
   scopeReposPath?: string;
@@ -25,6 +25,7 @@ export function invalidateIntegrationComplianceCaches(
 
   void qc.invalidateQueries({ queryKey: ["findings"] });
   void qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+  void qc.invalidateQueries({ queryKey: ["org-readiness"] });
   void qc.invalidateQueries({ queryKey: ["controls"] });
   void qc.invalidateQueries({ queryKey: ["compliance-hero"] });
   void qc.invalidateQueries({ queryKey: ["evidence-coverage"] });

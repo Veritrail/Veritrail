@@ -6521,6 +6521,7 @@ export function FindingDrawer({
   onRemTabChange,
   verified,
   verifyUnchanged,
+  verifyError,
   verifying,
   onDismissVerifyOutcome,
   onFocusFinding,
@@ -6539,6 +6540,7 @@ export function FindingDrawer({
   onRemTabChange: (mode: FindingRemediationMode) => void;
   verified?: boolean;
   verifyUnchanged?: boolean;
+  verifyError?: boolean;
   verifying?: boolean;
   onDismissVerifyOutcome?: () => void;
 }) {
@@ -6930,6 +6932,26 @@ export function FindingDrawer({
               type="button"
               onClick={onDismissVerifyOutcome}
               className="shrink-0 text-[11px] font-medium text-amber-900/80 hover:text-amber-950"
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
+      {verifyError && !verified && (
+        <div
+          className="flex items-start gap-3 rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3.5 text-[12px] leading-relaxed text-red-950"
+          role="status"
+        >
+          <p className="min-w-0 flex-1">
+            <span className="font-semibold">Verify couldn't complete</span> — Veritrail couldn't reach AWS to
+            re-check this finding. Check the account connector, then try again.
+          </p>
+          {onDismissVerifyOutcome && (
+            <button
+              type="button"
+              onClick={onDismissVerifyOutcome}
+              className="shrink-0 text-[11px] font-medium text-red-900/80 hover:text-red-950"
             >
               Dismiss
             </button>

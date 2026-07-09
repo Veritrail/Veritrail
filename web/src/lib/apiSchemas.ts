@@ -690,22 +690,6 @@ export const jiraIntegrationSchema = z
 
 export type JiraIntegration = z.infer<typeof jiraIntegrationSchema>;
 
-/** GET/PUT /v1/integrations/okta — OktaProviderOut. */
-export const oktaIntegrationSchema = z
-  .object({
-    connected: z.boolean(),
-    status: z.string(),
-    org_url: z.string().nullable().optional(),
-    last_synced_at: z.string().nullable().optional(),
-    identity_users: z.number().default(0),
-    admin_users: z.number().default(0),
-    mfa_policy_enforced: z.boolean().nullable().optional(),
-    has_api_token: z.boolean().optional(),
-  })
-  .passthrough();
-
-export type OktaIntegration = z.infer<typeof oktaIntegrationSchema>;
-
 export const githubIssuesIntegrationSchema = z
   .object({
     connected: z.boolean(),

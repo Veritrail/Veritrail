@@ -20,9 +20,8 @@ Veritrail connects to cloud providers, identity directories, code hosts, vulnera
 |---|---|---|
 | **Google Workspace** | MFA enforcement, inactive users, admin review (CC6) | OAuth (Admin SDK read-only) |
 | **Microsoft Entra ID** | MFA posture, stale users, privileged roles (CC6) | OAuth (Microsoft Graph) |
-| **Okta** | Directory sync, MFA policy posture, admin access-review findings | Org URL + SSWS API token (`OKTA_ORG_URL` / token in provider config) |
 
-Okta sync: `PUT /v1/integrations/okta`, `POST /v1/integrations/okta/sync`. Identity checks: `okta.org.mfa_not_enforced`, `okta.user.inactive_90d`, `okta.admin.unreviewed`. Included in `access_review_summary.json`.
+Entra sync: `PUT /v1/integrations/entra`, `POST /v1/integrations/entra/sync`. Google Workspace sync: `PUT /v1/integrations/google-workspace`, `POST /v1/integrations/google-workspace/sync`. Identity checks: `entra.org.mfa_not_enforced`, `google_workspace.org.mfa_not_enforced`, and related admin/inactive-user checks. Included in `access_review_summary.json`.
 
 ## Source control & SDLC
 

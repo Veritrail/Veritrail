@@ -34,9 +34,11 @@ export type VerifyNotification = {
   kind: "verify";
   findingId: string;
   checkId: string;
-  status: "verified" | "unchanged";
+  status: "verified" | "unchanged" | "error";
   completedAt: number;
   readAt?: number;
+  /** Collection/verification error (e.g. AssumeRole denied) — verify never reached AWS. */
+  message?: string;
 };
 
 export type CloudTrailNotification = {
@@ -135,6 +137,14 @@ function newNotificationId(): string {
   return crypto.randomUUID();
 }
 
+/**
+ * Stable per-finding id so repeated verify attempts replace the existing card
+ * (latest outcome wins) instead of stacking duplicates.
+ */
+function verifyNotificationId(findingId: string): string {
+  return `verify:${findingId}`;
+}
+
 export function roleLabelFromArn(roleArn: string): string {
   const slash = roleArn.lastIndexOf("/");
   return slash >= 0 ? roleArn.slice(slash + 1) : roleArn;
@@ -196,6 +206,26 @@ function migrateV2(raw: string): PersistedV3 {
   }
 }
 
+/**
+ * Collapse persisted verify entries (which historically had random UUID ids)
+ * onto the stable per-finding id, keeping only the newest per finding.
+ */
+function dedupeVerifyHistory(history: NotificationItem[]): NotificationItem[] {
+  const seen = new Set<string>();
+  const out: NotificationItem[] = [];
+  for (const item of history) {
+    if (item.kind !== "verify") {
+      out.push(item);
+      continue;
+    }
+    const id = verifyNotificationId(item.findingId);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ ...item, id });
+  }
+  return out;
+}
+
 function notificationStorageKey(orgId: string | null | undefined): string {
   return orgId ? `${STORAGE_KEY}:${orgId}` : `${STORAGE_KEY}:no-org`;
 }
@@ -228,6 +258,8 @@ function loadPersisted(storageKey: string): PersistedV3 & { latestVerifyOutcome:
       }
     }
 
+    state.history = dedupeVerifyHistory(state.history);
+
     let latestVerifyOutcome: VerifyNotification | null = null;
     for (const item of state.history) {
       if (item.kind === "verify") {
@@ -238,14 +270,14 @@ function loadPersisted(storageKey: string): PersistedV3 & { latestVerifyOutcome:
 
     if (state.pendingRecheck && Date.now() - state.pendingRecheck.startedAt >= RECHECK_TIMEOUT_MS) {
       const timedOut: VerifyNotification = {
-        id: newNotificationId(),
+        id: verifyNotificationId(state.pendingRecheck.findingId),
         kind: "verify",
         findingId: state.pendingRecheck.findingId,
         checkId: state.pendingRecheck.checkId,
         status: "unchanged",
         completedAt: Date.now(),
       };
-      state.history = [timedOut, ...state.history].slice(0, HISTORY_LIMIT);
+      state.history = pushHistory(state.history, timedOut);
       latestVerifyOutcome = timedOut;
       state.pendingRecheck = null;
     }
@@ -264,8 +296,24 @@ function savePersisted(storageKey: string, state: PersistedV3) {
   }
 }
 
+/**
+ * Same-id re-adds only keep the dismissed state when the outcome is unchanged —
+ * a different outcome (e.g. still-open → resolved/error) must resurface as unread.
+ */
+function sameOutcome(a: NotificationItem, b: NotificationItem): boolean {
+  if (a.kind === "verify" && b.kind === "verify") {
+    return a.status === b.status && a.message === b.message;
+  }
+  // Other kinds encode the outcome in the id (scan_failure) or never reuse ids
+  // with a different status, so a matching id means a matching outcome.
+  return true;
+}
+
 function pushHistory(history: NotificationItem[], entry: NotificationItem): NotificationItem[] {
-  return [entry, ...history.filter((h) => h.id !== entry.id)].slice(0, HISTORY_LIMIT);
+  const existing = history.find((h) => h.id === entry.id);
+  const merged =
+    existing?.readAt && sameOutcome(existing, entry) ? { ...entry, readAt: existing.readAt } : entry;
+  return [merged, ...history.filter((h) => h.id !== entry.id)].slice(0, HISTORY_LIMIT);
 }
 
 type RecheckNotificationsContextValue = {
@@ -333,7 +381,7 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       const entry: VerifyNotification = {
         ...outcome,
         kind: "verify",
-        id: newNotificationId(),
+        id: verifyNotificationId(outcome.findingId),
         completedAt: Date.now(),
       };
       setNotificationHistory((prev) => pushHistory(prev, entry));
@@ -614,10 +662,14 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       if (!result.checked) {
         return false;
       }
+      // error set means collection failed (e.g. AssumeRole denied) — verification
+      // never reached AWS, so don't claim the issue was re-detected.
+      const status = result.resolved ? "verified" : result.error ? "error" : "unchanged";
       recordVerifyOutcome({
         findingId,
         checkId: result.check_id ?? checkId,
-        status: result.resolved ? "verified" : "unchanged",
+        status,
+        message: result.error ? result.error : undefined,
       });
       void qc.invalidateQueries({ queryKey: ["findings"] });
       // A recheck changes findings, which changes compliance pass/fail — refresh the

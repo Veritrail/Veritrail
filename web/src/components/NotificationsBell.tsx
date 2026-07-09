@@ -44,7 +44,9 @@ function itemStyles(item: NotificationItem): string {
     if (item.status === "succeeded") return "border-emerald-100 bg-emerald-50/90";
     return "border-amber-100 bg-amber-50/90";
   }
-  return item.status === "verified" ? "border-emerald-100 bg-emerald-50/90" : "border-amber-100 bg-amber-50/90";
+  if (item.status === "verified") return "border-emerald-100 bg-emerald-50/90";
+  if (item.status === "error") return "border-red-100 bg-red-50/90";
+  return "border-amber-100 bg-amber-50/90";
 }
 
 function itemTitle(item: NotificationItem): string {
@@ -52,7 +54,9 @@ function itemTitle(item: NotificationItem): string {
     return scanFailureNotificationTitle(item.accountLabel, item.provider);
   }
   if (item.kind === "cloudtrail") return cloudTrailTitle(item);
-  return item.status === "verified" ? "Verified" : "Still open";
+  if (item.status === "verified") return "Verified";
+  if (item.status === "error") return "Verify couldn't complete";
+  return "Still open";
 }
 
 function itemBody(item: NotificationItem): string {
@@ -63,9 +67,9 @@ function itemBody(item: NotificationItem): string {
     });
   }
   if (item.kind === "cloudtrail") return cloudTrailBody(item);
-  return item.status === "verified"
-    ? "Re-check passed — finding resolved."
-    : "Verify finished — issue still detected.";
+  if (item.status === "verified") return "Re-check passed — finding resolved.";
+  if (item.status === "error") return "Verify couldn't reach AWS — check the account connector.";
+  return "Verify finished — issue still detected.";
 }
 
 function itemSubtitle(item: NotificationItem): string {
@@ -81,11 +85,14 @@ function titleColor(item: NotificationItem): string {
     if (item.status === "succeeded") return "text-emerald-950";
     return "text-amber-950";
   }
-  return item.status === "verified" ? "text-emerald-950" : "text-amber-950";
+  if (item.status === "verified") return "text-emerald-950";
+  if (item.status === "error") return "text-red-950";
+  return "text-amber-950";
 }
 
 function isNotificationError(item: NotificationItem): boolean {
   if (item.kind === "scan_failure") return true;
+  if (item.kind === "verify" && item.status === "error") return true;
   return item.kind === "cloudtrail" && item.status === "failed";
 }
 
@@ -175,7 +182,9 @@ export default function NotificationsBell() {
   );
 
   const hasItems = pendingRecheck || pendingCloudTrail || historyVisible.length > 0;
-  const bellTone = bellToneFromHistory(historyVisible);
+  const unreadHistory = historyVisible.filter((h) => !h.readAt);
+  const bellTone =
+    notificationCount > 0 ? bellToneFromHistory(unreadHistory) : "neutral";
   const panel =
     open && panelPos
       ? createPortal(

@@ -16,7 +16,7 @@ Hidden integrations keep working if deep-linked or already connected.
 | Group | Keys | Why |
 |---|---|---|
 | Source control | `github`, `gitlab` | Change-management (CC8) + Secure SDLC evidence |
-| Identity | `entra`, `google-workspace`, `okta` | Access-control (CC6) evidence: MFA, admin review, inactive users — core SOC2, **not** sprawl |
+| Identity | `entra`, `google-workspace` | Access-control (CC6) evidence: MFA, admin review, inactive users — core SOC2, **not** sprawl |
 | Workflow | `jira`, `slack` | Remediation tickets, scan alerts |
 
 Cloud accounts (AWS/GCP/Azure) are **not** catalog entries — they live in Accounts. Leave them there.
@@ -66,7 +66,7 @@ export function isStarterHiddenKey(key: string): boolean {
   that computation as-is; the extended gate is applied on top in the catalog helpers.
 
 Net effect with the flag unset (default): starter catalog shows only
-`github, gitlab, entra, google-workspace, okta, jira, slack`. Setting
+`github, gitlab, entra, google-workspace, jira, slack`. Setting
 `VITE_SHOW_EXTENDED_INTEGRATIONS=true` restores the full catalog for internal use.
 
 ---
