@@ -82,16 +82,16 @@ def test_composite_display_status_absence_gap_plus_real_failure_is_failing():
         "status": "fail",
         "check_ids": [
             "aws.access_analyzer.not_enabled",
-            "okta.org.mfa_not_enforced",
+            "entra.org.mfa_not_enforced",
         ],
         "check_tiers": {
             "aws.access_analyzer.not_enabled": "core",
-            "okta.org.mfa_not_enforced": "core",
+            "entra.org.mfa_not_enforced": "core",
         },
     }
     open_both = {
         "aws.access_analyzer.not_enabled": [object()],
-        "okta.org.mfa_not_enforced": [object()],
+        "entra.org.mfa_not_enforced": [object()],
     }
     assert (
         _composite_display_status(composite, has_accepted=False, open_by_check=open_both)

@@ -14,8 +14,7 @@
       "gitlab.org.dormant_members",
       "identity_center.user.inactive_90d",
       "google_workspace.user.inactive_90d",
-      "entra.user.inactive_90d",
-      "okta.user.inactive_90d"
+      "entra.user.inactive_90d"
     ],
     "soc2_scope_category": "security"
   },
@@ -32,13 +31,11 @@
       "iam.account.password_policy_weak",
       "secretsmanager.secret.no_rotation",
       "ssm.parameter.plaintext_secret",
-      "okta.service.api_token_stale",
       "github.org.mfa_not_enforced",
       "github.org.outside_collaborators",
       "gitlab.org.mfa_not_enforced",
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
-      "okta.org.mfa_not_enforced",
       "cloudtrail.event.iam_access_key_created"
     ],
     "soc2_scope_category": "security"
@@ -66,9 +63,6 @@
       "entra.admin.unreviewed",
       "github.org.admin_unreviewed",
       "google_workspace.admin.unreviewed",
-      "okta.admin.unreviewed",
-      "okta.user.inactive_90d",
-      "okta.app.overprivileged_grant",
       "iam.user.admin_policy_attached"
     ],
     "soc2_scope_category": "security"
@@ -123,7 +117,6 @@
       "cloudtrail.event.s3_public_access_block_disabled",
       "google_workspace.org.mfa_not_enforced",
       "entra.org.mfa_not_enforced",
-      "okta.org.mfa_not_enforced",
       "iam.user.admin_policy_attached",
       "azure.entra.privileged_role_assignment",
       "gcp.asset.public_invoker"
@@ -519,9 +512,7 @@
       "iam.role.unused_services_90d",
       "iam.policy.wildcard_resource",
       "iam.access_key.no_rotation_90d",
-      "cloudtrail.event.iam_role_policy_mutation",
-      "okta.app.overprivileged_grant",
-      "okta.service.api_token_stale"
+      "cloudtrail.event.iam_role_policy_mutation"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."

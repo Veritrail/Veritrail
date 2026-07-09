@@ -47,20 +47,19 @@ Work top-to-bottom when possible — later items assume less setup.
 |---|-------------|------|-------|
 | 1 | Snyk | Free to try | `/integrations/scanners/snyk` |
 | 2 | Aikido | Free to try | `/integrations/scanners/aikido` |
-| 3 | Okta | Free to try | `/integrations/okta` |
-| 4 | Linear (API) | Free to try | API only — see § Ticketing |
-| 5 | IaC repository | Free to try* | `/integrations/iac-repository` |
-| 6 | Google Workspace | Paid / trial only† | `/integrations/google-workspace` |
-| 7 | Microsoft Entra ID | Free to try‡ | `/integrations/entra` |
-| 8 | Datadog | Paid / trial only | `/integrations/siem/datadog` |
-| 9 | Elastic | Paid / trial only | `/integrations/siem/elastic` |
-| 10 | Microsoft Intune | Paid / trial only | `/integrations/intune` |
-| 11 | Jamf Pro | Paid / trial only | `/integrations/jamf` |
-| 12 | Splunk | Paid / trial only | `/integrations/siem/splunk` |
-| 13 | Wiz | Paid / trial only | `/integrations/scanners/wiz` |
-| 14 | Tenable | Paid / trial only | `/integrations/scanners/tenable` |
-| 15 | Qualys | Paid / trial only | `/integrations/scanners/qualys` |
-| 16 | Orca Security | Paid / trial only | `/integrations/scanners/orca` |
+| 3 | Linear (API) | Free to try | API only — see § Ticketing |
+| 4 | IaC repository | Free to try* | `/integrations/iac-repository` |
+| 5 | Google Workspace | Paid / trial only† | `/integrations/google-workspace` |
+| 6 | Microsoft Entra ID | Free to try‡ | `/integrations/entra` |
+| 7 | Datadog | Paid / trial only | `/integrations/siem/datadog` |
+| 8 | Elastic | Paid / trial only | `/integrations/siem/elastic` |
+| 9 | Microsoft Intune | Paid / trial only | `/integrations/intune` |
+| 10 | Jamf Pro | Paid / trial only | `/integrations/jamf` |
+| 11 | Splunk | Paid / trial only | `/integrations/siem/splunk` |
+| 12 | Wiz | Paid / trial only | `/integrations/scanners/wiz` |
+| 13 | Tenable | Paid / trial only | `/integrations/scanners/tenable` |
+| 14 | Qualys | Paid / trial only | `/integrations/scanners/qualys` |
+| 15 | Orca Security | Paid / trial only | `/integrations/scanners/orca` |
 
 \*Reuses GitHub/GitLab auth you already connected.  
 †Requires Google Workspace (not personal Gmail). [google-workspace-setup.md](./google-workspace-setup.md)  
@@ -86,33 +85,7 @@ Work top-to-bottom when possible — later items assume less setup.
 
 ## 1. Identity providers
 
-### 1.1 Okta — **Free to try**
-
-| | |
-|---|---|
-| **Route** | `/integrations/okta` |
-| **API** | `PUT /v1/integrations/okta` · `POST /v1/integrations/okta/sync` |
-| **Prerequisites** | [Okta Developer Edition](https://developer.okta.com/) org; SSWS API token with read-only directory access |
-
-**Setup**
-
-- [ ] Create API token: Okta Admin → **Security** → **API** → **Tokens** → Create token
-- [ ] In Veritrail: enter org URL (`https://your-org.okta.com`) + token → **Save**
-- [ ] **Sync now** — confirm user/admin counts and MFA policy callout
-
-**Functional tests**
-
-- [ ] Findings include Okta checks: `okta.org.mfa_not_enforced`, `okta.user.inactive_90d`, `okta.admin.unreviewed` (and optionally `okta.app.overprivileged_grant`, `okta.service.api_token_stale`)
-- [ ] **Controls** → Identity governance composite reflects Okta signals
-- [ ] Disconnect + reconnect with bad token shows clear error
-
-**Verify export**
-
-- [ ] Evidence pack contains `access_review_summary.json` with Okta section populated
-
----
-
-### 1.2 Google Workspace — **Paid / trial only**
+### 1.1 Google Workspace — **Paid / trial only**
 
 | | |
 |---|---|
@@ -464,7 +437,6 @@ Run once several connectors are green:
 | `/integrations/catalog` | Browse all catalog entries |
 | `/integrations/google-workspace` | Google Workspace |
 | `/integrations/entra` | Microsoft Entra ID |
-| `/integrations/okta` | Okta |
 | `/integrations/intune` | Microsoft Intune |
 | `/integrations/jamf` | Jamf Pro |
 | `/integrations/scanners/{snyk\|wiz\|tenable\|qualys\|orca\|aikido}` | Vulnerability scanners |

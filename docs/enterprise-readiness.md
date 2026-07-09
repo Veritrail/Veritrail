@@ -60,7 +60,7 @@ Tracks the deferred backlog from direction strategy docs. **Not** stale pre-June
 | Azure phase-two collectors | Phase 5 | Resource Graph, Activity Log, Entra/RBAC, Policy beyond Defender + storage |
 | Granular evidence RBAC | Phase 6 | Contributor / reviewer / auditor-viewer beyond coarse org roles |
 | Per-control org mapping | Phase 7 | Custom evidence categories shipped; mapping overrides pending |
-| Release 5 integrations | Phase 8 | Snyk/Orca/Aikido/Splunk/Datadog/SIEM; Okta live sync |
+| Release 5 integrations | Phase 8 | Snyk/Orca/Aikido/Splunk/Datadog/SIEM |
 | Auditor approval UI for vault objects | Deferred | Presign API exists; end-to-end share records minimal |
 | Separate EvidenceRequirement / ControlCoverage tables | Deferred P4 | Logic in composites + `category_evidence_coverage.py` today |
 

@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 type IntegrationComplianceCacheOptions = {
-  /** Integration status query key, e.g. ["okta-integration"] or ["integration", "entra"]. */
+  /** Integration status query key, e.g. ["integration", "entra"]. */
   integrationStatusKey?: readonly unknown[];
   /** GitHub/GitLab scope-repos API path used as a query key prefix. */
   scopeReposPath?: string;

@@ -25,7 +25,6 @@ import JiraIntegration from "./pages/JiraIntegration";
 import GcpIntegration from "./pages/GcpIntegration";
 import AzureIntegration from "./pages/AzureIntegration";
 import VulnScannerIntegration from "./pages/VulnScannerIntegration";
-import OktaIntegration from "./pages/OktaIntegration";
 import IntuneIntegration from "./pages/IntuneIntegration";
 import JamfIntegration from "./pages/JamfIntegration";
 import Questionnaire from "./pages/Questionnaire";
@@ -112,7 +111,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/gcp" element={<GcpIntegration />} />
             <Route path="/integrations/azure" element={<AzureIntegration />} />
             <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
-            <Route path="/integrations/okta" element={<OktaIntegration />} />
             <Route path="/integrations/intune" element={<IntuneIntegration />} />
             <Route path="/integrations/jamf" element={<JamfIntegration />} />
             <Route path="/questionnaire" element={<Questionnaire />} />

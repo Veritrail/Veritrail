@@ -142,7 +142,7 @@ export function SamlSettings() {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-zinc-900">Enable SAML SSO</p>
             <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-              Let members sign in through your identity provider (Okta, Azure AD, etc.). IdP handles
+              Let members sign in through your identity provider (Entra ID, Google Workspace, etc.). IdP handles
               MFA. New users are provisioned into this workspace on first login.
             </p>
           </div>

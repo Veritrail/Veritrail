@@ -7,7 +7,6 @@ import {
   iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
   jiraIntegrationSchema,
-  oktaIntegrationSchema,
   scannerIntegrationSchema,
   settingsSchema,
 } from "../lib/apiSchemas";
@@ -34,10 +33,6 @@ export function useConnectedCatalogState() {
   const entra = useQuery({
     queryKey: ["entra-provider"],
     queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
-  });
-  const okta = useQuery({
-    queryKey: ["okta-integration"],
-    queryFn: () => api("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
   });
   const cloudAccounts = useQuery({
     queryKey: ["cloud-accounts"],
@@ -95,7 +90,6 @@ export function useConnectedCatalogState() {
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
-  const oktaConnected = !!okta.data?.connected;
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
   const gcpConnected = gcpRows.some(isCloudAccountConnected);
   const azureConnected = azureRows.some(isCloudAccountConnected);
@@ -116,7 +110,6 @@ export function useConnectedCatalogState() {
     gitlabConnected,
     googleConnected,
     entraConnected,
-    oktaConnected,
     slackConnected,
     gcpConnected,
     azureConnected,
@@ -142,7 +135,6 @@ export function useConnectedCatalogState() {
       gitlabConnected,
       googleConnected,
       entraConnected,
-      oktaConnected,
       slackConnected,
       gcpConnected,
       azureConnected,
@@ -168,7 +160,6 @@ export function useConnectedCatalogState() {
       gitlab.isLoading ||
       googleWorkspace.isLoading ||
       entra.isLoading ||
-      okta.isLoading ||
       cloudAccounts.isLoading ||
       wizScanner.isLoading ||
       tenableScanner.isLoading ||

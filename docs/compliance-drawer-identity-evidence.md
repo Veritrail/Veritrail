@@ -1,7 +1,7 @@
 # Compliance drawer: show identity findings as blocking gaps + surface connected integrations
 
-**Status: implemented (2026-07-08).** Three linked fixes so org-level identity evidence (Okta /
-Entra / Google Workspace) reads correctly in the Compliance composite drawer.
+**Status: implemented (2026-07-08).** Three linked fixes so org-level identity evidence (Entra /
+Google Workspace) reads correctly in the Compliance composite drawer.
 
 Context: identity integrations now run on sync and persist **org-scoped** findings
 (`account_id = NULL`), graded org-level (see `identity-integration-decoupling.md`). Backend grading
@@ -16,9 +16,9 @@ account-scoped fetch:
 ```js
 fetchAllFindings({ status: "open", ...findingsScopeParams(activeAccount) })
 ```
-Org-scoped identity findings (`account_id NULL`) are excluded, so `okta.*` checks show count 0 and
-never render under "Blocking gaps" (drawer section ~line 3150/3268), even though the composite grades
-off them.
+Org-scoped identity findings (`account_id NULL`) are excluded, so `entra.*` / `google_workspace.*`
+checks show count 0 and never render under "Blocking gaps" (drawer section ~line 3150/3268), even
+though the composite grades off them.
 
 **Change:** also fetch org-scoped identity findings and merge into `openFindingsMeta`
 (`byId`, `countByCheck`, `severityByCheck`).
@@ -30,14 +30,14 @@ off them.
   call when none is connected.
 - Merge both result sets into the same `countByCheck` / `byId` / `severityByCheck` maps in
   `openFindingsMeta`. De-dupe by finding id.
-- After merge, `okta.org.mfa_not_enforced` etc. carry a count → they render under "Blocking gaps"
+- After merge, `entra.org.mfa_not_enforced` etc. carry a count → they render under "Blocking gaps"
   and `regularFailing` counts them.
 
-**Shipped:** second React Query fetch in `Controls.tsx` (guarded on Okta/Entra/Google Workspace
+**Shipped:** second React Query fetch in `Controls.tsx` (guarded on Entra/Google Workspace
 connected), merged into `openFindingsMeta` with de-dupe by finding id.
 
-**Acceptance:** with Okta synced (MFA-not-enforced open), open the Identity Governance & Access
-Review drawer → "Blocking gaps" lists the Okta MFA + admin findings, with an AWS account selected or
+**Acceptance:** with Entra synced (MFA-not-enforced open), open the Identity Governance & Access
+Review drawer → "Blocking gaps" lists the Entra MFA + admin findings, with an AWS account selected or
 not.
 
 ---
@@ -46,7 +46,7 @@ not.
 
 **Root cause (original):** `api/app/services/category_evidence_coverage.py` downgraded any composite
 with open absence-gap checks to `needs_evidence` ("Coverage gap"), even when real high-severity
-findings (Okta MFA) also failed it.
+findings (Entra MFA) also failed it.
 
 **First fix (2026-07-08):** only downgrade when absence gaps are the *only* open findings; mixed
 absence + real failure → `failing`.
@@ -57,7 +57,7 @@ because enabling the service in a connected account lets Veritrail grade the con
 gap** is reserved for external-only categories (`endpoint_security`, `mdm_endpoint`, `hr_training`,
 `vendor_risk`) via `_external_evidence_category_status` / `externalEvidenceCompositeDisplayStatus`.
 
-**Acceptance:** Identity Governance & Access Review (Okta MFA failing + Access Analyzer off) displays
+**Acceptance:** Identity Governance & Access Review (Entra MFA failing + Access Analyzer off) displays
 **Failing**, not Coverage gap. A scannable AWS composite whose *only* open finding is an absence
 gap (GuardDuty off, Config off, etc.) also displays **Failing** — enabling the service in a
 connected account lets Veritrail grade it. **Coverage gap** is reserved for external-only categories
@@ -75,7 +75,7 @@ Auditors/users should see *where* the evidence came from. Today the drawer only 
 composite's `check_ids`. Shape:
 ```json
 "evidence_integrations": [
-  {"type": "okta", "label": "Okta", "connected": true, "last_synced_at": "2026-07-08T…"}
+  {"type": "entra", "label": "Entra ID", "connected": true, "last_synced_at": "2026-07-08T…"}
 ]
 ```
 Reuse `load_integration_sync_grading_context`'s provider lookup + `check_prefix_for_provider_type`.
@@ -83,7 +83,7 @@ Include source-control (github/gitlab) here too for parity where relevant.
 
 **Frontend:** in the composite drawer header (near the status pill) or the Evidence tab, render a
 quiet source note when `evidence_integrations` is non-empty:
-> Identity evidence from **Okta** · synced 2h ago
+> Identity evidence from **Entra ID** · synced 2h ago
 
 Small badge/row, not a big card — it's provenance, not a primary action. Relative-time the
 `last_synced_at`. If multiple, list them.
@@ -91,7 +91,7 @@ Small badge/row, not a big card — it's provenance, not a primary action. Relat
 **Shipped:** `evidence_integrations_for_check_ids` in `composite_controls.py`, exposed on
 `CompositeControlOut`; `EvidenceIntegrationSourceNote` in drawer header + Gaps tab body.
 
-**Acceptance:** the Identity Governance drawer shows an "Okta · synced …" source badge; a composite
+**Acceptance:** the Identity Governance drawer shows an "Entra ID · synced …" source badge; a composite
 with no connected integration shows nothing new.
 
 ---

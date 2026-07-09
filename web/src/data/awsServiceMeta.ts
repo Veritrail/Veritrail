@@ -58,7 +58,6 @@ const OTHER_PROVIDER_LABEL: Record<string, string> = {
   gcp: "Google Cloud",
   azure: "Azure",
   entra: "Entra ID",
-  okta: "Okta",
   github: "GitHub",
   gitlab: "GitLab",
   google_workspace: "Google Workspace",

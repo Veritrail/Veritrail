@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -822,11 +822,6 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
     staleTime: 300_000,
   });
-  const oktaProviderQ = useQuery({
-    queryKey: ["okta-integration"],
-    queryFn: () => api("/v1/integrations/okta", { schema: integrationStatusNullableSchema }),
-    staleTime: 300_000,
-  });
   const entraProviderQ = useQuery({
     queryKey: ["integration", "entra"],
     queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
@@ -840,7 +835,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
   const hasGithub = !!githubProviderQ.data;
   const hasGitlab = !!gitlabProviderQ.data;
   const hasIdentity =
-    !!oktaProviderQ.data?.connected || !!entraProviderQ.data || !!googleWorkspaceProviderQ.data;
+    !!entraProviderQ.data || !!googleWorkspaceProviderQ.data;
   const scopeGroups = useMemo(
     () => buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab, hasIdentity }),
     [cloudAccounts, hasGithub, hasGitlab, hasIdentity],
@@ -1277,6 +1272,42 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     setSelected(finding);
     setRemTab(defaultFindingRemediationMode(finding.check_id));
   }
+
+  const deepLinkFindingId = syncFiltersToUrl ? searchParams.get("finding") : null;
+  const deepLinkConsumed = useRef(false);
+
+  useEffect(() => {
+    deepLinkConsumed.current = false;
+  }, [deepLinkFindingId]);
+
+  useEffect(() => {
+    if (!deepLinkFindingId || deepLinkConsumed.current) return;
+    if (status !== "open") {
+      setStatus("open");
+      return;
+    }
+    if (!findingsQuery.isSuccess) return;
+
+    const target = scopedFindings.find((f) => f.id === deepLinkFindingId);
+    if (!target) return;
+
+    deepLinkConsumed.current = true;
+    openReview([target], target);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("finding");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [
+    deepLinkFindingId,
+    status,
+    findingsQuery.isSuccess,
+    scopedFindings,
+    setSearchParams,
+  ]);
 
   const toggleExpandedCheck = useCallback((checkId: string) => {
     setExpandedCheckIds((prev) => {

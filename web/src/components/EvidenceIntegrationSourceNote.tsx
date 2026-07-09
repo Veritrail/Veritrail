@@ -8,7 +8,7 @@ export type EvidenceIntegrationSource = {
   last_synced_at: string | null;
 };
 
-const IDENTITY_INTEGRATION_TYPES = new Set(["okta", "entra", "google_workspace"]);
+const IDENTITY_INTEGRATION_TYPES = new Set(["entra", "google_workspace"]);
 
 function integrationSourceLine(row: EvidenceIntegrationSource): string {
   const synced = row.last_synced_at ? formatRelativeAgo(row.last_synced_at) : "never synced";

@@ -31,7 +31,7 @@ export default function Privacy() {
             connect each provider — for example an AWS account ID with an IAM role ARN and external ID, a Google Cloud
             workload-identity or service-account configuration, an Azure subscription and app registration, and the OAuth
             tokens or API keys for developer tools you connect (such as GitHub, GitLab, Google Workspace, Microsoft Entra
-            ID, Okta, Jira, and vulnerability scanners). These connection secrets are encrypted at rest.
+            ID, Jira, and vulnerability scanners). These connection secrets are encrypted at rest.
           </li>
           <li>
             <strong>Scan results (configuration metadata).</strong> Using the read-only access you authorize, Veritrail

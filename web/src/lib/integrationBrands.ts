@@ -17,7 +17,6 @@ export type IntegrationBrandId =
   | "snyk"
   | "orca"
   | "aikido"
-  | "okta"
   | "splunk"
   | "elastic"
   | "vanta"
@@ -65,7 +64,6 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   snyk: { src: "/integrations/snyk.png", tileScale: 0.92 },
   orca: { src: "/integrations/orca.png" },
   aikido: { src: "/integrations/aikido.png", tileScale: 1.08 },
-  okta: { src: "/integrations/okta.png" },
   splunk: { src: "/integrations/splunk.png", compactSrc: "/integrations/splunk.png" },
   elastic: { src: "https://www.elastic.co/favicon.ico" },
   vanta: { src: "/integrations/vanta.png", tileScale: 1.08, tilePadding: 6 },

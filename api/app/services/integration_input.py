@@ -17,19 +17,6 @@ def normalize_api_base_url(raw: str, *, default_scheme: str = "https") -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
-def normalize_okta_org_url(raw: str) -> str:
-    value = raw.strip().rstrip("/")
-    if not value:
-        raise ValueError("Okta org URL is required")
-    if not value.startswith("http"):
-        value = f"https://{value.lstrip('/')}"
-    parsed = urlparse(value)
-    host = parsed.netloc.lower()
-    if not host.endswith(".okta.com"):
-        raise ValueError("Use your Okta org URL (e.g. https://your-org.okta.com)")
-    return f"https://{host}"
-
-
 def normalize_azure_devops_org_url(raw: str) -> str:
     value = raw.strip().rstrip("/")
     if not value:

@@ -33,7 +33,7 @@ Spec: [`starter-scope-integrations.md`](./starter-scope-integrations.md). Shippe
 
 - Extended integrations (scanners / SIEM / IaC / Azure DevOps) hidden behind
   `VITE_SHOW_EXTENDED_INTEGRATIONS` — done.
-- Identity providers (Entra / Google Workspace / Okta) **kept visible** — done (deliberate: CC6 evidence).
+- Identity providers (Entra / Google Workspace) **kept visible** — done (deliberate: CC6 evidence).
 - Recommended tiers reordered (GitHub/GitLab → Jira/Slack → identity) — done.
 - Page retitled "Workflow integrations" — done.
 - **No action** unless you want the optional "Source control" group header polish.
@@ -111,7 +111,7 @@ Specs: [`grc-feed-validation.md`](./grc-feed-validation.md), [`grc-feed-api-runb
 ## What NOT to do (guardrails)
 
 - Don't delete backend/routes/checks for hidden features — flag-gate, keep dormant.
-- Don't hide identity providers (Entra/GWS/Okta) — they're CC6 evidence.
+- Don't hide identity providers (Entra/GWS) — they're CC6 evidence.
 - Don't add self-serve billing surfaces (billing isn't wired).
 - Don't build the GRC destination adapter before §F validates.
 - Don't re-introduce write access to the default cloud role.

@@ -101,14 +101,6 @@ def test_intune_sync_mock(db_session):
     assert stats.unencrypted == 1
 
 
-def test_okta_extended_checks():
-    from app.checks.okta_app_overprivileged import CHECK_ID as APP_ID
-    from app.checks.okta_api_token_stale import CHECK_ID as TOKEN_ID
-
-    assert APP_ID == "okta.app.overprivileged_grant"
-    assert TOKEN_ID == "okta.service.api_token_stale"
-
-
 def test_hr_vendor_categories_registered():
     from app.services.evidence_source_registry import EVIDENCE_SOURCE_CATEGORIES, EXTERNAL_EVIDENCE_ONLY_CATEGORY_KEYS
 
