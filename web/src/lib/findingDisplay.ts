@@ -140,6 +140,26 @@ export function findingScopeProviderLabel(provider: FindingScopeProvider): strin
   }
 }
 
+/** Drawer / notification copy for Verify fix outcomes — provider-aware, not AWS-only. */
+export function verifyFixOutcomeCopy(
+  provider: FindingScopeProvider,
+  status: "unchanged" | "error",
+): { title: string; body: string } {
+  const label = findingScopeProviderLabel(provider);
+  const connector =
+    provider === "aws" ? "account connector" : `${label} integration`;
+  if (status === "error") {
+    return {
+      title: "Verify couldn't complete",
+      body: `Veritrail couldn't reach ${label} to re-check this finding. Check the ${connector}, then try again.`,
+    };
+  }
+  return {
+    title: "Still open",
+    body: `Verify finished but this finding did not resolve. Fix the issue in ${label}, then try again.`,
+  };
+}
+
 /** Copy for remediation → Automated fix when SSM/customer automation is unavailable. */
 export function automatedRemediationUnavailableCopy(
   provider: FindingScopeProvider,

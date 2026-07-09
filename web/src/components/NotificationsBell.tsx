@@ -13,6 +13,7 @@ import {
   scanFailureUserAction,
 } from "../lib/scanFailureMessages";
 import { checkLabels } from "../data/checkLabels";
+import { findingScopeProvider, verifyFixOutcomeCopy } from "../lib/findingDisplay";
 
 function formatWhen(ts: number): string {
   const sec = Math.round((Date.now() - ts) / 1000);
@@ -67,6 +68,12 @@ function itemBody(item: NotificationItem): string {
     });
   }
   if (item.kind === "cloudtrail") return cloudTrailBody(item);
+  if (item.kind === "verify") {
+    const provider = findingScopeProvider({ check_id: item.checkId });
+    if (item.status === "verified") return "Re-check passed — finding resolved.";
+    if (item.status === "error") return verifyFixOutcomeCopy(provider, "error").body;
+    return verifyFixOutcomeCopy(provider, "unchanged").body;
+  }
   if (item.status === "verified") return "Re-check passed — finding resolved.";
   if (item.status === "error") return "Verify couldn't reach AWS — check the account connector.";
   return "Verify finished — issue still detected.";

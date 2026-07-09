@@ -78,6 +78,7 @@ import {
   formatIamServiceDisplayName,
   displayFindingTitle,
   findingScopeProvider,
+  verifyFixOutcomeCopy,
 } from "../lib/findingDisplay";
 import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
@@ -6817,6 +6818,8 @@ export function FindingDrawer({
   const showSuggestedPolicy =
     showPolicyGen || (finding.check_id === "s3.bucket.no_https_policy" && !!accountId);
   const scopeProvider = findingScopeProvider(finding);
+  const verifyUnchangedCopy = verifyFixOutcomeCopy(scopeProvider, "unchanged");
+  const verifyErrorCopy = verifyFixOutcomeCopy(scopeProvider, "error");
   const hideAutomationRemediation = scopeProvider !== "aws" || !SHOW_WRITE_REMEDIATION;
   const hideTerraformRemediation = !SHOW_WRITE_REMEDIATION;
 
@@ -6924,8 +6927,7 @@ export function FindingDrawer({
           role="status"
         >
           <p className="min-w-0 flex-1">
-            <span className="font-semibold">Still open</span> — verify finished but this finding did not resolve. Fix
-            the issue in AWS, then try again.
+            <span className="font-semibold">{verifyUnchangedCopy.title}</span> — {verifyUnchangedCopy.body}
           </p>
           {onDismissVerifyOutcome && (
             <button
@@ -6944,8 +6946,7 @@ export function FindingDrawer({
           role="status"
         >
           <p className="min-w-0 flex-1">
-            <span className="font-semibold">Verify couldn't complete</span> — Veritrail couldn't reach AWS to
-            re-check this finding. Check the account connector, then try again.
+            <span className="font-semibold">{verifyErrorCopy.title}</span> — {verifyErrorCopy.body}
           </p>
           {onDismissVerifyOutcome && (
             <button
