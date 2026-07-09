@@ -72,6 +72,15 @@ export default function IntegrationCatalog() {
                           <div className="integration-catalog-card__name">{entry.name}</div>
                           <p className="integration-catalog-card__desc">{entry.description}</p>
                         </div>
+                      </div>
+                      <div className="integration-catalog-card__foot">
+                        <div className="integration-catalog-card__tags" aria-label={`${entry.name} categories`}>
+                          {entry.tags.map((tag) => (
+                            <span key={tag} className="integration-catalog-card__tag">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                         {isComingSoon ? (
                           <span className="integration-catalog-card__soon-badge">Coming soon</span>
                         ) : (
@@ -79,13 +88,6 @@ export default function IntegrationCatalog() {
                             Connect
                           </Link>
                         )}
-                      </div>
-                      <div className="integration-catalog-card__tags" aria-label={`${entry.name} categories`}>
-                        {entry.tags.map((tag) => (
-                          <span key={tag} className="integration-catalog-card__tag">
-                            {tag}
-                          </span>
-                        ))}
                       </div>
                     </article>
                   );
