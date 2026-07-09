@@ -12,6 +12,7 @@ import HelpMenu from "./components/HelpMenu";
 import SidebarUserCard from "./components/SidebarUserCard";
 import { useAccountsPlanUsage } from "./hooks/useAccountsPlanUsage";
 import SidebarNavLink from "./components/SidebarNavLink";
+import SidebarAccountSwitcher from "./components/SidebarAccountSwitcher";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
 import "./styles/sidebar.css";
@@ -193,6 +194,8 @@ export default function Layout() {
           <span className="app-sidebar__wordmark">Veritrail</span>
         </div>
 
+        <SidebarAccountSwitcher collapsed={sidebarCollapsed} canManageAccounts={canManageAccounts} />
+
         <nav className="app-sidebar__nav">
           {canManageAccounts && (
             <SidebarNavLink to="/accounts" title="Accounts">
@@ -287,7 +290,7 @@ export default function Layout() {
       </aside>
 
       <main
-        className={`veritrail-app-main relative flex min-h-screen min-w-0 flex-col overflow-hidden transition-[margin-left,width] duration-200 ease-out ${sidebarCollapsed ? "ml-24 w-[calc(100%-6rem)]" : "ml-80 w-[calc(100%-20rem)]"}`}
+        className={`veritrail-app-main relative flex min-h-screen min-w-0 flex-col overflow-hidden transition-[margin-left,width] duration-200 ease-out ${sidebarCollapsed ? "ml-24 w-[calc(100%-6rem)]" : "ml-[348px] w-[calc(100%-348px)]"}`}
       >
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">

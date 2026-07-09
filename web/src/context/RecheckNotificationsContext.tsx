@@ -265,7 +265,9 @@ function savePersisted(storageKey: string, state: PersistedV3) {
 }
 
 function pushHistory(history: NotificationItem[], entry: NotificationItem): NotificationItem[] {
-  return [entry, ...history.filter((h) => h.id !== entry.id)].slice(0, HISTORY_LIMIT);
+  const existing = history.find((h) => h.id === entry.id);
+  const merged = existing?.readAt ? { ...entry, readAt: existing.readAt } : entry;
+  return [merged, ...history.filter((h) => h.id !== entry.id)].slice(0, HISTORY_LIMIT);
 }
 
 type RecheckNotificationsContextValue = {

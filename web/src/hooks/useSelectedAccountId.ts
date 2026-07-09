@@ -18,7 +18,7 @@ export function useSelectedAccountId(
   accountsReady: boolean,
   options?: {
     holdUrlSyncWhenParams?: string[];
-    scopeDefaults?: Pick<ResolveSelectedAccountOptions, "cloudAccountCount" | "hasSourceControl">;
+    scopeDefaults?: Pick<ResolveSelectedAccountOptions, "cloudAccountCount" | "hasSourceControl" | "hasIdentity">;
   },
 ) {
   const [searchParams, setSearchParams] = useSearchParams();

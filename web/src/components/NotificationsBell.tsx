@@ -175,7 +175,9 @@ export default function NotificationsBell() {
   );
 
   const hasItems = pendingRecheck || pendingCloudTrail || historyVisible.length > 0;
-  const bellTone = bellToneFromHistory(historyVisible);
+  const unreadHistory = historyVisible.filter((h) => !h.readAt);
+  const bellTone =
+    notificationCount > 0 ? bellToneFromHistory(unreadHistory) : "neutral";
   const panel =
     open && panelPos
       ? createPortal(
