@@ -198,9 +198,9 @@ export default function Layout() {
 
         <nav className="app-sidebar__nav">
           {canManageAccounts && (
-            <SidebarNavLink to="/accounts" title="Accounts">
+            <SidebarNavLink to="/accounts" title="Home">
               <SidebarIcon name="accounts" />
-              <span className="app-sidebar__label">Accounts</span>
+              <span className="app-sidebar__label">Home</span>
             </SidebarNavLink>
           )}
 

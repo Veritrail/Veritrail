@@ -24,7 +24,7 @@ selection.
 - `/accounts?account_id=X` → existing account detail (`AccountSplitDetailPane`) — the rail's
   `selectAccount` already navigates here (`SidebarAccountSwitcher.tsx`).
 - `/accounts` (no `account_id`, no `view`) → **new `<OrgReadinessHome />`**. Do NOT auto-select a
-  persisted account on this route. The "Accounts" nav item lands here.
+  persisted account on this route. The "Home" nav item lands here.
 - Rail behavior unchanged: cards = drill-down; on the org home no rail card shows as selected
   (selection state only applies when an `account_id` is active).
 - HeaderSlot on org home: keep the "All accounts (N)" link; drop any account selector — org home
