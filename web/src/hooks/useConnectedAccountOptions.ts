@@ -176,6 +176,45 @@ export function findingsScopeParams(account: AccountOption | undefined): Finding
   return { account_id: account.id };
 }
 
+/** Org-level Findings scope for a check id — never a single cloud account. */
+export function findingsProviderScopeForCheckId(checkId: string): FindingsProviderScope {
+  if (checkId.startsWith("github.") || checkId.startsWith("gitlab.")) return "source_control";
+  if (
+    checkId.startsWith("entra.") ||
+    checkId.startsWith("google_workspace.") ||
+    checkId.startsWith("identity_center.")
+  ) {
+    return "identity";
+  }
+  return "all_cloud";
+}
+
+/** Deep link to Findings for one or more checks at org-wide scope (no account_id). */
+export function findingsHrefForCheckIds(checkIds: string[]): string | null {
+  const active = checkIds.filter(Boolean);
+  if (active.length === 0) return null;
+  const params = new URLSearchParams({ checks: active.join(",") });
+  const providerScope = active.some((id) => findingsProviderScopeForCheckId(id) === "source_control")
+    ? "source_control"
+    : active.some((id) => findingsProviderScopeForCheckId(id) === "identity")
+      ? "identity"
+      : "all_cloud";
+  params.set("provider", providerScope);
+  return `/findings?${params.toString()}`;
+}
+
+/** Default org-wide Findings entry — matches Findings page default scope selection. */
+export function defaultOrgFindingsHref(opts: {
+  hasCloudAccounts: boolean;
+  hasSourceControl: boolean;
+  hasIdentity: boolean;
+}): string {
+  if (opts.hasCloudAccounts) return "/findings?provider=all_cloud";
+  if (opts.hasSourceControl) return "/findings?provider=source_control";
+  if (opts.hasIdentity) return "/findings?provider=identity";
+  return "/findings";
+}
+
 export function useConnectedAccountOptions() {
   const accountsQ = useQuery({
     queryKey: ["accounts"],

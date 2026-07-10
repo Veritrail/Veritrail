@@ -13,6 +13,8 @@ import { fetchAllFindings } from "../lib/fetchAllFindings";
 import type { ComplianceHistoryResponse, HistoryEvent } from "../lib/complianceHistory";
 import { historyDetailLine, historyTypeDisplay } from "../lib/historyEvidence";
 import {
+  defaultOrgFindingsHref,
+  findingsHrefForCheckIds,
   type FindingsProviderScope,
   useConnectedAccountOptions,
 } from "../hooks/useConnectedAccountOptions";
@@ -371,7 +373,10 @@ export function OrgReadinessHome() {
               {unblockedControlIds.length > 0 ? ` and unblocks ${formatControlList(unblockedControlIds)}` : ""}.
               Everything else can wait.
             </p>
-            <Link to="/findings" className="org-home__section-link">
+            <Link
+              to={defaultOrgFindingsHref({ hasCloudAccounts, hasSourceControl, hasIdentity })}
+              className="org-home__section-link"
+            >
               All findings <span aria-hidden>→</span>
             </Link>
           </div>
@@ -391,7 +396,7 @@ export function OrgReadinessHome() {
                     <p className="org-home__blocker-meta">{metaParts.join(" · ")}</p>
                   </div>
                   <Link
-                    to={`/findings?checks=${encodeURIComponent(group.checkId)}`}
+                    to={findingsHrefForCheckIds([group.checkId]) ?? defaultOrgFindingsHref({ hasCloudAccounts, hasSourceControl, hasIdentity })}
                     className="org-home__review-btn"
                   >
                     Review <span aria-hidden>→</span>
