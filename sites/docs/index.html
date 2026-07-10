@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Veritrail Docs</title>
 <meta name="description" content="Documentation for Veritrail — connect your cloud and source control, collect read-only SOC 2 evidence, and export auditor-ready packs." />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 5l8 15 8-15h-4l-4 8-4-8z' fill='%230d9488'/%3E%3C/svg%3E" />
+<link rel="icon" type="image/png" href="veritrail-mark.png" />
+<link rel="apple-touch-icon" href="veritrail-mark.png" />
 <style>
   :root {
-    --teal: #0d9488;
-    --teal-hover: #0f766e;
+    --blue: #006cfe;
+    --blue-hover: #0056d6;
     --ink: #0f172a;
     --body: #334155;
     --muted: #64748b;
@@ -33,7 +34,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  a { color: var(--teal); text-decoration: none; }
+  a { color: var(--blue); text-decoration: none; }
   a:hover { text-decoration: underline; }
   code {
     font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -59,9 +60,9 @@
   .topbar-right a:hover { color: var(--ink); text-decoration: none; }
   .cta {
     display: inline-flex; align-items: center; height: 36px; padding: 0 16px;
-    background: var(--teal); color: #fff !important; border-radius: 9px; font-weight: 600; font-size: 14px;
+    background: var(--blue); color: #fff !important; border-radius: 9px; font-weight: 600; font-size: 14px;
   }
-  .cta:hover { background: var(--teal-hover); text-decoration: none; }
+  .cta:hover { background: var(--blue-hover); text-decoration: none; }
   .menu-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; width: 38px; height: 36px; cursor: pointer; align-items: center; justify-content: center; }
   .menu-toggle svg { width: 18px; height: 18px; color: var(--ink); }
 
@@ -82,7 +83,7 @@
     color: var(--muted); font-size: 14.5px; font-weight: 500; line-height: 1.4;
   }
   .sidebar a:hover { background: var(--surface-2); color: var(--ink); text-decoration: none; }
-  .sidebar a.active { background: #ecfdf5; color: var(--teal); font-weight: 600; }
+  .sidebar a.active { background: #eef4ff; color: var(--blue); font-weight: 600; }
 
   .content { flex: 1; min-width: 0; padding: 44px 56px 120px; max-width: 800px; }
   .content h1 { font-size: 34px; font-weight: 700; color: var(--ink); letter-spacing: -0.025em; margin: 0 0 10px; line-height: 1.15; }
@@ -95,10 +96,10 @@
   .content section { scroll-margin-top: 76px; }
 
   .note {
-    border: 1px solid #d1fae5; background: #f0fdf9; border-left: 3px solid var(--teal);
-    border-radius: 10px; padding: 14px 18px; margin: 22px 0; font-size: 14.5px; color: #134e4a;
+    border: 1px solid #c7dcff; background: #f0f6ff; border-left: 3px solid var(--blue);
+    border-radius: 10px; padding: 14px 18px; margin: 22px 0; font-size: 14.5px; color: #1f3f8f;
   }
-  .note strong { color: #0f766e; }
+  .note strong { color: #0056d6; }
 
   .kv { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 22px 0; }
   .kv-row { display: grid; grid-template-columns: 200px 1fr; border-top: 1px solid var(--border-soft); }
@@ -108,7 +109,7 @@
 
   .footer-nav { display: flex; justify-content: space-between; gap: 16px; margin-top: 64px; padding-top: 28px; border-top: 1px solid var(--border-soft); }
   .footer-nav a { flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; color: var(--ink); }
-  .footer-nav a:hover { border-color: var(--teal); text-decoration: none; }
+  .footer-nav a:hover { border-color: var(--blue); text-decoration: none; }
   .footer-nav .dir { font-size: 12.5px; color: var(--soft); font-weight: 600; }
   .footer-nav .title { font-size: 15px; font-weight: 600; margin-top: 2px; }
   .footer-nav a.next { text-align: right; }
@@ -140,7 +141,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>
     </button>
     <a class="brand" href="https://veritrail.io">
-      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l8 15 8-15h-4l-4 8-4-8z" fill="#0d9488"/></svg>
+      <img src="veritrail-mark.png" alt="" width="22" height="22" style="display:block;" />
       Veritrail <span style="color:var(--soft);font-weight:500;">Docs</span>
     </a>
   </div>
