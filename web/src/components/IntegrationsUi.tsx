@@ -132,6 +132,30 @@ export function OpStatusRow({ items }: { items: OpStatus[] }) {
   );
 }
 
+/** Catalog card primary action — link styled as a pill button (not inline text). */
+export function IntegrationCatalogConnectLink({
+  href,
+  label = "Connect",
+}: {
+  href: string;
+  label?: string;
+}) {
+  return (
+    <Link to={href} className="integrations-connect-btn">
+      {label}
+    </Link>
+  );
+}
+
+/** Catalog card placeholder for integrations not yet available. */
+export function IntegrationCatalogComingSoonButton() {
+  return (
+    <button type="button" disabled className="integration-catalog-card__soon-btn">
+      Coming soon
+    </button>
+  );
+}
+
 export function CapabilityTags({ tags }: { tags: string[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">

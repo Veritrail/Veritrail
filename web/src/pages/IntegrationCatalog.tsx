@@ -1,7 +1,10 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
 
-import { IntegrationBrandIcon } from "../components/IntegrationsUi";
+import {
+  IntegrationBrandIcon,
+  IntegrationCatalogComingSoonButton,
+  IntegrationCatalogConnectLink,
+} from "../components/IntegrationsUi";
 import { useConnectedCatalogState } from "../hooks/useConnectedCatalogState";
 import {
   filterCatalogForDisplay,
@@ -72,6 +75,11 @@ export default function IntegrationCatalog() {
                           <div className="integration-catalog-card__name">{entry.name}</div>
                           <p className="integration-catalog-card__desc">{entry.description}</p>
                         </div>
+                        {isComingSoon ? (
+                          <IntegrationCatalogComingSoonButton />
+                        ) : (
+                          <IntegrationCatalogConnectLink href={entry.href!} />
+                        )}
                       </div>
                       <div className="integration-catalog-card__foot">
                         <div className="integration-catalog-card__tags" aria-label={`${entry.name} categories`}>
@@ -81,13 +89,6 @@ export default function IntegrationCatalog() {
                             </span>
                           ))}
                         </div>
-                        {isComingSoon ? (
-                          <span className="integration-catalog-card__soon-badge">Coming soon</span>
-                        ) : (
-                          <Link to={entry.href!} className="integrations-connect-btn">
-                            Connect
-                          </Link>
-                        )}
                       </div>
                     </article>
                   );
