@@ -11,7 +11,7 @@ PRs, no SSM auto-fix, no write access to customer environments — ever. Manual 
 guidance (console steps / CLI commands shown to the user) stays. Any report recommendation
 involving write-remediation is rewritten or dropped below.
 
-Status key: **done** · **partial** · **new** · **out of scope** · **human decision**
+Status key: **done** · **partial** · **new** · **out of scope** · **rejected** · **human decision**
 
 ---
 
@@ -33,9 +33,9 @@ Status key: **done** · **partial** · **new** · **out of scope** · **human de
 | 12 | Continuous compliance: periodic time-stamped exports covering the audit window | **done** | Scheduled evidence-pack exports (§2.4): org setting + Celery beat + vault persist; audit-window coverage on org home |
 | 13 | Prioritization beyond severity: control coverage weight, exposure, blast radius | **done** | Blast radius + AI triage + control-coverage weighting in blocker ranking (§2.5). EPSS only relevant for ingested scanner vulns |
 | 14 | ISO 27001 as next framework | **done** | ISO Annex A parity vs SOC 2 checks (§2.8); treated on par in Controls/History/exports |
-| 15 | GDPR mapping after ISO | **done** | Art. 32 technical-controls subset (`gdpr` framework) mapped to existing checks (§2.8) |
-| 16 | ExternalId rotation support | **done** | Two-phase rotate → CFN update → confirm (§2.6); UI in troubleshoot / connector update |
-| 17 | OCSF export mode for findings | **done** | `GET /v1/exports/findings.ocsf.json` + Findings format dropdown (§2.7) |
+| 15 | GDPR mapping after ISO | **rejected** | Product decision: GDPR Art. 32 mapping is meaningless for Veritrail; removed from UI/catalog/mappings (§2.8). SOC 2 / ISO kept |
+| 16 | ExternalId rotation support | **rejected** | Customers don't redeploy CFN/PermissionSets; rotation UI/APIs removed. Initial ExternalId on connect kept (§2.6) |
+| 17 | OCSF export mode for findings | **rejected** | Product decision: OCSF Findings export is meaningless; removed API + format dropdown (§2.7). CSV export kept |
 | 18 | Postgres scale: indexes, keyset pagination, pre-computed aggregates | **done** | Keyset pagination + `include_total`; truncated banner; `/findings/summary` wired; post-scan coverage sync (§2.9) |
 | 19 | Onboarding: no empty states, connect-first, activation metric ("time to first scan result") | **done** | Connect-first UX + `org.settings.activation` milestones + audit-log activation endpoint (§2.10) |
 | 20 | Golden/canary account testing for scanner fidelity | **done** | In-repo golden Stubber regression (`api/tests/golden/`, `test_scan_regression_golden.py`) (§2.11). Live AWS sandbox remains optional/manual |
@@ -101,21 +101,33 @@ org-home “exports covering the audit window: N of 12 months”.
 **Shipped:** `orgReadinessBlockers.ts` ranks by failing SOC 2 controls first; BlockersList shows
 `unblocks CC…`; OrgReadinessHome passes control status map.
 
-#### 2.6 ExternalId rotation — **done**
+#### 2.6 ExternalId rotation — **rejected / removed**
 
-**Shipped:** migration `0094_external_id_rotation`; rotate / confirm / cancel APIs; CFN update CLI
-with pending ExternalId; `RotateExternalIdModal` in troubleshoot + connector update.
+**Rejected:** customers do not redeploy CFN stacks or PermissionSets to rotate ExternalId, so
+the two-phase rotate → update → confirm flow is unused.
 
-#### 2.7 OCSF export mode — **done**
+**Removed:** rotate / confirm / cancel APIs; `RotateExternalIdModal` and UI entry points in
+troubleshoot + connector update. Migration `0094_external_id_rotation` columns left
+accept-and-ignore (no destructive drop).
 
-**Shipped:** `ocsf_export.py` + `GET /v1/exports/findings.ocsf.json`; Findings format dropdown
-(CSV | OCSF); unit tests for schema shape. Internal finding model unchanged.
+**Kept:** ExternalId minting on initial connect / onboarding.
 
-#### 2.8 ISO 27001 coverage parity, then GDPR mapping — **done**
+#### 2.7 OCSF export mode — **rejected / removed**
 
-**Shipped:** closed SOC 2 → ISO Annex A mapping gaps for existing checks; `gdpr` Art. 32
-technical-controls subset in `control_mappings.json`; framework pickers / exports / coverage UI
-treat ISO + GDPR on par (evidence-period semantics). Regenerated check↔framework maps.
+**Rejected:** OCSF Findings export is not a useful customer surface.
+
+**Removed:** `ocsf_export.py`, `GET /v1/exports/findings.ocsf.json`, Findings format dropdown
+(CSV | OCSF). CSV export unchanged.
+
+#### 2.8 ISO 27001 coverage parity; GDPR mapping — **ISO done; GDPR rejected / removed**
+
+**Shipped (ISO):** closed SOC 2 → ISO Annex A mapping gaps for existing checks; framework
+pickers / exports / coverage UI treat ISO on par (evidence-period semantics).
+
+**Rejected (GDPR):** Art. 32 technical-controls subset was product-meaningless. Removed `gdpr`
+from framework catalogs, selectors, Trust Center, evidence UI, and `control_mappings.json`
+(+ regenerated check↔framework maps). SOC 2 / ISO / CIS unchanged. Slug `gdpr` remains
+reserved for custom org frameworks to avoid colliding with any leftover DB rows.
 
 ### P2
 
@@ -157,7 +169,8 @@ From the report's Market / GTM / Business sections — decide, don't build:
 - **Veritrail's own SOC 2 / ISO certification** and third-party pen test — vendor trust
   prerequisite.
 - **EU data residency commitment** — infra/ops before marketing to EU customers.
-- **Which vertical frameworks matter** (HIPAA / PCI / NIS2 / DORA) — market question; default
-  order is ISO 27001 parity then GDPR (§2.8) — **mapping shipped**; verticals still human.
+- **Which vertical frameworks matter** (HIPAA / PCI / NIS2 / DORA) — market question; ISO 27001
+  parity shipped (§2.8). GDPR Art. 32 mapping was rejected/removed as product-meaningless;
+  verticals still human.
 - **Auditor format pre-agreement playbook** — customer-facing docs template ("agree CSV/JSON
   export formats with your auditor up front"); content work, not product code.

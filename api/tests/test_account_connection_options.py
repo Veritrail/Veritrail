@@ -94,8 +94,6 @@ def _mock_account(*, status: str, cfn_stack_name: str) -> MagicMock:
     acc.account_id = None
     acc.status = status
     acc.external_id = "ext-abc"
-    acc.pending_external_id = None
-    acc.external_id_rotation_requested_at = None
     acc.role_arn = None
     acc.last_error = None
     acc.enable_advanced_policy_generation = False

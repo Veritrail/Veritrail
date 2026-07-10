@@ -18,7 +18,7 @@ class AwsAccount(Base):
     account_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
     role_arn: Mapped[str | None] = mapped_column(EncryptedString(700), nullable=True)
     external_id: Mapped[str] = mapped_column(EncryptedString(200))
-    # Two-phase ExternalId rotation: mint → customer updates CFN trust → confirm.
+    # Retired ExternalId rotation columns (migration 0094) — accept-and-ignore; no API/UI.
     pending_external_id: Mapped[str | None] = mapped_column(EncryptedString(200), nullable=True)
     external_id_rotation_requested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-FRAMEWORKS = frozenset({"soc2", "cis_aws_l1", "iso27001", "gdpr"})
+FRAMEWORKS = frozenset({"soc2", "cis_aws_l1", "iso27001"})
 
 
 class OrgControlMapping(Base):

@@ -1470,33 +1470,6 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     URL.revokeObjectURL(url);
   }, [scopeParams.account_id, scopeParams.azure_subscription_id, scopeParams.gcp_project_id, scopeParams.provider, status]);
 
-  const downloadOcsf = useCallback(async () => {
-    const BASE = (import.meta.env.VITE_API_URL as string) || "http://localhost:8000";
-    const t = token();
-    const qs = new URLSearchParams({ status, mode: "compliance" });
-    if (scopeParams.account_id) qs.set("account_id", scopeParams.account_id);
-    if (scopeParams.gcp_project_id) qs.set("gcp_project_id", scopeParams.gcp_project_id);
-    if (scopeParams.azure_subscription_id) qs.set("azure_subscription_id", scopeParams.azure_subscription_id);
-    if (scopeParams.provider) qs.set("provider", scopeParams.provider);
-    const res = await fetch(`${BASE}/v1/exports/findings.ocsf.json?${qs.toString()}`, {
-      headers: t ? { Authorization: `Bearer ${t}` } : {},
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "veritrail-findings.ocsf.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [scopeParams.account_id, scopeParams.azure_subscription_id, scopeParams.gcp_project_id, scopeParams.provider, status]);
-
-  const [exportFormat, setExportFormat] = useState<"csv" | "ocsf">("csv");
-  const downloadExport = useCallback(() => {
-    if (exportFormat === "ocsf") void downloadOcsf();
-    else void downloadCsv();
-  }, [downloadCsv, downloadOcsf, exportFormat]);
-
   if (!embedded && accountsReady && !accountsLoading && connectedScopeOptions.length === 0) {
     return <ConnectAwsEmptyState />;
   }
@@ -1613,24 +1586,11 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
                       </button>
                     </div>
                     <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
-                      <label className="sr-only" htmlFor="findings-export-format">
-                        Export format
-                      </label>
-                      <select
-                        id="findings-export-format"
-                        className="findings-v2-toolbar-btn"
-                        value={exportFormat}
-                        onChange={(e) => setExportFormat(e.target.value === "ocsf" ? "ocsf" : "csv")}
-                        aria-label="Export format"
-                      >
-                        <option value="csv">CSV</option>
-                        <option value="ocsf">OCSF JSON</option>
-                      </select>
-                      <button type="button" onClick={downloadExport} className="findings-v2-toolbar-btn">
+                      <button type="button" onClick={() => void downloadCsv()} className="findings-v2-toolbar-btn">
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                         </svg>
-                        Export
+                        Export CSV
                       </button>
                       {awsScanAccountId ? (
                         <FindingsScanButton

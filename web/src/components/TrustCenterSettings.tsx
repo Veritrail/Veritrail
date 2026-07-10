@@ -21,11 +21,10 @@ const AVAILABLE_FRAMEWORKS = [
   { key: "soc2", label: "SOC 2" },
   { key: "iso27001", label: "ISO 27001" },
   { key: "cis_aws_l1", label: "CIS AWS L1" },
-  { key: "gdpr", label: "GDPR Art. 32" },
 ];
 
 const DEFAULT_FRAMEWORKS = ["soc2", "iso27001", "cis_aws_l1"];
-const TRUST_FRAMEWORK_KEYS = new Set(["soc2", "iso27001", "cis_aws_l1", "gdpr"]);
+const TRUST_FRAMEWORK_KEYS = new Set(["soc2", "iso27001", "cis_aws_l1"]);
 
 function normalizeFrameworks(keys: string[] | undefined): string[] {
   const filtered = (keys ?? []).filter((key) => TRUST_FRAMEWORK_KEYS.has(key));

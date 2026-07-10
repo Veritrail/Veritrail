@@ -18,7 +18,7 @@ from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
 
-FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001", "gdpr"}
+FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001"}
 
 
 class EvidenceExportOut(BaseModel):
@@ -537,63 +537,3 @@ def export_findings_csv(
         headers={"Content-Disposition": f'attachment; filename="veritrail-findings-{ts}.csv"'},
     )
 
-
-@router.get("/findings.ocsf.json")
-def export_findings_ocsf(
-    _rbac: RequireAdmin,
-    status_filter: str | None = Query(default="open", alias="status"),
-    account_id: str | None = Query(default=None),
-    gcp_project_id: str | None = Query(default=None),
-    azure_subscription_id: str | None = Query(default=None),
-    provider: Annotated[str | None, Query()] = None,
-    mode: Annotated[str, Query(description="compliance | security")] = "compliance",
-    p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    """Export findings as OCSF Compliance Finding (default) or Security Finding JSON."""
-    from app.models import Finding
-    from app.models.org import Org
-    from app.services.check_settings import hidden_check_ids
-    from app.services.finding_supersession import RETIRED_FINDING_CHECKS
-    from app.services.findings_scope import apply_findings_scope
-    from app.services.ocsf_export import findings_to_ocsf_bundle
-    from app.routes.findings import _account_display_name, _load_org_accounts
-
-    if mode not in ("compliance", "security"):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "mode must be compliance or security")
-
-    org = db.get(Org, uuid.UUID(p["org_id"]))
-    hidden = hidden_check_ids(org.settings if org else {}) | RETIRED_FINDING_CHECKS
-    acc_uuid = uuid.UUID(account_id) if account_id else None
-    gcp_uuid = uuid.UUID(gcp_project_id) if gcp_project_id else None
-    az_uuid = uuid.UUID(azure_subscription_id) if azure_subscription_id else None
-
-    q = select(Finding).where(Finding.org_id == uuid.UUID(p["org_id"]))
-    if hidden:
-        q = q.where(Finding.check_id.notin_(hidden))
-    if status_filter and status_filter != "all":
-        q = q.where(Finding.status == status_filter)
-    q = apply_findings_scope(
-        q,
-        provider=provider,
-        account_id=acc_uuid,
-        gcp_project_id=gcp_uuid,
-        azure_subscription_id=az_uuid,
-    )
-    q = q.order_by(Finding.risk_score.desc())
-    rows = db.scalars(q).all()
-
-    accounts = _load_org_accounts(db, uuid.UUID(p["org_id"]))
-    labels = {aid: _account_display_name(acc) for aid, acc in accounts.items()}
-
-    bundle = findings_to_ocsf_bundle(
-        rows,
-        as_compliance=mode == "compliance",
-        account_labels=labels,
-    )
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return Response(
-        content=json.dumps(bundle, default=str).encode(),
-        media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="veritrail-findings-ocsf-{ts}.json"'},
-    )

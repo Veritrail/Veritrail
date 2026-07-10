@@ -98,8 +98,6 @@ export const accountSchema = z
     account_id: z.string().nullable(),
     status: z.string(),
     external_id: z.string().optional(),
-    pending_external_id: z.string().nullable().optional(),
-    external_id_rotation_requested_at: z.string().nullable().optional(),
     role_arn: z.string().nullable().optional(),
     enable_advanced_policy_generation: z.boolean().optional(),
     last_scan_at: z.string().nullable().optional(),

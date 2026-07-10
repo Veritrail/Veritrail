@@ -13,7 +13,6 @@ FRAMEWORK_LABELS: dict[str, str] = {
     "soc2": "SOC 2",
     "cis_aws_l1": "CIS AWS L1",
     "iso27001": "ISO 27001",
-    "gdpr": "GDPR Art. 32",
 }
 
 

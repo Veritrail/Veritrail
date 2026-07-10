@@ -200,7 +200,7 @@ class ScanningIn(BaseModel):
 
 class ScheduledExportsIn(BaseModel):
     enabled: bool = False
-    framework: Literal["soc2", "cis_aws_l1", "iso27001", "gdpr"] = "soc2"
+    framework: Literal["soc2", "cis_aws_l1", "iso27001"] = "soc2"
     period_days: int = 90
     cadence: Literal["weekly", "monthly"] = "monthly"
     notify_email: bool = True

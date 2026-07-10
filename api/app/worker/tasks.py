@@ -1216,7 +1216,7 @@ def scheduled_evidence_exports() -> dict:
                 continue
 
             framework = cfg.get("framework") or "soc2"
-            if framework not in ("soc2", "cis_aws_l1", "iso27001", "gdpr"):
+            if framework not in ("soc2", "cis_aws_l1", "iso27001"):
                 framework = "soc2"
             try:
                 period_days = int(cfg.get("period_days") or 90)

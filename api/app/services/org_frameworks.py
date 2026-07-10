@@ -18,6 +18,7 @@ def validate_slug(slug: str) -> str:
     if not _SLUG_RE.match(s):
         raise ValueError("slug must be 2-39 chars, lowercase alphanumeric with _ or -")
     if s in ("soc2", "cis_aws_l1", "iso27001", "gdpr"):
+        # gdpr kept reserved so custom slugs cannot collide with retired framework rows
         raise ValueError("slug conflicts with built-in framework")
     return s
 

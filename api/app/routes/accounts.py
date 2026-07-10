@@ -56,8 +56,6 @@ class AccountOut(BaseModel):
     account_id: str | None
     status: str
     external_id: str
-    pending_external_id: str | None = None
-    external_id_rotation_requested_at: datetime | None = None
     role_arn: str | None = None
     enable_advanced_policy_generation: bool = False
     remediation_modules: RemediationModulesIn
@@ -77,13 +75,6 @@ class AccountOut(BaseModel):
     last_scan_at: datetime | None = None
     last_error: str | None = None
     cloudtrail_onboarding_mode: str | None = None
-
-
-class RotateExternalIdOut(BaseModel):
-    pending_external_id: str
-    external_id_rotation_requested_at: datetime
-    cfn_update_cli_command: str
-    account: AccountOut
 
 
 class CloudTrailOnboardingIn(BaseModel):
@@ -280,15 +271,12 @@ def _account_out(acc: AwsAccount) -> AccountOut:
     )
     create_opts = dict(stack_name=_create_stack_name(), **option_kwargs)
     update_opts = dict(stack_name=_update_stack_name(acc), **option_kwargs)
-    pending = getattr(acc, "pending_external_id", None)
     return AccountOut(
         id=str(acc.id),
         label=acc.label,
         account_id=acc.account_id,
         status=acc.status,
         external_id=acc.external_id,
-        pending_external_id=pending,
-        external_id_rotation_requested_at=getattr(acc, "external_id_rotation_requested_at", None),
         role_arn=acc.role_arn if acc.role_arn and (acc.status == "connected" or acc.account_id) else None,
         last_error=acc.last_error,
         enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
@@ -503,133 +491,3 @@ def delete_account(account_id: str, _rbac: RequireAdmin, p=Depends(current_princ
     )
     db.delete(acc)
     db.commit()
-
-
-@router.post("/{account_id}/rotate-external-id", response_model=RotateExternalIdOut)
-def rotate_external_id(
-    account_id: str,
-    _rbac: RequireAdmin,
-    p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    """Phase 1: mint a pending ExternalId and return CFN update CLI with the new value."""
-    acc = _require_account(db, account_id, p["org_id"])
-    if acc.status != "connected" or not acc.role_arn:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "Connect and verify the account before rotating the External ID.",
-        )
-    _block_if_scan_running(db, acc)
-
-    if acc.pending_external_id and acc.external_id_rotation_requested_at:
-        pending = acc.pending_external_id
-        requested_at = acc.external_id_rotation_requested_at
-    else:
-        pending = secrets.token_urlsafe(24)
-        requested_at = datetime.now(timezone.utc)
-        acc.pending_external_id = pending
-        acc.external_id_rotation_requested_at = requested_at
-        log_org_activity(
-            db,
-            org_id=uuid.UUID(p["org_id"]),
-            actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
-            action="account.external_id_rotation_started",
-            target_type="aws_account",
-            target_id=str(acc.id),
-            target_label=acc.label,
-            detail={"aws_account_id": acc.account_id},
-        )
-        db.commit()
-        db.refresh(acc)
-
-    modules = remediation_modules_dict(acc)
-    update_cli = _update_cli_command(
-        pending,
-        stack_name=_update_stack_name(acc),
-        enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
-        remediation_modules=modules,
-    )
-
-    return RotateExternalIdOut(
-        pending_external_id=pending,
-        external_id_rotation_requested_at=requested_at,
-        cfn_update_cli_command=update_cli,
-        account=_account_out(acc),
-    )
-
-
-@router.post("/{account_id}/confirm-external-id-rotation", response_model=AccountOut)
-def confirm_external_id_rotation(
-    account_id: str,
-    _rbac: RequireAdmin,
-    p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    """Phase 2: verify assume-role with pending ExternalId, then swap and clear pending."""
-    from app.core.aws import verify_account
-
-    acc = _require_account(db, account_id, p["org_id"])
-    if not acc.pending_external_id:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No External ID rotation is in progress.")
-    if not acc.role_arn:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Account has no role ARN to verify.")
-    _block_if_scan_running(db, acc)
-
-    pending = acc.pending_external_id
-    ok, _aws_account_id, _alias, err = verify_account(acc.role_arn, pending, aws_account=acc)
-    if not ok:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"Verification with the new External ID failed: {err}. "
-            "Update the CloudFormation stack ExternalId parameter, then try again.",
-        )
-
-    acc.external_id = pending
-    acc.pending_external_id = None
-    acc.external_id_rotation_requested_at = None
-    acc.last_error = None
-
-    log_org_activity(
-        db,
-        org_id=uuid.UUID(p["org_id"]),
-        actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
-        action="account.external_id_rotation_confirmed",
-        target_type="aws_account",
-        target_id=str(acc.id),
-        target_label=acc.label,
-        detail={"aws_account_id": acc.account_id},
-    )
-    db.commit()
-    db.refresh(acc)
-    return _account_out(acc)
-
-
-@router.post("/{account_id}/cancel-external-id-rotation", response_model=AccountOut)
-def cancel_external_id_rotation(
-    account_id: str,
-    _rbac: RequireAdmin,
-    p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    """Discard a pending ExternalId rotation (keeps the current ExternalId)."""
-    acc = _require_account(db, account_id, p["org_id"])
-    if not acc.pending_external_id:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No External ID rotation is in progress.")
-    _block_if_scan_running(db, acc)
-
-    acc.pending_external_id = None
-    acc.external_id_rotation_requested_at = None
-
-    log_org_activity(
-        db,
-        org_id=uuid.UUID(p["org_id"]),
-        actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
-        action="account.external_id_rotation_cancelled",
-        target_type="aws_account",
-        target_id=str(acc.id),
-        target_label=acc.label,
-        detail={"aws_account_id": acc.account_id},
-    )
-    db.commit()
-    db.refresh(acc)
-    return _account_out(acc)
