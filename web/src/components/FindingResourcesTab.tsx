@@ -14,7 +14,7 @@ import {
   summarizeRefreshOutcome,
   waitForRecheckUpdate,
 } from "../lib/recheckPoll";
-import { remediationSummaryForFinding } from "../data/remediationSummaries";
+import { resourceAffectedReason } from "../lib/resourceAffectedReason";
 import type { JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import {
   isJiraDoneBeforeVerification,
@@ -44,31 +44,6 @@ export type ResourcesTabFinding = {
   account_name?: string | null;
   account_provider?: string | null;
 };
-
-const RESOURCE_AFFECTED_DETAIL: Record<string, string> = {
-  "s3.bucket.public_access_not_blocked": "Bucket allows public access via all public access settings.",
-  "s3.account.public_access_not_blocked":
-    "Account level guardrails are off. One bucket misconfiguration can expose data.",
-  "s3.bucket.no_https_policy": "No HTTPS only bucket policy. Objects may be read over HTTP.",
-  "s3.bucket.no_kms": "Objects are stored without SSE KMS at rest.",
-  "s3.bucket.no_logging": "Object-level reads and writes are not recorded to a log bucket.",
-};
-
-/** One-line reason for the Resources table — scoped to this resource, not the finding title. */
-function resourceAffectedReason(finding: ResourcesTabFinding): string {
-  const override = RESOURCE_AFFECTED_DETAIL[finding.check_id];
-  if (override) return override;
-
-  if (finding.check_id === "iam.role.least_privilege_policy") {
-    const scope = finding.evidence?.scope;
-    if (scope === "full_admin") return "Action:* + Resource:*";
-    if (scope === "wildcard_action") return "Action:* (wildcard)";
-    return "Broader than observed usage";
-  }
-
-  const summary = remediationSummaryForFinding(finding);
-  return (summary.risk || summary.impact).replace(/\s*—\s*/g, ". ");
-}
 
 function formatResourceTableDate(iso: string, mode: "first" | "last"): { primary: string; sub: string } {
   const d = new Date(iso);
