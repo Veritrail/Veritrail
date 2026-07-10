@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Veritrail Docs</title>
+<meta name="description" content="Documentation for Veritrail — connect your cloud and source control, collect read-only SOC 2 evidence, and export auditor-ready packs." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 5l8 15 8-15h-4l-4 8-4-8z' fill='%230d9488'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --teal: #0d9488;
+    --teal-hover: #0f766e;
+    --ink: #0f172a;
+    --body: #334155;
+    --muted: #64748b;
+    --soft: #94a3b8;
+    --border: #e6ebf1;
+    --border-soft: #eef2f6;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --code-bg: #f6f8fa;
+    --sidebar-w: 264px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--body);
+    background: var(--surface);
+    line-height: 1.65;
+    font-size: 15.5px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  a { color: var(--teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.86em; background: var(--code-bg); border: 1px solid var(--border-soft);
+    padding: 1.5px 6px; border-radius: 5px; color: #0f172a;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px; overflow-x: auto; margin: 18px 0;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: 13.5px; line-height: 1.6; color: #1e293b; }
+
+  /* Top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    height: 60px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; border-bottom: 1px solid var(--border-soft);
+    background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; color: var(--ink); font-size: 17px; letter-spacing: -0.02em; }
+  .topbar-right { display: flex; align-items: center; gap: 22px; }
+  .topbar-right a { color: var(--muted); font-size: 14px; font-weight: 500; }
+  .topbar-right a:hover { color: var(--ink); text-decoration: none; }
+  .cta {
+    display: inline-flex; align-items: center; height: 36px; padding: 0 16px;
+    background: var(--teal); color: #fff !important; border-radius: 9px; font-weight: 600; font-size: 14px;
+  }
+  .cta:hover { background: var(--teal-hover); text-decoration: none; }
+  .menu-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; width: 38px; height: 36px; cursor: pointer; align-items: center; justify-content: center; }
+  .menu-toggle svg { width: 18px; height: 18px; color: var(--ink); }
+
+  /* Layout */
+  .layout { display: flex; max-width: 1200px; margin: 0 auto; }
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0; padding: 30px 16px 60px;
+    position: sticky; top: 60px; align-self: flex-start; height: calc(100vh - 60px); overflow-y: auto;
+    border-right: 1px solid var(--border-soft);
+  }
+  .nav-group { margin-bottom: 26px; }
+  .nav-group h4 {
+    margin: 0 0 8px; padding: 0 12px; font-size: 11.5px; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--soft);
+  }
+  .sidebar a {
+    display: block; padding: 6.5px 12px; border-radius: 8px;
+    color: var(--muted); font-size: 14.5px; font-weight: 500; line-height: 1.4;
+  }
+  .sidebar a:hover { background: var(--surface-2); color: var(--ink); text-decoration: none; }
+  .sidebar a.active { background: #ecfdf5; color: var(--teal); font-weight: 600; }
+
+  .content { flex: 1; min-width: 0; padding: 44px 56px 120px; max-width: 800px; }
+  .content h1 { font-size: 34px; font-weight: 700; color: var(--ink); letter-spacing: -0.025em; margin: 0 0 10px; line-height: 1.15; }
+  .content .subtitle { font-size: 18px; color: var(--muted); margin: 0 0 40px; }
+  .content h2 { font-size: 23px; font-weight: 650; color: var(--ink); letter-spacing: -0.02em; margin: 52px 0 14px; padding-top: 10px; }
+  .content h3 { font-size: 17px; font-weight: 650; color: var(--ink); margin: 32px 0 10px; }
+  .content p { margin: 0 0 16px; }
+  .content ul, .content ol { margin: 0 0 18px; padding-left: 22px; }
+  .content li { margin-bottom: 8px; }
+  .content section { scroll-margin-top: 76px; }
+
+  .note {
+    border: 1px solid #d1fae5; background: #f0fdf9; border-left: 3px solid var(--teal);
+    border-radius: 10px; padding: 14px 18px; margin: 22px 0; font-size: 14.5px; color: #134e4a;
+  }
+  .note strong { color: #0f766e; }
+
+  .kv { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 22px 0; }
+  .kv-row { display: grid; grid-template-columns: 200px 1fr; border-top: 1px solid var(--border-soft); }
+  .kv-row:first-child { border-top: 0; }
+  .kv-row dt { padding: 12px 18px; font-weight: 600; color: var(--ink); font-size: 14.5px; background: var(--surface-2); margin: 0; }
+  .kv-row dd { padding: 12px 18px; margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  .footer-nav { display: flex; justify-content: space-between; gap: 16px; margin-top: 64px; padding-top: 28px; border-top: 1px solid var(--border-soft); }
+  .footer-nav a { flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; color: var(--ink); }
+  .footer-nav a:hover { border-color: var(--teal); text-decoration: none; }
+  .footer-nav .dir { font-size: 12.5px; color: var(--soft); font-weight: 600; }
+  .footer-nav .title { font-size: 15px; font-weight: 600; margin-top: 2px; }
+  .footer-nav a.next { text-align: right; }
+
+  .backdrop { display: none; }
+
+  @media (max-width: 900px) {
+    .menu-toggle { display: flex; }
+    .topbar-right a:not(.cta) { display: none; }
+    .sidebar {
+      position: fixed; top: 60px; left: 0; bottom: 0; height: auto; z-index: 40;
+      background: #fff; transform: translateX(-100%); transition: transform .2s ease;
+      width: 280px; border-right: 1px solid var(--border);
+    }
+    body.nav-open .sidebar { transform: translateX(0); }
+    body.nav-open .backdrop { display: block; position: fixed; inset: 60px 0 0 0; background: rgba(15,23,42,.35); z-index: 35; }
+    .content { padding: 32px 22px 100px; }
+    .kv-row { grid-template-columns: 1fr; }
+    .kv-row dt { border-bottom: 1px solid var(--border-soft); }
+    .footer-nav { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="menu-toggle" aria-label="Toggle navigation" onclick="document.body.classList.toggle('nav-open')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>
+    </button>
+    <a class="brand" href="https://veritrail.io">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l8 15 8-15h-4l-4 8-4-8z" fill="#0d9488"/></svg>
+      Veritrail <span style="color:var(--soft);font-weight:500;">Docs</span>
+    </a>
+  </div>
+  <div class="topbar-right">
+    <a href="https://veritrail.io">Home</a>
+    <a href="https://app.veritrail.io" class="cta">Open app</a>
+  </div>
+</div>
+
+<div class="backdrop" onclick="document.body.classList.remove('nav-open')"></div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="nav-group">
+      <h4>Getting started</h4>
+      <a href="#introduction">Introduction</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#how-it-works">How it works</a>
+    </div>
+    <div class="nav-group">
+      <h4>Connect sources</h4>
+      <a href="#connect-aws">AWS</a>
+      <a href="#connect-gcp">Google Cloud</a>
+      <a href="#connect-azure">Azure</a>
+      <a href="#connect-scm">GitHub &amp; GitLab</a>
+      <a href="#connect-entra">Microsoft Entra ID</a>
+      <a href="#connect-google-workspace">Google Workspace</a>
+    </div>
+    <div class="nav-group">
+      <h4>Evidence</h4>
+      <a href="#controls">Controls &amp; mapping</a>
+      <a href="#evidence-packs">Evidence packs</a>
+      <a href="#pdf-report">Narrative PDF report</a>
+      <a href="#auditor-portal">Auditor portal</a>
+      <a href="#scheduled-exports">Scheduled exports</a>
+    </div>
+    <div class="nav-group">
+      <h4>Reference</h4>
+      <a href="#security">Security &amp; access</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </aside>
+
+  <main class="content">
+    <h1>Veritrail documentation</h1>
+    <p class="subtitle">Connect your cloud and source control, collect read-only evidence, and export what your auditor asks for.</p>
+
+    <section id="introduction">
+      <h2>Introduction</h2>
+      <p>Veritrail collects auditor-ready technical evidence for <strong>SOC 2</strong>, <strong>ISO 27001</strong>, and the <strong>CIS AWS Foundations Benchmark</strong> from your cloud accounts, source-control organizations, and identity providers. It connects read-only, scans continuously, maps findings to the controls they support, and produces signed evidence packs on demand.</p>
+      <p>Veritrail is an evidence company — it collects and shows the state of your infrastructure and change process. It scans and reports; it does not modify your environment. Every finding ships with console and CLI remediation guidance, and a <strong>Verify fix</strong> re-check confirms the fix once you have applied it yourself.</p>
+      <div class="note"><strong>Read-only by default.</strong> The base install grants no write access and no PassRole. Veritrail collects configuration evidence through provider APIs and does not read customer application data.</div>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quickstart</h2>
+      <p>From a fresh workspace to your first evidence pack:</p>
+      <ol>
+        <li>Sign in at <a href="https://app.veritrail.io">app.veritrail.io</a> and create your workspace.</li>
+        <li>On <strong>Home</strong>, add an AWS account with the read-only connector role (see <a href="#connect-aws">Connect AWS</a>).</li>
+        <li>Run a scan, or wait for the daily scan to complete.</li>
+        <li>Review organization readiness on <strong>Home</strong>, findings on <strong>Findings</strong>, and control coverage on <strong>Compliance</strong>.</li>
+        <li>Export an evidence pack from <strong>Compliance → Generate audit package</strong>.</li>
+      </ol>
+      <p>Optionally connect GCP, Azure, GitHub, GitLab, Microsoft Entra ID, or Google Workspace to widen coverage.</p>
+    </section>
+
+    <section id="how-it-works">
+      <h2>How it works</h2>
+      <p>Veritrail runs three things continuously:</p>
+      <div class="kv">
+        <div class="kv-row"><dt>Collect</dt><dd>Read-only scans of your connected cloud accounts, plus syncs of source-control orgs and identity providers, daily and on demand.</dd></div>
+        <div class="kv-row"><dt>Map</dt><dd>Each finding ties to the framework controls it supports — SOC 2, ISO 27001, and CIS AWS.</dd></div>
+        <div class="kv-row"><dt>Export</dt><dd>Produce a signed, control-mapped evidence pack, or share a read-only auditor portal.</dd></div>
+      </div>
+      <p>Cloud findings are scoped to the account they came from. Source-control and identity-provider evidence is organization-level and updates when you sync those integrations — no cloud scan required. The <strong>Findings</strong> page lets you filter by a single account or by org-wide scope: all cloud accounts, source control, or identity.</p>
+      <p>When you fix an issue, use <strong>Verify fix</strong> on the finding to re-check just that item — it works for account-scoped cloud findings and for org-level GitHub, GitLab, and identity findings alike. The <strong>History</strong> page keeps point-in-time compliance snapshots, and prior audit packages can be downloaded from there.</p>
+      <p>Workflow integrations are optional: connect <strong>Jira</strong> to turn findings into tracked remediation tickets, and <strong>Slack</strong> for scan alerts and weekly digests.</p>
+    </section>
+
+    <section id="connect-aws">
+      <h2>Connect AWS</h2>
+      <p>Veritrail assumes a read-only role in your account via CloudFormation. The stack creates a role Veritrail can assume with an ExternalId — no long-lived keys.</p>
+      <ol>
+        <li>In the app, go to <strong>Home → Add account</strong> and choose AWS.</li>
+        <li>Deploy the provided CloudFormation stack — the app gives you a one-click launch URL and an equivalent <code>aws cloudformation</code> CLI command. The ExternalId is generated when you start the connection and is pre-filled as a stack parameter.</li>
+        <li>Paste the role ARN back into Veritrail and verify the connection.</li>
+        <li>Run your first scan.</li>
+      </ol>
+      <p>The scanner role is read-only: it grants describe/list/get permissions only, with no write access and no PassRole. You can review the full IAM action list in the app before deploying the stack.</p>
+      <div class="note">If a scan fails with a permissions error, the in-app troubleshoot panel names the missing permission and the exact fix.</div>
+    </section>
+
+    <section id="connect-gcp">
+      <h2>Connect Google Cloud</h2>
+      <p>Veritrail reads GCP configuration through a scanner service account in your project, accessed via service-account impersonation — no exported keys.</p>
+      <ol>
+        <li>Go to <strong>Home → Add account</strong> and choose Google Cloud, then follow the <code>gcloud</code> setup shown in the app.</li>
+        <li>Grant the scanner service account the read-only roles Veritrail requests: <code>roles/viewer</code>, <code>roles/logging.viewer</code>, <code>roles/osconfig.viewer</code>, <code>roles/securitycenter.findingsViewer</code>, and <code>roles/cloudasset.viewer</code>. Veritrail's platform service account needs <code>roles/iam.serviceAccountTokenCreator</code> on the scanner service account.</li>
+        <li>Verify and run a scan.</li>
+      </ol>
+      <p>This covers project inventory, logging configuration, Security Command Center findings, and asset IAM checks — all read-only.</p>
+    </section>
+
+    <section id="connect-azure">
+      <h2>Connect Azure</h2>
+      <p>Veritrail connects to Azure through an app registration with <strong>Reader</strong> and <strong>Security Reader</strong> roles on the subscriptions you want covered.</p>
+      <ol>
+        <li>Go to <strong>Home → Add account</strong> and choose Azure.</li>
+        <li>Register the app and assign the two read-only roles to the target subscriptions.</li>
+        <li>Enter the client credentials, verify, and scan.</li>
+      </ol>
+      <p>Coverage includes Microsoft Defender posture, storage configuration, Resource Graph inventory, Activity Log, privileged RBAC assignments, and Azure Policy compliance.</p>
+    </section>
+
+    <section id="connect-scm">
+      <h2>Connect GitHub &amp; GitLab</h2>
+      <p>Source control provides change-management evidence: branch protection, required reviews, org MFA posture, and collaborator access. These checks are organization-level and run when you sync the integration — they are not tied to a cloud account.</p>
+      <ol>
+        <li>Go to <strong>Integrations → GitHub</strong> (or GitLab) and authorize with OAuth. GitHub requests <code>read:user</code>, <code>user:email</code>, <code>read:org</code>, and <code>repo</code>; GitLab requests <code>read_api</code>.</li>
+        <li>Select the organization (or GitLab group) to collect from.</li>
+        <li>Sync — findings appear org-wide and grade your change-management controls immediately.</li>
+      </ol>
+      <p>After you fix an issue in GitHub or GitLab — say, enabling branch protection — use <strong>Verify fix</strong> on the finding to re-check it without waiting for the next sync.</p>
+    </section>
+
+    <section id="connect-entra">
+      <h2>Connect Microsoft Entra ID</h2>
+      <p>Entra ID supplies access-management evidence — directory users, MFA enforcement, and privileged role assignments — for your logical-access controls.</p>
+      <ol>
+        <li>Go to <strong>Integrations → Microsoft Entra ID</strong>.</li>
+        <li>Complete the OAuth connection. Veritrail requests read-only delegated scopes: <code>User.Read</code>, <code>Directory.Read.All</code>, and <code>RoleManagement.Read.Directory</code> (plus <code>offline_access</code> to keep the sync running).</li>
+        <li>Sync. Identity findings are organization-level and update compliance without a cloud scan.</li>
+      </ol>
+    </section>
+
+    <section id="connect-google-workspace">
+      <h2>Connect Google Workspace</h2>
+      <p>Google Workspace supplies directory and admin-governance evidence: workspace users, 2-Step Verification enforcement, and admin role review.</p>
+      <ol>
+        <li>Go to <strong>Integrations → Google Workspace</strong>.</li>
+        <li>Complete the OAuth connection as a Workspace administrator. Veritrail requests read-only scopes: <code>admin.directory.user.readonly</code> and <code>admin.directory.rolemanagement.readonly</code>.</li>
+        <li>Sync. Findings are organization-level, same as Entra ID.</li>
+      </ol>
+    </section>
+
+    <section id="controls">
+      <h2>Controls &amp; mapping</h2>
+      <p>Every check maps to the framework controls it supports. On the <strong>Compliance</strong> page, controls are grouped into capability domains — logical access, change management, logging &amp; monitoring, data protection, and more.</p>
+      <ul>
+        <li><strong>Failing</strong> — Veritrail evaluated the control and found an issue. The finding is shown with remediation guidance.</li>
+        <li><strong>Coverage gap</strong> — the evidence lives outside what a connected scan can see (for example, HR or vendor records). Attach external evidence to close it.</li>
+      </ul>
+      <p>Open findings and accepted risks are kept distinct: a finding you have risk-accepted with a recorded reason becomes a <strong>documented exception</strong> and no longer fails the control, while any open finding is treated as a <strong>gap</strong>. Both appear, clearly separated, in evidence packs and the narrative report.</p>
+      <p>When a required service is off — say VPC flow logs or a threat-detection service — Veritrail shows it as a finding with a direct link to enable it, because turning it on is what lets Veritrail grade the control.</p>
+    </section>
+
+    <section id="evidence-packs">
+      <h2>Evidence packs</h2>
+      <p>An evidence pack is a point-in-time ZIP export of your control coverage and the findings behind it, for a chosen framework and evidence window. Generate one from <strong>Compliance → Generate audit package</strong>.</p>
+      <div class="kv">
+        <div class="kv-row"><dt>PDF report</dt><dd>The narrative, auditor-facing report (see <a href="#pdf-report">Narrative PDF report</a>).</dd></div>
+        <div class="kv-row"><dt>Per-control data</dt><dd>Each control folder contains <code>findings.json</code> and <code>exceptions.json</code> — the complete machine-readable population — plus evidence snapshots.</dd></div>
+        <div class="kv-row"><dt>JSON / CSV</dt><dd>Machine-readable summaries for your GRC tool or your own records.</dd></div>
+        <div class="kv-row"><dt>Integrity files</dt><dd><code>checksum_manifest.json</code> with SHA-256 hashes for every file, and <code>pack_signature.json</code> with an Ed25519 signature over the manifest.</dd></div>
+      </div>
+      <p>Every item in a pack traces back to the source it was collected from, with a timestamp.</p>
+      <h3>Verifying pack integrity</h3>
+      <p>Anyone holding a pack — including your auditor — can verify it without a Veritrail account:</p>
+      <ol>
+        <li><strong>Verify the download.</strong> The pack's SHA-256 is shown at download time (and sent in the <code>X-Veritrail-Pack-SHA256</code> response header). Compare it against <code>shasum -a 256 pack.zip</code>.</li>
+        <li><strong>Verify the contents.</strong> <code>checksum_manifest.json</code> lists a SHA-256 hash for every file in the ZIP except itself. Recompute and compare.</li>
+        <li><strong>Verify the signature.</strong> When signing is configured, <code>pack_signature.json</code> contains an Ed25519 signature over the exact bytes of <code>checksum_manifest.json</code>. Check that <code>payload_sha256</code> matches the manifest's SHA-256, then verify <code>signature_base64</code> against <code>public_key_base64</code>. The public key is also published at <code>GET /v1/meta/evidence-pack-signing-key</code> for independent confirmation.</li>
+      </ol>
+    </section>
+
+    <section id="pdf-report">
+      <h2>Narrative PDF report</h2>
+      <p>The PDF inside each evidence pack is written for the auditor reading it, not as a raw finding dump. Evidence is grouped into capability domains, and each domain section contains:</p>
+      <ul>
+        <li>An <strong>assertion paragraph</strong> — affirmative but evidence-anchored and scoped to what was actually observed.</li>
+        <li>A <strong>coverage line</strong> stating what was evaluated and over what window.</li>
+        <li><strong>Documented exceptions</strong> — risk-accepted deviations with their recorded reasons — listed separately from <strong>open gaps</strong>.</li>
+        <li><strong>Framework cross-reference tags</strong> tying the domain back to SOC 2, ISO 27001, and CIS AWS control IDs.</li>
+      </ul>
+      <p>Per-resource detail lives in <strong>Appendix A</strong> at the back of the document, with each row marked as an open gap or a documented exception. The complete enumerated population always lives in each control's <code>findings.json</code> and <code>exceptions.json</code> inside the pack — the PDF references it rather than truncating silently.</p>
+    </section>
+
+    <section id="auditor-portal">
+      <h2>Auditor portal</h2>
+      <p>Instead of emailing files, you can share a read-only auditor portal. From <strong>Workspace → Sharing</strong>, invite your auditor by email and set an expiry. They receive a tokenized sign-in link — no Veritrail account required — to a scoped view of findings, controls, and evidence. They get no access to your workspace settings or your connected accounts.</p>
+      <ul>
+        <li>Auditors can download evidence pack ZIPs directly, with the integrity panel showing the pack's SHA-256 and signature-verification instructions.</li>
+        <li>You can generate scoped, time-limited download links for prior exports.</li>
+        <li>Grants can be extended or revoked at any time.</li>
+      </ul>
+      <h3>Trust Center</h3>
+      <p>Separately from the auditor portal, you can publish a public Trust Center at <code>/trust/&lt;your-slug&gt;</code> — a customer-facing page listing your frameworks and security documents, with an access-request form. Configure it under <strong>Workspace → Sharing</strong>.</p>
+    </section>
+
+    <section id="scheduled-exports">
+      <h2>Scheduled exports</h2>
+      <p>Rather than remembering to export before an audit, you can have Veritrail build evidence packs on a schedule so your audit window is continuously covered.</p>
+      <ol>
+        <li>Enable scheduled exports in <strong>Workspace</strong> settings.</li>
+        <li>Choose the framework (SOC 2, ISO 27001, or CIS AWS), the evidence window (7–365 days; 90 by default), and the cadence (weekly or monthly).</li>
+      </ol>
+      <p>Each run builds a pack per connected account covering the chosen window, and optionally emails you when it completes. Scheduled packs appear in your export history alongside manual ones, ready to download or share through the auditor portal.</p>
+    </section>
+
+    <section id="security">
+      <h2>Security &amp; access</h2>
+      <div class="kv">
+        <div class="kv-row"><dt>Access model</dt><dd>Read-only. No write permissions and no PassRole in the base install. Least privilege throughout — each integration requests only the scopes or roles it needs.</dd></div>
+        <div class="kv-row"><dt>Cloud credentials</dt><dd>AWS via an assumed role with an ExternalId. GCP via service-account impersonation with viewer-level roles. Azure via an app registration with Reader and Security Reader.</dd></div>
+        <div class="kv-row"><dt>ExternalId</dt><dd>Generated per AWS account when you start the connection and required by the role's trust policy, preventing confused-deputy access. It stays fixed for the life of the connection.</dd></div>
+        <div class="kv-row"><dt>OAuth integrations</dt><dd>GitHub, GitLab, Entra ID, and Google Workspace connect with read-only OAuth scopes — the exact scope list per integration is in the in-app reference at <a href="https://app.veritrail.io/reference">app.veritrail.io/reference</a>.</dd></div>
+        <div class="kv-row"><dt>Application data</dt><dd>Veritrail collects configuration evidence and does not read customer application data.</dd></div>
+        <div class="kv-row"><dt>Remediation</dt><dd>Veritrail shows console and CLI fix guidance per finding and re-checks with Verify fix. It does not modify your environment.</dd></div>
+        <div class="kv-row"><dt>Evidence integrity</dt><dd>Packs carry SHA-256 checksums for every file and an Ed25519 signature over the checksum manifest (see <a href="#evidence-packs">Evidence packs</a>).</dd></div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>FAQ</h2>
+      <h3>Do I need to install anything in my environment?</h3>
+      <p>No. Veritrail collects through cloud and provider APIs — there are no agents to deploy. The only in-account artifact is the read-only IAM role (AWS) or service account (GCP) you create during connection.</p>
+      <h3>Which frameworks are supported?</h3>
+      <p>SOC 2, ISO 27001, and the CIS AWS Foundations Benchmark. Findings map to the controls they support in each.</p>
+      <h3>Does Veritrail change anything in my accounts?</h3>
+      <p>No. Veritrail is scanning-only. Findings come with console and CLI remediation guidance, and once you apply a fix yourself, Verify fix re-checks that finding on demand.</p>
+      <h3>Does Veritrail make my company audit-ready on its own?</h3>
+      <p>Veritrail covers the technical evidence — infrastructure, identity, and change management. Policy and HR evidence is attached alongside it in the Compliance workspace, and shows up as coverage gaps until you do.</p>
+      <h3>Can I feed the evidence into Vanta or Drata?</h3>
+      <p>Direct destinations for Drata, Secureframe, Sprinto, and Vanta are coming soon. Today, every evidence pack includes machine-readable JSON and CSV you can import into your GRC platform.</p>
+      <h3>Where can I see the exact permissions each integration uses?</h3>
+      <p>The in-app reference at <a href="https://app.veritrail.io/reference">app.veritrail.io/reference</a> lists the auth method and the exact scopes or roles per integration, plus search keys for the Findings page.</p>
+
+      <div class="footer-nav">
+        <a href="https://veritrail.io" class="prev">
+          <div class="dir">← Back</div>
+          <div class="title">Veritrail home</div>
+        </a>
+        <a href="https://app.veritrail.io" class="next">
+          <div class="dir">Next →</div>
+          <div class="title">Open the app</div>
+        </a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Highlight the active section in the sidebar on scroll.
+  const links = [...document.querySelectorAll('.sidebar a')];
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const sections = [...document.querySelectorAll('.content section')];
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map.get(e.target.id);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-40% 0px -55% 0px' });
+  sections.forEach(s => obs.observe(s));
+
+  // Close mobile nav after choosing a link.
+  links.forEach(a => a.addEventListener('click', () => document.body.classList.remove('nav-open')));
+</script>
+</body>
+</html>

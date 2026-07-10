@@ -454,7 +454,7 @@ Most of the **deepsearch v3** phase 1–2 and navigation (phase 5) recommendatio
 | Customer-owned SSM Automation document | **Done** — [`infra/cfn/veritrail-remediation-ssm.yaml`](infra/cfn/veritrail-remediation-ssm.yaml) |
 | Execution per `plan_id` | **Partial** — dispatch is recorded; SSM output remains in customer account unless a callback is added |
 | `noindex` on app shell | **Done** |
-| Move long-form reference to external docs site | **Not done** |
+| Move long-form reference to external docs site | **In progress** — static site at [`sites/docs/`](sites/docs/), to be served at docs.veritrail.io |
 
 Still manual / planned (not blockers for first design partners):
 
