@@ -7868,7 +7868,7 @@ button.accounts-flow-step:hover {
 }
 
 /* ---------------------------------------------------------------------------
-   Org readiness home — default `/accounts` view (docs/org-readiness-home.md).
+   Org readiness home — default `/home` view (docs/org-readiness-home.md).
    Single calm centered column: headline → stepper → blockers card → timeline.
 --------------------------------------------------------------------------- */
 
@@ -8188,14 +8188,6 @@ button.accounts-flow-step:hover {
 .org-home__enable-btn:hover {
   border-color: #cbd5e1;
   background: #f8fafc;
-}
-
-.org-home__scope-note {
-  margin: 0 0 2rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  text-align: center;
-  line-height: 1.45;
 }
 
 .org-home__subline--scope {

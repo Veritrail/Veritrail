@@ -7,13 +7,11 @@ import { api } from "../api";
 import {
   complianceTimelineSchema,
   controlListSchema,
-  evidenceExportListSchema,
   integrationStatusNullableSchema,
 } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import type { ComplianceHistoryResponse, HistoryEvent } from "../lib/complianceHistory";
 import { historyDetailLine, historyTypeDisplay } from "../lib/historyEvidence";
-import { exportAuditWindowCoverage } from "../lib/exportAuditWindowCoverage";
 import {
   assertBlockerMath,
   clearedByBlockers,
@@ -146,12 +144,6 @@ export function OrgReadinessHome() {
     queryFn: () => api("/v1/controls?framework=soc2", { schema: controlListSchema }),
   });
 
-  const exportsQ = useQuery({
-    queryKey: ["evidence-packs", "org-readiness"],
-    queryFn: () => api("/v1/exports/evidence-packs?limit=100", { schema: evidenceExportListSchema }),
-    staleTime: 60_000,
-  });
-
   const controlStatusById = useMemo(() => {
     const map: Record<string, string> = {};
     for (const row of controlsQ.data ?? []) {
@@ -222,11 +214,6 @@ export function OrgReadinessHome() {
       graded: rows.some((row) => row.status !== "no_data"),
     };
   }, [controlsQ.data]);
-
-  const exportCoverage = useMemo(
-    () => exportAuditWindowCoverage(exportsQ.data ?? []),
-    [exportsQ.data],
-  );
 
   const anyScanCompleted = connectedAccounts.some((account) => !!account.last_scan_at);
   const stepDone: boolean[] = [
@@ -351,13 +338,6 @@ export function OrgReadinessHome() {
           );
         })}
       </ol>
-
-      <p className="org-home__scope-note">
-        Veritrail covers technical evidence across infrastructure, identity, and SDLC.
-      </p>
-      <p className="org-home__scope-note" data-testid="export-audit-window">
-        {exportCoverage.label}
-      </p>
 
       {!zeroHigh && blockerGroups.length > 0 ? (
         <section className="org-home__blockers-section" aria-label="What's blocking you">
