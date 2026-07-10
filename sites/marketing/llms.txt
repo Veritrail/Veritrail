@@ -1,0 +1,21 @@
+# Veritrail
+
+> Veritrail is an audit-readiness scanning platform. It connects read-only to your cloud accounts, source-control organizations, and identity providers, scans continuously, maps findings to the framework controls they support, and exports signed, auditor-ready evidence packs.
+
+## What Veritrail does
+
+- Collects technical evidence for SOC 2, ISO 27001, and the CIS AWS Foundations Benchmark.
+- Connects to AWS, Google Cloud, Azure, GitHub, GitLab, Microsoft Entra ID, and Google Workspace.
+- Scanning-only and read-only: the base install grants no write access and no PassRole. Veritrail never modifies your environment; findings ship with console and CLI remediation guidance, and a Verify fix re-check confirms fixes you apply yourself.
+- Evidence packs are signed (SHA-256 checksum manifest plus an Ed25519 signature) and verifiable without a Veritrail account.
+- Findings support framework controls — Veritrail does not guarantee compliance or certification outcomes.
+
+## Key URLs
+
+- App: https://app.veritrail.io
+- Documentation: https://docs.veritrail.io
+- Website: https://veritrail.io
+
+## Contact
+
+- Support: support@veritrail.io

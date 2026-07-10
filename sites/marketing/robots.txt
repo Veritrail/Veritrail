@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://veritrail.io/sitemap.xml
