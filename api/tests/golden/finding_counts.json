@@ -1,0 +1,8 @@
+{
+  "description": "Deterministic finding-count golden for sandbox regression (no live AWS). Matches scripts/seed-sandbox-findings.sh misconfig themes.",
+  "checks": {
+    "iam.user.no_mfa": 1,
+    "s3.bucket.no_default_encryption": 1,
+    "ec2.security_group.unrestricted_ssh": 1
+  }
+}

@@ -36,7 +36,7 @@ from app.services.finding_history import (
 
 router = APIRouter()
 
-FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001"}
+FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001", "gdpr"}
 
 
 def _log_audit(db: Session, auditor_access_id: str, action: str, resource_type: str, resource_id: str):

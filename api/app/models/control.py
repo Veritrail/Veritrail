@@ -12,7 +12,7 @@ class Control(Base):
     __table_args__ = (UniqueConstraint("framework", "control_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    framework: Mapped[str] = mapped_column(String(40), index=True)   # soc2 | cis_aws_l1 | iso27001
+    framework: Mapped[str] = mapped_column(String(40), index=True)   # soc2 | cis_aws_l1 | iso27001 | gdpr
     control_id: Mapped[str] = mapped_column(String(30))              # CC6.2 | 1.4
     title: Mapped[str] = mapped_column(String(300))
     description: Mapped[str] = mapped_column(Text, default="")

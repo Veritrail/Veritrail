@@ -78,7 +78,7 @@ from app.services.seed_controls import effective_checks_for_control_row
 
 router = APIRouter()
 
-FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001"}
+FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001", "gdpr"}
 
 
 class ControlOut(BaseModel):

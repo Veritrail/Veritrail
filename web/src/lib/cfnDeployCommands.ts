@@ -2,10 +2,7 @@
  * Client-side CFN deploy URLs/CLI — mirrors api/app/routes/accounts.py (_launch_url, _cli_command).
  * Used for instant UI updates while connection options save in the background.
  */
-import {
-  REMEDIATION_MODULE_SPECS,
-  type RemediationModules,
-} from "../data/remediationModules";
+import { type RemediationModules } from "../data/remediationModules";
 import { CONNECTOR_STACK_NAME, SCANNER_ROLE_NAME, displayConnectorStackName } from "./connectionPosture";
 
 export type CfnConnectionOptions = {
@@ -91,14 +88,10 @@ function buildCreateLaunchUrl(
   params.set("param_VeritrailAccountPrincipal", meta.trustPrincipalArn);
   params.set("param_RoleName", meta.scannerRoleName);
   params.set("param_CoreScannerTemplateURL", childTemplateUrl(acc.cfn_template_url, "veritrail-core-scanner.yaml"));
-  params.set("param_RemediationTemplateURL", childTemplateUrl(acc.cfn_template_url, "veritrail-remediation-ssm.yaml"));
   params.set(
     "param_EnableAdvancedPolicyGeneration",
     yesNo(opts.enable_advanced_policy_generation),
   );
-  for (const spec of REMEDIATION_MODULE_SPECS) {
-    params.set(`param_${spec.cfnParameter}`, yesNo(opts.remediation_modules[spec.id]));
-  }
   const base = cfnConsoleBase(acc.cfn_template_url);
   return `${base}#/stacks/create/review?${params.toString()}`;
 }
@@ -121,15 +114,9 @@ export function buildCfnCliCommand(
     `    ParameterKey=VeritrailAccountPrincipal,ParameterValue=${meta.trustPrincipalArn} \\`,
     `    ParameterKey=RoleName,ParameterValue=${meta.scannerRoleName} \\`,
     `    ParameterKey=CoreScannerTemplateURL,ParameterValue=${childTemplateUrl(acc.cfn_template_url, "veritrail-core-scanner.yaml")} \\`,
-    `    ParameterKey=RemediationTemplateURL,ParameterValue=${childTemplateUrl(acc.cfn_template_url, "veritrail-remediation-ssm.yaml")} \\`,
     `    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue=${yesNo(opts.enable_advanced_policy_generation)} \\`,
+    "  --capabilities CAPABILITY_NAMED_IAM",
   ];
-  for (const spec of REMEDIATION_MODULE_SPECS) {
-    lines.push(
-      `    ParameterKey=${spec.cfnParameter},ParameterValue=${yesNo(opts.remediation_modules[spec.id])} \\`,
-    );
-  }
-  lines.push("  --capabilities CAPABILITY_NAMED_IAM");
   return lines.join("\n");
 }
 

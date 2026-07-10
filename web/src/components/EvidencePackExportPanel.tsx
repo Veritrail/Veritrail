@@ -88,6 +88,13 @@ function getFrameworkExportCopy(frameworkId: string) {
     };
   }
 
+  if (frameworkId === "gdpr") {
+    return {
+      eyebrow: "GDPR Article 32",
+      subtitle: "Export technical security-of-processing evidence for the selected period.",
+    };
+  }
+
   return {
     eyebrow: "Evidence export",
     subtitle: "Create an evidence package for this framework.",

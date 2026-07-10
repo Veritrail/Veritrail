@@ -16,7 +16,7 @@ from app.core.ratelimit import limiter
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
-from app.routes import accounts, accounts_onboard, accounts_scan, accounts_remediate, accounts_analysis, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, slack_integration, jira_integration, linear_integration, gcp_integration, azure_integration, scanner_integration, siem_integration, github_issues_integration, iac_repository_integration, azure_boards_integration, cloud_integration, integration_requests, iac, settings as settings_router, members
+from app.routes import accounts, accounts_onboard, accounts_scan, accounts_analysis, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, slack_integration, jira_integration, linear_integration, gcp_integration, azure_integration, scanner_integration, siem_integration, azure_boards_integration, cloud_integration, integration_requests, iac, settings as settings_router, members
 from app.routes import controls, exports, meta, public, domains, join_requests, audit_log
 from app.routes import auditor, auditor_portal, trust_center
 from app.routes import intune_integration, jamf_integration
@@ -169,7 +169,6 @@ app.include_router(auth_saml.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(accounts.router, prefix="/v1/accounts", tags=["accounts"])
 app.include_router(accounts_onboard.router, prefix="/v1/accounts", tags=["accounts"])
 app.include_router(accounts_scan.router, prefix="/v1/accounts", tags=["accounts"])
-app.include_router(accounts_remediate.router, prefix="/v1/accounts", tags=["accounts"])
 app.include_router(accounts_analysis.router, prefix="/v1/accounts", tags=["accounts"])
 app.include_router(findings.router, prefix="/v1/findings", tags=["findings"])
 app.include_router(iac.router, prefix="/v1/iac", tags=["iac"])
@@ -199,8 +198,6 @@ app.include_router(scanner_integration.router, prefix="/v1/integrations", tags=[
 app.include_router(siem_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(intune_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(jamf_integration.router, prefix="/v1/integrations", tags=["integrations"])
-app.include_router(github_issues_integration.router, prefix="/v1/integrations", tags=["integrations"])
-app.include_router(iac_repository_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(azure_boards_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(cloud_integration.router, prefix="/v1/integrations", tags=["integrations"])
 app.include_router(integration_requests.router, prefix="/v1/integrations", tags=["integrations"])

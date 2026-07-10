@@ -19,7 +19,6 @@ from app.core.config import get_settings
 ALGORITHM = "ed25519"
 SIGNED_ARTIFACT = "checksum_manifest.json"
 KEY_ID = "veritrail-evidence-v1"
-REMEDIATION_KEY_ID = "veritrail-remediation-v1"
 
 
 @lru_cache(maxsize=1)
@@ -66,21 +65,6 @@ def build_pack_signature(checksum_manifest_body: str) -> dict | None:
             "Verify: SHA-256(checksum_manifest.json UTF-8) matches payload_sha256; "
             "Ed25519 verify signature with public_key_base64."
         ),
-    }
-
-
-def sign_payload(payload_bytes: bytes, *, key_id: str = REMEDIATION_KEY_ID) -> dict | None:
-    """Sign arbitrary canonical plan bytes (remediation plans, etc.)."""
-    key = _private_key()
-    if not key:
-        return None
-    sig = key.sign(payload_bytes)
-    return {
-        "algorithm": ALGORITHM,
-        "key_id": key_id,
-        "payload_sha256": hashlib.sha256(payload_bytes).hexdigest(),
-        "signature_base64": base64.b64encode(sig).decode("ascii"),
-        "public_key_base64": public_key_base64(),
     }
 
 

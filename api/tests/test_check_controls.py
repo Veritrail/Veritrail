@@ -72,7 +72,8 @@ def test_gcp_public_ip_maps_to_soc_cis_iso_controls():
     bundle = check_control_bundle("gcp.compute.instance_public_ip")
     assert bundle["primary_composite"]["id"] == "network_boundary"
     frameworks = {c["framework"] for c in bundle["controls"]}
-    assert frameworks == {"soc2", "iso27001"}
+    assert frameworks >= {"soc2", "iso27001"}
+    assert "gdpr" in frameworks
     soc2_ids = [c["control_id"] for c in bundle["controls"] if c["framework"] == "soc2"]
     assert soc2_ids == ["CC6.6"]
 

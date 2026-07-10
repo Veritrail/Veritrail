@@ -1,4 +1,4 @@
-import { REMEDIATION_MODULE_SPECS, type RemediationModules } from "./remediationModules";
+import { type RemediationModules } from "./remediationModules";
 
 export const ADVANCED_POLICY_CAPABILITY_LINES = [
   "Generate IAM access reports",
@@ -24,10 +24,6 @@ export function countSelectedIamActions(options: {
   if (options.enable_advanced_policy_generation) {
     total += ADVANCED_POLICY_RAW_ACTIONS.length;
   }
-  for (const spec of REMEDIATION_MODULE_SPECS) {
-    if (options.remediation_modules[spec.id]) {
-      total += spec.permissions.length;
-    }
-  }
+  void options.remediation_modules;
   return total;
 }

@@ -102,6 +102,30 @@ function IsoMark({ className }: { className?: string }) {
   );
 }
 
+function GdprMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 36 36"
+      className={className ?? markSize}
+      role="img"
+      aria-label="GDPR Article 32"
+    >
+      <circle cx="18" cy="18" r="18" fill="#1e3a5f" />
+      <text
+        x="18"
+        y="21.5"
+        textAnchor="middle"
+        fill="#ffffff"
+        fontSize="8"
+        fontWeight="700"
+        fontFamily="system-ui, -apple-system, sans-serif"
+      >
+        GDPR
+      </text>
+    </svg>
+  );
+}
+
 function GenericMark({ className }: { className?: string }) {
   return (
     <span
@@ -117,5 +141,6 @@ export function FrameworkMark({ framework, className }: FrameworkMarkProps) {
   if (framework === "soc2") return <Soc2Mark className={className} />;
   if (framework === "cis_aws_l1") return <CisMark className={className} />;
   if (framework === "iso27001") return <IsoMark className={className} />;
+  if (framework === "gdpr") return <GdprMark className={className} />;
   return <GenericMark className={className} />;
 }

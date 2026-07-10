@@ -1,4 +1,4 @@
-// Org-first readiness home — default `/accounts` view (spec: docs/org-readiness-home.md).
+// Org-first readiness home — default `/home` view (spec: docs/org-readiness-home.md).
 // Answers "is the company's technical evidence ready and what blocks it" org-wide.
 import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
@@ -7,11 +7,13 @@ import { api } from "../api";
 import {
   complianceTimelineSchema,
   controlListSchema,
+  evidenceExportListSchema,
   integrationStatusNullableSchema,
 } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import type { ComplianceHistoryResponse, HistoryEvent } from "../lib/complianceHistory";
 import { historyDetailLine, historyTypeDisplay } from "../lib/historyEvidence";
+import { exportAuditWindowCoverage } from "../lib/exportAuditWindowCoverage";
 import {
   assertBlockerMath,
   clearedByBlockers,
@@ -144,6 +146,20 @@ export function OrgReadinessHome() {
     queryFn: () => api("/v1/controls?framework=soc2", { schema: controlListSchema }),
   });
 
+  const exportsQ = useQuery({
+    queryKey: ["evidence-packs", "org-readiness"],
+    queryFn: () => api("/v1/exports/evidence-packs?limit=100", { schema: evidenceExportListSchema }),
+    staleTime: 60_000,
+  });
+
+  const controlStatusById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const row of controlsQ.data ?? []) {
+      if (row.control_id) map[row.control_id] = row.status;
+    }
+    return map;
+  }, [controlsQ.data]);
+
   const awsAccounts = useMemo(
     () => connectedAccounts.filter((account) => account.provider === "aws"),
     [connectedAccounts],
@@ -176,7 +192,10 @@ export function OrgReadinessHome() {
     () => partitionBlockerFindings(highFindings),
     [highFindings],
   );
-  const blockerGroups = useMemo(() => groupBlockerFindings(blockerFindings), [blockerFindings]);
+  const blockerGroups = useMemo(
+    () => groupBlockerFindings(blockerFindings, 3, controlStatusById),
+    [blockerFindings, controlStatusById],
+  );
   const clearedByBlockersCount = clearedByBlockers(blockerGroups);
   const unblockedControlIdsList = unblockedControlIds(blockerGroups);
   const capabilityItems = useMemo(() => {
@@ -203,6 +222,11 @@ export function OrgReadinessHome() {
       graded: rows.some((row) => row.status !== "no_data"),
     };
   }, [controlsQ.data]);
+
+  const exportCoverage = useMemo(
+    () => exportAuditWindowCoverage(exportsQ.data ?? []),
+    [exportsQ.data],
+  );
 
   const anyScanCompleted = connectedAccounts.some((account) => !!account.last_scan_at);
   const stepDone: boolean[] = [
@@ -330,6 +354,9 @@ export function OrgReadinessHome() {
 
       <p className="org-home__scope-note">
         Veritrail covers technical evidence across infrastructure, identity, and SDLC.
+      </p>
+      <p className="org-home__scope-note" data-testid="export-audit-window">
+        {exportCoverage.label}
       </p>
 
       {!zeroHigh && blockerGroups.length > 0 ? (

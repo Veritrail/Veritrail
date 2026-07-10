@@ -202,6 +202,11 @@ function buildPayload(state: {
   digestEmail: string;
   slackWebhookUrl: string;
   aiFindingReviewEnabled: boolean;
+  scheduledExportsEnabled: boolean;
+  scheduledExportsCadence: "weekly" | "monthly";
+  scheduledExportsNotify: boolean;
+  scheduledExportsFramework: string;
+  scheduledExportsPeriodDays: number;
 }) {
   return {
     features: {
@@ -218,6 +223,13 @@ function buildPayload(state: {
       slack_webhook_url: state.slackWebhookUrl.trim() || null,
       scan_failure_email_enabled: state.scanFailureEnabled,
       critical_alert_enabled: state.criticalAlertEnabled,
+    },
+    scheduled_exports: {
+      enabled: state.scheduledExportsEnabled,
+      cadence: state.scheduledExportsCadence,
+      notify_email: state.scheduledExportsNotify,
+      framework: state.scheduledExportsFramework,
+      period_days: state.scheduledExportsPeriodDays,
     },
   };
 }
@@ -974,6 +986,11 @@ export default function Workspace() {
   const [digestEmail, setDigestEmail] = useState("");
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const [aiFindingReviewEnabled, setAiFindingReviewEnabled] = useState(true);
+  const [scheduledExportsEnabled, setScheduledExportsEnabled] = useState(false);
+  const [scheduledExportsCadence, setScheduledExportsCadence] = useState<"weekly" | "monthly">("monthly");
+  const [scheduledExportsNotify, setScheduledExportsNotify] = useState(true);
+  const [scheduledExportsFramework, setScheduledExportsFramework] = useState("soc2");
+  const [scheduledExportsPeriodDays, setScheduledExportsPeriodDays] = useState(90);
   const [hydrated, setHydrated] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState("");
@@ -1003,6 +1020,18 @@ export default function Workspace() {
     setDigestEmail(data.notifications.digest_email ?? "");
     setSlackWebhookUrl(data.notifications.slack_webhook_url ?? "");
     setAiFindingReviewEnabled(data.features?.ai_finding_review_enabled ?? true);
+    const scheduled = (data as { scheduled_exports?: {
+      enabled?: boolean;
+      cadence?: "weekly" | "monthly";
+      notify_email?: boolean;
+      framework?: string;
+      period_days?: number;
+    } }).scheduled_exports;
+    setScheduledExportsEnabled(scheduled?.enabled ?? false);
+    setScheduledExportsCadence(scheduled?.cadence === "weekly" ? "weekly" : "monthly");
+    setScheduledExportsNotify(scheduled?.notify_email ?? true);
+    setScheduledExportsFramework(scheduled?.framework ?? "soc2");
+    setScheduledExportsPeriodDays(scheduled?.period_days ?? 90);
     lastSavedJson.current = JSON.stringify(
       buildPayload({
         scanEnabled: data.scanning.enabled,
@@ -1014,6 +1043,11 @@ export default function Workspace() {
         digestEmail: data.notifications.digest_email ?? "",
         slackWebhookUrl: data.notifications.slack_webhook_url ?? "",
         aiFindingReviewEnabled: data.features?.ai_finding_review_enabled ?? true,
+        scheduledExportsEnabled: scheduled?.enabled ?? false,
+        scheduledExportsCadence: scheduled?.cadence === "weekly" ? "weekly" : "monthly",
+        scheduledExportsNotify: scheduled?.notify_email ?? true,
+        scheduledExportsFramework: scheduled?.framework ?? "soc2",
+        scheduledExportsPeriodDays: scheduled?.period_days ?? 90,
       }),
     );
     setHydrated(true);
@@ -1052,8 +1086,28 @@ export default function Workspace() {
       digestEmail,
       slackWebhookUrl,
       aiFindingReviewEnabled,
+      scheduledExportsEnabled,
+      scheduledExportsCadence,
+      scheduledExportsNotify,
+      scheduledExportsFramework,
+      scheduledExportsPeriodDays,
     }),
-    [scanEnabled, freqMode, customHours, scanFailureEnabled, criticalAlertEnabled, emailDigestEnabled, digestEmail, slackWebhookUrl, aiFindingReviewEnabled],
+    [
+      scanEnabled,
+      freqMode,
+      customHours,
+      scanFailureEnabled,
+      criticalAlertEnabled,
+      emailDigestEnabled,
+      digestEmail,
+      slackWebhookUrl,
+      aiFindingReviewEnabled,
+      scheduledExportsEnabled,
+      scheduledExportsCadence,
+      scheduledExportsNotify,
+      scheduledExportsFramework,
+      scheduledExportsPeriodDays,
+    ],
   );
 
   useEffect(() => {
@@ -1338,6 +1392,85 @@ export default function Workspace() {
                       <p className="text-sm text-zinc-500">Admins and owners can manage auditor access.</p>
                     )}
                     {canEditWorkspace ? <AuditorScopedExportPanel embedded /> : null}
+                    <Panel
+                      title="Scheduled evidence exports"
+                      eyebrow="Evidence"
+                      icon={<PanelIcon path={PANEL_ICONS.evidence} />}
+                    >
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-zinc-800">Auto-generate evidence packs</p>
+                            <p className="mt-1 text-sm text-zinc-500">
+                              Build and vault a pack on a weekly or monthly cadence for connected AWS accounts.
+                            </p>
+                          </div>
+                          <Toggle
+                            checked={scheduledExportsEnabled}
+                            onChange={setScheduledExportsEnabled}
+                            disabled={!canEditWorkspace}
+                          />
+                        </div>
+                        {scheduledExportsEnabled ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="flex flex-col gap-1 text-sm">
+                              <span className="font-medium text-zinc-700">Cadence</span>
+                              <select
+                                className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                value={scheduledExportsCadence}
+                                disabled={!canEditWorkspace}
+                                onChange={(e) =>
+                                  setScheduledExportsCadence(e.target.value === "weekly" ? "weekly" : "monthly")
+                                }
+                              >
+                                <option value="monthly">Monthly</option>
+                                <option value="weekly">Weekly</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-1 text-sm">
+                              <span className="font-medium text-zinc-700">Framework</span>
+                              <select
+                                className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                value={scheduledExportsFramework}
+                                disabled={!canEditWorkspace}
+                                onChange={(e) => setScheduledExportsFramework(e.target.value)}
+                              >
+                                <option value="soc2">SOC 2</option>
+                                <option value="cis_aws_l1">CIS AWS L1</option>
+                                <option value="iso27001">ISO 27001</option>
+                              </select>
+                            </label>
+                            <label className="flex flex-col gap-1 text-sm">
+                              <span className="font-medium text-zinc-700">Period (days)</span>
+                              <input
+                                type="number"
+                                min={7}
+                                max={365}
+                                className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                value={scheduledExportsPeriodDays}
+                                disabled={!canEditWorkspace}
+                                onChange={(e) =>
+                                  setScheduledExportsPeriodDays(
+                                    Math.max(7, Math.min(365, Number(e.target.value) || 90)),
+                                  )
+                                }
+                              />
+                            </label>
+                            <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-100 px-3 py-2">
+                              <div>
+                                <p className="text-sm font-medium text-zinc-800">Email when ready</p>
+                                <p className="text-xs text-zinc-500">Uses delivery email / org members</p>
+                              </div>
+                              <Toggle
+                                checked={scheduledExportsNotify}
+                                onChange={setScheduledExportsNotify}
+                                disabled={!canEditWorkspace}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </Panel>
                   </div>
                 </div>
                 <Panel

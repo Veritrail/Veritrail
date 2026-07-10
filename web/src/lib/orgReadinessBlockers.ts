@@ -12,7 +12,12 @@ export type BlockerGroup = {
   count: number;
   /** Deduped SOC 2 control ids this check maps to (blocked while findings stay open). */
   soc2ControlIds: string[];
+  /** Subset of soc2ControlIds currently in fail status (preferred ranking signal). */
+  failingControlIds: string[];
 };
+
+/** Optional map of control_id → status from /v1/controls. */
+export type ControlStatusById = Record<string, string>;
 
 export function isHighSeverity(severity: string): boolean {
   return severity === "critical" || severity === "high";
@@ -65,20 +70,37 @@ export function itemsPhrase(groupCount: number): string {
   return "the three items below";
 }
 
+function failingControlsForCheck(
+  soc2ControlIds: string[],
+  controlStatusById?: ControlStatusById,
+): string[] {
+  if (!controlStatusById) return [];
+  return soc2ControlIds.filter((id) => controlStatusById[id] === "fail");
+}
+
 /** Group open critical|high findings by check_id; rank and take top N. */
-export function groupBlockerFindings(findings: BlockerFinding[], limit = 3): BlockerGroup[] {
+export function groupBlockerFindings(
+  findings: BlockerFinding[],
+  limit = 3,
+  controlStatusById?: ControlStatusById,
+): BlockerGroup[] {
   const high = findings.filter((f) => isHighSeverity(f.severity));
   const counts = new Map<string, number>();
   for (const finding of high) {
     counts.set(finding.check_id, (counts.get(finding.check_id) ?? 0) + 1);
   }
-  const groups: BlockerGroup[] = [...counts.entries()].map(([checkId, count]) => ({
-    checkId,
-    count,
-    soc2ControlIds: soc2ControlIdsForCheck(checkId),
-  }));
+  const groups: BlockerGroup[] = [...counts.entries()].map(([checkId, count]) => {
+    const soc2ControlIds = soc2ControlIdsForCheck(checkId);
+    return {
+      checkId,
+      count,
+      soc2ControlIds,
+      failingControlIds: failingControlsForCheck(soc2ControlIds, controlStatusById),
+    };
+  });
   groups.sort(
     (a, b) =>
+      b.failingControlIds.length - a.failingControlIds.length ||
       b.soc2ControlIds.length - a.soc2ControlIds.length ||
       b.count - a.count ||
       a.checkId.localeCompare(b.checkId),
@@ -90,10 +112,13 @@ export function clearedByBlockers(groups: BlockerGroup[]): number {
   return groups.reduce((sum, group) => sum + group.count, 0);
 }
 
+/** Prefer failing controls when present; otherwise all mapped SOC 2 ids. */
 export function unblockedControlIds(groups: BlockerGroup[]): string[] {
   const ids: string[] = [];
   for (const group of groups) {
-    for (const id of group.soc2ControlIds) {
+    const preferred =
+      group.failingControlIds.length > 0 ? group.failingControlIds : group.soc2ControlIds;
+    for (const id of preferred) {
       if (!ids.includes(id)) ids.push(id);
     }
   }

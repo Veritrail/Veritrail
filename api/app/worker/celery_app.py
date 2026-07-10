@@ -49,6 +49,10 @@ celery_app.conf.update(
             "task": "app.worker.tasks.notify_evidence_renewals",
             "schedule": crontab(hour=8, minute=30),  # daily 08:30 UTC
         },
+        "scheduled-evidence-exports": {
+            "task": "app.worker.tasks.scheduled_evidence_exports",
+            "schedule": crontab(hour=6, minute=15),  # daily 06:15 UTC — per-org cadence decides due
+        },
     },
 )
 

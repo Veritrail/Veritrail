@@ -282,6 +282,17 @@ def handle_github_integration_callback(
             },
         )
         provider.status = "connected"
+        from app.models.org import Org
+        from app.services.org_activity import record_activation_milestone
+
+        org = db.get(Org, provider.org_id)
+        if org:
+            record_activation_milestone(
+                db,
+                org,
+                "first_integration_at",
+                detail={"provider": "github"},
+            )
         db.commit()
         return RedirectResponse(f"{_frontend_url()}/integrations/github/edit?connected=1")
     except Exception:

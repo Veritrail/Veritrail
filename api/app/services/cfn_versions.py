@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from urllib.parse import quote
 
 from app.core.config import get_settings
-from app.data.remediation_modules import REMEDIATION_MODULES
 
 
 @dataclass(frozen=True)
@@ -20,7 +19,7 @@ CONNECTOR_VERSIONS: tuple[ConnectorVersion, ...] = (
         tag="2026.06",
         label="CFN v2026.06",
         status="recommended",
-        notes="Recommended connector release with current remediation and SSM document updates.",
+        notes="Recommended connector release (read-only scanner + optional advanced policy generation).",
     ),
 )
 
@@ -101,7 +100,6 @@ def update_cli_command(
     stack_name: str,
     version_tag: str,
     enable_advanced_policy_generation: bool,
-    remediation_modules: dict[str, bool],
 ) -> str:
     settings = get_settings()
     region = settings.CFN_CONSOLE_REGION or "us-east-1"
@@ -116,14 +114,7 @@ def update_cli_command(
         f"    ParameterKey=VeritrailAccountPrincipal,ParameterValue={settings.TRUST_PRINCIPAL_ARN} \\",
         f"    ParameterKey=RoleName,ParameterValue={settings.CFN_SCANNER_ROLE_NAME} \\",
         f"    ParameterKey=CoreScannerTemplateURL,ParameterValue={connector_child_template_url(version_tag, 'veritrail-core-scanner.yaml')} \\",
-        f"    ParameterKey=RemediationTemplateURL,ParameterValue={connector_child_template_url(version_tag, 'veritrail-remediation-ssm.yaml')} \\",
         f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
+        "  --capabilities CAPABILITY_NAMED_IAM",
     ]
-
-    for spec in REMEDIATION_MODULES:
-        lines.append(
-            f"    ParameterKey={spec.cfn_parameter},ParameterValue={_yes_no(remediation_modules.get(spec.id, False))} \\"
-        )
-
-    lines.append("  --capabilities CAPABILITY_NAMED_IAM")
     return "\n".join(lines)

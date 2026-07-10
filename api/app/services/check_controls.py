@@ -11,7 +11,7 @@ from app.services.control_reference_urls import reference_url
 
 _MAPPINGS_PATH = Path(__file__).parent.parent.parent / "data" / "control_mappings.json"
 
-FRAMEWORK_PRIORITY = ("soc2", "cis_aws_l1", "iso27001")
+FRAMEWORK_PRIORITY = ("soc2", "cis_aws_l1", "iso27001", "gdpr")
 
 # Open findings may still use pre-consolidation check_ids (90d); mappings use 45d only.
 CHECK_CONTROL_ALIASES: dict[str, str] = {

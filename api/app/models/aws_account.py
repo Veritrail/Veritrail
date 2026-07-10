@@ -18,6 +18,11 @@ class AwsAccount(Base):
     account_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
     role_arn: Mapped[str | None] = mapped_column(EncryptedString(700), nullable=True)
     external_id: Mapped[str] = mapped_column(EncryptedString(200))
+    # Two-phase ExternalId rotation: mint → customer updates CFN trust → confirm.
+    pending_external_id: Mapped[str | None] = mapped_column(EncryptedString(200), nullable=True)
+    external_id_rotation_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(40), default="pending")  # pending|connected|error
     cfn_stack_name: Mapped[str] = mapped_column(String(64), default="VeritrailAccountConnector", nullable=False)
     enable_advanced_policy_generation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

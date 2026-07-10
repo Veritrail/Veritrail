@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { api, formatApiError } from "../api";
 import {
   classifyScanFailure,
@@ -7,12 +7,14 @@ import {
   providerShortLabel,
 } from "../lib/scanFailureMessages";
 import { formatSyncDetail } from "./IntegrationsUi";
+import { RotateExternalIdModal } from "./RotateExternalIdModal";
 
 export type CloudTroubleshootTarget = {
   provider: "aws" | "gcp" | "azure";
   resourceId: string;
   label: string;
   externalId?: string | null;
+  pendingExternalId?: string | null;
   lastScanAt: string | null;
   lastError: string | null;
   connected: boolean;
@@ -32,7 +34,7 @@ function verifyPath(target: CloudTroubleshootTarget): string {
 function manageHref(target: CloudTroubleshootTarget): string {
   if (target.provider === "gcp") return "/integrations/gcp";
   if (target.provider === "azure") return "/integrations/azure";
-  return `/accounts?account_id=${encodeURIComponent(target.resourceId)}`;
+  return `/home?account_id=${encodeURIComponent(target.resourceId)}`;
 }
 
 export function CloudIntegrationTroubleshootPanel({
@@ -40,15 +42,16 @@ export function CloudIntegrationTroubleshootPanel({
   onClose,
 }: CloudIntegrationTroubleshootPanelProps) {
   const qc = useQueryClient();
+  const [rotateOpen, setRotateOpen] = useState(false);
 
   useEffect(() => {
     if (!target) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !rotateOpen) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [target, onClose]);
+  }, [target, onClose, rotateOpen]);
 
   const verify = useMutation({
     mutationFn: () =>
@@ -77,8 +80,10 @@ export function CloudIntegrationTroubleshootPanel({
       })
     : null;
   const verifyError = verify.isError ? formatApiError(verify.error) : null;
+  const canRotateExternalId = target.provider === "aws" && target.connected;
 
   return (
+    <>
     <div className="integrations-troubleshoot-backdrop" role="presentation" onClick={onClose}>
       <aside
         className="integrations-troubleshoot-panel"
@@ -95,6 +100,11 @@ export function CloudIntegrationTroubleshootPanel({
             </h2>
             {target.externalId ? (
               <p className="integrations-troubleshoot-panel__meta">{target.externalId}</p>
+            ) : null}
+            {target.pendingExternalId ? (
+              <p className="integrations-troubleshoot-panel__meta">
+                External ID rotation in progress
+              </p>
             ) : null}
           </div>
           <button type="button" className="integrations-troubleshoot-panel__close" onClick={onClose} aria-label="Close">
@@ -135,7 +145,7 @@ export function CloudIntegrationTroubleshootPanel({
           ) : null}
           {verify.isSuccess ? (
             <p className="integrations-troubleshoot-panel__success" role="status">
-              Connectivity check passed. You can run a scan from Accounts or Findings.
+              Connectivity check passed. You can run a scan from Home or Findings.
             </p>
           ) : null}
         </div>
@@ -149,12 +159,28 @@ export function CloudIntegrationTroubleshootPanel({
           >
             {verify.isPending ? "Running check…" : "Run connectivity check"}
           </button>
+          {canRotateExternalId ? (
+            <button
+              type="button"
+              className="integrations-troubleshoot-panel__secondary"
+              onClick={() => setRotateOpen(true)}
+            >
+              {target.pendingExternalId ? "Continue External ID rotation" : "Rotate External ID"}
+            </button>
+          ) : null}
           <a href={manageHref(target)} className="integrations-troubleshoot-panel__secondary">
             Open integration settings
           </a>
         </footer>
       </aside>
     </div>
+    <RotateExternalIdModal
+      open={rotateOpen}
+      onClose={() => setRotateOpen(false)}
+      accountId={canRotateExternalId ? target.resourceId : null}
+      accountLabel={target.label}
+    />
+    </>
   );
 }
 

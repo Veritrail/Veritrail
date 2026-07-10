@@ -118,9 +118,10 @@ function cisPresentation(
   };
 }
 
-function isoPresentation(
+function evidencePeriodPresentation(
   cov: EvidenceCoverage | undefined,
   periodKey: string | number,
+  badgeLabel: string,
 ): FrameworkEvidenceUi {
   if (periodKey === "last_scan") {
     return {
@@ -145,7 +146,7 @@ function isoPresentation(
         : `${days} days collected`;
 
   return {
-    badgeLabel: "Evidence history",
+    badgeLabel,
     tone: days > 0 ? "neutral" : "limited",
     headline,
     showProgressBar: false,
@@ -154,6 +155,20 @@ function isoPresentation(
     detailLine: `Evidence included for the selected ${total}-day export period (not a fixed audit requirement).`,
     guidanceLine: null,
   };
+}
+
+function isoPresentation(
+  cov: EvidenceCoverage | undefined,
+  periodKey: string | number,
+): FrameworkEvidenceUi {
+  return evidencePeriodPresentation(cov, periodKey, "Evidence history");
+}
+
+function gdprPresentation(
+  cov: EvidenceCoverage | undefined,
+  periodKey: string | number,
+): FrameworkEvidenceUi {
+  return evidencePeriodPresentation(cov, periodKey, "Art. 32 evidence history");
 }
 
 export function frameworkEvidenceUi(
@@ -165,17 +180,18 @@ export function frameworkEvidenceUi(
   if (frameworkId === "soc2") return soc2Type2Presentation(cov, periodKey);
   if (frameworkId === "cis_aws_l1") return cisPresentation(cov, periodKey, opts);
   if (frameworkId === "iso27001") return isoPresentation(cov, periodKey);
+  if (frameworkId === "gdpr") return gdprPresentation(cov, periodKey);
   return cisPresentation(cov, periodKey, opts);
 }
 
-/** Per-control drawer: SOC 2 shows Type II days; ISO shows history count; CIS omits. */
+/** Per-control drawer: SOC 2 shows Type II days; ISO/GDPR show history count; CIS omits. */
 export function showControlEvidenceSection(frameworkId: string): boolean {
-  return frameworkId === "soc2" || frameworkId === "iso27001";
+  return frameworkId === "soc2" || frameworkId === "iso27001" || frameworkId === "gdpr";
 }
 
 export function controlEvidenceSectionTitle(frameworkId: string): string {
   if (frameworkId === "soc2") return "Type II evidence";
-  if (frameworkId === "iso27001") return "Evidence history";
+  if (frameworkId === "iso27001" || frameworkId === "gdpr") return "Evidence history";
   return "Evidence coverage";
 }
 
@@ -186,7 +202,7 @@ export function controlEvidenceUsesType2Bar(frameworkId: string): boolean {
 /** Generate Audit Package modal — period window selector label. */
 export function exportScopeSectionLabel(frameworkId: string): string {
   if (frameworkId === "soc2") return "Audit period";
-  if (frameworkId === "iso27001") return "Evidence period";
+  if (frameworkId === "iso27001" || frameworkId === "gdpr") return "Evidence period";
   if (frameworkId === "cis_aws_l1") return "Export scope";
   return "Export scope";
 }
@@ -195,7 +211,7 @@ export function exportScopeSectionLabel(frameworkId: string): string {
 export function exportAsOfSectionLabel(frameworkId: string): string {
   if (frameworkId === "soc2") return "Audit end date";
   if (frameworkId === "cis_aws_l1") return "Snapshot date";
-  if (frameworkId === "iso27001") return "As-of date";
+  if (frameworkId === "iso27001" || frameworkId === "gdpr") return "As-of date";
   return "As-of date";
 }
 

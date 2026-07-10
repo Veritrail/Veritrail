@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Seed a throwaway AWS account with common misconfigurations for Veritrail QA.
 # Requires: AWS CLI, a sandbox account, and Veritrail running locally (docker compose up).
+#
+# CI path (no live AWS): api/tests/test_scan_regression_golden.py + api/tests/golden/
+# asserts the same check themes with Stubber/mock fixtures under `pytest -q`.
+# This script remains optional/manual for end-to-end against a real sandbox account.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

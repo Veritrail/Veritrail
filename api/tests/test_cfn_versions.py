@@ -19,25 +19,22 @@ def test_rejects_unknown_tag():
         cv.connector_template_url("v99")
 
 
-def test_update_cli_includes_capabilities_and_modules():
+def test_update_cli_includes_capabilities_without_remediation():
     cmd = cv.update_cli_command(
         external_id="ext-123",
         stack_name="VeritrailAccountConnector",
         version_tag="2026.06",
         enable_advanced_policy_generation=True,
-        remediation_modules={"security_groups": True, "s3_public_access": False},
     )
     assert "update-stack" in cmd
     assert "VeritrailAccountConnector" in cmd
     assert "/infra/2026.06/veritrail-stack.yaml" in cmd
     assert "CoreScannerTemplateURL,ParameterValue=" in cmd
     assert "/infra/2026.06/veritrail-core-scanner.yaml" in cmd
-    assert "RemediationTemplateURL,ParameterValue=" in cmd
-    assert "/infra/2026.06/veritrail-remediation-ssm.yaml" in cmd
+    assert "RemediationTemplateURL" not in cmd
+    assert "EnableSecurityGroupRemediation" not in cmd
     assert "CAPABILITY_NAMED_IAM" in cmd
     assert "EnableAdvancedPolicyGeneration,ParameterValue=Yes" in cmd
-    assert "EnableSecurityGroupRemediation,ParameterValue=Yes" in cmd
-    assert "EnableS3Remediation,ParameterValue=No" in cmd
 
 
 def test_allowed_versions_only_approved_tags():

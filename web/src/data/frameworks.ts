@@ -6,6 +6,7 @@ export const FRAMEWORKS = [
     fullLabel: "CIS AWS Foundations — selected controls (not full benchmark parity)",
   },
   { id: "iso27001", label: "ISO 27001", fullLabel: "ISO 27001 Annex A" },
+  { id: "gdpr", label: "GDPR Art. 32", fullLabel: "GDPR Article 32 — technical measures" },
 ] as const;
 
 export type FrameworkId = (typeof FRAMEWORKS)[number]["id"];

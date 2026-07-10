@@ -258,6 +258,16 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
             )
             db.add_all([org, user])
             add_membership(db, user.id, org.id, "owner")
+            log_org_activity(
+                db,
+                org_id=org.id,
+                actor_user_id=user.id,
+                action="workspace.created",
+                target_type="org",
+                target_id=str(org.id),
+                target_label=org.name,
+                detail={"via": "signup"},
+            )
 
     db.commit()
     return _issue_login_tokens(request, db, user, remember_me=True)
@@ -321,6 +331,16 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
         )
         db.add_all([org, user])
         add_membership(db, user.id, org.id, "owner")
+        log_org_activity(
+            db,
+            org_id=org.id,
+            actor_user_id=user.id,
+            action="workspace.created",
+            target_type="org",
+            target_id=str(org.id),
+            target_label=org.name,
+            detail={"via": "complete_signup"},
+        )
 
     db.commit()
     return _issue_login_tokens(request, db, user, remember_me=True)

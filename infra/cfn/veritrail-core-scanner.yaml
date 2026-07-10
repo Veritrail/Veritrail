@@ -2,7 +2,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   Veritrail Core Scanner v2026.06 — read-only AWS access for compliance scanning. Optional
   Access Analyzer policy-generation permissions attach only when EnableAdvancedPolicyGeneration=Yes.
-  SSM remediation dispatch lives in the separate veritrail-remediation-ssm nested stack.
 
 Metadata:
   VeritrailVersion: "2026.06"

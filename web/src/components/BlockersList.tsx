@@ -22,7 +22,11 @@ export function BlockersList({
         const sourceTag = sourceTagForCheck(group.checkId);
         const metaParts = [
           `${group.count} finding${group.count === 1 ? "" : "s"}`,
-          ...(group.soc2ControlIds.length > 0 ? [group.soc2ControlIds.join(", ")] : []),
+          ...(group.failingControlIds.length > 0
+            ? [`unblocks ${group.failingControlIds.join(", ")}`]
+            : group.soc2ControlIds.length > 0
+              ? [group.soc2ControlIds.join(", ")]
+              : []),
           ...(sourceTag ? [sourceTag] : []),
         ];
         return (

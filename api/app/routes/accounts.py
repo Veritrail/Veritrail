@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,8 +15,7 @@ from app.models import AwsAccount
 from app.models.azure_subscription import AzureSubscription
 from app.models.gcp_project import GcpProject
 from app.data.remediation_modules import (
-    REMEDIATION_MODULES,
-    any_remediation_enabled,
+    empty_remediation_modules,
     remediation_deployed_dict,
     remediation_modules_dict,
     set_remediation_modules,
@@ -57,6 +56,8 @@ class AccountOut(BaseModel):
     account_id: str | None
     status: str
     external_id: str
+    pending_external_id: str | None = None
+    external_id_rotation_requested_at: datetime | None = None
     role_arn: str | None = None
     enable_advanced_policy_generation: bool = False
     remediation_modules: RemediationModulesIn
@@ -72,9 +73,17 @@ class AccountOut(BaseModel):
     remediation_cfn_template_url: str | None = None
     remediation_cfn_cli_command: str | None = None
     cfn_template_version: str | None = None
+    # remediation_* CFN fields kept as always-null for one release (clients may still read them).
     last_scan_at: datetime | None = None
     last_error: str | None = None
     cloudtrail_onboarding_mode: str | None = None
+
+
+class RotateExternalIdOut(BaseModel):
+    pending_external_id: str
+    external_id_rotation_requested_at: datetime
+    cfn_update_cli_command: str
+    account: AccountOut
 
 
 class CloudTrailOnboardingIn(BaseModel):
@@ -122,12 +131,16 @@ def _yes_no(flag: bool) -> str:
     return "Yes" if flag else "No"
 
 
-def _remediation_modules_in(modules: dict[str, bool]) -> RemediationModulesIn:
-    return RemediationModulesIn(**{m.id: bool(modules.get(m.id, False)) for m in REMEDIATION_MODULES})
+def _remediation_modules_in(modules: dict[str, bool] | None = None) -> RemediationModulesIn:
+    base = empty_remediation_modules()
+    if modules:
+        base.update({k: False for k in base})  # always all-false after write-remediation retirement
+    return RemediationModulesIn(**base)
 
 
 def _modules_from_body(body: RemediationModulesIn) -> dict[str, bool]:
-    return body.model_dump()
+    _ = body
+    return empty_remediation_modules()
 
 
 def _cfn_console_base_url() -> str:
@@ -150,12 +163,11 @@ def _cfn_stack_params(
     *,
     stack_name: str,
     enable_advanced_policy_generation: bool,
-    remediation_modules: dict[str, bool],
 ) -> dict[str, str]:
     s = get_settings()
     from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, connector_child_template_url
 
-    params = {
+    return {
         "templateURL": s.CFN_TEMPLATE_URL,
         "stackName": stack_name,
         "param_ExternalId": external_id,
@@ -165,15 +177,8 @@ def _cfn_stack_params(
             RECOMMENDED_CONNECTOR_VERSION,
             "veritrail-core-scanner.yaml",
         ),
-        "param_RemediationTemplateURL": connector_child_template_url(
-            RECOMMENDED_CONNECTOR_VERSION,
-            "veritrail-remediation-ssm.yaml",
-        ),
         "param_EnableAdvancedPolicyGeneration": _yes_no(enable_advanced_policy_generation),
     }
-    for spec in REMEDIATION_MODULES:
-        params[f"param_{spec.cfn_parameter}"] = _yes_no(remediation_modules.get(spec.id, False))
-    return params
 
 
 def _launch_url(
@@ -181,13 +186,13 @@ def _launch_url(
     *,
     stack_name: str,
     enable_advanced_policy_generation: bool,
-    remediation_modules: dict[str, bool],
+    remediation_modules: dict[str, bool] | None = None,
 ) -> str:
+    _ = remediation_modules
     params = _cfn_stack_params(
         external_id,
         stack_name=stack_name,
         enable_advanced_policy_generation=enable_advanced_policy_generation,
-        remediation_modules=remediation_modules,
     )
     qs = "&".join(f"{k}={quote(v, safe='')}" for k, v in params.items())
     return f"{_cfn_console_base_url()}#/stacks/create/review?{qs}"
@@ -198,7 +203,7 @@ def _update_launch_url(
     *,
     stack_name: str,
     enable_advanced_policy_generation: bool,
-    remediation_modules: dict[str, bool],
+    remediation_modules: dict[str, bool] | None = None,
 ) -> str:
     # AWS documents quick-create links for create/review only. Update wizard URLs drop stackName.
     _ = (external_id, enable_advanced_policy_generation, remediation_modules)
@@ -210,8 +215,9 @@ def _cli_command(
     *,
     stack_name: str,
     enable_advanced_policy_generation: bool,
-    remediation_modules: dict[str, bool],
+    remediation_modules: dict[str, bool] | None = None,
 ) -> str:
+    _ = remediation_modules
     from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, connector_child_template_url
 
     s = get_settings()
@@ -225,14 +231,9 @@ def _cli_command(
         f"    ParameterKey=VeritrailAccountPrincipal,ParameterValue={s.TRUST_PRINCIPAL_ARN} \\",
         f"    ParameterKey=RoleName,ParameterValue={s.CFN_SCANNER_ROLE_NAME} \\",
         f"    ParameterKey=CoreScannerTemplateURL,ParameterValue={connector_child_template_url(RECOMMENDED_CONNECTOR_VERSION, 'veritrail-core-scanner.yaml')} \\",
-        f"    ParameterKey=RemediationTemplateURL,ParameterValue={connector_child_template_url(RECOMMENDED_CONNECTOR_VERSION, 'veritrail-remediation-ssm.yaml')} \\",
         f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
+        "  --capabilities CAPABILITY_NAMED_IAM",
     ]
-    for spec in REMEDIATION_MODULES:
-        lines.append(
-            f"    ParameterKey={spec.cfn_parameter},ParameterValue={_yes_no(remediation_modules.get(spec.id, False))} \\"
-        )
-    lines.append("  --capabilities CAPABILITY_NAMED_IAM")
     return "\n".join(lines)
 
 
@@ -241,8 +242,9 @@ def _update_cli_command(
     *,
     stack_name: str,
     enable_advanced_policy_generation: bool,
-    remediation_modules: dict[str, bool],
+    remediation_modules: dict[str, bool] | None = None,
 ) -> str:
+    _ = remediation_modules
     from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, update_cli_command
 
     return update_cli_command(
@@ -250,33 +252,6 @@ def _update_cli_command(
         stack_name=stack_name,
         version_tag=RECOMMENDED_CONNECTOR_VERSION,
         enable_advanced_policy_generation=enable_advanced_policy_generation,
-        remediation_modules=remediation_modules,
-    )
-
-
-def _remediation_launch_url() -> str:
-    params = {
-        "templateURL": get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL,
-        "stackName": "VeritrailRemediationSSM",
-    }
-    qs = "&".join(f"{k}={quote(v, safe='')}" for k, v in params.items())
-    return f"{_cfn_console_base_url()}#/stacks/create/review?{qs}"
-
-
-def _remediation_update_launch_url(stack_name: str) -> str:
-    """Nested remediation child stack (only if deployed standalone). Prefer parent stack update."""
-    return _cfn_stack_list_url(stack_name.strip() or "VeritrailRemediationSSM")
-
-
-def _remediation_cli_command() -> str:
-    return (
-        "aws cloudformation create-stack \
-"
-        "  --stack-name VeritrailRemediationSSM \
-"
-        f"  --template-url {get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL} \
-"
-        "  --capabilities CAPABILITY_NAMED_IAM"
     )
 
 
@@ -305,12 +280,15 @@ def _account_out(acc: AwsAccount) -> AccountOut:
     )
     create_opts = dict(stack_name=_create_stack_name(), **option_kwargs)
     update_opts = dict(stack_name=_update_stack_name(acc), **option_kwargs)
+    pending = getattr(acc, "pending_external_id", None)
     return AccountOut(
         id=str(acc.id),
         label=acc.label,
         account_id=acc.account_id,
         status=acc.status,
         external_id=acc.external_id,
+        pending_external_id=pending,
+        external_id_rotation_requested_at=getattr(acc, "external_id_rotation_requested_at", None),
         role_arn=acc.role_arn if acc.role_arn and (acc.status == "connected" or acc.account_id) else None,
         last_error=acc.last_error,
         enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
@@ -323,9 +301,9 @@ def _account_out(acc: AwsAccount) -> AccountOut:
         cfn_template_url=get_settings().CFN_TEMPLATE_URL,
         cfn_cli_command=_cli_command(acc.external_id, **create_opts),
         cfn_update_cli_command=_update_cli_command(acc.external_id, **update_opts),
-        remediation_cfn_launch_url=_remediation_launch_url() if any_remediation_enabled(modules) else None,
-        remediation_cfn_template_url=get_settings().CFN_REMEDIATION_SSM_TEMPLATE_URL,
-        remediation_cfn_cli_command=_remediation_cli_command() if any_remediation_enabled(modules) else None,
+        remediation_cfn_launch_url=None,
+        remediation_cfn_template_url=None,
+        remediation_cfn_cli_command=None,
         cfn_template_version=get_settings().CFN_TEMPLATE_VERSION,
         last_scan_at=acc.last_scan_at,
         cloudtrail_onboarding_mode=(
@@ -334,6 +312,23 @@ def _account_out(acc: AwsAccount) -> AccountOut:
             else None
         ),
     )
+
+
+def _require_account(db: Session, account_id: str, org_id: str) -> AwsAccount:
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != org_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+    return acc
+
+
+def _block_if_scan_running(db: Session, acc: AwsAccount) -> None:
+    from app.services.scan_schedule import has_running_scan
+
+    if has_running_scan(db, acc.id):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "A scan is currently running for this account. Wait for it to finish before rotating the External ID.",
+        )
 
 
 def _heal_established_account_after_failed_reverify(acc: AwsAccount) -> bool:
@@ -396,8 +391,6 @@ def update_connection_options(
     acc = db.get(AwsAccount, uuid.UUID(account_id))
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
-    incoming = _modules_from_body(body.remediation_modules)
-    current = remediation_modules_dict(acc)
     if (
         acc.enable_advanced_policy_generation
         and not body.enable_advanced_policy_generation
@@ -409,24 +402,11 @@ def update_connection_options(
             "Update your CloudFormation stack with EnableAdvancedPolicyGeneration=No, "
             "run Verify permissions, then turn this off in Veritrail.",
         )
-    for spec in REMEDIATION_MODULES:
-        if (
-            current.get(spec.id)
-            and not incoming.get(spec.id)
-            and getattr(acc, spec.deployed_column)
-        ):
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"{spec.label} remediation is verified in your deployed role. "
-                f"Update your stack with {spec.cfn_parameter}=No, verify, then disable in Veritrail.",
-            )
     if body.enable_advanced_policy_generation != acc.enable_advanced_policy_generation:
         acc.advanced_policy_generation_deployed = False
-    for spec in REMEDIATION_MODULES:
-        if incoming.get(spec.id) != current.get(spec.id):
-            setattr(acc, spec.deployed_column, False)
     acc.enable_advanced_policy_generation = body.enable_advanced_policy_generation
-    set_remediation_modules(acc, incoming)
+    # Write remediation retired — ignore client remediation_modules; leave DB columns as-is.
+    set_remediation_modules(acc, empty_remediation_modules())
     log_org_activity(
         db,
         org_id=uuid.UUID(p["org_id"]),
@@ -437,7 +417,7 @@ def update_connection_options(
         target_label=acc.label,
         detail={
             "advanced_policy_generation": body.enable_advanced_policy_generation,
-            "remediation_modules": {k: v for k, v in incoming.items() if v},
+            "remediation_modules": {},
         },
     )
     db.commit()
@@ -523,3 +503,133 @@ def delete_account(account_id: str, _rbac: RequireAdmin, p=Depends(current_princ
     )
     db.delete(acc)
     db.commit()
+
+
+@router.post("/{account_id}/rotate-external-id", response_model=RotateExternalIdOut)
+def rotate_external_id(
+    account_id: str,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Phase 1: mint a pending ExternalId and return CFN update CLI with the new value."""
+    acc = _require_account(db, account_id, p["org_id"])
+    if acc.status != "connected" or not acc.role_arn:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Connect and verify the account before rotating the External ID.",
+        )
+    _block_if_scan_running(db, acc)
+
+    if acc.pending_external_id and acc.external_id_rotation_requested_at:
+        pending = acc.pending_external_id
+        requested_at = acc.external_id_rotation_requested_at
+    else:
+        pending = secrets.token_urlsafe(24)
+        requested_at = datetime.now(timezone.utc)
+        acc.pending_external_id = pending
+        acc.external_id_rotation_requested_at = requested_at
+        log_org_activity(
+            db,
+            org_id=uuid.UUID(p["org_id"]),
+            actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
+            action="account.external_id_rotation_started",
+            target_type="aws_account",
+            target_id=str(acc.id),
+            target_label=acc.label,
+            detail={"aws_account_id": acc.account_id},
+        )
+        db.commit()
+        db.refresh(acc)
+
+    modules = remediation_modules_dict(acc)
+    update_cli = _update_cli_command(
+        pending,
+        stack_name=_update_stack_name(acc),
+        enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
+        remediation_modules=modules,
+    )
+
+    return RotateExternalIdOut(
+        pending_external_id=pending,
+        external_id_rotation_requested_at=requested_at,
+        cfn_update_cli_command=update_cli,
+        account=_account_out(acc),
+    )
+
+
+@router.post("/{account_id}/confirm-external-id-rotation", response_model=AccountOut)
+def confirm_external_id_rotation(
+    account_id: str,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Phase 2: verify assume-role with pending ExternalId, then swap and clear pending."""
+    from app.core.aws import verify_account
+
+    acc = _require_account(db, account_id, p["org_id"])
+    if not acc.pending_external_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No External ID rotation is in progress.")
+    if not acc.role_arn:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Account has no role ARN to verify.")
+    _block_if_scan_running(db, acc)
+
+    pending = acc.pending_external_id
+    ok, _aws_account_id, _alias, err = verify_account(acc.role_arn, pending, aws_account=acc)
+    if not ok:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Verification with the new External ID failed: {err}. "
+            "Update the CloudFormation stack ExternalId parameter, then try again.",
+        )
+
+    acc.external_id = pending
+    acc.pending_external_id = None
+    acc.external_id_rotation_requested_at = None
+    acc.last_error = None
+
+    log_org_activity(
+        db,
+        org_id=uuid.UUID(p["org_id"]),
+        actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
+        action="account.external_id_rotation_confirmed",
+        target_type="aws_account",
+        target_id=str(acc.id),
+        target_label=acc.label,
+        detail={"aws_account_id": acc.account_id},
+    )
+    db.commit()
+    db.refresh(acc)
+    return _account_out(acc)
+
+
+@router.post("/{account_id}/cancel-external-id-rotation", response_model=AccountOut)
+def cancel_external_id_rotation(
+    account_id: str,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Discard a pending ExternalId rotation (keeps the current ExternalId)."""
+    acc = _require_account(db, account_id, p["org_id"])
+    if not acc.pending_external_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No External ID rotation is in progress.")
+    _block_if_scan_running(db, acc)
+
+    acc.pending_external_id = None
+    acc.external_id_rotation_requested_at = None
+
+    log_org_activity(
+        db,
+        org_id=uuid.UUID(p["org_id"]),
+        actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
+        action="account.external_id_rotation_cancelled",
+        target_type="aws_account",
+        target_id=str(acc.id),
+        target_label=acc.label,
+        detail={"aws_account_id": acc.account_id},
+    )
+    db.commit()
+    db.refresh(acc)
+    return _account_out(acc)

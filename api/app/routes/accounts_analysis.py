@@ -2324,7 +2324,7 @@ def get_compliance_timeline(
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
 
-    if framework not in {"soc2", "cis_aws_l1", "iso27001"}:
+    if framework not in {"soc2", "cis_aws_l1", "iso27001", "gdpr"}:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid framework")
 
     from app.services.compliance_scan_timeline import build_compliance_scan_timeline

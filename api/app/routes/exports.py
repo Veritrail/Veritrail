@@ -1,34 +1,37 @@
-import hashlib
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.security import current_principal
 from app.models import AwsAccount, EvidenceExport
 from app.services.evidence_coverage import parse_as_of
-from app.services.evidence_pack import build_evidence_pack
+from app.services.evidence_export_persist import build_and_persist_evidence_pack
 from app.core.route_deps import RequireAdmin
-
-
-def _parse_vault_retain_until(raw: str | None) -> datetime | None:
-    if not raw:
-        return None
-    try:
-        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except ValueError:
-        return None
 
 router = APIRouter()
 
-FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001"}
+FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001", "gdpr"}
+
+
+class EvidenceExportOut(BaseModel):
+    id: str
+    account_id: str
+    framework: str
+    period_days: int
+    as_of: str | None
+    report_id: str | None
+    zip_sha256: str
+    file_size_bytes: int
+    vault_s3_uri: str | None
+    created_at: str
 
 
 @router.get("/evidence-pack")
@@ -49,51 +52,63 @@ def download_evidence_pack(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
 
     try:
-        pack = build_evidence_pack(
-            db=db,
+        row, pack = build_and_persist_evidence_pack(
+            db,
             org_id=uuid.UUID(p["org_id"]),
             account_id=acc.id,
             framework=framework,
             period_days=period,
             as_of=parse_as_of(as_of),
+            created_by=uuid.UUID(p["sub"]) if p.get("sub") else None,
         )
     except Exception as exc:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(exc)) from exc
 
+    db.commit()
     zip_bytes = pack.zip_bytes
-    vault = pack.vault_upload if pack.vault_upload and pack.vault_upload.get("status") == "uploaded" else None
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     filename = f"veritrail-evidence-{framework}-{ts}.zip"
-    zip_sha256 = hashlib.sha256(zip_bytes).hexdigest()
-    as_of_dt = parse_as_of(as_of)
-    db.add(
-        EvidenceExport(
-            org_id=uuid.UUID(p["org_id"]),
-            account_id=acc.id,
-            framework=framework,
-            period_days=period,
-            as_of=as_of_dt.date() if as_of_dt else None,
-            zip_sha256=zip_sha256,
-            file_size_bytes=len(zip_bytes),
-            report_id=pack.report_id,
-            vault_s3_uri=vault.get("s3_uri") if vault else None,
-            vault_version_id=vault.get("version_id") if vault else None,
-            vault_object_lock_mode=vault.get("object_lock_mode") if vault else None,
-            vault_retain_until=_parse_vault_retain_until(vault.get("retention_until") if vault else None),
-            created_by=uuid.UUID(p["sub"]) if p.get("sub") else None,
-        )
-    )
-    db.commit()
     return Response(
         content=zip_bytes,
         media_type="application/zip",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Content-SHA256": zip_sha256,
-            "X-Veritrail-Pack-SHA256": zip_sha256,
+            "X-Content-SHA256": row.zip_sha256,
+            "X-Veritrail-Pack-SHA256": row.zip_sha256,
             "X-Veritrail-Report-Id": pack.report_id or "",
+            "X-Veritrail-Export-Id": str(row.id),
         },
     )
+
+
+@router.get("/evidence-packs", response_model=list[EvidenceExportOut])
+def list_evidence_packs(
+    limit: int = Query(default=50, ge=1, le=200),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Org-facing list of recorded evidence pack exports (same shape as /v1/auditor/exports)."""
+    rows = db.scalars(
+        select(EvidenceExport)
+        .where(EvidenceExport.org_id == uuid.UUID(p["org_id"]))
+        .order_by(EvidenceExport.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        EvidenceExportOut(
+            id=str(r.id),
+            account_id=str(r.account_id),
+            framework=r.framework,
+            period_days=r.period_days,
+            as_of=r.as_of.isoformat() if r.as_of else None,
+            report_id=r.report_id,
+            zip_sha256=r.zip_sha256,
+            file_size_bytes=r.file_size_bytes,
+            vault_s3_uri=r.vault_s3_uri,
+            created_at=r.created_at.isoformat() if r.created_at else "",
+        )
+        for r in rows
+    ]
 
 
 @router.get("/sample-evidence-pack")
@@ -520,4 +535,65 @@ def export_findings_csv(
         content=buf.getvalue().encode(),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="veritrail-findings-{ts}.csv"'},
+    )
+
+
+@router.get("/findings.ocsf.json")
+def export_findings_ocsf(
+    _rbac: RequireAdmin,
+    status_filter: str | None = Query(default="open", alias="status"),
+    account_id: str | None = Query(default=None),
+    gcp_project_id: str | None = Query(default=None),
+    azure_subscription_id: str | None = Query(default=None),
+    provider: Annotated[str | None, Query()] = None,
+    mode: Annotated[str, Query(description="compliance | security")] = "compliance",
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Export findings as OCSF Compliance Finding (default) or Security Finding JSON."""
+    from app.models import Finding
+    from app.models.org import Org
+    from app.services.check_settings import hidden_check_ids
+    from app.services.finding_supersession import RETIRED_FINDING_CHECKS
+    from app.services.findings_scope import apply_findings_scope
+    from app.services.ocsf_export import findings_to_ocsf_bundle
+    from app.routes.findings import _account_display_name, _load_org_accounts
+
+    if mode not in ("compliance", "security"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "mode must be compliance or security")
+
+    org = db.get(Org, uuid.UUID(p["org_id"]))
+    hidden = hidden_check_ids(org.settings if org else {}) | RETIRED_FINDING_CHECKS
+    acc_uuid = uuid.UUID(account_id) if account_id else None
+    gcp_uuid = uuid.UUID(gcp_project_id) if gcp_project_id else None
+    az_uuid = uuid.UUID(azure_subscription_id) if azure_subscription_id else None
+
+    q = select(Finding).where(Finding.org_id == uuid.UUID(p["org_id"]))
+    if hidden:
+        q = q.where(Finding.check_id.notin_(hidden))
+    if status_filter and status_filter != "all":
+        q = q.where(Finding.status == status_filter)
+    q = apply_findings_scope(
+        q,
+        provider=provider,
+        account_id=acc_uuid,
+        gcp_project_id=gcp_uuid,
+        azure_subscription_id=az_uuid,
+    )
+    q = q.order_by(Finding.risk_score.desc())
+    rows = db.scalars(q).all()
+
+    accounts = _load_org_accounts(db, uuid.UUID(p["org_id"]))
+    labels = {aid: _account_display_name(acc) for aid, acc in accounts.items()}
+
+    bundle = findings_to_ocsf_bundle(
+        rows,
+        as_compliance=mode == "compliance",
+        account_labels=labels,
+    )
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return Response(
+        content=json.dumps(bundle, default=str).encode(),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="veritrail-findings-ocsf-{ts}.json"'},
     )

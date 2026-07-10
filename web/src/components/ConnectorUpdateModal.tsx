@@ -4,6 +4,7 @@ import { api } from "../api";
 import { parseCfnLaunchMeta } from "../lib/cfnDeployCommands";
 import { CONNECTOR_STACK_NAME } from "../lib/connectionPosture";
 import { type RemediationModules } from "../data/remediationModules";
+import { RotateExternalIdModal } from "./RotateExternalIdModal";
 
 type ConnectorUpdateAccount = {
   id: string;
@@ -144,6 +145,7 @@ export function ConnectorUpdateModal({
   const [selectedTag, setSelectedTag] = useState(recommended);
   const [cmdExpanded, setCmdExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [rotateOpen, setRotateOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -201,6 +203,7 @@ export function ConnectorUpdateModal({
   if (!open) return null;
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[250] flex items-end justify-center bg-zinc-900/40 p-4 sm:items-center"
       role="dialog"
@@ -309,8 +312,15 @@ export function ConnectorUpdateModal({
             <dl className="mt-2 space-y-2 text-xs">
               <div>
                 <dt className="font-medium text-zinc-500">External ID</dt>
-                <dd className="mt-0.5 font-mono text-zinc-600" title={acc.external_id}>
-                  {truncateToken(acc.external_id)}
+                <dd className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-zinc-600" title={acc.external_id}>
+                  <span>{truncateToken(acc.external_id)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setRotateOpen(true)}
+                    className="rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-50"
+                  >
+                    Rotate
+                  </button>
                 </dd>
               </div>
               <div>
@@ -401,5 +411,11 @@ export function ConnectorUpdateModal({
         </div>
       </div>
     </div>
+    <RotateExternalIdModal
+      open={rotateOpen}
+      onClose={() => setRotateOpen(false)}
+      accountId={acc.id}
+    />
+    </>
   );
 }

@@ -56,7 +56,6 @@ def evidence_vault_status() -> EvidenceVaultStatusOut:
 
 class CfnTemplatesOut(BaseModel):
     cfn_template_url: str
-    cfn_remediation_template_url: str
     cfn_stack_name: str
 
 
@@ -66,7 +65,6 @@ def cfn_templates() -> CfnTemplatesOut:
     s = get_settings()
     return CfnTemplatesOut(
         cfn_template_url=s.CFN_TEMPLATE_URL,
-        cfn_remediation_template_url=s.CFN_REMEDIATION_SSM_TEMPLATE_URL,
         cfn_stack_name=s.CFN_STACK_NAME,
     )
 

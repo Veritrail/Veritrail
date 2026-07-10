@@ -2,7 +2,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.1",
-    "title": "Logical Access — Asset Inventory",
+    "title": "Logical Access \u2014 Asset Inventory",
     "description": "The entity implements logical access security software, infrastructure, and architectures over protected information assets to protect them from security events to meet the entity's objectives.",
     "guidance": "Evidence: IAM user inventory, role inventory, access key list with last-used dates. All principals should be accounted for and actively used.",
     "checks": [
@@ -21,7 +21,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.2",
-    "title": "Logical Access — Credential Registration",
+    "title": "Logical Access \u2014 Credential Registration",
     "description": "Prior to issuing system credentials and granting system access, the entity registers and authorizes new internal and external users whose access is administered by the entity.",
     "guidance": "Evidence: No root access keys present. Each user holds at most one active access key. Programmatic access is scoped to purpose.",
     "checks": [
@@ -43,7 +43,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.3",
-    "title": "Logical Access — Access Removal",
+    "title": "Logical Access \u2014 Access Removal",
     "description": "The entity removes access to protected information assets when appropriate (e.g., the individual is no longer associated with the entity).",
     "guidance": "Evidence: No IAM users inactive beyond threshold. No access keys unused beyond threshold. No roles unassumed beyond threshold. Root account not used for routine operations.",
     "checks": [
@@ -70,7 +70,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.6",
-    "title": "Logical Access — External Threat Controls",
+    "title": "Logical Access \u2014 External Threat Controls",
     "description": "The entity implements logical access security measures to protect against threats from sources outside its system boundaries, including MFA enforcement, least privilege, and network perimeter controls.",
     "guidance": "Evidence: MFA enabled for root and all IAM console users. No wildcard Action in role policies. No wildcard trust principals. S3 public access blocked. No security groups allow unrestricted SSH or RDP. RDS instances are not publicly accessible.",
     "checks": [
@@ -126,7 +126,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.7",
-    "title": "Logical Access — Transmission Encryption",
+    "title": "Logical Access \u2014 Transmission Encryption",
     "description": "The entity restricts the transmission of confidential information to authorized internal and external users and protects it during transmission.",
     "guidance": "Evidence: S3 buckets enforce HTTPS-only via bucket policy (aws:SecureTransport condition). Load balancer listeners use modern TLS security policies.",
     "checks": [
@@ -138,7 +138,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.8",
-    "title": "Logical Access — Encryption at Rest",
+    "title": "Logical Access \u2014 Encryption at Rest",
     "description": "The entity implements controls to prevent unauthorized access to data at rest through encryption of storage resources.",
     "guidance": "Evidence: S3 buckets encrypted with KMS. KMS keys have automatic annual rotation enabled. RDS instances and EBS volumes have storage encryption enabled.",
     "checks": [
@@ -160,7 +160,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.1",
-    "title": "System Operations — Configuration Change Detection",
+    "title": "System Operations \u2014 Configuration Change Detection",
     "description": "To meet its objectives, the entity uses detection and monitoring procedures to identify changes to configurations that result in the introduction of new vulnerabilities.",
     "guidance": "Evidence: CloudTrail enabled with log file validation and KMS encryption in all regions.",
     "checks": [
@@ -192,7 +192,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.2",
-    "title": "System Operations — Anomaly Detection",
+    "title": "System Operations \u2014 Anomaly Detection",
     "description": "The entity monitors system components and the operation of those components for anomalies that are indicative of malicious acts, natural disasters, and errors affecting the entity's ability to meet its objectives.",
     "guidance": "Evidence: GuardDuty and Security Hub enabled in all regions. VPC Flow Logs enabled on all VPCs. Lambda functions have Dead Letter Queues configured so failed invocations are captured.",
     "checks": [
@@ -213,7 +213,7 @@
   {
     "framework": "soc2",
     "control_id": "CC8.1",
-    "title": "Change Management — Authorized Changes",
+    "title": "Change Management \u2014 Authorized Changes",
     "description": "The entity authorizes, approves, and communicates changes to infrastructure, data, software, and procedures to meet its change management objectives.",
     "guidance": "Evidence: Branch protection on default branches. Required PR approvals before merge. No self-merges. Protected deployment environments require designated approvers.",
     "checks": [
@@ -241,7 +241,7 @@
     "control_id": "1.1",
     "title": "Maintain current contact details",
     "description": "AWS account contact information must be current for billing and security notifications.",
-    "guidance": "Complete primary contact in AWS Console → Account → Contact information.",
+    "guidance": "Complete primary contact in AWS Console \u2192 Account \u2192 Contact information.",
     "checks": [
       "aws.account.contact_incomplete"
     ],
@@ -476,7 +476,13 @@
     "guidance": "Evidence: IAM users are active and accounted for. Inactive users beyond 90 days are deprovisioned. Access keys are deactivated when no longer needed.",
     "checks": [
       "iam.user.credentials_unused_45d",
-      "iam.access_key.unused_45d"
+      "iam.access_key.unused_45d",
+      "entra.user.inactive_90d",
+      "github.org.dormant_members",
+      "gitlab.org.dormant_members",
+      "google_workspace.user.inactive_90d",
+      "iam.access_inventory_gap",
+      "identity_center.user.inactive_90d"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -512,7 +518,10 @@
       "iam.role.unused_services_90d",
       "iam.policy.wildcard_resource",
       "iam.access_key.no_rotation_90d",
-      "cloudtrail.event.iam_role_policy_mutation"
+      "cloudtrail.event.iam_role_policy_mutation",
+      "entra.admin.unreviewed",
+      "github.org.admin_unreviewed",
+      "google_workspace.admin.unreviewed"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -524,7 +533,8 @@
     "description": "User access to systems and services shall be provisioned in accordance with the access control policy.",
     "guidance": "Evidence: IAM users receive permissions via groups or roles, not direct policy attachment.",
     "checks": [
-      "iam.user.direct_policy_attachment"
+      "iam.user.direct_policy_attachment",
+      "github.org.outside_collaborators"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -540,7 +550,11 @@
       "iam.root.no_mfa",
       "iam.root.usage",
       "iam.user.no_mfa",
-      "iam.access_key.multiple_active"
+      "iam.access_key.multiple_active",
+      "entra.org.mfa_not_enforced",
+      "github.org.mfa_not_enforced",
+      "gitlab.org.mfa_not_enforced",
+      "google_workspace.org.mfa_not_enforced"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -634,7 +648,17 @@
       "ec2.ami.aged",
       "cloudtrail.event.guardduty_disabled",
       "cloudtrail.event.ec2_instance_tampering",
-      "cloudtrail.event.rds_instance_created_or_modified"
+      "cloudtrail.event.rds_instance_created_or_modified",
+      "aws.config.rules_non_compliant",
+      "azure.policy.non_compliant",
+      "gcp.scc.not_enabled",
+      "github.repo.code_scanning_disabled",
+      "github.repo.dependabot_disabled",
+      "github.repo.secret_scanning_disabled",
+      "gitlab.repo.container_scanning_disabled",
+      "gitlab.repo.dependency_scanning_disabled",
+      "gitlab.repo.sast_disabled",
+      "guardduty.open_findings"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -662,7 +686,10 @@
       "gcp.asset.public_iam_binding",
       "ecs.task_definition.privileged_container",
       "cloudtrail.event.security_group_open_to_world",
-      "gcp.asset.public_invoker"
+      "gcp.asset.public_invoker",
+      "ec2.ami.public",
+      "ec2.ebs.snapshot_public",
+      "rds.snapshot.public"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -864,7 +891,7 @@
     "control_id": "1.18",
     "title": "Ensure expired SSL/TLS certificates in IAM are removed",
     "description": "IAM server certificates past expiration should be removed.",
-    "guidance": "Delete expired server certificates in IAM → Server certificates.",
+    "guidance": "Delete expired server certificates in IAM \u2192 Server certificates.",
     "checks": [
       "iam.server_certificate.expired"
     ],
@@ -939,7 +966,9 @@
     "checks": [
       "iam.role.least_privilege_policy",
       "cloudtrail.event.root_activity",
-      "cloudtrail.event.iam_user_policy_attachment"
+      "cloudtrail.event.iam_user_policy_attachment",
+      "azure.entra.privileged_role_assignment",
+      "iam.user.admin_policy_attached"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -952,7 +981,8 @@
     "guidance": "Evidence: CloudTrail event analysis detects S3 bucket policy changes, public access block removal, and other data exposure events.",
     "checks": [
       "cloudtrail.event.s3_bucket_policy_change",
-      "cloudtrail.event.s3_public_access_block_disabled"
+      "cloudtrail.event.s3_public_access_block_disabled",
+      "iam.role.external_account_trust"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -964,7 +994,17 @@
     "description": "The organization shall control changes to information processing facilities, including Lambda function creation/modification.",
     "guidance": "Evidence: CloudTrail event analysis detects CreateFunction and UpdateFunctionConfiguration calls alongside other infrastructure changes.",
     "checks": [
-      "cloudtrail.event.lambda_function_created_or_modified"
+      "cloudtrail.event.lambda_function_created_or_modified",
+      "github.repo.insufficient_reviews",
+      "github.repo.no_branch_protection",
+      "github.repo.no_env_protection",
+      "github.repo.security_status_checks_missing",
+      "github.repo.self_merge_allowed",
+      "gitlab.repo.insufficient_reviews",
+      "gitlab.repo.no_branch_protection",
+      "gitlab.repo.no_env_protection",
+      "gitlab.repo.security_ci_not_required",
+      "gitlab.repo.self_merge_allowed"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."
@@ -972,7 +1012,7 @@
   {
     "framework": "soc2",
     "control_id": "CC1.1",
-    "title": "Control Environment — Integrity & Ethics",
+    "title": "Control Environment \u2014 Integrity & Ethics",
     "description": "The entity demonstrates a commitment to integrity and ethical values.",
     "guidance": "Attest: code of conduct / ethics policy is published and acknowledged by personnel. Upload the policy and acknowledgment records.",
     "checks": [],
@@ -981,7 +1021,7 @@
   {
     "framework": "soc2",
     "control_id": "CC1.2",
-    "title": "Control Environment — Board Oversight",
+    "title": "Control Environment \u2014 Board Oversight",
     "description": "The board of directors demonstrates independence from management and exercises oversight of internal control.",
     "guidance": "Attest: governance/oversight responsibilities are defined. Upload board or management-review evidence.",
     "checks": [],
@@ -990,7 +1030,7 @@
   {
     "framework": "soc2",
     "control_id": "CC1.3",
-    "title": "Control Environment — Structure & Authority",
+    "title": "Control Environment \u2014 Structure & Authority",
     "description": "Management establishes structures, reporting lines, and appropriate authorities and responsibilities.",
     "guidance": "Attest: org chart and role/responsibility definitions exist. Upload org chart.",
     "checks": [],
@@ -999,8 +1039,8 @@
   {
     "framework": "soc2",
     "control_id": "CC1.4",
-    "title": "Control Environment — Competence & HR",
-    "description": "The entity demonstrates a commitment to attract, develop, and retain competent individuals — including hiring, background checks, and security training.",
+    "title": "Control Environment \u2014 Competence & HR",
+    "description": "The entity demonstrates a commitment to attract, develop, and retain competent individuals \u2014 including hiring, background checks, and security training.",
     "guidance": "Attest: background-check policy, hiring process, and security-awareness training are in place. Upload policy + completion records.",
     "checks": [],
     "soc2_scope_category": "security"
@@ -1008,7 +1048,7 @@
   {
     "framework": "soc2",
     "control_id": "CC1.5",
-    "title": "Control Environment — Accountability",
+    "title": "Control Environment \u2014 Accountability",
     "description": "The entity holds individuals accountable for their internal control responsibilities.",
     "guidance": "Attest: responsibilities and accountability mechanisms (performance, disciplinary) are defined. Upload evidence.",
     "checks": [],
@@ -1017,7 +1057,7 @@
   {
     "framework": "soc2",
     "control_id": "CC2.1",
-    "title": "Communication — Quality Information",
+    "title": "Communication \u2014 Quality Information",
     "description": "The entity obtains or generates and uses relevant, quality information to support internal control.",
     "guidance": "Attest: relevant security/operational information is captured and used. Upload sample reports/logs.",
     "checks": [],
@@ -1026,7 +1066,7 @@
   {
     "framework": "soc2",
     "control_id": "CC2.2",
-    "title": "Communication — Internal",
+    "title": "Communication \u2014 Internal",
     "description": "The entity internally communicates information, including security objectives and responsibilities.",
     "guidance": "Attest: security policies and responsibilities are communicated to personnel. Upload comms / onboarding materials.",
     "checks": [],
@@ -1035,7 +1075,7 @@
   {
     "framework": "soc2",
     "control_id": "CC2.3",
-    "title": "Communication — External",
+    "title": "Communication \u2014 External",
     "description": "The entity communicates with external parties regarding matters affecting internal control.",
     "guidance": "Attest: process to communicate with customers/vendors/regulators exists (e.g. status page, trust center, DPAs).",
     "checks": [],
@@ -1044,7 +1084,7 @@
   {
     "framework": "soc2",
     "control_id": "CC3.1",
-    "title": "Risk Assessment — Objectives",
+    "title": "Risk Assessment \u2014 Objectives",
     "description": "The entity specifies objectives with sufficient clarity to enable identification and assessment of related risks.",
     "guidance": "Attest: security/compliance objectives are documented. Upload objectives statement.",
     "checks": [],
@@ -1053,7 +1093,7 @@
   {
     "framework": "soc2",
     "control_id": "CC3.2",
-    "title": "Risk Assessment — Identify & Analyze",
+    "title": "Risk Assessment \u2014 Identify & Analyze",
     "description": "The entity identifies risks to the achievement of its objectives and analyzes them as a basis for determining how to manage them.",
     "guidance": "Attest: a risk assessment / risk register exists and is maintained. Upload the risk register.",
     "checks": [],
@@ -1062,7 +1102,7 @@
   {
     "framework": "soc2",
     "control_id": "CC3.3",
-    "title": "Risk Assessment — Fraud",
+    "title": "Risk Assessment \u2014 Fraud",
     "description": "The entity considers the potential for fraud in assessing risks.",
     "guidance": "Attest: fraud risks are considered in the risk assessment. Upload evidence within the risk register.",
     "checks": [],
@@ -1071,7 +1111,7 @@
   {
     "framework": "soc2",
     "control_id": "CC3.4",
-    "title": "Risk Assessment — Change",
+    "title": "Risk Assessment \u2014 Change",
     "description": "The entity identifies and assesses changes that could significantly impact the system of internal control.",
     "guidance": "Attest: change-impact assessment is part of risk/change processes. Upload evidence.",
     "checks": [],
@@ -1080,7 +1120,7 @@
   {
     "framework": "soc2",
     "control_id": "CC4.1",
-    "title": "Monitoring — Evaluations",
+    "title": "Monitoring \u2014 Evaluations",
     "description": "The entity selects, develops, and performs ongoing and/or separate evaluations to ascertain whether controls are present and functioning.",
     "guidance": "Attest: internal audits / control self-assessments are performed (Veritrail's continuous scanning supports this). Upload audit cadence/evidence.",
     "checks": [],
@@ -1089,7 +1129,7 @@
   {
     "framework": "soc2",
     "control_id": "CC4.2",
-    "title": "Monitoring — Deficiencies",
+    "title": "Monitoring \u2014 Deficiencies",
     "description": "The entity evaluates and communicates internal control deficiencies in a timely manner to those responsible for corrective action.",
     "guidance": "Attest: deficiencies are tracked and remediated (Veritrail findings support this). Upload remediation tracking.",
     "checks": [],
@@ -1098,7 +1138,7 @@
   {
     "framework": "soc2",
     "control_id": "CC5.1",
-    "title": "Control Activities — Selection",
+    "title": "Control Activities \u2014 Selection",
     "description": "The entity selects and develops control activities that contribute to the mitigation of risks to the achievement of objectives.",
     "guidance": "Attest: controls are mapped to risks. Upload control matrix.",
     "checks": [],
@@ -1107,16 +1147,16 @@
   {
     "framework": "soc2",
     "control_id": "CC5.2",
-    "title": "Control Activities — Technology",
+    "title": "Control Activities \u2014 Technology",
     "description": "The entity selects and develops general control activities over technology to support the achievement of objectives.",
-    "guidance": "Attest: technology general controls (access, change, ops) are defined — largely covered by Veritrail's automated checks.",
+    "guidance": "Attest: technology general controls (access, change, ops) are defined \u2014 largely covered by Veritrail's automated checks.",
     "checks": [],
     "soc2_scope_category": "security"
   },
   {
     "framework": "soc2",
     "control_id": "CC5.3",
-    "title": "Control Activities — Policies",
+    "title": "Control Activities \u2014 Policies",
     "description": "The entity deploys control activities through policies that establish what is expected and procedures that put policies into action.",
     "guidance": "Attest: a security policy set is published and maintained. Upload the policy set.",
     "checks": [],
@@ -1125,7 +1165,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.4",
-    "title": "Logical & Physical Access — Physical",
+    "title": "Logical & Physical Access \u2014 Physical",
     "description": "The entity restricts physical access to facilities and protected information assets to authorized personnel.",
     "guidance": "Attest: physical access is controlled (often inherited from the cloud provider's SOC 2 for data centers; office controls for the entity). Upload provider report + office policy.",
     "checks": [],
@@ -1134,7 +1174,7 @@
   {
     "framework": "soc2",
     "control_id": "CC6.5",
-    "title": "Logical & Physical Access — Disposal",
+    "title": "Logical & Physical Access \u2014 Disposal",
     "description": "The entity discontinues logical and physical protections over physical assets only after the ability to read or recover data has been diminished (secure disposal).",
     "guidance": "Attest: secure media disposal / data destruction process exists. Upload disposal policy.",
     "checks": [],
@@ -1143,7 +1183,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.3",
-    "title": "System Operations — Incident Evaluation",
+    "title": "System Operations \u2014 Incident Evaluation",
     "description": "The entity evaluates security events to determine whether they could or did result in a failure to meet objectives, and if so, takes action.",
     "guidance": "Attest: a process to triage and evaluate security events exists (Veritrail anomaly detection + alerts support detection). Upload incident-evaluation procedure.",
     "checks": [],
@@ -1152,7 +1192,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.4",
-    "title": "System Operations — Incident Response",
+    "title": "System Operations \u2014 Incident Response",
     "description": "The entity responds to identified security incidents by executing a defined incident response program.",
     "guidance": "Attest: an incident response plan exists and is tested. Upload the IR plan + any post-incident reviews.",
     "checks": [],
@@ -1161,7 +1201,7 @@
   {
     "framework": "soc2",
     "control_id": "CC7.5",
-    "title": "System Operations — Recovery",
+    "title": "System Operations \u2014 Recovery",
     "description": "The entity identifies, develops, and implements activities to recover from identified security incidents.",
     "guidance": "Attest: backup and disaster-recovery procedures exist and are tested (Veritrail backup checks support this). Upload DR test evidence.",
     "checks": [],
@@ -1170,7 +1210,7 @@
   {
     "framework": "soc2",
     "control_id": "CC9.1",
-    "title": "Risk Mitigation — Business Disruption",
+    "title": "Risk Mitigation \u2014 Business Disruption",
     "description": "The entity identifies, selects, and develops risk mitigation activities for risks arising from potential business disruptions.",
     "guidance": "Attest: a business continuity plan and backups exist. Upload BCP + last DR test.",
     "checks": [],
@@ -1179,7 +1219,7 @@
   {
     "framework": "soc2",
     "control_id": "CC9.2",
-    "title": "Risk Mitigation — Vendor Risk",
+    "title": "Risk Mitigation \u2014 Vendor Risk",
     "description": "The entity assesses and manages risks associated with vendors and business partners.",
     "guidance": "Attest: vendors/subprocessors are inventoried and their security (e.g. SOC 2 reports) is reviewed. Upload vendor list + their reports.",
     "checks": [],
@@ -1188,7 +1228,7 @@
   {
     "framework": "soc2",
     "control_id": "A1.1",
-    "title": "Availability — Capacity Management",
+    "title": "Availability \u2014 Capacity Management",
     "description": "The entity maintains, monitors, and evaluates current processing capacity and use of system components to manage capacity demand and to enable the implementation of additional capacity to help meet its objectives.",
     "guidance": "Evidence: capacity monitoring and scaling configuration. Automated AWS capacity checks are limited; attach monitoring dashboards or scaling policies as external evidence where applicable.",
     "checks": [],
@@ -1197,7 +1237,7 @@
   {
     "framework": "soc2",
     "control_id": "A1.2",
-    "title": "Availability — Backup & Recovery Infrastructure",
+    "title": "Availability \u2014 Backup & Recovery Infrastructure",
     "description": "The entity authorizes, designs, develops or acquires, implements, operates, approves, maintains, and monitors environmental protections, software, data backup processes, and recovery infrastructure to meet its objectives.",
     "guidance": "Evidence: AWS Backup plans, RDS automated backups and Multi-AZ configuration, DynamoDB point-in-time recovery, and deletion protection on stateful services.",
     "checks": [
@@ -1212,10 +1252,159 @@
   {
     "framework": "soc2",
     "control_id": "A1.3",
-    "title": "Availability — Recovery Testing",
+    "title": "Availability \u2014 Recovery Testing",
     "description": "The entity tests recovery plan procedures supporting system recovery to meet its objectives.",
     "guidance": "Evidence: restore-test records and DR exercise results. Recovery testing is performed by your team; upload test reports or runbook execution records as external evidence.",
     "checks": [],
     "soc2_scope_category": "availability"
+  },
+  {
+    "framework": "gdpr",
+    "control_id": "Art.32.1.a",
+    "title": "Encryption of personal data",
+    "description": "Technical measures shall include the pseudonymisation and encryption of personal data (GDPR Article 32(1)(a)). Mapped to existing encryption-at-rest and key-management checks.",
+    "guidance": "Evidence: default encryption on storage services, KMS key rotation, and encrypted volumes/snapshots. Supports Art. 32 encryption requirements; does not cover organisational DPA obligations.",
+    "checks": [
+      "s3.bucket.no_default_encryption",
+      "s3.bucket.no_kms",
+      "kms.key.no_rotation",
+      "kms.key.policy_wildcard_principal",
+      "rds.instance.no_encryption",
+      "ec2.ebs.volume_unencrypted",
+      "ec2.ebs.encryption_not_default",
+      "ec2.ebs.snapshot_unencrypted",
+      "dynamodb.table.no_encryption",
+      "sns.topic.no_encryption",
+      "sqs.queue.no_encryption",
+      "cloudtrail.event.kms_key_disabled_or_deleted",
+      "intune.device.not_encrypted",
+      "jamf.device.not_encrypted"
+    ]
+  },
+  {
+    "framework": "gdpr",
+    "control_id": "Art.32.1.b",
+    "title": "Confidentiality, integrity, availability and resilience",
+    "description": "Ensure ongoing confidentiality, integrity, availability and resilience of processing systems and services (GDPR Article 32(1)(b)). Mapped to access-control and network-boundary checks.",
+    "guidance": "Evidence: MFA enforcement, privileged access review, least-privilege IAM, and network exposure controls. Technical subset only \u2014 process/DPA controls are out of scope.",
+    "checks": [
+      "iam.role.least_privilege_policy",
+      "cloudtrail.event.root_activity",
+      "cloudtrail.event.iam_user_policy_attachment",
+      "azure.entra.privileged_role_assignment",
+      "iam.user.admin_policy_attached",
+      "iam.root.no_mfa",
+      "iam.user.no_mfa",
+      "iam.account.password_policy_weak",
+      "secretsmanager.secret.no_rotation",
+      "ssm.parameter.plaintext_secret",
+      "cloudtrail.event.iam_access_key_created",
+      "iam.role.unassumed_90d",
+      "iam.perm.granted_vs_used",
+      "iam.role.trust_wildcard",
+      "iam.role.unused_services_90d",
+      "iam.policy.wildcard_resource",
+      "iam.access_key.no_rotation_90d",
+      "cloudtrail.event.iam_role_policy_mutation",
+      "entra.admin.unreviewed",
+      "github.org.admin_unreviewed",
+      "google_workspace.admin.unreviewed",
+      "cloudtrail.event.s3_bucket_policy_change",
+      "cloudtrail.event.s3_public_access_block_disabled",
+      "iam.role.external_account_trust",
+      "iam.root.has_access_keys",
+      "iam.root.usage",
+      "iam.access_key.multiple_active",
+      "entra.org.mfa_not_enforced",
+      "github.org.mfa_not_enforced",
+      "gitlab.org.mfa_not_enforced",
+      "google_workspace.org.mfa_not_enforced",
+      "ec2.security_group.unrestricted_ssh",
+      "ec2.security_group.unrestricted_rdp",
+      "ec2.security_group.default_allows_traffic",
+      "vpc.flow_logs.not_enabled",
+      "rds.instance.publicly_accessible",
+      "lambda.function.public_url",
+      "eks.cluster.public_endpoint",
+      "eks.cluster.control_plane_logging_disabled",
+      "eks.cluster.secrets_encryption_disabled",
+      "ecs.service.public_ip_enabled",
+      "gcp.compute.instance_public_ip",
+      "gcp.firewall.open_ingress",
+      "azure.compute.instance_public_ip",
+      "gcp.asset.public_iam_binding",
+      "ecs.task_definition.privileged_container",
+      "cloudtrail.event.security_group_open_to_world",
+      "gcp.asset.public_invoker",
+      "ec2.ami.public",
+      "ec2.ebs.snapshot_public",
+      "rds.snapshot.public"
+    ]
+  },
+  {
+    "framework": "gdpr",
+    "control_id": "Art.32.1.c",
+    "title": "Restore availability and access",
+    "description": "Ability to restore the availability and access to personal data in a timely manner after an incident (GDPR Article 32(1)(c)). Mapped to backup and resilience checks.",
+    "guidance": "Evidence: backup plans, automated database backups, point-in-time recovery, and multi-AZ where applicable.",
+    "checks": [
+      "backup.plan.missing",
+      "rds.instance.no_deletion_protection",
+      "rds.instance.no_automated_backup",
+      "dynamodb.table.no_pitr",
+      "rds.instance.no_multi_az"
+    ]
+  },
+  {
+    "framework": "gdpr",
+    "control_id": "Art.32.1.d",
+    "title": "Regular testing and assessment of security measures",
+    "description": "A process for regularly testing, assessing and evaluating the effectiveness of technical measures (GDPR Article 32(1)(d)). Mapped to vulnerability monitoring, logging, and security findings checks.",
+    "guidance": "Evidence: vulnerability scanning, GuardDuty/Security Hub posture, Config compliance, and audit logging. Does not replace organisational review procedures.",
+    "checks": [
+      "azure.defender.not_enabled",
+      "cloudtrail.trail.not_enabled",
+      "gcp.logging.not_enabled",
+      "azure.logging.not_enabled",
+      "cloudtrail.trail.no_log_validation",
+      "vpc.flow_logs.not_enabled",
+      "guardduty.detector.not_enabled",
+      "s3.bucket.no_logging",
+      "cloudtrail.trail.no_cloudwatch_logs",
+      "cloudtrail.trail.s3_bucket_no_logging",
+      "elb.load_balancer.no_access_logs",
+      "lambda.function.no_dlq",
+      "cloudtrail.event.trail_tampering",
+      "cloudtrail.event.config_recorder_stopped",
+      "cloudtrail.event.anomalous_api_volume",
+      "cloudtrail.trail.no_kms",
+      "cloudtrail.trail.s3_bucket_public",
+      "aws.securityhub.not_enabled",
+      "aws.config.not_enabled",
+      "aws.access_analyzer.not_enabled",
+      "ec2.instance.imdsv2_not_required",
+      "acm.certificate.expiring",
+      "lambda.function.deprecated_runtime",
+      "ecr.repository.image_scan_disabled",
+      "ecr.registry.enhanced_scanning_disabled",
+      "ecs.cluster.container_insights_disabled",
+      "aws.vulnerability_monitoring.not_detected",
+      "aws.inspector.active_critical_finding",
+      "gcp.osconfig.vuln_report_present",
+      "ec2.ami.aged",
+      "cloudtrail.event.guardduty_disabled",
+      "cloudtrail.event.ec2_instance_tampering",
+      "cloudtrail.event.rds_instance_created_or_modified",
+      "aws.config.rules_non_compliant",
+      "azure.policy.non_compliant",
+      "gcp.scc.not_enabled",
+      "github.repo.code_scanning_disabled",
+      "github.repo.dependabot_disabled",
+      "github.repo.secret_scanning_disabled",
+      "gitlab.repo.container_scanning_disabled",
+      "gitlab.repo.dependency_scanning_disabled",
+      "gitlab.repo.sast_disabled",
+      "guardduty.open_findings"
+    ]
   }
 ]

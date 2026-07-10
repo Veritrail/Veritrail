@@ -1,4 +1,4 @@
-/** Remediation modules — must stay aligned with api/app/data/remediation_modules.py */
+/** Remediation modules — write remediation retired; stubs keep client types compiling. */
 
 export type RemediationModuleId =
   | "security_groups"
@@ -32,110 +32,17 @@ export type RemediationModuleSpec = {
   runnerSupported: boolean;
 };
 
-export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [
-  {
-    id: "security_groups",
-    label: "Security Groups",
-    badgeLabel: "SG remediation",
-    cfnParameter: "EnableSecurityGroupRemediation",
-    summary: "Fix open ingress rules",
-    bullets: ["Remove open ingress rules", "Restore approved security group configuration"],
-    permissions: [
-      "ec2:RevokeSecurityGroupIngress",
-      "ec2:AuthorizeSecurityGroupIngress",
-    ],
-    runnerSupported: true,
-  },
-  {
-    id: "s3_public_access",
-    label: "S3 public access",
-    badgeLabel: "S3 remediation",
-    cfnParameter: "EnableS3Remediation",
-    summary: "Block public buckets",
-    bullets: ["Enforce block public access", "Tighten bucket policies when approved"],
-    permissions: ["s3:PutBucketPublicAccessBlock", "s3:PutBucketPolicy"],
-    runnerSupported: true,
-  },
-  {
-    id: "iam_access_keys",
-    label: "IAM Access Keys",
-    badgeLabel: "IAM keys remediation",
-    cfnParameter: "EnableIamAccessKeyRemediation",
-    summary: "Disable or delete dormant keys using SSM Automation",
-    bullets: [
-      "Deactivate unused access keys after approval",
-      "Runs under your VeritrailRemediationRole via Systems Manager",
-    ],
-    permissions: [
-      "iam:UpdateAccessKey",
-      "iam:DeleteAccessKey",
-      "iam:GetAccessKeyLastUsed",
-      "iam:ListAccessKeys",
-    ],
-    runnerSupported: true,
-  },
-  {
-    id: "iam_policies",
-    label: "IAM policies",
-    badgeLabel: "IAM policy analysis",
-    cfnParameter: "EnableIamPolicyRemediation",
-    summary: "Analyze excessive permissions before changing IAM",
-    bullets: ["Generate least-privilege candidates", "Apply scoped policies through reviewed PRs or manual IAM changes"],
-    permissions: [
-      "iam:PutRolePolicy",
-      "iam:DetachRolePolicy",
-      "iam:AttachRolePolicy",
-      "iam:CreatePolicyVersion",
-      "iam:DeletePolicyVersion",
-    ],
-    runnerSupported: false,
-  },
-  {
-    id: "ssm_parameters",
-    label: "SSM parameters",
-    badgeLabel: "SSM remediation",
-    cfnParameter: "EnableSsmParameterRemediation",
-    summary: "Migrate plaintext secrets",
-    bullets: ["Rewrite sensitive String parameters as SecureString", "Run through SSM Automation after approval"],
-    permissions: ["ssm:GetParameter", "ssm:PutParameter"],
-    runnerSupported: true,
-  },
-  {
-    id: "cloudtrail_logging",
-    label: "CloudTrail logging",
-    badgeLabel: "CloudTrail remediation",
-    cfnParameter: "EnableCloudTrailRemediation",
-    summary: "Enable logging if disabled",
-    bullets: ["Start logging on trails", "Update trail configuration when approved"],
-    permissions: ["cloudtrail:UpdateTrail", "cloudtrail:StartLogging"],
-    runnerSupported: true,
-  },
-  {
-    id: "kms_rotation",
-    label: "KMS key rotation",
-    badgeLabel: "KMS remediation",
-    cfnParameter: "EnableKmsRotationRemediation",
-    summary: "Enable annual rotation on customer-managed keys",
-    bullets: [
-      "Turn on automatic yearly rotation after approval",
-      "AWS-owned runbook — transparent to callers, no re-encryption needed",
-    ],
-    permissions: ["kms:EnableKeyRotation", "kms:GetKeyRotationStatus"],
-    runnerSupported: true,
-  },
-];
+/** Empty — write remediation retired. */
+export const REMEDIATION_MODULE_SPECS: readonly RemediationModuleSpec[] = [];
 
-export function anyRemediationEnabled(modules: RemediationModules): boolean {
-  return REMEDIATION_MODULE_SPECS.some((m) => modules[m.id]);
+export function anyRemediationEnabled(_modules: RemediationModules): boolean {
+  return false;
 }
 
-export function countRemediationEnabled(modules: RemediationModules): number {
-  return REMEDIATION_MODULE_SPECS.filter((m) => modules[m.id]).length;
+export function countRemediationEnabled(_modules: RemediationModules): number {
+  return 0;
 }
 
-export function allRemediationModulesEnabled(modules: RemediationModules): boolean {
-  return (
-    REMEDIATION_MODULE_SPECS.length > 0 &&
-    REMEDIATION_MODULE_SPECS.every((m) => modules[m.id])
-  );
+export function allRemediationModulesEnabled(_modules: RemediationModules): boolean {
+  return false;
 }

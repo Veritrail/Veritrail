@@ -47,11 +47,17 @@ export async function fetchAllFindings<T>(
 
   for (let pageNum = 0; pageNum < FINDINGS_MAX_PAGES; pageNum += 1) {
     const qs = new URLSearchParams(search);
-    if (cursor) qs.set("cursor", cursor);
+    if (cursor) {
+      qs.set("cursor", cursor);
+      // Skip COUNT on subsequent pages — total comes from the first page.
+      qs.set("include_total", "false");
+    }
     const page = await api(`/v1/findings?${qs.toString()}`, { schema: findingPageSchema });
     const prevLen = items.length;
     items.push(...(page.items as T[]));
-    total = page.total ?? items.length;
+    if (!cursor) {
+      total = page.total ?? items.length;
+    }
     if (items.length >= maxItems) {
       items.length = maxItems; // keep the top-N highest-risk; drop the rest
       break;

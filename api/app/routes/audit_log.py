@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.rbac import require_min_role
 from app.models import User
-from app.services.org_activity import count_org_activity, list_org_activity
+from app.services.org_activity import count_org_activity, get_activation, list_org_activity
 
 router = APIRouter()
 
@@ -29,6 +29,27 @@ class AuditLogPage(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+class ActivationOut(BaseModel):
+    first_integration_at: str | None = None
+    first_scan_completed_at: str | None = None
+    first_finding_at: str | None = None
+    org_created_at: str | None = None
+
+
+@router.get("/activation", response_model=ActivationOut)
+def get_org_activation(
+    user: User = Depends(require_min_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Ops-only activation milestones (time-to-first-result)."""
+    from app.models.org import Org
+
+    org = db.get(Org, user.org_id)
+    if not org:
+        return ActivationOut()
+    return ActivationOut(**get_activation(org))
 
 
 @router.get("", response_model=AuditLogPage)

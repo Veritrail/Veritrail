@@ -98,6 +98,8 @@ export const accountSchema = z
     account_id: z.string().nullable(),
     status: z.string(),
     external_id: z.string().optional(),
+    pending_external_id: z.string().nullable().optional(),
+    external_id_rotation_requested_at: z.string().nullable().optional(),
     role_arn: z.string().nullable().optional(),
     enable_advanced_policy_generation: z.boolean().optional(),
     last_scan_at: z.string().nullable().optional(),
@@ -142,6 +144,17 @@ export const findingPageSchema = z.object({
 });
 
 export type FindingPage = z.infer<typeof findingPageSchema>;
+
+export const findingSummarySchema = z.object({
+  total: z.number(),
+  by_status: z.record(z.string(), z.number()).default({}),
+  by_severity: z.record(z.string(), z.number()).default({}),
+  top_checks: z
+    .array(z.object({ check_id: z.string(), count: z.number() }).passthrough())
+    .default([]),
+});
+
+export type FindingSummary = z.infer<typeof findingSummarySchema>;
 
 export const trustCenterSettingsSchema = z.object({
   is_enabled: z.boolean(),
@@ -218,13 +231,6 @@ export const vaultShareSchema = z.object({
 
 export const vaultShareListSchema = z.array(vaultShareSchema);
 
-export const findingSummarySchema = z.object({
-  total: z.number(),
-  by_status: z.record(z.string(), z.number()),
-  by_severity: z.record(z.string(), z.number()),
-  top_checks: z.array(z.object({ check_id: z.string(), count: z.number() })),
-});
-
 export const auditorInviteSchema = auditorAccessSchema.extend({
   email_sent: z.boolean().optional(),
   email_delivery_note: z.string().nullable().optional(),
@@ -264,6 +270,27 @@ export const settingsSchema = z
     })
     .optional()
     .default({ sso_required: false }),
+  scheduled_exports: z
+    .object({
+      enabled: z.boolean(),
+      framework: z.string(),
+      period_days: z.number(),
+      cadence: z.enum(["weekly", "monthly"]),
+      notify_email: z.boolean(),
+      last_run_at: z.string().nullable().optional(),
+      last_export_id: z.string().nullable().optional(),
+    })
+    .passthrough()
+    .optional()
+    .default({
+      enabled: false,
+      framework: "soc2",
+      period_days: 90,
+      cadence: "monthly",
+      notify_email: true,
+      last_run_at: null,
+      last_export_id: null,
+    }),
   scanning: z.object({
     enabled: z.boolean(),
     interval: z.enum(["daily", "weekly", "custom", "manual"]),

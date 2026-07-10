@@ -17,7 +17,7 @@ def validate_slug(slug: str) -> str:
     s = (slug or "").strip().lower()
     if not _SLUG_RE.match(s):
         raise ValueError("slug must be 2-39 chars, lowercase alphanumeric with _ or -")
-    if s in ("soc2", "cis_aws_l1", "iso27001"):
+    if s in ("soc2", "cis_aws_l1", "iso27001", "gdpr"):
         raise ValueError("slug conflicts with built-in framework")
     return s
 

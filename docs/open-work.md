@@ -10,7 +10,8 @@ Status key: **done** · **open** · **blocked**
 item 5 until 2–4 land. Item 6 is partner/human validation, not engineering.
 
 Deep-research report mapping (composer backlog + human decisions):
-[deep-research-roadmap.md](./deep-research-roadmap.md).
+[deep-research-roadmap.md](./deep-research-roadmap.md) — **composer buildable items shipped**
+(§2.1–§2.12). Remaining: §3 human decisions + #11 GRC adapter (blocked on item 6).
 
 ---
 
@@ -78,4 +79,7 @@ current, kept as reference docs — not merged here since they're research, not 
 - Cloud integration troubleshoot panel + scan-failure messaging
 - Deep-research P0: evidence pack integrity UI + auditor verify affordance (§2.1)
 - Deep-research P0: control-mapping "supports" phrasing + copy lint (§2.2)
-- Deep-research P0: write-remediation frontend retirement; backend/infra still open (§2.3)
+- Deep-research P0–P2: write-remediation backend/infra retirement (§2.3); scheduled evidence
+  exports (§2.4); control-coverage blocker weighting (§2.5); ExternalId rotation (§2.6); OCSF
+  export (§2.7); ISO parity + GDPR Art. 32 mapping (§2.8); findings scale pass (§2.9);
+  activation metric (§2.10); golden sandbox regression (§2.11); integration scope docs (§2.12)
