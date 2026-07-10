@@ -74,8 +74,19 @@ services:
     ports: !reset []
     volumes: !reset []
 
+  # Platform-admin SPA (admin.veritrail.io) — static page + same-origin /v1
+  # proxy at the host nginx. Gated server-side by PLATFORM_ADMIN_EMAILS.
+  admin:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: admin/Dockerfile.prod
+    restart: unless-stopped
+
   nginx:
     restart: unless-stopped
+    depends_on:
+      - admin
 
   oauth2-proxy:
     restart: unless-stopped

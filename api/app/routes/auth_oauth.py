@@ -18,7 +18,6 @@ from app.core.security import (
     current_principal,
     issue_mfa_challenge_token,
     issue_refresh_token,
-    issue_signup_pending_token,
     issue_token,
 )
 from app.models import AwsAccount, Org, User
@@ -171,16 +170,9 @@ def _provision_sso_user_or_redirect(
         return provision_sso_user(db, email=email, **identity_fields)
     except HTTPException as exc:
         if exc.status_code == 403 and exc.detail == "signup_pending":
-            signup_token = issue_signup_pending_token(email, **identity_fields)
-            log.info("oauth.signup.pending", provider=provider, email=email)
-            qs = urlencode(
-                {
-                    "mode": "onboard",
-                    "signup_token": signup_token,
-                    "email": email,
-                }
-            )
-            return RedirectResponse(f"{_frontend_url()}/login?{qs}")
+            # No account and no pending invite — self-registration is disabled.
+            log.warning("oauth.signup.blocked_invite_only", provider=provider, email=email)
+            return RedirectResponse(f"{_frontend_url()}/login?error=signups_disabled")
         if exc.status_code == 403:
             log.warning("oauth.signup.blocked", provider=provider, email=email)
             return RedirectResponse(f"{_frontend_url()}/login?error=no_account_for_idp")
@@ -273,8 +265,6 @@ def google_login(
         "prompt": "select_account login" if pick_account else "select_account",
         "state": state,
     }
-    if settings.APP_ENV == "production" and settings.GOOGLE_ALLOWED_DOMAIN:
-        params["hd"] = settings.GOOGLE_ALLOWED_DOMAIN
     return RedirectResponse(f"{_GOOGLE_AUTH_URL}?{urlencode(params)}")
 
 
@@ -313,9 +303,6 @@ def google_callback(
 
         if not email or not google_id:
             return _callback_error(state, "google", "no_email")
-
-        if settings.APP_ENV == "production" and settings.GOOGLE_ALLOWED_DOMAIN and not email.endswith(f"@{settings.GOOGLE_ALLOWED_DOMAIN}"):
-            return _callback_error(state, "google", "domain_not_allowed")
 
         # link flow: attach google_id to existing account
         if state and state.startswith("link:"):

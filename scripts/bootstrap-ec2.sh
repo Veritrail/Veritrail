@@ -6,6 +6,7 @@ set -euo pipefail
 
 DOMAIN="${DOMAIN:-app.veritrail.io}"
 API_DOMAIN="${API_DOMAIN:-api.veritrail.io}"
+ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.veritrail.io}"
 EMAIL="${EMAIL:-}"
 FORCE_CERT=0
 DEPLOY_ONLY=0
@@ -30,6 +31,7 @@ Bootstrap Veritrail on a production Ubuntu host: base packages, Docker, Let's En
 Environment variables:
   DOMAIN       UI hostname (default: app.veritrail.io)
   API_DOMAIN   API hostname (default: api.veritrail.io)
+  ADMIN_DOMAIN Platform-admin hostname (default: admin.veritrail.io)
   EMAIL        Let's Encrypt contact (required on first bootstrap)
   REPO_DIR     Repository root (auto-detected from script location)
   ENV_FILE     Canonical prod env file relative to REPO_DIR (default: .env.prod)
@@ -243,7 +245,7 @@ obtain_certs() {
 
   stop_port_binders
 
-  log "Obtaining certificate for $DOMAIN and $API_DOMAIN..."
+  log "Obtaining certificate for $DOMAIN, $API_DOMAIN, and $ADMIN_DOMAIN..."
   local renew_args=()
   if [[ "$FORCE_CERT" -eq 1 ]] && certs_valid; then
     renew_args=(--force-renewal)
@@ -251,6 +253,7 @@ obtain_certs() {
   certbot certonly --standalone \
     -d "$DOMAIN" \
     -d "$API_DOMAIN" \
+    -d "$ADMIN_DOMAIN" \
     --email "$EMAIL" \
     --agree-tos \
     --non-interactive \
@@ -263,6 +266,7 @@ render_nginx_conf() {
   sed \
     -e "s|__DOMAIN__|${DOMAIN}|g" \
     -e "s|__API_DOMAIN__|${API_DOMAIN}|g" \
+    -e "s|__ADMIN_DOMAIN__|${ADMIN_DOMAIN}|g" \
     -e "s|__CERT_NAME__|${CERT_NAME}|g" \
     "$NGINX_TEMPLATE" > "$NGINX_CONF"
 }
@@ -422,6 +426,7 @@ ensure_env_prod() {
   set_env_value "APP_ENV" "production" "$env_path"
   set_env_value "DOMAIN" "$DOMAIN" "$env_path"
   set_env_value "API_DOMAIN" "$API_DOMAIN" "$env_path"
+  set_env_value "ADMIN_DOMAIN" "$ADMIN_DOMAIN" "$env_path"
 
   local compose_project
   compose_project="$(get_env_value COMPOSE_PROJECT_NAME "$env_path")"
@@ -469,23 +474,14 @@ ensure_env_prod() {
     warn "Customer CFN stacks will not trust this host until you set the real control-plane role ARN"
   fi
 
-  local iap_enabled iap_domain google_domain
+  # IAP (domain-restricted Google edge gate) is opt-in only: the app is
+  # public for existing users; invite-only signup is enforced in the API.
+  local iap_enabled
   iap_enabled="$(get_env_value IAP_ENABLED "$env_path")"
   if [[ -z "$iap_enabled" ]]; then
-    set_env_value "IAP_ENABLED" "true" "$env_path"
-    iap_enabled="true"
-    log "Set IAP_ENABLED=true (Google edge gate for @cloud-castles.com)"
-  fi
-
-  iap_domain="$(get_env_value IAP_ALLOWED_EMAIL_DOMAIN "$env_path")"
-  if [[ -z "$iap_domain" ]]; then
-    set_env_value "IAP_ALLOWED_EMAIL_DOMAIN" "cloud-castles.com" "$env_path"
-    iap_domain="cloud-castles.com"
-  fi
-
-  google_domain="$(get_env_value GOOGLE_ALLOWED_DOMAIN "$env_path")"
-  if [[ -z "$google_domain" ]]; then
-    set_env_value "GOOGLE_ALLOWED_DOMAIN" "$iap_domain" "$env_path"
+    set_env_value "IAP_ENABLED" "false" "$env_path"
+    iap_enabled="false"
+    log "Set IAP_ENABLED=false (no edge login gate — app login is open to existing users)"
   fi
 
   local cookie_domain
@@ -563,6 +559,7 @@ export APP_ENV=production
 export COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
 export DOMAIN=$DOMAIN
 export API_DOMAIN=$API_DOMAIN
+export ADMIN_DOMAIN=$ADMIN_DOMAIN
 export HETZNER_ROLES_ANYWHERE=$HETZNER_ROLES_ANYWHERE
 export AWS_CONFIG_DIR=$(get_env_value AWS_CONFIG_DIR "$env_path")
 EOF

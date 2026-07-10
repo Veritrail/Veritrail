@@ -85,7 +85,7 @@
   .btn {
     display: inline-flex; align-items: center; gap: 7px;
     height: 40px; padding: 0 18px;
-    border-radius: 10px; font-size: 14.5px; font-weight: 600;
+    border-radius: 10px; font-family: inherit; font-size: 14.5px; font-weight: 600;
     border: 1px solid transparent; cursor: pointer; transition: all .15s;
     white-space: nowrap;
   }
@@ -166,6 +166,59 @@
     section.block { padding: 60px 0; }
     .hero { padding: 64px 0 48px; }
   }
+
+  /* Request-access modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(15, 23, 42, 0.45);
+    padding: 20px;
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  }
+  .modal-backdrop.is-open { display: flex; }
+  .modal {
+    width: 100%; max-width: 440px;
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.25);
+    padding: 28px;
+    max-height: calc(100vh - 40px); overflow-y: auto;
+  }
+  .modal h3 { font-size: 20px; font-weight: 700; }
+  .modal .modal-sub { margin-top: 6px; color: var(--muted); font-size: 14.5px; }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 32px; height: 32px; border: 0; border-radius: 8px;
+    background: transparent; color: var(--muted); font-size: 20px; line-height: 1;
+    cursor: pointer;
+  }
+  .modal-close:hover { background: var(--surface-2); color: var(--ink); }
+  .modal-head { position: relative; }
+  .modal form { margin-top: 20px; display: grid; gap: 14px; }
+  .modal label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+  .modal input, .modal textarea {
+    width: 100%; box-sizing: border-box;
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; font: inherit; font-size: 14.5px; color: var(--ink);
+    background: #fff;
+  }
+  .modal input:focus, .modal textarea:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(0, 108, 254, 0.15);
+  }
+  .modal textarea { min-height: 84px; resize: vertical; }
+  .modal .btn { width: 100%; justify-content: center; height: 44px; }
+  .modal .btn[disabled] { opacity: 0.6; cursor: default; }
+  .modal-error { display: none; font-size: 13.5px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 12px; }
+  .modal-error.is-visible { display: block; }
+  .modal-error a { color: #b91c1c; text-decoration: underline; }
+  .modal-success { display: none; text-align: center; padding: 22px 4px 6px; }
+  .modal-success.is-visible { display: block; }
+  .modal-success .tick {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 46px; height: 46px; border-radius: 999px;
+    background: #ecfdf5; color: #059669; margin-bottom: 14px;
+  }
+  .modal-success p { color: var(--body); font-size: 15.5px; }
 </style>
 </head>
 <body>
@@ -182,7 +235,7 @@
       <a href="#security">Security</a>
       <a href="https://docs.veritrail.io">Docs</a>
       <a href="https://app.veritrail.io" class="btn btn-ghost">Sign in</a>
-      <a href="https://app.veritrail.io" class="btn btn-primary">Get started</a>
+      <button type="button" class="btn btn-primary" data-open-request>Get started</button>
     </nav>
   </div>
 </header>
@@ -194,7 +247,7 @@
       <h1>Auditor-ready evidence,<br /><span class="accent">collected from your cloud.</span></h1>
       <p class="lead">Veritrail connects read-only to AWS, GCP, Azure, GitHub, and GitLab, maps what it finds to your controls, and produces the technical evidence your auditor asks for — on demand.</p>
       <div class="hero-cta">
-        <a href="https://app.veritrail.io" class="btn btn-primary">Start collecting evidence</a>
+        <button type="button" class="btn btn-primary" data-open-request>Get started</button>
         <a href="https://docs.veritrail.io" class="btn btn-ghost">Read the docs</a>
       </div>
       <p class="hero-note">Read-only access. No agents to install. Connect an account and scan the same day.</p>
@@ -312,7 +365,7 @@
     <div class="wrap">
       <h2>Connect an account. Scan today.</h2>
       <p>Start collecting auditor-ready evidence from your cloud in an afternoon, not a quarter.</p>
-      <a href="https://app.veritrail.io" class="btn btn-primary" style="height:46px;padding:0 24px;font-size:15.5px;">Get started</a>
+      <button type="button" class="btn btn-primary" style="height:46px;padding:0 24px;font-size:15.5px;" data-open-request>Get started</button>
     </div>
   </section>
 </main>
@@ -336,6 +389,119 @@
   </div>
 </footer>
 
-<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+<div class="modal-backdrop" id="request-access-modal" role="dialog" aria-modal="true" aria-labelledby="request-access-title" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="request-access-title">Request access</h3>
+      <p class="modal-sub">Tell us a little about your team and we'll set you up.</p>
+      <button type="button" class="modal-close" data-close-request aria-label="Close">&times;</button>
+    </div>
+    <form id="request-access-form" novalidate>
+      <div>
+        <label for="ra-name">Name</label>
+        <input id="ra-name" name="name" type="text" autocomplete="name" required maxlength="120" />
+      </div>
+      <div>
+        <label for="ra-email">Work email</label>
+        <input id="ra-email" name="email" type="email" autocomplete="email" required maxlength="320" />
+      </div>
+      <div>
+        <label for="ra-company">Company</label>
+        <input id="ra-company" name="company" type="text" autocomplete="organization" required maxlength="200" />
+      </div>
+      <div>
+        <label for="ra-message">Message <span style="font-weight:400;color:var(--soft)">(optional)</span></label>
+        <textarea id="ra-message" name="message" maxlength="2000" placeholder="What are you working toward — SOC 2, ISO 27001, CIS?"></textarea>
+      </div>
+      <div class="modal-error" id="request-access-error"></div>
+      <button type="submit" class="btn btn-primary" id="request-access-submit">Request access</button>
+    </form>
+    <div class="modal-success" id="request-access-success">
+      <span class="tick" aria-hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.75 6 6 9-13.5"/></svg>
+      </span>
+      <p>Thanks — we'll reach back to you shortly.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('year').textContent = new Date().getFullYear();
+
+(function () {
+  var API_URL = 'https://api.veritrail.io/v1/public/access-request';
+  var backdrop = document.getElementById('request-access-modal');
+  var form = document.getElementById('request-access-form');
+  var success = document.getElementById('request-access-success');
+  var errorBox = document.getElementById('request-access-error');
+  var submitBtn = document.getElementById('request-access-submit');
+
+  function openModal() {
+    backdrop.hidden = false;
+    backdrop.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    var first = document.getElementById('ra-name');
+    if (form.style.display !== 'none' && first) first.focus();
+  }
+
+  function closeModal() {
+    backdrop.classList.remove('is-open');
+    backdrop.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  document.querySelectorAll('[data-open-request]').forEach(function (btn) {
+    btn.addEventListener('click', openModal);
+  });
+  document.querySelectorAll('[data-close-request]').forEach(function (btn) {
+    btn.addEventListener('click', closeModal);
+  });
+  backdrop.addEventListener('click', function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeModal();
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    errorBox.classList.remove('is-visible');
+
+    var name = document.getElementById('ra-name').value.trim();
+    var email = document.getElementById('ra-email').value.trim();
+    var company = document.getElementById('ra-company').value.trim();
+    var message = document.getElementById('ra-message').value.trim();
+
+    if (!name || !email || !company || email.indexOf('@') < 1) {
+      errorBox.textContent = 'Please fill in your name, work email, and company.';
+      errorBox.classList.add('is-visible');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending\u2026';
+
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, email: email, company: company, message: message })
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('request failed');
+        form.style.display = 'none';
+        success.classList.add('is-visible');
+      })
+      .catch(function () {
+        errorBox.innerHTML = 'Could not send your request right now. Email us instead at ' +
+          '<a href="mailto:support@veritrail.io?subject=Veritrail%20access%20request">support@veritrail.io</a>.';
+        errorBox.classList.add('is-visible');
+      })
+      .finally(function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Request access';
+      });
+  });
+})();
+</script>
 </body>
 </html>

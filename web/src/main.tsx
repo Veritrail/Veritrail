@@ -45,7 +45,6 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import TrustCenter from "./pages/TrustCenter";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
-import Homepage from "./pages/Homepage";
 import NoWorkspace from "./pages/NoWorkspace";
 import "./styles/findings-overrides.css";
 import "./styles/accounts-overrides.css";
@@ -68,7 +67,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/homepage" element={<Homepage />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/invite/:token" element={<InviteAccept />} />

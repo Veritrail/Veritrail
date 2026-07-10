@@ -523,7 +523,8 @@ def test_signup_pending_token_roundtrip():
     assert payload["google_id"] == "g123"
 
 
-def test_complete_signup_creates_org(client):
+def test_complete_signup_without_invite_is_rejected(client):
+    """Self-registration is disabled — complete-signup requires a workspace invite."""
     from app.core.db import get_db
     from app.core.security import issue_signup_pending_token
 
@@ -539,11 +540,9 @@ def test_complete_signup_creates_org(client):
             "/v1/auth/complete-signup",
             json={"signup_token": signup_token, "org_name": "My Workspace"},
         )
-        assert res.status_code == 200
-        body = res.json()
-        assert body["access_token"]
-        assert body["org_id"]
-        assert db.add_all.called or db.add.call_count >= 2
+        assert res.status_code == 403
+        assert "invite-only" in res.json()["detail"]
+        assert not db.add_all.called
     finally:
         client.app.dependency_overrides.clear()
 

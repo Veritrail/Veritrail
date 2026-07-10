@@ -26,10 +26,10 @@ function oauthErrorMessage(code: string): string {
       return "That GitLab account is already linked to another user.";
     case "google_already_linked":
       return "That Google account is already linked to another user.";
-    case "domain_not_allowed":
-      return "Google sign-in is restricted to company accounts only.";
     case "no_account_for_idp":
-      return "No account matches that sign-in. Sign up first, then connect this provider.";
+      return "No account matches that sign-in. Ask a workspace admin for an invite.";
+    case "signups_disabled":
+      return "Signups are invite-only — contact support@veritrail.io";
     case "domain_managed":
       return "This email domain already has a Veritrail workspace. Ask your admin for an invite, or choose a different workspace name.";
     case "invite_accept_failed":
@@ -222,8 +222,8 @@ export default function Login() {
     if (params.get("mode") === "forgot") return "forgot";
     if (params.get("mode") === "onboard" || params.get("signup_token")) return "onboard";
     if (params.get("mode") === "login") return "login";
-    if (params.get("mode") === "signup") return "signup";
-    if (params.get("invite_token")) return "login";
+    // Self-registration is disabled — signup mode exists only for invite links.
+    if (params.get("mode") === "signup" && params.get("invite_token")) return "signup";
     return "login";
   });
   const [email, setEmail] = useState(() => inviteEmail ?? params.get("email") ?? "");
@@ -912,18 +912,24 @@ export default function Login() {
           <AuthOAuthButtons rememberMe={rememberMe} inviteToken={inviteToken} pickAccount={freshSignIn} />
           <AuthLegalFooter mode={mode} />
 
-          <div className="auth-mode-switch">
-            <button
-              type="button"
-              onClick={() => switchMode(mode === "login" ? "signup" : "login")}
-            >
-              {mode === "login" ? (
-                <>Don&apos;t have an account? <span className="auth-mode-switch__cta">Sign up</span></>
-              ) : (
-                <>Already have an account? <span className="auth-mode-switch__cta">Sign in</span></>
-              )}
-            </button>
-          </div>
+          {inviteToken ? (
+            <div className="auth-mode-switch">
+              <button
+                type="button"
+                onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+              >
+                {mode === "login" ? (
+                  <>New here? <span className="auth-mode-switch__cta">Accept your invite</span></>
+                ) : (
+                  <>Already have an account? <span className="auth-mode-switch__cta">Sign in</span></>
+                )}
+              </button>
+            </div>
+          ) : (
+            <p className="auth-footer-legal">
+              Signups are invite-only — <a href="mailto:support@veritrail.io">contact support@veritrail.io</a>
+            </p>
+          )}
         </div>
       </div>
     </div>

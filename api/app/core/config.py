@@ -27,8 +27,6 @@ class Settings(BaseSettings):
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    # If set, only emails from this domain are accepted via Google OAuth (login + link).
-    GOOGLE_ALLOWED_DOMAIN: str = ""
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
     GITHUB_INTEGRATION_CALLBACK_PATH: str = "/v1/auth/github/callback"
@@ -108,6 +106,16 @@ class Settings(BaseSettings):
     # once you have paying customers — prevents accidental fragmentation
     # when a user signs in via a personal IdP under a different email).
     ALLOW_SSO_SIGNUP: bool = True
+
+    # Where marketing-site "request access" submissions are delivered.
+    ACCESS_REQUEST_EMAIL: str = "support@veritrail.io"
+    # Extra CORS origins for public endpoints hit from the static marketing
+    # site (comma-separated). Appended to CORS_ORIGINS/FRONTEND_URL.
+    MARKETING_CORS_ORIGINS: str = "https://veritrail.io,https://www.veritrail.io"
+
+    # Comma-separated emails allowed to use the read-only platform-admin
+    # dashboard (/v1/platform-admin + /admin in the web app). Empty = nobody.
+    PLATFORM_ADMIN_EMAILS: str = ""
 
     # Optional Ed25519 seed (32 bytes, base64) to sign evidence pack checksum manifests.
     # Generate: python -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"

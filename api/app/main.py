@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
 from app.routes import accounts, accounts_onboard, accounts_scan, accounts_analysis, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, slack_integration, jira_integration, linear_integration, gcp_integration, azure_integration, scanner_integration, siem_integration, azure_boards_integration, cloud_integration, integration_requests, iac, settings as settings_router, members
-from app.routes import controls, exports, meta, public, domains, join_requests, audit_log
+from app.routes import controls, exports, meta, public, platform_admin, domains, join_requests, audit_log
 from app.routes import auditor, auditor_portal, trust_center
 from app.routes import intune_integration, jamf_integration
 
@@ -57,6 +57,11 @@ if not _cors_origins:
     _cors_origins = [settings.FRONTEND_URL]
 if settings.APP_ENV == "dev" and "http://localhost:5173" not in _cors_origins:
     _cors_origins.append("http://localhost:5173")
+# Static marketing site (veritrail.io) posts to /v1/public/access-request.
+for _marketing_origin in settings.MARKETING_CORS_ORIGINS.split(","):
+    _marketing_origin = _marketing_origin.strip()
+    if _marketing_origin and _marketing_origin not in _cors_origins:
+        _cors_origins.append(_marketing_origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -179,6 +184,7 @@ app.include_router(controls.router, prefix="/v1/controls", tags=["controls"])
 app.include_router(exports.router, prefix="/v1/exports", tags=["exports"])
 app.include_router(meta.router, prefix="/v1/meta", tags=["meta"])
 app.include_router(public.router, prefix="/v1/public", tags=["public"])
+app.include_router(platform_admin.router, prefix="/v1/platform-admin", tags=["platform-admin"])
 app.include_router(auditor.router, prefix="/v1/auditor", tags=["auditor"])
 app.include_router(members.router, prefix="/v1/members", tags=["members"])
 app.include_router(audit_log.router, prefix="/v1/audit-log", tags=["audit-log"])

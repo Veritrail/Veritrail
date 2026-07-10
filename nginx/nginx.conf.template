@@ -31,7 +31,7 @@ http {
     # HTTP → HTTPS redirect for all hosts
     server {
         listen 80;
-        server_name __DOMAIN__ __API_DOMAIN__;
+        server_name __DOMAIN__ __API_DOMAIN__ __ADMIN_DOMAIN__;
         limit_req zone=veritrail_general burst=30 nodelay;
 
         location / {
@@ -68,6 +68,49 @@ http {
             include /etc/nginx/iap/iap.auth.conf;
             limit_req zone=veritrail_general burst=40 nodelay;
             proxy_pass         http://web:80;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+        }
+    }
+
+    # Platform admin — __ADMIN_DOMAIN__ (static SPA + same-origin /v1 API proxy).
+    # The dashboard itself is gated server-side by PLATFORM_ADMIN_EMAILS.
+    server {
+        listen 443 ssl;
+        server_name __ADMIN_DOMAIN__;
+
+        ssl_certificate     /etc/letsencrypt/live/__CERT_NAME__/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/__CERT_NAME__/privkey.pem;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+
+        # Optional hardening: restrict the admin origin to trusted IPs.
+        # allow 203.0.113.10;   # office / VPN egress
+        # allow 198.51.100.20;  # home
+        # deny  all;
+
+        # Same-origin API proxy — the admin SPA gets its own refresh cookie on
+        # this host, no CORS involved.
+        location /v1/ {
+            limit_req zone=veritrail_general burst=60 nodelay;
+            proxy_pass         http://api:8000;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+        }
+
+        location / {
+            limit_req zone=veritrail_general burst=40 nodelay;
+            proxy_pass         http://admin:80;
             proxy_http_version 1.1;
             proxy_set_header   Host $host;
             proxy_set_header   X-Real-IP $remote_addr;
