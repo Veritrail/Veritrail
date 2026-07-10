@@ -848,33 +848,40 @@
 
 .history-table {
   width: 100%;
+  min-width: 72rem;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.8125rem;
 }
 
 .history-col-datetime {
-  width: 13.5%;
+  width: 10rem;
+  min-width: 10rem;
 }
 
 .history-col-type {
-  width: 9%;
+  width: 7.5rem;
+  min-width: 7.5rem;
 }
 
 .history-col-control {
-  width: 8%;
+  width: 6.5rem;
+  min-width: 6.5rem;
 }
 
 .history-col-resource {
-  width: 24%;
+  width: 14rem;
+  min-width: 14rem;
 }
 
 .history-col-detail {
-  width: 37.5%;
+  width: auto;
+  min-width: 16rem;
 }
 
 .history-col-actions {
-  width: 8%;
+  width: 7rem;
+  min-width: 7rem;
 }
 
 .history-table thead th {
@@ -913,6 +920,14 @@
   white-space: nowrap;
   color: #4b5563;
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-table tbody td:nth-child(2) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .history-table__control {

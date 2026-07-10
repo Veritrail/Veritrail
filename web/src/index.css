@@ -135,8 +135,68 @@
 @layer components {
   .veritrail-app-main {
     isolation: isolate;
+    margin-left: 348px;
+    width: calc(100% - 348px);
     background:
       linear-gradient(180deg, #fbfcff 0%, #f7f9fc 42%, #f8fafc 100%);
+  }
+
+  .veritrail-app-main.is-sidebar-collapsed {
+    margin-left: 6rem;
+    width: calc(100% - 6rem);
+  }
+
+  @media (max-width: 999px) {
+    .veritrail-app-main,
+    .veritrail-app-main.is-sidebar-collapsed {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .veritrail-app-header {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    .veritrail-app-content {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  .veritrail-app-header__menu-btn {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  @media (max-width: 999px) {
+    .veritrail-app-header__menu-btn {
+      display: inline-flex;
+    }
+  }
+
+  .veritrail-app-header__menu-btn:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+  }
+
+  .veritrail-app-header__menu-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(13 148 136 / 0.2);
+  }
+
+  .veritrail-app-header__menu-btn svg {
+    width: 1.125rem;
+    height: 1.125rem;
   }
 
   .veritrail-app-main::before {

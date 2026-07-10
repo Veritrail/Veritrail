@@ -8,6 +8,7 @@
   grid-auto-flow: column;
   grid-auto-columns: minmax(13.5rem, 1fr);
   grid-template-columns: unset;
+  gap: 0.75rem;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -30,39 +31,10 @@
 
 .account-page .workspace-summary__cell {
   min-width: 13.5rem;
-  border-bottom: 0;
-  border-right: 1px solid #eef2f6;
+  border-right: 0;
 }
 
 .account-page .workspace-summary__cell--readiness {
   grid-column: auto;
   min-width: 17rem;
-}
-
-.account-page .workspace-summary__cell:last-child {
-  border-right: 0;
-}
-
-@media (min-width: 640px) and (max-width: 1359.98px) {
-  .account-page .workspace-summary {
-    grid-template-columns: unset;
-  }
-
-  .account-page .workspace-summary__cell--readiness {
-    grid-column: auto;
-  }
-
-  .account-page .workspace-summary__cell:nth-child(even):not(:last-child) {
-    border-right: 1px solid #eef2f6;
-  }
-
-  .account-page .workspace-summary__cell:nth-last-child(-n + 2) {
-    border-bottom: 0;
-  }
-}
-
-@media (min-width: 1360px) {
-  .account-page .workspace-summary {
-    grid-template-columns: unset;
-  }
 }

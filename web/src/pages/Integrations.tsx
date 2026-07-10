@@ -28,6 +28,7 @@ import {
   getExploreStripEntries,
   type ConnectedCatalogState,
 } from "../lib/integrationCatalog";
+import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
 import { PostureMetricCell } from "./Workspace";
 import "../styles/integrations-page.css";
 import "../styles/workspace-page.css";
@@ -87,6 +88,12 @@ type IntegrationRow = {
 
 function integrationCta(connected: boolean): string {
   return connected ? "Manage" : "Connect";
+}
+
+function awsHubCapabilities(): string[] {
+  const caps = ["Cloud posture", "Audit evidence"];
+  if (SHOW_WRITE_REMEDIATION) caps.push("Remediation");
+  return caps;
 }
 
 function CapabilityPills({ tags }: { tags: string[] }) {
@@ -408,7 +415,7 @@ function IntegrationsContent() {
       healthTone: awsScanRunning ? "sync" : awsAccount?.last_scan_at ? "ok" : "idle",
       permissionsLabel: awsConnected ? "Connector verified" : "Not connected",
       permissionsVerified: awsConnected,
-      capabilities: ["Cloud posture", "Audit evidence", "Remediation"],
+      capabilities: awsHubCapabilities(),
     },
     {
       key: "github",

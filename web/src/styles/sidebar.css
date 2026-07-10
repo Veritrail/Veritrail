@@ -1065,15 +1065,45 @@
 }
 
 .sidebar-account-card.is-collapsed {
+  position: relative;
   width: 3rem;
   min-height: 3rem;
   justify-content: center;
   padding: 0.55rem;
 }
 
+/* Collapsed: the full selected border/glow wraps just the tiny logo chip and
+   reads as a stray ring, not a selection state. Drop it; a small corner dot
+   is enough context at this size. */
+.sidebar-account-card.is-collapsed.is-selected {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: none;
+}
+
+.sidebar-account-card.is-collapsed.is-selected::after {
+  content: "";
+  position: absolute;
+  right: 0.3rem;
+  bottom: 0.3rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #26dcd6;
+  box-shadow: 0 0 0 2px rgba(4, 11, 22, 0.9);
+}
+
 .sidebar-accounts.is-collapsed .sidebar-accounts__overflow {
   width: 2.75rem;
-  padding: 0.45rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-accounts.is-collapsed .sidebar-accounts__overflow:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-accounts__overflow-count {
@@ -1084,5 +1114,53 @@
 
 .app-sidebar.is-collapsed .sidebar-accounts {
   margin-bottom: 0.65rem;
+}
+
+/* Mobile / tablet: off-canvas drawer (spec: design-consistency-audit.md §P0-1) */
+.app-sidebar__backdrop {
+  display: none;
+}
+
+@media (max-width: 999px) {
+  .app-sidebar__backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    border: 0;
+    background: rgb(15 23 42 / 0.42);
+    cursor: pointer;
+  }
+
+  .app-sidebar {
+    z-index: 40;
+    width: min(348px, 88vw);
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+  }
+
+  .app-sidebar.is-mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Drawer always shows labels — icon-only collapse is desktop-only. */
+  .app-sidebar.is-collapsed {
+    width: min(348px, 88vw);
+  }
+
+  .app-sidebar.is-collapsed .app-sidebar__wordmark,
+  .app-sidebar.is-collapsed .app-sidebar__label,
+  .app-sidebar.is-collapsed .app-sidebar__collapse-label {
+    position: static;
+    width: auto;
+    height: auto;
+    clip: auto;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .app-sidebar__collapse-row {
+    display: none;
+  }
 }
 
