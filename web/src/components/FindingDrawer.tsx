@@ -22,15 +22,12 @@ import AwsServiceIcon from "./AwsServiceIcon";
 import { CliRemediationPanel } from "./CliRemediationPanel";
 import { ExceptionDocIcon } from "./ExceptionDocIcon";
 import { buildCliRemediationPlan } from "../lib/cliRemediationPlan";
-import { IaCRemediationSection } from "./IaCRemediationSection";
 import {
   PolicyOutlineButton,
   PolicyProposalReviewLayout,
   PolicyValidationFooter,
 } from "./PolicyProposalReview";
-import { useRemediationExecution } from "../hooks/useRemediationExecution";
 import { DrawerDateField } from "./DrawerDateField";
-import { TerraformIacDrawerSection } from "./TerraformIacDrawerSection";
 import { JiraFindingAction } from "./JiraFindingAction";
 import ConfirmDialog from "./ConfirmDialog";
 import { todayIso } from "../lib/isoDate";
@@ -66,12 +63,10 @@ import {
 import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
 import { useCloudTrailPolicyGen } from "../hooks/useCloudTrailPolicyGen";
 import { formatCloudTrailElapsed } from "../lib/cloudTrailElapsed";
-import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
 import { remediationSummaryForFinding, type RemediationSummary } from "../data/remediationSummaries";
 import {
   awsRegionFromArn,
   resourceDisplayName,
-  resourceRegionForFinding,
   isAwsRootFinding,
   severityLabel,
   severityPillClassName,
@@ -223,29 +218,19 @@ function DrawerSection({
 export type FindingRemediationMode =
   | "console"
   | "cli"
-  | "terraform"
-  | "automation"
   | "suggested_policy";
 
 type RemediationMode = FindingRemediationMode;
 
-const SG_AUTOMATION_ONLY_CHECKS = new Set([
-  "ec2.security_group.unrestricted_ssh",
-  "ec2.security_group.unrestricted_rdp",
-]);
-
 const NO_CLI_REMEDIATION_CHECKS = new Set(["iam.user.no_mfa"]);
 
-export function defaultFindingRemediationMode(checkId: string): FindingRemediationMode {
-  if (SHOW_WRITE_REMEDIATION && SG_AUTOMATION_ONLY_CHECKS.has(checkId)) return "automation";
+export function defaultFindingRemediationMode(_checkId: string): FindingRemediationMode {
   return "console";
 }
 
 const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
   console: "Console",
   cli: "CLI",
-  terraform: "Terraform",
-  automation: "Automated fix",
   suggested_policy: "Suggested policy",
 };
 
@@ -262,14 +247,6 @@ function RemediationModeIcon({ mode, large = false }: { mode: RemediationMode; l
     return (
       <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    );
-  }
-  if (mode === "terraform") {
-    return (
-      <svg className={cls} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 2 2 7v10l10 5 10-5V7L12 2zm0 2.2 7.5 3.75v7.5L12 19.3 4.5 15.45v-7.5L12 4.2z" opacity={0.35} />
-        <path d="M12 6.5 6.5 9.25v5.5L12 17.5l5.5-2.75v-5.5L12 6.5z" />
       </svg>
     );
   }
@@ -294,22 +271,16 @@ function RemediationModeIcon({ mode, large = false }: { mode: RemediationMode; l
 function RemediationModePicker({
   active,
   onSelect,
-  hideTerraform,
-  hideAutomation,
   showSuggestedPolicy,
 }: {
   active: RemediationMode | null;
   onSelect: (mode: RemediationMode) => void;
-  hideTerraform?: boolean;
-  hideAutomation?: boolean;
   showSuggestedPolicy?: boolean;
 }) {
   const modes: RemediationMode[] = [
     "console",
     ...(showSuggestedPolicy ? (["suggested_policy"] as RemediationMode[]) : []),
     "cli",
-    ...(hideTerraform ? [] : (["terraform"] as RemediationMode[])),
-    ...(hideAutomation ? [] : (["automation"] as RemediationMode[])),
   ];
   return (
     <div className={`${drawerPanel} overflow-hidden`}>
@@ -1015,7 +986,7 @@ aws rds restore-db-instance-from-db-snapshot \\
     risk: "No automated backups means no point-in-time recovery. Operational mistakes or corruption may require manual snapshot rollback, if any snapshot exists.",
   },
   "dynamodb.table.no_encryption": {
-    why: "Tables without explicit encryption at rest rely on legacy defaults. Enabling SSE-KMS or AWS-owned encryption protects item data on disk and satisfies auditor expectations for data-at-rest controls.",
+    why: "Tables without explicit encryption at rest rely on legacy defaults. Enabling SSE-KMS or AWS-owned encryption protects item data on disk and supports data-at-rest encryption evidence auditors sample.",
     console: [
       "Open DynamoDB → Tables → select the table",
       'Open the "Additional settings" tab',
@@ -1557,7 +1528,7 @@ aws configservice put-delivery-channel \\
   --delivery-channel name=default,s3BucketName=<bucket>
 
 aws configservice start-configuration-recorder --configuration-recorder-name default`,
-    risk: "No Config means no configuration change history — a gap auditors will flag and a blocker for SOC 2 CC6.1.",
+    risk: "No Config means no configuration change history — a gap auditors will flag and a blocker for SOC 2 CC7.1 configuration-change detection evidence.",
   },
   "guardduty.open_findings": {
     why: "GuardDuty is enabled but has active (non-archived) findings. Enablement alone does not mean threats are resolved — auditors expect triage and remediation evidence.",
@@ -1924,7 +1895,7 @@ const identityRemediations: Record<string, Remediation> = {
       "Save the protection rules",
     ],
     cli: "",
-    risk: "Without required reviewers on deployment environments, any GitHub Actions workflow can ship to production without human sign-off — violating SOC2 CC8.1 change management controls.",
+    risk: "Without required reviewers on deployment environments, any GitHub Actions workflow can ship to production without human sign-off — creating a gap in change-authorization evidence auditors sample for SOC 2 CC8.1.",
   },
   "github.repo.self_merge_allowed": {
     why: "Allowing authors to merge their own pull requests removes the peer review step that catches bugs, backdoors, and security regressions. It is the single most common change-management gap flagged in SOC2 CC8.1 audits.",
@@ -1936,7 +1907,7 @@ const identityRemediations: Record<string, Remediation> = {
       "Confirm the PR author cannot satisfy the approval requirement",
     ],
     cli: "",
-    risk: "Self-merged code bypasses the peer review control required by SOC2 CC8.1 and most change management policies.",
+    risk: "Self-merged code bypasses peer review and creates a gap in segregation-of-duties evidence auditors sample for SOC 2 CC8.1.",
   },
   "github.repo.insufficient_reviews": {
     why: "Merging with fewer approvals than required means the review policy is either misconfigured or being bypassed. Each approval gap is a break in the change-management evidence chain auditors will sample.",
@@ -1986,7 +1957,7 @@ const identityRemediations: Record<string, Remediation> = {
     risk: "Unprotected branches allow direct pushes to production branches without review or audit evidence.",
   },
   "gitlab.repo.self_merge_allowed": {
-    why: "When MR authors can merge their own requests, the peer review step that catches bugs and unauthorized changes is eliminated. GitLab's approval rules must explicitly prevent author self-approval to satisfy SOC2 CC8.1.",
+    why: "When MR authors can merge their own requests, the peer review step that catches bugs and unauthorized changes is eliminated. GitLab's approval rules must explicitly prevent author self-approval to support peer-review evidence for one aspect of SOC 2 CC8.1.",
     console: [
       "Go to the project → Settings → Merge requests",
       'Enable "Merge request approvals" and set "Required approvals" to at least 1',
@@ -6646,7 +6617,7 @@ export function FindingDrawer({
     !!accountId &&
     tab === "remediation" &&
     ROLE_POLICY_GEN_CHECKS.has(finding.check_id) &&
-    (remDetailMode === "suggested_policy" || remDetailMode === "automation");
+    remDetailMode === "suggested_policy";
 
   const { data: policyGenData, isLoading: policyGenLoading, isFetching: policyGenFetching } = useQuery<GeneratedPolicy>({
     queryKey: ["generated-policy", accountId, finding?.resource_arn, finding?.last_seen, false],
@@ -6678,8 +6649,6 @@ export function FindingDrawer({
     showPolicyChangePane ||
       (policyGenData?.has_inline_policies && policyGenData.cleaned_policies),
   );
-
-  const { data: remediationExecution } = useRemediationExecution(finding?.id ?? "");
 
   useEffect(() => {
     if (!finding) {
@@ -6718,23 +6687,6 @@ export function FindingDrawer({
     setPolicyChangePaneVisible(true);
   };
 
-  useEffect(() => {
-    if (
-      finding &&
-      SHOW_WRITE_REMEDIATION &&
-      SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id) &&
-      remTab === "terraform"
-    ) {
-      onRemTabChange("automation");
-    }
-  }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
-
-  useEffect(() => {
-    if (finding && findingScopeProvider(finding) !== "aws" && remTab === "automation") {
-      onRemTabChange(defaultFindingRemediationMode(finding.check_id));
-    }
-  }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
-
   const showWhatIf = !!finding && showWhatIfTab(finding.check_id, accountId);
   const whatIfUnavailable = finding ? whatIfUnavailableReason(finding.check_id) : null;
 
@@ -6765,15 +6717,9 @@ export function FindingDrawer({
   const showReopenFooter =
     (finding.status === "resolved" || finding.status === "ignored") && !verified && !verifying;
 
-  const ssmExecSuccess =
-    remediationExecution?.status === "success" ||
-    Boolean((remediationExecution?.result as { ok?: boolean } | undefined)?.ok);
   const savedRemediationMode =
     remTab === "suggested_policy" ? defaultFindingRemediationMode(finding.check_id) : remTab;
   const activeRemediationMode = remDetailMode ?? savedRemediationMode;
-  const ssmAutomationRemTab = activeRemediationMode === "automation";
-  const verifyFooterMuted =
-    ssmAutomationRemTab && !ssmExecSuccess && !verified && !verifying && !showReopenFooter;
 
   const jiraDoneUnverified =
     !!jiraIssue &&
@@ -6820,8 +6766,6 @@ export function FindingDrawer({
   const scopeProvider = findingScopeProvider(finding);
   const verifyUnchangedCopy = verifyFixOutcomeCopy(scopeProvider, "unchanged");
   const verifyErrorCopy = verifyFixOutcomeCopy(scopeProvider, "error");
-  const hideAutomationRemediation = scopeProvider !== "aws" || !SHOW_WRITE_REMEDIATION;
-  const hideTerraformRemediation = !SHOW_WRITE_REMEDIATION;
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "resources", label: "Resources" },
@@ -7073,8 +7017,6 @@ export function FindingDrawer({
                   <RemediationModePicker
                     active={activeRemediationMode}
                     onSelect={openRemediationDetail}
-                    hideTerraform={hideTerraformRemediation || SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
-                    hideAutomation={hideAutomationRemediation}
                     showSuggestedPolicy={showSuggestedPolicy}
                   />
                   {!remDetailMode && (
@@ -7134,29 +7076,6 @@ export function FindingDrawer({
                   ) : (
                     <RemediationCliBlock finding={finding} />
                   )
-                )}
-                {!isIdentityCheck && remDetailMode === "terraform" && SHOW_WRITE_REMEDIATION && (
-                  <TerraformIacDrawerSection
-                    findingId={finding.id}
-                    checkId={finding.check_id}
-                    resourceArn={finding.resource_arn}
-                    existing={githubIssue}
-                    onCreated={setGithubOverride}
-                  />
-                )}
-                {!isIdentityCheck && remDetailMode === "automation" && SHOW_WRITE_REMEDIATION && (
-                  <IaCRemediationSection
-                    embedMode="automation"
-                    findingId={finding.id}
-                    checkId={finding.check_id}
-                    accountId={accountId}
-                    accountProvider={scopeProvider}
-                    resourceArn={finding.resource_arn}
-                    resourceRegion={resourceRegionForFinding(finding)}
-                    resourceLabel={resourceDisplayName(finding)}
-                    onShowPolicy={showSuggestedPolicy ? openPolicyReview : undefined}
-                    policyReviewAcknowledged={policyReviewAcknowledged}
-                  />
                 )}
                 {!isIdentityCheck && remDetailMode === "suggested_policy" && accountId && (
                   <SuggestedPolicyRemediationContent
@@ -7227,7 +7146,7 @@ export function FindingDrawer({
             disabled={verifying || verified}
             onClick={() => onAction(finding.id, "recheck")}
             aria-label={verified ? "Verified" : verifying ? "Verifying fix" : "Verify fix"}
-            className={verified || verifyFooterMuted ? drawerFooterVerifySoft : drawerFooterVerifyPrimary}
+            className={verified ? drawerFooterVerifySoft : drawerFooterVerifyPrimary}
           >
             {verifying ? (
               <>

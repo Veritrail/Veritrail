@@ -29,8 +29,6 @@ import IntuneIntegration from "./pages/IntuneIntegration";
 import JamfIntegration from "./pages/JamfIntegration";
 import Questionnaire from "./pages/Questionnaire";
 import SiemIntegration from "./pages/SiemIntegration";
-import GitHubIssuesIntegration from "./pages/GitHubIssuesIntegration";
-import IacRepositoryIntegration from "./pages/IacRepositoryIntegration";
 import Integrations from "./pages/Integrations";
 import IntegrationCatalog from "./pages/IntegrationCatalog";
 import History from "./pages/History";
@@ -115,8 +113,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/jamf" element={<JamfIntegration />} />
             <Route path="/questionnaire" element={<Questionnaire />} />
             <Route path="/integrations/siem/:vendor" element={<SiemIntegration />} />
-            <Route path="/integrations/github-issues" element={<GitHubIssuesIntegration />} />
-            <Route path="/integrations/iac-repository" element={<IacRepositoryIntegration />} />
+            <Route path="/integrations/github-issues" element={<Navigate to="/integrations" replace />} />
+            <Route path="/integrations/iac-repository" element={<Navigate to="/integrations" replace />} />
             {/* Azure Boards removed from product — legacy bookmarks redirect to hub */}
             <Route path="/integrations/azure-boards" element={<Navigate to="/integrations" replace />} />
           </Route>

@@ -74,11 +74,10 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
   },
   {
     id: "ticketing",
-    title: "Ticketing & remediation",
+    title: "Ticketing",
     blurb: "Turn findings into tracked remediation work.",
     entries: [
       { key: "jira", brand: "jira", name: "Jira", description: "Remediation tickets with sync.", tags: ["Ticketing", "Workflow", "Issues"], href: "/integrations/jira" },
-      { key: "iac-repository", brand: "iac", name: "IaC repository", description: "Terraform PRs from findings.", tags: ["IaC", "Terraform", "GitOps"], href: "/integrations/iac-repository" },
       { key: "azure-devops", brand: "azure-devops", name: "Azure DevOps Pipelines", description: "Track work and pipelines.", tags: ["CI/CD", "Pipelines", "Boards"], comingSoon: true },
     ],
   },
@@ -101,7 +100,6 @@ export type ConnectedCatalogState = {
   slackConnected: boolean;
   gcpConnected: boolean;
   azureConnected: boolean;
-  iacRepositoryConnected: boolean;
   jiraConnected: boolean;
   splunkConnected: boolean;
   datadogConnected: boolean;
@@ -116,7 +114,6 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   if (state.googleConnected) hidden.add("google-workspace");
   if (state.entraConnected) hidden.add("entra");
   if (state.slackConnected) hidden.add("slack");
-  if (state.iacRepositoryConnected) hidden.add("iac-repository");
   if (state.jiraConnected) hidden.add("jira");
   if (state.splunkConnected) hidden.add("splunk");
   if (state.datadogConnected) hidden.add("datadog");
@@ -136,7 +133,6 @@ export const EXTENDED_INTEGRATION_KEYS: ReadonlySet<string> = new Set([
   "splunk",
   "datadog",
   "elastic",
-  "iac-repository",
   "azure-devops",
 ]);
 

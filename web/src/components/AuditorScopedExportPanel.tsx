@@ -75,11 +75,30 @@ export function AuditorScopedExportPanel({ embedded }: Props) {
                 { value: "", label: "Select export…" },
                 ...exportRows.map((row) => ({
                   value: row.id,
-                  label: `${row.framework} · ${row.period_days}d · ${row.created_at.slice(0, 10)}`,
+                  label: `${row.framework} · ${row.period_days}d · ${row.created_at.slice(0, 10)}${
+                    row.zip_sha256 ? ` · sha256:${row.zip_sha256.slice(0, 12)}…` : ""
+                  }${row.report_id ? ` · ${row.report_id}` : ""}`,
                 })),
               ]}
             />
           </label>
+          {exportId ? (
+            (() => {
+              const selected = exportRows.find((r) => r.id === exportId);
+              if (!selected) return null;
+              return (
+                <p className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[11px] text-zinc-600">
+                  ZIP SHA-256: {selected.zip_sha256}
+                  {selected.report_id ? (
+                    <>
+                      <br />
+                      Report ID: {selected.report_id}
+                    </>
+                  ) : null}
+                </p>
+              );
+            })()
+          ) : null}
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-700">Auditor</span>
             <Select

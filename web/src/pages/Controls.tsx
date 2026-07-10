@@ -3928,6 +3928,8 @@ export default function Controls() {
   }
 
   const [downloading, setDownloading] = useState(false);
+  const [lastPackSha256, setLastPackSha256] = useState<string | null>(null);
+  const [lastPackReportId, setLastPackReportId] = useState<string | null>(null);
   const [periodKey, setPeriodKey] = useState<string | number>(90);
   const [asOf, setAsOf] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -4539,6 +4541,11 @@ export default function Controls() {
         headers: { Authorization: `Bearer ${tok}` },
       });
       if (!res.ok) throw new Error(await res.text());
+      const zipSha =
+        res.headers.get("X-Veritrail-Pack-SHA256") ?? res.headers.get("X-Content-SHA256");
+      const reportIdHdr = res.headers.get("X-Veritrail-Report-Id");
+      if (zipSha) setLastPackSha256(zipSha);
+      if (reportIdHdr) setLastPackReportId(reportIdHdr);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -4638,6 +4645,8 @@ export default function Controls() {
                 }
                 downloading={downloading}
                 onDownload={() => void downloadPack()}
+                lastZipSha256={lastPackSha256}
+                lastReportId={lastPackReportId}
               />
             </div>
           </>,

@@ -160,24 +160,6 @@ export function verifyFixOutcomeCopy(
   };
 }
 
-/** Copy for remediation → Automated fix when SSM/customer automation is unavailable. */
-export function automatedRemediationUnavailableCopy(
-  provider: FindingScopeProvider,
-  context: "check" | "metadata" = "check",
-): string {
-  if (provider === "aws") {
-    if (context === "metadata") {
-      return "Could not load SSM remediation metadata for this finding.";
-    }
-    return "SSM remediation is not available for this check yet. Use Console or CLI above.";
-  }
-  const label = findingScopeProviderLabel(provider);
-  if (context === "metadata") {
-    return `Could not load fix guidance metadata for this ${label} finding.`;
-  }
-  return `Guided fix steps are not available for ${label} findings yet. Use Console or CLI above.`;
-}
-
 /** 12-digit AWS account id from API or resource ARN (not Veritrail's internal account uuid). */
 export function awsAccountIdFromFinding(f: {
   aws_account_id?: string | null;

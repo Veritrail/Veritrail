@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { api } from "../api";
 import {
   cloudAccountListSchema,
-  iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
   jiraIntegrationSchema,
   scannerIntegrationSchema,
@@ -62,10 +61,6 @@ export function useConnectedCatalogState() {
     queryKey: ["scanner-aikido"],
     queryFn: () => api("/v1/integrations/scanners/aikido", { schema: scannerIntegrationSchema }),
   });
-  const iacRepository = useQuery({
-    queryKey: ["iac-repository-integration"],
-    queryFn: () => api("/v1/integrations/iac-repository", { schema: iacRepositoryIntegrationSchema }),
-  });
   const jira = useQuery({
     queryKey: ["jira-integration"],
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
@@ -93,7 +88,6 @@ export function useConnectedCatalogState() {
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
   const gcpConnected = gcpRows.some(isCloudAccountConnected);
   const azureConnected = azureRows.some(isCloudAccountConnected);
-  const iacRepositoryConnected = !!iacRepository.data?.connected;
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
@@ -113,7 +107,6 @@ export function useConnectedCatalogState() {
     slackConnected,
     gcpConnected,
     azureConnected,
-    iacRepositoryConnected,
     jiraConnected,
     splunkConnected,
     datadogConnected,
@@ -138,7 +131,6 @@ export function useConnectedCatalogState() {
       slackConnected,
       gcpConnected,
       azureConnected,
-      iacRepositoryConnected,
       jiraConnected,
       splunkConnected,
       datadogConnected,
@@ -167,7 +159,6 @@ export function useConnectedCatalogState() {
       snykScanner.isLoading ||
       orcaScanner.isLoading ||
       aikidoScanner.isLoading ||
-      iacRepository.isLoading ||
       jira.isLoading ||
       splunkSiem.isLoading ||
       datadogSiem.isLoading,

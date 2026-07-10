@@ -1016,7 +1016,14 @@ def _draw_evidence_sources(pdf: FPDF, sources: list[str], framework: str, scope_
     pdf.multi_cell(
         pdf.epw,
         5.2,
-        _s("Every artifact's SHA-256 checksum is recorded in checksum_manifest.json. Verify the pack against this manifest before relying on it; when pack signing is enabled the manifest is signed."),
+        _s(
+            "Every artifact's SHA-256 checksum is recorded in checksum_manifest.json. "
+            "Verify file hashes against that manifest before relying on the pack. "
+            "When pack signing is enabled, pack_signature.json holds an Ed25519 signature over the "
+            "checksum manifest — verify with GET /v1/meta/evidence-pack-signing-key. "
+            "Build lineage (pack version, check registry hash, git SHA) is in source_manifest.json "
+            "under pack_provenance."
+        ),
         align="L",
     )
     pdf.ln(5)
@@ -1065,6 +1072,7 @@ def build_pdf(
     coverage: dict[str, Any] | None = None,
     vault_enabled: bool = False,
     signature_enabled: bool = False,
+    pack_provenance: dict[str, Any] | None = None,
 ) -> bytes:
     rid = report_id or "SAMPLE"
     framework_short = _FRAMEWORK_SHORT.get(framework, framework.upper())
@@ -1124,6 +1132,18 @@ def build_pdf(
         meta.append(("Last failed scan", failed_scan))
     meta.append(("Pack signature", "enabled" if signature_enabled else "disabled"))
     meta.append(("Vault archive", "written" if vault_enabled else "not configured"))
+    if pack_provenance:
+        pack_ver = pack_provenance.get("pack_version")
+        if pack_ver:
+            meta.append(("Pack version", str(pack_ver)))
+        build = pack_provenance.get("build") or {}
+        git_sha = build.get("git_sha") if isinstance(build, dict) else None
+        if git_sha:
+            meta.append(("Build git SHA", str(git_sha)[:12]))
+        registry = pack_provenance.get("check_registry") or {}
+        reg_hash = registry.get("check_ids_hash") if isinstance(registry, dict) else None
+        if reg_hash:
+            meta.append(("Check registry hash", str(reg_hash)))
     _draw_meta_grid(pdf, meta)
 
     passed = sum(1 for r in control_results if r.get("status") == "pass")

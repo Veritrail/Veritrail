@@ -3,8 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import { parseCfnLaunchMeta } from "../lib/cfnDeployCommands";
 import { CONNECTOR_STACK_NAME } from "../lib/connectionPosture";
-import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
-import { REMEDIATION_MODULE_SPECS, type RemediationModules } from "../data/remediationModules";
+import { type RemediationModules } from "../data/remediationModules";
 
 type ConnectorUpdateAccount = {
   id: string;
@@ -78,7 +77,7 @@ function buildWhatChangedRows(
     rows.push({
       label: "Configuration sync",
       detail:
-        "Same connector version — updated configuration required to sync IAM permissions and SSM documents with your Veritrail settings.",
+        "Same connector version — updated configuration required to sync IAM permissions with your Veritrail settings.",
     });
   } else if (deployed && selected && deployed !== selected) {
     rows.push({
@@ -89,19 +88,6 @@ function buildWhatChangedRows(
     rows.push({
       label: "Connector template",
       detail: `Applies ${formatConnectorVersion(selectedTag)} CloudFormation template to your stack.`,
-    });
-  }
-
-  rows.push({
-    label: "Remediation modules",
-    detail: "Updated to match your current Veritrail settings.",
-  });
-
-  const anyRemediation = SHOW_WRITE_REMEDIATION && REMEDIATION_MODULE_SPECS.some((m) => opts.remediation_modules[m.id]);
-  if (anyRemediation) {
-    rows.push({
-      label: "SSM remediation support",
-      detail: "Adds the permissions and documents required for remediation workflows.",
     });
   }
 

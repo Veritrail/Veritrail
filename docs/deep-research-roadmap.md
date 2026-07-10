@@ -26,9 +26,9 @@ Status key: **done** · **partial** · **new** · **out of scope** · **human de
 | 5 | AccessDenied / trust-policy failures handled gracefully with user guidance | **done** | `web/src/lib/scanFailureMessages.ts`, `CloudIntegrationTroubleshootPanel`, `api/tests/test_assume_role_audit.py` |
 | 6 | Least-privilege cross-account role + ExternalId | **done** | `infra/cfn/veritrail-core-scanner.yaml`, onboarding permission review UI in `web/src/pages/Accounts.tsx` |
 | 7 | GitHub / GitLab / Entra / Google Workspace integrations | **done** | Integration pages + collectors; catalog entries in `web/src/lib/integrationCatalog.ts` |
-| 8 | SOC 2 control mapping via `CHECK_CONTROL_IDS_MAP` | **done** | `web/src/data/checkControlIdsMap.ts` (granularity/phrasing still partial — see #10) |
-| 9 | High-fidelity, tamper-evident evidence (signed packs, provenance, immutable trail) | **partial** | `api/app/services/pack_signing.py`, `pack_provenance.py`, `snapshot_provenance.py`, `evidence_vault.py`. Missing: surfacing signature/hash verification in exports + auditor portal (§2.1) |
-| 10 | Granular control mapping (points of focus, "supports" not "fulfills") | **partial** | Map exists; narratives may overclaim. Audit copy in `checkComplianceCopy.ts` / `control_narratives.py` (§2.2) |
+| 8 | SOC 2 control mapping via `CHECK_CONTROL_IDS_MAP` | **done** | `web/src/data/checkControlIdsMap.ts`; phrasing audited in §2.2 |
+| 9 | High-fidelity, tamper-evident evidence (signed packs, provenance, immutable trail) | **done** | Pack signing + provenance in ZIP; surfaced in export UI (`PackIntegrityPanel`), auditor export, scoped-export SHA display, PDF meta/integrity copy |
+| 10 | Granular control mapping (points of focus, "supports" not "fulfills") | **done** | CC narratives/short answers rewritten to "supports … aspect"; copy lint in `test_framework_mapping_audit.py` |
 | 11 | Evidence supplier to GRC platforms (Vanta/Drata/Secureframe/Sprinto) | **partial** | Catalog "coming soon" + export plumbing. **Blocked on human validation** — `docs/open-work.md` item 6, `docs/grc-feed-validation.md`. Do not build the adapter first |
 | 12 | Continuous compliance: periodic time-stamped exports covering the audit window | **partial** | Scans + History + renewal reminders exist. Missing: scheduled evidence-pack export (§2.4) |
 | 13 | Prioritization beyond severity: control coverage weight, exposure, blast radius | **partial** | Blast radius + AI triage exist. Missing: control-coverage weighting in blocker ranking (§2.5). EPSS only relevant for ingested scanner vulns, not Veritrail misconfig checks |
@@ -42,7 +42,7 @@ Status key: **done** · **partial** · **new** · **out of scope** · **human de
 | 21 | Vendor trust page + documented minimal OAuth scopes | **partial** | Trust center exists. Missing: consolidated per-integration scope docs (§2.12) |
 | 22 | AI evidence summarization / audit-ready finding descriptions | **done** | `ai_pack_summary.py`, `ai_finding_review.py`, `ai_triage.py` |
 | 23 | Credential vaulting / short-lived tokens for Veritrail-held secrets | **partial** | Ops posture (`docs/hetzner-vault-rolesanywhere.md`); keep as reference |
-| 24 | Retire write-remediation UI + backend (align product with scanning-only) | **new** | Flag-gated remnants still in tree (`VITE_SHOW_WRITE_REMEDIATION`, IaC repo, SSM modules). §2.3 |
+| 24 | Retire write-remediation UI + backend (align product with scanning-only) | **partial** | **Frontend retired** (flag, IaC/SSM/Terraform tabs, catalog pages). Backend/infra routes + SSM template still present for coordinated release (§2.3) |
 | 25 | LLM-generated Terraform fixes / fix PRs / auto-remediation | **out of scope** | Violates scanning-only. Manual console/CLI guidance stays (`remediationSummaries.ts`, `cliRemediation.ts`) |
 | 26 | Agent-based or event-driven (CloudTrail/EventBridge) scanning at scale | **out of scope (for now)** | Cron/AssumeRole is correct at current scale; locked in `docs/compliance-expansion-checklist.md`. Revisit at hundreds of accounts |
 | 27 | Pricing, auditor channel, Veritrail's own SOC 2, EU residency, vertical frameworks | **human decision** | See §3 |
@@ -53,44 +53,38 @@ Status key: **done** · **partial** · **new** · **out of scope** · **human de
 
 ### P0
 
-#### 2.1 Surface evidence integrity (signature + hash) in exports and auditor portal
+#### 2.1 Surface evidence integrity (signature + hash) in exports and auditor portal — **done**
 
 Report: auditors distrust "a downloaded CSV that could be doctored"; chain-of-custody is the
 evidence-first differentiator.
 
-- Show pack signature, content hash, and provenance in evidence-pack export UI
-  (`web/src/components/EvidencePackExportPanel.tsx`) and PDF (`api/app/services/pdf_report.py`).
-- Auditor portal (`web/src/pages/Auditor*.tsx`, `api/app/routes/auditor_portal.py`): "verify this
-  pack" affordance (hash + how to check it).
-- Backend already computes this (`pack_signing.py`, `pack_provenance.py`) — presentation work.
+**Shipped:** `PackIntegrityPanel` on evidence-pack export + auditor export; post-download
+`X-Veritrail-Pack-SHA256` / `X-Veritrail-Report-Id` headers; scoped-export SHA display; PDF
+provenance meta rows + integrity verify copy. Backend signing/provenance unchanged.
 
-#### 2.2 Control-mapping phrasing audit — "supports", not "fulfills"
+#### 2.2 Control-mapping phrasing audit — "supports", not "fulfills" — **done**
 
 Report: naïve mappings overstate coverage ("branch protection fulfills CC6.3" is wrong; it
 *supports* one aspect).
 
-- Audit `web/src/data/checkComplianceCopy.ts` and `api/app/data/control_narratives.py` for
-  claims that a single check "satisfies/fulfills/covers" a control; rewrite to scoped
-  "supports X aspect of \<control\>" phrasing.
-- Extend `api/tests/test_framework_mapping_audit.py` with a copy-level lint: no check narrative
-  may claim full satisfaction of a CC-series control.
+**Shipped:** CC `NARRATIVES` / `SHORT_ANSWERS` rewritten to "supports … aspect"; FindingDrawer
+CC overclaims softened; copy-level lint in `api/tests/test_framework_mapping_audit.py`.
 
-#### 2.3 Retire write-remediation (scanning-only alignment)
+#### 2.3 Retire write-remediation (scanning-only alignment) — **partial** (frontend done)
 
-Product constraint: scanning only. Remnants still exist behind `VITE_SHOW_WRITE_REMEDIATION`
-and related surfaces — retire them as a dedicated cleanup (not part of this docs-only pass).
+Product constraint: scanning only.
 
 **Keep:** console/CLI guidance (`remediationSummaries.ts`, `CliRemediationPanel.tsx`,
 `cliRemediation.ts`), read-only Suggested policy, Jira/Linear ticketing, Verify fix
 (`fast_finding_recheck.py`).
 
-**Retire (frontend):** flag + gated UI — AWS hub "Remediation" chip (`Integrations.tsx`,
-`awsHubCapabilities`), Terraform / Automated-fix tabs (`FindingDrawer.tsx`), connector
-remediation-module toggles (`Accounts.tsx`, `ConnectorUpdateModal.tsx`), IaC repository
-catalog entry + pages (`IacRepositoryIntegration.tsx`, `IaCRemediationSection.tsx`,
-`TerraformIacDrawerSection.tsx`, `useRemediationExecution.ts`).
+**Shipped (frontend):** removed `VITE_SHOW_WRITE_REMEDIATION`; AWS hub Remediation chip; Terraform /
+Automated-fix tabs; connector remediation-module toggles; IaC repository catalog entry + pages
+(`IacRepositoryIntegration`, `IaCRemediationSection`, `TerraformIacDrawerSection`,
+`useRemediationExecution`, GitHub Issues integration page). Legacy routes redirect to
+`/integrations`.
 
-**Retire (backend / infra, coordinated release):** routes under `…/iac/*`,
+**Still open (backend / infra, coordinated release):** routes under `…/iac/*`,
 `…/remediation/*`, `iac_repository_integration`, `github_issues_integration`; services
 (`remediation_dispatch`, `terraform_pr`, `github_iac_pr`, `ssm_remediation_catalog`, …);
 `infra/cfn/veritrail-remediation-ssm.yaml` + SSM scripts. Keep DB columns accept-and-ignore

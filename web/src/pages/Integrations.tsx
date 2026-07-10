@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import {
   cloudAccountListSchema,
-  iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
   jiraIntegrationSchema,
   scannerIntegrationSchema,
@@ -34,7 +33,6 @@ import {
   getExploreStripEntries,
   type ConnectedCatalogState,
 } from "../lib/integrationCatalog";
-import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
 import { PostureMetricCell } from "./Workspace";
 import "../styles/integrations-page.css";
 import "../styles/workspace-page.css";
@@ -99,9 +97,7 @@ function integrationCta(connected: boolean): string {
 }
 
 function awsHubCapabilities(): string[] {
-  const caps = ["Cloud posture", "Audit evidence"];
-  if (SHOW_WRITE_REMEDIATION) caps.push("Remediation");
-  return caps;
+  return ["Cloud posture", "Audit evidence"];
 }
 
 function CapabilityPills({ tags }: { tags: string[] }) {
@@ -336,10 +332,6 @@ function IntegrationsContent() {
     queryKey: ["scanner-aikido"],
     queryFn: () => api("/v1/integrations/scanners/aikido", { schema: scannerIntegrationSchema }),
   });
-  const iacRepository = useQuery({
-    queryKey: ["iac-repository-integration"],
-    queryFn: () => api("/v1/integrations/iac-repository", { schema: iacRepositoryIntegrationSchema }),
-  });
   const jira = useQuery({
     queryKey: ["jira-integration"],
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
@@ -420,7 +412,6 @@ function IntegrationsContent() {
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
-  const iacRepositoryConnected = !!iacRepository.data?.connected;
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
@@ -435,7 +426,6 @@ function IntegrationsContent() {
     gcpConnected,
     azureConnected,
     scannerConnected,
-    iacRepositoryConnected,
     jiraConnected,
     splunkConnected,
     datadogConnected,
@@ -462,13 +452,6 @@ function IntegrationsContent() {
     !!gcpProject?.last_error?.trim(),
     !!azureSub?.last_error?.trim(),
   ].filter(Boolean).length;
-
-  const iacRepoRef =
-    iacRepository.data?.terraform_repo?.repo_ref ??
-    iacRepository.data?.repo_ref ??
-    (iacRepository.data?.owner && iacRepository.data?.repo
-      ? `${iacRepository.data.owner}/${iacRepository.data.repo}`
-      : null);
 
   const awsHealth = cloudIntegrationHealth({
     scanning: awsScanRunning,
@@ -699,28 +682,6 @@ function IntegrationsContent() {
           } satisfies IntegrationRow,
         ]
       : []),
-    ...(iacRepositoryConnected
-      ? [
-          {
-            key: "iac-repository",
-            name: "IaC repository",
-            description: iacRepoRef
-              ? `Remediation PRs from ${iacRepoRef}`
-              : "Link Terraform/Terragrunt repo for finding remediation PRs and tickets.",
-            icon: <IntegrationBrandIcon brand="iac" size={48} />,
-            href: "/integrations/iac-repository?manage=1",
-            connected: true,
-            loading: iacRepository.isLoading,
-            lastSyncAt: null,
-            lastSyncLabel: "On demand",
-            healthLabel: iacRepository.data?.status === "error" ? "Needs reconnect" : "Healthy",
-            healthTone: (iacRepository.data?.status === "error" ? "danger" : "ok") as Tone,
-            permissionsLabel: iacRepository.data?.has_access_token ? "Token configured" : "OAuth or token",
-            permissionsVerified: true,
-            capabilities: ["Stack paths", "Remediation PRs"],
-          } satisfies IntegrationRow,
-        ]
-      : []),
     ...(jiraConnected
       ? [
           {
@@ -813,7 +774,6 @@ function IntegrationsContent() {
           slackConnected,
           gcpConnected,
           azureConnected,
-          iacRepositoryConnected,
           jiraConnected,
           splunkConnected,
           datadogConnected,

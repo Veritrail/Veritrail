@@ -76,3 +76,6 @@ current, kept as reference docs — not merged here since they're research, not 
 - Org readiness Review links scoped to org-wide findings
 - Account-scoped blockers + `AccountReadinessOverview` on account drill-down
 - Cloud integration troubleshoot panel + scan-failure messaging
+- Deep-research P0: evidence pack integrity UI + auditor verify affordance (§2.1)
+- Deep-research P0: control-mapping "supports" phrasing + copy lint (§2.2)
+- Deep-research P0: write-remediation frontend retirement; backend/infra still open (§2.3)

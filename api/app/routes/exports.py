@@ -91,6 +91,7 @@ def download_evidence_pack(
             "Content-Disposition": f'attachment; filename="{filename}"',
             "X-Content-SHA256": zip_sha256,
             "X-Veritrail-Pack-SHA256": zip_sha256,
+            "X-Veritrail-Report-Id": pack.report_id or "",
         },
     )
 

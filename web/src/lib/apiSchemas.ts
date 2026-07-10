@@ -184,6 +184,15 @@ export const evidenceExportSchema = z.object({
 
 export const evidenceExportListSchema = z.array(evidenceExportSchema);
 
+/** Public key for verifying pack_signature.json (GET /v1/meta/evidence-pack-signing-key). */
+export const signingKeySchema = z.object({
+  enabled: z.boolean(),
+  key_id: z.string(),
+  algorithm: z.string(),
+  public_key_base64: z.string().nullable(),
+});
+export type SigningKey = z.infer<typeof signingKeySchema>;
+
 export const scopedExportLinkSchema = z.object({
   export_id: z.string(),
   report_id: z.string().nullable(),
@@ -691,82 +700,6 @@ export const jiraIntegrationSchema = z
 
 export type JiraIntegration = z.infer<typeof jiraIntegrationSchema>;
 
-export const githubIssuesIntegrationSchema = z
-  .object({
-    connected: z.boolean(),
-    status: z.string().optional(),
-    owner: z.string().nullable().optional(),
-    repo: z.string().nullable().optional(),
-    labels: z.array(z.string()).optional(),
-    has_access_token: z.boolean().optional(),
-  })
-  .passthrough();
-
-export type GitHubIssuesIntegration = z.infer<typeof githubIssuesIntegrationSchema>;
-
-export const iacRepositoryIntegrationSchema = z
-  .object({
-    connected: z.boolean(),
-    status: z.string().optional(),
-    vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).nullable().optional(),
-    uses_terragrunt: z.boolean().optional(),
-    repo_mode: z.enum(["single", "dual"]).optional(),
-    terraform_repo: z
-      .object({
-        vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).optional(),
-        repo_ref: z.string(),
-        auth_method: z.string().nullable().optional(),
-        installation_id: z.string().nullable().optional(),
-        installation_account: z.string().nullable().optional(),
-        repository_id: z.string().nullable().optional(),
-        owner: z.string().nullable().optional(),
-        repo: z.string().nullable().optional(),
-        path: z.string().optional(),
-        has_access_token: z.boolean().optional(),
-        base_url: z.string().nullable().optional(),
-      })
-      .nullable()
-      .optional(),
-    terragrunt_repo: z
-      .object({
-        vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).optional(),
-        repo_ref: z.string(),
-        auth_method: z.string().nullable().optional(),
-        installation_id: z.string().nullable().optional(),
-        installation_account: z.string().nullable().optional(),
-        repository_id: z.string().nullable().optional(),
-        owner: z.string().nullable().optional(),
-        repo: z.string().nullable().optional(),
-        path: z.string().optional(),
-        has_access_token: z.boolean().optional(),
-        base_url: z.string().nullable().optional(),
-      })
-      .nullable()
-      .optional(),
-    repo_ref: z.string().nullable().optional(),
-    owner: z.string().nullable().optional(),
-    repo: z.string().nullable().optional(),
-    terraform_path: z.string().optional(),
-    terragrunt_path: z.string().nullable().optional(),
-    paths_differ: z.boolean().optional(),
-    pr_path: z.string().nullable().optional(),
-    labels: z.array(z.string()).optional(),
-    has_access_token: z.boolean().optional(),
-    github_app_configured: z.boolean().optional(),
-    github_app_installed: z.boolean().optional(),
-    github_app_account: z.string().nullable().optional(),
-    github_app_installation_id: z.string().nullable().optional(),
-    github_app_manage_url: z.string().nullable().optional(),
-    github_app_repository_selection: z.string().nullable().optional(),
-    github_oauth_connected: z.boolean().optional(),
-    github_oauth_login: z.string().nullable().optional(),
-    remediation_available: z.boolean().optional(),
-    remediation_unavailable_reason: z.string().nullable().optional(),
-  })
-  .passthrough();
-
-export type IacRepositoryIntegration = z.infer<typeof iacRepositoryIntegrationSchema>;
-
 /** GET /v1/integrations/{github|gitlab|google-workspace|entra} — null when disconnected. */
 export const integrationStatusSchema = z
   .object({
@@ -836,31 +769,6 @@ export const scannerIntegrationSchema = z
   .passthrough();
 
 export type ScannerIntegration = z.infer<typeof scannerIntegrationSchema>;
-
-export const remediationExecutionSchema = z
-  .object({
-    status: z.string(),
-    plan_id: z.string().optional(),
-    dispatched_at: z.string().nullable().optional(),
-    completed_at: z.string().nullable().optional(),
-    error: z.string().nullable().optional(),
-    result: z.record(z.string(), z.unknown()).nullable().optional(),
-    automation_execution_id: z.string().nullable().optional(),
-    ssm_status: z.string().nullable().optional(),
-    status_sync: z
-      .object({
-        polled: z.boolean().optional(),
-        ssm_status: z.string().nullable().optional(),
-        error: z.string().nullable().optional(),
-        region: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .nullable()
-      .optional(),
-  })
-  .passthrough();
-
-export type RemediationExecution = z.infer<typeof remediationExecutionSchema>;
 
 export const accountTimelineSchema = z
   .object({
@@ -940,39 +848,3 @@ export const generatedPolicySchema = z
   .passthrough();
 
 export type GeneratedPolicyResponse = z.infer<typeof generatedPolicySchema>;
-
-/** GET /v1/findings/{id}/iac-snippets — Terraform / CLI remediation templates. */
-export const iacSnippetsSchema = z
-  .object({
-    iac_status: z.string(),
-    reason: z.string().optional(),
-    terraform: z.string().nullable().optional(),
-    cloudformation: z.string().nullable().optional(),
-    cli: z.array(z.string()).optional(),
-    hints: z.array(z.string()).optional(),
-    apply_paths: z.record(z.string(), z.unknown()).optional(),
-    ssm_remediation: z.record(z.string(), z.unknown()).optional(),
-  })
-  .passthrough();
-
-/** GET /v1/accounts/{id}/remediation-runner/status — SSM Automation readiness. */
-export const remediationRunnerStatusSchema = z
-  .object({
-    ready: z.boolean(),
-    automation_region: z.string().optional(),
-    resource_region: z.string().nullable().optional(),
-    blockers: z.array(z.string()).optional(),
-    warnings: z.array(z.string()).optional(),
-    hints: z.array(z.string()).optional(),
-    document: z
-      .object({
-        name: z.string().nullable().optional(),
-        exists: z.boolean().optional(),
-        status: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .optional(),
-  })
-  .passthrough();
-
-export type RemediationRunnerStatus = z.infer<typeof remediationRunnerStatusSchema>;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BASE, auditorToken } from "../api";
+import { PackIntegrityPanel, packIntegrityFromResponse } from "../components/PackIntegrityPanel";
 import "../styles/auditor.css";
 
 const FRAMEWORKS = [
@@ -13,6 +14,8 @@ export default function AuditorExport() {
   const [period, setPeriod] = useState(90);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
+  const [lastZipSha256, setLastZipSha256] = useState<string | null>(null);
+  const [lastReportId, setLastReportId] = useState<string | null>(null);
 
   async function handleDownload() {
     if (!accountId.trim()) {
@@ -32,6 +35,9 @@ export default function AuditorExport() {
         const text = await res.text();
         throw new Error(text || "Download failed");
       }
+      const integrity = packIntegrityFromResponse(res);
+      if (integrity.zipSha256) setLastZipSha256(integrity.zipSha256);
+      if (integrity.reportId) setLastReportId(integrity.reportId);
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -95,6 +101,12 @@ export default function AuditorExport() {
           This pack is logged in the audit activity trail and marked with an auditor watermark.
         </p>
       </div>
+
+      <PackIntegrityPanel
+        variant="auditor"
+        zipSha256={lastZipSha256}
+        reportId={lastReportId}
+      />
     </div>
   );
 }

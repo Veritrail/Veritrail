@@ -41,10 +41,6 @@ import { isValidIamRoleArn, sanitizeIamRoleArnInput } from "../lib/awsArn";
 import {
   DEFAULT_REMEDIATION_MODULES,
   REMEDIATION_MODULE_SPECS,
-  allRemediationModulesEnabled,
-  anyRemediationEnabled,
-  countRemediationEnabled,
-  type RemediationModuleId,
   type RemediationModules,
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -78,7 +74,6 @@ import {
   SCANNER_ROLE_NAME,
   scannerRoleArnExample,
 } from "../lib/connectionPosture";
-import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
 import "../styles/accounts-page.css";
 import "../styles/findings-v2.css";
 
@@ -144,10 +139,7 @@ function accountConnectionOptions(acc: Account): ConnectionOptions {
 }
 
 function hasOptionalCapabilities(acc: Account): boolean {
-  return (
-    acc.enable_advanced_policy_generation ||
-    anyRemediationEnabled(acc.remediation_modules ?? DEFAULT_REMEDIATION_MODULES)
-  );
+  return acc.enable_advanced_policy_generation;
 }
 
 type PermissionVerifyRow = { action: string; granted: boolean };
@@ -307,7 +299,6 @@ function ModuleStatusBadge({
 const VERIFY_PROGRESS_STEPS = [
   "Assuming connector role…",
   "Reading IAM policies…",
-  "Checking SSM automation…",
 ] as const;
 
 function PermissionVerificationPanel({
@@ -528,18 +519,15 @@ function CapabilityVerifiedMark({ className = "" }: { className?: string }) {
   );
 }
 
-function RemediationModuleChevron({ open }: { open: boolean }) {
+function ConnectorTemplateBadge({ version }: { version: string | null }) {
+  if (!version) return null;
   return (
-    <svg
-      className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-      aria-hidden
+    <span
+      className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/70"
+      title="Latest Veritrail connector CloudFormation template version"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
+      CFN v{version}
+    </span>
   );
 }
 
@@ -985,7 +973,6 @@ function matchesAccountSearch(acc: Account, query: string): boolean {
     "amazon",
     "core scanner",
     opts.enable_advanced_policy_generation ? "policy generation" : "",
-    anyRemediationEnabled(opts.remediation_modules) ? "ssm remediation" : "",
   ];
   const haystack = [acc.label, acc.account_id ?? "", acc.status, ...tags].join(" ").toLowerCase();
   return haystack.includes(needle);
@@ -1623,40 +1610,10 @@ const deploySecondaryBtn =
 const dangerGhostBtn =
   "inline-flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
 
-const ssmRemediationBadgeClass =
-  "rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/60";
-
-function ConnectorTemplateBadge({ version }: { version: string | null }) {
-  if (!version) return null;
-  return (
-    <span
-      className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/70"
-      title="Latest Veritrail connector CloudFormation template version"
-    >
-      CFN v{version}
-    </span>
-  );
-}
-
-function remediationBadgesCollapsed(
-  acc: Account,
-  modules: RemediationModules,
-  capabilityVerify?: CapabilityVerifyResults | null,
-): boolean {
-  if (!anyRemediationEnabled(modules)) return false;
-  if (allRemediationModulesEnabled(modules)) return true;
-  if (capabilityVerify?.ssm_remediation?.ready || capabilityVerify?.ssm_remediation?.deployed) {
-    return true;
-  }
-  const enabled = REMEDIATION_MODULE_SPECS.filter((m) => modules[m.id]);
-  const deployed = acc.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
-  return enabled.every((m) => deployed[m.id]);
-}
-
 function CapabilityBadges({
   acc,
   connectionOptions,
-  capabilityVerify,
+  capabilityVerify: _capabilityVerify,
   variant = "default",
 }: {
   acc: Account;
@@ -1671,11 +1628,6 @@ function CapabilityBadges({
   const policyGenSelected =
     (connected && acc.enable_advanced_policy_generation) ||
     (!connected && opts.enable_advanced_policy_generation);
-  const remediationModules =
-    (connected ? acc.remediation_modules : opts.remediation_modules) ?? DEFAULT_REMEDIATION_MODULES;
-  const modulesDeployed = acc.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
-  const remediationEnabled = REMEDIATION_MODULE_SPECS.filter((m) => remediationModules[m.id]);
-  const ssmCollapsed = remediationBadgesCollapsed(acc, remediationModules, capabilityVerify);
   const wrapClass =
     variant === "table"
       ? "accounts-capability-badges"
@@ -1696,30 +1648,6 @@ function CapabilityBadges({
         >
           Policy gen
         </span>
-      )}
-      {ssmCollapsed ? (
-        <span
-          className={`${ssmRemediationBadgeClass} shrink-0`}
-          title={remediationEnabled.map((m) => m.label).join(" · ")}
-        >
-          SSM remediation
-        </span>
-      ) : (
-        remediationEnabled.map((m) => {
-          const deployed = connected && modulesDeployed[m.id];
-          return (
-            <span
-              key={m.id}
-              className={`shrink-0 ${
-                deployed || !connected
-                  ? ssmRemediationBadgeClass
-                  : "rounded-full bg-amber-50/40 px-2.5 py-1 text-[11px] font-medium text-amber-800/70 ring-1 ring-amber-200/40"
-              }`}
-            >
-              {m.badgeLabel}
-            </span>
-          );
-        })
       )}
     </div>
   );
@@ -1760,7 +1688,7 @@ function ManageCapabilitiesPanel({
             Choose optional features, then update your{" "}
             <span className="font-mono text-zinc-600">{acc.cfn_stack_name || CONNECTOR_STACK_NAME}</span>{" "}
             stack in AWS. Core is read only; policy generation reads CloudTrail and starts
-            IAM policy-generation jobs (no resource changes); remediation adds scoped write.
+            IAM policy-generation jobs (no resource changes).
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <ConnectorTemplateBadge version={acc.cfn_template_version} />
@@ -1772,18 +1700,6 @@ function ManageCapabilitiesPanel({
               <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/60">
                 Policy Generation
               </span>
-            )}
-            {allRemediationModulesEnabled(draft.remediation_modules) ? (
-              <span className={ssmRemediationBadgeClass}>SSM remediation</span>
-            ) : (
-              REMEDIATION_MODULE_SPECS.filter((m) => draft.remediation_modules[m.id]).map((m) => (
-                <span
-                  key={m.id}
-                  className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200/60"
-                >
-                  {m.badgeLabel}
-                </span>
-              ))
             )}
           </div>
         </div>
@@ -1809,13 +1725,6 @@ function ManageCapabilitiesPanel({
           onChange={(v) => onDraftChange({ ...draft, enable_advanced_policy_generation: v })}
           verify={capabilityVerify?.advanced_policy_generation}
           deployedFallback={acc.advanced_policy_generation_deployed}
-        />
-
-        <RemediationAutomationSection
-          modules={draft.remediation_modules}
-          onChange={(remediation_modules) => onDraftChange({ ...draft, remediation_modules })}
-          modulesDeployed={acc.remediation_modules_deployed}
-          moduleVerify={capabilityVerify?.remediation_modules}
         />
       </div>
 
@@ -1861,7 +1770,6 @@ function ConnectionCapabilitiesPicker({
   acc?: Account;
   capabilityVerify?: CapabilityVerifyResults | null;
 }) {
-  const modulesDeployed = acc?.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
   const advancedDeployed = acc?.advanced_policy_generation_deployed ?? false;
 
   return (
@@ -1895,16 +1803,6 @@ function ConnectionCapabilitiesPicker({
         verify={capabilityVerify?.advanced_policy_generation}
         deployedFallback={advancedDeployed}
       />
-
-      {SHOW_WRITE_REMEDIATION ? (
-        <RemediationAutomationSection
-          modules={value.remediation_modules}
-          onChange={(remediation_modules) => onChange({ ...value, remediation_modules })}
-          disabled={disabled}
-          modulesDeployed={modulesDeployed}
-          moduleVerify={capabilityVerify?.remediation_modules}
-        />
-      ) : null}
     </div>
   );
 }
@@ -1997,252 +1895,6 @@ function AdvancedPolicyGenerationCard({
       <div className="px-2.5 py-2.5">
         <div className="flex items-start gap-2.5">{body}</div>
       </div>
-    </div>
-  );
-}
-
-function RemediationAutomationSection({
-  modules,
-  onChange,
-  disabled,
-  modulesDeployed,
-  moduleVerify,
-  compact = false,
-}: {
-  modules: RemediationModules;
-  onChange: (next: RemediationModules) => void;
-  disabled?: boolean;
-  modulesDeployed: RemediationModules;
-  moduleVerify?: Record<string, ModuleVerifyResult>;
-  compact?: boolean;
-}) {
-  const anyEnabled = anyRemediationEnabled(modules);
-  const [sectionOpen, setSectionOpen] = useState(anyEnabled);
-  const [openModuleId, setOpenModuleId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (anyEnabled) setSectionOpen(true);
-  }, [anyEnabled]);
-
-  const handleMasterToggle = (checked: boolean) => {
-    if (!checked) {
-      const next = { ...DEFAULT_REMEDIATION_MODULES };
-      for (const spec of REMEDIATION_MODULE_SPECS) {
-        const modVerify = moduleVerify?.[spec.id];
-        const deployed = Boolean(modulesDeployed[spec.id]);
-        if (capabilityLockedInAws(modVerify, deployed)) {
-          next[spec.id] = true;
-        }
-      }
-      onChange(next);
-      if (!anyRemediationEnabled(next)) {
-        setSectionOpen(false);
-        setOpenModuleId(null);
-      }
-      return;
-    }
-    setSectionOpen(true);
-  };
-
-  const toggleModuleDetails = (moduleId: string) => {
-    setOpenModuleId((current) => (current === moduleId ? null : moduleId));
-  };
-
-  if (compact) {
-    return (
-      <div className={`py-4 ${disabled ? "opacity-60" : ""}`}>
-        <label className={`flex items-start gap-3 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
-          <input
-            type="checkbox"
-            className="mt-0.5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-            checked={sectionOpen}
-            disabled={disabled}
-            onChange={(e) => handleMasterToggle(e.target.checked)}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-zinc-900">SSM remediation</span>
-              {anyEnabled && <CapabilityAccessBadge kind="scoped-write" />}
-            </span>
-            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-              Run approved fixes through scoped automation. Enable only the modules you need.
-            </p>
-          </span>
-        </label>
-        {sectionOpen && (
-          <ul className="mt-3 ml-7 space-y-2">
-            {REMEDIATION_MODULE_SPECS.map((spec) => (
-              <li key={spec.id}>
-                {(() => {
-                  const analysisOnly = !spec.runnerSupported;
-                  const checked = analysisOnly ? false : modules[spec.id];
-                  return (
-                <label
-                  className={`flex items-center gap-2 text-sm ${
-                    disabled || analysisOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-                    checked={checked}
-                    disabled={disabled || analysisOnly}
-                    onChange={(e) => onChange({ ...modules, [spec.id]: e.target.checked })}
-                  />
-                  <span className="text-zinc-800">{spec.label}</span>
-                  {analysisOnly && (
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
-                      Analysis only
-                    </span>
-                  )}
-                </label>
-                  );
-                })()}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`rounded-lg border px-3 py-2.5 transition-colors ${
-        sectionOpen ? "border-zinc-200/80 bg-zinc-50/40" : "border-zinc-200/60 bg-white"
-      } ${disabled ? "opacity-60" : ""}`}
-    >
-      <label className={`flex items-start gap-3 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
-        <input
-          type="checkbox"
-          className="mt-0.5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-          checked={sectionOpen}
-          disabled={disabled}
-          onChange={(e) => handleMasterToggle(e.target.checked)}
-        />
-        <span className="min-w-0 flex-1">
-          <span className="text-sm font-medium text-zinc-900">SSM remediation</span>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-            Approved fixes run via SSM Automation under your VeritrailRemediationRole. Each module adds scoped
-            permissions only.
-          </p>
-        </span>
-      </label>
-
-      {sectionOpen && (
-        <div className="mt-3 ml-7 space-y-2">
-          {REMEDIATION_MODULE_SPECS.map((spec) => {
-            const selected = modules[spec.id];
-            const detailsOpen = openModuleId === spec.id;
-            const verify = moduleVerify?.[spec.id];
-            const deployed = Boolean(modulesDeployed[spec.id]);
-            const locked = capabilityLockedInAws(verify, deployed);
-            const analysisOnly = !spec.runnerSupported;
-            const moduleChecked = locked ? true : analysisOnly ? false : selected;
-            const moduleDisabled = disabled || locked || analysisOnly;
-
-            return (
-              <div
-                key={spec.id}
-                className={`overflow-hidden rounded-lg border border-l-4 transition-colors ${
-                  locked
-                    ? "border-l-emerald-500 border-emerald-200/60 bg-emerald-50/30 shadow-sm shadow-zinc-950/[0.02]"
-                    : moduleChecked
-                      ? "border-l-teal-500 border-teal-200/60 bg-teal-50/30 shadow-sm shadow-zinc-950/[0.04]"
-                      : "border-l-transparent border-zinc-200/50 bg-zinc-50/25 opacity-80"
-                }`}
-              >
-                <div className="flex items-start gap-2.5 px-2.5 py-2.5">
-                  {locked ? (
-                    <CapabilityVerifiedMark />
-                  ) : (
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 shrink-0 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-                      checked={moduleChecked}
-                      disabled={moduleDisabled}
-                      aria-label={`Enable ${spec.label}`}
-                      onChange={(e) =>
-                        onChange({ ...modules, [spec.id]: e.target.checked })
-                      }
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium leading-snug text-zinc-900">{spec.label}</p>
-                          {analysisOnly ? (
-                            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
-                              Analysis only
-                            </span>
-                          ) : (
-                            <CapabilityAccessBadge kind="scoped-write" />
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{spec.summary}</p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => toggleModuleDetails(spec.id)}
-                        className="-mr-0.5 shrink-0 rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50"
-                        aria-expanded={detailsOpen}
-                        aria-label={detailsOpen ? `Hide ${spec.label} details` : `Show ${spec.label} details`}
-                      >
-                        <RemediationModuleChevron open={detailsOpen} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {detailsOpen && (
-                  <div className="space-y-4 border-t border-zinc-100 bg-zinc-50/50 px-3 py-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                        What Veritrail can do
-                      </p>
-                      <ul className="mt-1 space-y-0.5">
-                        {spec.bullets.map((b) => (
-                          <li key={b} className="flex gap-1.5 text-xs leading-snug text-zinc-600">
-                            <span className="text-zinc-400" aria-hidden>
-                              •
-                            </span>
-                            {b}
-                          </li>
-                        ))}
-                      </ul>
-                      {spec.runnerSupported && verify?.runner_ready === false && (
-                        <p className="mt-2 text-[11px] leading-relaxed font-medium text-amber-800">
-                          SSM document not ready. Use{" "}
-                          <span className="font-semibold">Manage capabilities → Update CloudFormation</span>{" "}
-                          on stack{" "}
-                          <span className="font-mono">{CONNECTOR_STACK_NAME}</span> with this module
-                          enabled — not a blank stack update with only the SSM YAML.
-                        </p>
-                      )}
-                    </div>
-
-                    {!analysisOnly && (
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Permissions added to VeritrailRemediationRole
-                        </p>
-                        <div className="mt-2">
-                          <RemediationPermissionsBlock
-                            permissions={spec.permissions}
-                            verifyRows={verify?.permissions}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -2474,43 +2126,16 @@ function terraformForConnection(acc: Account, connectionOptions: ConnectionOptio
   const veritrailPrincipalArnVar = trustPrincipalArn
     ? `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n  default     = ${hclString(trustPrincipalArn)}\n}`
     : `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n}`;
-  const remediationSelected = anyRemediationEnabled(connectionOptions.remediation_modules);
-  const selectedRemediationStatements = REMEDIATION_MODULE_SPECS.filter(
-    (spec) => connectionOptions.remediation_modules[spec.id],
-  ).map((spec) => REMEDIATION_MODULE_STATEMENTS[spec.id]);
   const scannerStatements = [
     ...CORE_SCANNER_STATEMENTS,
     ...(connectionOptions.enable_advanced_policy_generation ? ADVANCED_POLICY_STATEMENTS : []),
-    ...(remediationSelected ? REMEDIATION_START_STATEMENTS : []),
   ];
-  const roleBlocks = [
-    `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n\n  statement {\n    sid     = "AllowVeritrailRoleChainingContext"\n    effect  = "Allow"\n    actions = ["sts:SetSourceIdentity", "sts:TagSession"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
+  const roleBlocks = `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n\n  statement {\n    sid     = "AllowVeritrailRoleChainingContext"\n    effect  = "Allow"\n    actions = ["sts:SetSourceIdentity", "sts:TagSession"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
       PassAccessAnalyzerMonitorRole: "aws_iam_role.veritrail_core_scanner_role.arn",
-      PassRemediationAutomationRole: "aws_iam_role.veritrail_remediation_automation_role.arn",
-    })}\n}\n\nresource "aws_iam_role" "veritrail_core_scanner_role" {\n  name = var.veritrail_core_scanner_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_core_scanner_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_core_scanner_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_core_scanner_role" {\n  name   = "VeritrailScannerAccess"\n  role   = aws_iam_role.veritrail_core_scanner_role.id\n  policy = data.aws_iam_policy_document.veritrail_core_scanner_role_policy.json\n}`,
-    ...(remediationSelected
-      ? [
-          `data "aws_iam_policy_document" "veritrail_remediation_automation_role_trust" {\n  statement {\n    sid     = "AllowSsmAutomationAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "Service"\n      identifiers = ["ssm.amazonaws.com"]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_remediation_automation_role_policy" {\n${terraformPolicyDocumentForStatements([
-            { sid: "SsmHandlerScriptsFromS3", actions: ["s3:GetObject"], resource: "Veritrail-hosted SSM handler scripts" },
-            ...selectedRemediationStatements,
-          ])}\n}\n\nresource "aws_iam_role" "veritrail_remediation_automation_role" {\n  name = var.veritrail_remediation_automation_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_remediation_automation_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_remediation_automation_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_remediation_automation_role" {\n  name   = "VeritrailRemediationAutomation"\n  role   = aws_iam_role.veritrail_remediation_automation_role.id\n  policy = data.aws_iam_policy_document.veritrail_remediation_automation_role_policy.json\n}`,
-        ]
-      : []),
-  ].join("\n\n");
-  const outputs = [
-    `output "veritrail_core_scanner_role_arn" {\n  description = "ARN of the Veritrail core scanner role. Paste this back into Veritrail during verification."\n  value       = aws_iam_role.veritrail_core_scanner_role.arn\n}`,
-    ...(remediationSelected
-      ? [
-          `output "veritrail_remediation_automation_role_arn" {\n  description = "ARN of the optional Veritrail remediation automation role."\n  value       = aws_iam_role.veritrail_remediation_automation_role.arn\n}`,
-        ]
-      : []),
-  ].join("\n\n");
+    })}\n}\n\nresource "aws_iam_role" "veritrail_core_scanner_role" {\n  name = var.veritrail_core_scanner_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_core_scanner_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_core_scanner_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_core_scanner_role" {\n  name   = "VeritrailScannerAccess"\n  role   = aws_iam_role.veritrail_core_scanner_role.id\n  policy = data.aws_iam_policy_document.veritrail_core_scanner_role_policy.json\n}`;
+  const outputs = `output "veritrail_core_scanner_role_arn" {\n  description = "ARN of the Veritrail core scanner role. Paste this back into Veritrail during verification."\n  value       = aws_iam_role.veritrail_core_scanner_role.arn\n}`;
 
-  return `terraform {\n  required_version = ">= 1.5.0"\n\n  required_providers {\n    aws = {\n      source  = "hashicorp/aws"\n      version = ">= 5.0"\n    }\n  }\n}\n\nprovider "aws" {\n  region = var.aws_region\n}\n\nvariable "aws_region" {\n  description = "AWS region used by the AWS provider. IAM roles are global, but the provider still requires a region."\n  type        = string\n  default     = "us-east-1"\n}\n\nvariable "external_id" {\n  description = "External ID generated by Veritrail for this account connection."\n  type        = string\n  default     = ${hclString(acc.external_id)}\n}\n\n${veritrailPrincipalArnVar}\n\nvariable "veritrail_core_scanner_role_name" {\n  description = "Name of the Veritrail read-only scanner role."\n  type        = string\n  default     = ${hclString(SCANNER_ROLE_NAME)}\n}\n${
-    remediationSelected
-      ? `\nvariable "veritrail_remediation_automation_role_name" {\n  description = "Name of the optional Veritrail remediation automation role."\n  type        = string\n  default     = "VeritrailRemediationAutomationRole"\n}\n\nvariable "veritrail_ssm_handler_scripts_arn" {\n  description = "S3 object ARN pattern for Veritrail-hosted SSM automation handler scripts."\n  type        = string\n  default     = "arn:aws:s3:::veritrail-automation-*/*"\n}\n`
-      : ""
-  }\nvariable "tags" {\n  description = "Tags applied to IAM roles."\n  type        = map(string)\n  default = {\n    ManagedBy = "Terraform"\n    Vendor    = "Veritrail"\n  }\n}\n\n${roleBlocks}\n\n${outputs}\n`;
+  return `terraform {\n  required_version = ">= 1.5.0"\n\n  required_providers {\n    aws = {\n      source  = "hashicorp/aws"\n      version = ">= 5.0"\n    }\n  }\n}\n\nprovider "aws" {\n  region = var.aws_region\n}\n\nvariable "aws_region" {\n  description = "AWS region used by the AWS provider. IAM roles are global, but the provider still requires a region."\n  type        = string\n  default     = "us-east-1"\n}\n\nvariable "external_id" {\n  description = "External ID generated by Veritrail for this account connection."\n  type        = string\n  default     = ${hclString(acc.external_id)}\n}\n\n${veritrailPrincipalArnVar}\n\nvariable "veritrail_core_scanner_role_name" {\n  description = "Name of the Veritrail read-only scanner role."\n  type        = string\n  default     = ${hclString(SCANNER_ROLE_NAME)}\n}\n\nvariable "tags" {\n  description = "Tags applied to IAM roles."\n  type        = map(string)\n  default = {\n    ManagedBy = "Terraform"\n    Vendor    = "Veritrail"\n  }\n}\n\n${roleBlocks}\n\n${outputs}\n`;
 }
 
 function downloadTerraformModule(code: string, filename = "veritrail-connector.tf") {
@@ -2771,18 +2396,6 @@ const ONBOARDING_CAPS = [
     drawerLabel: "IAMAnalysis",
     accessType: "Analysis" as const,
   },
-  {
-    id: "ssm" as const,
-    title: "Remediation",
-    blurb: "Automate fixes with scoped permissions and approvals.",
-    icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z",
-    tone: "amber" as const,
-    badge: { label: "Scoped write", tone: "amber" as const },
-    required: false,
-    roleName: "VeritrailRemediationRole",
-    drawerLabel: "Remediation",
-    accessType: "Scoped write" as const,
-  },
 ] as const;
 
 function OnboardingCapIcon({
@@ -2816,16 +2429,10 @@ const ONBOARDING_ROLE_PERMISSIONS: Record<(typeof ONBOARDING_CAPS)[number]["id"]
     "access-analyzer:StartPolicyGeneration",
     "access-analyzer:GetGeneratedPolicy",
   ],
-  ssm: [
-    "Run approved SSM Automation documents",
-    "Apply selected remediation modules only",
-    "Write scoped fixes after approval",
-  ],
 };
 
 function onboardingCapIsOn(value: ConnectionOptions, id: (typeof ONBOARDING_CAPS)[number]["id"]) {
-  const ssmOn = anyRemediationEnabled(value.remediation_modules);
-  return id === "core" ? true : id === "iam" ? value.enable_advanced_policy_generation : ssmOn;
+  return id === "core" ? true : value.enable_advanced_policy_generation;
 }
 
 function selectedOnboardingCaps(value: ConnectionOptions) {
@@ -2895,73 +2502,13 @@ const ADVANCED_POLICY_STATEMENTS: readonly PolicyStatementSummary[] = [
   },
 ] as const;
 
-const REMEDIATION_START_STATEMENTS: readonly PolicyStatementSummary[] = [
-  {
-    sid: "DescribeApprovedSsmDocuments",
-    actions: ["ssm:DescribeDocument", "ssm:GetDocument"],
-    resource: "Veritrail and AWS remediation documents",
-    grantedOn: SCANNER_ROLE_NAME,
-  },
-  {
-    sid: "StartApprovedSsmAutomation",
-    actions: ["ssm:StartAutomationExecution", "ssm:GetAutomationExecution", "ssm:DescribeAutomationExecutions"],
-    resource: "Approved SSM automation documents and executions",
-    grantedOn: SCANNER_ROLE_NAME,
-  },
-  {
-    sid: "PassRemediationAutomationRole",
-    actions: ["iam:PassRole"],
-    resource: "VeritrailRemediationAutomationRole, passed only to ssm.amazonaws.com",
-    grantedOn: SCANNER_ROLE_NAME,
-  },
-] as const;
-
-const REMEDIATION_MODULE_STATEMENTS: Record<RemediationModuleId, PolicyStatementSummary> = {
-  security_groups: {
-    sid: "Ec2SecurityGroupIngress",
-    actions: ["ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules", "ec2:RevokeSecurityGroupIngress"],
-    resource: "*",
-  },
-  s3_public_access: {
-    sid: "S3BucketPublicAccessBlock",
-    actions: ["s3:GetBucketPublicAccessBlock", "s3:PutBucketPublicAccessBlock"],
-    resource: "arn:aws:s3:::*",
-  },
-  iam_access_keys: {
-    sid: "IamAccessKeyRemediation",
-    actions: ["iam:UpdateAccessKey", "iam:GetAccessKeyLastUsed"],
-    resource: "*",
-  },
-  iam_policies: {
-    sid: "IamPolicyRemediation",
-    actions: ["iam:GetRole", "iam:GetRolePolicy", "iam:PutRolePolicy", "iam:ListAttachedRolePolicies", "iam:DetachRolePolicy", "iam:GetPolicy"],
-    resource: "*",
-  },
-  ssm_parameters: {
-    sid: "SsmParameterSecureStringMigration",
-    actions: ["ssm:GetParameter", "ssm:PutParameter"],
-    resource: "*",
-  },
-  cloudtrail_logging: {
-    sid: "CloudTrailRunbook",
-    actions: ["cloudtrail:UpdateTrail", "cloudtrail:StartLogging"],
-    resource: "*",
-  },
-  kms_rotation: {
-    sid: "KmsKeyRotation",
-    actions: ["kms:EnableKeyRotation", "kms:GetKeyRotationStatus", "kms:DescribeKey"],
-    resource: "*",
-  },
-};
-
 function uniqueActionCount(statements: readonly PolicyStatementSummary[]): number {
   return new Set(statements.flatMap((statement) => statement.actions)).size;
 }
 
 function reviewRoleTitle(summary: OnboardingPermissionSummary): string {
   if (summary.id === "core") return "Core Scanner Role";
-  if (summary.id === "iam") return "IAM Analysis Role";
-  return "Remediation Automation Role";
+  return "IAM Analysis Role";
 }
 
 function policyJsonForSummary(summary: OnboardingPermissionSummary): string {
@@ -3015,25 +2562,6 @@ function buildPermissionSummaries(value: ConnectionOptions): OnboardingPermissio
     });
   }
 
-  if (anyRemediationEnabled(value.remediation_modules)) {
-    const selectedModuleStatements = REMEDIATION_MODULE_SPECS.filter(
-      (spec) => value.remediation_modules[spec.id],
-    ).map((spec) => REMEDIATION_MODULE_STATEMENTS[spec.id]);
-    summaries.push({
-      id: "ssm",
-      cap: caps.ssm,
-      roleName: "VeritrailRemediationAutomationRole",
-      policyName: "VeritrailRemediationAutomation",
-      statements: [
-        ...REMEDIATION_START_STATEMENTS,
-        { sid: "SsmHandlerScriptsFromS3", actions: ["s3:GetObject"], resource: "Veritrail-hosted SSM handler scripts" },
-        ...selectedModuleStatements,
-      ],
-      scope: "Selected remediation modules",
-      description: "Remediation includes scanner-role permissions to start approved SSM automation plus automation-role permissions to run the selected fixes.",
-    });
-  }
-
   return summaries;
 }
 
@@ -3047,16 +2575,9 @@ function OnboardingCapabilityCards({
   onChange: (next: ConnectionOptions) => void;
   disabled?: boolean;
 }) {
-  const ssmOn = anyRemediationEnabled(value.remediation_modules);
-  const allModulesOn = Object.fromEntries(
-    Object.keys(DEFAULT_REMEDIATION_MODULES).map((k) => [k, true]),
-  ) as RemediationModules;
-
   const toggle = (id: (typeof ONBOARDING_CAPS)[number]["id"]) => {
     if (id === "iam") {
       onChange({ ...value, enable_advanced_policy_generation: !value.enable_advanced_policy_generation });
-    } else if (id === "ssm") {
-      onChange({ ...value, remediation_modules: ssmOn ? { ...DEFAULT_REMEDIATION_MODULES } : allModulesOn });
     }
   };
 
@@ -3239,11 +2760,7 @@ function FirstAccountOnboarding({
                     <span
                       key={t}
                       className={`accounts-connect-shell__footer-badge${
-                        t === "Scoped write"
-                          ? " accounts-connect-shell__footer-badge--amber"
-                          : t === "Analysis"
-                            ? " accounts-connect-shell__footer-badge--blue"
-                            : ""
+                        t === "Analysis" ? " accounts-connect-shell__footer-badge--blue" : ""
                       }`}
                     >
                       {t}

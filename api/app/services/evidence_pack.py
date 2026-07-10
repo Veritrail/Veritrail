@@ -430,6 +430,7 @@ def build_evidence_pack(
             coverage=coverage,
             vault_enabled=vault_enabled(),
             signature_enabled=signing_enabled(),
+            pack_provenance=pack_prov,
         )
         _write("report.pdf", pdf_bytes)
 
