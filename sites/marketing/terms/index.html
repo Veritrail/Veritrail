@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Terms of Service — Veritrail</title>
+<meta name="description" content="Terms of Service for Veritrail, the scanning-only compliance-evidence tool. Veritrail never modifies your environments." />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://veritrail.io/terms" />
+<meta property="og:title" content="Terms of Service — Veritrail" />
+<meta property="og:description" content="Terms of Service for Veritrail, the scanning-only compliance-evidence tool." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://veritrail.io/terms" />
+<meta property="og:site_name" content="Veritrail" />
+<meta name="theme-color" content="#006cfe" />
+<link rel="icon" type="image/png" href="/veritrail-mark.png" />
+<link rel="apple-touch-icon" href="/veritrail-mark.png" />
+<style>
+  :root {
+    --blue: #006cfe;
+    --blue-hover: #0056d6;
+    --ink: #0f172a;
+    --body: #334155;
+    --muted: #64748b;
+    --soft: #94a3b8;
+    --border: #e6ebf1;
+    --border-soft: #eef2f6;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --max: 1080px;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--body);
+    background: var(--surface);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  a { color: inherit; text-decoration: none; }
+  h1, h2 { color: var(--ink); letter-spacing: -0.022em; line-height: 1.15; margin: 0; }
+  p { margin: 0; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: saturate(150%) blur(12px);
+    -webkit-backdrop-filter: saturate(150%) blur(12px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; color: var(--ink); font-size: 18px; letter-spacing: -0.02em; }
+  .nav-links { display: flex; align-items: center; gap: 28px; }
+  .nav-links a:not(.btn) { color: var(--muted); font-size: 14.5px; font-weight: 500; transition: color .15s; }
+  .nav-links a:not(.btn):hover { color: var(--ink); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 40px; padding: 0 18px;
+    border-radius: 10px; font-size: 14.5px; font-weight: 600;
+    border: 1px solid transparent; cursor: pointer; transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 1px 2px rgba(0,108,254,.25); }
+  .btn-primary:hover { background: var(--blue-hover); }
+  .btn-ghost { border-color: var(--border); color: var(--ink); background: #fff; }
+  .btn-ghost:hover { border-color: #cbd5e1; background: var(--surface-2); }
+
+  .legal { max-width: 760px; margin: 0 auto; padding: 72px 24px 96px; }
+  .legal h1 { font-size: clamp(30px, 4.2vw, 40px); font-weight: 700; letter-spacing: -0.03em; }
+  .legal .updated { margin-top: 12px; color: var(--soft); font-size: 14px; }
+  .legal .intro { margin-top: 28px; }
+  .legal h2 { font-size: 20px; font-weight: 650; margin-top: 44px; }
+  .legal h2 + p, .legal h2 + ul { margin-top: 12px; }
+  .legal p + p, .legal p + ul, .legal ul + p { margin-top: 12px; }
+  .legal ul { margin: 0; padding-left: 22px; }
+  .legal li { margin-top: 7px; }
+  .legal li::marker { color: var(--soft); }
+  .legal a.link { color: var(--blue); font-weight: 500; }
+  .legal a.link:hover { text-decoration: underline; }
+  .legal strong { color: var(--ink); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--border-soft); padding: 40px 0; }
+  .foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .foot-links { display: flex; gap: 24px; flex-wrap: wrap; }
+  .foot-links a { color: var(--muted); font-size: 14px; }
+  .foot-links a:hover { color: var(--ink); }
+  .foot-copy { color: var(--soft); font-size: 13.5px; }
+
+  @media (max-width: 800px) {
+    .nav-links a:not(.btn) { display: none; }
+    .legal { padding: 48px 24px 72px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/veritrail-mark.png" alt="" width="24" height="24" style="display:block;" />
+      Veritrail
+    </a>
+    <nav class="nav-links">
+      <a href="/#how">How it works</a>
+      <a href="/#product">Product</a>
+      <a href="/#security">Security</a>
+      <a href="https://docs.veritrail.io">Docs</a>
+      <a href="https://app.veritrail.io" class="btn btn-ghost">Sign in</a>
+      <a href="https://app.veritrail.io" class="btn btn-primary">Get started</a>
+    </nav>
+  </div>
+</header>
+
+<main class="legal">
+  <h1>Terms of Service</h1>
+  <p class="updated">Last updated: July 11, 2026</p>
+
+  <p class="intro">
+    These Terms govern your use of the Veritrail service provided by Veritrail ("we", "us"). By creating an account or
+    using Veritrail, you agree to them. If you use Veritrail on behalf of an organization, you represent that you are
+    authorized to bind it.
+  </p>
+
+  <h2>The service</h2>
+  <p>
+    Veritrail is a read-only, scanning-only compliance-evidence tool. You connect your cloud providers (AWS, Google
+    Cloud, Azure) and developer tools (such as GitHub, GitLab, identity providers, ticketing, and vulnerability
+    scanners) using read-only access you authorize; Veritrail collects configuration and metadata, ranks findings,
+    maps them to compliance frameworks, and produces auditor-ready evidence. Veritrail never modifies your customer
+    environments. Remediation guidance shown alongside findings is informational only — any changes are made by you,
+    in your own accounts. The "Verify fix" feature is a read-only re-check of a finding after you apply a fix
+    yourself.
+  </p>
+
+  <h2>Your account</h2>
+  <p>
+    You are responsible for the accuracy of your account information, for safeguarding your credentials, and for
+    all activity under your account. Notify us promptly of any unauthorized use.
+  </p>
+
+  <h2>Your connected accounts</h2>
+  <p>
+    You are responsible for creating and maintaining the read-only roles, service accounts, or tokens you authorize,
+    and for confirming you have the right to connect each cloud account or tool you add. You may disconnect any
+    connected account or integration at any time.
+  </p>
+
+  <h2>Data hosting</h2>
+  <p>
+    Application data and evidence data are hosted on Hetzner infrastructure in the European Union. See our
+    <a class="link" href="/privacy">Privacy Policy</a> for details on what we collect and how we protect it.
+  </p>
+
+  <h2>No compliance or audit guarantee</h2>
+  <p>
+    Veritrail helps you <em>prepare</em> and <em>evidence</em> your security posture. It is not an auditor, does not
+    issue certifications, and does not guarantee that you will pass any audit or meet any standard (including
+    SOC&nbsp;2, CIS, or ISO). Findings, control statuses, and scores are informational aids, not legal, compliance,
+    or professional advice. A licensed assessor — not Veritrail — determines audit outcomes.
+  </p>
+
+  <h2>Acceptable use</h2>
+  <p>You agree not to misuse the service, including by attempting to:</p>
+  <ul>
+    <li>access accounts or data you are not authorized to access;</li>
+    <li>disrupt, probe, or reverse engineer the service except as permitted by law;</li>
+    <li>use the service to violate any law or third-party rights.</li>
+  </ul>
+
+  <h2>Fees</h2>
+  <p>
+    Paid plans are billed as described at the time of purchase (for example, a per-account subscription, with a
+    free trial where offered). Fees are non-refundable except where required by law.
+  </p>
+
+  <h2>Intellectual property</h2>
+  <p>
+    We own the Veritrail software and service. You own your data. You grant us the limited rights needed to operate
+    the service and provide it to you.
+  </p>
+
+  <h2>Disclaimers</h2>
+  <p>
+    The service is provided "as is" and "as available," without warranties of any kind, whether express or
+    implied, including merchantability, fitness for a particular purpose, and non-infringement. We do not warrant
+    that the service will be uninterrupted, error-free, or that it will detect every misconfiguration or risk.
+  </p>
+
+  <h2>Limitation of liability</h2>
+  <p>
+    To the maximum extent permitted by law, Veritrail will not be liable for any indirect, incidental, special,
+    consequential, or punitive damages, or for lost profits or data. Our total liability for any claim relating to
+    the service will not exceed the amount you paid us in the twelve months before the claim.
+  </p>
+
+  <h2>Indemnification</h2>
+  <p>
+    You will indemnify Veritrail against claims arising from your misuse of the service or your violation of these
+    Terms or applicable law.
+  </p>
+
+  <h2>Termination</h2>
+  <p>
+    You may stop using Veritrail and delete your account at any time. We may suspend or terminate access for breach of
+    these Terms or to protect the service and its users.
+  </p>
+
+  <h2>Governing law</h2>
+  <p>These Terms are governed by the laws of the State of Israel, without regard to conflict-of-laws rules.</p>
+
+  <h2>Changes</h2>
+  <p>
+    We may update these Terms. We will revise the "Last updated" date and, for material changes, notify you in the
+    app or by email. Continued use after changes take effect means you accept them.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions? Email <a class="link" href="mailto:support@veritrail.io">support@veritrail.io</a>.
+  </p>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <a class="brand" href="/" style="font-size:16px;">
+      <img src="/veritrail-mark.png" alt="" width="20" height="20" style="display:block;" />
+      Veritrail
+    </a>
+    <nav class="foot-links">
+      <a href="/#how">How it works</a>
+      <a href="/#product">Product</a>
+      <a href="/#security">Security</a>
+      <a href="https://docs.veritrail.io">Docs</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="https://app.veritrail.io">Sign in</a>
+    </nav>
+    <span class="foot-copy">© <span id="year"></span> Veritrail</span>
+  </div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

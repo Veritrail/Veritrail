@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy — Veritrail</title>
+<meta name="description" content="How Veritrail collects, uses, stores, and protects your data. Veritrail is a scanning-only compliance-evidence tool that never modifies your environments." />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://veritrail.io/privacy" />
+<meta property="og:title" content="Privacy Policy — Veritrail" />
+<meta property="og:description" content="How Veritrail collects, uses, stores, and protects your data." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://veritrail.io/privacy" />
+<meta property="og:site_name" content="Veritrail" />
+<meta name="theme-color" content="#006cfe" />
+<link rel="icon" type="image/png" href="/veritrail-mark.png" />
+<link rel="apple-touch-icon" href="/veritrail-mark.png" />
+<style>
+  :root {
+    --blue: #006cfe;
+    --blue-hover: #0056d6;
+    --ink: #0f172a;
+    --body: #334155;
+    --muted: #64748b;
+    --soft: #94a3b8;
+    --border: #e6ebf1;
+    --border-soft: #eef2f6;
+    --surface: #ffffff;
+    --surface-2: #f8fafc;
+    --max: 1080px;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--body);
+    background: var(--surface);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  a { color: inherit; text-decoration: none; }
+  h1, h2 { color: var(--ink); letter-spacing: -0.022em; line-height: 1.15; margin: 0; }
+  p { margin: 0; }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: saturate(150%) blur(12px);
+    -webkit-backdrop-filter: saturate(150%) blur(12px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; color: var(--ink); font-size: 18px; letter-spacing: -0.02em; }
+  .nav-links { display: flex; align-items: center; gap: 28px; }
+  .nav-links a:not(.btn) { color: var(--muted); font-size: 14.5px; font-weight: 500; transition: color .15s; }
+  .nav-links a:not(.btn):hover { color: var(--ink); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 40px; padding: 0 18px;
+    border-radius: 10px; font-size: 14.5px; font-weight: 600;
+    border: 1px solid transparent; cursor: pointer; transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 1px 2px rgba(0,108,254,.25); }
+  .btn-primary:hover { background: var(--blue-hover); }
+  .btn-ghost { border-color: var(--border); color: var(--ink); background: #fff; }
+  .btn-ghost:hover { border-color: #cbd5e1; background: var(--surface-2); }
+
+  .legal { max-width: 760px; margin: 0 auto; padding: 72px 24px 96px; }
+  .legal h1 { font-size: clamp(30px, 4.2vw, 40px); font-weight: 700; letter-spacing: -0.03em; }
+  .legal .updated { margin-top: 12px; color: var(--soft); font-size: 14px; }
+  .legal .intro { margin-top: 28px; }
+  .legal h2 { font-size: 20px; font-weight: 650; margin-top: 44px; }
+  .legal h2 + p, .legal h2 + ul { margin-top: 12px; }
+  .legal p + p, .legal p + ul, .legal ul + p { margin-top: 12px; }
+  .legal ul { margin: 0; padding-left: 22px; }
+  .legal li { margin-top: 7px; }
+  .legal li::marker { color: var(--soft); }
+  .legal a.link { color: var(--blue); font-weight: 500; }
+  .legal a.link:hover { text-decoration: underline; }
+  .legal strong { color: var(--ink); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--border-soft); padding: 40px 0; }
+  .foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .foot-links { display: flex; gap: 24px; flex-wrap: wrap; }
+  .foot-links a { color: var(--muted); font-size: 14px; }
+  .foot-links a:hover { color: var(--ink); }
+  .foot-copy { color: var(--soft); font-size: 13.5px; }
+
+  @media (max-width: 800px) {
+    .nav-links a:not(.btn) { display: none; }
+    .legal { padding: 48px 24px 72px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/veritrail-mark.png" alt="" width="24" height="24" style="display:block;" />
+      Veritrail
+    </a>
+    <nav class="nav-links">
+      <a href="/#how">How it works</a>
+      <a href="/#product">Product</a>
+      <a href="/#security">Security</a>
+      <a href="https://docs.veritrail.io">Docs</a>
+      <a href="https://app.veritrail.io" class="btn btn-ghost">Sign in</a>
+      <a href="https://app.veritrail.io" class="btn btn-primary">Get started</a>
+    </nav>
+  </div>
+</header>
+
+<main class="legal">
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: July 11, 2026</p>
+
+  <p class="intro">
+    This Privacy Policy explains what information Veritrail ("we", "us") collects when you use the Veritrail
+    service, why we collect it, how we protect it, and the choices you have. Veritrail is a read-only, scanning-only
+    compliance-evidence tool for engineering teams: it connects to your cloud providers (AWS, Google Cloud, Azure) and
+    developer tools (such as GitHub, GitLab, identity providers, and vulnerability scanners) to collect configuration
+    evidence and map it to compliance frameworks. Veritrail never modifies your environments.
+  </p>
+
+  <h2>Information we collect</h2>
+  <p>We collect the following categories of data:</p>
+  <ul>
+    <li>
+      <strong>Account &amp; identity.</strong> Your name, email address, a securely hashed password, and — if you
+      sign in with a provider — your GitHub, Google, or GitLab identifier. If you enable multi-factor
+      authentication, we store the data needed to verify it.
+    </li>
+    <li>
+      <strong>Workspace.</strong> Organization name, verified company domains, members, and their roles.
+    </li>
+    <li>
+      <strong>Cloud &amp; integration connection details.</strong> The credentials you authorize us to use to
+      connect each provider — for example an AWS account ID with an IAM role ARN and external ID, a Google Cloud
+      workload-identity or service-account configuration, an Azure subscription and app registration, and the OAuth
+      tokens or API keys for developer tools you connect (such as GitHub, GitLab, Google Workspace, Microsoft Entra
+      ID, Jira, and vulnerability scanners). These connection secrets are encrypted at rest.
+    </li>
+    <li>
+      <strong>Scan results (configuration metadata).</strong> Using the read-only access you authorize, Veritrail
+      collects <em>configuration and metadata</em> from the accounts and tools you connect — for example cloud IAM
+      principals, policies and key usage; storage, network, database and encryption settings; audit-log metadata;
+      source-control branch-protection and review settings; identity-provider user and MFA status; scanner findings;
+      and the findings and evidence snapshots derived from them. Veritrail does <strong>not</strong> read the
+      contents of your data stores (object/file contents) or the values of your secrets — only the configuration
+      needed to evaluate posture.
+    </li>
+    <li>
+      <strong>Usage &amp; operational data.</strong> IP address, request logs, and an audit log of privileged
+      actions taken in your workspace (e.g. connecting an account, changing settings, inviting members).
+    </li>
+    <li>
+      <strong>Cookies.</strong> We use strictly necessary cookies to keep you signed in (session/refresh tokens).
+      We do not use advertising cookies.
+    </li>
+  </ul>
+
+  <h2>Why we collect it</h2>
+  <p>
+    To provide and secure the service: authenticate you, collect evidence from the accounts and tools you connect,
+    generate findings and auditor-ready evidence, send the notifications you configure, support you, prevent abuse,
+    and meet our legal obligations. Where required, our legal bases are performance of our contract with you and our
+    legitimate interest in operating a secure service.
+  </p>
+
+  <h2>Where and how we store it</h2>
+  <p>
+    Application data and evidence data are hosted on Hetzner infrastructure in the European Union. Data is encrypted
+    in transit (TLS) and sensitive connection details (role ARN, external ID, OAuth tokens, API keys) are encrypted at
+    rest. Access is restricted to the systems and personnel that need it to run the service.
+  </p>
+
+  <h2>How long we keep it</h2>
+  <p>
+    We retain account and workspace data while your account is active and for a limited period afterward.
+    Operational audit logs are retained for roughly twelve months. Scan results and evidence snapshots are kept so
+    your evidence packs remain available for the relevant period. You can ask us to delete your data (see "Your
+    rights").
+  </p>
+
+  <h2>Who we share it with</h2>
+  <p>
+    We do not sell your data. We share it only with service providers (subprocessors) that help us run Veritrail,
+    under contract and only as needed:
+  </p>
+  <ul>
+    <li><strong>Cloud hosting / infrastructure</strong> — Hetzner (EU) hosts the application and database.</li>
+    <li>
+      <strong>The providers you connect</strong> — Veritrail uses the read-only access <em>you</em> authorize to
+      reach your cloud accounts (AWS, Google Cloud, Azure) and developer tools (such as GitHub, GitLab, identity
+      providers, ticketing, and scanners). We only access what you connect.
+    </li>
+    <li><strong>Email delivery</strong> — a transactional email (SMTP) provider, used to send digests, invitations, and alerts you opt into.</li>
+  </ul>
+  <p>We may also disclose data if required by law or to protect our rights and users.</p>
+
+  <h2>Your rights</h2>
+  <p>
+    Depending on where you live, you may have the right to access, correct, export, restrict, or delete your
+    personal data, and to object to certain processing. To exercise any of these, email us at
+    <a class="link" href="mailto:support@veritrail.io">support@veritrail.io</a>. We do not sell
+    personal information.
+  </p>
+
+  <h2>Children</h2>
+  <p>Veritrail is a business tool and is not directed to anyone under 16. We do not knowingly collect their data.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>
+    We may update this policy as the service evolves. We will revise the "Last updated" date above and, for
+    material changes, notify you in the app or by email.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions? Email <a class="link" href="mailto:support@veritrail.io">support@veritrail.io</a>.
+  </p>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <a class="brand" href="/" style="font-size:16px;">
+      <img src="/veritrail-mark.png" alt="" width="20" height="20" style="display:block;" />
+      Veritrail
+    </a>
+    <nav class="foot-links">
+      <a href="/#how">How it works</a>
+      <a href="/#product">Product</a>
+      <a href="/#security">Security</a>
+      <a href="https://docs.veritrail.io">Docs</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="https://app.veritrail.io">Sign in</a>
+    </nav>
+    <span class="foot-copy">© <span id="year"></span> Veritrail</span>
+  </div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

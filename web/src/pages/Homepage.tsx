@@ -551,7 +551,7 @@ export default function Homepage() {
 
       <footer className="border-t border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-[84rem] flex-col gap-4 px-6 py-8 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
-          <span>© 2026 Veritrail, Inc.</span>
+          <span>© 2026 Veritrail</span>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <Link to="/privacy" className="hover:text-zinc-600">
               Privacy Policy

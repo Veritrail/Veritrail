@@ -199,11 +199,11 @@ function AuthLegalFooter({ mode }: { mode: AuthMode }) {
   return (
     <p className="auth-footer-legal">
       By {verb}, you agree to our{" "}
-      <a href="/terms">
+      <a href="https://veritrail.io/terms">
         Terms
       </a>{" "}
       and{" "}
-      <a href="/privacy">
+      <a href="https://veritrail.io/privacy">
         Privacy Policy
       </a>
       .
