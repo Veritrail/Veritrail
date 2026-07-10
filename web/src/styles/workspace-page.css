@@ -1,15 +1,29 @@
 .workspace-page {
-  --workspace-border: var(--vt-border, #e8edf3);
+  --workspace-border: #e6ebf2;
   --workspace-divider: #eef2f6;
-  --workspace-muted: var(--vt-text-muted, #6b7280);
-  --workspace-meta: #94a3b8;
-  --workspace-surface: var(--vt-surface, #ffffff);
+  --workspace-muted: #6b7280;
+  --workspace-meta: #98a2b3;
+  --workspace-surface: #ffffff;
 
   display: flex;
   min-height: calc(100vh - 4rem);
   flex-direction: column;
   gap: 1rem;
   padding-bottom: 1.5rem;
+}
+
+@media (max-width: 760px) {
+  body:has(.workspace-page) aside {
+    display: none;
+  }
+
+  body:has(.workspace-page) main {
+    margin-left: 0;
+  }
+
+  body:has(.workspace-page) [data-app-scroll] {
+    padding: 1rem;
+  }
 }
 
 .workspace-page__header {
@@ -65,19 +79,23 @@
 }
 
 .workspace-summary {
-  --workspace-summary-cell-min-height: 6.5rem;
+  --workspace-summary-cell-min-height: 10rem;
 
   display: grid;
   align-items: stretch;
-  gap: 0.75rem;
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px -6px rgba(15, 23, 42, 0.08);
 }
 
-@media (min-width: 640px) {
+/* Mid widths: two columns (readiness spans both, metrics 2×2). Five-across
+   needs ~1060px of content width — with the ~250px sidebar that's a ~1360px
+   viewport; anything narrower overflows values ("members") across dividers. */
+@media (min-width: 640px) and (max-width: 1359.98px) {
   .workspace-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -85,13 +103,32 @@
   .workspace-summary__cell--readiness {
     grid-column: 1 / -1;
   }
-}
 
-@media (min-width: 1100px) {
-  .workspace-summary {
-    grid-template-columns: minmax(0, 1.35fr) repeat(4, minmax(0, 1fr));
+  /* Readiness strip: metric cells are children 2–5 → left column is even. */
+  .workspace-summary__cell:nth-child(even):not(:last-child) {
+    border-right: 1px solid #eef2f6;
   }
 
+  .workspace-summary--metrics .workspace-summary__cell:nth-child(even):not(:last-child) {
+    border-right: 0;
+  }
+
+  /* Metrics-only strip: no readiness cell → left column is odd. */
+  .workspace-summary--metrics .workspace-summary__cell:nth-child(odd):not(:last-child) {
+    border-right: 1px solid #eef2f6;
+  }
+
+  .workspace-summary__cell:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+
+@media (min-width: 1360px) {
+  .workspace-summary {
+    grid-template-columns: minmax(0, 1.45fr) repeat(4, minmax(0, 1fr));
+  }
+
+  /* Even columns for strips without the leading readiness ring. */
   .workspace-summary--metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -104,16 +141,19 @@
   align-self: stretch;
   align-items: center;
   gap: 0.875rem;
-  padding: 1rem 1.125rem;
-  border: 1px solid var(--vt-border, #e8edf3);
-  border-radius: 14px;
-  background: var(--vt-surface, #fff);
-  box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
+  /* Tighter horizontal padding: five columns share ~1030px of content width,
+     so cell chrome must stay lean or the detail text gets crushed. */
+  padding: 1.5rem 1.125rem;
+  border-bottom: 1px solid #eef2f6;
 }
 
 @media (min-width: 1360px) {
   .workspace-summary__cell {
-    border-bottom: 1px solid var(--vt-border, #e8edf3);
+    border-bottom: 0;
+    border-right: 1px solid #eef2f6;
+  }
+
+  .workspace-summary__cell:last-child {
     border-right: 0;
   }
 }
@@ -160,17 +200,17 @@
 
 .workspace-summary__icon {
   display: inline-flex;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: visible;
   border-radius: 9999px;
   border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #64748b;
-  box-shadow: none;
+  background: #fff;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 .workspace-summary__icon-svg {
@@ -226,11 +266,11 @@
 }
 
 .workspace-summary__status--ok {
-  color: #0f766e;
+  color: #16a34a;
 }
 
 .workspace-summary__status--info {
-  color: #0f766e;
+  color: #2563eb;
 }
 
 .workspace-summary__status--warn {
@@ -264,12 +304,12 @@
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.25;
-  color: #0f766e;
+  color: #2563eb;
   cursor: pointer;
 }
 
 .workspace-summary__link:hover {
-  color: #0d9488;
+  color: #4338ca;
   text-decoration: underline;
 }
 
@@ -277,18 +317,16 @@
   .workspace-summary {
     overflow-x: auto;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(14rem, 82vw);
-    padding-bottom: 0.25rem;
-    scrollbar-gutter: stable;
+    grid-auto-columns: minmax(16rem, 82vw);
   }
 
   .workspace-summary__cell {
-    border-bottom: 1px solid var(--vt-border, #e8edf3);
-    border-right: 0;
+    border-bottom: 0;
+    border-right: 1px solid #eef2f6;
   }
 
   .workspace-summary__status {
-    font-size: 1.25rem;
+    font-size: 1.375rem;
   }
 }
 
@@ -570,20 +608,41 @@
   min-height: 17.25rem;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--vt-border, #e8edf3);
-  border-radius: 14px;
-  background: var(--vt-surface, #ffffff);
-  box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
-  --overview-accent: #0f766e;
-  --overview-icon-bg: #ecfdf5;
-  --overview-action-bg: #f0fdfa;
+  border: 1px solid #e2e8f0;
+  border-top-width: 3px;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 30px -12px rgba(15, 23, 42, 0.16);
 }
 
-.workspace-overview-card--blue,
-.workspace-overview-card--green,
-.workspace-overview-card--violet,
+.workspace-overview-card--blue {
+  border-top-color: #3b82f6;
+  --overview-accent: #2563eb;
+  --overview-icon-bg: #dbeafe;
+  --overview-action-bg: #eff6ff;
+}
+
+.workspace-overview-card--green {
+  border-top-color: #22c55e;
+  --overview-accent: #16a34a;
+  --overview-icon-bg: #dcfce7;
+  --overview-action-bg: #ecfdf5;
+}
+
+.workspace-overview-card--violet {
+  border-top-color: #8b5cf6;
+  --overview-accent: #7c3aed;
+  --overview-icon-bg: #ede9fe;
+  --overview-action-bg: #f5f3ff;
+}
+
 .workspace-overview-card--amber {
-  border-top-width: 1px;
+  border-top-color: #f59e0b;
+  --overview-accent: #d97706;
+  --overview-icon-bg: #fef3c7;
+  --overview-action-bg: #fffbeb;
 }
 
 .workspace-overview-card__header {
@@ -698,8 +757,8 @@
 }
 
 .workspace-overview-card__action:hover {
-  filter: none;
-  background: #ccfbf1;
+  filter: saturate(1.1) brightness(0.98);
+  transform: translateY(-1px);
 }
 
 .workspace-readiness-panel {
