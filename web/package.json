@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "test:resource-affected": "npx --yes tsx scripts/assert-resource-affected-reason.mts",
     "smoke:e2e": "playwright test"
   },
   "dependencies": {

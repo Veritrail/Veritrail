@@ -62,6 +62,10 @@ jobs:
         working-directory: web
         run: npm run lint
 
+      - name: Resource-affected reason fixtures
+        working-directory: web
+        run: npm run test:resource-affected
+
   env-file-guard:
     runs-on: ubuntu-latest
     steps:

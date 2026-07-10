@@ -1,12 +1,20 @@
-"""Acceptance tests for web resourceAffectedReason (Resources tab "why" column)."""
+"""Acceptance tests for web resourceAffectedReason (Resources tab "why" column).
+
+Primary CI coverage lives in web (`npm run test:resource-affected`). This module
+keeps a local/dev path when Node is available; the API Docker image has no npx.
+"""
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
-WEB_ROOT = REPO_ROOT / "web"
+# compose.yml mounts ./web at /web inside the API container; locally parents[2] is repo root.
+WEB_ROOT = Path("/web") if Path("/web/src/lib/resourceAffectedReason.ts").exists() else REPO_ROOT / "web"
 TS_PATH = WEB_ROOT / "src" / "lib" / "resourceAffectedReason.ts"
 
 FIXTURES = [
@@ -87,6 +95,7 @@ console.log(JSON.stringify(result));
     return json.loads(proc.stdout.strip())
 
 
+@pytest.mark.skipif(shutil.which("npx") is None, reason="npx not available in API image; covered by web CI")
 def test_resource_affected_reason_fixtures():
     assert TS_PATH.exists(), f"missing implementation: {TS_PATH}"
     for case in FIXTURES:

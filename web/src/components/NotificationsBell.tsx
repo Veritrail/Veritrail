@@ -68,15 +68,11 @@ function itemBody(item: NotificationItem): string {
     });
   }
   if (item.kind === "cloudtrail") return cloudTrailBody(item);
-  if (item.kind === "verify") {
-    const provider = findingScopeProvider({ check_id: item.checkId });
-    if (item.status === "verified") return "Re-check passed — finding resolved.";
-    if (item.status === "error") return verifyFixOutcomeCopy(provider, "error").body;
-    return verifyFixOutcomeCopy(provider, "unchanged").body;
-  }
+  // Remaining kind is verify (NotificationItem is exhaustive).
+  const provider = findingScopeProvider({ check_id: item.checkId });
   if (item.status === "verified") return "Re-check passed — finding resolved.";
-  if (item.status === "error") return "Verify couldn't reach AWS — check the account connector.";
-  return "Verify finished — issue still detected.";
+  if (item.status === "error") return verifyFixOutcomeCopy(provider, "error").body;
+  return verifyFixOutcomeCopy(provider, "unchanged").body;
 }
 
 function itemSubtitle(item: NotificationItem): string {
