@@ -118,6 +118,8 @@ If `IAP_ENABLED=true`, also add `--profile iap` to start `oauth2-proxy`; `script
 
 `nginx/nginx.conf` and `nginx/iap/iap.*.conf` are generated on the host from `nginx/nginx.conf.template` and `infra/nginx/iap/` during bootstrap/redeploy — they are gitignored and should not be edited in git.
 
+**Platform-admin dashboard** (`admin.veritrail.io`): the SPA lives in its own private repo, [veritrail-admin](https://github.com/Veritrail/veritrail-admin) — clone it next to this checkout on the prod host (`git clone git@github.com:Veritrail/veritrail-admin.git ../veritrail-admin`); the `admin` service in `compose.prod.yml` builds from that sibling directory. The backing API (`api/app/routes/platform_admin.py`) is gated by `PLATFORM_ADMIN_EMAILS`, requires admins to have TOTP enrolled, rate limits per IP, and audits every call to `platform_audit_logs`. Optionally set `ADMIN_ALLOWED_IPS` in `.env.prod` to restrict the admin origin to trusted IPs at the nginx edge.
+
 Compose file roles:
 
 | File | Use |

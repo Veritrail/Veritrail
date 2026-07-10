@@ -75,12 +75,16 @@ services:
     volumes: !reset []
 
   # Platform-admin SPA (admin.veritrail.io) — static page + same-origin /v1
-  # proxy at the host nginx. Gated server-side by PLATFORM_ADMIN_EMAILS.
+  # proxy at the host nginx. Gated server-side by PLATFORM_ADMIN_EMAILS +
+  # mandatory TOTP; optional edge IP allowlist via ADMIN_ALLOWED_IPS.
+  # The SPA lives in its own repo. On the prod box, clone it NEXT TO this
+  # checkout so the build context resolves:
+  #   git clone git@github.com:Veritrail/veritrail-admin.git ../veritrail-admin
   admin:
     profiles: ["prod"]
     build:
-      context: .
-      dockerfile: admin/Dockerfile.prod
+      context: ../veritrail-admin
+      dockerfile: Dockerfile.prod
     restart: unless-stopped
 
   nginx:

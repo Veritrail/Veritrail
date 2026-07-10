@@ -260,14 +260,47 @@ obtain_certs() {
     "${renew_args[@]}"
 }
 
+# Build the nginx allow/deny directives for the admin origin from
+# ADMIN_ALLOWED_IPS (comma-separated IPs or CIDRs; env var wins over .env.prod).
+# Empty → a comment line: admin origin stays reachable (auth still applies).
+render_admin_ip_allowlist() {
+  local ips="${ADMIN_ALLOWED_IPS:-$(get_env_value ADMIN_ALLOWED_IPS "$REPO_DIR/$ENV_FILE")}"
+  if [[ -z "$ips" ]]; then
+    printf '%s' "# ADMIN_ALLOWED_IPS not set — admin origin reachable from any IP."
+    return 0
+  fi
+  local out="" ip
+  local -a parts
+  IFS=',' read -ra parts <<<"$ips"
+  for ip in "${parts[@]}"; do
+    ip="${ip//[[:space:]]/}"
+    [[ -n "$ip" ]] || continue
+    if [[ ! "$ip" =~ ^[0-9a-fA-F.:/]+$ ]]; then
+      die "ADMIN_ALLOWED_IPS entry is not a valid IP/CIDR: $ip"
+    fi
+    out+="allow ${ip}; "
+  done
+  [[ -n "$out" ]] || die "ADMIN_ALLOWED_IPS is set but contains no usable entries: $ips"
+  out+="deny all;"
+  printf '%s' "$out"
+}
+
 render_nginx_conf() {
   [[ -f "$NGINX_TEMPLATE" ]] || die "Missing nginx template: $NGINX_TEMPLATE"
   log "Rendering $NGINX_CONF from template..."
+  local admin_allowlist
+  admin_allowlist="$(render_admin_ip_allowlist)"
+  if [[ "$admin_allowlist" == allow* ]]; then
+    log "Admin origin IP allowlist active: $admin_allowlist"
+  else
+    warn "ADMIN_ALLOWED_IPS not set — ${ADMIN_DOMAIN} accepts connections from any IP (login + TOTP still required)"
+  fi
   sed \
     -e "s|__DOMAIN__|${DOMAIN}|g" \
     -e "s|__API_DOMAIN__|${API_DOMAIN}|g" \
     -e "s|__ADMIN_DOMAIN__|${ADMIN_DOMAIN}|g" \
     -e "s|__CERT_NAME__|${CERT_NAME}|g" \
+    -e "s|__ADMIN_IP_ALLOWLIST__|${admin_allowlist}|g" \
     "$NGINX_TEMPLATE" > "$NGINX_CONF"
 }
 
@@ -427,6 +460,13 @@ ensure_env_prod() {
   set_env_value "DOMAIN" "$DOMAIN" "$env_path"
   set_env_value "API_DOMAIN" "$API_DOMAIN" "$env_path"
   set_env_value "ADMIN_DOMAIN" "$ADMIN_DOMAIN" "$env_path"
+
+  # Persist the admin-origin IP allowlist when passed as an env var, so
+  # subsequent --deploy-only runs keep rendering it into nginx.conf.
+  if [[ -n "${ADMIN_ALLOWED_IPS:-}" ]]; then
+    set_env_value "ADMIN_ALLOWED_IPS" "$ADMIN_ALLOWED_IPS" "$env_path"
+    log "Persisted ADMIN_ALLOWED_IPS to $ENV_FILE"
+  fi
 
   local compose_project
   compose_project="$(get_env_value COMPOSE_PROJECT_NAME "$env_path")"
@@ -700,6 +740,11 @@ Post-deploy checklist:
   5. After any $ENV_FILE edit, recreate affected services:
        $compose_hint up -d --force-recreate api worker beat web
   6. Optional: configure RESEND_API_KEY, OAuth secrets, B2 backup vars in $ENV_FILE
+  7. Admin dashboard hardening: set ADMIN_ALLOWED_IPS="ip1,ip2" in $ENV_FILE
+     (or as an env var) and re-run with --deploy-only to lock the admin origin
+     to trusted IPs. Platform admins also need PLATFORM_ADMIN_EMAILS + enrolled TOTP.
+     The admin SPA builds from a sibling checkout: git clone
+     git@github.com:Veritrail/veritrail-admin.git next to this repo.
 
 Useful commands:
   $compose_hint ps

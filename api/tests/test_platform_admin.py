@@ -6,11 +6,16 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
+from sqlalchemy import select
+
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.ratelimit import limiter
 from app.core.security import issue_token
 from app.models.access_request import AccessRequest
 from app.models.org import Org, User
+from app.models.platform_audit import PlatformAuditLog
+from app.routes.platform_admin import MFA_REQUIRED_DETAIL
 
 
 @pytest.fixture
@@ -27,16 +32,27 @@ def client(db_session):
         app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Platform-admin routes are rate limited per IP; TestClient is one IP."""
+    limiter.reset()
+    yield
+    limiter.reset()
+
+
 @pytest.fixture
 def users(db_session):
     suffix = uuid.uuid4().hex[:8]
     org = Org(id=uuid.uuid4(), name=f"Admin Test Org {suffix}", slug=f"admin-test-{suffix}")
+    # Platform admins must have TOTP enrolled — the fixture admin models the happy path.
     admin = User(
         id=uuid.uuid4(),
         org_id=org.id,
         email=f"ellie-{suffix}@cloud-castles.com",
         password_hash="x",
         role="owner",
+        totp_enabled=True,
+        totp_secret="JBSWY3DPEHPK3PXP",
     )
     regular = User(
         id=uuid.uuid4(),
@@ -115,6 +131,94 @@ def test_admin_lists_users_and_workspaces(client, users, monkeypatch, db_session
         ar_res = client.get("/v1/platform-admin/access-requests", headers=_auth(admin))
         assert ar_res.status_code == 200
         assert any(r["email"] == "lead@example.com" for r in ar_res.json())
+    finally:
+        get_settings.cache_clear()
+
+
+def test_admin_without_totp_gets_403_enroll_mfa(client, users, monkeypatch, db_session):
+    """An allowlisted admin who never enrolled TOTP cannot use the dashboard."""
+    _org, admin, _regular = users
+    admin.totp_enabled = False
+    admin.totp_secret = None
+    db_session.flush()
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        for path in ENDPOINTS:
+            res = client.get(path, headers=_auth(admin))
+            assert res.status_code == 403
+            assert res.json()["detail"] == MFA_REQUIRED_DETAIL
+    finally:
+        get_settings.cache_clear()
+
+
+def _audit_rows(db_session):
+    return db_session.scalars(
+        select(PlatformAuditLog).order_by(PlatformAuditLog.created_at)
+    ).all()
+
+
+def test_audit_rows_written_for_allowed_and_denied(client, users, monkeypatch, db_session):
+    _org, admin, regular = users
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        assert client.get("/v1/platform-admin/users", headers=_auth(admin)).status_code == 200
+        assert client.get("/v1/platform-admin/users", headers=_auth(regular)).status_code == 404
+
+        rows = _audit_rows(db_session)
+        allowed = [r for r in rows if r.allowed]
+        denied = [r for r in rows if not r.allowed]
+        assert len(allowed) == 1 and len(denied) == 1
+
+        ok = allowed[0]
+        assert ok.actor_user_id == admin.id
+        assert ok.actor_email == admin.email
+        assert ok.action == "platform_admin.access"
+        assert ok.method == "GET"
+        assert ok.endpoint == "/v1/platform-admin/users"
+        assert ok.source_ip  # TestClient reports a client host
+        assert ok.created_at is not None
+
+        no = denied[0]
+        assert no.actor_user_id == regular.id
+        assert no.action == "platform_admin.denied"
+        assert no.detail == {"reason": "not_platform_admin"}
+    finally:
+        get_settings.cache_clear()
+
+
+def test_audit_row_written_for_mfa_denied(client, users, monkeypatch, db_session):
+    _org, admin, _regular = users
+    admin.totp_enabled = False
+    admin.totp_secret = None
+    db_session.flush()
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        assert client.get("/v1/platform-admin/users", headers=_auth(admin)).status_code == 403
+        rows = _audit_rows(db_session)
+        assert len(rows) == 1
+        assert rows[0].allowed is False
+        assert rows[0].detail == {"reason": "mfa_not_enrolled"}
+    finally:
+        get_settings.cache_clear()
+
+
+def test_rate_limit_returns_429(client, users, monkeypatch, db_session):
+    """Sanity check: the slowapi per-IP limit kicks in on platform-admin routes."""
+    from app.routes.platform_admin import ADMIN_RATE_LIMIT
+
+    limit = int(ADMIN_RATE_LIMIT.split("/")[0])
+    _org, admin, _regular = users
+    db_session.add(
+        AccessRequest(name="Lead", email="rl@example.com", company="Prospect Co", mail_sent=True)
+    )
+    db_session.flush()
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        for _ in range(limit):
+            res = client.get("/v1/platform-admin/access-requests", headers=_auth(admin))
+            assert res.status_code == 200
+        res = client.get("/v1/platform-admin/access-requests", headers=_auth(admin))
+        assert res.status_code == 429
     finally:
         get_settings.cache_clear()
 
