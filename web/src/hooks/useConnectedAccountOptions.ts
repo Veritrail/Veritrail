@@ -219,10 +219,12 @@ export function useConnectedAccountOptions() {
   const accountsQ = useQuery({
     queryKey: ["accounts"],
     queryFn: () => api("/v1/accounts", { schema: accountListSchema }),
+    refetchOnWindowFocus: true,
   });
   const cloudAccountsQ = useQuery({
     queryKey: ["cloud-accounts"],
     queryFn: () => api("/v1/integrations/cloud-accounts", { schema: cloudAccountListSchema }),
+    refetchOnWindowFocus: true,
   });
 
   const options = useMemo(() => {

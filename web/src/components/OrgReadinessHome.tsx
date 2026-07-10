@@ -252,7 +252,8 @@ export function OrgReadinessHome() {
       <div className="org-home">
         <header className="org-home__headline-block">
           <p className="org-home__verdict org-home__verdict--not-ready">
-            {orgName}&apos;s technical evidence for SOC 2 isn&apos;t ready yet.
+            {orgName} technical evidence is{" "}
+            <strong className="org-home__verdict-em">not ready</strong> for SOC 2.
           </p>
           <h1 className="org-home__headline">Connect your first integration to get started.</h1>
           <p className="org-home__subline org-home__subline--scope">
@@ -271,15 +272,16 @@ export function OrgReadinessHome() {
   const zeroHigh = highCount === 0;
   const evidenceReady =
     controlsSummary.total > 0 && controlsSummary.passed === controlsSummary.total && zeroHigh;
-  const verdictPhrase = evidenceReady
-    ? `${orgName}'s technical evidence for SOC 2 is ready`
-    : `${orgName}'s technical evidence for SOC 2 isn't ready yet`;
   const verdictClass = evidenceReady ? "ready" : "not-ready";
 
   return (
     <div className="org-home">
       <header className="org-home__headline-block">
-        <p className={`org-home__verdict org-home__verdict--${verdictClass}`}>{verdictPhrase}.</p>
+        <p className={`org-home__verdict org-home__verdict--${verdictClass}`}>
+          {orgName} technical evidence is{" "}
+          <strong className="org-home__verdict-em">{evidenceReady ? "ready" : "not ready"}</strong>{" "}
+          for SOC 2.
+        </p>
         {zeroHigh ? (
           <h1 className="org-home__headline">No high findings stand between you and SOC 2.</h1>
         ) : (

@@ -14,7 +14,13 @@ import {
 import { ProductShell } from "../components/ProductShell";
 import { useAccountScanRun } from "../hooks/useAccountScanRun";
 import { isCloudAccountConnected } from "../hooks/useConnectedAccountOptions";
+import { useTriggeredCloudScan } from "../hooks/useTriggeredCloudScan";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
+import {
+  CloudIntegrationTroubleshootPanel,
+  cloudIntegrationHealth,
+  type CloudTroubleshootTarget,
+} from "../components/CloudIntegrationTroubleshootPanel";
 import {
   formatSyncDetail,
   IconShield,
@@ -63,6 +69,7 @@ type CloudAccountRow = {
   label: string;
   status: string;
   last_scan_at: string | null;
+  last_error?: string | null;
   open_findings_count?: number;
 };
 
@@ -84,6 +91,7 @@ type IntegrationRow = {
   permissionsLabel: string;
   permissionsVerified?: boolean;
   capabilities: string[];
+  troubleshootTarget?: CloudTroubleshootTarget;
 };
 
 function integrationCta(connected: boolean): string {
@@ -139,7 +147,13 @@ function TableStatus({
   );
 }
 
-function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
+function IntegrationsTableRow({
+  row,
+  onTroubleshoot,
+}: {
+  row: IntegrationRow;
+  onTroubleshoot?: (target: CloudTroubleshootTarget) => void;
+}) {
   const collection =
     row.lastSyncLabel != null
       ? { primary: row.lastSyncLabel, secondary: "" }
@@ -187,6 +201,15 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
       </td>
       <td>
         <div className="integrations-table__actions">
+          {row.troubleshootTarget && row.healthTone === "danger" ? (
+            <button
+              type="button"
+              className="integrations-troubleshoot-btn"
+              onClick={() => onTroubleshoot?.(row.troubleshootTarget!)}
+            >
+              Troubleshoot
+            </button>
+          ) : null}
           <Link to={row.href} className="integrations-manage-btn">
             {integrationCta(row.connected)}
           </Link>
@@ -201,7 +224,13 @@ function IntegrationsTableRow({ row }: { row: IntegrationRow }) {
   );
 }
 
-function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
+function IntegrationsTable({
+  rows,
+  onTroubleshoot,
+}: {
+  rows: IntegrationRow[];
+  onTroubleshoot?: (target: CloudTroubleshootTarget) => void;
+}) {
   if (rows.length === 0) {
     return (
       <div className="integrations-table-wrap px-6 py-10 text-center text-sm text-slate-500">
@@ -226,7 +255,7 @@ function IntegrationsTable({ rows }: { rows: IntegrationRow[] }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <IntegrationsTableRow key={row.key} row={row} />
+            <IntegrationsTableRow key={row.key} row={row} onTroubleshoot={onTroubleshoot} />
           ))}
         </tbody>
       </table>
@@ -256,26 +285,32 @@ function ScanProgressBanner() {
 function IntegrationsContent() {
   const qc = useQueryClient();
   const prevScanStatus = useRef<string | null>(null);
+  const [troubleshootTarget, setTroubleshootTarget] = useState<CloudTroubleshootTarget | null>(null);
 
   const github = useQuery({
     queryKey: ["github-provider"],
     queryFn: () => api("/v1/integrations/github", { schema: integrationStatusNullableSchema }),
+    refetchOnWindowFocus: true,
   });
   const gitlab = useQuery({
     queryKey: ["gitlab-provider"],
     queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
+    refetchOnWindowFocus: true,
   });
   const googleWorkspace = useQuery({
     queryKey: ["google-workspace-provider"],
     queryFn: () => api("/v1/integrations/google-workspace", { schema: integrationStatusNullableSchema }),
+    refetchOnWindowFocus: true,
   });
   const entra = useQuery({
     queryKey: ["entra-provider"],
     queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
+    refetchOnWindowFocus: true,
   });
   const cloudAccounts = useQuery({
     queryKey: ["cloud-accounts"],
     queryFn: () => api("/v1/integrations/cloud-accounts", { schema: cloudAccountListSchema }),
+    refetchOnWindowFocus: true,
   });
   const wizScanner = useQuery({
     queryKey: ["scanner-wiz"],
@@ -334,6 +369,38 @@ function IntegrationsContent() {
   const googleWorkspaceSync = useIntegrationSyncState("google-workspace");
   const entraSync = useIntegrationSyncState("entra");
 
+  const gcpConnected = gcpRows.some(isCloudAccountConnected);
+  const gcpProject = gcpRows.find(isCloudAccountConnected) ?? gcpRows[0];
+  const azureConnected = azureRows.some(isCloudAccountConnected);
+  const azureSub = azureRows.find(isCloudAccountConnected) ?? azureRows[0];
+  const { isRunning: gcpScanRunning } = useTriggeredCloudScan(
+    gcpConnected ? "gcp" : undefined,
+    gcpProject?.id,
+    { backgroundPollMs: 5000 },
+  );
+  const { isRunning: azureScanRunning } = useTriggeredCloudScan(
+    azureConnected ? "azure" : undefined,
+    azureSub?.id,
+    { backgroundPollMs: 5000 },
+  );
+
+  const hubSyncing =
+    awsScanRunning ||
+    gcpScanRunning ||
+    azureScanRunning ||
+    githubSync.isSyncing ||
+    gitlabSync.isSyncing ||
+    googleWorkspaceSync.isSyncing ||
+    entraSync.isSyncing;
+
+  useEffect(() => {
+    if (!hubSyncing) return;
+    const id = window.setInterval(() => {
+      qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [hubSyncing, qc]);
+
   useEffect(() => {
     if (prevScanStatus.current === "running" && scanStatus === "ok") {
       qc.invalidateQueries({ queryKey: ["github-provider"] });
@@ -344,10 +411,6 @@ function IntegrationsContent() {
 
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
 
-  const gcpConnected = gcpRows.some(isCloudAccountConnected);
-  const gcpProject = gcpRows.find(isCloudAccountConnected) ?? gcpRows[0];
-  const azureConnected = azureRows.some(isCloudAccountConnected);
-  const azureSub = azureRows.find(isCloudAccountConnected) ?? azureRows[0];
   const scannerConnected = [wizScanner.data, tenableScanner.data, qualysScanner.data, snykScanner.data, orcaScanner.data, aikidoScanner.data].some((s) => s?.connected);
   const activeScanner = [wizScanner.data, tenableScanner.data, qualysScanner.data, snykScanner.data, orcaScanner.data, aikidoScanner.data].find((s) => s?.connected);
 
@@ -377,9 +440,15 @@ function IntegrationsContent() {
     splunkConnected,
     datadogConnected,
   ].filter(Boolean).length;
-  const syncingCount = [awsScanRunning, githubSync.isSyncing, gitlabSync.isSyncing, googleWorkspaceSync.isSyncing, entraSync.isSyncing].filter(
-    Boolean,
-  ).length;
+  const syncingCount = [
+    awsScanRunning,
+    gcpScanRunning,
+    azureScanRunning,
+    githubSync.isSyncing,
+    gitlabSync.isSyncing,
+    googleWorkspaceSync.isSyncing,
+    entraSync.isSyncing,
+  ].filter(Boolean).length;
   const errorCount = [
     cloudAccounts.isError,
     github.isError,
@@ -387,10 +456,11 @@ function IntegrationsContent() {
     googleWorkspace.isError,
     entra.isError,
     settings.isError,
-    // A connected provider whose token/webhook broke ("Needs reconnect") is a
-    // real error, not a soft warning — surface it in the Errors KPI.
     github.data?.status === "error",
     gitlab.data?.status === "error",
+    !!awsAccount?.last_error?.trim(),
+    !!gcpProject?.last_error?.trim(),
+    !!azureSub?.last_error?.trim(),
   ].filter(Boolean).length;
 
   const iacRepoRef =
@@ -399,6 +469,22 @@ function IntegrationsContent() {
     (iacRepository.data?.owner && iacRepository.data?.repo
       ? `${iacRepository.data.owner}/${iacRepository.data.repo}`
       : null);
+
+  const awsHealth = cloudIntegrationHealth({
+    scanning: awsScanRunning,
+    lastScanAt: awsAccount?.last_scan_at,
+    lastError: awsAccount?.last_error,
+  });
+  const gcpHealth = cloudIntegrationHealth({
+    scanning: gcpScanRunning,
+    lastScanAt: gcpProject?.last_scan_at,
+    lastError: gcpProject?.last_error,
+  });
+  const azureHealth = cloudIntegrationHealth({
+    scanning: azureScanRunning,
+    lastScanAt: azureSub?.last_scan_at,
+    lastError: azureSub?.last_error,
+  });
 
   const integrationRows: IntegrationRow[] = [
     {
@@ -411,11 +497,22 @@ function IntegrationsContent() {
       syncing: awsScanRunning,
       loading: cloudAccounts.isLoading,
       lastSyncAt: awsAccount?.last_scan_at ?? null,
-      healthLabel: awsScanRunning ? "Scanning" : awsAccount?.last_scan_at ? "Healthy" : "Awaiting scan",
-      healthTone: awsScanRunning ? "sync" : awsAccount?.last_scan_at ? "ok" : "idle",
+      healthLabel: awsHealth.healthLabel,
+      healthTone: awsHealth.healthTone,
       permissionsLabel: awsConnected ? "Connector verified" : "Not connected",
       permissionsVerified: awsConnected,
       capabilities: awsHubCapabilities(),
+      troubleshootTarget: awsAccount
+        ? {
+            provider: "aws",
+            resourceId: awsAccount.id,
+            label: awsAccount.label,
+            externalId: awsAccount.external_id,
+            lastScanAt: awsAccount.last_scan_at,
+            lastError: awsAccount.last_error ?? null,
+            connected: awsConnected,
+          }
+        : undefined,
     },
     {
       key: "github",
@@ -530,13 +627,25 @@ function IntegrationsContent() {
             icon: <IntegrationBrandIcon brand="gcp" size={48} />,
             href: "/integrations/gcp",
             connected: true,
+            syncing: gcpScanRunning,
             loading: cloudAccounts.isLoading,
             lastSyncAt: gcpProject?.last_scan_at ?? null,
-            healthLabel: gcpProject?.last_scan_at ? "Healthy" : "Awaiting scan",
-            healthTone: (gcpProject?.last_scan_at ? "ok" : "idle") as Tone,
+            healthLabel: gcpHealth.healthLabel,
+            healthTone: gcpHealth.healthTone,
             permissionsLabel: "Service account verified",
             permissionsVerified: true,
             capabilities: ["Cloud posture", "Audit evidence", "Findings"],
+            troubleshootTarget: gcpProject
+              ? {
+                  provider: "gcp",
+                  resourceId: gcpProject.id,
+                  label: gcpProject.label,
+                  externalId: gcpProject.external_id,
+                  lastScanAt: gcpProject.last_scan_at,
+                  lastError: gcpProject.last_error ?? null,
+                  connected: true,
+                }
+              : undefined,
           } satisfies IntegrationRow,
         ]
       : []),
@@ -549,13 +658,25 @@ function IntegrationsContent() {
             icon: <IntegrationBrandIcon brand="azure" size={48} />,
             href: "/integrations/azure",
             connected: true,
+            syncing: azureScanRunning,
             loading: cloudAccounts.isLoading,
             lastSyncAt: azureSub?.last_scan_at ?? null,
-            healthLabel: azureSub?.last_scan_at ? "Healthy" : "Awaiting scan",
-            healthTone: (azureSub?.last_scan_at ? "ok" : "idle") as Tone,
+            healthLabel: azureHealth.healthLabel,
+            healthTone: azureHealth.healthTone,
             permissionsLabel: "Client credentials verified",
             permissionsVerified: true,
             capabilities: ["Defender", "Storage", "Findings"],
+            troubleshootTarget: azureSub
+              ? {
+                  provider: "azure",
+                  resourceId: azureSub.id,
+                  label: azureSub.label,
+                  externalId: azureSub.external_id,
+                  lastScanAt: azureSub.last_scan_at,
+                  lastError: azureSub.last_error ?? null,
+                  connected: true,
+                }
+              : undefined,
           } satisfies IntegrationRow,
         ]
       : []),
@@ -674,8 +795,13 @@ function IntegrationsContent() {
       {awsScanRunning && <ScanProgressBanner />}
 
       <div className="integrations-page__body">
-        <IntegrationsTable rows={activeRows} />
+        <IntegrationsTable rows={activeRows} onTroubleshoot={setTroubleshootTarget} />
       </div>
+
+      <CloudIntegrationTroubleshootPanel
+        target={troubleshootTarget}
+        onClose={() => setTroubleshootTarget(null)}
+      />
 
       <RecommendedIntegrations
         hiddenKeys={connectedCatalogKeys({

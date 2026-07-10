@@ -14,6 +14,7 @@ import {
   settingsSchema,
 } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { findingScopeProvider } from "../lib/findingDisplay";
 import { serviceForCheck } from "../data/awsServiceMeta";
 import {
   delta7d,
@@ -48,6 +49,7 @@ import {
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { OrgReadinessHome } from "../components/OrgReadinessHome";
+import { AccountReadinessOverview, scanRowToTimelineText } from "../components/AccountReadinessOverview";
 import { ProductShell } from "../components/ProductShell";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { MetricHelpTip } from "../components/MetricHelpTip";
@@ -5662,19 +5664,29 @@ function priorityFindingWhenLabel(finding: PriorityFindingRow): string {
   return "";
 }
 
+function findingMatchesAccountRow(
+  f: Finding,
+  accountId: string,
+  isAws: boolean,
+  cloud: CloudAccountRow | null,
+): boolean {
+  const accountProvider = (isAws ? "aws" : cloud?.provider ?? "aws").toLowerCase();
+  if (findingScopeProvider(f) !== accountProvider) return false;
+  const accountKey = isAws ? accountId : (cloud?.external_id ?? cloud?.id ?? accountId);
+  return isAws
+    ? f.account_id === accountId
+    : f.account_id === accountKey || f.account_label === accountKey;
+}
+
 function buildAccountPriorityFindings(
   items: Finding[] | undefined,
   accountId: string,
   isAws: boolean,
   cloud: CloudAccountRow | null,
 ): PriorityFindingRow[] {
-  const accountKey = isAws ? accountId : (cloud?.external_id ?? cloud?.id ?? accountId);
   return (items ?? [])
     .filter((f) => {
-      const matches = isAws
-        ? f.account_id === accountId
-        : f.account_id === accountKey || f.account_label === accountKey;
-      if (!matches) return false;
+      if (!findingMatchesAccountRow(f, accountId, isAws, cloud)) return false;
       if (isEventDerivedFinding(f.check_id)) return false;
       const sev = (f.severity || "").toLowerCase();
       return sev === "critical" || sev === "high";
@@ -6406,6 +6418,32 @@ function AccountSplitDetailPane({
     () => buildAccountPriorityFindings(findingsItems, accountId, isAws, cloud),
     [findingsItems, accountId, isAws, cloud],
   );
+  const accountBlockerFindings = useMemo(
+    () =>
+      (findingsItems ?? [])
+        .filter(
+          (f) =>
+            findingMatchesAccountRow(f, accountId, isAws, cloud) &&
+            (f.status ?? "open") === "open",
+        )
+        .map((f) => ({
+          id: f.id,
+          check_id: f.check_id,
+          severity: f.severity,
+          status: f.status ?? "open",
+        })),
+    [findingsItems, accountId, isAws, cloud],
+  );
+  const scanTimelineRows = useMemo(
+    () =>
+      recentScanRows.map((row) => ({
+        key: row.key,
+        timestamp: row.timestamp,
+        text: scanRowToTimelineText(row.succeeded, row.resourcesScanned),
+        dotGreen: row.succeeded,
+      })),
+    [recentScanRows],
+  );
   const complianceTrendPoints = useMemo(() => {
     if (isAws) return postureTrendSeries(historyQ.data);
     return (cloudOverviewQ.data?.posture_trend ?? []).map((p) => ({
@@ -6690,110 +6728,15 @@ function AccountSplitDetailPane({
             />
           </>
         ) : (
-          <>
-            <div className="accounts-detail-overview__metrics" aria-label="Account overview metrics">
-              <div className="accounts-detail-overview__metric accounts-detail-overview__metric--security">
-                <p className="accounts-detail-overview__metric-label">
-                  Security score
-                  <MetricHelpTip metric="Security score" text={SECURITY_SCORE_HELP} />
-                </p>
-                <SecurityScoreCard
-                  score={securityScore}
-                  stats={displayStats}
-                  coveragePct={coveragePct}
-                  lastScanAt={lastScanAt}
-                  hasScanned={hasScanned}
-                  loading={overviewMetricsLoading}
-                />
-              </div>
-              <div className="accounts-detail-overview__metric">
-                <p className="accounts-detail-overview__metric-label">
-                  SOC 2 readiness
-                  <MetricHelpTip metric="SOC 2 readiness" text={SOC2_READINESS_HELP} />
-                </p>
-                {overviewMetricsLoading ? (
-                  <OverviewMetricLoadingSkeleton />
-                ) : (
-                  <>
-                <div className="accounts-detail-overview__metric-value-row">
-                  <p className="accounts-detail-overview__metric-value">
-                    {hasScanned && compliancePct != null ? `${compliancePct}%` : "—"}
-                  </p>
-                  {hasScanned && compliancePct != null ? (
-                    <MetricCardDelta delta={complianceDelta} betterWhen="up" />
-                  ) : null}
-                </div>
-                {!hasScanned ? (
-                  <p className="accounts-detail-overview__metric-detail">Run a scan first</p>
-                ) : (
-                  <div className="accounts-detail-overview__metric-footer">
-                    {soc2PhaseLabel ? (
-                      <p className="accounts-detail-overview__metric-phase">{soc2PhaseLabel}</p>
-                    ) : null}
-                    <p className="accounts-detail-overview__metric-detail accounts-detail-overview__metric-detail--meta">
-                      {soc2CheckSummary
-                        ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
-                        : "Awaiting control mapping"}
-                    </p>
-                  </div>
-                )}
-                  </>
-                )}
-              </div>
-              <div className="accounts-detail-overview__metric">
-                <p className="accounts-detail-overview__metric-label">
-                  Evidence coverage
-                  <MetricHelpTip metric="Evidence coverage" text={COVERAGE_METRIC_HELP} />
-                </p>
-                {overviewMetricsLoading ? (
-                  <OverviewMetricLoadingSkeleton />
-                ) : (
-                  <>
-                <div className="accounts-detail-overview__metric-value-row">
-                  <p className="accounts-detail-overview__metric-value">
-                    {coveragePct != null ? `${coveragePct}%` : "—"}
-                  </p>
-                  {hasScanned && coveragePct != null ? (
-                    <MetricCardDelta delta={coverageDelta} betterWhen="up" muted />
-                  ) : null}
-                </div>
-                {hasScanned && coveragePct != null ? (
-                  <div
-                    className="accounts-detail-overview__progress"
-                    role="progressbar"
-                    aria-valuenow={coveragePct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label="Evidence coverage"
-                  >
-                    <div
-                      className="accounts-detail-overview__progress-fill"
-                      style={{ width: `${Math.min(100, coveragePct)}%` }}
-                    />
-                  </div>
-                ) : null}
-                <p className="accounts-detail-overview__metric-detail accounts-detail-overview__metric-detail--meta">
-                  {hasScanned ? "Last 7 days" : "Run a scan first"}
-                </p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {displayStats ? (
-              <OverviewInsightsGrid
-                accountId={accountId}
-                stats={displayStats}
-                hasScanned={hasScanned}
-                loading={overviewMetricsLoading}
-                priorityFindings={priorityFindings}
-                recentScanRows={recentScanRows}
-                recentActivity={recentActivity}
-                onViewScans={() => navigate(`/history?account_id=${encodeURIComponent(accountId)}`)}
-                onViewScanRow={() => navigate(`/history?account_id=${encodeURIComponent(accountId)}`)}
-              />
-            ) : null}
-          </>
+          <AccountReadinessOverview
+            accountId={accountId}
+            provider={provider}
+            findings={accountBlockerFindings}
+            findingsLoading={findingsLoading}
+            hasScanned={hasScanned}
+            historyEvents={historyQ.data?.events ?? []}
+            scanTimelineRows={scanTimelineRows}
+          />
         )}
       </div>
 

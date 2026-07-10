@@ -420,6 +420,7 @@ export const cloudAccountRowSchema = z.object({
   label: z.string(),
   status: z.string(),
   last_scan_at: z.string().nullable().default(null),
+  last_error: z.string().nullable().optional(),
   open_findings_count: z
     .number()
     .nullish()
