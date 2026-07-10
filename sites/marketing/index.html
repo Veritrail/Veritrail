@@ -80,8 +80,8 @@
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; color: var(--ink); font-size: 18px; letter-spacing: -0.02em; }
   .brand svg { display: block; }
   .nav-links { display: flex; align-items: center; gap: 28px; }
-  .nav-links a { color: var(--muted); font-size: 14.5px; font-weight: 500; transition: color .15s; }
-  .nav-links a:hover { color: var(--ink); }
+  .nav-links a:not(.btn) { color: var(--muted); font-size: 14.5px; font-weight: 500; transition: color .15s; }
+  .nav-links a:not(.btn):hover { color: var(--ink); }
   .btn {
     display: inline-flex; align-items: center; gap: 7px;
     height: 40px; padding: 0 18px;
