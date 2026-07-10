@@ -9,9 +9,8 @@ Status key: **done** · **open** · **blocked**
 **Next up:** items **2 + 3** together (shared Workspace/Profile template restyle). Do not start
 item 5 until 2–4 land. Item 6 is partner/human validation, not engineering.
 
-`docs/deep-research-roadmap.md` is not in the tree yet (as of this pass). If a parallel agent
-adds it for scanning-only / deep-research cleanup, cross-link any overlapping UX or integration
-items here.
+Deep-research report mapping (composer backlog + human decisions):
+[deep-research-roadmap.md](./deep-research-roadmap.md).
 
 ---
 
@@ -47,9 +46,6 @@ shipped (`CloudIntegrationTroubleshootPanel`). Page still reuses Workspace KPI s
 (`integrations-kpi-strip workspace-summary`) and a denser/plainer table than Findings.
 Restyle to match current system — consider dropping the top stat row vs. an org-home-style
 summary.
-
-**Parallel WIP:** scanning-only cleanup is editing `Integrations.tsx` / catalog / finding drawer
-(uncommitted). Coordinate before restyling that page.
 
 ## 5. Findings page — minor tablet reflow at ~1024px — **open**
 
