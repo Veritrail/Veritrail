@@ -121,17 +121,15 @@ export default function SidebarAccountSwitcher({
         ))}
       </div>
 
-      <Link
-        to="/accounts?view=all"
-        className={`sidebar-accounts__overflow${allAccountsView ? " is-active" : ""}`}
-        title={collapsed ? `All accounts (${options.length})` : undefined}
-      >
-        {collapsed ? (
-          <span className="sidebar-accounts__overflow-count">{options.length}</span>
-        ) : (
-          <>All accounts ({options.length})</>
-        )}
-      </Link>
+      {/* Hide account-count circle in collapsed mini rail (reads as a badge). */}
+      {!collapsed ? (
+        <Link
+          to="/accounts?view=all"
+          className={`sidebar-accounts__overflow${allAccountsView ? " is-active" : ""}`}
+        >
+          All accounts ({options.length})
+        </Link>
+      ) : null}
     </div>
   );
 }
