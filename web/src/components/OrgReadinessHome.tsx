@@ -230,7 +230,7 @@ export function OrgReadinessHome() {
       }
     }
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return events.slice(0, 6);
+    return events.slice(0, 4);
   }, [timelineQs]);
 
   const defaultFindingsHref = defaultOrgFindingsHref({ hasCloudAccounts, hasSourceControl, hasIdentity });
@@ -349,8 +349,13 @@ export function OrgReadinessHome() {
       ) : null}
 
       {capabilityItems.length > 0 ? (
-        <section className="org-home__capabilities-section" aria-label="Capabilities to turn on">
-          <h2 className="org-home__section-title">Capabilities to turn on</h2>
+        <section
+          className="org-home__capabilities-section"
+          aria-label={capabilityItems.length === 1 ? "Recommended next step" : "Capabilities to turn on"}
+        >
+          <h2 className="org-home__section-title">
+            {capabilityItems.length === 1 ? "Recommended next step" : "Capabilities to turn on"}
+          </h2>
           <CapabilitiesToEnableList items={capabilityItems} />
         </section>
       ) : null}
