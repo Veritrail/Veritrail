@@ -1,17 +1,21 @@
 """Generate an auditor-ready PDF compliance evidence report using fpdf2.
 
-The report is intentionally print-first: compact sections, predictable page
-breaks, and neutral audit language rather than dashboard chrome.
+Narrative-first layout: evidence is grouped into capability domains
+(Identity & Access, SDLC, Backup & DR, ...) each carrying an
+evidence-anchored assertion paragraph, a coverage line, documented
+exceptions vs open gaps, and framework control cross-reference tags.
+Per-resource detail lives in an appendix at the back of the document.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from fpdf import FPDF
 
 from app.models.aws_account import AwsAccount
+from app.services.pdf_narrative import DomainSection, build_domain_sections, exception_narrative
 
 _REPLACEMENTS = {
     "—": "-",
@@ -29,8 +33,8 @@ _REPLACEMENTS = {
 
 _FONT = {
     "display": 24,
-    "h1": 18,
-    "h2": 14,
+    "h1": 17,
+    "h2": 13,
     "h3": 11,
     "body": 10,
     "small": 9,
@@ -87,10 +91,11 @@ GREEN = (5, 150, 105)
 AMBER = (217, 119, 6)
 RED = (220, 38, 38)
 
-# The PDF is a summary/index, not the evidence population. Per control we show an
-# aggregate (severity + resource types + age) plus a small labeled sample; the
-# complete enumerated population always lives in that control's findings.json/CSV.
-_PDF_FINDING_SAMPLE = 5
+# The PDF is a summary/index, not the evidence population. Per domain we show a
+# bounded gap/exception sample; the complete enumerated population always lives
+# in each control's findings.json/exceptions.json inside the pack.
+_GAPS_INLINE_LIMIT = 6
+_EXCEPTIONS_INLINE_LIMIT = 5
 
 
 def _s(value: Any) -> str:
@@ -115,28 +120,6 @@ def _truncate_middle(text: str, max_len: int = 74) -> str:
         return text
     keep = max(6, (max_len - 3) // 2)
     return f"{text[:keep]}...{text[-keep:]}"
-
-
-def _resource_name(resource_arn: str) -> str:
-    arn = resource_arn or ""
-    if arn.startswith("arn:aws:iam::"):
-        for marker in (":role/", ":user/", ":policy/"):
-            if marker in arn:
-                return _truncate_middle(arn.split(marker, 1)[1].rsplit("/", 1)[-1], 52)
-    if arn.startswith("arn:aws:s3:::"):
-        return _truncate_middle(arn.replace("arn:aws:s3:::", "s3://", 1), 60)
-    if arn.startswith("github://") or arn.startswith("gitlab://"):
-        return _truncate_middle(arn.rsplit("/", 1)[-1], 52)
-    if "/" in arn:
-        return _truncate_middle(arn.rsplit("/", 1)[-1], 52)
-    return _truncate_middle(arn, 52) or "Resource"
-
-
-def _resource_display(resource_arn: str, max_len: int = 96) -> str:
-    arn = resource_arn or "-"
-    if arn.startswith("arn:aws:s3:::"):
-        arn = arn.replace("arn:aws:s3:::", "s3://", 1)
-    return _truncate_middle(arn, max_len)
 
 
 def _fit_text(
@@ -171,59 +154,6 @@ def _fit_text(
     return best
 
 
-def _overview_sort_key(control: dict[str, Any]) -> tuple:
-    rank = {"fail": 0, "at_risk": 1, "pass": 2, "no_data": 3}.get(control.get("status"), 4)
-    return (rank,) + _review_priority(control)
-
-
-def _resource_kind(arn: str) -> str:
-    arn = arn or ""
-    if ":role/" in arn:
-        return "IAM roles"
-    if ":user/" in arn:
-        return "IAM users"
-    if ":policy/" in arn:
-        return "IAM policies"
-    if "access-key" in arn or "access_key" in arn or arn.startswith("AKIA"):
-        return "access keys"
-    if arn.startswith("arn:aws:s3") or arn.startswith("s3://"):
-        return "S3 buckets"
-    if "kms" in arn:
-        return "KMS keys"
-    if arn.startswith("github://"):
-        return "GitHub repos"
-    if arn.startswith("gitlab://"):
-        return "GitLab repos"
-    if ":instance/" in arn or arn.startswith("i-"):
-        return "EC2 instances"
-    if "security-group" in arn or arn.startswith("sg-"):
-        return "security groups"
-    return "other resources"
-
-
-def _population_summary(findings: list[dict[str, Any]]) -> tuple[str, str]:
-    """Return (resource-type breakdown, evidence age span) summarizing every
-    finding in the control without enumerating them."""
-    kinds: dict[str, int] = {}
-    firsts: list[str] = []
-    lasts: list[str] = []
-    for f in findings:
-        kinds[_resource_kind(f.get("resource_arn") or "")] = kinds.get(_resource_kind(f.get("resource_arn") or ""), 0) + 1
-        if f.get("first_seen"):
-            firsts.append(str(f["first_seen"])[:10])
-        if f.get("last_seen"):
-            lasts.append(str(f["last_seen"])[:10])
-    top = sorted(kinds.items(), key=lambda kv: -kv[1])[:4]
-    kind_str = ", ".join(f"{count} {kind}" for kind, count in top) or "-"
-    if firsts:
-        oldest = min(firsts)
-        newest = max(lasts) if lasts else oldest
-        age_str = f"oldest open since {oldest}, most recent {newest}" if oldest != newest else f"first observed {oldest}"
-    else:
-        age_str = "-"
-    return kind_str, age_str
-
-
 def _objective_text(title: str) -> str:
     title = _s(title)
     if " - " in title:
@@ -237,15 +167,6 @@ def _severity_counts(findings: list[dict[str, Any]]) -> dict[str, int]:
         sev = (finding.get("severity") or "medium").lower()
         counts[sev] = counts.get(sev, 0) + 1
     return counts
-
-
-def _severity_summary(counts: dict[str, int]) -> str:
-    if not counts:
-        return "No severity breakdown"
-    return " / ".join(
-        f"{counts[key]} {key.capitalize()}"
-        for key in sorted(counts, key=lambda item: _SEV_ORDER.get(item, 99))
-    )
 
 
 def _review_priority(control: dict[str, Any]) -> tuple[int, int, int, int, str]:
@@ -262,23 +183,9 @@ def _key_controls_for_review(control_results: list[dict[str, Any]], *, limit: in
     return review[:limit]
 
 
-def _finding_age_days(finding: dict[str, Any], *, ref: datetime | None = None) -> int | None:
-    raw = finding.get("first_seen") or finding.get("last_seen")
-    if not raw:
-        return None
-    try:
-        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        anchor = ref or datetime.now(timezone.utc)
-        return max(0, (anchor - dt).days)
-    except (TypeError, ValueError):
-        return None
-
-
-def _oldest_finding_days(findings: list[dict[str, Any]], *, ref: datetime | None = None) -> int | None:
-    ages = [d for f in findings if (d := _finding_age_days(f, ref=ref)) is not None]
-    return max(ages) if ages else None
+def _overview_sort_key(control: dict[str, Any]) -> tuple:
+    rank = {"fail": 0, "at_risk": 1, "pass": 2, "no_data": 3}.get(control.get("status"), 4)
+    return (rank,) + _review_priority(control)
 
 
 def _mark_path() -> Path | None:
@@ -293,11 +200,60 @@ def _mark_path() -> Path | None:
 
 
 class VeritrailEvidencePDF(FPDF):
-    def __init__(self, *, report_id: str, framework_short: str, period_days: int) -> None:
+    """Adds a running header (org · audit window · generated · integrity) and a
+    page-numbered footer to every content page. The cover page stays clean."""
+
+    def __init__(
+        self,
+        *,
+        report_id: str,
+        framework_short: str,
+        period_days: int,
+        org_name: str,
+        audit_window: str,
+        generated_label: str,
+        integrity_label: str | None = None,
+    ) -> None:
         super().__init__(orientation="P", unit="mm", format="A4")
         self.report_id = report_id
         self.framework_short = framework_short
         self.period_days = period_days
+        self.org_name = org_name
+        self.audit_window = audit_window
+        self.generated_label = generated_label
+        self.integrity_label = integrity_label
+        self.show_running_header = False
+
+    def header(self) -> None:
+        if not self.show_running_header:
+            return
+        y0 = 8
+        self.set_y(y0)
+        self.set_font("Helvetica", "B", _FONT["tiny"])
+        self.set_text_color(*MUTED)
+        self.cell(0, 3.6, _s(self.org_name), align="L")
+        self.set_x(self.l_margin)
+        self.set_font("Helvetica", "", _FONT["tiny"])
+        self.cell(
+            0,
+            3.6,
+            _s(f"Audit window {self.audit_window}  |  Generated {self.generated_label}"),
+            align="R",
+            new_x="LMARGIN",
+            new_y="NEXT",
+        )
+        self.set_font("Helvetica", "", _FONT["tiny"])
+        self.set_text_color(148, 163, 184)
+        self.cell(0, 3.4, _s(f"{self.framework_short} compliance evidence"), align="L")
+        self.set_x(self.l_margin)
+        integrity = f"Report {self.report_id}"
+        if self.integrity_label:
+            integrity += f"  |  Integrity {self.integrity_label}"
+        self.cell(0, 3.4, _s(integrity), align="R", new_x="LMARGIN", new_y="NEXT")
+        self.ln(1)
+        self.set_draw_color(*SUBTLE)
+        self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+        self.set_y(self.get_y() + 4)
 
     def footer(self) -> None:
         self.set_y(-13)
@@ -387,6 +343,7 @@ def _draw_cover(
     title: str,
     framework_label: str,
     pack_badge: str,
+    org_name: str,
     account_label: str,
     account_id: str,
     period_start,
@@ -395,11 +352,10 @@ def _draw_cover(
     generated_at: datetime,
     report_id: str,
 ) -> None:
-    """Dedicated cover page: brand, title, and the four facts an auditor files
-    the document under. Everything else starts on page 2."""
+    """Dedicated cover page: brand, title, and the facts an auditor files the
+    document under. Everything else starts on page 2."""
     pdf.add_page()
 
-    # Top brand row
     mark = _mark_path()
     y = 34
     if mark:
@@ -413,8 +369,7 @@ def _draw_cover(
     pdf.set_text_color(*MUTED)
     pdf.cell(0, 5, _s("Continuous compliance evidence"), align="C", new_x="LMARGIN", new_y="NEXT")
 
-    # Title block
-    pdf.ln(24)
+    pdf.ln(22)
     pdf.set_font("Helvetica", "B", 26)
     pdf.set_text_color(*INK)
     pdf.cell(0, 11, _s(title), align="C", new_x="LMARGIN", new_y="NEXT")
@@ -430,7 +385,6 @@ def _draw_cover(
     pdf.line((pdf.w - rule_w) / 2, pdf.get_y(), (pdf.w + rule_w) / 2, pdf.get_y())
     pdf.set_line_width(0.2)
 
-    # Badge
     pdf.ln(7)
     badge_w = 62
     bx = (pdf.w - badge_w) / 2
@@ -443,9 +397,9 @@ def _draw_cover(
     pdf.set_text_color(29, 78, 216)
     pdf.cell(badge_w, 3.5, _s(pack_badge), align="C")
 
-    # Fact stack
     pdf.set_y(by + 26)
     facts = [
+        ("Organization", org_name),
         ("Account", f"{account_label} ({account_id})"),
         ("Audit period", f"{period_start} to {period_end}  ({period_days} days)"),
         ("Generated", generated_at.strftime("%Y-%m-%d %H:%M UTC")),
@@ -464,7 +418,6 @@ def _draw_cover(
         pdf.set_text_color(*INK)
         pdf.cell(value_w, 7, _s(value), new_x="LMARGIN", new_y="NEXT")
 
-    # Bottom disclaimer
     pdf.set_y(-40)
     pdf.set_font("Helvetica", "", _FONT["small"])
     pdf.set_text_color(148, 163, 184)
@@ -478,47 +431,6 @@ def _draw_cover(
         ),
         align="C",
     )
-
-
-def _draw_header(pdf: VeritrailEvidencePDF, title: str, framework_label: str, pack_badge: str) -> None:
-    y0 = pdf.get_y()
-    mark = _mark_path()
-    if mark:
-        pdf.image(str(mark), x=pdf.l_margin, y=y0 + 1, w=6.5)
-        text_x = pdf.l_margin + 9
-    else:
-        text_x = pdf.l_margin
-    pdf.set_xy(text_x, y0 + 1)
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.set_text_color(*INK)
-    pdf.cell(40, 7, "Veritrail")
-
-    badge_w = 46
-    bx = pdf.w - pdf.r_margin - badge_w
-    pdf.set_xy(bx, y0 + 1)
-    pdf.set_fill_color(239, 246, 255)
-    pdf.set_draw_color(191, 219, 254)
-    pdf.rect(bx, y0 + 1, badge_w, 9.5, style="FD")
-    pdf.set_xy(bx, y0 + 4)
-    pdf.set_font("Helvetica", "B", _FONT["small"])
-    pdf.set_text_color(29, 78, 216)
-    pdf.cell(badge_w, 3.5, _s(pack_badge), align="C")
-
-    pdf.set_y(y0 + 23)
-    pdf.set_font("Helvetica", "B", _FONT["display"])
-    pdf.set_text_color(*INK)
-    pdf.cell(0, 9, _s(title), new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", _FONT["body"])
-    pdf.set_text_color(*MUTED)
-    pdf.cell(0, 5, _s(framework_label), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(1)
-    pdf.set_font("Helvetica", "", _FONT["small"])
-    pdf.set_text_color(148, 163, 184)
-    pdf.cell(0, 4, _s("Not a compliance attestation - supports audit review only."), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(4)
-    pdf.set_draw_color(*SUBTLE)
-    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-    pdf.ln(6)
 
 
 def _draw_meta_grid(pdf: FPDF, fields: list[tuple[str, str]]) -> None:
@@ -550,134 +462,196 @@ def _draw_meta_grid(pdf: FPDF, fields: list[tuple[str, str]]) -> None:
     pdf.set_y(y0 + h + 5)
 
 
-def _draw_top_controls(pdf: FPDF, controls: list[dict[str, Any]]) -> None:
-    if not controls:
-        pdf.set_font("Helvetica", "", _FONT["body"])
-        pdf.set_text_color(*MUTED)
-        pdf.cell(0, 6, "No controls currently require review.", new_x="LMARGIN", new_y="NEXT")
+def _draw_coverage_banner(pdf: FPDF, coverage: dict[str, Any], period_days: int) -> None:
+    """Prominent warning when evidence does not cover the full audit period."""
+    days = int(coverage.get("days_with_data", 0) or 0)
+    req = int(coverage.get("days_requested", period_days) or period_days)
+    if req <= 0 or days >= req:
         return
-    row_h = 13
-    h = 6 + len(controls) * row_h
-    _ensure(pdf, h + 4)
+    missing = req - days
+    _ensure(pdf, 22)
+    pdf.ln(4)
     x0, y0 = pdf.l_margin, pdf.get_y()
-    pdf.set_fill_color(255, 255, 255)
-    pdf.set_draw_color(*SUBTLE)
+    h = 16
+    pdf.set_fill_color(255, 251, 235)
+    pdf.set_draw_color(253, 230, 138)
     pdf.rect(x0, y0, pdf.epw, h, style="FD")
-    for idx, control in enumerate(controls):
-        y = y0 + 3 + idx * row_h
-        if idx:
-            pdf.set_draw_color(*SUBTLE)
-            pdf.line(x0 + 4, y, x0 + pdf.epw - 4, y)
-        findings = control.get("findings") or []
-        count = int(control.get("finding_count") or len(findings) or 0)
-        counts = _severity_counts(findings)
-        pdf.set_xy(x0 + 5, y + 2)
-        pdf.set_font("Helvetica", "B", _FONT["body"])
-        pdf.set_text_color(*INK)
-        pdf.cell(85, 4.6, _s(f"{control.get('control_id', '-')}  {_objective_text(control.get('title', ''))}"))
-        pdf.set_xy(x0 + 5, y + 7)
-        pdf.set_font("Helvetica", "", _FONT["small"])
-        pdf.set_text_color(*MUTED)
-        pdf.cell(110, 4.2, _s(f"{count} findings  |  {_severity_summary(counts)}  |  Evidence {_EVIDENCE.get(control.get('evidence_status', 'missing'), _EVIDENCE['missing'])['label']}"))
-        st = control.get("status") or "fail"
-        status_style = _STATUS.get(st, _STATUS["fail"])
-        pdf.set_xy(x0 + pdf.epw - 30, y + 3.5)
-        _pill(pdf, status_style["label"], status_style, w=24, h=5.8)
-    pdf.set_y(y0 + h + 5)
+    pdf.set_fill_color(*AMBER)
+    pdf.rect(x0, y0, 1.4, h, style="F")
+    pdf.set_xy(x0 + 6, y0 + 3.4)
+    pdf.set_font("Helvetica", "B", _FONT["body"])
+    pdf.set_text_color(146, 64, 14)
+    pdf.cell(0, 4.5, _s(f"Evidence coverage gap - {days} of {req} days have scan or snapshot data"))
+    pdf.set_xy(x0 + 6, y0 + 9)
+    pdf.set_font("Helvetica", "", _FONT["small"])
+    pdf.set_text_color(120, 53, 15)
+    pdf.cell(0, 4, _s(f"{missing} days in the audit period have no evidence. Extend continuous monitoring to cover the full Type II period."))
+    pdf.set_y(y0 + h + 3)
 
 
-def _draw_exception_register(pdf: FPDF, controls: list[dict[str, Any]], *, generated_at: datetime) -> None:
-    """Severity-weighted register for fail/at_risk controls and approved exceptions."""
-    actionable = [
-        c
-        for c in controls
-        if c.get("status") in ("fail", "at_risk")
-        and (c.get("findings") or c.get("exception_narratives"))
-    ]
-    if not actionable:
-        return
+# ── Capability domain narrative sections ──────────────────────────────────────
 
-    col_w = [20, 52, 24, 18, 18, 18, 18, 22]
-    headers = ["Control", "Objective", "Status", "Crit", "High", "Med", "Low", "Oldest"]
 
-    def header() -> None:
-        y = pdf.get_y()
-        x = pdf.l_margin
-        pdf.set_fill_color(*SOFT_BG)
-        pdf.set_draw_color(*SUBTLE)
-        pdf.set_font("Helvetica", "B", _FONT["tiny"])
-        pdf.set_text_color(*MUTED)
-        for width, label in zip(col_w, headers):
-            pdf.rect(x, y, width, 8, style="FD")
-            pdf.set_xy(x + 1.5, y + 2.2)
-            align = "C" if label not in {"Control", "Objective", "Status"} else "L"
-            pdf.cell(width - 3, 3.5, _s(label.upper()), align=align)
-            x += width
-        pdf.set_y(y + 8)
-
-    pdf.add_page()
-    _outline(pdf, "Exception Register")
-    _section(
-        pdf,
-        "Exception Register",
-        "Open findings by severity and age. Approved exceptions are listed below the table.",
-        gap=0,
+def _domain_band(pdf: FPDF, idx: int, section: DomainSection) -> None:
+    band_h = 11
+    y_band = pdf.get_y()
+    pdf.set_fill_color(*SOFT_BG)
+    pdf.set_draw_color(*SUBTLE)
+    pdf.rect(pdf.l_margin, y_band, pdf.epw, band_h, style="FD", round_corners=True, corner_radius=1.6)
+    pdf.set_xy(pdf.l_margin + 3.2, y_band + (band_h - 6.6) / 2)
+    pdf.set_font("Helvetica", "B", _FONT["h2"])
+    pdf.set_text_color(*INK)
+    title = f"{idx}. {section.label}"
+    pdf.cell(
+        pdf.epw - 44,
+        6.6,
+        _fit_text(pdf, title, pdf.epw - 44, family="Helvetica", size=_FONT["h2"], style="B"),
+        align="L",
     )
-    header()
-    for control in sorted(actionable, key=_overview_sort_key):
-        findings = control.get("findings") or []
-        counts = _severity_counts(findings)
-        oldest = _oldest_finding_days(findings, ref=generated_at)
-        row_h = 10
-        if pdf.get_y() + row_h > _bottom(pdf):
-            pdf.add_page()
-            _section(pdf, "Exception Register", "Continued.", gap=0)
-            header()
-        y = pdf.get_y()
-        x = pdf.l_margin
-        pdf.set_draw_color(*SUBTLE)
-        pdf.rect(x, y, sum(col_w), row_h, style="D")
-        pdf.set_xy(x + 2, y + 2.2)
-        pdf.set_font("Helvetica", "B", _FONT["table"])
-        pdf.set_text_color(*INK)
-        pdf.cell(col_w[0] - 4, 4, _s(control.get("control_id", "-")))
-        x += col_w[0]
-        pdf.set_xy(x + 2, y + 2.2)
-        pdf.set_font("Helvetica", "", _FONT["table"])
-        pdf.set_text_color(51, 65, 85)
-        pdf.cell(col_w[1] - 4, 4, _s(_truncate_middle(_objective_text(control.get("title", "")), 42)))
-        x += col_w[1]
-        status_style = _STATUS.get(control.get("status"), _STATUS["no_data"])
-        pdf.set_xy(x + 2, y + 2)
-        _pill(pdf, status_style["label"], status_style, w=col_w[2] - 4, h=5.8)
-        x += col_w[2]
-        pdf.set_font("Helvetica", "B", _FONT["table"])
-        pdf.set_text_color(*INK)
-        for idx, sev in enumerate(("critical", "high", "medium", "low"), start=3):
-            pdf.set_xy(x + 2, y + 2.2)
-            pdf.cell(col_w[idx] - 4, 4, _s(str(counts.get(sev, 0))), align="C")
-            x += col_w[idx]
-        pdf.set_xy(x + 2, y + 2.2)
-        pdf.cell(col_w[7] - 4, 4, _s(f"{oldest}d" if oldest is not None else "-"), align="C")
-        pdf.set_y(y + row_h)
+    all_passing = section.checks_total > 0 and section.checks_passing == section.checks_total
+    pill_style = _STATUS["pass"] if all_passing else _STATUS["fail"]
+    pill_label = f"{section.checks_passing}/{section.checks_total} checks"
+    pdf.set_xy(pdf.w - pdf.r_margin - 34.5, y_band + (band_h - 6.2) / 2)
+    _pill(pdf, pill_label, pill_style, w=32, h=6.2)
+    pdf.set_y(y_band + band_h + 2.5)
 
-    with_exceptions = [c for c in actionable if c.get("exception_narratives")]
-    if with_exceptions:
-        pdf.ln(4)
+
+def _draw_gap_row(pdf: FPDF, finding: dict[str, Any], idx: int, *, reserve_after: float = 0) -> None:
+    """Two-line gap row: severity pill + issue title, resource ARN below.
+
+    ``reserve_after`` keeps trailing content (e.g. the appendix reference line)
+    on the same page as the final row instead of orphaning it.
+    """
+    row_h = 11
+    _ensure(pdf, row_h + reserve_after)
+    x0, y = pdf.l_margin, pdf.get_y()
+    if idx > 1:
+        pdf.set_draw_color(236, 240, 245)
+        pdf.line(x0, y, x0 + pdf.epw, y)
+
+    sev = (finding.get("severity") or "medium").lower()
+    sev_style = _SEVERITY.get(sev, _SEVERITY["medium"])
+    pdf.set_xy(x0, y + 2.4)
+    _pill(pdf, sev_style["label"], sev_style, w=18, h=5.4)
+
+    text_x = x0 + 22
+    dates = f"First seen {_fmt_date(finding.get('first_seen'))}"
+    pdf.set_font("Helvetica", "", _FONT["tiny"])
+    dates_w = pdf.get_string_width(_s(dates)) + 1
+    pdf.set_xy(pdf.w - pdf.r_margin - dates_w, y + 2.6)
+    pdf.set_text_color(*MUTED)
+    pdf.cell(dates_w, 3.6, _s(dates), align="R")
+
+    title_w = (pdf.w - pdf.r_margin - dates_w - 4) - text_x
+    title = _fit_text(pdf, " ".join((finding.get("title") or "").split()), title_w, style="B", size=_FONT["small"])
+    pdf.set_xy(text_x, y + 2)
+    pdf.set_font("Helvetica", "B", _FONT["small"])
+    pdf.set_text_color(*INK)
+    pdf.cell(title_w, 4.2, title)
+
+    arn = (finding.get("resource_arn") or "-").replace("arn:aws:s3:::", "s3://", 1)
+    arn_w = pdf.w - pdf.r_margin - text_x
+    arn_fit = _fit_text(pdf, arn, arn_w, family="Courier", size=_FONT["mono"])
+    pdf.set_xy(text_x, y + 6.6)
+    pdf.set_font("Courier", "", _FONT["mono"])
+    pdf.set_text_color(90, 105, 125)
+    pdf.cell(arn_w, 3.6, arn_fit)
+    pdf.set_y(y + row_h)
+
+
+def _draw_domain_section(pdf: FPDF, section: DomainSection, idx: int) -> None:
+    pdf.ln(6)
+    _ensure(pdf, 58)
+    _outline(pdf, f"{idx}. {section.label}", level=1)
+    _domain_band(pdf, idx, section)
+
+    # Control cross-reference tags — secondary metadata, not the structure.
+    if section.control_tags:
+        pdf.set_font("Helvetica", "", _FONT["tiny"])
+        pdf.set_text_color(*MUTED)
+        pdf.multi_cell(pdf.epw, 3.8, _s("Mapped controls: " + "  ·  ".join(section.control_tags)), align="L")
+        pdf.ln(0.5)
+
+    if section.scope_note:
+        pdf.set_font("Helvetica", "I", _FONT["small"])
+        pdf.set_text_color(*MUTED)
+        pdf.multi_cell(pdf.epw, 4.4, _s(section.scope_note), align="L")
+        pdf.ln(0.5)
+
+    # Assertion paragraph — affirmative but evidence-anchored and scoped.
+    pdf.set_font("Helvetica", "", _FONT["body"])
+    pdf.set_text_color(51, 65, 85)
+    pdf.multi_cell(pdf.epw, 5.2, _s(section.assertion), align="L")
+    pdf.ln(1.5)
+
+    # Coverage line — wraps rather than truncates when long.
+    coverage_text = _s(f"Coverage: {section.coverage_line}")
+    pdf.set_font("Helvetica", "", _FONT["small"])
+    n_lines = len(pdf.multi_cell(pdf.epw - 6, 4, coverage_text, align="L", dry_run=True, output="LINES"))
+    box_h = 3.2 + n_lines * 4
+    _ensure(pdf, box_h + 2)
+    x0, y0 = pdf.l_margin, pdf.get_y()
+    pdf.set_fill_color(*SOFT_BG)
+    pdf.set_draw_color(*SUBTLE)
+    pdf.rect(x0, y0, pdf.epw, box_h, style="FD")
+    pdf.set_xy(x0 + 3, y0 + 1.6)
+    pdf.set_text_color(71, 85, 105)
+    pdf.multi_cell(pdf.epw - 6, 4, coverage_text, align="L")
+    pdf.set_y(y0 + box_h + 2)
+
+    # Documented exceptions — risk-accepted deviations with recorded reasons.
+    if section.exceptions:
+        shown = section.exceptions[:_EXCEPTIONS_INLINE_LIMIT]
+        pdf.ln(1.5)
+        _ensure(pdf, 14 + 5 * len(shown))
+        x0, y0 = pdf.l_margin, pdf.get_y()
+        pad = 3
+        pdf.set_xy(x0 + pad, y0 + pad)
+        pdf.set_font("Helvetica", "B", _FONT["h3"])
+        pdf.set_text_color(146, 64, 14)
+        pdf.cell(0, 5, _s(f"Documented exceptions ({len(section.exceptions)})"), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", _FONT["small"])
+        pdf.set_text_color(120, 63, 4)
+        for exc in shown:
+            pdf.set_x(x0 + pad)
+            pdf.multi_cell(pdf.epw - 2 * pad, 4.8, _s(f"-  {exception_narrative(exc)}"), align="L", new_x="LMARGIN", new_y="NEXT")
+        if len(section.exceptions) > len(shown):
+            pdf.set_x(x0 + pad)
+            pdf.cell(0, 4.6, _s(f"{len(section.exceptions) - len(shown)} more in the resource appendix and per-control exceptions.json"), new_x="LMARGIN", new_y="NEXT")
+        y1 = pdf.get_y() + pad
+        pdf.set_draw_color(253, 230, 138)
+        pdf.rect(x0, y0, pdf.epw, y1 - y0, style="D", round_corners=True, corner_radius=1.6)
+        pdf.set_y(y1)
+
+    # Open gaps — open findings are gaps, never exceptions.
+    if section.gaps:
+        pdf.ln(2)
+        # Keep the heading, the first gap row, and the appendix reference together.
+        _ensure(pdf, 26)
+        pdf.set_x(pdf.l_margin)
         pdf.set_font("Helvetica", "B", _FONT["h3"])
         pdf.set_text_color(*INK)
-        pdf.cell(0, 6, _s("Approved exceptions"), new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "", _FONT["small"])
-        pdf.set_text_color(51, 65, 85)
-        for control in with_exceptions:
-            cid = control.get("control_id", "-")
-            for line in (control.get("exception_narratives") or [])[:3]:
-                pdf.multi_cell(pdf.epw, 4.8, _s(f"{cid}: {line}"), align="L")
-            extra = len(control.get("exception_narratives") or []) - 3
-            if extra > 0:
-                pdf.set_text_color(*MUTED)
-                pdf.cell(0, 4.6, _s(f"{cid}: {extra} more in controls/{cid}/exceptions.json"), new_x="LMARGIN", new_y="NEXT")
-                pdf.set_text_color(51, 65, 85)
+        pdf.cell(0, 5.5, _s(f"Open gaps ({len(section.gaps)})"), new_x="LMARGIN", new_y="NEXT")
+        shown_gaps = section.gaps[:_GAPS_INLINE_LIMIT]
+        for i, finding in enumerate(shown_gaps, 1):
+            _draw_gap_row(pdf, finding, i, reserve_after=7 if i == len(shown_gaps) else 0)
+        if len(section.gaps) > _GAPS_INLINE_LIMIT:
+            pdf.set_font("Helvetica", "", _FONT["small"])
+            pdf.set_text_color(*MUTED)
+            pdf.cell(0, 4.6, _s(f"{len(section.gaps) - _GAPS_INLINE_LIMIT} more listed in the resource appendix."), new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(1.5)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font("Helvetica", "", _FONT["tiny"])
+    pdf.set_text_color(120, 130, 145)
+    if section.appendix_rows:
+        ref = f"Resource-level detail: Appendix A, section A.{idx}. Complete population: controls/<id>/findings.json in this pack."
+    else:
+        ref = "No open findings or documented exceptions in this domain. Complete population: controls/<id>/findings.json in this pack."
+    pdf.cell(0, 4, _s(ref), new_x="LMARGIN", new_y="NEXT")
+
+
+# ── Control cross-reference table ─────────────────────────────────────────────
 
 
 def _draw_control_overview(pdf: FPDF, controls: list[dict[str, Any]]) -> None:
@@ -700,11 +674,11 @@ def _draw_control_overview(pdf: FPDF, controls: list[dict[str, Any]]) -> None:
         pdf.set_y(y + 8)
 
     header()
-    for idx, control in enumerate(controls):
+    for control in controls:
         row_h = 10
         if pdf.get_y() + row_h > _bottom(pdf):
             pdf.add_page()
-            _section(pdf, "Control Overview", "Continued.", gap=0)
+            _section(pdf, "Control Cross-Reference", "Continued.", gap=0)
             header()
         y = pdf.get_y()
         x = pdf.l_margin
@@ -735,258 +709,112 @@ def _draw_control_overview(pdf: FPDF, controls: list[dict[str, Any]]) -> None:
         pdf.set_y(y + row_h)
 
 
-def _draw_findings_header(pdf: FPDF) -> None:
-    pdf.set_font("Helvetica", "B", _FONT["tiny"])
-    pdf.set_text_color(*MUTED)
-    x0, y = pdf.l_margin, pdf.get_y()
-    pdf.set_xy(x0, y)
-    pdf.cell(20, 4, "SEVERITY")
-    pdf.set_xy(x0 + 20, y)
-    pdf.cell(0, 4, "FINDING / RESOURCE")
-    pdf.set_xy(pdf.w - pdf.r_margin - 44, y)
-    pdf.cell(44, 4, "FIRST / LAST SEEN", align="R")
-    pdf.ln(5)
-    pdf.set_draw_color(*SUBTLE)
-    pdf.line(x0, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-    pdf.ln(1)
+# ── Resource appendix ─────────────────────────────────────────────────────────
 
 
-def _draw_finding_row(pdf: FPDF, finding: dict[str, Any], idx: int) -> None:
-    """Two-line finding row: severity + issue title + full resource ARN, with
-    first/last-seen dates right-aligned. Width-fitted so nothing clips."""
-    row_h = 11
-    _ensure(pdf, row_h)
-    x0, y = pdf.l_margin, pdf.get_y()
-    if idx > 1:
-        pdf.set_draw_color(236, 240, 245)
-        pdf.line(x0, y, x0 + pdf.epw, y)
+def _draw_appendix_table(pdf: FPDF, rows: list[dict[str, Any]]) -> None:
+    col_w = [70, 56, 32, 24]
+    headers = ["Resource", "Issue", "Disposition", "First seen"]
 
-    sev = (finding.get("severity") or "medium").lower()
-    sev_style = _SEVERITY.get(sev, _SEVERITY["medium"])
-    pdf.set_xy(x0, y + 2.4)
-    _pill(pdf, sev_style["label"], sev_style, w=18, h=5.4)
-
-    text_x = x0 + 22
-    dates = f"First {_fmt_date(finding.get('first_seen'))}    Last {_fmt_date(finding.get('last_seen'))}"
-    pdf.set_font("Helvetica", "", _FONT["tiny"])
-    dates_w = pdf.get_string_width(_s(dates)) + 1
-    pdf.set_xy(pdf.w - pdf.r_margin - dates_w, y + 2.6)
-    pdf.set_text_color(*MUTED)
-    pdf.cell(dates_w, 3.6, _s(dates), align="R")
-
-    title_w = (pdf.w - pdf.r_margin - dates_w - 4) - text_x
-    title = _fit_text(pdf, " ".join((finding.get("title") or "").split()), title_w, style="B", size=_FONT["small"])
-    pdf.set_xy(text_x, y + 2)
-    pdf.set_font("Helvetica", "B", _FONT["small"])
-    pdf.set_text_color(*INK)
-    pdf.cell(title_w, 4.2, title)
-
-    arn = (finding.get("resource_arn") or "-").replace("arn:aws:s3:::", "s3://", 1)
-    arn_w = pdf.w - pdf.r_margin - text_x
-    arn_fit = _fit_text(pdf, arn, arn_w, family="Courier", size=_FONT["mono"])
-    pdf.set_xy(text_x, y + 6.6)
-    pdf.set_font("Courier", "", _FONT["mono"])
-    pdf.set_text_color(90, 105, 125)
-    pdf.cell(arn_w, 3.6, arn_fit)
-    pdf.set_y(y + row_h)
-
-
-def _draw_coverage_banner(pdf: FPDF, coverage: dict[str, Any], period_days: int) -> None:
-    """Prominent warning when evidence does not cover the full audit period."""
-    days = int(coverage.get("days_with_data", 0) or 0)
-    req = int(coverage.get("days_requested", period_days) or period_days)
-    if req <= 0 or days >= req:
-        return
-    missing = req - days
-    _ensure(pdf, 22)
-    pdf.ln(4)
-    x0, y0 = pdf.l_margin, pdf.get_y()
-    h = 16
-    pdf.set_fill_color(255, 251, 235)
-    pdf.set_draw_color(253, 230, 138)
-    pdf.rect(x0, y0, pdf.epw, h, style="FD")
-    pdf.set_fill_color(*AMBER)
-    pdf.rect(x0, y0, 1.4, h, style="F")
-    pdf.set_xy(x0 + 6, y0 + 3.4)
-    pdf.set_font("Helvetica", "B", _FONT["body"])
-    pdf.set_text_color(146, 64, 14)
-    pdf.cell(0, 4.5, _s(f"Evidence coverage gap - {days} of {req} days have scan or snapshot data"))
-    pdf.set_xy(x0 + 6, y0 + 9)
-    pdf.set_font("Helvetica", "", _FONT["small"])
-    pdf.set_text_color(120, 53, 15)
-    pdf.cell(0, 4, _s(f"{missing} days in the audit period have no evidence. Extend continuous monitoring to cover the full Type II period."))
-    pdf.set_y(y0 + h + 3)
-
-
-def _label_value_row(pdf: FPDF, label: str, value: str, *, label_w: float = 32) -> None:
-    yy = pdf.get_y()
-    pdf.set_xy(pdf.l_margin, yy)
-    pdf.set_font("Helvetica", "B", _FONT["small"])
-    pdf.set_text_color(71, 85, 105)
-    pdf.cell(label_w, 5, _s(label))
-    pdf.set_xy(pdf.l_margin + label_w, yy)
-    pdf.set_font("Helvetica", "", _FONT["small"])
-    pdf.set_text_color(30, 41, 59)
-    pdf.multi_cell(pdf.epw - label_w, 5, _s(value), align="L", new_x="LMARGIN", new_y="NEXT")
-
-
-def _draw_control_detail(pdf: FPDF, control: dict[str, Any], framework: str) -> None:
-    """One section per in-scope control: status, narrative, tested scope,
-    exceptions, and (for failing controls) a findings sample."""
-    findings = control.get("findings") or []
-    counts = _severity_counts(findings)
-    cid = control.get("control_id", "-")
-    st = control.get("status") or ("fail" if findings else "no_data")
-    style = _STATUS.get(st, _STATUS["no_data"])
-    count = int(control.get("finding_count") or len(findings) or 0)
-    shown = min(len(findings), _PDF_FINDING_SAMPLE)
-    audit_block = control.get("audit_block") or {}
-    exceptions = [str(x) for x in (control.get("exception_narratives") or []) if str(x).strip()]
-
-    # Keep the control header + meta + a few rows together; start a new page only
-    # when there isn't room, so several small controls share a page.
-    pdf.ln(5)
-    _ensure(pdf, 52 if st in ("fail", "at_risk") else 34)
-
-    # Header band: soft filled bar with the control title left, status pill right.
-    control_title = f"{cid}  {_objective_text(control.get('title', ''))}"
-    _outline(pdf, control_title, level=1)
-    band_h = 11
-    y_band = pdf.get_y()
-    pdf.set_fill_color(*SOFT_BG)
-    pdf.set_draw_color(*SUBTLE)
-    pdf.rect(pdf.l_margin, y_band, pdf.epw, band_h, style="FD", round_corners=True, corner_radius=1.6)
-    pdf.set_xy(pdf.l_margin + 3.2, y_band + (band_h - 6.6) / 2)
-    pdf.set_font("Helvetica", "B", _FONT["h2"])
-    pdf.set_text_color(*INK)
-    pdf.cell(
-        pdf.epw - 40,
-        6.6,
-        _fit_text(pdf, _s(control_title), pdf.epw - 40, family="Helvetica", size=_FONT["h2"], style="B"),
-        align="L",
-    )
-    pdf.set_xy(pdf.w - pdf.r_margin - 32.5, y_band + (band_h - 6.2) / 2)
-    _pill(pdf, style["label"], style, w=30, h=6.2)
-    pdf.set_y(y_band + band_h + 2.5)
-
-    ev = _EVIDENCE.get(control.get("evidence_status", "missing"), _EVIDENCE["missing"])["label"]
-    pdf.set_font("Helvetica", "", _FONT["small"])
-    pdf.set_text_color(*MUTED)
-    meta_bits = [f"{count} open findings"]
-    if findings:
-        meta_bits.append(_severity_summary(counts))
-    meta_bits.append(f"Evidence {ev}")
-    if exceptions:
-        meta_bits.append(f"{len(exceptions)} approved exception(s)")
-    pdf.cell(0, 5, _s("    |    ".join(meta_bits)), new_x="LMARGIN", new_y="NEXT")
-
-    # Scope note — source-control controls (Secure SDLC) are workspace/org-level,
-    # not scoped to this cloud account; label so a repo finding is never read as
-    # an account finding.
-    scope_label = (control.get("scope_label") or "").strip()
-    if scope_label:
-        pdf.set_font("Helvetica", "I", _FONT["small"])
+    def header() -> None:
+        y = pdf.get_y()
+        x = pdf.l_margin
+        pdf.set_fill_color(*SOFT_BG)
+        pdf.set_draw_color(*SUBTLE)
+        pdf.set_font("Helvetica", "B", _FONT["tiny"])
         pdf.set_text_color(*MUTED)
-        pdf.cell(0, 4.6, _s(scope_label), new_x="LMARGIN", new_y="NEXT")
+        for width, label in zip(col_w, headers):
+            pdf.rect(x, y, width, 7, style="FD")
+            pdf.set_xy(x + 1.5, y + 1.8)
+            pdf.cell(width - 3, 3.5, _s(label.upper()))
+            x += width
+        pdf.set_y(y + 7)
 
-    # Auditor narrative — the affirmative statement of what this control covers
-    # and what evidence Veritrail collects for it.
-    try:
-        from app.data.control_narratives import narrative_for
+    header()
+    for row in rows:
+        reason = row.get("exception_reason")
+        row_h = 9 if not reason else 13.5
+        if pdf.get_y() + row_h > _bottom(pdf):
+            pdf.add_page()
+            header()
+        y = pdf.get_y()
+        x = pdf.l_margin
+        pdf.set_draw_color(*SUBTLE)
+        pdf.rect(x, y, sum(col_w), row_h, style="D")
 
-        narrative = narrative_for(framework, cid)
-    except Exception:
-        narrative = None
-    if narrative:
-        pdf.ln(1.5)
-        pdf.set_font("Helvetica", "", _FONT["body"])
+        arn = (row.get("resource_arn") or "-").replace("arn:aws:s3:::", "s3://", 1)
+        pdf.set_xy(x + 1.5, y + 2)
+        arn_fit = _fit_text(pdf, arn, col_w[0] - 3, family="Courier", size=_FONT["mono"])
+        pdf.set_font("Courier", "", _FONT["mono"])
         pdf.set_text_color(51, 65, 85)
-        pdf.multi_cell(pdf.epw, 5.2, _s(narrative), align="L")
-    else:
-        desc = (control.get("description") or "").strip()
-        if desc:
-            pdf.ln(1)
-            pdf.set_font("Helvetica", "", _FONT["body"])
-            pdf.set_text_color(51, 65, 85)
-            pdf.multi_cell(pdf.epw, 5.2, _s(desc), align="L")
-    pdf.ln(2.5)
+        pdf.cell(col_w[0] - 3, 4, arn_fit)
+        x += col_w[0]
 
-    # Structured result block (from the v2 audit template when available).
-    current = (audit_block.get("current_result") or {}).get("summary")
-    if current:
-        _label_value_row(pdf, "Result", current)
-    tested = audit_block.get("what_veritrail_tested") or []
-    if tested:
-        preview = ", ".join(tested[:4])
-        if len(tested) > 4:
-            preview += f", and {len(tested) - 4} more"
-        _label_value_row(pdf, "Tested", f"{len(tested)} automated check(s): {preview}")
-    next_step = audit_block.get("recommended_next_step")
-    if next_step and st != "pass":
-        _label_value_row(pdf, "Next step", next_step)
+        pdf.set_xy(x + 1.5, y + 2)
+        title_fit = _fit_text(pdf, " ".join((row.get("title") or "-").split()), col_w[1] - 3, size=_FONT["tiny"])
+        pdf.set_font("Helvetica", "", _FONT["tiny"])
+        pdf.set_text_color(*INK)
+        pdf.cell(col_w[1] - 3, 4, title_fit)
+        x += col_w[1]
 
-    # Population aggregate — characterizes ALL findings without enumerating them.
-    if findings:
-        kind_str, age_str = _population_summary(findings)
-        _label_value_row(pdf, "Resource types", kind_str)
-        _label_value_row(pdf, "Evidence age", age_str)
+        is_exception = row.get("disposition") == "Documented exception"
+        pdf.set_xy(x + 1.5, y + 2)
+        pdf.set_font("Helvetica", "B", _FONT["tiny"])
+        pdf.set_text_color(*(AMBER if is_exception else RED))
+        pdf.cell(col_w[2] - 3, 4, _s("Exception" if is_exception else "Open gap"))
+        x += col_w[2]
 
-    # Approved exceptions — risk-accepted items the auditor should see inline,
-    # not buried in exceptions.json. Amber callout so they read as documented
-    # deviations, not findings.
-    if exceptions:
-        shown_exc = exceptions[:6]
-        pdf.ln(2)
-        _ensure(pdf, 12 + 5 * len(shown_exc))
-        x0, y0 = pdf.l_margin, pdf.get_y()
-        pad = 3
-        pdf.set_xy(x0 + pad, y0 + pad)
-        pdf.set_font("Helvetica", "B", _FONT["h3"])
-        pdf.set_text_color(146, 64, 14)
-        pdf.cell(0, 5, _s("Approved exceptions"), new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "", _FONT["small"])
-        pdf.set_text_color(120, 63, 4)
-        for narrative_line in shown_exc:
-            pdf.set_x(x0 + pad)
-            pdf.multi_cell(pdf.epw - 2 * pad, 4.8, _s(f"-  {narrative_line}"), align="L", new_x="LMARGIN", new_y="NEXT")
-        if len(exceptions) > 6:
-            pdf.set_x(x0 + pad)
-            pdf.cell(0, 4.6, _s(f"{len(exceptions) - 6} more in controls/{cid}/exceptions.json"), new_x="LMARGIN", new_y="NEXT")
-        y1 = pdf.get_y() + pad
-        pdf.set_draw_color(253, 230, 138)
-        pdf.rect(x0, y0, pdf.epw, y1 - y0, style="D", round_corners=True, corner_radius=1.6)
-        pdf.set_y(y1)
+        pdf.set_xy(x + 1.5, y + 2)
+        pdf.set_font("Helvetica", "", _FONT["tiny"])
+        pdf.set_text_color(*MUTED)
+        pdf.cell(col_w[3] - 3, 4, _s(row.get("first_seen") or "-"))
 
-    # Findings sample — only for controls that need attention.
-    if st in ("fail", "at_risk") and findings:
-        pdf.ln(3)
-        pdf.set_x(pdf.l_margin)
+        if reason:
+            pdf.set_xy(pdf.l_margin + 1.5, y + 7.5)
+            pdf.set_font("Helvetica", "I", _FONT["tiny"])
+            pdf.set_text_color(120, 63, 4)
+            pdf.cell(sum(col_w) - 3, 4, _fit_text(pdf, f"Reason: {reason}", sum(col_w) - 4, style="I", size=_FONT["tiny"]))
+        pdf.set_y(y + row_h)
+
+
+def _draw_resource_appendix(pdf: FPDF, sections: list[DomainSection]) -> None:
+    with_rows = [s for s in sections if s.appendix_rows]
+    pdf.add_page()
+    _outline(pdf, "Appendix A - Resource Detail")
+    _section(
+        pdf,
+        "Appendix A - Resource Detail",
+        "Per-resource findings referenced from each capability domain section. "
+        "Open findings are gaps; documented exceptions carry their recorded reason. "
+        "The complete machine-readable population is in each control's findings.json and exceptions.json.",
+        gap=0,
+    )
+    if not with_rows:
+        pdf.set_font("Helvetica", "", _FONT["body"])
+        pdf.set_text_color(*MUTED)
+        pdf.cell(0, 6, _s("No open findings or documented exceptions in this audit period."), new_x="LMARGIN", new_y="NEXT")
+        return
+    for section in sections:
+        if not section.appendix_rows:
+            continue
+        idx = sections.index(section) + 1
+        _ensure(pdf, 26)
+        pdf.ln(4)
+        _outline(pdf, f"A.{idx} {section.label}", level=1)
         pdf.set_font("Helvetica", "B", _FONT["h3"])
         pdf.set_text_color(*INK)
-        pdf.cell(0, 5.5, _s("Sample findings"), new_x="LMARGIN", new_y="NEXT")
-        pdf.set_x(pdf.l_margin)
-        pdf.set_font("Helvetica", "", _FONT["small"])
-        pdf.set_text_color(*MUTED)
-        pdf.cell(0, 4.6, _s(f"Showing {shown} of {count}. Complete population in controls/{cid}/findings.json."), new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
+        pdf.cell(0, 6, _s(f"A.{idx}  {section.label}"), new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+        _draw_appendix_table(pdf, section.appendix_rows)
 
-        _ensure(pdf, 16)
-        _draw_findings_header(pdf)
-        for idx, finding in enumerate(findings[:_PDF_FINDING_SAMPLE], 1):
-            _draw_finding_row(pdf, finding, idx)
 
-    pdf.ln(2.5)
-    pdf.set_x(pdf.l_margin)
-    pdf.set_font("Courier", "", _FONT["mono"])
-    pdf.set_text_color(120, 130, 145)
-    artifacts = f"Evidence files: controls/{cid}/ findings.json (complete)  |  snapshots.json  |  exceptions.json"
-    pdf.cell(0, 4, _fit_text(pdf, artifacts, pdf.epw, family="Courier", size=_FONT["mono"]), new_x="LMARGIN", new_y="NEXT")
+# ── Evidence sources & integrity ──────────────────────────────────────────────
 
 
 def _draw_evidence_sources(pdf: FPDF, sources: list[str], framework: str, scope_limitations: list[str]) -> None:
     pdf.add_page()
-    _outline(pdf, "Evidence Sources")
-    _section(pdf, "Evidence Sources", "Source systems, artifacts, and report boundaries.", gap=0)
+    _outline(pdf, "Evidence Sources & Integrity")
+    _section(pdf, "Evidence Sources & Integrity", "Source systems, artifacts, and report boundaries.", gap=0)
     x0, y0 = pdf.l_margin, pdf.get_y()
     left_w = (pdf.epw - 8) / 2
     card_h = 48
@@ -1032,10 +860,10 @@ def _draw_evidence_sources(pdf: FPDF, sources: list[str], framework: str, scope_
     pdf.set_text_color(*INK)
     pdf.cell(0, 6, "How to use this report", new_x="LMARGIN", new_y="NEXT")
     steps = [
-        "Review controls marked Needs Review.",
-        "Open the referenced control folder in the ZIP.",
-        "Validate raw JSON and CSV evidence.",
-        "Document exceptions or remediation where needed.",
+        "Read each capability domain assertion and its coverage line.",
+        "Review documented exceptions (risk-accepted, with recorded reasons) and open gaps.",
+        "Use the control cross-reference table to map domains to framework controls.",
+        "Validate raw JSON and CSV evidence in the referenced control folders of the ZIP.",
     ]
     pdf.set_font("Helvetica", "", _FONT["body"])
     pdf.set_text_color(51, 65, 85)
@@ -1058,6 +886,9 @@ def _draw_evidence_sources(pdf: FPDF, sources: list[str], framework: str, scope_
         pdf.ln(1)
 
 
+# ── Report assembly ───────────────────────────────────────────────────────────
+
+
 def build_pdf(
     acc: AwsAccount,
     framework: str,
@@ -1073,6 +904,7 @@ def build_pdf(
     vault_enabled: bool = False,
     signature_enabled: bool = False,
     pack_provenance: dict[str, Any] | None = None,
+    org_name: str | None = None,
 ) -> bytes:
     rid = report_id or "SAMPLE"
     framework_short = _FRAMEWORK_SHORT.get(framework, framework.upper())
@@ -1081,8 +913,24 @@ def build_pdf(
     sources = evidence_sources or ["AWS IAM", "AWS CloudTrail", "AWS Config"]
     period_end = generated_at.date()
     period_start = since.date() if since else period_end
+    account_label = getattr(acc, "label", "Account")
+    account_id = getattr(acc, "account_id", None) or "unknown"
+    org_display = org_name or account_label
 
-    pdf = VeritrailEvidencePDF(report_id=rid, framework_short=framework_short, period_days=period_days)
+    registry = (pack_provenance or {}).get("check_registry") or {}
+    integrity_label = None
+    if isinstance(registry, dict) and registry.get("check_ids_hash"):
+        integrity_label = str(registry["check_ids_hash"])[:16]
+
+    pdf = VeritrailEvidencePDF(
+        report_id=rid,
+        framework_short=framework_short,
+        period_days=period_days,
+        org_name=org_display,
+        audit_window=f"{period_start} to {period_end}",
+        generated_label=generated_at.strftime("%Y-%m-%d %H:%M UTC"),
+        integrity_label=integrity_label,
+    )
     pdf.alias_nb_pages()
     pdf.set_margins(14, 12, 14)
     pdf.set_auto_page_break(auto=True, margin=20)
@@ -1092,8 +940,9 @@ def build_pdf(
         title="Compliance Evidence Report",
         framework_label=framework_label,
         pack_badge=pack_badge,
-        account_label=getattr(acc, "label", "Account"),
-        account_id=getattr(acc, "account_id", None) or "unknown",
+        org_name=org_display,
+        account_label=account_label,
+        account_id=account_id,
         period_start=period_start,
         period_end=period_end,
         period_days=period_days,
@@ -1101,8 +950,17 @@ def build_pdf(
         report_id=rid,
     )
 
+    # All content pages carry the running header (org, window, generated, integrity).
+    pdf.show_running_header = True
     pdf.add_page()
-    _draw_header(pdf, "Compliance Evidence Report", framework_label, pack_badge)
+
+    _outline(pdf, "Report Overview")
+    _section(
+        pdf,
+        "Report Overview",
+        "Scope, collection facts, and audit readiness at a glance.",
+        gap=0,
+    )
 
     coverage_label = None
     scans = None
@@ -1113,12 +971,12 @@ def build_pdf(
         failed_scan = str(coverage.get("last_failed_scan_at") or "")[:10] or None
 
     meta = [
-        ("Account", f"{getattr(acc, 'label', 'Account')} ({getattr(acc, 'account_id', None) or 'unknown'})"),
+        ("Organization", org_display),
+        ("Account", f"{account_label} ({account_id})"),
         ("Audit period", f"{period_start} to {period_end} ({period_days} days)"),
         ("Generated", generated_at.strftime("%Y-%m-%d %H:%M UTC")),
         ("Report ID", rid),
         ("Sources", ", ".join(sources)),
-        ("Collection", "Automated API collection"),
     ]
     if benchmark_coverage:
         mapped = benchmark_coverage.get("mapped_control_count", "?")
@@ -1140,17 +998,14 @@ def build_pdf(
         git_sha = build.get("git_sha") if isinstance(build, dict) else None
         if git_sha:
             meta.append(("Build git SHA", str(git_sha)[:12]))
-        registry = pack_provenance.get("check_registry") or {}
-        reg_hash = registry.get("check_ids_hash") if isinstance(registry, dict) else None
-        if reg_hash:
-            meta.append(("Check registry hash", str(reg_hash)))
+        if integrity_label:
+            meta.append(("Check registry hash", integrity_label))
     _draw_meta_grid(pdf, meta)
 
     passed = sum(1 for r in control_results if r.get("status") == "pass")
     failed = sum(1 for r in control_results if r.get("status") == "fail")
     at_risk = sum(1 for r in control_results if r.get("status") == "at_risk")
     no_data = sum(1 for r in control_results if r.get("status") == "no_data")
-    total = len(control_results)
     # Pass rate over controls that were actually evaluated — policy-only /
     # unevaluated controls (no automated checks) don't drag the rate to zero.
     evaluated = passed + failed + at_risk
@@ -1178,54 +1033,53 @@ def build_pdf(
     if coverage:
         _draw_coverage_banner(pdf, coverage, period_days)
 
-    key_controls = _key_controls_for_review(control_results)
-    if key_controls:
-        pdf.ln(3)
-        _section(
-            pdf,
-            "Priority Review",
-            "Benchmark failures and at-risk controls ranked by finding severity.",
-            gap=3,
-        )
-        _draw_top_controls(pdf, key_controls)
+    # ── Capability domain narratives ──────────────────────────────────────────
+    sections = build_domain_sections(
+        control_results,
+        framework=framework,
+        account_label=account_label,
+        account_id=account_id,
+        generated_at=generated_at,
+    )
 
-    review_controls = [r for r in control_results if r.get("status") == "fail"]
-    review_controls.sort(key=_review_priority)
-    at_risk_controls = [r for r in control_results if r.get("status") == "at_risk"]
-    passing_controls = [r for r in control_results if r.get("status") == "pass"]
-    other_controls = [r for r in control_results if r.get("status") not in ("fail", "at_risk", "pass")]
-
-    # Control Overview starts on its own page so the table is contiguous (no
-    # orphan split). With many controls (CIS/ISO) it flows across pages with a
-    # repeated header; with few it fills one clean page.
     pdf.add_page()
-    _outline(pdf, "Control Overview")
-    _section(pdf, "Control Overview", "Mapped controls, ranked with failing controls first.", gap=0)
+    _outline(pdf, "Capability Domain Assertions")
+    _section(
+        pdf,
+        "Capability Domain Assertions",
+        "Automated evidence grouped by capability domain. Each assertion states only what mapped "
+        "checks verified in this audit period, scoped to the account and as-of time shown. "
+        "Open findings are reported as gaps; only risk-accepted findings with a recorded approval "
+        "are treated as documented exceptions. Controls without automated checks in scope "
+        "(manual attestation) appear in the Control Cross-Reference with status No Data.",
+        gap=0,
+    )
+    if sections:
+        for idx, section in enumerate(sections, 1):
+            _draw_domain_section(pdf, section, idx)
+    else:
+        pdf.set_font("Helvetica", "", _FONT["body"])
+        pdf.set_text_color(*MUTED)
+        pdf.multi_cell(pdf.epw, 5, _s("No automated check evidence was collected in this audit period."), align="L")
+
+    # ── Control cross-reference ───────────────────────────────────────────────
+    pdf.add_page()
+    _outline(pdf, "Control Cross-Reference")
+    _section(
+        pdf,
+        "Control Cross-Reference",
+        f"All mapped {framework_label} controls, failing controls first. Detailed evidence for each "
+        "control is in its controls/<id>/ folder within the pack.",
+        gap=0,
+    )
     _draw_control_overview(pdf, sorted(control_results, key=_overview_sort_key))
     pdf.ln(2)
     pdf.set_font("Helvetica", "I", _FONT["tiny"])
     pdf.set_text_color(*MUTED)
     pdf.multi_cell(pdf.epw, 4, _s("Findings can map to more than one control, so per-control counts may exceed the total unique open findings."), align="L")
 
-    _draw_exception_register(pdf, control_results, generated_at=generated_at)
-
-    # Every in-scope control gets a section — auditors need the affirmative
-    # statement for passing controls, not only the failure list.
-    _outline(pdf, "Control Results & Narratives")
-    _section(
-        pdf,
-        "Control Results & Narratives",
-        "One section per control: narrative, tested scope, result, approved exceptions, and a findings sample where review is needed.",
-        gap=6,
-    )
-    for control in review_controls:
-        _draw_control_detail(pdf, control, framework)
-    for control in at_risk_controls:
-        _draw_control_detail(pdf, control, framework)
-    for control in passing_controls:
-        _draw_control_detail(pdf, control, framework)
-    for control in other_controls:
-        _draw_control_detail(pdf, control, framework)
+    # ── Resource appendix ─────────────────────────────────────────────────────
+    _draw_resource_appendix(pdf, sections)
 
     try:
         from app.data.control_narratives import scope_limitations_for

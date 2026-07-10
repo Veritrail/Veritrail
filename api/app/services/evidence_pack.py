@@ -431,6 +431,7 @@ def build_evidence_pack(
             vault_enabled=vault_enabled(),
             signature_enabled=signing_enabled(),
             pack_provenance=pack_prov,
+            org_name=org.name if org else None,
         )
         _write("report.pdf", pdf_bytes)
 
