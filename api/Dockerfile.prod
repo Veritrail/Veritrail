@@ -1,37 +1,58 @@
-FROM golang:1.22-alpine AS hclpatch
-WORKDIR /src
-COPY tools/hclpatch/ ./
-RUN go mod download && go build -o /usr/local/bin/hclpatch .
+# syntax=docker/dockerfile:1
 
+# ── Build stage: compile native deps (xmlsec for python3-saml, etc.) into a venv ──
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev \
+    pkg-config libxml2-dev libxmlsec1-dev libxmlsec1-openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY api/requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
+
+# ── Runtime stage: no compilers, no curl/wget, non-root ──
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
+# libxmlsec1-openssl is the only extra runtime lib (python3-saml); psycopg[binary]
+# bundles libpq. /root must be traversable: compose.prod.yml bind-mounts the AWS
+# profile config at /root/.aws:ro and the app runs as uid 10001.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev curl unzip \
-    pkg-config libxml2-dev libxmlsec1-dev libxmlsec1-openssl \
-    && rm -rf /var/lib/apt/lists/*
+    libxmlsec1-openssl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid app --create-home --shell /usr/sbin/nologin app \
+    && chmod 755 /root
 
-ARG TERRAFORM_VERSION=1.9.8
-RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/tf.zip \
-    && unzip /tmp/tf.zip -d /usr/local/bin && rm /tmp/tf.zip
-
-COPY --from=hclpatch /usr/local/bin/hclpatch /usr/local/bin/hclpatch
-
-COPY api/requirements.txt .
-RUN pip install -r requirements.txt
+COPY --from=builder /opt/venv /opt/venv
 
 COPY api/ .
-COPY infra/ /infra/
 COPY api/scripts/ecs-entrypoint.sh /usr/local/bin/ecs-entrypoint.sh
-RUN chmod +x /usr/local/bin/ecs-entrypoint.sh
+# Host checkouts may carry owner-only modes; make code world-readable (not writable)
+# so the non-root user can import it.
+RUN chmod +x /usr/local/bin/ecs-entrypoint.sh \
+    && chmod -R a+rX /app /opt/venv \
+    && mkdir -p /app/data/uploads \
+    && chown -R app:app /app/data
+
+USER app
 
 EXPOSE 8000
 ENTRYPOINT ["/usr/local/bin/ecs-entrypoint.sh"]
 
-# Override per ECS task: api | worker | beat
+# Override per service: api | worker | beat
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

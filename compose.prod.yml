@@ -58,6 +58,8 @@ services:
       - app.worker.celery_app
       - beat
       - --loglevel=info
+      # Image runs as non-root; /app is read-only for the app user.
+      - --schedule=/tmp/celerybeat-schedule
 
   web:
     build:

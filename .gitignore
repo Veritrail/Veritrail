@@ -48,3 +48,4 @@ compliance-pills-*.png
 wide-workflow-*.png
 graphify-out/
 *.txt
+!api/requirements*.txt

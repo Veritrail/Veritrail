@@ -1,0 +1,4 @@
+# Dev/test-only dependencies — installed in the dev image (api/Dockerfile), never in prod.
+# watchfiles powers the dev worker reload loop in compose.yml.
+watchfiles==1.2.0
+pytest==9.1.1
