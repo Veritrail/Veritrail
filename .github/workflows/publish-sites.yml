@@ -25,11 +25,13 @@ jobs:
   marketing:
     name: Deploy veritrail.io
     runs-on: ubuntu-latest
+    env:
+      SITES_DEPLOY_TOKEN: ${{ secrets.SITES_DEPLOY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+        if: ${{ env.SITES_DEPLOY_TOKEN != '' }}
       - uses: peaceiris/actions-gh-pages@v4
-        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+        if: ${{ env.SITES_DEPLOY_TOKEN != '' }}
         with:
           personal_token: ${{ secrets.SITES_DEPLOY_TOKEN }}
           external_repository: Veritrail/veritrail.io
@@ -38,17 +40,19 @@ jobs:
           cname: veritrail.io
           commit_message: "Sync from Veritrail/Veritrail@${{ github.sha }}"
       - name: Skipped (no SITES_DEPLOY_TOKEN secret)
-        if: ${{ secrets.SITES_DEPLOY_TOKEN == '' }}
+        if: ${{ env.SITES_DEPLOY_TOKEN == '' }}
         run: echo "SITES_DEPLOY_TOKEN is not set; skipping deploy. See workflow header comment."
 
   docs:
     name: Deploy docs.veritrail.io
     runs-on: ubuntu-latest
+    env:
+      SITES_DEPLOY_TOKEN: ${{ secrets.SITES_DEPLOY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+        if: ${{ env.SITES_DEPLOY_TOKEN != '' }}
       - uses: peaceiris/actions-gh-pages@v4
-        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+        if: ${{ env.SITES_DEPLOY_TOKEN != '' }}
         with:
           personal_token: ${{ secrets.SITES_DEPLOY_TOKEN }}
           external_repository: Veritrail/docs.veritrail.io
@@ -57,5 +61,5 @@ jobs:
           cname: docs.veritrail.io
           commit_message: "Sync from Veritrail/Veritrail@${{ github.sha }}"
       - name: Skipped (no SITES_DEPLOY_TOKEN secret)
-        if: ${{ secrets.SITES_DEPLOY_TOKEN == '' }}
+        if: ${{ env.SITES_DEPLOY_TOKEN == '' }}
         run: echo "SITES_DEPLOY_TOKEN is not set; skipping deploy. See workflow header comment."
