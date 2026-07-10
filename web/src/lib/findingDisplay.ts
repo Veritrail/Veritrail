@@ -523,6 +523,24 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   "github.org": "Organizations",
   "gitlab.repo": "Projects",
   "gitlab.org": "Groups",
+  "gcp.asset": "GCP Assets",
+  "gcp.compute": "GCP Compute Instances",
+  "gcp.firewall": "GCP Firewall Rules",
+  "gcp.logging": "GCP Projects",
+  "gcp.osconfig": "GCP VM Instances",
+  "gcp.scc": "GCP SCC",
+  "azure.defender": "Azure Defender",
+  "azure.logging": "Azure Subscriptions",
+  "azure.storage": "Azure Storage Accounts",
+  "azure.compute": "Azure Virtual Machines",
+  "azure.entra": "Azure Entra Roles",
+  "azure.policy": "Azure Policy Resources",
+};
+
+const CLOUD_PROVIDER_PREFIX: Record<string, string> = {
+  gcp: "GCP",
+  azure: "Azure",
+  aws: "AWS",
 };
 
 export function resourceTypeLabel(checkId: string): string {
@@ -530,7 +548,9 @@ export function resourceTypeLabel(checkId: string): string {
   if (match) return match[1];
   const parts = checkId.split(".");
   if (parts.length >= 2) {
-    return `${parts[0].toUpperCase()} ${parts[1].replace(/_/g, " ")}s`;
+    const provider =
+      CLOUD_PROVIDER_PREFIX[parts[0] ?? ""] ?? parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    return `${provider} ${parts[1].replace(/_/g, " ")}s`;
   }
   return "Resources";
 }
@@ -576,6 +596,18 @@ const RESOURCE_TYPE_PILL_LABELS: Record<string, string> = {
   "github.org": "GitHub org",
   "gitlab.repo": "GitLab project",
   "gitlab.org": "GitLab group",
+  "gcp.asset": "GCP asset",
+  "gcp.compute": "GCP compute instance",
+  "gcp.firewall": "GCP firewall rule",
+  "gcp.logging": "GCP project",
+  "gcp.osconfig": "GCP VM instance",
+  "gcp.scc": "GCP SCC",
+  "azure.defender": "Azure Defender",
+  "azure.logging": "Azure subscription",
+  "azure.storage": "Azure storage account",
+  "azure.compute": "Azure virtual machine",
+  "azure.entra": "Azure Entra role",
+  "azure.policy": "Azure policy resource",
 };
 
 export function resourceTypePillLabel(checkId: string): string {
@@ -583,9 +615,10 @@ export function resourceTypePillLabel(checkId: string): string {
   if (match) return match[1];
   const parts = checkId.split(".");
   if (parts.length >= 2) {
-    const service = parts[0].toUpperCase();
+    const provider =
+      CLOUD_PROVIDER_PREFIX[parts[0] ?? ""] ?? parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
     const noun = parts[1].replace(/_/g, " ");
-    return `${service} ${noun}`;
+    return `${provider} ${noun}`;
   }
   return "AWS resource";
 }
@@ -731,11 +764,25 @@ const ASSET_TYPE_DISPLAY_LABELS: Record<string, string> = {
   "iam.account": "Account Setting",
   "s3.bucket": "S3 Bucket",
   "ec2.ebs": "EBS Volume",
+  "gcp.asset": "GCP Asset",
+  "gcp.compute": "GCP Compute Instance",
+  "gcp.firewall": "GCP Firewall Rule",
+  "gcp.logging": "GCP Project",
+  "gcp.osconfig": "GCP VM Instance",
+  "gcp.scc": "GCP SCC",
+  "azure.defender": "Azure Defender",
+  "azure.logging": "Azure Subscription",
+  "azure.storage": "Azure Storage Account",
+  "azure.compute": "Azure Virtual Machine",
+  "azure.entra": "Azure Entra Role",
+  "azure.policy": "Azure Policy Resource",
 };
 
 const TITLE_CASE_ACRONYMS: Record<string, string> = {
   iam: "IAM",
   aws: "AWS",
+  gcp: "GCP",
+  azure: "Azure",
   s3: "S3",
   kms: "KMS",
   ec2: "EC2",
@@ -748,6 +795,9 @@ const TITLE_CASE_ACRONYMS: Record<string, string> = {
   sns: "SNS",
   sqs: "SQS",
   elb: "ELB",
+  scc: "SCC",
+  vm: "VM",
+  entra: "Entra",
 };
 
 function titleCasePillLabel(pillLabel: string): string {

@@ -289,13 +289,35 @@ const CATEGORY_SHORT_LABEL: Record<string, string> = {
   vendor_risk: "Vendor Risk",
 };
 
-/** "2 IAM users" / "79 EBS volumes" when every resource in the row shares one
-    asset type; plain "N resources" for mixed rows. Acronym-ish words (IAM,
-    S3, EBS, DynamoDB…) keep their casing, the rest lowercase. */
+/** Title-case plural labels for GCP / Azure resource counts ("20 GCP Assets"). */
+function usesTitleCaseResourceCount(typeLabel: string): boolean {
+  return typeLabel.startsWith("GCP ") || typeLabel.startsWith("Azure ");
+}
+
+function pluralizeTitleCaseNoun(noun: string): string {
+  if (/^[A-Z]{2,}$/.test(noun)) return noun;
+  const lower = noun.toLowerCase();
+  if (lower === "defender") return noun;
+  if (/[^aeiouy]y$/i.test(lower)) return `${noun.slice(0, -1)}ies`;
+  if (/(?:s|x|z|ch|sh)$/i.test(lower)) return `${noun}es`;
+  return `${noun}s`;
+}
+
+/** "2 IAM users" / "79 EBS volumes" for AWS; "20 GCP Assets" for GCP/Azure.
+    Mixed rows fall back to plain "N resources". */
 function resourceCountLabel(count: number, typeLabel: string | null): string {
   if (!typeLabel) return `${count} ${count === 1 ? "resource" : "resources"}`;
+
+  if (usesTitleCaseResourceCount(typeLabel)) {
+    if (count === 1) return `${count} ${typeLabel}`;
+    const words = typeLabel.split(" ");
+    const last = words[words.length - 1] ?? "";
+    words[words.length - 1] = pluralizeTitleCaseNoun(last);
+    return `${count} ${words.join(" ")}`;
+  }
+
   const words = typeLabel.split(" ").map((w) => (/[A-Z].*[A-Z0-9]/.test(w) ? w : w.toLowerCase()));
-  let noun = words[words.length - 1];
+  let noun = words[words.length - 1] ?? "";
   if (count !== 1) noun = /[^aeiou]y$/i.test(noun) ? `${noun.slice(0, -1)}ies` : `${noun}s`;
   words[words.length - 1] = noun;
   return `${count} ${words.join(" ")}`;
