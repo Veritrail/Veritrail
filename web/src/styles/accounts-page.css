@@ -7876,7 +7876,7 @@ button.accounts-flow-step:hover {
   width: 100%;
   max-width: 74rem;
   margin: 0 auto;
-  padding: 3.5rem 2rem 5rem;
+  padding: 2.25rem 2rem 5rem;
   display: flex;
   flex-direction: column;
 }
@@ -7884,7 +7884,7 @@ button.accounts-flow-step:hover {
 /* Hero: verdict → headline (→ optional zero-high subline), all on one centered
    axis so it lines up with the centered stepper below. */
 .org-home__headline-block {
-  margin-bottom: 3.25rem;
+  margin-bottom: 2rem;
   text-align: center;
 }
 
@@ -7937,7 +7937,7 @@ button.accounts-flow-step:hover {
 .org-home__stepper {
   display: flex;
   align-items: flex-start;
-  margin: 0 0 4rem;
+  margin: 0 0 2.5rem;
   padding: 0;
   list-style: none;
 }
@@ -8018,6 +8018,9 @@ button.accounts-flow-step:hover {
   margin: 0;
   font-size: 1.1875rem;
   font-weight: 650;
+  /* Default inherited line-height (1.5) pads ~9px of invisible space below the
+     glyphs, which stacked with the intro row's margin read as a big gap. */
+  line-height: 1.2;
   color: #0f172a;
 }
 
@@ -8051,7 +8054,7 @@ button.accounts-flow-step:hover {
   gap: 0.25rem 1rem;
   /* Let the link drop below the intro when the row gets too narrow. */
   flex-wrap: wrap;
-  margin: 0.75rem 0 1.125rem;
+  margin: 0.3125rem 0 1.125rem;
 }
 
 .org-home__section-intro-row .org-home__section-intro {
@@ -8062,7 +8065,7 @@ button.accounts-flow-step:hover {
 /* Blockers card */
 
 .org-home__blockers-section {
-  margin-bottom: 3.75rem;
+  margin-bottom: 2rem;
 }
 
 .org-home__blockers-card {
@@ -8076,7 +8079,7 @@ button.accounts-flow-step:hover {
 .org-home__blocker-row {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1rem;
   padding: 1.3125rem 1.625rem;
 }
 
@@ -8104,6 +8107,112 @@ button.accounts-flow-step:hover {
   height: 0.375rem;
   border-radius: 999px;
   background: #dc2626;
+}
+
+.org-home__blocker-rank {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.org-home__capabilities-section {
+  margin-bottom: 2rem;
+}
+
+.org-home__capabilities-section > .org-home__section-title {
+  margin-bottom: 1rem;
+}
+
+.org-home__capabilities-card {
+  border: 1px solid var(--vt-border, #e8edf3);
+  border-radius: 14px;
+  background: var(--vt-surface, #fff);
+  box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
+  overflow: hidden;
+}
+
+.org-home__capability-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem 1.625rem;
+}
+
+.org-home__capability-row + .org-home__capability-row {
+  border-top: 1px solid #f1f5f9;
+}
+
+.org-home__capability-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.org-home__capability-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.org-home__capability-detail {
+  margin: 0.375rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.org-home__enable-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5625rem 1.125rem;
+  border: 1px solid var(--vt-border, #e8edf3);
+  border-radius: 0.625rem;
+  background: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  text-decoration: none;
+}
+
+.org-home__enable-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.org-home__scope-note {
+  margin: 0 0 2rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.45;
+}
+
+.org-home__subline--scope {
+  max-width: 36rem;
+}
+
+.org-home__subline--blockers {
+  margin-bottom: 0.75rem;
+}
+
+.org-home--account {
+  max-width: none;
+  padding: 0;
+}
+
+.org-home__section-head--tight {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
 }
 
 .org-home__blocker-copy {
