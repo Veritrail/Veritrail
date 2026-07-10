@@ -1,0 +1,61 @@
+name: Publish static sites
+
+# Syncs sites/marketing -> Veritrail/veritrail.io and sites/docs -> Veritrail/docs.veritrail.io,
+# both served by GitHub Pages (branch: main). Cross-repo push requires a fine-grained PAT with
+# contents:write on the two public site repos, stored as the SITES_DEPLOY_TOKEN secret:
+#   gh secret set SITES_DEPLOY_TOKEN --repo Veritrail/Veritrail
+# Until that secret exists, the deploy steps are skipped (jobs still pass).
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "sites/**"
+      - ".github/workflows/publish-sites.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: publish-sites
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  marketing:
+    name: Deploy veritrail.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+      - uses: peaceiris/actions-gh-pages@v4
+        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+        with:
+          personal_token: ${{ secrets.SITES_DEPLOY_TOKEN }}
+          external_repository: Veritrail/veritrail.io
+          publish_branch: main
+          publish_dir: sites/marketing
+          cname: veritrail.io
+          commit_message: "Sync from Veritrail/Veritrail@${{ github.sha }}"
+      - name: Skipped (no SITES_DEPLOY_TOKEN secret)
+        if: ${{ secrets.SITES_DEPLOY_TOKEN == '' }}
+        run: echo "SITES_DEPLOY_TOKEN is not set; skipping deploy. See workflow header comment."
+
+  docs:
+    name: Deploy docs.veritrail.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+      - uses: peaceiris/actions-gh-pages@v4
+        if: ${{ secrets.SITES_DEPLOY_TOKEN != '' }}
+        with:
+          personal_token: ${{ secrets.SITES_DEPLOY_TOKEN }}
+          external_repository: Veritrail/docs.veritrail.io
+          publish_branch: main
+          publish_dir: sites/docs
+          cname: docs.veritrail.io
+          commit_message: "Sync from Veritrail/Veritrail@${{ github.sha }}"
+      - name: Skipped (no SITES_DEPLOY_TOKEN secret)
+        if: ${{ secrets.SITES_DEPLOY_TOKEN == '' }}
+        run: echo "SITES_DEPLOY_TOKEN is not set; skipping deploy. See workflow header comment."
