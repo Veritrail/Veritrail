@@ -657,6 +657,9 @@ deploy_compose() {
   log "Building and starting production stack..."
   compose up -d --build
 
+  log "Reloading nginx to refresh upstream DNS after api/web rebuild..."
+  compose exec -T nginx nginx -s reload
+
   log "Ensuring nginx is up (must run even if oauth2-proxy is unhealthy)..."
   compose up -d nginx --force-recreate
   verify_nginx_running || true
