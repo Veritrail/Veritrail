@@ -7843,17 +7843,19 @@ export default function Accounts() {
 
       {showAccountList && !viewAll && (
         <>
-          <HeaderSlot>
-            <div className="header-filter-bar accounts-dashboard__header-bar">
-              <Link to="/accounts?view=all" className="accounts-dashboard__all-link">
-                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m15 6-6 6 6 6" />
-                </svg>
-                All accounts
-                {sortedFilteredRows.length > 0 ? ` (${sortedFilteredRows.length})` : ""}
-              </Link>
-            </div>
-          </HeaderSlot>
+          {!orgHome && (
+            <HeaderSlot>
+              <div className="header-filter-bar accounts-dashboard__header-bar">
+                <Link to="/accounts?view=all" className="accounts-dashboard__all-link">
+                  <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m15 6-6 6 6 6" />
+                  </svg>
+                  All accounts
+                  {sortedFilteredRows.length > 0 ? ` (${sortedFilteredRows.length})` : ""}
+                </Link>
+              </div>
+            </HeaderSlot>
+          )}
           <div className="accounts-dashboard">
           {orgHome ? (
             <OrgReadinessHome />
