@@ -32,6 +32,10 @@ def attach_refresh_cookie(
     }
     if remember_me:
         cookie_kwargs["max_age"] = 60 * 60 * 24 * settings.AUTH_REFRESH_REMEMBER_DAYS
+    else:
+        # Match JWT session TTL so the cookie survives page reloads (browser
+        # "session" cookies without Max-Age are not a reliable restore surface).
+        cookie_kwargs["max_age"] = 60 * 60 * settings.AUTH_REFRESH_SESSION_HOURS
     response.set_cookie(**cookie_kwargs)
 
 

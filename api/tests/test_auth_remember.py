@@ -41,7 +41,7 @@ def test_refresh_cookie_session_vs_persistent():
         "set-cookie", ""
     )
     session_cookie = session.headers.get("set-cookie", "")
-    assert "Max-Age" not in session_cookie
+    assert f"Max-Age={60 * 60 * settings.AUTH_REFRESH_SESSION_HOURS}" in session_cookie
 
 
 def test_oauth_state_remember_me():
